@@ -60,8 +60,8 @@ const connectBodySchema = z.object({
 });
 const optionalOperationSchema = z.object({ operation: z.string().optional() });
 
-export function registerOAuthRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/oauth', (app: unknown) =>
+export function registerOAuthRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/oauth', (app: any) =>
     withOptionalAuth(app)
       // GET /providers
       .get('/providers', async ({ set, query }) => {
@@ -79,7 +79,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
           const providers = await oauthProviderService.getAvailableProviders(userType);
           return {
             success: true,
-            providers: providers.map((p: unknown) => ({
+            providers: providers.map((p: any) => ({
               id: p.id,
               name: p.name,
               type: p.type,
@@ -117,7 +117,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
             },
           });
           return { success: true, authorization_url: url, state };
-        } catch (error: unknown) {
+        } catch (error: any) {
           logger.error('Authorize failed', { error: error?.message });
           set.status = 400;
           return { success: false, error: error?.message || 'Authorization failed' };
@@ -164,7 +164,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
             mfa_required: authResult.requiresMFA,
             mfa_challenge: authResult.mfaChallenge,
           };
-        } catch (error: unknown) {
+        } catch (error: any) {
           const { auditService } = getServices();
           await auditService.logEvent({
             eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
@@ -218,7 +218,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
             },
             session: { id: authResult.session.id, expiresAt: authResult.session.expiresAt },
           };
-        } catch (error: unknown) {
+        } catch (error: any) {
           const { auditService } = getServices();
           const parsedBody = AgentAuthRequestSchema.safeParse(body);
           await auditService.logEvent({
@@ -236,7 +236,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
       })
 
       // POST /connect (requires auth)
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
@@ -270,7 +270,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
               success: resultSuccess,
               message: 'OAuth provider connected successfully',
             };
-          } catch (error: unknown) {
+          } catch (error: any) {
             set.status = 500;
             return { success: false, error: error?.message || 'Failed to connect OAuth provider' };
           }
@@ -278,7 +278,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
       )
 
       // Provider-specific operations (require auth)
-      .group('/agent', (g: unknown) =>
+      .group('/agent', (g: any) =>
         withRequiredAuth(g)
           // GitHub operations
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -293,7 +293,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
                 })
                 .parse(body);
               const { oauthProviderService, auditService } = getServices();
-              let result: unknown;
+              let result: any;
               switch (validated.operation) {
                 case 'list_repos':
                   result = await oauthProviderService.getGitHubRepos(user!.id, providerId);
@@ -324,7 +324,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
                 },
               });
               return { success: true, operation: validated.operation, data: result };
-            } catch (error: unknown) {
+            } catch (error: any) {
               const { auditService } = getServices();
               const parsedParams = providerIdParamsSchema.safeParse(params);
               const parsedBody = optionalOperationSchema.safeParse(body);
@@ -361,7 +361,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
                 })
                 .parse(body);
               const { oauthProviderService, auditService } = getServices();
-              let result: unknown;
+              let result: any;
               switch (validated.operation) {
                 case 'list_messages':
                 case 'search_messages':
@@ -398,7 +398,7 @@ export function registerOAuthRoutes(elysiaApp: unknown): unknown {
                 },
               });
               return { success: true, operation: validated.operation, data: result };
-            } catch (error: unknown) {
+            } catch (error: any) {
               const { auditService } = getServices();
               const parsedParams = providerIdParamsSchema.safeParse(params);
               const parsedBody = optionalOperationSchema.safeParse(body);

@@ -39,15 +39,20 @@ async function teiEmbed(texts: string[]): Promise<number[][]> {
     const txt = await res.text();
     throw new Error(`TEI embed failed ${res.status}: ${txt}`);
   }
-  const data: Record<string, unknown> = await res.json();
-  return Array.isArray(data) ? data : (data.embeddings ?? data);
+  const data: unknown = await res.json();
+  if (Array.isArray(data)) {
+    return data as number[][];
+  }
+  const asRecord = data as Record<string, unknown>;
+  const embeddings = Array.isArray(asRecord.embeddings) ? asRecord.embeddings : null;
+  return (embeddings ?? []) as number[][];
 }
 
 // ─── Qdrant helpers ──────────────────────────────────────────────────────────
 
-async function qdrantCollectionInfo(): Promise<unknown> {
+async function qdrantCollectionInfo(): Promise<{ result?: { points_count?: number } }> {
   const res = await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}`);
-  return res.json();
+  return res.json() as Promise<{ result?: { points_count?: number } }>;
 }
 
 async function qdrantUpsert(
@@ -113,8 +118,9 @@ for (let i = 0; i < rows.length; i += BATCH) {
   try {
     // oxlint-disable-next-line no-await-in-loop -- sequential processing required
     embeddings = await teiEmbed(validTexts);
-  } catch (err: Record<string, unknown>) {
-    console.error(`\n  ⚠️  Batch ${i}–${i + validBatch.length} embed failed: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\n  ⚠️  Batch ${i}–${i + validBatch.length} embed failed: ${msg}`);
     failed += validBatch.length;
     continue;
   }
@@ -133,8 +139,9 @@ for (let i = 0; i < rows.length; i += BATCH) {
     // oxlint-disable-next-line no-await-in-loop -- sequential processing required
     await qdrantUpsert(points);
     synced += validBatch.length;
-  } catch (err: Record<string, unknown>) {
-    console.error(`\n  ⚠️  Batch ${i}–${i + validBatch.length} upsert failed: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\n  ⚠️  Batch ${i}–${i + validBatch.length} upsert failed: ${msg}`);
     failed += validBatch.length;
     continue;
   }

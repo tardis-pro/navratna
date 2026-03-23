@@ -374,7 +374,7 @@ export class EventBusService {
         correlationId,
         actor: options.context.actor || { userId: 'system', orgId: 'system', roles: [] },
         tenant: options.context.tenant || { orgId: 'system' },
-        data: data,
+        data: data as Record<string, unknown>,
         version: '1',
       };
       message = uaipEvent;

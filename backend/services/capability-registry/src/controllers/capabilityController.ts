@@ -91,7 +91,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const capability: Capability = req.body;
+      const capability = req.body as Capability;
 
       if (!capability) {
         throw new ApiError(400, 'Capability definition is required', 'MISSING_CAPABILITY');
@@ -132,7 +132,7 @@ export class CapabilityController {
   // GET /api/v1/capabilities/:id
   public getCapability = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       if (!id) {
         throw new ApiError(400, 'Capability ID is required', 'MISSING_ID');
@@ -214,7 +214,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       if (!id) {
         throw new ApiError(400, 'Capability ID is required', 'MISSING_ID');
@@ -229,12 +229,16 @@ export class CapabilityController {
         req.body
       );
 
-      const execution = await this.capabilityDiscoveryService.executeTool(id, req.body || {}, {
+      const execution = await this.capabilityDiscoveryService.executeTool(
+        id,
+        (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>,
+        {
         agentId: req.headers['x-agent-id'] as string,
         userId: securityContext.userId,
         context: 'capability-execution',
         timestamp: new Date().toISOString(),
-      });
+        }
+      );
 
       res.status(200).json({
         success: true,
@@ -259,8 +263,9 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { id } = req.params;
-      const updateData = req.body;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const updateData =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
 
       if (!id) {
         throw new ApiError(400, 'Capability ID is required', 'MISSING_ID');
@@ -304,7 +309,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       if (!id) {
         throw new ApiError(400, 'Capability ID is required', 'MISSING_ID');
@@ -388,7 +393,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       if (!id) {
         throw new ApiError(400, 'Capability ID is required', 'MISSING_ID');
@@ -429,7 +434,7 @@ export class CapabilityController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       const validationContext = req.body;
 
       if (!id) {
@@ -518,7 +523,7 @@ export class CapabilityController {
       mfaVerified: false,
       riskScore: 0,
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+      userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : '',
     };
   }
 }

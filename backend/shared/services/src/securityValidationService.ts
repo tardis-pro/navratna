@@ -257,15 +257,20 @@ export class SecurityValidationService {
 
   // Private helper methods
 
+  private static asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  }
+
   private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
     try {
       const user = await this.databaseService.getUserAuthDetails(userId);
+      const userRecord = SecurityValidationService.asRecord(user);
 
       if (!user) {
         return { valid: false, reason: 'User not found' };
       }
 
-      if (!user.isActive) {
+      if (userRecord.isActive === false) {
         return { valid: false, reason: 'User account disabled' };
       }
 
@@ -287,18 +292,25 @@ export class SecurityValidationService {
   }> {
     try {
       const permissions = await this.databaseService.getUserPermissions(userId);
+      const permissionRecord = SecurityValidationService.asRecord(permissions);
+      const rolePermissions = Array.isArray(permissionRecord.rolePermissions)
+        ? (permissionRecord.rolePermissions as Array<{ operations?: string[] }> )
+        : [];
+      const directPermissions = Array.isArray(permissionRecord.directPermissions)
+        ? (permissionRecord.directPermissions as Array<{ operations?: string[] }>)
+        : [];
 
       const userPermissions = new Set<string>();
 
       // Process role-based permissions
-      permissions.rolePermissions.forEach((rolePermission: { operations?: string[] }) => {
+      rolePermissions.forEach((rolePermission: { operations?: string[] }) => {
         if (rolePermission.operations) {
           rolePermission.operations.forEach((op: string) => userPermissions.add(op));
         }
       });
 
       // Process direct permissions
-      permissions.directPermissions.forEach((directPermission: { operations?: string[] }) => {
+      directPermissions.forEach((directPermission: { operations?: string[] }) => {
         if (directPermission.operations) {
           directPermission.operations.forEach((op: string) => userPermissions.add(op));
         }
@@ -369,6 +381,7 @@ export class SecurityValidationService {
     try {
       // Use DatabaseService getUserRiskData method instead of raw SQL
       const userData = await this.databaseService.getUserRiskData(userId);
+      const riskData = SecurityValidationService.asRecord(userData);
 
       if (!userData) {
         return {
@@ -380,7 +393,7 @@ export class SecurityValidationService {
       }
 
       // High activity in last 24 hours might indicate compromised account
-      if (userData.recentActivityCount > 100) {
+      if (typeof riskData.recentActivityCount === 'number' && riskData.recentActivityCount > 100) {
         return {
           type: 'user_behavior',
           level: RiskLevel.MEDIUM,
@@ -559,7 +572,9 @@ export class SecurityValidationService {
   }
 
   private assessAgentRisk(plan: ExecutionPlan, agentSecurityContext: unknown): RiskFactor {
-    const securityLevel = agentSecurityContext?.securityLevel || 'medium';
+    const contextRecord = SecurityValidationService.asRecord(agentSecurityContext);
+    const securityLevel =
+      typeof contextRecord.securityLevel === 'string' ? contextRecord.securityLevel : 'medium';
 
     if (securityLevel === 'high' && plan.type !== 'information_retrieval') {
       return {

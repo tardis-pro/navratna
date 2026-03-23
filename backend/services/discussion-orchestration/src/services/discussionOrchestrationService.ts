@@ -17,7 +17,7 @@ import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHand
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
-  data?: unknown;
+  data?: any;
   error?: string;
   events?: DiscussionEvent[];
 }
@@ -2528,7 +2528,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Determine appropriate artifact type based on discussion content and configuration
    */
-  private determineArtifactType(discussion: Discussion, messages: unknown[]): string {
+  private determineArtifactType(discussion: Discussion, messages: any[]): string {
     // First check if discussion has configured artifact type
     const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
       .artifactConfig;

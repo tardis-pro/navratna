@@ -42,6 +42,21 @@ export class LLMService {
   private static readonly PROVIDERS_CACHE_KEY = 'llm:providers:configured';
   private static readonly PROVIDER_MODELS_CACHE_PREFIX = 'llm:models:provider:';
 
+  private normalizeApiType(
+    apiType: string
+  ): 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom' {
+    switch (apiType) {
+      case 'ollama':
+      case 'llmstudio':
+      case 'openai':
+      case 'anthropic':
+      case 'custom':
+        return apiType;
+      default:
+        return 'custom';
+    }
+  }
+
   private constructor() {
     // Database-driven configuration will be loaded on first use
     this.cacheService = RedisCacheService.getInstance();
@@ -479,9 +494,20 @@ export class LLMService {
       isAvailable: boolean;
     }>
   > {
+    type AvailableModel = {
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      provider: string;
+      isAvailable: boolean;
+    };
+
     // Check cache first
     try {
-      const cachedModels = await this.cacheService.get(LLMService.MODELS_CACHE_KEY);
+      const cachedModels = await this.cacheService.get<AvailableModel[]>(LLMService.MODELS_CACHE_KEY);
       if (cachedModels) {
         logger.debug('Returning cached models', { modelCount: cachedModels.length });
         return cachedModels;
@@ -500,7 +526,7 @@ export class LLMService {
       return [];
     }
 
-    const allModels = [];
+    const allModels: AvailableModel[] = [];
     try {
       // Get only active providers from database
       const dbProviders = await this.llmProviderRepository.findActiveProviders();
@@ -530,7 +556,7 @@ export class LLMService {
             ...models.map((model) => ({
               ...model,
               provider: dbProvider.type,
-              apiType: dbProvider.type as string,
+              apiType: this.normalizeApiType(dbProvider.type),
               isAvailable: true,
             }))
           );
@@ -568,11 +594,19 @@ export class LLMService {
       apiEndpoint: string;
     }>
   > {
+    type ProviderModel = {
+      id: string;
+      name: string;
+      description?: string;
+      source: string;
+      apiEndpoint: string;
+    };
+
     const cacheKey = `${LLMService.PROVIDER_MODELS_CACHE_PREFIX}${providerType}`;
 
     // Check cache first
     try {
-      const cachedModels = await this.cacheService.get(cacheKey);
+      const cachedModels = await this.cacheService.get<ProviderModel[]>(cacheKey);
       if (cachedModels) {
         logger.debug(`Returning cached models for provider ${providerType}`, {
           modelCount: cachedModels.length,
@@ -624,9 +658,21 @@ export class LLMService {
       status: 'active' | 'inactive' | 'error';
     }>
   > {
+    type ConfiguredProvider = {
+      name: string;
+      type: string;
+      baseUrl: string;
+      isActive: boolean;
+      defaultModel?: string;
+      modelCount: number;
+      status: 'active' | 'inactive' | 'error';
+    };
+
     // Check cache first
     try {
-      const cachedProviders = await this.cacheService.get(LLMService.PROVIDERS_CACHE_KEY);
+      const cachedProviders = await this.cacheService.get<ConfiguredProvider[]>(
+        LLMService.PROVIDERS_CACHE_KEY
+      );
       if (cachedProviders) {
         logger.debug('Returning cached providers', { providerCount: cachedProviders.length });
         return cachedProviders;
@@ -644,7 +690,7 @@ export class LLMService {
       hasRepository: !!this.llmProviderRepository,
     });
 
-    const providers = [];
+    const providers: ConfiguredProvider[] = [];
 
     // Get database providers if available
     if (this.llmProviderRepository) {

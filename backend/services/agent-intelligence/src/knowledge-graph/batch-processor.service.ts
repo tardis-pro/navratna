@@ -5,9 +5,11 @@ import {
   ExtractedKnowledge,
   QAPair,
   DecisionPoint,
+  KnowledgeExtractionResult,
 } from './chat-knowledge-extractor.service.js';
 import { KnowledgeGraphService } from './knowledge-graph.service.js';
 import { v4 as uuidv4 } from 'uuid';
+import { KnowledgeIngestRequest, SourceType } from '@uaip/types';
 
 export interface FileData {
   id: string;
@@ -308,11 +310,11 @@ export class BatchProcessorService {
   }
 
   private async saveKnowledgeToGraph(
-    knowledge: Record<string, unknown>,
+    knowledge: KnowledgeExtractionResult,
     userId: string
   ): Promise<void> {
     // Save different types of knowledge to the graph
-    const ingestItems: Record<string, unknown>[] = [];
+    const ingestItems: KnowledgeIngestRequest[] = [];
 
     // Save extracted knowledge items
     if (knowledge.extractedKnowledge?.length > 0) {
@@ -327,10 +329,10 @@ export class BatchProcessorService {
             extractedFrom: 'chat',
           },
           source: {
-            type: 'AGENT_INTERACTION',
+            type: SourceType.AGENT_INTERACTION,
             identifier: 'chat',
           },
-          userId,
+          createdBy: userId,
         }))
       );
     }
@@ -349,10 +351,10 @@ export class BatchProcessorService {
             extractedFrom: 'chat',
           },
           source: {
-            type: 'AGENT_INTERACTION',
+            type: SourceType.AGENT_INTERACTION,
             identifier: 'chat',
           },
-          userId,
+          createdBy: userId,
         }))
       );
     }
@@ -372,10 +374,10 @@ export class BatchProcessorService {
             extractedFrom: 'chat',
           },
           source: {
-            type: 'AGENT_INTERACTION',
+            type: SourceType.AGENT_INTERACTION,
             identifier: 'chat',
           },
-          userId,
+          createdBy: userId,
         }))
       );
     }

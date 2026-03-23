@@ -56,6 +56,10 @@ export class SandboxExecutionService {
     this.eventBus = EventBusService.getInstance();
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   static getInstance(): SandboxExecutionService {
     if (!SandboxExecutionService.instance) {
       SandboxExecutionService.instance = new SandboxExecutionService();
@@ -82,8 +86,11 @@ export class SandboxExecutionService {
   }
 
   private async handleSandboxExecution(event: unknown): Promise<void> {
-    const executionId = event.requestId || randomUUID();
-    const { toolId, parameters, config: userConfig } = event;
+    const payload = this.asRecord(event);
+    const executionId = typeof payload.requestId === 'string' ? payload.requestId : randomUUID();
+    const toolId = typeof payload.toolId === 'string' ? payload.toolId : 'unknown-tool';
+    const parameters = this.asRecord(payload.parameters);
+    const userConfig = this.asRecord(payload.config);
 
     const execution: SandboxExecution = {
       id: executionId,
@@ -253,7 +260,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded', { cause: error });
+        throw new Error('Execution timeout exceeded');
       }
       throw error;
     }
@@ -279,7 +286,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded', { cause: error });
+        throw new Error('Execution timeout exceeded');
       }
       throw error;
     }
@@ -324,20 +331,22 @@ export class SandboxExecutionService {
   }
 
   private async handleExecutionError(execution: SandboxExecution, error: unknown): Promise<void> {
-    logger.error('Sandbox execution failed', {
-      executionId: execution.id,
-      toolId: execution.toolId,
-      error: error.message || String(error),
-    });
+      logger.error('Sandbox execution failed', {
+        executionId: execution.id,
+        toolId: execution.toolId,
+        error: error instanceof Error ? error.message : String(error),
+      });
 
     if (execution.status !== 'timeout') {
       execution.status = 'failed';
     }
     execution.endTime = Date.now();
-    execution.error =
-      execution.status === 'timeout'
-        ? 'Execution timeout exceeded'
-        : error.message || 'Sandbox execution failed';
+      execution.error =
+        execution.status === 'timeout'
+          ? 'Execution timeout exceeded'
+          : error instanceof Error
+            ? error.message
+            : 'Sandbox execution failed';
 
     await this.eventBus.publish(`sandbox.response.${execution.id}`, {
       requestId: execution.id,

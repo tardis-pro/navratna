@@ -412,7 +412,7 @@ export class TurnStrategyService {
     discussion: Discussion,
     moderatorId: string,
     params?: Record<string, unknown>
-  ): Promise<{ success: boolean; message: string; data?: unknown }> {
+  ): Promise<{ success: boolean; message: string; data?: any }> {
     try {
       const strategy = this.getStrategy(discussion.turnStrategy.strategy);
 

@@ -417,19 +417,23 @@ export class MemoryConsolidator {
       context: {
         when: firstInteraction.timestamp as Date,
         where: (firstContext?.location as string) || 'digital',
-        who: [...new Set(records.flatMap((i) => (i.participants as string[]) || []))],
+        who: [...new Set(interactions.flatMap((i) => (i.participants as string[]) || []))],
         what: this.summarizeInteractions(interactions),
         why: this.inferPurpose(interactions, workingMemory),
         how: this.inferMethod(interactions),
       },
       experience: {
-        actions: records.flatMap((i) => (i.actions as Episode['experience']['actions']) || []),
-        decisions: records.flatMap(
+        actions: interactions.flatMap((i) => (i.actions as Episode['experience']['actions']) || []),
+        decisions: interactions.flatMap(
           (i) => (i.decisions as Episode['experience']['decisions']) || []
         ),
-        outcomes: records.flatMap((i) => (i.outcomes as Episode['experience']['outcomes']) || []),
-        emotions: records.map((i) => i.emotionalResponse as Episode['experience']['emotions'][0]),
-        learnings: records.flatMap((i) => (i.learnings as string[]) || []),
+        outcomes: interactions.flatMap(
+          (i) => (i.outcomes as Episode['experience']['outcomes']) || []
+        ),
+        emotions: interactions.map(
+          (i) => i.emotionalResponse as Episode['experience']['emotions'][0]
+        ),
+        learnings: interactions.flatMap((i) => (i.learnings as string[]) || []),
       },
       significance: {
         importance: Math.min((avgImpact + avgEmotionalIntensity) / 2, 1.0),

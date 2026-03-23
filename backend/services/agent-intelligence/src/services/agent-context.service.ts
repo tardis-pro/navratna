@@ -4,12 +4,25 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, ContextAnalysis, ConversationContext, EnvironmentFactors } from '@uaip/types';
+import { Agent, ContextAnalysis, ConversationContext, EnvironmentFactors, KnowledgeItem } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import {} from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { LLMService } from '@uaip/llm-service';
+
+interface LLMContextAnalysis {
+  userIntent?: { primary?: string; confidence?: number };
+  contextualFactors?: Record<string, unknown>;
+  confidence?: number;
+  recommendations?: string[];
+}
+
+interface ContextAnalysisBase {
+  userIntent?: { primary?: string };
+  relevantKnowledge?: unknown[];
+  contextualFactors?: { conversationLength?: number };
+}
 
 export interface AgentContextConfig {
   eventBusService: EventBusService;
@@ -203,7 +216,7 @@ export class AgentContextService {
     conversationContext: ConversationContext,
     agent: Agent,
     _userId?: string
-  ): Promise<unknown> {
+  ): Promise<LLMContextAnalysis | null> {
     try {
       const prompt = this.buildContextAnalysisPrompt(userRequest, conversationContext, agent);
 
@@ -215,7 +228,7 @@ export class AgentContextService {
         maxTokens: 1000,
       });
 
-      return llmResponse;
+      return llmResponse as LLMContextAnalysis;
     } catch (error) {
       logger.warn('LLM context analysis failed, falling back to basic analysis', { error });
       return null;
@@ -257,39 +270,51 @@ export class AgentContextService {
    * Event handlers
    */
   private async handleAnalyzeContext(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, conversationContext, userRequest, userId } = event;
+    const requestId = event.requestId as string;
+    const agentId = event.agentId as string;
+    const conversationContext = event.conversationContext as ConversationContext;
+    const userRequest = event.userRequest as string;
+    const userId = event.userId as string | undefined;
     try {
       const analysis = await this.analyzeContext(agentId, conversationContext, userRequest, userId);
       await this.respondToRequest(requestId, { success: true, data: analysis });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleUpdateContext(event: Record<string, unknown>): Promise<void> {
-    const { requestId, _agentId, contextUpdate } = event;
+    const requestId = event.requestId as string;
+    const rawContextUpdate = (event.contextUpdate ?? {}) as Record<string, unknown>;
+    const knowledgeItemId = rawContextUpdate.knowledgeItemId as string | undefined;
+    const contextUpdate = rawContextUpdate as unknown as Partial<KnowledgeItem>;
     try {
-      // Update context in knowledge graph - using updateKnowledge for now
-      // TODO: Implement proper context update mechanism
-      if (contextUpdate.knowledgeItemId) {
-        await this.knowledgeGraphService.updateKnowledge(
-          contextUpdate.knowledgeItemId,
-          contextUpdate
-        );
+      if (knowledgeItemId) {
+        await this.knowledgeGraphService.updateKnowledge(knowledgeItemId, contextUpdate);
       }
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleExtractContext(event: Record<string, unknown>): Promise<void> {
-    const { requestId, conversationContext } = event;
+    const requestId = event.requestId as string;
+    const conversationContext = event.conversationContext as ConversationContext;
     try {
       const contextInfo = this.extractContextualInformation(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: contextInfo });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -403,13 +428,12 @@ Please analyze:
     return 'neutral';
   }
 
-  private calculateConfidence(analysis: Record<string, unknown>): number {
-    // Basic confidence calculation
+  private calculateConfidence(analysis: ContextAnalysisBase): number {
     let confidence = 0.5;
 
     if (analysis.userIntent?.primary !== 'unknown') confidence += 0.2;
-    if (analysis.relevantKnowledge?.length > 0) confidence += 0.2;
-    if (analysis.contextualFactors?.conversationLength > 3) confidence += 0.1;
+    if ((analysis.relevantKnowledge?.length ?? 0) > 0) confidence += 0.2;
+    if ((analysis.contextualFactors?.conversationLength ?? 0) > 3) confidence += 0.1;
 
     return Math.min(confidence, 1.0);
   }

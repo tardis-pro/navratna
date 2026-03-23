@@ -152,7 +152,7 @@ export class PersonaService {
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
 
-      const updateData: unknown = { ...updates };
+      const updateData: Record<string, unknown> = { ...updates };
       if (updates.expertise) {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }

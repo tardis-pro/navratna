@@ -1,10 +1,16 @@
-import { LLMModel, LLMModelRepository, UserLLMProviderRepository } from '@uaip/shared-services';
+import {
+  LLMModel,
+  LLMModelRepository,
+  UserLLMProviderRepository,
+  TypeOrmService,
+} from '@uaip/shared-services';
 import { DataSource } from 'typeorm';
 import { logger } from '@uaip/utils';
 import { BaseProvider } from '../providers/BaseProvider.js';
 import { OllamaProvider } from '../providers/OllamaProvider.js';
 import { LLMStudioProvider } from '../providers/LLMStudioProvider.js';
 import { OpenAIProvider } from '../providers/OpenAIProvider.js';
+import { LLMProviderConfig } from '../interfaces.js';
 
 export interface ModelSyncResult {
   providerId: string;
@@ -46,7 +52,36 @@ export class ModelSyncService {
 
   constructor(private dataSource: DataSource) {
     this.llmModelRepository = new LLMModelRepository(dataSource);
-    this.userLLMProviderRepository = new UserLLMProviderRepository(dataSource);
+    this.userLLMProviderRepository = new UserLLMProviderRepository(TypeOrmService.getInstance());
+  }
+
+  private toProviderConfig(config: unknown): LLMProviderConfig {
+    if (!config || typeof config !== 'object') {
+      throw new Error('Invalid provider configuration');
+    }
+
+    const configRecord = config as Record<string, unknown>;
+    const type = configRecord.type;
+    const baseUrl = configRecord.baseUrl;
+
+    if (typeof type !== 'string' || typeof baseUrl !== 'string') {
+      throw new Error('Provider configuration must include type and baseUrl');
+    }
+
+    const normalizedType: LLMProviderConfig['type'] =
+      type === 'google' ? 'custom' : (type as LLMProviderConfig['type']);
+
+    return {
+      type: normalizedType,
+      baseUrl,
+      apiKey: typeof configRecord.apiKey === 'string' ? configRecord.apiKey : undefined,
+      apiKeyEncrypted:
+        typeof configRecord.apiKeyEncrypted === 'string' ? configRecord.apiKeyEncrypted : undefined,
+      defaultModel:
+        typeof configRecord.defaultModel === 'string' ? configRecord.defaultModel : undefined,
+      timeout: typeof configRecord.timeout === 'number' ? configRecord.timeout : undefined,
+      retries: typeof configRecord.retries === 'number' ? configRecord.retries : undefined,
+    };
   }
 
   /**
@@ -192,7 +227,7 @@ export class ModelSyncService {
     name: string;
     getProviderConfig: () => unknown;
   }): BaseProvider {
-    const config = dbProvider.getProviderConfig();
+    const config = this.toProviderConfig(dbProvider.getProviderConfig());
 
     switch (dbProvider.type) {
       case 'ollama':

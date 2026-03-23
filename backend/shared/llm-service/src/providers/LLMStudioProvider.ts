@@ -2,6 +2,18 @@ import { BaseProvider } from './BaseProvider.js';
 import { LLMRequest, LLMResponse } from '../interfaces';
 
 export class LLMStudioProvider extends BaseProvider {
+  private static isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private static toString(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
+
+  private static toNumber(value: unknown): number | null {
+    return typeof value === 'number' ? value : null;
+  }
+
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const url = `${this.config.baseUrl}/v1/chat/completions`;
@@ -23,19 +35,29 @@ export class LLMStudioProvider extends BaseProvider {
       };
 
       const data = await this.makeRequest(url, body);
-
-      if (data?.error?.message) {
-        throw new Error(`LM Studio error: ${data.error.message}`);
+      if (!LLMStudioProvider.isRecord(data)) {
+        throw new Error('Invalid response format from LLM Studio');
       }
 
-      const choice = data.choices?.[0];
-      const messageContent = choice?.message?.content;
+      const errorValue = LLMStudioProvider.isRecord(data.error) ? data.error : null;
+      const errorMessage = errorValue ? LLMStudioProvider.toString(errorValue.message) : null;
+
+      if (errorMessage) {
+        throw new Error(`LM Studio error: ${errorMessage}`);
+      }
+
+      const choices = Array.isArray(data.choices)
+        ? (data.choices as Array<Record<string, unknown>>)
+        : [];
+      const choice = choices[0];
+      const message = choice && LLMStudioProvider.isRecord(choice.message) ? choice.message : undefined;
+      const messageContent = message?.content;
       const contentFromArray = Array.isArray(messageContent)
         ? messageContent
             .map((part: string | Record<string, unknown>) => {
               if (typeof part === 'string') return part;
-              if (typeof part?.text === 'string') return part.text;
-              if (typeof part?.content === 'string') return part.content;
+              if (LLMStudioProvider.toString(part.text)) return LLMStudioProvider.toString(part.text) || '';
+              if (LLMStudioProvider.toString(part.content)) return LLMStudioProvider.toString(part.content) || '';
               return '';
             })
             .join(' ')
@@ -44,23 +66,28 @@ export class LLMStudioProvider extends BaseProvider {
       const content =
         (typeof messageContent === 'string' ? messageContent : null) ||
         contentFromArray ||
-        (typeof choice?.message?.reasoning_content === 'string'
-          ? choice.message.reasoning_content
-          : null) ||
-        (typeof choice?.text === 'string' ? choice.text : null) ||
-        (typeof choice?.content === 'string' ? choice.content : null) ||
-        (typeof data?.output_text === 'string' ? data.output_text : null);
+        (LLMStudioProvider.toString(message?.reasoning_content) || null) ||
+        (LLMStudioProvider.toString(choice?.text) || null) ||
+        (LLMStudioProvider.toString(choice?.content) || null) ||
+        (LLMStudioProvider.toString(data.output_text) || null);
 
       if (!content) {
         throw new Error('Invalid response format from LLM Studio');
       }
 
+      const usage = LLMStudioProvider.isRecord(data.usage) ? data.usage : undefined;
+      const finishReasonRaw = LLMStudioProvider.toString(choice?.finish_reason);
+      const finishReason: LLMResponse['finishReason'] =
+        finishReasonRaw === 'length' || finishReasonRaw === 'tool_calls' || finishReasonRaw === 'error'
+          ? finishReasonRaw
+          : 'stop';
+
       return {
         content,
-        model: data.model || request.model || this.config.defaultModel || 'unknown',
-        tokensUsed: data.usage?.total_tokens || 0,
+        model: LLMStudioProvider.toString(data.model) || request.model || this.config.defaultModel || 'unknown',
+        tokensUsed: LLMStudioProvider.toNumber(usage?.total_tokens) ?? 0,
         confidence: 0.8, // LLM Studio doesn't provide confidence scores
-        finishReason: choice.finish_reason || 'stop',
+        finishReason,
       };
     } catch (error) {
       return this.handleError(error, 'generateResponse');
@@ -87,30 +114,41 @@ export class LLMStudioProvider extends BaseProvider {
         const data = await this.makeGetRequest(url);
 
         // Handle different response formats
-        let models = [];
+        let models: Array<Record<string, unknown>> = [];
 
-        if (data.data && Array.isArray(data.data)) {
+        if (LLMStudioProvider.isRecord(data) && Array.isArray(data.data)) {
           // OpenAI/LM Studio format
           models = data.data;
-        } else if (data.models && Array.isArray(data.models)) {
+        } else if (LLMStudioProvider.isRecord(data) && Array.isArray(data.models)) {
           // Ollama models format
           models = data.models.map((model: Record<string, unknown>) => ({
-            id: (model.name || model.model || model.id) as string,
-            owned_by: ((model.details as Record<string, unknown>)?.families || 'ollama') as string,
+            id:
+              LLMStudioProvider.toString(model.name) ||
+              LLMStudioProvider.toString(model.model) ||
+              LLMStudioProvider.toString(model.id) ||
+              'unknown',
+            owned_by:
+              (LLMStudioProvider.isRecord(model.details)
+                ? LLMStudioProvider.toString(model.details.families)
+                : null) || 'ollama',
           }));
         } else if (Array.isArray(data)) {
           // Direct array format
           models = data.map((model: Record<string, unknown>) => ({
-            id: (model.name || model.model || model.id) as string,
+            id:
+              LLMStudioProvider.toString(model.name) ||
+              LLMStudioProvider.toString(model.model) ||
+              LLMStudioProvider.toString(model.id) ||
+              'unknown',
             owned_by: 'llmstudio',
           }));
         }
 
         if (models.length > 0) {
           return models.map((model: Record<string, unknown>) => ({
-            id: model.id,
-            name: model.id,
-            description: `LLM Studio model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
+            id: LLMStudioProvider.toString(model.id) || 'unknown',
+            name: LLMStudioProvider.toString(model.id) || 'unknown',
+            description: `LLM Studio model: ${LLMStudioProvider.toString(model.id) || 'unknown'}${LLMStudioProvider.toString(model.owned_by) ? ` (${LLMStudioProvider.toString(model.owned_by)})` : ''}`,
             source: this.config.baseUrl,
             apiEndpoint: `${this.config.baseUrl}/v1/chat/completions`,
           }));

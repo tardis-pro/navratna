@@ -4,7 +4,17 @@
  * Integrates with the orchestration pipeline for cross-app events
  */
 
-import { Operation, OperationStatus, ExecutionPlan } from '@uaip/types';
+import {
+  Operation,
+  OperationPlan,
+  OperationPriority,
+  OperationStatus,
+  OperationStep,
+  OperationType,
+  EventBusHandler,
+  EventBusMessage,
+  ExecutionPlan,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -36,6 +46,32 @@ export interface AgentOperationRequest {
   timeout?: number;
 }
 
+interface ActiveOperationEntry {
+  operation: Operation;
+  request: AgentOperationRequest;
+  startTime: number;
+  status: 'executing' | 'completed' | 'failed' | 'cancelled';
+  result?: unknown;
+  error?: unknown;
+}
+
+interface ServiceResponse {
+  success: boolean;
+  data: unknown;
+  error?: string;
+  requestId?: string;
+}
+
+interface OrchestrationEventPayload {
+  operationId: string;
+  eventType: string;
+  data: {
+    result?: unknown;
+    error?: string;
+    stepId?: string;
+  };
+}
+
 export class AgentEventOrchestrator {
   private databaseService: DatabaseService;
   public eventBusService: EventBusService; // Make public for WebSocket chat subscription
@@ -54,8 +90,8 @@ export class AgentEventOrchestrator {
   private agentInitializationService?: AgentInitializationService;
 
   // Event tracking
-  private activeOperations = new Map<string, unknown>();
-  private eventSubscriptions = new Map<string, Function>();
+  private activeOperations = new Map<string, ActiveOperationEntry>();
+  private eventSubscriptions = new Map<string, EventBusHandler>();
 
   constructor(config: AgentEventOrchestratorConfig) {
     this.databaseService = config.databaseService;
@@ -115,17 +151,54 @@ export class AgentEventOrchestrator {
       });
 
       // Create operation for orchestration pipeline
+      const executionPlanData = await this.createExecutionPlan(request);
+      const userId = this.getContextString(request.context, 'userId') ?? 'system';
+
+      const planSteps: OperationStep[] = executionPlanData.steps.map((step) => ({
+        id: step.id,
+        name: step.description,
+        type: step.type === 'plan_validation' ? 'validation' : 'tool',
+        status: OperationStatus.PENDING,
+        retryCount: 0,
+        maxRetries: 3,
+      }));
+
+      const operationPlan: OperationPlan = {
+        id: operationId,
+        type: OperationType.ANALYSIS,
+        description: `${request.operationType} operation for agent ${request.agentId}`,
+        steps: planSteps,
+        dependencies: executionPlanData.dependencies,
+        resourceRequirements: {
+          cpu: 2,
+          memory: 1024 * 1024 * 1024,
+          estimatedDuration: this.estimateOperationDuration(request.operationType),
+        },
+        estimatedDuration: this.estimateOperationDuration(request.operationType),
+        riskAssessment: {
+          level: 'medium',
+          factors: [],
+          mitigations: [],
+        },
+        approvalRequired: false,
+        createdAt: new Date(),
+      };
+
       const operation: Operation = {
         id: operationId,
-        type: 'agent_operation' as Record<string, unknown>,
+        type: OperationType.ANALYSIS,
         agentId: request.agentId,
+        userId,
         status: OperationStatus.PENDING,
-        executionPlan: await this.createExecutionPlan(request),
+        priority: OperationPriority.MEDIUM,
+        plan: operationPlan,
         context: {
           executionContext: {
             agentId: request.agentId,
-            userId: request.context?.userId || '',
-            environment: (process.env.NODE_ENV as Record<string, unknown>) || 'development',
+            userId,
+            environment:
+              (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+            metadata: request.context,
             timeout: request.timeout || 300000,
             resourceLimits: {
               maxMemory: 1024 * 1024 * 1024, // 1GB
@@ -134,8 +207,16 @@ export class AgentEventOrchestrator {
             },
           },
         },
+        executionPlan: executionPlanData,
+        estimatedDuration: this.estimateOperationDuration(request.operationType),
+        currentStep: 0,
+        progress: {
+          completedSteps: 0,
+          totalSteps: executionPlanData.steps.length,
+          percentage: 0,
+        },
         metadata: {
-          priority: 'medium' as Record<string, unknown>,
+          priority: OperationPriority.MEDIUM,
         },
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -275,76 +356,147 @@ export class AgentEventOrchestrator {
   }
 
   private async createExecutionPlan(request: AgentOperationRequest): Promise<ExecutionPlan> {
-    const steps: Record<string, unknown>[] = [];
-    const dependencies: Record<string, unknown>[] = [];
+    const steps: ExecutionPlan['steps'] = [];
+    const dependencies: string[] = [];
 
     switch (request.operationType) {
       case 'analyze':
         steps.push(
-          { id: 'get_agent', type: 'agent_query', name: 'Get Agent Data' },
-          { id: 'analyze_context', type: 'context_analysis', name: 'Analyze Context' },
-          { id: 'analyze_intent', type: 'intent_analysis', name: 'Analyze Intent' },
+          {
+            id: 'get_agent',
+            type: 'agent_query',
+            description: 'Get Agent Data',
+            estimatedDuration: 5000,
+            required: true,
+          },
+          {
+            id: 'analyze_context',
+            type: 'context_analysis',
+            description: 'Analyze Context',
+            estimatedDuration: 8000,
+            required: true,
+          },
+          {
+            id: 'analyze_intent',
+            type: 'intent_analysis',
+            description: 'Analyze Intent',
+            estimatedDuration: 8000,
+            required: true,
+          },
           {
             id: 'generate_recommendations',
             type: 'recommendation_generation',
-            name: 'Generate Recommendations',
+            description: 'Generate Recommendations',
+            estimatedDuration: 9000,
+            required: true,
           }
         );
-        dependencies.push(
-          { stepId: 'analyze_context', dependsOn: ['get_agent'], type: 'sequential' },
-          { stepId: 'analyze_intent', dependsOn: ['get_agent'], type: 'sequential' },
-          {
-            stepId: 'generate_recommendations',
-            dependsOn: ['analyze_context', 'analyze_intent'],
-            type: 'sequential',
-          }
-        );
+        dependencies.push('get_agent', 'analyze_context', 'analyze_intent');
         break;
 
       case 'plan':
         steps.push(
-          { id: 'get_agent', type: 'agent_query', name: 'Get Agent Data' },
-          { id: 'analyze_context', type: 'context_analysis', name: 'Analyze Context' },
-          { id: 'generate_plan', type: 'plan_generation', name: 'Generate Execution Plan' },
-          { id: 'validate_plan', type: 'plan_validation', name: 'Validate Plan' }
+          {
+            id: 'get_agent',
+            type: 'agent_query',
+            description: 'Get Agent Data',
+            estimatedDuration: 5000,
+            required: true,
+          },
+          {
+            id: 'analyze_context',
+            type: 'context_analysis',
+            description: 'Analyze Context',
+            estimatedDuration: 10000,
+            required: true,
+          },
+          {
+            id: 'generate_plan',
+            type: 'plan_generation',
+            description: 'Generate Execution Plan',
+            estimatedDuration: 30000,
+            required: true,
+          },
+          {
+            id: 'validate_plan',
+            type: 'plan_validation',
+            description: 'Validate Plan',
+            estimatedDuration: 15000,
+            required: true,
+          }
         );
-        dependencies.push(
-          { stepId: 'analyze_context', dependsOn: ['get_agent'], type: 'sequential' },
-          { stepId: 'generate_plan', dependsOn: ['analyze_context'], type: 'sequential' },
-          { stepId: 'validate_plan', dependsOn: ['generate_plan'], type: 'sequential' }
-        );
+        dependencies.push('get_agent', 'analyze_context', 'generate_plan');
         break;
 
       case 'learn':
         steps.push(
-          { id: 'get_agent', type: 'agent_query', name: 'Get Agent Data' },
-          { id: 'process_learning', type: 'learning_processing', name: 'Process Learning Data' },
-          { id: 'update_knowledge', type: 'knowledge_update', name: 'Update Knowledge' },
-          { id: 'consolidate_memory', type: 'memory_consolidation', name: 'Consolidate Memory' }
+          {
+            id: 'get_agent',
+            type: 'agent_query',
+            description: 'Get Agent Data',
+            estimatedDuration: 5000,
+            required: true,
+          },
+          {
+            id: 'process_learning',
+            type: 'learning_processing',
+            description: 'Process Learning Data',
+            estimatedDuration: 15000,
+            required: true,
+          },
+          {
+            id: 'update_knowledge',
+            type: 'knowledge_update',
+            description: 'Update Knowledge',
+            estimatedDuration: 15000,
+            required: true,
+          },
+          {
+            id: 'consolidate_memory',
+            type: 'memory_consolidation',
+            description: 'Consolidate Memory',
+            estimatedDuration: 10000,
+            required: true,
+          }
         );
-        dependencies.push(
-          { stepId: 'process_learning', dependsOn: ['get_agent'], type: 'sequential' },
-          { stepId: 'update_knowledge', dependsOn: ['process_learning'], type: 'sequential' },
-          { stepId: 'consolidate_memory', dependsOn: ['update_knowledge'], type: 'sequential' }
-        );
+        dependencies.push('get_agent', 'process_learning', 'update_knowledge');
         break;
 
       default:
         steps.push(
-          { id: 'get_agent', type: 'agent_query', name: 'Get Agent Data' },
-          { id: 'execute_operation', type: 'operation_execution', name: 'Execute Operation' }
+          {
+            id: 'get_agent',
+            type: 'agent_query',
+            description: 'Get Agent Data',
+            estimatedDuration: 5000,
+            required: true,
+          },
+          {
+            id: 'execute_operation',
+            type: 'operation_execution',
+            description: 'Execute Operation',
+            estimatedDuration: 25000,
+            required: true,
+          }
         );
-        dependencies.push({
-          stepId: 'execute_operation',
-          dependsOn: ['get_agent'],
-          type: 'sequential',
-        });
+        dependencies.push('get_agent');
     }
 
     return {
+      id: `plan_${Date.now()}`,
+      type: request.operationType,
+      agentId: request.agentId,
       steps,
       dependencies,
       estimatedDuration: this.estimateOperationDuration(request.operationType),
+      priority: OperationPriority.MEDIUM,
+      constraints: [],
+      metadata: {
+        generatedBy: this.serviceName,
+        basedOnAnalysis: new Date(),
+        version: '1.0',
+      },
+      created_at: new Date(),
     };
   }
 
@@ -366,14 +518,25 @@ export class AgentEventOrchestrator {
         );
       }
 
-      const result = await response.json();
-      if (!result.success) {
+      const result = this.asRecord(await response.json());
+      const success = result['success'] === true;
+      const resultData = this.asRecord(result['data']);
+      const resultError = this.asRecord(result['error']);
+
+      if (!success) {
+        const errorMessage =
+          typeof resultError['message'] === 'string' ? resultError['message'] : 'Unknown error';
         throw new Error(
-          `Orchestration pipeline error: ${result.error?.message || 'Unknown error'}`
+          `Orchestration pipeline error: ${errorMessage}`
         );
       }
 
-      return result.data.workflowInstanceId;
+      const workflowInstanceId = resultData['workflowInstanceId'];
+      if (typeof workflowInstanceId !== 'string') {
+        throw new Error('Orchestration pipeline response missing workflowInstanceId');
+      }
+
+      return workflowInstanceId;
     } catch (error) {
       logger.error('Failed to submit to orchestration pipeline', {
         error,
@@ -464,11 +627,12 @@ export class AgentEventOrchestrator {
       });
 
       // Step 5: Calculate confidence
+      const agentData = this.asRecord(agent.data);
       const confidence = await this.requestFromService('agent.intent.confidence', {
         contextAnalysis: contextAnalysis.data,
         intentAnalysis: intentAnalysis.data,
         actionRecommendations: recommendations.data,
-        intelligenceConfig: agent.data.intelligenceConfig,
+        intelligenceConfig: agentData['intelligenceConfig'],
         relevantKnowledge: [],
         workingMemory: null,
       });
@@ -670,7 +834,12 @@ export class AgentEventOrchestrator {
       });
 
       // Step 3: Consolidate memory if needed
-      if (metricsSummary.data?.recommendations?.includes('memory consolidation')) {
+      const metricsSummaryData = this.asRecord(metricsSummary.data);
+      const recommendationList = metricsSummaryData['recommendations'];
+      const hasMemoryConsolidationRecommendation =
+        Array.isArray(recommendationList) && recommendationList.includes('memory consolidation');
+
+      if (hasMemoryConsolidationRecommendation) {
         await this.requestFromService('agent.learning.consolidate', { agentId });
       }
 
@@ -705,9 +874,14 @@ export class AgentEventOrchestrator {
   /**
    * Event handlers
    */
-  private async handleOrchestrationEvent(event: Record<string, unknown>): Promise<void> {
+  private async handleOrchestrationEvent(message: EventBusMessage): Promise<void> {
     try {
-      const { operationId, eventType, data } = event;
+      if (!this.isOrchestrationEventPayload(message.data)) {
+        logger.warn('Received invalid orchestration event payload', { message });
+        return;
+      }
+
+      const { operationId, eventType, data } = message.data;
 
       // Find the corresponding agent operation
       const activeOp = this.activeOperations.get(operationId);
@@ -764,37 +938,37 @@ export class AgentEventOrchestrator {
         }, 60000); // Keep for 1 minute for potential queries
       }
     } catch (error) {
-      logger.error('Failed to handle orchestration event', { error, event });
+      logger.error('Failed to handle orchestration event', { error, message });
     }
   }
 
-  private async handleServiceResponse(event: Record<string, unknown>): Promise<void> {
+  private async handleServiceResponse(message: EventBusMessage): Promise<void> {
     try {
-      logger.debug('Handling service response', { event });
+      logger.debug('Handling service response', { message });
       // Handle responses from individual agent services
       // This could be used for monitoring, logging, or triggering follow-up actions
     } catch (error) {
-      logger.error('Failed to handle service response', { error, event });
+      logger.error('Failed to handle service response', { error, message });
     }
   }
 
-  private async handleOperationEvent(event: Record<string, unknown>): Promise<void> {
+  private async handleOperationEvent(message: EventBusMessage): Promise<void> {
     try {
-      logger.debug('Handling operation event', { event });
+      logger.debug('Handling operation event', { message });
       // Handle operation-level events
       // This could be used for cross-operation coordination
     } catch (error) {
-      logger.error('Failed to handle operation event', { error, event });
+      logger.error('Failed to handle operation event', { error, message });
     }
   }
 
-  private async handleWorkflowEvent(event: Record<string, unknown>): Promise<void> {
+  private async handleWorkflowEvent(message: EventBusMessage): Promise<void> {
     try {
-      logger.debug('Handling workflow event', { event });
+      logger.debug('Handling workflow event', { message });
       // Handle workflow-level events
       // This could be used for workflow monitoring and coordination
     } catch (error) {
-      logger.error('Failed to handle workflow event', { error, event });
+      logger.error('Failed to handle workflow event', { error, message });
     }
   }
 
@@ -803,15 +977,11 @@ export class AgentEventOrchestrator {
    */
   private async subscribeToEvent(
     channel: string,
-    handler: (message: Record<string, unknown>) => Promise<void>
+    handler: EventBusHandler
   ): Promise<void> {
     try {
-      // Convert function to async EventHandler
-      const asyncHandler = async (message: Record<string, unknown>): Promise<void> => {
-        return Promise.resolve(handler(message));
-      };
-      await this.eventBusService.subscribe(channel, asyncHandler);
-      this.eventSubscriptions.set(channel, handler as Record<string, unknown>);
+      await this.eventBusService.subscribe(channel, handler);
+      this.eventSubscriptions.set(channel, handler);
     } catch (error) {
       logger.error('Failed to subscribe to event', { channel, error });
     }
@@ -833,7 +1003,7 @@ export class AgentEventOrchestrator {
   private async requestFromService(
     channel: string,
     data: Record<string, unknown>
-  ): Promise<unknown> {
+  ): Promise<ServiceResponse> {
     try {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -846,24 +1016,31 @@ export class AgentEventOrchestrator {
       });
 
       // Wait for response (simplified - in production, use proper request/response pattern)
-      return new Promise((resolve, reject) => {
+      return await new Promise<ServiceResponse>((resolve, reject) => {
         const timeout = setTimeout(() => {
+          void this.eventBusService.unsubscribe(responseChannel, responseHandler);
           reject(new Error(`Request timeout: ${channel}`));
         }, 30000); // 30 second timeout
 
-        const responseHandler = (response: Record<string, unknown>): void => {
-          if (response.requestId === requestId) {
+        const responseChannel = channel.replace(/\.[^.]+$/, '.response');
+
+        const responseHandler: EventBusHandler = async (response: EventBusMessage): Promise<void> => {
+          if (!this.isServiceResponse(response.data)) {
+            return;
+          }
+
+          const payload = response.data;
+          if (payload.requestId === requestId) {
             clearTimeout(timeout);
-            resolve(response);
+            await this.eventBusService.unsubscribe(responseChannel, responseHandler);
+            resolve(payload);
           }
         };
 
-        // Subscribe to response channel
-        const responseChannel = channel.replace(/\.[^.]+$/, '.response');
-        const asyncResponseHandler = async (message: Record<string, unknown>): Promise<void> => {
-          return Promise.resolve(responseHandler(message));
-        };
-        this.eventBusService.subscribe(responseChannel, asyncResponseHandler);
+        void this.eventBusService.subscribe(responseChannel, responseHandler).catch((subscriptionError) => {
+          clearTimeout(timeout);
+          reject(subscriptionError);
+        });
       });
     } catch (error) {
       logger.error('Failed to request from service', { channel, error });
@@ -973,11 +1150,8 @@ export class AgentEventOrchestrator {
       // Unsubscribe from all events
       for (const [channel, handler] of this.eventSubscriptions) {
         try {
-          // Convert handler for unsubscribe
-          const asyncHandler = async (message: Record<string, unknown>): Promise<void> =>
-            Promise.resolve(handler(message) as Record<string, unknown>);
           // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-          await this.eventBusService.unsubscribe(channel, asyncHandler);
+          await this.eventBusService.unsubscribe(channel, handler);
         } catch (error) {
           logger.warn('Failed to unsubscribe from event during shutdown', { channel, error });
         }
@@ -987,5 +1161,41 @@ export class AgentEventOrchestrator {
     } catch (error) {
       logger.error('Error during Agent Event Orchestrator shutdown', { error });
     }
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  }
+
+  private getContextString(
+    context: Record<string, unknown> | undefined,
+    key: string
+  ): string | undefined {
+    const value = context?.[key];
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  }
+
+  private isServiceResponse(data: unknown): data is ServiceResponse {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+
+    return 'success' in data && typeof data.success === 'boolean' && 'data' in data;
+  }
+
+  private isOrchestrationEventPayload(data: unknown): data is OrchestrationEventPayload {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+
+    if (!('operationId' in data) || typeof data.operationId !== 'string') {
+      return false;
+    }
+
+    if (!('eventType' in data) || typeof data.eventType !== 'string') {
+      return false;
+    }
+
+    return 'data' in data && typeof data.data === 'object' && data.data !== null;
   }
 }

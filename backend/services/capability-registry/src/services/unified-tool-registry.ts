@@ -120,6 +120,43 @@ export interface WorkflowStep {
   conditions?: unknown;
 }
 
+interface ExecutionContext {
+  userId: string;
+  projectId?: string;
+  agentId?: string;
+  securityContext?: {
+    level?: number;
+    permissions?: string[];
+    hasApproval?: boolean;
+    approvalStatus?: {
+      approvalLevel?: string;
+    };
+  };
+  parameters?: Record<string, unknown>;
+}
+
+interface ToolExecutor {
+  execute(
+    operation: string,
+    parameters: unknown,
+    context: {
+      userId: string;
+      projectId?: string;
+      agentId?: string;
+      securityContext?: ExecutionContext['securityContext'];
+    }
+  ): Promise<unknown>;
+}
+
+interface RecommendationRequestContext {
+  projectId?: string;
+  currentTools?: string[];
+  objective?: string;
+  category?: string;
+}
+
+type ManagedToolDefinition = Awaited<ReturnType<ToolService['createTool']>>;
+
 // Validation schemas
 const UnifiedToolDefinitionSchema = z.object({
   id: z.string(),
@@ -213,6 +250,18 @@ export class UnifiedToolRegistry {
   private toolService: ToolService;
   private eventBusService: EventBusService;
   private isInitialized = false;
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
+  private asString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  private asNumber(value: unknown, fallback = 0): number {
+    return typeof value === 'number' ? value : fallback;
+  }
 
   constructor(eventBusService: EventBusService) {
     this.databaseService = DatabaseService.getInstance();
@@ -371,12 +420,7 @@ export class UnifiedToolRegistry {
     toolId: string,
     operation: string,
     parameters: unknown,
-    context: {
-      userId: string;
-      projectId?: string;
-      agentId?: string;
-      securityContext?: unknown;
-    }
+    context: ExecutionContext
   ): Promise<unknown> {
     await this.ensureInitialized();
 
@@ -496,7 +540,7 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async createToolGraphNode(tool: unknown): Promise<void> {
+  private async createToolGraphNode(tool: ManagedToolDefinition): Promise<void> {
     try {
       if (this.toolService.neo4jService) {
         await this.toolService.createToolNode(tool);
@@ -511,7 +555,18 @@ export class UnifiedToolRegistry {
   private async getToolRecommendations(toolId: string): Promise<ToolRecommendation[]> {
     try {
       if (this.toolService.neo4jService) {
-        return await this.toolService.getRecommendations(toolId, undefined, 5);
+        const recommendations = await this.toolService.getRecommendations(toolId, undefined, 5);
+        return Array.isArray(recommendations)
+          ? recommendations.map((recommendation) => {
+              const rec = this.asRecord(recommendation);
+              return {
+                toolId: this.asString(rec.toolId),
+                score: this.asNumber(rec.score),
+                reason: this.asString(rec.reason),
+                context: this.asString(rec.context),
+              };
+            })
+          : [];
       }
       return [];
     } catch (error) {
@@ -524,13 +579,28 @@ export class UnifiedToolRegistry {
     try {
       if (this.toolService.neo4jService) {
         const relationships = await this.toolService.getToolRelationships(toolId);
-        return relationships.map((rel) => ({
-          type: rel.type as ToolRelationship['type'],
-          targetToolId: rel.targetId,
-          strength: rel.strength || 0.5,
-          reason: rel.reason,
-          metadata: rel.metadata,
-        }));
+        return relationships.map((rel) => {
+          const relation = this.asRecord(rel);
+          const typeValue = this.asString(relation.type, 'SIMILAR_TO');
+          const validTypes: ToolRelationship['type'][] = [
+            'DEPENDS_ON',
+            'SIMILAR_TO',
+            'REPLACES',
+            'ENHANCES',
+            'REQUIRES',
+          ];
+          const relationshipType = validTypes.includes(typeValue as ToolRelationship['type'])
+            ? (typeValue as ToolRelationship['type'])
+            : 'SIMILAR_TO';
+
+          return {
+            type: relationshipType,
+            targetToolId: this.asString(relation.targetId),
+            strength: this.asNumber(relation.strength, 0.5),
+            reason: this.asString(relation.reason),
+            metadata: relation.metadata,
+          };
+        });
       }
       return [];
     } catch (error) {
@@ -561,12 +631,12 @@ export class UnifiedToolRegistry {
   }
 
   private async validateToolExecution(
-    tool: unknown,
+    tool: UnifiedToolDefinition,
     operation: string,
-    context: unknown
+    context: ExecutionContext
   ): Promise<void> {
     // Check if tool has required operation
-    if (tool.operations && !tool.operations.find((op: unknown) => op.id === operation)) {
+    if (tool.operations && !tool.operations.find((op) => op.id === operation)) {
       throw new Error(`Operation '${operation}' not found in tool '${tool.id}'`);
     }
 
@@ -634,8 +704,9 @@ export class UnifiedToolRegistry {
       const usageKey = `rate_limit:${key}`;
       const usageData = await this.toolService.getRedisService().get(usageKey);
 
-      const usage: { requests: number[]; lastReset: number } = usageData
-        ? JSON.parse(usageData)
+      const usage: { requests: number[]; lastReset: number } =
+        typeof usageData === 'string'
+          ? (JSON.parse(usageData) as { requests: number[]; lastReset: number })
         : { requests: [], lastReset: now };
 
       // Clean old requests outside window
@@ -655,7 +726,8 @@ export class UnifiedToolRegistry {
         await redisService.set(usageKey, usage, Math.ceil(rateLimit.window / 1000));
       }
     } catch (error) {
-      if (error.message.includes('Rate limit exceeded')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Rate limit exceeded')) {
         throw error;
       }
       logger.warn('Rate limit check failed, allowing request', { error, toolId, userId });
@@ -663,10 +735,10 @@ export class UnifiedToolRegistry {
   }
 
   private async executeSandboxed(
-    tool: unknown,
+    tool: UnifiedToolDefinition,
     operation: string,
     parameters: unknown,
-    context: unknown
+    context: ExecutionContext
   ): Promise<unknown> {
     const sandbox = {
       toolId: tool.id,
@@ -685,14 +757,16 @@ export class UnifiedToolRegistry {
       const result = await this.eventBusService.publishAndWait(
         'sandbox.execute.tool',
         sandbox,
-        tool.sandboxing.timeoutMs + 5000 // Add buffer to event timeout
+        (tool.sandboxing?.timeoutMs ?? 0) + 5000 // Add buffer to event timeout
       );
 
-      if (!result.success) {
-        throw new Error(`Sandbox execution failed: ${result.error}`);
+      const resultRecord = this.asRecord(result);
+
+      if (!resultRecord.success) {
+        throw new Error(`Sandbox execution failed: ${this.asString(resultRecord.error, 'unknown')}`);
       }
 
-      return result.data;
+      return resultRecord.data;
     } catch (error) {
       logger.error('Sandboxed execution failed', { error, toolId: tool.id, operation });
       throw error;
@@ -700,10 +774,10 @@ export class UnifiedToolRegistry {
   }
 
   private async executeStandard(
-    tool: unknown,
+    tool: UnifiedToolDefinition,
     operation: string,
     parameters: unknown,
-    context: unknown
+    context: ExecutionContext
   ): Promise<unknown> {
     try {
       // Get tool adapter/executor
@@ -731,19 +805,20 @@ export class UnifiedToolRegistry {
   private async recordUsage(
     toolId: string,
     operation: string,
-    context: unknown,
+    context: ExecutionContext,
     result: unknown
   ): Promise<void> {
     try {
+      const resultRecord = this.asRecord(result);
       const usageRecord = {
         toolId,
         operation,
         userId: context.userId,
         agentId: context.agentId,
         projectId: context.projectId,
-        success: result.success !== false,
-        executionTime: result.executionTime || 0,
-        cost: result.cost || 0,
+        success: resultRecord.success !== false,
+        executionTime: this.asNumber(resultRecord.executionTime, 0),
+        cost: this.asNumber(resultRecord.cost, 0),
         timestamp: new Date(),
         metadata: {
           parameters: Object.keys(context.parameters || {}),
@@ -775,7 +850,9 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async getGraphRecommendations(context: unknown): Promise<ToolRecommendation[]> {
+  private async getGraphRecommendations(
+    context: RecommendationRequestContext
+  ): Promise<ToolRecommendation[]> {
     try {
       if (!this.toolService.neo4jService) {
         return [];
@@ -784,11 +861,19 @@ export class UnifiedToolRegistry {
       const recommendations: ToolRecommendation[] = [];
 
       // Get recommendations based on current tools
-      if (context.currentTools?.length > 0) {
+      if (context.currentTools?.length) {
         for (const toolId of context.currentTools) {
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const toolRecs = await this.toolService.getRecommendations(toolId, context.objective, 3);
-          recommendations.push(...toolRecs);
+          for (const recommendation of toolRecs) {
+            const rec = this.asRecord(recommendation);
+            recommendations.push({
+              toolId: this.asString(rec.toolId),
+              score: this.asNumber(rec.score),
+              reason: this.asString(rec.reason),
+              context: this.asString(rec.context, context.objective || 'graph match'),
+            });
+          }
         }
       }
 
@@ -818,7 +903,9 @@ export class UnifiedToolRegistry {
     }
   }
 
-  private async getRuleBasedRecommendations(context: unknown): Promise<ToolRecommendation[]> {
+  private async getRuleBasedRecommendations(
+    context: RecommendationRequestContext
+  ): Promise<ToolRecommendation[]> {
     try {
       const tools = await this.getTools({ isEnabled: true });
       const recommendations: ToolRecommendation[] = [];
@@ -889,24 +976,46 @@ export class UnifiedToolRegistry {
     return levelMap[toolSecurityLevel] ?? 2;
   }
 
-  private async getToolExecutor(tool: unknown): Promise<unknown> {
+  private async getToolExecutor(tool: UnifiedToolDefinition): Promise<ToolExecutor | null> {
     try {
       // Try to get executor from registry
       if (tool.vendor) {
         // Enterprise tool - use enterprise registry executor
         const enterpriseRegistry = await import('./enterprise-tool-registry');
-        return new enterpriseRegistry.EnterpriseToolRegistry({
+        const enterpriseExecutor = new enterpriseRegistry.EnterpriseToolRegistry({
           eventBusService: this.eventBusService,
           databaseService: this.databaseService,
           serviceName: 'capability-registry',
         });
-      } else {
-        // Standard tool - use standard registry executor
-        const toolRegistry = await import('./toolRegistry');
-        return new toolRegistry.ToolRegistry(this.eventBusService);
+
+        return {
+          execute: async (operation, parameters, context) => {
+            const executionResult = await enterpriseExecutor.executeTool({
+              toolId: tool.id,
+              operation,
+              parameters,
+              userId: context.userId,
+              agentId: context.agentId,
+              securityContext: {
+                level: context.securityContext?.level ?? 1,
+              },
+            });
+
+            if (!executionResult.success) {
+              throw new Error(executionResult.error || 'Enterprise tool execution failed');
+            }
+
+            return executionResult.data;
+          },
+        };
       }
+
+      return null;
     } catch (error) {
-      logger.error('Failed to get tool executor', { error, toolId: tool.id });
+      logger.error('Failed to get tool executor', {
+        error,
+        toolId: tool.id,
+      });
       return null;
     }
   }
@@ -917,12 +1026,15 @@ export class UnifiedToolRegistry {
       // Simplified project tools lookup for now
       const projectTools: unknown[] = [];
 
-      return projectTools.map((tool: unknown) => ({
-        toolId: tool.id,
-        score: 0.8,
-        reason: `Frequently used in this project (${tool.usageCount} times)`,
-        context: `project-${projectId}`,
-      }));
+      return projectTools.map((tool: unknown) => {
+        const toolRecord = this.asRecord(tool);
+        return {
+          toolId: this.asString(toolRecord.id),
+          score: 0.8,
+          reason: `Frequently used in this project (${this.asNumber(toolRecord.usageCount)} times)`,
+          context: `project-${projectId}`,
+        };
+      });
     } catch (error) {
       logger.error('Failed to get project recommendations', { error, projectId });
       return [];

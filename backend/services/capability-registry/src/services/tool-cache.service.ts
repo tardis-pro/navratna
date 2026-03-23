@@ -93,7 +93,7 @@ export class ToolCacheService {
 
       // Check Redis
       const cached = await this.redis.get(key);
-      if (cached) {
+      if (typeof cached === 'string') {
         const definition = JSON.parse(cached) as ToolDefinition;
         // Populate memory cache
         this.setMemoryCache(key, definition, 60); // Short TTL for memory
@@ -150,7 +150,7 @@ export class ToolCacheService {
       const key = `${this.TOOL_EXEC_PREFIX}${toolId}:${paramHash}`;
 
       const cached = await this.redis.get(key);
-      if (cached) {
+      if (typeof cached === 'string') {
         const entry = JSON.parse(cached) as ExecutionCacheEntry;
         logger.debug('Cache hit for tool execution', { toolId, paramHash });
         return entry.result;
@@ -249,12 +249,14 @@ export class ToolCacheService {
     if (obj === null || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) return obj.map((item) => this.sortObject(item));
 
-    return Object.keys(obj)
+    const objRecord = obj as Record<string, unknown>;
+
+    return Object.keys(objRecord)
       .sort()
-      .reduce((sorted: unknown, key) => {
-        sorted[key] = this.sortObject(obj[key]);
+      .reduce((sorted: Record<string, unknown>, key) => {
+        sorted[key] = this.sortObject(objRecord[key]);
         return sorted;
-      }, {});
+      }, {} as Record<string, unknown>);
   }
 
   private setMemoryCache(key: string, data: unknown, ttlSeconds: number): void {

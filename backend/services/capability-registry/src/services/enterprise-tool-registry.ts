@@ -84,6 +84,10 @@ export class EnterpriseToolRegistry {
     this.serviceName = config.serviceName;
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   async initialize(): Promise<void> {
     // Import config here to avoid circular dependencies
     const { config } = await import('@uaip/config');
@@ -552,10 +556,11 @@ export class EnterpriseToolRegistry {
     operation: ToolOperation,
     request: unknown
   ): Promise<unknown> {
+    const req = this.asRecord(request);
     const sandbox = {
       toolId: tool.id,
       operation: operation.id,
-      parameters: request.parameters,
+      parameters: req.parameters,
       timeout: tool.sandboxing.executionTimeout,
       memoryLimit: tool.sandboxing.memoryLimit,
       networkAccess: tool.sandboxing.networkAccess,
@@ -564,12 +569,13 @@ export class EnterpriseToolRegistry {
 
     // Execute through sandbox service
     const response = await this.eventBusService.publishAndWait('sandbox.execute', sandbox, 30000);
+    const responseData = this.asRecord(response);
 
-    if (!response.success) {
-      throw new Error(`Sandbox execution failed: ${response.error}`);
+    if (!responseData.success) {
+      throw new Error(`Sandbox execution failed: ${String(responseData.error || 'unknown error')}`);
     }
 
-    return response.data;
+    return responseData.data;
   }
 
   /**
@@ -585,7 +591,9 @@ export class EnterpriseToolRegistry {
       throw new Error(`No adapter found for tool: ${tool.id}`);
     }
 
-    return await adapter.execute(operation.id, request.parameters);
+    const adapterExecutor = adapter as { execute: (operationId: string, params: unknown) => Promise<unknown> };
+    const req = this.asRecord(request);
+    return await adapterExecutor.execute(operation.id, req.parameters);
   }
 
   /**
@@ -616,21 +624,24 @@ export class EnterpriseToolRegistry {
 
     // Check security level requirement
     const requiredLevel = tool.compliance.dataClassification === 'restricted' ? 4 : 3;
-    return serviceAccess.securityLevel >= requiredLevel;
+    const access = this.asRecord(serviceAccess);
+    const securityLevel = typeof access.securityLevel === 'number' ? access.securityLevel : 0;
+    return securityLevel >= requiredLevel;
   }
 
   private validateSecurityContext(operation: ToolOperation, securityContext: unknown): void {
-    if (securityContext.level < operation.securityLevel) {
+    const context = this.asRecord(securityContext);
+    const level = typeof context.level === 'number' ? context.level : 0;
+    if (level < operation.securityLevel) {
       throw new Error(
-        `Insufficient security level. Required: ${operation.securityLevel}, Provided: ${securityContext.level}`
+        `Insufficient security level. Required: ${operation.securityLevel}, Provided: ${level}`
       );
     }
 
     // Check required permissions
     if (operation.requiredPermissions.length > 0) {
-      const hasPermissions = operation.requiredPermissions.every((perm) =>
-        securityContext.permissions?.includes(perm)
-      );
+      const permissions = Array.isArray(context.permissions) ? context.permissions.map(String) : [];
+      const hasPermissions = operation.requiredPermissions.every((perm) => permissions.includes(perm));
       if (!hasPermissions) {
         throw new Error('Missing required permissions');
       }
@@ -679,7 +690,8 @@ export class EnterpriseToolRegistry {
   }
 
   private async handleToolRegistration(event: unknown): Promise<void> {
-    const { tool } = event;
+    const eventData = this.asRecord(event);
+    const tool = eventData.tool as ToolDefinition;
     try {
       await this.registerTool(tool);
     } catch (error) {
@@ -688,20 +700,31 @@ export class EnterpriseToolRegistry {
   }
 
   private async handleToolExecution(event: unknown): Promise<void> {
-    const { requestId, ...request } = event;
+    const eventData = this.asRecord(event);
+    const requestId = typeof eventData.requestId === 'string' ? eventData.requestId : '';
+    const request = { ...eventData };
+    delete request.requestId;
     try {
-      const result = await this.executeTool(request);
+      const result = await this.executeTool(request as unknown as {
+        toolId: string;
+        operation: string;
+        parameters: unknown;
+        userId?: string;
+        agentId?: string;
+        securityContext: { level: number; permissions?: string[] };
+      });
       await this.eventBusService.publish(`tool.response.${requestId}`, result);
     } catch (error) {
       await this.eventBusService.publish(`tool.response.${requestId}`, {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
   private async handleStatusCheck(event: unknown): Promise<void> {
-    const { requestId } = event;
+    const eventData = this.asRecord(event);
+    const requestId = typeof eventData.requestId === 'string' ? eventData.requestId : '';
     const status = {
       tools: Array.from(this.tools.keys()),
       toolCount: this.tools.size,
@@ -718,8 +741,9 @@ export class EnterpriseToolRegistry {
   }
 
   private auditLog(event: string, data: unknown): void {
+    const auditData = this.asRecord(data);
     logger.info(`AUDIT: ${event}`, {
-      ...data,
+      ...auditData,
       service: this.serviceName,
       timestamp: new Date().toISOString(),
       compliance: true,
@@ -733,22 +757,24 @@ export class EnterpriseToolRegistry {
     success: boolean,
     error?: string
   ): void {
+    const req = this.asRecord(request);
+    const securityContext = this.asRecord(req.securityContext);
     const auditEntry: Record<string, unknown> = {
       executionId,
-      toolId: request.toolId,
-      operation: request.operation,
-      userId: request.userId,
-      agentId: request.agentId,
+      toolId: req.toolId,
+      operation: req.operation,
+      userId: req.userId,
+      agentId: req.agentId,
       success,
       error,
-      securityLevel: request.securityContext.level,
+      securityLevel: securityContext.level,
       auditLevel: operation?.auditLevel || 'standard',
       timestamp: new Date().toISOString(),
     };
 
     if (operation?.auditLevel === 'comprehensive') {
       // Include request/response data for comprehensive auditing
-      auditEntry['requestData'] = request.parameters;
+      auditEntry['requestData'] = req.parameters;
     }
 
     this.auditLog('TOOL_EXECUTION', auditEntry);

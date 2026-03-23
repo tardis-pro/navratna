@@ -87,6 +87,10 @@ export class SkillImportService {
     this.manifestPath = manifestPath;
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   public async importSkill(skillId: string): Promise<Skill | null> {
     const manifestSkill = await this.getManifestSkill(skillId);
     const skillPath = path.join(this.skillsPath, skillId);
@@ -101,6 +105,7 @@ export class SkillImportService {
     }
 
     const frontmatter = this.extractFrontmatter(skillMarkdown || '');
+    const latest = this.asRecord(meta?.latest);
 
     return {
       id: skillId,
@@ -121,7 +126,7 @@ export class SkillImportService {
         CATEGORY_BY_SKILL[skillId] ||
         this.categoryFromTags(frontmatter.tags),
       version:
-        (meta?.latest?.version as string | undefined) ||
+        (latest.version as string | undefined) ||
         (meta?.version as string | undefined) ||
         manifestSkill?.version ||
         '1.0',
@@ -132,7 +137,7 @@ export class SkillImportService {
       metadata: {
         origin: 'openclaw',
         commit:
-          (meta?.latest?.commit as string | undefined) ||
+          (latest.commit as string | undefined) ||
           (meta?.commit as string | undefined) ||
           manifestSkill?.metadata.commit,
         importedAt: new Date().toISOString(),

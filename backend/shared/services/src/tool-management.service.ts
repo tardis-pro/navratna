@@ -103,12 +103,20 @@ export class ToolManagementService {
         } as unknown,
       });
 
+      type UsageRecordView = {
+        success?: boolean;
+        cost?: number;
+        executionTime?: number;
+        agentId?: string;
+      };
+      const usageRecordViews = usageRecords as UsageRecordView[];
+
       const totalUsage = usageRecords.length;
-      const successfulUsage = usageRecords.filter((r: unknown) => r.success).length;
-      const totalCost = usageRecords.reduce((sum: number, r: unknown) => sum + (r.cost || 0), 0);
+      const successfulUsage = usageRecordViews.filter((r) => r.success).length;
+      const totalCost = usageRecordViews.reduce((sum: number, r) => sum + (r.cost || 0), 0);
       const avgExecutionTime =
         usageRecords.length > 0
-          ? usageRecords.reduce((sum: number, r: unknown) => sum + r.executionTime, 0) /
+          ? usageRecordViews.reduce((sum: number, r) => sum + (r.executionTime || 0), 0) /
             usageRecords.length
           : 0;
 
@@ -120,7 +128,7 @@ export class ToolManagementService {
         successRate: totalUsage > 0 ? successfulUsage / totalUsage : 0,
         totalCost,
         averageExecutionTime: avgExecutionTime,
-        uniqueAgents: new Set(usageRecords.map((r: unknown) => r.agentId)).size,
+        uniqueAgents: new Set(usageRecordViews.map((r) => r.agentId).filter(Boolean)).size,
       };
     } catch (error) {
       this.logger.error('Failed to get tool usage stats', { error: error.message, toolId });
@@ -143,14 +151,21 @@ export class ToolManagementService {
         where: { agentId: data.agentId, toolId: data.toolId } as unknown,
       });
 
-      if (metric) {
-        // Update existing metric
-        const totalExecutions = (metric as unknown).totalExecutions + 1;
-        const successfulExecutions =
-          (metric as unknown).successfulExecutions + (data.success ? 1 : 0);
-        const totalExecutionTime = (metric as unknown).totalExecutionTime + data.executionTime;
+      type MetricView = {
+        id: string;
+        totalExecutions: number;
+        successfulExecutions: number;
+        totalExecutionTime: number;
+      };
 
-        await typeormService.update('AgentCapabilityMetric', metric.id, {
+      if (metric) {
+        const metricView = metric as unknown as MetricView;
+        // Update existing metric
+        const totalExecutions = metricView.totalExecutions + 1;
+        const successfulExecutions = metricView.successfulExecutions + (data.success ? 1 : 0);
+        const totalExecutionTime = metricView.totalExecutionTime + data.executionTime;
+
+        await typeormService.update('AgentCapabilityMetric', metricView.id, {
           totalExecutions,
           successfulExecutions,
           totalExecutionTime,

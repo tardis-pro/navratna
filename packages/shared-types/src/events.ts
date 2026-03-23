@@ -62,7 +62,11 @@ export const UAIPEventSchema = z.object({
   version: z.literal('1'),
 });
 
-export type UAIPEvent = z.infer<typeof UAIPEventSchema>;
+export type UAIPEventBase = z.infer<typeof UAIPEventSchema>;
+
+export type UAIPEvent<T = Record<string, unknown>> = Omit<UAIPEventBase, 'data'> & {
+  data: T;
+};
 
 // Helper function to create UAIPEvent
 export function createUAIPEvent<T>(

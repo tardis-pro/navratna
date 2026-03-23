@@ -56,8 +56,8 @@ const projectQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerProjectRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/projects', (app: unknown) =>
+export function registerProjectRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/projects', (app: any) =>
     withOptionalAuth(app)
       // List projects
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups

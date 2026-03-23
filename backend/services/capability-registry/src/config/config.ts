@@ -65,7 +65,13 @@ function validateConfig(): void {
 }
 
 function getNestedValue(obj: unknown, path: string): unknown {
-  return path.split('.').reduce((current, key) => current?.[key], obj);
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (typeof current !== 'object' || current === null) {
+      return undefined;
+    }
+    const record = current as Record<string, unknown>;
+    return record[key];
+  }, obj);
 }
 
 // Validate configuration on module load

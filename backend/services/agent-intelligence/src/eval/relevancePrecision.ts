@@ -34,7 +34,7 @@ export interface MockCandidate {
     description: string;
     keywords: string[];
     tags?: string[];
-    [key: string]: Record<string, unknown>;
+    [key: string]: unknown;
   };
 }
 

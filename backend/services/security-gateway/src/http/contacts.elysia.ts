@@ -41,8 +41,8 @@ const contactQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerContactRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/contacts', (app: unknown) =>
+export function registerContactRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/contacts', (app: any) =>
     withRequiredAuth(app)
       // POST /request
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -135,7 +135,7 @@ export function registerContactRoutes(elysiaApp: unknown): unknown {
           success: true,
           message: 'Contacts retrieved successfully',
           data: {
-            contacts: contacts.map((c: unknown) => ({
+            contacts: contacts.map((c: any) => ({
               id: c.id,
               user: c.requesterId === userId ? c.target : c.requester,
               status: c.status,
@@ -202,7 +202,7 @@ export function registerContactRoutes(elysiaApp: unknown): unknown {
             message: 'Can only reject pending requests as the target user',
           };
         }
-        let updated: unknown = null;
+        let updated: any = null;
         switch (action) {
           case 'accept':
             updated = await contactRepo.updateStatus(contactId, RepoContactStatus.ACCEPTED);
@@ -262,7 +262,7 @@ export function registerContactRoutes(elysiaApp: unknown): unknown {
           success: true,
           message: 'Pending contact requests retrieved successfully',
           data: {
-            requests: pending.map((c: unknown) => ({
+            requests: pending.map((c: any) => ({
               id: c.id,
               requester: c.requester,
               type: c.type,

@@ -39,6 +39,10 @@ export class CollaborationPatternRunner extends EventEmitter {
     super();
   }
 
+  private static ensureRecord(value: unknown): Record<string, unknown> {
+    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  }
+
   async executePattern(
     pattern: CollaborationPattern,
     initialData?: Record<string, unknown>
@@ -94,7 +98,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
       const result = {
         success,
-        outputs: Object.fromEntries(context.stepOutputs),
+        outputs: context.stepOutputs,
         errors: context.errors,
       };
 
@@ -115,7 +119,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
       return {
         success: false,
-        outputs: Object.fromEntries(context.stepOutputs),
+        outputs: context.stepOutputs,
         errors: context.errors,
       };
     } finally {
@@ -125,7 +129,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
   private async executeSequential(context: WorkflowExecutionContext): Promise<boolean> {
     const { pattern } = context;
-    let previousOutput = context.metadata.initialData;
+    let previousOutput = CollaborationPatternRunner.ensureRecord(context.metadata.initialData);
 
     for (let i = 0; i < pattern.steps.length; i++) {
       const step = pattern.steps[i];
@@ -141,7 +145,10 @@ export class CollaborationPatternRunner extends EventEmitter {
       }
 
       // Execute step
-      const stepInput = { ...step.input, ...previousOutput };
+      const stepInput = {
+        ...CollaborationPatternRunner.ensureRecord(step.input),
+        ...previousOutput,
+      };
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.executeStep(step, stepInput, context);
 
@@ -149,7 +156,7 @@ export class CollaborationPatternRunner extends EventEmitter {
         return false;
       }
 
-      previousOutput = result.output;
+      previousOutput = CollaborationPatternRunner.ensureRecord(result.output);
     }
 
     return true;
@@ -215,7 +222,11 @@ export class CollaborationPatternRunner extends EventEmitter {
     // Execute all steps and require consensus on outputs
     const results = await Promise.all(
       context.pattern.steps.map((step) =>
-        this.executeStep(step, context.metadata.initialData, context)
+        this.executeStep(
+          step,
+          CollaborationPatternRunner.ensureRecord(context.metadata.initialData),
+          context
+        )
       )
     );
 

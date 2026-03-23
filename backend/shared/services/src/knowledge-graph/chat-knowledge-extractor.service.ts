@@ -258,8 +258,7 @@ export class ChatKnowledgeExtractorService {
     } catch (error) {
       logger.error('Error extracting knowledge from conversations:', error);
       throw new Error(
-        `Knowledge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { cause: error }
+        `Knowledge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

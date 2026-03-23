@@ -492,7 +492,7 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
                 // oxlint-ignore-next-line eslint/no-await-in-loop -- sequential processing required
                 const detection = await detector.detectCapabilities(
                   provider.defaultModel,
-                  provider.type as any,
+                  provider.type as unknown as string,
                   provider.baseUrl,
                   apiKey
                 );

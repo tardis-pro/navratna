@@ -2,6 +2,18 @@ import { BaseProvider } from './BaseProvider.js';
 import { LLMRequest, LLMResponse } from '../interfaces';
 
 export class OllamaProvider extends BaseProvider {
+  private static isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private static toString(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
+
+  private static toNumber(value: unknown): number | null {
+    return typeof value === 'number' ? value : null;
+  }
+
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const url = `${this.config.baseUrl}/api/generate`;
@@ -17,17 +29,27 @@ export class OllamaProvider extends BaseProvider {
       };
 
       const data = await this.makeRequest(url, body);
+      if (!OllamaProvider.isRecord(data)) {
+        throw new Error('Invalid response format from Ollama');
+      }
 
-      if (!data.response) {
+      const responseText = OllamaProvider.toString(data.response);
+
+      if (!responseText) {
         throw new Error('No response received from Ollama');
       }
 
+      const resolvedModel =
+        OllamaProvider.toString(data.model) || request.model || this.config.defaultModel || 'unknown';
+      const tokensUsed = OllamaProvider.toNumber(data.eval_count) ?? 0;
+      const done = data.done === true;
+
       return {
-        content: data.response,
-        model: data.model || request.model || this.config.defaultModel || 'unknown',
-        tokensUsed: data.eval_count || 0,
+        content: responseText,
+        model: resolvedModel,
+        tokensUsed,
         confidence: 0.8, // Ollama doesn't provide confidence scores
-        finishReason: data.done ? 'stop' : 'length',
+        finishReason: done ? 'stop' : 'length',
       };
     } catch (error) {
       return this.handleError(error, 'generateResponse');
@@ -46,15 +68,18 @@ export class OllamaProvider extends BaseProvider {
     try {
       const url = `${this.config.baseUrl}/api/tags`;
       const data = await this.makeGetRequest(url);
+      if (!OllamaProvider.isRecord(data)) {
+        return [];
+      }
 
-      if (!data.models || !Array.isArray(data.models)) {
+      if (!Array.isArray(data.models)) {
         return [];
       }
 
       return data.models.map((model: Record<string, unknown>) => ({
-        id: model.name,
-        name: model.name,
-        description: `Ollama model: ${model.name}${model.size ? ` (${this.formatSize(model.size as number)})` : ''}`,
+        id: OllamaProvider.toString(model.name) || 'unknown',
+        name: OllamaProvider.toString(model.name) || 'unknown',
+        description: `Ollama model: ${OllamaProvider.toString(model.name) || 'unknown'}${typeof model.size === 'number' ? ` (${this.formatSize(model.size)})` : ''}`,
         source: this.config.baseUrl,
         apiEndpoint: `${this.config.baseUrl}/api/generate`,
       }));
@@ -62,7 +87,7 @@ export class OllamaProvider extends BaseProvider {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`Failed to fetch models from Ollama at ${this.config.baseUrl}:`, errorMessage);
       // Re-throw the error so it can be properly logged by BaseProvider
-      throw new Error(`Ollama connection failed: ${errorMessage}`, { cause: error });
+      throw new Error(`Ollama connection failed: ${errorMessage}`);
     }
   }
 

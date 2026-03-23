@@ -70,7 +70,7 @@ export {
 export { ConversationUtils } from './conversation/index';
 
 // Vector Search Services
-export { QdrantService } from './qdrant.service';
+export { QdrantService, VectorSearchResult } from './qdrant.service';
 
 // LLM Request Tracking Service
 export { LLMRequestTracker } from './llm-request-tracker.service';

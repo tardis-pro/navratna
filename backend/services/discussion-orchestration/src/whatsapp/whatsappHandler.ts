@@ -390,7 +390,7 @@ export class WhatsAppHandler {
       .subscribe('agent.chat.response', async (event) => {
         const data = event.data as {
           messageId?: string;
-          response?: unknown;
+          response?: any;
           agentName?: string;
         };
 
@@ -482,7 +482,7 @@ export class WhatsAppHandler {
     }
   }
 
-  private extractResponseText(response: unknown): string {
+  private extractResponseText(response: any): string {
     if (typeof response === 'string') return response;
     if (response && typeof response === 'object') {
       const r = response as Record<string, unknown>;

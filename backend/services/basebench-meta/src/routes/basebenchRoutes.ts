@@ -329,10 +329,10 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, any> {
+function isRecord(value: any): value is Record<string, any> {
   return typeof value === 'object' && value !== null;
 }
 
-function toNullableString(value: unknown): string | null {
+function toNullableString(value: any): string | null {
   return typeof value === 'string' ? value : null;
 }

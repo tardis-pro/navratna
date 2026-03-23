@@ -405,7 +405,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     workingMemory: Record<string, unknown>
   ): number {
     const baseConfidence = intentAnalysis.confidence;
-    const contextQuality = Math.min((contextAnalysis.messageCount || 0) / 10, 1);
+    const contextQuality = Math.min((Number(contextAnalysis.messageCount) || 0) / 10, 1);
     const recommendationConfidence =
       actionRecommendations.length > 0
         ? actionRecommendations.reduce((sum, rec) => sum + rec.confidence, 0) /
@@ -439,7 +439,11 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
    * Event handlers
    */
   private async handleAnalyzeIntent(event: Record<string, unknown>): Promise<void> {
-    const { requestId, userRequest, conversationContext, agent, userId } = event;
+    const requestId = event.requestId as string;
+    const userRequest = event.userRequest as string;
+    const conversationContext = event.conversationContext as Record<string, unknown>;
+    const agent = event.agent as Agent | undefined;
+    const userId = event.userId as string | undefined;
     try {
       const analysis = await this.analyzeLLMUserIntent(
         userRequest,
@@ -455,21 +459,22 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
         requestId,
         agentId: agent?.id,
       });
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleGenerateRecommendations(event: Record<string, unknown>): Promise<void> {
-    const {
-      requestId,
-      agent,
-      contextAnalysis,
-      intentAnalysis,
-      constraints,
-      relevantKnowledge,
-      similarEpisodes,
-      userId,
-    } = event;
+    const requestId = event.requestId as string;
+    const agent = event.agent as Agent | undefined;
+    const contextAnalysis = (event.contextAnalysis ?? {}) as Record<string, unknown>;
+    const intentAnalysis = event.intentAnalysis as IntentAnalysis;
+    const constraints = event.constraints as Record<string, unknown> | undefined;
+    const relevantKnowledge = (event.relevantKnowledge ?? []) as KnowledgeItem[];
+    const similarEpisodes = (event.similarEpisodes ?? []) as Episode[];
+    const userId = event.userId as string | undefined;
     try {
       const recommendations = await this.generateLLMEnhancedActionRecommendations(
         agent,
@@ -488,22 +493,23 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
         requestId,
         agentId: agent?.id,
       });
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleGenerateExplanation(event: Record<string, unknown>): Promise<void> {
-    const {
-      requestId,
-      contextAnalysis,
-      intentAnalysis,
-      actionRecommendations,
-      confidence,
-      relevantKnowledge,
-      similarEpisodes,
-      agent,
-      userId,
-    } = event;
+    const requestId = event.requestId as string;
+    const contextAnalysis = (event.contextAnalysis ?? {}) as Record<string, unknown>;
+    const intentAnalysis = event.intentAnalysis as IntentAnalysis;
+    const actionRecommendations = (event.actionRecommendations ?? []) as ActionRecommendation[];
+    const confidence = event.confidence as number;
+    const relevantKnowledge = (event.relevantKnowledge ?? []) as KnowledgeItem[];
+    const similarEpisodes = (event.similarEpisodes ?? []) as Episode[];
+    const agent = event.agent as Agent | undefined;
+    const userId = event.userId as string | undefined;
     try {
       const explanation = await this.generateLLMEnhancedExplanation(
         contextAnalysis,
@@ -523,20 +529,21 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
         requestId,
         agentId: agent?.id,
       });
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleCalculateConfidence(event: Record<string, unknown>): Promise<void> {
-    const {
-      requestId,
-      contextAnalysis,
-      intentAnalysis,
-      actionRecommendations,
-      intelligenceConfig,
-      relevantKnowledge,
-      workingMemory,
-    } = event;
+    const requestId = event.requestId as string;
+    const contextAnalysis = (event.contextAnalysis ?? {}) as Record<string, unknown>;
+    const intentAnalysis = event.intentAnalysis as IntentAnalysis;
+    const actionRecommendations = (event.actionRecommendations ?? []) as ActionRecommendation[];
+    const intelligenceConfig = (event.intelligenceConfig ?? {}) as Record<string, unknown>;
+    const relevantKnowledge = (event.relevantKnowledge ?? []) as KnowledgeItem[];
+    const workingMemory = event.workingMemory as Record<string, unknown> | undefined;
     try {
       const confidence = this.calculateEnhancedConfidence(
         contextAnalysis,
@@ -553,7 +560,10 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
         context: 'handleCalculateConfidence',
         requestId,
       });
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

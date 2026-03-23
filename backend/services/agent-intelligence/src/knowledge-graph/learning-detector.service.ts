@@ -4,6 +4,27 @@ import { ContentClassifier } from './content-classifier.service.js';
 import { EmbeddingService } from './embedding.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
+interface LearningMomentParams {
+  learner: string;
+  teacher: string;
+  type: LearningMoment['type'];
+  learningOutcome: LearningMoment['learningOutcome'];
+  question?: ParsedMessage;
+  answer?: ParsedMessage;
+  response?: ParsedMessage;
+  allMessages?: ParsedMessage[];
+  teachingMessage?: ParsedMessage;
+  learningResponse?: ParsedMessage;
+  correctionMessage?: ParsedMessage;
+  acceptanceResponse?: ParsedMessage;
+  insightMessage?: ParsedMessage;
+  skillMessage?: ParsedMessage;
+  experienceMessage?: ParsedMessage;
+  context?: string | Record<string, unknown>;
+  applicationEvidence?: string[];
+  followUpQuestions?: number;
+}
+
 export interface LearningMoment {
   id: string;
   learner: string;
@@ -812,7 +833,7 @@ export class LearningDetectorService {
   }
 
   private async createLearningMoment(
-    params: Record<string, unknown>
+    params: LearningMomentParams
   ): Promise<LearningMoment | null> {
     try {
       const topic = await this.extractTopic(params);
@@ -845,7 +866,7 @@ export class LearningDetectorService {
     }
   }
 
-  private async extractTopic(params: Record<string, unknown>): Promise<string> {
+  private async extractTopic(params: LearningMomentParams): Promise<string> {
     // Extract topic from the conversation content
     const contents = [
       params.question?.content,
@@ -861,7 +882,7 @@ export class LearningDetectorService {
     return this.extractTopicFromContent(combinedContent);
   }
 
-  private extractContent(params: Record<string, unknown>): string {
+  private extractContent(params: LearningMomentParams): string {
     return (
       params.answer?.content ||
       params.teachingMessage?.content ||
@@ -873,7 +894,7 @@ export class LearningDetectorService {
     );
   }
 
-  private async buildContext(params: Record<string, unknown>): Promise<LearningMoment['context']> {
+  private async buildContext(params: LearningMomentParams): Promise<LearningMoment['context']> {
     const messageIds = [
       params.question?.id,
       params.answer?.id,
@@ -905,7 +926,7 @@ export class LearningDetectorService {
     };
   }
 
-  private calculateConfidence(params: Record<string, unknown>): number {
+  private calculateConfidence(params: LearningMomentParams): number {
     let confidence = 0.6; // Base confidence
 
     // Boost for explicit learning indicators
@@ -926,7 +947,7 @@ export class LearningDetectorService {
     return Math.min(1, confidence);
   }
 
-  private async assessEffectiveness(params: Record<string, unknown>): Promise<number> {
+  private async assessEffectiveness(params: LearningMomentParams): Promise<number> {
     let effectiveness = 0.5; // Base effectiveness
 
     // Look for follow-up questions (indicates engagement)
@@ -945,7 +966,7 @@ export class LearningDetectorService {
   }
 
   private async buildMetadata(
-    params: Record<string, unknown>,
+    params: LearningMomentParams,
     confidence: number,
     effectiveness: number
   ): Promise<LearningMoment['metadata']> {
@@ -965,7 +986,7 @@ export class LearningDetectorService {
   }
 
   // Additional helper methods
-  private extractTimestamp(params: Record<string, unknown>): Date {
+  private extractTimestamp(params: LearningMomentParams): Date {
     return (
       params.question?.timestamp ||
       params.teachingMessage?.timestamp ||
@@ -1012,13 +1033,13 @@ export class LearningDetectorService {
     return keywords[0] || 'general';
   }
 
-  private async extractDomain(_params: Record<string, unknown>): Promise<string> {
+  private async extractDomain(_params: LearningMomentParams): Promise<string> {
     // Domain extraction based on content analysis
     return 'general'; // Simplified for now
   }
 
   private assessComplexity(
-    params: Record<string, unknown>
+    params: LearningMomentParams
   ): LearningMoment['context']['complexity'] {
     const contents = [
       params.question?.content,
@@ -1034,7 +1055,7 @@ export class LearningDetectorService {
     return 'basic';
   }
 
-  private calculateDuration(params: Record<string, unknown>): number {
+  private calculateDuration(params: LearningMomentParams): number {
     // Calculate duration between first and last message
     const timestamps = [
       params.question?.timestamp,
@@ -1051,7 +1072,7 @@ export class LearningDetectorService {
     return Math.round((end - start) / (1000 * 60)); // Duration in minutes
   }
 
-  private countFollowUpQuestions(params: Record<string, unknown>): number {
+  private countFollowUpQuestions(params: LearningMomentParams): number {
     // Count follow-up questions from the learner
     if (!params.allMessages || !params.learner) return 0;
 
@@ -1061,7 +1082,7 @@ export class LearningDetectorService {
     return learnerMessages.filter((m: ParsedMessage) => this.isQuestion(m.content)).length;
   }
 
-  private extractAcknowledgments(params: Record<string, unknown>): string[] {
+  private extractAcknowledgments(params: LearningMomentParams): string[] {
     const acknowledgmentPatterns = [
       /\b(?:thanks?|thank\s+you|appreciate|helpful|great|excellent|perfect)\b/gi,
     ];
@@ -1080,7 +1101,7 @@ export class LearningDetectorService {
     return [...new Set(acknowledgments)];
   }
 
-  private getDetectionMethod(params: Record<string, unknown>): string {
+  private getDetectionMethod(params: LearningMomentParams): string {
     if (params.question && params.answer) return 'question_answer_analysis';
     if (params.teachingMessage) return 'explanation_analysis';
     if (params.correctionMessage) return 'correction_analysis';
@@ -1090,7 +1111,7 @@ export class LearningDetectorService {
     return 'general_analysis';
   }
 
-  private findRetentionIndicators(params: Record<string, unknown>): string[] {
+  private findRetentionIndicators(params: LearningMomentParams): string[] {
     // Look for indicators that learning was retained
     const indicators: string[] = [];
 
@@ -1102,7 +1123,7 @@ export class LearningDetectorService {
     return indicators;
   }
 
-  private findApplicationEvidence(params: Record<string, unknown>): string[] {
+  private findApplicationEvidence(params: LearningMomentParams): string[] {
     const applicationPatterns = [
       /\b(?:I\s+(?:tried|used|applied)|let\s+me\s+try|I'll\s+(?:use|apply))\b/gi,
     ];
@@ -1120,16 +1141,16 @@ export class LearningDetectorService {
     return evidence;
   }
 
-  private findApplicationIndicators(params: Record<string, unknown>): number {
+  private findApplicationIndicators(params: LearningMomentParams): number {
     return this.findApplicationEvidence(params).length > 0 ? 1 : 0;
   }
 
-  private assessAcknowledgmentStrength(params: Record<string, unknown>): number {
+  private assessAcknowledgmentStrength(params: LearningMomentParams): number {
     const acknowledgments = this.extractAcknowledgments(params);
     return Math.min(1, acknowledgments.length / 3);
   }
 
-  private assessClarity(params: Record<string, unknown>): number {
+  private assessClarity(params: LearningMomentParams): number {
     // Assess clarity of the teaching/explanation
     const teachingContent = params.answer?.content || params.teachingMessage?.content || '';
     if (!teachingContent) return 0.5;
@@ -1142,7 +1163,7 @@ export class LearningDetectorService {
     return Math.max(0, Math.min(1, 1 - (avgSentenceLength - 15) / 30));
   }
 
-  private assessRelevance(params: Record<string, unknown>): number {
+  private assessRelevance(params: LearningMomentParams): number {
     // Assess relevance of answer to question
     if (!params.question || !params.answer) return 0.7; // Default for non-QA moments
 
@@ -1154,7 +1175,7 @@ export class LearningDetectorService {
     return Math.min(1, overlap / Math.min(questionWords.size, 10));
   }
 
-  private assessCompleteness(params: Record<string, unknown>): number {
+  private assessCompleteness(params: LearningMomentParams): number {
     // Assess completeness of the learning moment
     let completeness = 0.5; // Base score
 
@@ -1165,7 +1186,7 @@ export class LearningDetectorService {
     return Math.min(1, completeness);
   }
 
-  private assessEngagement(params: Record<string, unknown>): number {
+  private assessEngagement(params: LearningMomentParams): number {
     // Assess level of engagement in the learning moment
     const followUps = this.countFollowUpQuestions(params);
     const acknowledgments = this.extractAcknowledgments(params).length;

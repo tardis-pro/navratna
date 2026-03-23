@@ -115,7 +115,7 @@ export class AgentTransformationService {
     } catch (error) {
       logger.error('Failed to transform persona to agent request', { error, input });
       const msg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Transformation failed: ${msg}`, { cause: error });
+      throw new Error(`Transformation failed: ${msg}`);
     }
   }
 
@@ -123,8 +123,9 @@ export class AgentTransformationService {
    * Checks if the input is already in agent format
    */
   private static isAgentFormat(input: Record<string, unknown>): boolean {
-    return (
+    return !!(
       input.role &&
+      typeof input.role === 'string' &&
       ['assistant', 'analyzer', 'orchestrator', 'specialist'].includes(input.role) &&
       input.capabilities &&
       Array.isArray(input.capabilities)
@@ -146,16 +147,19 @@ export class AgentTransformationService {
       configuration: {
         model: (cfg?.model as string) || (input.modelId as string),
         temperature: (cfg?.temperature as number) || (input.temperature as number) || 0.7,
-        analysisDepth: (cfg?.analysisDepth as string) || 'intermediate',
+        analysisDepth:
+          (cfg?.analysisDepth as 'basic' | 'intermediate' | 'advanced') || 'intermediate',
         contextWindowSize: (cfg?.contextWindowSize as number) || 4000,
         decisionThreshold: (cfg?.decisionThreshold as number) || 0.7,
         learningEnabled: (cfg?.learningEnabled as boolean) ?? true,
-        collaborationMode: (cfg?.collaborationMode as string) || 'collaborative',
+        collaborationMode:
+          (cfg?.collaborationMode as 'independent' | 'collaborative' | 'supervised') ||
+          'collaborative',
       },
-      // Model configuration fields
       modelId: input.modelId as string,
-      apiType: input.apiType as string,
-      securityLevel: (input.securityLevel as string) || 'medium',
+      apiType: input.apiType as 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom',
+      securityLevel:
+        (input.securityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
       isActive: (input.isActive as boolean) ?? true,
     };
   }

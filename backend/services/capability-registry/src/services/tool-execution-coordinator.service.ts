@@ -8,7 +8,7 @@ import {
   getDangerToolConfig,
   toolRequiresApproval,
   getRequiredApprovalLevel,
-  _toolRequiresSecurityTeamApproval,
+  toolRequiresSecurityTeamApproval,
   toolRequiresAudit,
 } from './dangerToolList.js';
 import { config } from '../config/config.js';
@@ -84,6 +84,10 @@ export class ToolExecutionCoordinator {
   private toolRegistry: UnifiedToolRegistry;
   private isListening = false;
   private executionTimeout = 300000; // 5 minutes default
+
+  private asString(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
 
   private constructor() {
     this.eventBus = EventBusService.getInstance();
@@ -435,7 +439,11 @@ export class ToolExecutionCoordinator {
     try {
       const key = `tool:execution:${requestId}`;
       const cached = await this.redis.get(key);
-      return cached ? JSON.parse(cached) : null;
+      if (typeof cached !== 'string') {
+        return null;
+      }
+
+      return JSON.parse(cached) as ToolExecutionStatus;
     } catch (error) {
       logger.error('Failed to get execution status from Redis', error);
       return null;
@@ -452,13 +460,14 @@ export class ToolExecutionCoordinator {
     try {
       const idempotencyKeyRedis = `tool:idempotency:${idempotencyKey}`;
       const requestId = await this.redis.get(idempotencyKeyRedis);
+      const requestIdValue = this.asString(requestId);
 
-      if (!requestId) {
+      if (!requestIdValue) {
         logger.debug('Idempotency key not found', { idempotencyKey });
         return null;
       }
 
-      return await this.getExecutionStatus(requestId);
+      return await this.getExecutionStatus(requestIdValue);
     } catch (error) {
       logger.error('Failed to get execution status by idempotency key', error);
       return null;
@@ -523,7 +532,10 @@ export class ToolExecutionCoordinator {
     }
 
     // Get required approval level
-    const requiredApproval = getRequiredApprovalLevel(toolId);
+    let requiredApproval = getRequiredApprovalLevel(toolId);
+    if (toolRequiresSecurityTeamApproval(toolId)) {
+      requiredApproval = 'SECURITY_TEAM';
+    }
 
     // Check if execution is already approved
     const isApproved = event.securityContext?.approvalStatus?.isApproved === true;

@@ -214,7 +214,10 @@ export class DiscussionService {
 
       // Update discussion in database
       // Exclude complex fields from updates - they should be managed separately
-      const { _participants, _outcomes, _analytics, ...discussionUpdates } = updates;
+      const { participants, outcomes, analytics, ...discussionUpdates } = updates;
+      void participants;
+      void outcomes;
+      void analytics;
       await this.databaseService.update<Discussion>(Discussion, id, {
         ...discussionUpdates,
         updatedAt: new Date(),
@@ -430,7 +433,10 @@ export class DiscussionService {
       }
 
       // Validate agent exists
-      const agent = await this.databaseService.findById('agents', participantRequest.agentId);
+      const agent = await this.databaseService.findById<{ name?: string }>(
+        'agents',
+        participantRequest.agentId
+      );
       if (!agent) {
         throw new Error(`Agent not found: ${participantRequest.agentId}`);
       }
@@ -444,7 +450,7 @@ export class DiscussionService {
       const participant = await participantManagementService.createAgentParticipant({
         discussionId,
         agentId: participantRequest.agentId,
-        displayName: participantRequest.displayName || (agent as unknown).name,
+        displayName: participantRequest.displayName || agent.name,
         roleInDiscussion: participantRequest.role || 'participant',
         permissions: participantRequest.permissions,
         turnOrder: participantRequest.turnOrder,
@@ -957,7 +963,15 @@ export class DiscussionService {
           decisionsReached: discussion.state?.decisions?.length,
           consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
-          keyInsights: discussion.state?.keyPoints?.map((kp: unknown) => kp.point) || [],
+          keyInsights:
+            discussion.state?.keyPoints
+              ?.map((kp: unknown) => {
+                if (typeof kp === 'object' && kp !== null && 'point' in kp) {
+                  return String(kp.point);
+                }
+                return null;
+              })
+              .filter((kp): kp is string => kp !== null) || [],
           unresolvedIssues: [],
         },
         quality: {

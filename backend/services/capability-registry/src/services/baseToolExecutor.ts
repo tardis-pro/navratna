@@ -15,6 +15,14 @@ interface OAuthTokenInfo {
   expiresAt?: string;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
 export class BaseToolExecutor {
   async execute(toolId: string, parameters: Record<string, unknown>): Promise<unknown> {
     logger.info(`Executing tool: ${toolId}`, { parameters });
@@ -46,7 +54,9 @@ export class BaseToolExecutor {
 
   // Math Calculator Tool
   private async executeMathCalculator(parameters: unknown): Promise<unknown> {
-    const { operation, operands } = parameters;
+    const p = asRecord(parameters);
+    const operation = asString(p.operation);
+    const operands = Array.isArray(p.operands) ? p.operands.map((n) => Number(n)) : [];
 
     if (!operation || !operands || !Array.isArray(operands)) {
       throw new Error('Math calculator requires operation and operands array');
@@ -113,13 +123,15 @@ export class BaseToolExecutor {
 
   // Text Analysis Tool
   private async executeTextAnalysis(parameters: unknown): Promise<unknown> {
-    const { text, analysisType = 'all' } = parameters;
+    const p = asRecord(parameters);
+    const text = asString(p.text);
+    const analysisType = asString(p.analysisType) ?? 'all';
 
     if (!text || typeof text !== 'string') {
       throw new Error('Text analysis requires a text string');
     }
 
-    const results: unknown = {
+    const results: Record<string, unknown> = {
       originalText: text,
       timestamp: new Date().toISOString(),
     };
@@ -260,10 +272,13 @@ export class BaseToolExecutor {
 
   // Time Utility Tool
   private async executeTimeUtility(parameters: unknown): Promise<unknown> {
-    const { operation, timezone = 'UTC', format = 'ISO' } = parameters;
+    const p = asRecord(parameters);
+    const operation = asString(p.operation);
+    const timezone = asString(p.timezone) ?? 'UTC';
+    const format = asString(p.format) ?? 'ISO';
 
     const now = new Date();
-    const results: unknown = {
+    const results: Record<string, unknown> = {
       operation,
       timestamp: now.toISOString(),
     };
@@ -279,7 +294,7 @@ export class BaseToolExecutor {
         break;
 
       case 'parse':
-        const { dateString } = parameters;
+        const dateString = asString(p.dateString);
         if (!dateString) throw new Error('Parse operation requires dateString parameter');
 
         const parsed = new Date(dateString);
@@ -294,7 +309,9 @@ export class BaseToolExecutor {
 
       case 'add':
       case 'subtract':
-        const { amount, unit, date = now.toISOString() } = parameters;
+        const amount = typeof p.amount === 'number' ? p.amount : Number(p.amount);
+        const unit = asString(p.unit);
+        const date = asString(p.date) ?? now.toISOString();
         if (!amount || !unit)
           throw new Error('Add/subtract operations require amount and unit parameters');
 
@@ -312,7 +329,8 @@ export class BaseToolExecutor {
         break;
 
       case 'diff':
-        const { startDate, endDate } = parameters;
+        const startDate = asString(p.startDate);
+        const endDate = asString(p.endDate);
         if (!startDate || !endDate)
           throw new Error('Diff operation requires startDate and endDate parameters');
 
@@ -339,7 +357,11 @@ export class BaseToolExecutor {
 
   // ID Generator Tool (replaces UUID generator)
   private async executeIdGenerator(parameters: unknown): Promise<unknown> {
-    const { count = 1, type = 'sequential', min = 1, max = 1000000 } = parameters;
+    const p = asRecord(parameters);
+    const count = typeof p.count === 'number' ? p.count : 1;
+    const type = asString(p.type) ?? 'sequential';
+    const min = typeof p.min === 'number' ? p.min : 1;
+    const max = typeof p.max === 'number' ? p.max : 1000000;
 
     if (count < 1 || count > 100) {
       throw new Error('Count must be between 1 and 100');
@@ -389,7 +411,9 @@ export class BaseToolExecutor {
 
   // File Reader Tool (Simulated)
   private async executeFileReader(parameters: unknown): Promise<unknown> {
-    const { filePath, encoding = 'utf8', _maxSize = 1024 * 1024 } = parameters;
+    const p = asRecord(parameters);
+    const filePath = asString(p.filePath);
+    const encoding = asString(p.encoding) ?? 'utf8';
 
     if (!filePath) {
       throw new Error('File reader requires filePath parameter');
@@ -433,7 +457,10 @@ export class BaseToolExecutor {
 
   // Web Search Tool (Simulated)
   private async executeWebSearch(parameters: unknown): Promise<unknown> {
-    const { query, maxResults = 10, language = 'en' } = parameters;
+    const p = asRecord(parameters);
+    const query = asString(p.query);
+    const maxResults = typeof p.maxResults === 'number' ? p.maxResults : 10;
+    const language = asString(p.language) ?? 'en';
 
     if (!query) {
       throw new Error('Web search requires query parameter');
@@ -585,7 +612,8 @@ export class BaseToolExecutor {
       };
     } catch (error) {
       logger.error(`MCP tool execution failed for ${toolId}:`, error);
-      throw new Error(`MCP execution failed: ${error.message}`, { cause: error });
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`MCP execution failed: ${message}`);
     }
   }
 
@@ -604,9 +632,10 @@ export class BaseToolExecutor {
       const action = parts.slice(2).join('-'); // e.g., 'list-repos'
 
       const oauthDiscovery = OAuthCapabilityDiscovery.getInstance();
+      const parameterMap = asRecord(parameters);
       const userId =
-        typeof parameters?.userId === 'string' && parameters.userId.length > 0
-          ? parameters.userId
+        typeof parameterMap.userId === 'string' && parameterMap.userId.length > 0
+          ? parameterMap.userId
           : undefined;
 
       const tokenInfo = oauthDiscovery.getProviderToken(provider, userId);
@@ -622,7 +651,12 @@ export class BaseToolExecutor {
         };
       }
 
-      const result = await this.executeOAuthProviderAction(provider, action, parameters, tokenInfo);
+      const result = await this.executeOAuthProviderAction(
+        provider,
+        action,
+        asRecord(parameters),
+        tokenInfo
+      );
 
       return {
         toolId,
@@ -636,7 +670,8 @@ export class BaseToolExecutor {
       };
     } catch (error) {
       logger.error(`OAuth tool execution failed for ${toolId}:`, error);
-      throw new Error(`OAuth execution failed: ${error.message}`, { cause: error });
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`OAuth execution failed: ${message}`);
     }
   }
 

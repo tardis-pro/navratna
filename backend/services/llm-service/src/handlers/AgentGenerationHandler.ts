@@ -237,7 +237,7 @@ export class AgentGenerationHandler {
     return Math.max(0, Math.min(1, confidence));
   }
 
-  private async handleError(event: Record<string, unknown>, error: unknown): Promise<void> {
+  private async handleError(event: Record<string, unknown>, error: any): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const eventData = event?.data as Record<string, unknown> | undefined;
     const requestId = eventData?.requestId || event?.requestId;

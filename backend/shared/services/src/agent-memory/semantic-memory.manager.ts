@@ -54,7 +54,8 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       ]);
     } catch (error) {
       console.error('Concept storage error:', error);
-      throw new Error(`Failed to store concept: ${error.message}`, { cause: error });
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to store concept: ${msg}`);
     }
   }
 
@@ -455,7 +456,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
   private async findConceptKnowledgeItem(
     agentId: string,
     conceptId: string
-  ): Promise<unknown | null> {
+  ): Promise<import('@uaip/types').KnowledgeItem | null> {
     const results = await this.knowledgeGraph.search({
       query: `concept ${conceptId}`,
       filters: {

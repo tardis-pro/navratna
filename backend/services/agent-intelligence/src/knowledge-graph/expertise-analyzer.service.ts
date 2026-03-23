@@ -648,7 +648,7 @@ export class ExpertiseAnalyzerService {
       if (matches.length > 0) {
         const strength = Math.min(1, totalStrength / (evidence.length * 2));
         indicators.push({
-          type: type as Record<string, unknown>,
+          type: type as ExpertiseIndicator['type'],
           strength,
           evidence: [...new Set(matches)].slice(0, 5),
           messageIds: [], // Would be populated with actual message IDs

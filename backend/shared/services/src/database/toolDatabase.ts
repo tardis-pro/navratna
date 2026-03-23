@@ -40,8 +40,8 @@ export class ToolDatabase {
         description: tool.description,
         category: tool.category,
         version: tool.version,
-        inputSchema: tool.parameters,
-        outputSchema: tool.returnType,
+        inputSchema: tool.parameters as Record<string, unknown>,
+        outputSchema: tool.returnType as Record<string, unknown>,
         securityLevel: tool.securityLevel,
         maxRetries: 3,
         timeout: 30000,
@@ -132,8 +132,16 @@ export class ToolDatabase {
 
   async updateExecution(id: string, updates: Partial<ToolExecution>): Promise<void> {
     try {
-      const entityUpdates = this.convertExecutionToEntity(updates);
-      const result = await this.databaseService.tools.updateExecution(id, entityUpdates);
+      const result = await this.databaseService.tools.updateExecution(id, {
+        status: updates.status,
+        output:
+          typeof updates.result === 'object' && updates.result !== null
+            ? (updates.result as Record<string, unknown>)
+            : undefined,
+        error: updates.error ? JSON.stringify(updates.error) : undefined,
+        metadata: updates.metadata as Record<string, unknown> | undefined,
+        duration: updates.executionTimeMs,
+      });
       if (!result) {
         throw new Error(`Tool execution not found: ${id}`);
       }
@@ -222,7 +230,9 @@ export class ToolDatabase {
     try {
       if (toolId) {
         const stats = await this.databaseService.tools.getToolUsageStats(toolId, days);
-        return [stats]; // Return as array for consistency
+        return [
+          typeof stats === 'object' && stats !== null ? (stats as Record<string, unknown>) : {},
+        ];
       } else {
         // For general stats without specific toolId, use the repository's getToolUsageStats method
         return await this.databaseService.tools.getToolUsageRepository().getToolUsageStats({

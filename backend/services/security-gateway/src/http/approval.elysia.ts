@@ -60,7 +60,7 @@ const queryWorkflowsSchema = z.object({
   offset: z.coerce.number().min(0).default(0),
 });
 
-function calculateUrgency(workflow: unknown): number {
+function calculateUrgency(workflow: any): number {
   let urgency = 0;
   switch (workflow.metadata?.securityLevel) {
     case SecurityLevel.CRITICAL:
@@ -87,11 +87,11 @@ function calculateUrgency(workflow: unknown): number {
   return urgency;
 }
 
-export function registerApprovalRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/approvals', (app: unknown) =>
+export function registerApprovalRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/approvals', (app: any) =>
     withRequiredAuth(app)
       // Create workflow (operator)
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         withOperatorGuard(g)
           .post('/workflows', async ({ body, set, user, request, headers }) => {
             const parsed = createWorkflowSchema.safeParse(body);
@@ -155,31 +155,31 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
               startDate.setDate(startDate.getDate() - days);
               const { approvalWorkflowService } = await getServices();
               const all = await approvalWorkflowService.getUserWorkflows('');
-              const filtered = all.filter((w: unknown) => w.createdAt >= startDate);
+              const filtered = all.filter((w: any) => w.createdAt >= startDate);
               const stats = {
                 total: filtered.length,
                 byStatus: {
-                  pending: filtered.filter((w: unknown) => w.status === ApprovalStatus.PENDING)
+                  pending: filtered.filter((w: any) => w.status === ApprovalStatus.PENDING)
                     .length,
-                  approved: filtered.filter((w: unknown) => w.status === ApprovalStatus.APPROVED)
+                  approved: filtered.filter((w: any) => w.status === ApprovalStatus.APPROVED)
                     .length,
-                  rejected: filtered.filter((w: unknown) => w.status === ApprovalStatus.REJECTED)
+                  rejected: filtered.filter((w: any) => w.status === ApprovalStatus.REJECTED)
                     .length,
-                  expired: filtered.filter((w: unknown) => w.status === ApprovalStatus.EXPIRED)
+                  expired: filtered.filter((w: any) => w.status === ApprovalStatus.EXPIRED)
                     .length,
                 },
                 bySecurityLevel: {
                   critical: filtered.filter(
-                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
+                    (w: any) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
                   ).length,
                   high: filtered.filter(
-                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.HIGH
+                    (w: any) => w.metadata?.securityLevel === SecurityLevel.HIGH
                   ).length,
                   medium: filtered.filter(
-                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.MEDIUM
+                    (w: any) => w.metadata?.securityLevel === SecurityLevel.MEDIUM
                   ).length,
                   low: filtered.filter(
-                    (w: unknown) => w.metadata?.securityLevel === SecurityLevel.LOW
+                    (w: any) => w.metadata?.securityLevel === SecurityLevel.LOW
                   ).length,
                 },
               };
@@ -207,7 +207,7 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
         }
         try {
           const { approvalWorkflowService } = await getServices();
-          let workflows: unknown[];
+          let workflows: any[];
           const role = (user!.role || '').toLowerCase();
           if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
             workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
@@ -220,12 +220,12 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
           let filtered = workflows;
           const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
           if (operationType)
-            filtered = filtered.filter((w: unknown) => w.metadata?.operationType === operationType);
+            filtered = filtered.filter((w: any) => w.metadata?.operationType === operationType);
           if (securityLevel)
-            filtered = filtered.filter((w: unknown) => w.metadata?.securityLevel === securityLevel);
+            filtered = filtered.filter((w: any) => w.metadata?.securityLevel === securityLevel);
           if (startDate)
-            filtered = filtered.filter((w: unknown) => w.createdAt >= new Date(startDate));
-          if (endDate) filtered = filtered.filter((w: unknown) => w.createdAt <= new Date(endDate));
+            filtered = filtered.filter((w: any) => w.createdAt >= new Date(startDate));
+          if (endDate) filtered = filtered.filter((w: any) => w.createdAt <= new Date(endDate));
           const total = filtered.length;
           const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
           return {
@@ -256,7 +256,7 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
             ApprovalStatus.PENDING
           );
           const detailed = await Promise.all(
-            pending.map(async (wf: unknown) => {
+            pending.map(async (wf: any) => {
               const status = await approvalWorkflowService!.getWorkflowStatus(wf.id);
               return {
                 workflow: wf,
@@ -267,8 +267,8 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
             })
           );
           const userPending = detailed
-            .filter((w: unknown) => w.isPendingForUser)
-            .sort((a: unknown, b: unknown) => b.urgency - a.urgency);
+            .filter((w: any) => w.isPendingForUser)
+            .sort((a: any, b: any) => b.urgency - a.urgency);
           return {
             success: true,
             data: {
@@ -276,16 +276,16 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
               count: userPending.length,
               summary: {
                 critical: userPending.filter(
-                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
+                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
                 ).length,
                 high: userPending.filter(
-                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
+                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
                 ).length,
                 medium: userPending.filter(
-                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
+                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
                 ).length,
                 low: userPending.filter(
-                  (w: unknown) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
+                  (w: any) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
                 ).length,
               },
             },
@@ -298,7 +298,7 @@ export function registerApprovalRoutes(elysiaApp: unknown): unknown {
       })
 
       // Cancel workflow (operator)
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
           async ({ set, params, body, user, request, headers }) => {

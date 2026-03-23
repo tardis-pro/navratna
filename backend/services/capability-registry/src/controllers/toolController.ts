@@ -120,7 +120,7 @@ export class ToolController {
       logger.info(
         `getTool method called - URL: ${req.url}, Method: ${req.method}, Path: ${req.path}, Params: ${JSON.stringify(req.params)}`
       );
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       if (!id) {
         res.status(400).json({
           success: false,
@@ -151,11 +151,12 @@ export class ToolController {
         data: { tool },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get tool ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve tool',
-        message: error.message,
+        message,
       });
     }
   }
@@ -173,6 +174,7 @@ export class ToolController {
         data: { toolId: validatedTool.id },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to register tool:', error);
 
       if (error instanceof z.ZodError) {
@@ -187,7 +189,7 @@ export class ToolController {
       res.status(500).json({
         success: false,
         error: 'Failed to register tool',
-        message: error.message,
+        message,
       });
     }
   }
@@ -195,7 +197,7 @@ export class ToolController {
   // PUT /api/v1/tools/:id
   async updateTool(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -221,6 +223,7 @@ export class ToolController {
         data: { toolId: validationResult.data },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to update tool ${req.params.id}:`, error);
 
       if (error instanceof z.ZodError) {
@@ -235,7 +238,7 @@ export class ToolController {
       res.status(500).json({
         success: false,
         error: 'Failed to update tool',
-        message: error.message,
+        message,
       });
     }
   }
@@ -243,7 +246,7 @@ export class ToolController {
   // DELETE /api/v1/tools/:id
   async unregisterTool(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -266,11 +269,12 @@ export class ToolController {
         data: { toolId: validationResult.data },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to unregister tool ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to unregister tool',
-        message: error.message,
+        message,
       });
     }
   }
@@ -280,7 +284,7 @@ export class ToolController {
   // POST /api/v1/tools/:id/execute
   async executeTool(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -313,6 +317,7 @@ export class ToolController {
         data: { execution },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to execute tool ${req.params.id}:`, error);
 
       if (error instanceof z.ZodError) {
@@ -327,7 +332,7 @@ export class ToolController {
       res.status(500).json({
         success: false,
         error: 'Failed to execute tool',
-        message: error.message,
+        message,
       });
     }
   }
@@ -335,7 +340,7 @@ export class ToolController {
   // GET /api/v1/executions/:id
   async getExecution(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       const execution = await this.toolExecutor.getExecution(id);
 
       if (!execution) {
@@ -352,11 +357,12 @@ export class ToolController {
         data: { execution },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get execution ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve execution',
-        message: error.message,
+        message,
       });
     }
   }
@@ -381,11 +387,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get executions:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve executions',
-        message: error.message,
+        message,
       });
     }
   }
@@ -393,8 +400,9 @@ export class ToolController {
   // POST /api/v1/executions/:id/approve
   async approveExecution(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      const { approvedBy } = req.body;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const approvedBy = typeof body.approvedBy === 'string' ? body.approvedBy : '';
 
       if (!approvedBy) {
         res.status(400).json({
@@ -412,11 +420,12 @@ export class ToolController {
         data: { execution },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to approve execution ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to approve execution',
-        message: error.message,
+        message,
       });
     }
   }
@@ -424,7 +433,7 @@ export class ToolController {
   // POST /api/v1/executions/:id/cancel
   async cancelExecution(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       const cancelled = await this.toolExecutor.cancelExecution(id);
 
       if (!cancelled) {
@@ -442,11 +451,12 @@ export class ToolController {
         data: { executionId: id },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to cancel execution ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to cancel execution',
-        message: error.message,
+        message,
       });
     }
   }
@@ -456,7 +466,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/related
   async getRelatedTools(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -490,11 +500,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get related tools for ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve related tools',
-        message: error.message,
+        message,
       });
     }
   }
@@ -502,7 +513,7 @@ export class ToolController {
   // POST /api/v1/tools/:id/relationships
   async addRelationship(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       const validatedRelationship = AddRelationshipSchema.parse(req.body);
 
       await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, {
@@ -522,6 +533,7 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to add relationship for tool ${req.params.id}:`, error);
 
       if (error instanceof z.ZodError) {
@@ -536,7 +548,7 @@ export class ToolController {
       res.status(500).json({
         success: false,
         error: 'Failed to add relationship',
-        message: error.message,
+        message,
       });
     }
   }
@@ -568,11 +580,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get recommendations:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve recommendations',
-        message: error.message,
+        message,
       });
     }
   }
@@ -580,7 +593,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/similar
   async getSimilarTools(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       const { minSimilarity, limit } = req.query;
 
       const similarTools = await this.toolRegistry.findSimilarTools(
@@ -597,11 +610,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get similar tools for ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve similar tools',
-        message: error.message,
+        message,
       });
     }
   }
@@ -609,7 +623,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/dependencies
   async getToolDependencies(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = typeof req.params.id === 'string' ? req.params.id : '';
       const dependencies = await this.toolRegistry.getToolDependencies(id);
 
       res.json({
@@ -620,11 +634,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get dependencies for tool ${req.params.id}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve tool dependencies',
-        message: error.message,
+        message,
       });
     }
   }
@@ -647,11 +662,12 @@ export class ToolController {
         data: { stats },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get usage analytics:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve usage analytics',
-        message: error.message,
+        message,
       });
     }
   }
@@ -674,11 +690,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get popular tools:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve popular tools',
-        message: error.message,
+        message,
       });
     }
   }
@@ -686,7 +703,7 @@ export class ToolController {
   // GET /api/v1/analytics/agent/:agentId/preferences
   async getAgentPreferences(req: Request, res: Response): Promise<void> {
     try {
-      const { agentId } = req.params;
+      const agentId = typeof req.params.agentId === 'string' ? req.params.agentId : '';
       const preferences = await this.toolRegistry.getAgentToolPreferences(agentId);
 
       res.json({
@@ -697,11 +714,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get preferences for agent ${req.params.agentId}:`, error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve agent preferences',
-        message: error.message,
+        message,
       });
     }
   }
@@ -721,11 +739,12 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get tool categories:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to retrieve tool categories',
-        message: error.message,
+        message,
       });
     }
   }
@@ -740,11 +759,12 @@ export class ToolController {
         data: validation,
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to validate tool:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to validate tool',
-        message: error.message,
+        message,
       });
     }
   }
@@ -770,20 +790,24 @@ export class ToolController {
         },
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error('Health check failed:', error);
       res.status(503).json({
         success: false,
         error: 'Health check failed',
-        message: error.message,
+        message,
       });
     }
   }
 
   private transformToToolDefinition(validatedTool: unknown): ToolDefinition {
-    const transformed: unknown = { ...validatedTool };
+    const transformed =
+      validatedTool && typeof validatedTool === 'object'
+        ? ({ ...validatedTool } as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
 
     // Transform category string to ToolCategory enum
-    if (transformed.category) {
+    if (typeof transformed.category === 'string' && transformed.category.length > 0) {
       const categoryMap: Record<string, ToolCategory> = {
         api: ToolCategory.API,
         computation: ToolCategory.COMPUTATION,
@@ -802,7 +826,7 @@ export class ToolController {
     }
 
     // Transform securityLevel string to SecurityLevel enum
-    if (transformed.securityLevel) {
+    if (typeof transformed.securityLevel === 'string' && transformed.securityLevel.length > 0) {
       const securityMap: Record<string, SecurityLevel> = {
         low: SecurityLevel.LOW,
         medium: SecurityLevel.MEDIUM,
@@ -814,22 +838,35 @@ export class ToolController {
 
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: unknown, index: number) => ({
-        name: example.name || `Example ${index + 1}`,
-        description: example.description || `Example usage ${index + 1}`,
-        input: example.input || example.parameters || {},
-        expectedOutput: example.expectedOutput || example.output || 'Expected output',
-      }));
+      transformed.examples = transformed.examples.map((example: unknown, index: number) => {
+        const ex =
+          example && typeof example === 'object'
+            ? (example as Record<string, unknown>)
+            : ({} as Record<string, unknown>);
+        return {
+          name: typeof ex.name === 'string' ? ex.name : `Example ${index + 1}`,
+          description:
+            typeof ex.description === 'string' ? ex.description : `Example usage ${index + 1}`,
+          input:
+            (ex.input && typeof ex.input === 'object' ? ex.input : undefined) ||
+            (ex.parameters && typeof ex.parameters === 'object' ? ex.parameters : undefined) ||
+            {},
+          expectedOutput: ex.expectedOutput ?? ex.output ?? 'Expected output',
+        };
+      });
     }
 
-    return transformed;
+    return transformed as unknown as ToolDefinition;
   }
 
   private transformToPartialToolDefinition(validatedTool: unknown): Partial<ToolDefinition> {
-    const transformed: unknown = { ...validatedTool };
+    const transformed =
+      validatedTool && typeof validatedTool === 'object'
+        ? ({ ...validatedTool } as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
 
     // Transform category string to ToolCategory enum
-    if (transformed.category) {
+    if (typeof transformed.category === 'string' && transformed.category.length > 0) {
       const categoryMap: Record<string, ToolCategory> = {
         api: ToolCategory.API,
         computation: ToolCategory.COMPUTATION,
@@ -848,7 +885,7 @@ export class ToolController {
     }
 
     // Transform securityLevel string to SecurityLevel enum
-    if (transformed.securityLevel) {
+    if (typeof transformed.securityLevel === 'string' && transformed.securityLevel.length > 0) {
       const securityMap: Record<string, SecurityLevel> = {
         low: SecurityLevel.LOW,
         medium: SecurityLevel.MEDIUM,
@@ -860,14 +897,24 @@ export class ToolController {
 
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: unknown, index: number) => ({
-        name: example.name || `Example ${index + 1}`,
-        description: example.description || `Example usage ${index + 1}`,
-        input: example.input || example.parameters || {},
-        expectedOutput: example.expectedOutput || example.output || 'Expected output',
-      }));
+      transformed.examples = transformed.examples.map((example: unknown, index: number) => {
+        const ex =
+          example && typeof example === 'object'
+            ? (example as Record<string, unknown>)
+            : ({} as Record<string, unknown>);
+        return {
+          name: typeof ex.name === 'string' ? ex.name : `Example ${index + 1}`,
+          description:
+            typeof ex.description === 'string' ? ex.description : `Example usage ${index + 1}`,
+          input:
+            (ex.input && typeof ex.input === 'object' ? ex.input : undefined) ||
+            (ex.parameters && typeof ex.parameters === 'object' ? ex.parameters : undefined) ||
+            {},
+          expectedOutput: ex.expectedOutput ?? ex.output ?? 'Expected output',
+        };
+      });
     }
 
-    return transformed;
+    return transformed as Partial<ToolDefinition>;
   }
 }

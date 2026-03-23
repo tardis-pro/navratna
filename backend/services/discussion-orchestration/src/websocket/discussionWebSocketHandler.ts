@@ -362,7 +362,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Handle incoming WebSocket message
    */
-  private async handleMessage(connection: WebSocketConnection, data: unknown): Promise<void> {
+  private async handleMessage(connection: WebSocketConnection, data: any): Promise<void> {
     try {
       connection.lastActivity = new Date();
       connection.messageCount++;
@@ -507,7 +507,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Send message to a specific connection
    */
-  private sendToConnection(connection: WebSocketConnection, message: unknown): void {
+  private sendToConnection(connection: WebSocketConnection, message: any): void {
     if (connection.ws.readyState === WebSocket.OPEN) {
       connection.ws.send(JSON.stringify(message));
     }
@@ -572,7 +572,7 @@ export class DiscussionWebSocketHandler {
   /**
    * Broadcast message to all connections in a discussion
    */
-  public broadcastToDiscussion(discussionId: string, message: unknown): void {
+  public broadcastToDiscussion(discussionId: string, message: any): void {
     const connections = this.connections.get(discussionId);
     if (connections) {
       connections.forEach((connection) => {

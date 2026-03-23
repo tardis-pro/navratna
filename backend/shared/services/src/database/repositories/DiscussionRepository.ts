@@ -12,11 +12,11 @@ export class DiscussionRepository {
     try {
       return typeormService.getDataSource().getRepository(Discussion);
     } catch (error) {
-      if (error.message.includes('TypeORM service not initialized')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('TypeORM service not initialized')) {
         throw new Error(
           'DiscussionRepository: TypeORM service not initialized. ' +
-            'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.',
-          { cause: error }
+            'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.'
         );
       }
       throw error;

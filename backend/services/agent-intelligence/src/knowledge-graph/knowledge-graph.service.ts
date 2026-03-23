@@ -8,17 +8,19 @@ import {
   ContextRequest,
   KnowledgeFilters,
   KnowledgeScope,
+  KnowledgeType,
+  SourceType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
-import { KnowledgeRepository } from '@uaip/shared-services';
+import { KnowledgeRepository, VectorSearchResult } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding.service.js';
 import { ContentClassifier } from './content-classifier.service.js';
 import { RelationshipDetector } from './relationship-detector.service.js';
-import { ConceptExtractorService } from './concept-extractor.service.js';
-import { OntologyBuilderService } from './ontology-builder.service.js';
-import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
-import { ReconciliationService } from './reconciliation.service.js';
+import { ConceptExtractorService, ConceptExtractionResult } from './concept-extractor.service.js';
+import { OntologyBuilderService, OntologyBuildResult } from './ontology-builder.service.js';
+import { TaxonomyGeneratorService, TaxonomyGenerationResult } from './taxonomy-generator.service.js';
+import { ReconciliationService, KnowledgeConflict, ResolvedKnowledge } from './reconciliation.service.js';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { ChatParserService, ParsedConversation, ParsedMessage } from './chat-parser.service.js';
 import {
@@ -26,6 +28,7 @@ import {
   ExtractedKnowledge,
   QAPair,
   DecisionPoint,
+  KnowledgeExtractionResult,
 } from './chat-knowledge-extractor.service.js';
 import { BatchProcessorService, FileData, ProcessingOptions } from './batch-processor.service.js';
 import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service.js';
@@ -124,7 +127,7 @@ export class KnowledgeGraphService {
     const startTime = Date.now();
     const { query, filters, options, scope } = request;
     let filteredResults: KnowledgeItem[] = [];
-    let vectorResults: Record<string, unknown>[] = [];
+    let vectorResults: VectorSearchResult[] = [];
     try {
       // Generate query embedding or get all items
       if (query && query.trim()) {
@@ -408,19 +411,19 @@ export class KnowledgeGraphService {
         interactionType,
         timestamp: interactionTimestamp,
       },
-      interaction?.userId,
-      interaction?.agentId
+      interaction?.userId as string | undefined,
+      interaction?.agentId as string | undefined
     );
 
     if (syncResult.success && interaction?.entityId) {
       await this.repository.createRelationships([
         {
-          sourceItemId: interaction.entityId,
+          sourceItemId: interaction.entityId as string,
           targetItemId: syncResult.knowledgeItemId,
           relationshipType: 'HAS_INTERACTION',
           confidence: 0.85,
-          userId: interaction?.userId,
-          agentId: interaction?.agentId,
+          userId: interaction?.userId as string | undefined,
+          agentId: interaction?.agentId as string | undefined,
           summary: `Interaction linked: ${interactionType}`,
         },
       ]);
@@ -493,7 +496,7 @@ export class KnowledgeGraphService {
         context,
         initializedAt: contextTimestamp,
       },
-      context?.userId,
+      context?.userId as string | undefined,
       agentId
     );
 
@@ -509,11 +512,11 @@ export class KnowledgeGraphService {
     if (context?.baseKnowledgeItemId) {
       await this.repository.createRelationships([
         {
-          sourceItemId: context.baseKnowledgeItemId,
+          sourceItemId: context.baseKnowledgeItemId as string,
           targetItemId: syncResult.knowledgeItemId,
           relationshipType: 'INITIALIZES_CONTEXT',
           confidence: 0.8,
-          userId: context?.userId,
+          userId: context?.userId as string | undefined,
           agentId,
           summary: `Initial context for agent ${agentId}`,
         },
@@ -667,7 +670,7 @@ export class KnowledgeGraphService {
    * Resolve knowledge conflicts
    */
   async resolveKnowledgeConflicts(
-    conflicts: Record<string, unknown>[],
+    conflicts: KnowledgeConflict[],
     options?: {
       autoResolve?: boolean;
       preserveHistory?: boolean;
@@ -713,11 +716,11 @@ export class KnowledgeGraphService {
     const startTime = Date.now();
     const results = {
       domain: domain || 'all',
-      conceptExtraction: null as Record<string, unknown>,
-      ontologyBuilding: null as Record<string, unknown>,
-      taxonomyGeneration: null as Record<string, unknown>,
-      conflictDetection: null as Record<string, unknown>,
-      conflictResolution: null as Record<string, unknown>,
+      conceptExtraction: null as ConceptExtractionResult | null,
+      ontologyBuilding: null as OntologyBuildResult | null,
+      taxonomyGeneration: null as TaxonomyGenerationResult | null,
+      conflictDetection: null as KnowledgeConflict[] | null,
+      conflictResolution: null as ResolvedKnowledge | null,
       processingTime: 0,
     };
 
@@ -876,7 +879,7 @@ export class KnowledgeGraphService {
    * Extract workflows from chat conversations
    */
   async extractWorkflowsFromChats(
-    conversations: Record<string, unknown>[],
+    conversations: ParsedConversation[],
     options?: WorkflowExtractionOptions
   ): Promise<ExtractedWorkflow[]> {
     try {
@@ -891,7 +894,7 @@ export class KnowledgeGraphService {
    * Analyze participant expertise from conversations
    */
   async analyzeParticipantExpertise(
-    conversations: Record<string, unknown>[],
+    conversations: ParsedConversation[],
     options?: ExpertiseAnalysisOptions
   ): Promise<ExpertiseProfile[]> {
     try {
@@ -906,7 +909,7 @@ export class KnowledgeGraphService {
    * Detect learning moments in conversations
    */
   async detectLearningMoments(
-    conversations: Record<string, unknown>[],
+    conversations: ParsedConversation[],
     options?: LearningDetectionOptions
   ): Promise<LearningMoment[]> {
     try {
@@ -923,7 +926,7 @@ export class KnowledgeGraphService {
    * Generate Q&A pairs from conversations
    */
   async generateQAFromConversations(
-    conversations: Record<string, unknown>[],
+    conversations: ParsedConversation[],
     options?: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
     try {
@@ -983,7 +986,7 @@ export class KnowledgeGraphService {
    * Generate learning insights
    */
   async generateLearningInsights(
-    conversations: Record<string, unknown>[],
+    conversations: ParsedConversation[],
     options?: LearningDetectionOptions
   ) {
     try {
@@ -1005,7 +1008,7 @@ export class KnowledgeGraphService {
    * Save extracted knowledge to the knowledge graph
    */
   private async saveExtractedKnowledge(
-    knowledge: Record<string, unknown>,
+    knowledge: KnowledgeExtractionResult,
     userId: string
   ): Promise<void> {
     const savePromises: Promise<unknown>[] = [];
@@ -1021,7 +1024,7 @@ export class KnowledgeGraphService {
               confidence: item.confidence,
               tags: item.tags,
               source: {
-                type: 'AGENT_INTERACTION' as Record<string, unknown>,
+                type: SourceType.AGENT_INTERACTION,
                 identifier: 'chat-ingestion',
                 metadata: {
                   context: item.context,
@@ -1046,11 +1049,11 @@ export class KnowledgeGraphService {
           this.ingest([
             {
               content: `Q: ${qa.question}\nA: ${qa.answer}`,
-              type: 'PROCEDURAL' as Record<string, unknown>,
+              type: KnowledgeType.PROCEDURAL,
               confidence: qa.confidence,
               tags: qa.tags,
               source: {
-                type: 'AGENT_INTERACTION' as Record<string, unknown>,
+                type: SourceType.AGENT_INTERACTION,
                 identifier: 'chat-qa-extraction',
                 metadata: {
                   question: qa.question,
@@ -1074,10 +1077,10 @@ export class KnowledgeGraphService {
           this.ingest([
             {
               content: decision.decision,
-              type: 'EXPERIENTIAL' as Record<string, unknown>,
+              type: KnowledgeType.EXPERIENTIAL,
               confidence: decision.confidence,
               source: {
-                type: 'AGENT_INTERACTION' as Record<string, unknown>,
+                type: SourceType.AGENT_INTERACTION,
                 identifier: 'chat-decision-extraction',
                 metadata: {
                   reasoning: decision.reasoning,

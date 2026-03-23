@@ -1,12 +1,24 @@
 import { logger } from '@uaip/utils';
 import { MCPClientService } from '../services/mcpClientService.js';
 import { MCPResourceDiscoveryService } from '../services/mcpResourceDiscoveryService.js';
-import type { ElysiaBaseContext } from '@uaip/types';
 
 // Elysia context with params and query
-interface MCPContext extends ElysiaBaseContext {
+interface MCPContext {
   params: Record<string, string>;
   query: Record<string, string | undefined>;
+  body?: unknown;
+  headers?: Record<string, unknown>;
+  request?: Request;
+  set: { status?: number };
+}
+
+interface MCPRouteGroup {
+  get: (path: string, handler: (ctx: MCPContext) => Promise<unknown> | unknown) => MCPRouteGroup;
+  post: (path: string, handler: (ctx: MCPContext) => Promise<unknown> | unknown) => MCPRouteGroup;
+}
+
+interface MCPRouteApp {
+  group: (path: string, handler: (group: MCPRouteGroup) => MCPRouteGroup) => MCPRouteApp;
 }
 
 // ---------------------------------------------------------------------------
@@ -18,15 +30,19 @@ interface MCPContext extends ElysiaBaseContext {
  * clients. httpHeaders contains live API keys and must NEVER leave the process.
  */
 function sanitizeServerState(s: unknown) {
-  const { config, _httpHeaders, ...rest } = s;
+  const state = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>;
+  const { config, _httpHeaders: _ignoredHttpHeaders, ...rest } = state;
+  const cfg = (config && typeof config === 'object' ? config : undefined) as
+    | Record<string, unknown>
+    | undefined;
   return {
     ...rest,
-    config: config
+    config: cfg
       ? {
-          args: config.args,
-          cwd: config.cwd,
-          transportType: config.transportType,
-          httpUrl: config.httpUrl,
+          args: cfg.args,
+          cwd: cfg.cwd,
+          transportType: cfg.transportType,
+          httpUrl: cfg.httpUrl,
           // httpHeaders intentionally omitted — contains API keys
         }
       : undefined,
@@ -39,12 +55,9 @@ function sanitizeServerState(s: unknown) {
  * Matches the pattern used in capabilityController.ts.
  */
 function requireAdmin(ctx: MCPContext): void {
-  const role =
-    (ctx as unknown).headers?.['x-user-role'] ||
-    (ctx as unknown).request?.headers?.get?.('x-user-role');
+  const role = ctx.headers?.['x-user-role'] || ctx.request?.headers?.get?.('x-user-role');
   if (role !== 'admin') {
-    (ctx as unknown).set = (ctx as unknown).set || {};
-    (ctx as unknown).set.status = 403;
+    ctx.set.status = 403;
     throw new Error('Admin access required for MCP server management');
   }
 }
@@ -55,11 +68,12 @@ function requireAdmin(ctx: MCPContext): void {
 
 // Minimal Elysia route group for MCP endpoints
 export function registerMCPRoutes(app: unknown) {
+  const routeApp = app as MCPRouteApp;
   const mcpService = MCPClientService.getInstance();
 
   logger.info('Registering MCP Elysia routes');
 
-  app.group('/api/v1/mcp', (g: unknown) =>
+  routeApp.group('/api/v1/mcp', (g: MCPRouteGroup) =>
     g
       // Simple readiness/test endpoint
       .get('/test', () => ({ success: true, message: 'MCP routes working' }))
@@ -212,10 +226,29 @@ export function registerMCPRoutes(app: unknown) {
         requireAdmin(ctx);
         const body = ctx.body as Record<string, unknown> | undefined;
         if (!body) {
-          (ctx as unknown).set.status = 400;
+          ctx.set.status = 400;
           return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Body required' } };
         }
-        await mcpService.installServer(ctx.params.serverName, body as unknown);
+        const transportType: 'stdio' | 'http' | 'streamable-http' =
+          body.transportType === 'http' || body.transportType === 'streamable-http'
+            ? body.transportType
+            : 'stdio';
+        const installConfig = {
+          args: Array.isArray(body.args) ? body.args.map(String) : [],
+          command: typeof body.command === 'string' ? body.command : undefined,
+          env:
+            body.env && typeof body.env === 'object'
+              ? (body.env as Record<string, string>)
+              : undefined,
+          cwd: typeof body.cwd === 'string' ? body.cwd : undefined,
+          transportType,
+          httpUrl: typeof body.httpUrl === 'string' ? body.httpUrl : undefined,
+          httpHeaders:
+            body.httpHeaders && typeof body.httpHeaders === 'object'
+              ? (body.httpHeaders as Record<string, string>)
+              : undefined,
+        };
+        await mcpService.installServer(ctx.params.serverName, installConfig);
         return { success: true };
       })
       .post('/servers/:serverName/uninstall', async (ctx: MCPContext) => {
@@ -239,7 +272,7 @@ export function registerMCPRoutes(app: unknown) {
         const bodyData = ctx.body as Record<string, unknown> | undefined;
         const { serverName, toolName } = bodyData || {};
         if (!serverName || !toolName) {
-          (ctx as unknown).set.status = 400;
+          ctx.set.status = 400;
           return {
             success: false,
             error: { code: 'VALIDATION_ERROR', message: 'serverName and toolName are required' },

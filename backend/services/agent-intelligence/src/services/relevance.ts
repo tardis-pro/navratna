@@ -86,7 +86,7 @@ async function getGraphDatabase(): Promise<ToolGraphDatabase | null> {
       database: process.env.NEO4J_DATABASE || 'neo4j',
       maxConnectionPoolSize: 20,
       connectionTimeout: 5000,
-    } as Record<string, unknown>);
+    });
   }
 
   if (!graphInitAttempted) {

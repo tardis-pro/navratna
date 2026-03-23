@@ -4,15 +4,12 @@
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
 import {
-  _ToolDatabase,
   ToolRelationship,
   ToolRecommendation,
   ToolService,
-  _serviceFactory,
 } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
-import { _config } from '@uaip/config';
 import { z } from 'zod';
 
 // Define AgentCapabilityMetric interface locally since it's not exported from types
@@ -60,6 +57,26 @@ const ToolRelationshipSchema = z.object({
 export class ToolRegistry {
   private toolService: ToolService;
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
+  private asString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  private asNumber(value: unknown, fallback = 0): number {
+    return typeof value === 'number' ? value : fallback;
+  }
+
+  private toSecurityLevel(value: unknown): SecurityLevel {
+    if (value === SecurityLevel.LOW) return SecurityLevel.LOW;
+    if (value === SecurityLevel.MEDIUM) return SecurityLevel.MEDIUM;
+    if (value === SecurityLevel.HIGH) return SecurityLevel.HIGH;
+    if (value === SecurityLevel.CRITICAL) return SecurityLevel.CRITICAL;
+    return SecurityLevel.MEDIUM;
+  }
+
   constructor(private eventBusService?: EventBusService) {
     this.toolService = ToolService.getInstance();
     if (this.eventBusService) {
@@ -91,56 +108,64 @@ export class ToolRegistry {
   // Handle dynamic tool registration from MCP servers
   private async handleToolRegistration(event: unknown): Promise<void> {
     try {
-      const { tool, source, _serverName } = event;
-      logger.info(`Registering tool from ${source}: ${tool.id}`);
+      const eventRecord = this.asRecord(event);
+      const tool = this.asRecord(eventRecord.tool);
+      const source = this.asString(eventRecord.source, 'unknown');
+      logger.info(`Registering tool from ${source}: ${this.asString(tool.id, 'unknown-tool')}`);
 
       // Register the tool with enhanced metadata
       await this.registerTool({
         ...tool,
-        metadata: {
-          ...tool.metadata,
-          autoRegistered: true,
-          registrationSource: source,
-          registrationTimestamp: new Date().toISOString(),
-        },
       });
     } catch (error) {
-      logger.error(`Failed to handle tool registration for ${event.tool?.id}:`, error);
+      const eventRecord = this.asRecord(event);
+      const toolRecord = this.asRecord(eventRecord.tool);
+      logger.error(
+        `Failed to handle tool registration for ${this.asString(toolRecord.id, 'unknown-tool')}:`,
+        error
+      );
     }
   }
 
   // Handle OAuth provider capabilities
   private async handleOAuthCapabilities(event: unknown): Promise<void> {
     try {
-      const { provider, capabilities } = event;
+      const eventRecord = this.asRecord(event);
+      const provider = this.asString(eventRecord.provider, 'unknown');
+      const capabilities = Array.isArray(eventRecord.capabilities) ? eventRecord.capabilities : [];
 
       for (const capability of capabilities) {
-        const toolId = `oauth-${provider}-${capability.action}`;
+        const capabilityRecord = this.asRecord(capability);
+        const toolId = `oauth-${provider}-${this.asString(capabilityRecord.action, 'action')}`;
 
         // eslint-disable-next-line no-await-in-loop -- sequential processing required
         await this.registerTool({
           id: toolId,
-          name: capability.name,
-          description: capability.description,
+          name: this.asString(capabilityRecord.name, toolId),
+          description: this.asString(capabilityRecord.description, ''),
           category: ToolCategory.COMMUNICATION,
           version: '1.0.0',
-          parameters: capability.parameters || {},
-          returnType: capability.returnType || {},
+          parameters: this.asRecord(capabilityRecord.parameters),
+          returnType: this.asRecord(capabilityRecord.returnType),
           securityLevel: SecurityLevel.MEDIUM,
           requiresApproval: false,
           isEnabled: true,
           executionTimeEstimate: 3000,
           costEstimate: 0.02,
           author: `${provider} OAuth Provider`,
-          tags: ['oauth', provider, capability.category, 'auto-registered'],
+          tags: ['oauth', provider, this.asString(capabilityRecord.category, 'general'), 'auto-registered'],
           dependencies: [],
-          examples: capability.examples || [],
+          examples: Array.isArray(capabilityRecord.examples) ? capabilityRecord.examples : [],
         });
       }
 
       logger.info(`Registered ${capabilities.length} OAuth capabilities for ${provider}`);
     } catch (error) {
-      logger.error(`Failed to handle OAuth capabilities for ${event.provider}:`, error);
+      const eventRecord = this.asRecord(event);
+      logger.error(
+        `Failed to handle OAuth capabilities for ${this.asString(eventRecord.provider, 'unknown')}:`,
+        error
+      );
     }
   }
 
@@ -168,12 +193,12 @@ export class ToolRegistry {
         name: validatedTool.name,
         displayName: validatedTool.name, // Use name as displayName
         description: validatedTool.description,
-        category: validatedTool.category as unknown,
+        category: this.mapStringToToolCategory(validatedTool.category),
         isEnabled: validatedTool.isEnabled,
         version: validatedTool.version,
         inputSchema: validatedTool.parameters,
         outputSchema: validatedTool.returnType,
-        securityLevel: validatedTool.securityLevel as SecurityLevel,
+        securityLevel: this.toSecurityLevel(validatedTool.securityLevel),
       });
 
       logger.info(`Tool registered successfully: ${tool.id}`);
@@ -214,7 +239,7 @@ export class ToolRegistry {
       const toolRepo = this.toolService.getToolRepository();
 
       // Transform the updates to match entity types
-      const entityUpdates: unknown = {
+      const entityUpdates: Record<string, unknown> = {
         updatedAt: new Date(),
       };
 
@@ -301,7 +326,8 @@ export class ToolRegistry {
       return null;
     } catch (error) {
       logger.error(`Error looking up tool ${toolName}:`, error);
-      throw new Error(`Failed to lookup tool: ${toolName}`, { cause: error });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to lookup tool: ${toolName}. ${errorMessage}`);
     }
   }
 
@@ -444,7 +470,7 @@ export class ToolRegistry {
   // Analytics and Insights
   async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<unknown[]> {
     await this.ensureInitialized();
-    const filters: unknown = { days };
+    const filters: { toolId?: string; agentId?: string; days: number } = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     // Use ToolService for usage stats
@@ -556,7 +582,7 @@ export class ToolRegistry {
         cost: cost,
         startTime: new Date(),
         endTime: new Date(),
-        metadata: metadata || {},
+        metadata: this.asRecord(metadata),
       };
 
       // Record tool usage through ToolService
@@ -567,7 +593,7 @@ export class ToolRegistry {
         executionTimeMs: executionTime,
         success,
         cost,
-        metadata: metadata || {},
+        metadata: this.asRecord(metadata),
         usedAt: new Date(),
       });
 
@@ -606,19 +632,26 @@ export class ToolRegistry {
       const usageRepo = this.toolService.getToolUsageRepository();
       const stats = await usageRepo.getToolUsageStats({ agentId });
       // Transform to expected format
-      return stats.map((stat: unknown) => ({
-        id: `${stat.agentId}_${stat.toolId}`,
-        agentId: stat.agentId,
-        toolId: stat.toolId,
-        totalExecutions: stat.totalUses || 0,
-        successfulExecutions: stat.successfulUses || 0,
-        totalExecutionTime: stat.avgExecutionTime * stat.totalUses || 0,
-        averageExecutionTime: stat.avgExecutionTime || 0,
-        successRate: stat.totalUses > 0 ? (stat.successfulUses || 0) / stat.totalUses : 0,
-        lastUsed: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      return stats.map((stat: unknown) => {
+        const statRecord = this.asRecord(stat);
+        const totalUses = this.asNumber(statRecord.totalUses);
+        const successfulUses = this.asNumber(statRecord.successfulUses);
+        const avgExecutionTime = this.asNumber(statRecord.avgExecutionTime);
+
+        return {
+          id: `${this.asString(statRecord.agentId)}_${this.asString(statRecord.toolId)}`,
+          agentId: this.asString(statRecord.agentId),
+          toolId: this.asString(statRecord.toolId),
+          totalExecutions: totalUses,
+          successfulExecutions: successfulUses,
+          totalExecutionTime: avgExecutionTime * totalUses,
+          averageExecutionTime: avgExecutionTime,
+          successRate: totalUses > 0 ? successfulUses / totalUses : 0,
+          lastUsed: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      });
     } catch (error) {
       logger.error(`Failed to get capability metrics for agent ${agentId}:`, error);
       return [];
@@ -637,18 +670,53 @@ export class ToolRegistry {
   }
 
   private transformEntityToInterface(entity: unknown): ToolDefinition {
+    const entityRecord = this.asRecord(entity);
     return {
-      ...entity,
-      // Transform ToolSecurityLevel to SecurityLevel if needed
-      securityLevel: this.mapToolSecurityLevelToSecurityLevel(entity.securityLevel),
-      // Transform category string to ToolCategory enum if needed
-      category: this.mapStringToToolCategory(entity.category),
+      id: this.asString(entityRecord.id),
+      name: this.asString(entityRecord.name),
+      description: this.asString(entityRecord.description),
+      version: this.asString(entityRecord.version, '1.0.0'),
+      securityLevel: this.mapToolSecurityLevelToSecurityLevel(entityRecord.securityLevel),
+      category: this.mapStringToToolCategory(entityRecord.category),
+      parameters: this.asRecord(entityRecord.parameters),
+      returnType: this.asRecord(entityRecord.returnType),
+      requiresApproval: Boolean(entityRecord.requiresApproval),
+      isEnabled: Boolean(entityRecord.isEnabled),
+      executionTimeEstimate:
+        typeof entityRecord.executionTimeEstimate === 'number'
+          ? entityRecord.executionTimeEstimate
+          : undefined,
+      costEstimate: typeof entityRecord.costEstimate === 'number' ? entityRecord.costEstimate : undefined,
+      author: this.asString(entityRecord.author, 'unknown'),
+      tags: Array.isArray(entityRecord.tags)
+        ? entityRecord.tags.filter((tag): tag is string => typeof tag === 'string')
+        : [],
+      dependencies: Array.isArray(entityRecord.dependencies)
+        ? entityRecord.dependencies.filter((dep): dep is string => typeof dep === 'string')
+        : [],
+      examples: Array.isArray(entityRecord.examples)
+        ? entityRecord.examples.map((example, index) => {
+            const exampleRecord = this.asRecord(example);
+            return {
+              name: this.asString(exampleRecord.name, `Example ${index + 1}`),
+              description: this.asString(exampleRecord.description, `Example usage ${index + 1}`),
+              input: this.asRecord(exampleRecord.input ?? exampleRecord.parameters),
+              expectedOutput:
+                exampleRecord.expectedOutput ?? exampleRecord.output ?? 'Expected output',
+            };
+          })
+        : [],
     };
   }
 
   private mapToolSecurityLevelToSecurityLevel(toolSecurityLevel: unknown): SecurityLevel {
     // If it's already a SecurityLevel, return as is
-    if (Object.values(SecurityLevel).includes(toolSecurityLevel)) {
+    if (
+      toolSecurityLevel === SecurityLevel.LOW ||
+      toolSecurityLevel === SecurityLevel.MEDIUM ||
+      toolSecurityLevel === SecurityLevel.HIGH ||
+      toolSecurityLevel === SecurityLevel.CRITICAL
+    ) {
       return toolSecurityLevel;
     }
 
@@ -660,13 +728,14 @@ export class ToolRegistry {
       DANGEROUS: SecurityLevel.CRITICAL,
     };
 
-    return mapping[toolSecurityLevel] || SecurityLevel.MEDIUM;
+    const normalizedLevel = this.asString(toolSecurityLevel).toUpperCase();
+    return mapping[normalizedLevel] || SecurityLevel.MEDIUM;
   }
 
   private mapStringToToolCategory(category: unknown): ToolCategory {
     // If it's already a ToolCategory, return as is
-    if (Object.values(ToolCategory).includes(category)) {
-      return category;
+    if (Object.values(ToolCategory).includes(category as ToolCategory)) {
+      return category as ToolCategory;
     }
 
     // Map string to ToolCategory enum
@@ -685,11 +754,11 @@ export class ToolRegistry {
       generation: ToolCategory.GENERATION,
     };
 
-    return mapping[category] || ToolCategory.API;
+    return mapping[this.asString(category)] || ToolCategory.API;
   }
 
   private transformValidatedToToolDefinition(validatedTool: unknown): Partial<ToolDefinition> {
-    const transformed: unknown = { ...validatedTool };
+    const transformed: Record<string, unknown> = { ...this.asRecord(validatedTool) };
 
     // Transform category string to ToolCategory enum
     if (transformed.category) {
@@ -707,7 +776,7 @@ export class ToolRegistry {
         analysis: ToolCategory.ANALYSIS,
         generation: ToolCategory.GENERATION,
       };
-      transformed.category = categoryMap[transformed.category] || ToolCategory.API;
+      transformed.category = categoryMap[this.asString(transformed.category)] || ToolCategory.API;
     }
 
     // Transform securityLevel string to SecurityLevel enum
@@ -718,19 +787,23 @@ export class ToolRegistry {
         high: SecurityLevel.HIGH,
         critical: SecurityLevel.CRITICAL,
       };
-      transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
+      transformed.securityLevel =
+        securityMap[this.asString(transformed.securityLevel)] || SecurityLevel.MEDIUM;
     }
 
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: unknown, index: number) => ({
-        name: example.name || `Example ${index + 1}`,
-        description: example.description || `Example usage ${index + 1}`,
-        input: example.input || example.parameters || {},
-        expectedOutput: example.expectedOutput || example.output || 'Expected output',
-      }));
+      transformed.examples = transformed.examples.map((example: unknown, index: number) => {
+        const exampleRecord = this.asRecord(example);
+        return {
+          name: this.asString(exampleRecord.name, `Example ${index + 1}`),
+          description: this.asString(exampleRecord.description, `Example usage ${index + 1}`),
+          input: this.asRecord(exampleRecord.input ?? exampleRecord.parameters),
+          expectedOutput: exampleRecord.expectedOutput ?? exampleRecord.output ?? 'Expected output',
+        };
+      });
     }
 
-    return transformed;
+    return transformed as Partial<ToolDefinition>;
   }
 }

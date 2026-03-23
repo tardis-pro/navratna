@@ -188,8 +188,7 @@ export class OntologyBuilderService {
     } catch (error) {
       logger.error(`Error building domain ontology for ${domain}:`, error);
       throw new Error(
-        `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { cause: error }
+        `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -466,10 +465,7 @@ export class OntologyBuilderService {
       );
     } catch (error) {
       logger.error('Error saving ontology to knowledge graph:', error);
-      throw new Error(
-        `Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { cause: error }
-      );
+      throw new Error(`Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

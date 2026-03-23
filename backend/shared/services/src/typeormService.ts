@@ -5,7 +5,11 @@ import {
   EntityTarget,
   ObjectLiteral,
   SelectQueryBuilder,
+  FindOptionsWhere,
+  FindOptionsOrder,
+  DeepPartial,
 } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js';
 import { dataSourceManager } from './database/typeorm.config';
 import { createLogger } from '@uaip/utils';
 
@@ -157,7 +161,7 @@ export class TypeOrmService {
     try {
       const repository = this.getRepository(entityClass);
       return await repository.findOne({
-        where: { id } as unknown,
+        where: { id } as unknown as FindOptionsWhere<Entity>,
       });
     } catch (error) {
       this.logger.error('Failed to find entity by ID', { entityClass, id, error: error.message });
@@ -174,8 +178,8 @@ export class TypeOrmService {
   ): Promise<Entity> {
     try {
       const repository = this.getRepository(entityClass);
-      const entity = repository.create(data as unknown);
-      return await repository.save(entity as unknown);
+      const entity = repository.create(data as DeepPartial<Entity>);
+      return await repository.save(entity);
     } catch (error) {
       this.logger.error('Failed to create entity', { entityClass, error: error.message });
       throw error;
@@ -192,7 +196,7 @@ export class TypeOrmService {
   ): Promise<Entity | null> {
     try {
       const repository = this.getRepository(entityClass);
-      await repository.update(id, data as unknown);
+      await repository.update(id, data as QueryDeepPartialEntity<Entity>);
       return await this.findById(entityClass, id);
     } catch (error) {
       this.logger.error('Failed to update entity', { entityClass, id, error: error.message });
@@ -222,7 +226,7 @@ export class TypeOrmService {
    */
   public async count<Entity extends ObjectLiteral>(
     entityClass: EntityTarget<Entity>,
-    conditions: unknown = {}
+    conditions: FindOptionsWhere<Entity> | FindOptionsWhere<Entity>[] = {}
   ): Promise<number> {
     try {
       const repository = this.getRepository(entityClass);
@@ -241,8 +245,8 @@ export class TypeOrmService {
     options: {
       page?: number;
       limit?: number;
-      where?: unknown;
-      order?: unknown;
+      where?: FindOptionsWhere<Entity> | FindOptionsWhere<Entity>[];
+      order?: FindOptionsOrder<Entity>;
       relations?: string[];
     } = {}
   ): Promise<{ data: Entity[]; total: number; page: number; pageCount: number }> {

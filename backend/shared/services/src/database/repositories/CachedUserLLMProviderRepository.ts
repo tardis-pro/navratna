@@ -161,7 +161,14 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     const cacheKey = this.CACHE_KEYS.PROVIDER_STATS(id, userId);
 
     if (useCache) {
-      const cached = await redisCacheService.get(cacheKey);
+      const cached = await redisCacheService.get<{
+        totalRequests: string;
+        totalTokensUsed: string;
+        totalErrors: string;
+        errorRate: number;
+        lastUsedAt?: Date;
+        healthStatus?: string;
+      }>(cacheKey);
       if (cached) {
         logger.debug('LLM provider stats retrieved from cache', { id, userId });
         return cached;

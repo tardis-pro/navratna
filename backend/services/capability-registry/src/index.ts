@@ -1,8 +1,6 @@
 import {
   BaseService,
-  _ServiceConfig,
   allEntities,
-  Capability,
   MCPServer as SharedMCPServer,
   MCPToolCall as SharedMCPToolCall,
 } from '@uaip/shared-services';
@@ -32,7 +30,7 @@ import { ToolAdapterService } from './services/tool-adapter.service.js';
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
 import { ExecutionDataSource, McpRepository } from './database/index.js';
-import { SkillImportService } from './services/skillImport.service.js';
+import { SkillImportService, type Skill } from './services/skillImport.service.js';
 
 class CapabilityRegistryService extends BaseService {
   private postgresql: InfraDatabaseService;
@@ -55,6 +53,7 @@ class CapabilityRegistryService extends BaseService {
   private toolRecommendationService: ToolRecommendationService;
   private sandboxExecutionService: SandboxExecutionService;
   private toolAdapterService: ToolAdapterService;
+  private skillImportService: SkillImportService;
 
   constructor() {
     super({
@@ -197,7 +196,7 @@ class CapabilityRegistryService extends BaseService {
         return;
       }
 
-      const capabilityRepository = await this.postgresql.getRepository(Capability);
+      const capabilityRepository = await this.postgresql.getRepository('Capability' as never);
       const records = skills.map((skill) => ({
         name: skill.name,
         description: skill.description,
@@ -215,7 +214,7 @@ class CapabilityRegistryService extends BaseService {
       await capabilityRepository.upsert(records, ['name']);
       logger.info('Registered OpenClaw skills as capabilities', {
         count: records.length,
-        skills: skills.map((skill) => skill.id),
+        skills: skills.map((skill: Skill) => skill.id),
       });
     } catch (error) {
       logger.error('Failed to register OpenClaw skills', error);
@@ -265,7 +264,16 @@ class CapabilityRegistryService extends BaseService {
     const neo4jStatus = neo4jConnectionStatus?.isConnected ? 'connected' : 'disconnected';
 
     // Get MCP system status
-    const mcpStatus = await this.mcpClientService?.getSystemStatus();
+    const mcpStatus = (await this.mcpClientService?.getSystemStatus()) as
+      | {
+          healthStatus?: string;
+          totalServers?: number;
+          runningServers?: number;
+          errorServers?: number;
+          totalTools?: number;
+          uptime?: number;
+        }
+      | undefined;
 
     // Get OAuth provider status
     const connectedProviders = this.oauthCapabilityDiscovery?.getConnectedProviders();

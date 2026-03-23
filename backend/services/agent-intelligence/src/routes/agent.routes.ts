@@ -2,6 +2,14 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { relevance, type RelevanceInput } from '../services/relevance.js';
 
+interface AgentRouteGroup {
+  post(path: string, handler: (ctx: unknown) => unknown): AgentRouteGroup;
+}
+
+interface AgentRouteAppLike {
+  group(path: string, handler: (group: AgentRouteGroup) => unknown): unknown;
+}
+
 const candidateSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['agent', 'sop', 'task', 'knowledge', 'capability']),
@@ -23,13 +31,18 @@ const relevanceSchema = z.object({
   limit: z.number().int().positive().max(100).optional(),
 });
 
-export function registerAgentRoutes(app: Record<string, unknown>): Record<string, unknown> {
-  return app.group('/api/v1/agents', (group: Record<string, unknown>) =>
-    group.post('/relevance', async ({ body, set }: Record<string, unknown>) => {
+export function registerAgentRoutes<T>(app: T): T {
+  const routeApp = app as unknown as AgentRouteAppLike;
+  routeApp.group('/api/v1/agents', (group) =>
+    group.post('/relevance', async (ctx) => {
+      const context =
+        ctx && typeof ctx === 'object' ? (ctx as { body?: unknown; set?: { status?: number | string } }) : {};
+      const body = context.body;
+      const set = context.set;
       const parsed = relevanceSchema.safeParse(body);
 
       if (!parsed.success) {
-        set.status = 400;
+        if (set) set.status = 400;
         return {
           success: false,
           error: 'Invalid relevance payload',
@@ -48,7 +61,7 @@ export function registerAgentRoutes(app: Record<string, unknown>): Record<string
         };
       } catch (error) {
         logger.error('Failed to score relevance', { error });
-        set.status = 500;
+        if (set) set.status = 500;
         return {
           success: false,
           error: 'Failed to score relevance',
@@ -56,4 +69,6 @@ export function registerAgentRoutes(app: Record<string, unknown>): Record<string
       }
     })
   );
+
+  return app;
 }

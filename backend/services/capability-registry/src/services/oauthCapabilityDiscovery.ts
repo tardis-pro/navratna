@@ -276,6 +276,10 @@ export class OAuthCapabilityDiscovery {
 
   private constructor() {}
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   public static getInstance(): OAuthCapabilityDiscovery {
     if (!OAuthCapabilityDiscovery.instance) {
       OAuthCapabilityDiscovery.instance = new OAuthCapabilityDiscovery();
@@ -311,7 +315,11 @@ export class OAuthCapabilityDiscovery {
 
   private async handleProviderConnection(event: unknown): Promise<void> {
     try {
-      const { provider, userId, scopes, tokenInfo } = event;
+      const evt = this.asRecord(event);
+      const provider = typeof evt.provider === 'string' ? evt.provider : '';
+      const userId = typeof evt.userId === 'string' ? evt.userId : '';
+      const scopes = Array.isArray(evt.scopes) ? evt.scopes.map(String) : undefined;
+      const tokenInfo = evt.tokenInfo;
       logger.info(`OAuth provider connected: ${provider} for user ${userId}`);
 
       // Get capabilities for the connected provider
@@ -342,13 +350,16 @@ export class OAuthCapabilityDiscovery {
         logger.info(`Discovered ${capabilities.length} capabilities for ${provider}`);
       }
     } catch (error) {
-      logger.error(`Failed to handle provider connection for ${event.provider}:`, error);
+      const evt = this.asRecord(event);
+      logger.error(`Failed to handle provider connection for ${String(evt.provider || 'unknown')}:`, error);
     }
   }
 
   private async handleProviderDisconnection(event: unknown): Promise<void> {
     try {
-      const { provider, userId } = event;
+      const evt = this.asRecord(event);
+      const provider = typeof evt.provider === 'string' ? evt.provider : '';
+      const userId = typeof evt.userId === 'string' ? evt.userId : '';
       const connectionId = `${provider}-${userId}`;
 
       if (this.connectedProviders.has(connectionId)) {
@@ -364,7 +375,11 @@ export class OAuthCapabilityDiscovery {
         logger.info(`Removed OAuth capabilities for ${provider} user ${userId}`);
       }
     } catch (error) {
-      logger.error(`Failed to handle provider disconnection for ${event.provider}:`, error);
+      const evt = this.asRecord(event);
+      logger.error(
+        `Failed to handle provider disconnection for ${String(evt.provider || 'unknown')}:`,
+        error
+      );
     }
   }
 
@@ -423,7 +438,7 @@ export class OAuthCapabilityDiscovery {
 
     try {
       await this.eventBusService.publish(channel, {
-        ...data,
+        ...this.asRecord(data),
         source: 'oauth-capability-discovery',
         timestamp: new Date().toISOString(),
       });

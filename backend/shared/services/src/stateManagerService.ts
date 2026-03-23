@@ -180,7 +180,7 @@ export class StateManagerService {
       await this.setOperationStateInCache(operationId, updatedState);
 
       // Update in database
-      await this.operationStateRepo.updateOperationState(operationId, updatedState, updates);
+      await this.operationStateRepo.updateOperationState(operationId, updatedState, updates as Record<string, unknown>);
 
       // Create automatic checkpoint if significant changes
       if (this.shouldCreateAutomaticCheckpoint(updates)) {
@@ -335,7 +335,7 @@ export class StateManagerService {
       const checkpoints = await this.checkpointRepo.listCheckpoints(operationId);
 
       // Sort by timestamp (newest first)
-      checkpoints.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      checkpoints.sort((a, b) => (b.timestamp as Date).getTime() - (a.timestamp as Date).getTime());
 
       logger.debug('Checkpoints retrieved', {
         operationId,
@@ -616,7 +616,7 @@ export class StateManagerService {
 
   private async decompressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
     // Simple implementation - in production, use zlib or similar
-    const checkpointData = checkpoint.data as unknown;
+    const checkpointData = checkpoint.data as Record<string, unknown>;
     if (checkpointData.compressed) {
       const decompressed: Checkpoint = {
         ...checkpoint,
@@ -624,10 +624,9 @@ export class StateManagerService {
           ...checkpoint.data,
         },
       };
-      // Remove compression flag
-      const decompressedData = { ...decompressed.data } as unknown;
+      const decompressedData = { ...decompressed.data } as Record<string, unknown>;
       delete decompressedData.compressed;
-      decompressed.data = decompressedData;
+      decompressed.data = decompressedData as Checkpoint['data'];
       return decompressed;
     }
     return checkpoint;

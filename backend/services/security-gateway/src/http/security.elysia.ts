@@ -120,7 +120,7 @@ const updatePolicySchema = securityPolicySchema.partial({ name: true });
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
-  data: unknown
+  data: any
 ): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
@@ -132,8 +132,8 @@ function validateWithZod<T>(
   };
 }
 
-export function registerSecurityRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/security', (app: unknown) =>
+export function registerSecurityRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/security', (app: any) =>
     withRequiredAuth(app)
       // POST /assess-risk
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -143,7 +143,7 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
           set.status = 400;
           return {
             error: 'Validation Error',
-            details: error.details.map((d: unknown) => d.message),
+            details: error.details.map((d: any) => d.message),
           };
         }
         try {
@@ -198,7 +198,7 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
           set.status = 400;
           return {
             error: 'Validation Error',
-            details: error.details.map((d: unknown) => d.message),
+            details: error.details.map((d: any) => d.message),
           };
         }
         try {
@@ -238,13 +238,13 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
       })
 
       // Admin-only: policies
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         withAdminGuard(g)
           .get('/policies', async ({ set, query }) => {
             try {
               const { securityService } = await getServices();
               const { page = 1, limit = 20, active, search } = query as unknown;
-              const filters: unknown = {
+              const filters: any = {
                 limit: Number(limit),
                 offset: (Number(page) - 1) * Number(limit),
               };
@@ -298,7 +298,7 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
               set.status = 400;
               return {
                 error: 'Validation Error',
-                details: error.details.map((d: unknown) => d.message),
+                details: error.details.map((d: any) => d.message),
               };
             }
             try {
@@ -342,7 +342,7 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
               set.status = 400;
               return {
                 error: 'Validation Error',
-                details: error.details.map((d: unknown) => d.message),
+                details: error.details.map((d: any) => d.message),
               };
             }
             try {
@@ -413,7 +413,7 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
                 limit: 1000,
               });
               const eventsByType = eventStats.reduce(
-                (acc: Record<string, number>, event: unknown) => {
+                (acc: Record<string, number>, event: any) => {
                   acc[event.eventType] = acc[event.eventType] + 1;
                   return acc;
                 },
@@ -426,7 +426,7 @@ export function registerSecurityRoutes(elysiaApp: unknown): unknown {
                 limit: 1000,
               });
               const riskStats = riskEvents.reduce(
-                (acc: unknown, event: unknown) => {
+                (acc: any, event: any) => {
                   const score = event.details?.riskScore;
                   if (typeof score === 'number') {
                     acc.totalAssessments++;

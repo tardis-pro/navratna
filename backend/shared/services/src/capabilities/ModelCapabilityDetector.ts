@@ -4,7 +4,7 @@ import { ModelCapability, ModelCapabilityDetection, LLMProviderType } from '@uai
 interface CapabilityTestResult {
   supported: boolean;
   confidence: number;
-  testMethod: string;
+  testMethod: 'manual' | 'documentation' | 'api-call' | 'inference';
   notes: string;
 }
 
@@ -349,15 +349,15 @@ export class ModelCapabilityDetector {
           provider: model.provider,
           detectedCapabilities: [ModelCapability.TEXT],
           testedAt: new Date(),
-          testResults: {
-            error: {
-              supported: false,
-              confidence: 0,
-              testMethod: 'api-call',
-              notes: error.message,
-            },
+        testResults: {
+          error: {
+            supported: false,
+            confidence: 0,
+            testMethod: 'api-call',
+            notes: error instanceof Error ? error.message : String(error),
           },
-        });
+        },
+      });
       }
     }
 

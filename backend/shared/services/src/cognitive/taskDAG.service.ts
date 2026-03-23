@@ -1,6 +1,7 @@
 import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { EventBusHandler } from '@uaip/types';
 
 // ============================================================================
 // Types & Interfaces
@@ -534,21 +535,33 @@ ${goal}
 
       const requestId = uuidv4();
       const responseEvent = `task.execution.response.${requestId}`;
+      const responseHandler: EventBusHandler = async (eventMessage) => {
+        clearTimeout(timeout);
+        void this.eventBus.unsubscribe(responseEvent, responseHandler);
+
+        const data =
+          typeof eventMessage === 'object' &&
+          eventMessage !== null &&
+          'data' in eventMessage &&
+          typeof eventMessage.data === 'object' &&
+          eventMessage.data !== null
+            ? (eventMessage.data as { result?: unknown; error?: string })
+            : {};
+
+        if (data.error) {
+          reject(new Error(data.error));
+          return;
+        }
+
+        resolve(data.result);
+      };
 
       const timeout = setTimeout(() => {
-        this.eventBus.unsubscribe(responseEvent);
+        void this.eventBus.unsubscribe(responseEvent, responseHandler);
         reject(new Error(`Task "${node.description}" timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
-      this.eventBus.subscribe(responseEvent, (data: { result?: unknown; error?: string }) => {
-        clearTimeout(timeout);
-        this.eventBus.unsubscribe(responseEvent);
-        if (data.error) {
-          reject(new Error(data.error));
-        } else {
-          resolve(data.result);
-        }
-      });
+      void this.eventBus.subscribe(responseEvent, responseHandler);
 
       this.eventBus.publish('task.execution.request', {
         requestId,
@@ -645,21 +658,33 @@ ${goal}
     return new Promise<string>((resolve, reject) => {
       const responseEvent = `llm.completion.response.${requestId}`;
       const timeoutMs = 60000;
+      const responseHandler: EventBusHandler = async (eventMessage) => {
+        clearTimeout(timeout);
+        void this.eventBus.unsubscribe(responseEvent, responseHandler);
+
+        const data =
+          typeof eventMessage === 'object' &&
+          eventMessage !== null &&
+          'data' in eventMessage &&
+          typeof eventMessage.data === 'object' &&
+          eventMessage.data !== null
+            ? (eventMessage.data as { content?: string; error?: string })
+            : {};
+
+        if (data.error) {
+          reject(new Error(data.error));
+          return;
+        }
+
+        resolve(data.content ?? '');
+      };
 
       const timeout = setTimeout(() => {
-        this.eventBus.unsubscribe(responseEvent);
+        void this.eventBus.unsubscribe(responseEvent, responseHandler);
         reject(new Error('LLM completion request timed out'));
       }, timeoutMs);
 
-      this.eventBus.subscribe(responseEvent, (data: { content?: string; error?: string }) => {
-        clearTimeout(timeout);
-        this.eventBus.unsubscribe(responseEvent);
-        if (data.error) {
-          reject(new Error(data.error));
-        } else {
-          resolve(data.content ?? '');
-        }
-      });
+      void this.eventBus.subscribe(responseEvent, responseHandler);
 
       this.eventBus.publish('llm.completion.request', {
         requestId,

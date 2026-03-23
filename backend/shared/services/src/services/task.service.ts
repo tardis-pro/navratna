@@ -100,7 +100,7 @@ export interface TaskAssignmentSuggestion {
   workload: number;
 }
 
-export interface TaskActivityEntry {
+export interface TaskActivityEntry extends Record<string, unknown> {
   id: string;
   timestamp: Date;
   action: string;
@@ -575,10 +575,11 @@ export class TaskService {
     for (const agent of agents) {
       // eslint-disable-next-line no-await-in-loop
       const workload = await this.getAgentWorkload(agent.id);
+      const normalizedSkills = this.normalizeAgentSkills(agent.skills);
       const score = this.calculateAssignmentScore(task, 'agent', {
         workload,
         capabilities: agent.capabilities,
-        skills: agent.skills || [],
+        skills: normalizedSkills,
       });
 
       suggestions.push({
@@ -589,7 +590,7 @@ export class TaskService {
         reason: this.getAssignmentReason(task, 'agent', {
           workload,
           capabilities: agent.capabilities,
-          skills: agent.skills || [],
+          skills: normalizedSkills,
         }),
         availability: workload > 5 ? 'busy' : 'available',
         expertise: agent.capabilities || [],
@@ -597,8 +598,26 @@ export class TaskService {
       });
     }
 
-    // Sort by score and return top suggestions
-    return suggestions.sort((a, b) => b.score - a.score).slice(0, 10);
+  // Sort by score and return top suggestions
+  return suggestions.sort((a, b) => b.score - a.score).slice(0, 10);
+}
+
+  private normalizeAgentSkills(
+    skills: Agent['skills'] | null | undefined
+  ): Array<{ name: string; description?: string; enabled?: boolean }> {
+    if (!Array.isArray(skills)) {
+      return [];
+    }
+
+    return skills
+      .filter((skill): skill is NonNullable<Agent['skills']>[number] & { name: string } => {
+        return typeof skill?.name === 'string' && skill.name.length > 0;
+      })
+      .map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        enabled: skill.enabled,
+      }));
   }
 
   private calculateAssignmentScore(

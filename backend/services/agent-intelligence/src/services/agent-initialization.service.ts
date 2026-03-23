@@ -292,10 +292,10 @@ export class AgentInitializationService {
           capabilities.limitations.push('restricted-mode');
         }
         if (requirements.specializations) {
-          capabilities.specializations = [
-            ...capabilities.specializations,
-            ...requirements.specializations,
-          ];
+          const extraSpecs = Array.isArray(requirements.specializations)
+            ? (requirements.specializations as string[])
+            : [];
+          capabilities.specializations = [...capabilities.specializations, ...extraSpecs];
         }
       }
 
@@ -337,7 +337,7 @@ export class AgentInitializationService {
   analyzeEnvironmentFactors(conversationContext: Record<string, unknown>): EnvironmentFactors {
     return {
       timeOfDay: new Date().getHours(),
-      userLoad: conversationContext.participants?.length || 1,
+      userLoad: Array.isArray(conversationContext.participants) ? conversationContext.participants.length : 1,
       systemLoad: this.assessSystemLoad(),
       availableResources: this.assessAvailableResources(),
       knowledgeGraphStatus: this.knowledgeGraphService ? 'active' : 'inactive',
@@ -349,42 +349,62 @@ export class AgentInitializationService {
    * Event handlers
    */
   private async handleInitializeAgent(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, personaId } = event;
+    const requestId = event.requestId as string;
+    const agentId = event.agentId as string;
+    const personaId = event.personaId as string | undefined;
     try {
       const agentState = await this.initializeAgent(agentId, personaId);
       await this.respondToRequest(requestId, { success: true, data: agentState });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleSetupAgentState(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, configuration, environmentFactors } = event;
+    const requestId = event.requestId as string;
+    const agentId = event.agentId as string;
+    const configuration = (event.configuration ?? {}) as Record<string, unknown>;
+    const environmentFactors = event.environmentFactors as EnvironmentFactors | undefined;
     try {
       const agentState = await this.setupAgentState(agentId, configuration, environmentFactors);
       await this.respondToRequest(requestId, { success: true, data: agentState });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleConfigureCapabilities(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agent, requirements } = event;
+    const requestId = event.requestId as string;
+    const agent = event.agent as Agent;
+    const requirements = (event.requirements ?? {}) as Record<string, unknown>;
     try {
       const capabilities = await this.configureAgentCapabilities(agent, requirements);
       await this.respondToRequest(requestId, { success: true, data: capabilities });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   private async handleAnalyzeEnvironment(event: Record<string, unknown>): Promise<void> {
-    const { requestId, conversationContext } = event;
+    const requestId = event.requestId as string;
+    const conversationContext = (event.conversationContext ?? {}) as Record<string, unknown>;
     try {
       const environment = this.analyzeEnvironmentFactors(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: environment });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -448,7 +468,10 @@ export class AgentInitializationService {
   ): Promise<void> {
     try {
       await this.store.storeAgentCapabilities(agentId, {
-        capabilities,
+        capabilities: {
+          primary: capabilities.specializations,
+          scores: {},
+        },
         timestamp: new Date(),
       });
     } catch (error) {
@@ -459,7 +482,8 @@ export class AgentInitializationService {
   private async getAgentData(agentId: string): Promise<Agent | null> {
     try {
       const response = await this.eventBusService.request('agent.query.get', { agentId });
-      return response.success ? response.data : null;
+      const typed = response as { success?: boolean; data?: Agent } | null;
+      return typed?.success ? (typed.data ?? null) : null;
     } catch (error) {
       logger.warn('Failed to get agent data', { error, agentId });
       return null;

@@ -66,14 +66,14 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     const cacheKey = this.CACHE_KEYS.USER_KNOWLEDGE_STATS(userId);
 
     if (useCache) {
-      const cached = await redisCacheService.get(cacheKey);
+      type StatsResult = Awaited<ReturnType<CachedUserKnowledgeService['getUserKnowledgeStats']>>;
+      const cached = await redisCacheService.get<StatsResult>(cacheKey);
       if (cached) {
         logger.debug('User knowledge stats retrieved from cache', { userId });
         return cached;
       }
     }
 
-    // Cache miss - get from database
     const stats = await super.getUserKnowledgeStats(userId);
 
     // Cache the result
@@ -239,14 +239,13 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     const cacheKey = this.CACHE_KEYS.USER_PREFERENCES(userId, type);
 
     if (useCache) {
-      const cached = await redisCacheService.get(cacheKey);
+      const cached = await redisCacheService.get<Array<{ type: string; value: unknown; confidence: number; source: string; updatedAt: Date }>>(cacheKey);
       if (cached) {
         logger.debug('User preferences retrieved from cache', { userId, type });
         return cached;
       }
     }
 
-    // Cache miss - get from database
     const preferences = await super.getUserPreferences(userId, type);
 
     // Cache the result
@@ -278,14 +277,13 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     const cacheKey = this.CACHE_KEYS.CONVERSATION_PATTERNS(userId, type);
 
     if (useCache) {
-      const cached = await redisCacheService.get(cacheKey);
+      const cached = await redisCacheService.get<Array<{ type: string; description: string; frequency: number; confidence: number; examples: string[]; lastObserved: Date }>>(cacheKey);
       if (cached) {
         logger.debug('Conversation patterns retrieved from cache', { userId, type });
         return cached;
       }
     }
 
-    // Cache miss - get from database
     const patterns = await super.getConversationPatterns(userId, type);
 
     // Cache the result

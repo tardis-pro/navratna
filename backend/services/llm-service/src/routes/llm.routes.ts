@@ -8,11 +8,11 @@ import { StreamingLLMRequest } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
 
 export function registerLLMRoutes(
-  app: unknown,
+  app: any,
   llmService: LLMService,
   modelBootstrapService: ModelBootstrapService,
   userLLMService: UserLLMService
-): unknown {
+): any {
   return (app as { group: Function }).group(
     '/api/v1/llm',
     (group: { get: Function; post: Function }) =>
@@ -381,7 +381,7 @@ export function registerLLMRoutes(
 
         .post(
           '/stream/:sessionId/cancel',
-          async ({ params, store: _store }: { params: Record<string, string>; store: unknown }) => {
+          async ({ params, store: _store }: { params: Record<string, string>; store: any }) => {
             const { sessionId } = params;
             const streamingService = StreamingService.getInstance();
             await streamingService.cancelStream(sessionId);

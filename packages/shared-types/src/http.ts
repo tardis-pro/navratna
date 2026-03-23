@@ -13,7 +13,7 @@ import type { AgentRole, AgentStatus } from './agent.js';
 /**
  * HTTP Headers type - flexible key-value pairs
  */
-export type HTTPHeaders = Record<string, string | string[] | undefined>;
+export type HTTPHeaders = Record<string, string | number | string[] | undefined>;
 
 /**
  * Elysia set object for response manipulation
@@ -26,7 +26,7 @@ export interface ElysiaSet {
 }
 
 export interface ElysiaCookieValue {
-  value?: string;
+  value?: unknown;
 }
 
 export type ElysiaCookieJar = Record<string, ElysiaCookieValue | undefined>;

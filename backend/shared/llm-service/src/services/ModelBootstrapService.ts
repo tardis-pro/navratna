@@ -4,6 +4,34 @@ import { UserLLMService } from '../UserLLMService.js';
 import { DatabaseService, RedisCacheService, UserService } from '@uaip/shared-services';
 import { ModelSyncService } from './ModelSyncService.js';
 
+interface BootstrapStatus {
+  timestamp: string;
+  version: string;
+  status: 'completed';
+}
+
+interface CachedModelEntry {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint: string;
+  provider: string;
+  isAvailable: boolean;
+}
+
+interface UserModelSummaryEntry {
+  userId: string;
+  modelCount: number;
+  providers: string[];
+}
+
+interface UserModelsSummary {
+  userCount: number;
+  timestamp: string;
+  users: UserModelSummaryEntry[];
+}
+
 /**
  * Service responsible for boot-time model discovery and caching
  * Ensures all user models are cached on system startup
@@ -50,7 +78,7 @@ export class ModelBootstrapService {
     try {
       // Check if bootstrap was recently completed
       if (!options.force) {
-        const lastBootstrap = await this.cacheService.get(
+        const lastBootstrap = await this.cacheService.get<BootstrapStatus>(
           ModelBootstrapService.BOOTSTRAP_STATUS_KEY
         );
         if (lastBootstrap) {
@@ -176,7 +204,7 @@ export class ModelBootstrapService {
         userCount: usersWithProviders.length,
       });
 
-      const userModelData = [];
+      const userModelData: UserModelSummaryEntry[] = [];
 
       for (const userId of usersWithProviders) {
         try {
@@ -218,7 +246,7 @@ export class ModelBootstrapService {
   /**
    * Cache models for a specific user
    */
-  private async cacheUserModels(userId: string): Promise<unknown[]> {
+  private async cacheUserModels(userId: string): Promise<CachedModelEntry[]> {
     const cacheKey = `${ModelBootstrapService.USER_MODELS_CACHE_PREFIX}${userId}`;
 
     try {
@@ -301,11 +329,11 @@ export class ModelBootstrapService {
   /**
    * Get cached models for a user (fast path)
    */
-  async getCachedUserModels(userId: string): Promise<unknown[] | null> {
+  async getCachedUserModels(userId: string): Promise<CachedModelEntry[] | null> {
     const cacheKey = `${ModelBootstrapService.USER_MODELS_CACHE_PREFIX}${userId}`;
 
     try {
-      const cachedModels = await this.cacheService.get(cacheKey);
+      const cachedModels = await this.cacheService.get<CachedModelEntry[]>(cacheKey);
       if (cachedModels) {
         logger.debug('Returning cached user models', {
           userId,
@@ -324,9 +352,9 @@ export class ModelBootstrapService {
   /**
    * Get cached global models (fast path)
    */
-  async getCachedGlobalModels(): Promise<unknown[] | null> {
+  async getCachedGlobalModels(): Promise<CachedModelEntry[] | null> {
     try {
-      const cachedModels = await this.cacheService.get(
+      const cachedModels = await this.cacheService.get<CachedModelEntry[]>(
         ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY
       );
       if (cachedModels) {
@@ -362,11 +390,13 @@ export class ModelBootstrapService {
    */
   async getBootstrapStatus(): Promise<unknown> {
     try {
-      const status = await this.cacheService.get(ModelBootstrapService.BOOTSTRAP_STATUS_KEY);
-      const globalModels = await this.cacheService.get(
+      const status = await this.cacheService.get<BootstrapStatus>(
+        ModelBootstrapService.BOOTSTRAP_STATUS_KEY
+      );
+      const globalModels = await this.cacheService.get<CachedModelEntry[]>(
         ModelBootstrapService.GLOBAL_MODELS_CACHE_KEY
       );
-      const userModelsSummary = await this.cacheService.get(
+      const userModelsSummary = await this.cacheService.get<UserModelsSummary>(
         ModelBootstrapService.ALL_USER_MODELS_CACHE_KEY
       );
 

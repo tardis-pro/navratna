@@ -12,7 +12,7 @@ import { logger } from '@uaip/utils';
 import { Persona, Agent, AgentSchema, Discussion } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import { EventBusService } from '@uaip/infra/eventBus';
+import { EventBusService, EventBusMessage } from '@uaip/infra/eventBus';
 import {
   Agent as AgentEntity,
   Discussion as DiscussionEntity,
@@ -81,7 +81,7 @@ interface ResponseEnhancement {
 
 export interface ConversationEnhancementRequest {
   discussionId: string;
-  availableAgents: Agent[];
+  availableAgents: AgentEntity[];
   messageHistory: MessageHistoryItem[];
   currentTopic: string;
   conversationState?: ConversationState;
@@ -92,7 +92,7 @@ export interface ConversationEnhancementRequest {
 
 export interface ConversationEnhancementResult {
   success: boolean;
-  selectedAgent?: Agent;
+  selectedAgent?: AgentEntity;
   selectedPersona?: Persona;
   enhancedResponse?: string;
   contributionScores?: ContributionScore[];
@@ -130,14 +130,14 @@ interface EventWithDataPayload {
   confidence?: number;
 }
 
-const toLLMEventPayload = (event: Record<string, unknown>): EventWithDataPayload['data'] => {
+const toLLMEventPayload = (event: EventBusMessage | Record<string, unknown>): EventWithDataPayload['data'] => {
   if (typeof event !== 'object' || event === null) {
     return {};
   }
   if ('data' in event && typeof event.data === 'object' && event.data !== null) {
     return event.data as EventWithDataPayload['data'];
   }
-  return event as EventWithDataPayload['data'];
+  return event as unknown as EventWithDataPayload['data'];
 };
 
 export class ConversationEnhancementService extends EventEmitter {
@@ -269,7 +269,7 @@ export class ConversationEnhancementService extends EventEmitter {
         // Add to Redis-based request tracker (45 seconds timeout)
         await this.llmRequestTracker.addPendingRequest(
           requestId,
-          (response) => resolve(response),
+          (response) => resolve(response as { content: string; confidence: number }),
           (error) => reject(error),
           45000,
           'conversation-enhancement'
@@ -440,14 +440,13 @@ export class ConversationEnhancementService extends EventEmitter {
 
       // Generate suggestions for improvement
       const suggestions = await this.generateConversationSuggestions(
-        { selectedPersona, enhancedResponse },
+        { selectedPersona },
         flowAnalysis,
         request
       );
 
-      // Generate next action recommendations
       const nextActions = await this.generateNextActions(
-        { selectedPersona, enhancedResponse },
+        { selectedPersona },
         request
       );
 
@@ -663,15 +662,13 @@ export class ConversationEnhancementService extends EventEmitter {
       description: agent.description,
       role: agent.role,
       conversationalStyle: {
-        tone: agent.metadata?.tone || 'professional',
-        // pace: agent.metadata?.pace || 'moderate', // removed due to type mismatch
-        formality: agent.metadata?.formality || 'formal',
-        empathy: agent.metadata?.empathy || 'medium',
-        // humor: agent.metadata?.humor || 'subtle', // removed due to type mismatch
-        assertiveness: agent.metadata?.assertiveness || 'balanced',
+        tone: (agent.metadata?.tone as Persona['conversationalStyle']['tone']) || 'professional',
+        formality: (agent.metadata?.formality as Persona['conversationalStyle']['formality']) || 'formal',
+        empathy: typeof agent.metadata?.empathy === 'number' ? agent.metadata.empathy : 0.5,
+        assertiveness: typeof agent.metadata?.assertiveness === 'number' ? agent.metadata.assertiveness : 0.5,
       },
       expertise: this.convertCapabilitiesToExpertise(agent.capabilities || []),
-      background: agent.metadata?.background || '',
+      background: String(agent.metadata?.background ?? ''),
       // perspective: agent.metadata?.perspective || agent.description, // removed due to type mismatch
       // Legacy properties for compatibility removed due to type mismatches
       // empathyLevel: this.convertEmpathyLevel(agent.metadata?.empathy),
@@ -772,17 +769,17 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private async generateConversationSuggestions(
-    enhancement: Record<string, unknown>,
-    flowAnalysis: Record<string, unknown>,
+    enhancement: { contributionScores?: ContributionScore[]; selectedPersona?: Persona },
+    flowAnalysis: { flowQuality?: number; diversityScore?: number },
     _request: ConversationEnhancementRequest
   ): Promise<string[]> {
     const suggestions: string[] = [];
 
-    if (flowAnalysis.flowQuality < 0.7) {
+    if ((flowAnalysis.flowQuality ?? 1) < 0.7) {
       suggestions.push('Consider encouraging more diverse participation');
     }
 
-    if (flowAnalysis.diversityScore < 0.5) {
+    if ((flowAnalysis.diversityScore ?? 1) < 0.5) {
       suggestions.push('Invite more perspectives to enrich the discussion');
     }
 
@@ -797,12 +794,12 @@ export class ConversationEnhancementService extends EventEmitter {
   }
 
   private async generateNextActions(
-    enhancement: Record<string, unknown>,
+    enhancement: { selectedPersona?: Persona; contributionScores?: ContributionScore[] },
     request: ConversationEnhancementRequest
   ): Promise<string[]> {
     const actions: string[] = [];
 
-    if (enhancement.selectedPersona.role === 'moderator') {
+    if (enhancement.selectedPersona?.role === 'moderator') {
       actions.push('Consider summarizing key points discussed');
       actions.push('Ask for consensus on decisions made');
     }
@@ -895,11 +892,15 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       // Get discussion with participants
       // eslint-disable-next-line @typescript-eslint/no-explicit-unknown -- TODO: migrate discussion hydration to typed repository return models
+      type DiscussionWithParticipants = {
+        participants?: Array<{ id: string; agentId?: string; userId?: string }>;
+        messages?: Array<{ id: string; participantId: string; content: string; createdAt: Date; metadata?: Record<string, unknown> }>;
+      };
       const fullDiscussion = (await this.databaseService.findById(
         DiscussionEntity,
         discussion.id
-      )) as Record<string, unknown>;
-      const participantMap = new Map();
+      )) as DiscussionWithParticipants | null;
+      const participantMap = new Map<string, string>();
 
       if (fullDiscussion && fullDiscussion.participants) {
         for (const participant of fullDiscussion.participants) {
@@ -942,7 +943,7 @@ export class ConversationEnhancementService extends EventEmitter {
       // Get messages from discussion
       const messages = fullDiscussion?.messages || [];
 
-      return messages.map((msg: Record<string, unknown>) => ({
+      return messages.map((msg) => ({
         id: msg.id,
         speaker: participantMap.get(msg.participantId) || msg.participantId || 'user',
         content: msg.content,
@@ -967,9 +968,8 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async handleAgentUpdate(event: Record<string, unknown>): Promise<void> {
     try {
-      const { agentId } = event;
+      const agentId = event.agentId as string;
 
-      // Reload personas for updated agent
       const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
       if (agent) {
         const personas = await this.createPersonasFromAgent(agent);
@@ -1143,15 +1143,15 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
    * Missing helper methods
    */
   private analyzeConversationFlow(
-    messageHistory: Record<string, unknown>[],
-    _agents: Record<string, unknown>[]
+    messageHistory: MessageHistoryItem[],
+    _agents: AgentEntity[]
   ): Record<string, unknown> {
     return this.analyzeConversationFlowSimple(messageHistory);
   }
 
   private getConversationInsights(
-    _messageHistory: Record<string, unknown>[],
-    _conversationState: Record<string, unknown>
+    _messageHistory: MessageHistoryItem[],
+    _conversationState: ConversationState
   ): Record<string, unknown> {
     return {
       insights: ['This conversation has good flow'],
@@ -1161,11 +1161,10 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
   }
 
   private crossBreedPersonas(
-    persona1: Record<string, unknown>,
-    persona2: Record<string, unknown>,
+    persona1: Persona,
+    persona2: Persona,
     _config: Record<string, unknown>
-  ): Record<string, unknown> {
-    // Simple hybrid persona creation
+  ): Partial<Persona> {
     return {
       ...persona1,
       id: `hybrid-${persona1.id}-${persona2.id}`,

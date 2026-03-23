@@ -28,7 +28,7 @@ interface CallSignaling {
 interface RTCSignalingData {
   sdp?: string;
   candidate?: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface ChatWindowClosedData {
@@ -517,7 +517,7 @@ export class UserChatHandler {
           agentName: string;
           messageId: string;
           userId?: string;
-          [key: string]: unknown;
+          [key: string]: any;
         };
 
       // Find the socket by ID and send the response

@@ -10,6 +10,7 @@ import {
   KnowledgeScope,
   KnowledgeType,
   SourceType,
+  Interaction,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant.service';
@@ -159,7 +160,11 @@ export class KnowledgeGraphService {
             },
             filters
           );
-          filteredResults = await this.repository.applyFilters(vectorResults, filters, scope);
+          filteredResults = await this.repository.applyFilters(
+            vectorResults as Array<{ payload?: { knowledge_item_id?: string } }>,
+            filters,
+            scope
+          );
         } catch (vectorError) {
           // If vector search fails, fall back to repository search
           console.warn(
@@ -399,7 +404,7 @@ export class KnowledgeGraphService {
   /**
    * Store interaction data
    */
-  async storeInteraction(_interaction: unknown): Promise<void> {
+  async storeInteraction(_interaction: Interaction): Promise<void> {
     // Store interaction in repository
     // This is a placeholder implementation
   }
@@ -415,7 +420,7 @@ export class KnowledgeGraphService {
   /**
    * Initialize agent context
    */
-  async initializeAgentContext(_agentId: string, _context: unknown): Promise<void> {
+  async initializeAgentContext(_agentId: string, _context: Record<string, unknown>): Promise<void> {
     // Initialize agent context
     // This is a placeholder implementation
   }

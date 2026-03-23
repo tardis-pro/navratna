@@ -4,6 +4,7 @@ import {
   EntityTarget,
   ObjectLiteral,
   Repository,
+  EntitySchema,
   DeepPartial,
   FindOptionsWhere,
   FindOptionsOrder,
@@ -41,7 +42,7 @@ export class DatabaseService {
   private typeormService: TypeOrmService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
-  private pendingEntities: unknown[] = [];
+  private pendingEntities: Array<string | Function | EntitySchema<ObjectLiteral>> = [];
   private readonly logger = logger;
 
   private constructor() {
@@ -61,7 +62,9 @@ export class DatabaseService {
     }
   }
 
-  private async initializeConnection(entities: unknown[] = []): Promise<void> {
+  private async initializeConnection(
+    entities: Array<string | Function | EntitySchema<ObjectLiteral>> = []
+  ): Promise<void> {
     try {
       await this.typeormService.initialize(entities);
       this.isInitialized = true;
@@ -77,7 +80,7 @@ export class DatabaseService {
    * Call this BEFORE any database operations (e.g. before start()).
    * Domain services use this to inject their plane-specific entities.
    */
-  public registerEntities(entities: unknown[]): void {
+  public registerEntities(entities: Array<string | Function | EntitySchema<ObjectLiteral>>): void {
     this.pendingEntities = entities;
     // If already initialized with wrong entities, tear down so next access re-initializes
     if (this.isInitialized) {

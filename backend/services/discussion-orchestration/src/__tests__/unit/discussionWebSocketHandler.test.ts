@@ -6,7 +6,7 @@ describe('DiscussionWebSocketHandler', () => {
     cleanup: jest.fn(),
   };
 
-  let webSocketHandler: unknown;
+  let webSocketHandler: any;
 
   beforeEach(() => {
     jest.clearAllMocks();

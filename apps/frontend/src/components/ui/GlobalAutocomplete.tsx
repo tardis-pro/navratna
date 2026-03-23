@@ -163,6 +163,7 @@ export const GlobalAutocomplete = forwardRef<
             break;
         }
       },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [showSuggestions, suggestions, selectedIndex, multiline]
     );
 

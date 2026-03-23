@@ -248,15 +248,50 @@ export class CachedAgentIntelligenceService {
  * Cache Health Monitor
  */
 export class CacheHealthMonitor {
+  private static readonly EMPTY_HEALTH: {
+    healthy: boolean;
+    connected: boolean;
+    responseTime?: number;
+    error?: string;
+  } = {
+    healthy: false,
+    connected: false,
+  };
+
+  private static isTimestampedValue(value: unknown): value is { timestamp: number } {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'timestamp' in value &&
+      typeof value.timestamp === 'number'
+    );
+  }
+
   /**
    * Get comprehensive cache health status
    */
   async getHealthStatus(): Promise<{
-    service: unknown;
-    statistics: unknown;
-    sampleOperations: unknown;
+    service: {
+      healthy: boolean;
+      connected: boolean;
+      responseTime?: number;
+      error?: string;
+    };
+    statistics: {
+      keyCount: number;
+      memoryInfo: string;
+      connected: boolean;
+      responseTime?: number;
+    } | null;
+    sampleOperations: {
+      set: boolean;
+      get: boolean;
+      delete: boolean;
+      roundTrip: boolean;
+    } | null;
   }> {
-    const serviceHealth = await redisCacheService.healthCheck();
+    const serviceHealth =
+      (await redisCacheService.healthCheck()) ?? CacheHealthMonitor.EMPTY_HEALTH;
 
     // Get cache statistics
     const client = await redisCacheService.getClient();
@@ -281,17 +316,21 @@ export class CacheHealthMonitor {
         const testValue = { timestamp: Date.now(), test: true };
 
         const setResult = await redisCacheService.set(testKey, testValue, 10);
-        const getValue = await redisCacheService.get(testKey);
+        const getValue = await redisCacheService.get<{ timestamp: number; test: boolean }>(testKey);
         const delResult = await redisCacheService.del(testKey);
 
         sampleOperations = {
           set: setResult,
           get: getValue !== null,
           delete: delResult,
-          roundTrip: getValue?.timestamp === testValue.timestamp,
+          roundTrip:
+            CacheHealthMonitor.isTimestampedValue(getValue) &&
+            getValue.timestamp === testValue.timestamp,
         };
       } catch (error) {
-        logger.error('Error getting cache statistics', { error: error.message });
+        logger.error('Error getting cache statistics', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 

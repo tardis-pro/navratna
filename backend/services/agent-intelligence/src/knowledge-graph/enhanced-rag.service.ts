@@ -1,4 +1,4 @@
-import { TEIEmbeddingService } from './tei-embedding.service.js';
+import { TEIEmbeddingService, TEIHealthStatus } from './tei-embedding.service.js';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 
 interface _VectorSearchResult {
@@ -78,24 +78,24 @@ export class EnhancedRAGService {
       let results: EnhancedSearchResult[];
 
       if (useReranking && filteredCandidates.length > 1) {
-        // Step 3: Rerank results for better relevance
         const candidatesWithContent = filteredCandidates.map((c) => ({
           id: c.id,
-          content: c.payload?.content || '',
-          metadata: c.payload?.metadata,
+          content: String(c.payload?.content ?? ''),
+          metadata: (c.payload?.metadata ?? {}) as Record<string, unknown>,
           score: c.score,
         }));
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
-        // Use vector similarity scores only
         results = filteredCandidates.slice(0, topK).map((candidate, index) => ({
           id: candidate.id,
-          content: candidate.payload?.content || '',
-          metadata: candidate.payload?.metadata,
+          content: String(candidate.payload?.content ?? ''),
+          metadata: (candidate.payload?.metadata ?? {}) as Record<string, unknown>,
           score: candidate.score,
           originalScore: candidate.score,
           rank: index + 1,
-          embedding: includeEmbeddings ? candidate.payload?.embedding : undefined,
+          embedding: includeEmbeddings
+            ? (candidate.payload?.embedding as number[] | undefined)
+            : undefined,
         }));
       }
 
@@ -189,8 +189,8 @@ export class EnhancedRAGService {
         .slice(0, topK)
         .map((candidate, index) => ({
           id: candidate.id,
-          content: candidate.payload?.content || '',
-          metadata: candidate.payload?.metadata,
+          content: String(candidate.payload?.content ?? ''),
+          metadata: (candidate.payload?.metadata ?? {}) as Record<string, unknown>,
           score: candidate.score,
           originalScore: candidate.score,
           rank: index + 1,
@@ -242,8 +242,8 @@ export class EnhancedRAGService {
    * Check service health
    */
   async checkHealth(): Promise<{
-    embedding: Record<string, unknown>;
-    reranker: Record<string, unknown>;
+    embedding: TEIHealthStatus | { status: string };
+    reranker: TEIHealthStatus | { status: string };
     vectorStore: boolean;
   }> {
     try {

@@ -28,18 +28,18 @@ export class DebateHandler {
 
     interface DebateArgumentData {
       debateId: string;
-      argument: unknown;
+      argument: Argument;
     }
 
     interface DebateVoteData {
       debateId: string;
-      vote: unknown;
+      vote: Vote;
     }
 
     interface DebateConcludedData {
       debateId: string;
-      consensus: unknown;
-      metadata: unknown;
+      consensus: ConsensusResult;
+      metadata: Record<string, unknown>;
     }
 
     interface DebateRequestData {
@@ -113,7 +113,7 @@ export class DebateHandler {
   private broadcastToDiscussion(
     discussionId: string | undefined,
     event: string,
-    data: unknown
+    data: Record<string, unknown>
   ): void {
     if (!discussionId) return;
     this.io.to(`discussion:${discussionId}`).emit(event, data);

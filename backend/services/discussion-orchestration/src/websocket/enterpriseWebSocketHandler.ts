@@ -68,7 +68,7 @@ interface SecurityAlert {
   type: string;
   userId?: string;
   severity: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface AuthResponse {
@@ -127,7 +127,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Override the WebSocket server's handling to intercept and validate close frames
     const originalHandleUpgrade = server.on;
-    server.on = function (event: string, listener: (...args: unknown[]) => void) {
+    server.on = function (event: string, listener: (...args: any[]) => void) {
       if (event === 'upgrade') {
         return originalHandleUpgrade.call(
           this,
@@ -135,7 +135,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
           (request: import('http').IncomingMessage, socket: import('net').Socket, head: Buffer) => {
             // Add close frame validation to the socket
             const originalWrite = socket.write;
-            socket.write = function (data: Buffer, ...args: unknown[]) {
+            socket.write = function (data: Buffer, ...args: any[]) {
               try {
                 // Check if this is a WebSocket close frame and validate the close code
                 if (data && data.length >= 2) {
@@ -735,7 +735,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         agentId: string;
         response: string;
         agentName: string;
-        [key: string]: unknown;
+        [key: string]: any;
       };
 
       // Send response back to the specific connection

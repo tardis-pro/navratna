@@ -30,6 +30,18 @@ export class ToolRecommendationService {
   private database: DatabaseService;
   private eventBus: EventBusService;
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
+  private asString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  private asNumber(value: unknown, fallback = 0): number {
+    return typeof value === 'number' ? value : fallback;
+  }
+
   private constructor() {
     // Initialize based on existing patterns in the codebase
     this.database = DatabaseService.getInstance();
@@ -113,7 +125,10 @@ export class ToolRecommendationService {
    */
   private async handleToolExecutionCompleted(event: unknown): Promise<void> {
     try {
-      const { toolId, agentId, _userId, executionTime } = event;
+      const eventRecord = this.asRecord(event);
+      const toolId = this.asString(eventRecord.toolId, '');
+      const agentId = this.asString(eventRecord.agentId, '');
+      const executionTime = this.asNumber(eventRecord.executionTime, 0);
 
       // This would update usage patterns in Neo4j when properly integrated
       logger.debug('Tool execution completed', { toolId, agentId, executionTime });
@@ -127,10 +142,13 @@ export class ToolRecommendationService {
    */
   private async handleToolExecutionFailed(event: unknown): Promise<void> {
     try {
-      const { toolId, agentId, error } = event;
+      const eventRecord = this.asRecord(event);
+      const toolId = this.asString(eventRecord.toolId, '');
+      const agentId = this.asString(eventRecord.agentId, '');
+      const errorMessage = this.asString(eventRecord.error, 'Unknown error');
 
       // This would update failure patterns in Neo4j when properly integrated
-      logger.debug('Tool execution failed', { toolId, agentId, error });
+      logger.debug('Tool execution failed', { toolId, agentId, error: errorMessage });
     } catch (error) {
       logger.error('Failed to handle tool execution failed', error);
     }

@@ -352,9 +352,9 @@ export class ChatParserService {
       data.messages.forEach((msg: Record<string, unknown>, msgIndex: number) => {
         messages.push({
           id: uuidv4(),
-          timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+          timestamp: msg.timestamp ? new Date(String(msg.timestamp)) : new Date(),
           sender: msg.role === 'human' ? 'Human' : 'Assistant',
-          content: msg.content || msg.message || '',
+          content: String(msg.content ?? msg.message ?? ''),
           type: 'text',
           metadata: { messageIndex: msgIndex, originalRole: msg.role },
         });
@@ -366,7 +366,7 @@ export class ChatParserService {
       'claude',
       filename,
       conversationId,
-      data.title
+      data.title != null ? String(data.title) : undefined
     );
     return conversations.length > 0
       ? conversations[0]
@@ -385,9 +385,9 @@ export class ChatParserService {
       data.messages.forEach((msg: Record<string, unknown>, msgIndex: number) => {
         messages.push({
           id: uuidv4(),
-          timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+          timestamp: msg.timestamp ? new Date(String(msg.timestamp)) : new Date(),
           sender: msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'Assistant' : 'System',
-          content: msg.content || msg.message || '',
+          content: String(msg.content ?? msg.message ?? ''),
           type: 'text',
           metadata: { messageIndex: msgIndex, originalRole: msg.role },
         });
@@ -399,7 +399,7 @@ export class ChatParserService {
       'gpt',
       filename,
       conversationId,
-      data.title
+      data.title != null ? String(data.title) : undefined
     );
     return conversations.length > 0
       ? conversations[0]
@@ -444,7 +444,7 @@ export class ChatParserService {
     return [
       {
         id: id || uuidv4(),
-        platform: platform as Record<string, unknown>,
+        platform: platform as ParsedConversation['platform'],
         title: title || `${platform} conversation from ${filename}`,
         participants,
         messages,
@@ -466,7 +466,7 @@ export class ChatParserService {
   ): ParsedConversation {
     return {
       id: id || uuidv4(),
-      platform: platform as Record<string, unknown>,
+      platform: platform as ParsedConversation['platform'],
       title: `Empty ${platform} conversation from ${filename}`,
       participants: [],
       messages: [],

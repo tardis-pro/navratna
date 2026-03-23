@@ -8,6 +8,11 @@ import axios, { AxiosInstance } from 'axios';
 import { logger } from '@uaip/utils';
 import { ToolDefinition } from '../services/enterprise-tool-registry.js';
 
+interface SlackListOptions {
+  limit?: number;
+  cursor?: string;
+}
+
 export class SlackAdapter {
   private toolDefinition: ToolDefinition;
   private axiosInstance: AxiosInstance;
@@ -120,11 +125,13 @@ export class SlackAdapter {
     text: string,
     options: unknown = {}
   ): Promise<unknown> {
+    const safeOptions =
+      options && typeof options === 'object' ? (options as Record<string, unknown>) : {};
     try {
       const response = await this.axiosInstance.post('/chat.postMessage', {
         channel: channelId,
         text,
-        ...options,
+        ...safeOptions,
       });
 
       if (!response.data.ok) {
@@ -163,12 +170,13 @@ export class SlackAdapter {
    * List channels
    */
   public async listChannels(options: unknown = {}): Promise<unknown> {
+    const opts = (options as SlackListOptions) ?? {};
     try {
       const response = await this.axiosInstance.get('/conversations.list', {
         params: {
           types: 'public_channel,private_channel',
-          limit: options.limit || 100,
-          cursor: options.cursor,
+          limit: opts.limit || 100,
+          cursor: opts.cursor,
         },
       });
 

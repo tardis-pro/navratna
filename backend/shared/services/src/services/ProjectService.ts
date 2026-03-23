@@ -235,7 +235,9 @@ export class ProjectService extends BaseDomainService {
 
     // Store tool assignments in metadata for now
     const metadata = project.metadata || {};
-    const currentTools = metadata.allowedTools || [];
+    const currentTools = Array.isArray(metadata.allowedTools)
+      ? (metadata.allowedTools as string[])
+      : [];
     const newTools = Array.from(new Set([...currentTools, ...toolIds]));
 
     await this.updateProject(projectId, {

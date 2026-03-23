@@ -8,6 +8,7 @@ import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { ToolGraphDatabase } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding.service.js';
 import { logger } from '@uaip/utils';
+import { Repository } from 'typeorm';
 
 export interface KnowledgeSyncResult {
   success: boolean;
@@ -41,7 +42,7 @@ export class KnowledgeSyncService {
     private readonly qdrantService: QdrantService,
     private readonly graphDb: ToolGraphDatabase,
     private readonly embeddingService: EmbeddingService,
-    private readonly userRepository: Record<string, unknown> // Will be properly typed later
+    private readonly userRepository: Repository<UserEntity>
   ) {}
 
   /**
@@ -52,7 +53,7 @@ export class KnowledgeSyncService {
     try {
       // Get knowledge item and user data
       const knowledgeItem = await this.knowledgeRepository.findById(knowledgeItemId);
-      const user = await this.userRepository.findById(userId);
+      const user = await this.userRepository.findOne({ where: { id: userId } });
 
       if (!knowledgeItem || !user) {
         return {
@@ -465,9 +466,9 @@ export class KnowledgeSyncService {
           identifier: `direct-${itemId}`,
           metadata,
         },
-        tags: metadata.tags || [],
-        confidence: metadata.confidence || 0.8,
-        accessLevel: metadata.accessLevel || 'STANDARD',
+        tags: Array.isArray(metadata.tags) ? (metadata.tags as string[]) : [],
+        confidence: typeof metadata.confidence === 'number' ? metadata.confidence : 0.8,
+        accessLevel: typeof metadata.accessLevel === 'string' ? metadata.accessLevel : 'STANDARD',
         userId,
         agentId,
       });
@@ -776,16 +777,16 @@ export class KnowledgeSyncService {
         const qdrantPoints = await this.scrollAllQdrantPoints();
 
         for (const point of qdrantPoints) {
-          const id = point.payload?.knowledge_item_id;
-          if (!id) continue;
+          const id = point.payload.knowledge_item_id;
+          if (!id || typeof id !== 'string') continue;
 
           if (itemsMap.has(id)) {
             itemsMap.get(id)!.existsIn.qdrant = true;
           } else {
             itemsMap.set(id, {
               id,
-              content: point.payload?.content || '',
-              type: point.payload?.type || 'FACTUAL',
+              content: String(point.payload.content ?? ''),
+              type: (point.payload.type as KnowledgeType) ?? KnowledgeType.FACTUAL,
               metadata: {},
               source: 'qdrant',
               existsIn: { postgres: false, neo4j: false, qdrant: true },
@@ -852,18 +853,9 @@ export class KnowledgeSyncService {
   /**
    * Scroll through all Qdrant points (since there's no "get all" method)
    */
-  private async scrollAllQdrantPoints(): Promise<Record<string, unknown>[]> {
-    // This is a simplified version - in practice you'd use Qdrant's scroll API
-    // For now, we'll use a high limit search with a dummy vector
+  private async scrollAllQdrantPoints(): Promise<Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>> {
     try {
-      const dummyVector = new Array(768).fill(0); // Adjust dimensions as needed
-      const searchResult = await this.qdrantService.search(dummyVector, {
-        limit: 10000, // High limit to get all points
-        threshold: 0, // Very low threshold to get all points
-        filters: {},
-      });
-
-      return searchResult;
+      return await this.qdrantService.scrollAll(10000);
     } catch (error) {
       logger.warn('Failed to scroll Qdrant points:', error);
       return [];
@@ -903,7 +895,7 @@ export class KnowledgeSyncService {
     entity.id = item.id;
     entity.content = item.content;
     entity.type = item.type;
-    entity.sourceType = 'UNIVERSAL_SYNC' as Record<string, unknown>;
+    entity.sourceType = SourceType.AGENT_INTERACTION;
     entity.sourceIdentifier = `sync-${item.source}-${item.id}`;
     entity.tags = [];
     entity.confidence = 0.8;
@@ -984,7 +976,7 @@ export class KnowledgeSyncService {
       `;
 
       const params = {
-        oldId: item.metadata.originalProperties?.id || null,
+        oldId: (item.metadata.originalProperties as Record<string, unknown> | undefined)?.id ?? null,
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,

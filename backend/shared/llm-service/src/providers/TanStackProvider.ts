@@ -146,10 +146,12 @@ export class TanStackProvider extends BaseProvider {
           metadata: { usage: chunkAny.usage },
         };
       } else if (chunkAny.type === 'error') {
+        const errorMessage =
+          typeof chunkAny.message === 'string' ? chunkAny.message : 'Unknown error';
         yield {
           id: `error-${Date.now()}`,
           type: 'error',
-          content: chunkAny.message || 'Unknown error',
+          content: errorMessage,
           timestamp: Date.now(),
         };
       }

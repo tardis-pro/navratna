@@ -10,10 +10,11 @@ import { ConceptExtractorService } from './concept-extractor.service.js';
 import { OntologyBuilderService } from './ontology-builder.service.js';
 import { TaxonomyGeneratorService } from './taxonomy-generator.service.js';
 import { ReconciliationService } from './reconciliation.service.js';
-import { QdrantHealthService } from './qdrant-health.service.js';
+import { QdrantHealthService, QdrantHealthStatus } from './qdrant-health.service.js';
 import { ChatParserService } from './chat-parser.service.js';
 import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service.js';
 import { BatchProcessorService } from './batch-processor.service.js';
+import { KnowledgeGraphService } from './knowledge-graph.service.js';
 import {} from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 
@@ -708,10 +709,10 @@ export class KnowledgeBootstrapService {
    * Check and repair Qdrant health issues
    */
   async checkAndRepairQdrant(): Promise<{
-    healthBefore: Record<string, unknown>;
+    healthBefore: QdrantHealthStatus;
     repairNeeded: boolean;
     repairPerformed: boolean;
-    healthAfter: Record<string, unknown>;
+    healthAfter: QdrantHealthStatus;
     syncResult?: { synced: number; errors: number };
   }> {
     try {
@@ -874,7 +875,7 @@ export class KnowledgeBootstrapService {
   /**
    * Initialize batch processor with knowledge graph service
    */
-  initializeBatchProcessor(knowledgeGraphService: Record<string, unknown>): void {
+  initializeBatchProcessor(knowledgeGraphService: KnowledgeGraphService): void {
     this.batchProcessor = new BatchProcessorService(
       this.chatParser,
       this.chatKnowledgeExtractor,

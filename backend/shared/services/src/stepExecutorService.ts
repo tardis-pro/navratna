@@ -312,7 +312,7 @@ export class StepExecutorService extends EventEmitter {
     input: Record<string, unknown>,
     signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    const delayMs = input.delayMs || 1000;
+    const delayMs = typeof input.delayMs === 'number' ? input.delayMs : 1000;
     await this.delay(delayMs, signal);
 
     return {
@@ -329,7 +329,7 @@ export class StepExecutorService extends EventEmitter {
     // Simulate decision making
     await this.delay(Math.random() * 1500 + 500, signal); // 0.5-2 seconds
 
-    const condition = input.condition || 'true';
+    const condition = typeof input.condition === 'string' ? input.condition : 'true';
     const result = this.evaluateCondition(condition, input);
 
     return {
@@ -394,7 +394,12 @@ export class StepExecutorService extends EventEmitter {
   ): Promise<Record<string, unknown>> {
     await this.delay(Math.random() * 500 + 200, signal);
 
-    const condition = input.condition || step.condition;
+    const condition =
+      typeof input.condition === 'string'
+        ? input.condition
+        : typeof step.condition === 'string'
+          ? step.condition
+          : 'true';
     const result = this.evaluateCondition(condition, input);
 
     return {

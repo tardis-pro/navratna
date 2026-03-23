@@ -10,6 +10,28 @@ import { EventBusService } from '@uaip/infra';
 import type { JiraOperationOutcome, JiraOperationStatus } from '@uaip/types';
 import { ToolDefinition } from '../services/enterprise-tool-registry.js';
 
+interface JiraUpdateParams {
+  issueIdOrKey?: string;
+  fields?: Record<string, unknown>;
+  notifyUsers?: boolean;
+}
+
+interface JiraSearchParams {
+  jql?: string;
+  fields?: string[];
+  maxResults?: number;
+  startAt?: number;
+}
+
+interface JiraSprintParams {
+  projectKey?: string;
+}
+
+interface JiraCommentParams {
+  issueIdOrKey?: string;
+  body?: string;
+}
+
 const JIRA_OPERATION_COMPLETED_EVENT = 'jira.operation.completed';
 
 export class JiraAdapter {
@@ -124,7 +146,10 @@ export class JiraAdapter {
    * Update an existing issue
    */
   private async updateIssue(parameters: unknown): Promise<unknown> {
-    const { issueIdOrKey, fields, notifyUsers = true } = parameters;
+    const { issueIdOrKey, fields, notifyUsers = true } = (parameters as JiraUpdateParams) ?? {};
+    if (!issueIdOrKey || !fields) {
+      throw new Error('updateIssue requires issueIdOrKey and fields');
+    }
 
     const _response = await this.axiosInstance.put(
       `/issue/${issueIdOrKey}`,
@@ -152,7 +177,8 @@ export class JiraAdapter {
    * Search for issues using JQL
    */
   private async searchIssues(parameters: unknown): Promise<unknown> {
-    const { jql, fields = [], maxResults = 50, startAt = 0 } = parameters;
+    const { jql, fields = [], maxResults = 50, startAt = 0 } =
+      (parameters as JiraSearchParams) ?? {};
 
     const response = await this.axiosInstance.post('/search', {
       jql,
@@ -183,7 +209,10 @@ export class JiraAdapter {
    * Get active sprint for a project
    */
   private async getActiveSprint(parameters: unknown): Promise<unknown> {
-    const { projectKey } = parameters;
+    const { projectKey } = (parameters as JiraSprintParams) ?? {};
+    if (!projectKey) {
+      throw new Error('getActiveSprint requires projectKey');
+    }
 
     // First, get the board ID for the project
     const boardsResponse = await this.axiosInstance.get(`/rest/agile/1.0/board`, {
@@ -228,7 +257,10 @@ export class JiraAdapter {
    * Add a comment to an issue
    */
   private async addComment(parameters: unknown): Promise<unknown> {
-    const { issueIdOrKey, body } = parameters;
+    const { issueIdOrKey, body } = (parameters as JiraCommentParams) ?? {};
+    if (!issueIdOrKey || !body) {
+      throw new Error('addComment requires issueIdOrKey and body');
+    }
 
     const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/comment`, { body });
 
@@ -319,6 +351,7 @@ export class JiraAdapter {
   private async authenticate(): Promise<void> {
     try {
       const authConfig = this.toolDefinition.authentication.config;
+      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
 
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
@@ -332,7 +365,7 @@ export class JiraAdapter {
 
       // Exchange refresh token for access token
       const response = await axios.post(
-        authConfig.tokenUrl,
+        oauthConfig.tokenUrl,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -355,7 +388,7 @@ export class JiraAdapter {
       });
     } catch (error) {
       logger.error('Jira authentication failed', { error });
-      throw new Error('Failed to authenticate with Jira', { cause: error });
+      throw new Error('Failed to authenticate with Jira');
     }
   }
 
@@ -369,11 +402,12 @@ export class JiraAdapter {
 
     try {
       const authConfig = this.toolDefinition.authentication.config;
+      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
       const clientId = process.env.JIRA_CLIENT_ID;
       const clientSecret = process.env.JIRA_CLIENT_SECRET;
 
       const response = await axios.post(
-        authConfig.tokenUrl,
+        oauthConfig.tokenUrl,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -399,7 +433,7 @@ export class JiraAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Jira token', { cause: error });
+      throw new Error('Failed to refresh Jira token');
     }
   }
 
@@ -407,7 +441,7 @@ export class JiraAdapter {
    * Format error for consistent error handling
    */
   private formatError(error: unknown): Error {
-    if (error.response) {
+    if (axios.isAxiosError(error) && error.response) {
       // Jira API error
       const status = error.response.status;
       const message =
@@ -416,12 +450,12 @@ export class JiraAdapter {
         error.response.statusText;
 
       return new Error(`Jira API error (${status}): ${message}`);
-    } else if (error.request) {
+    } else if (axios.isAxiosError(error) && error.request) {
       // Network error
       return new Error('Network error: Unable to reach Jira');
     } else {
       // Other error
-      return error;
+      return error instanceof Error ? error : new Error(String(error));
     }
   }
 

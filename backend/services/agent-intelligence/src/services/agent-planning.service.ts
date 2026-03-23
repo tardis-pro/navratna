@@ -4,7 +4,15 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, ExecutionPlan, KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
+import {
+  Agent,
+  AgentSchema,
+  ExecutionPlan,
+  ExecutionPlanSchema,
+  KnowledgeItem,
+  KnowledgeType,
+  SourceType,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -23,8 +31,53 @@ interface PlanStep {
   id: string;
   type: string;
   description: string;
-  estimatedDuration?: number;
-  required?: boolean;
+  estimatedDuration: number;
+  required: boolean;
+}
+
+interface IntentDetails {
+  primary?: string;
+  description?: string;
+}
+
+interface PlanningAnalysis {
+  intent?: IntentDetails;
+  planningContext?: string[];
+  timestamp?: Date;
+  executeImmediately?: boolean;
+  [key: string]: unknown;
+}
+
+interface PlanningUserPreferences {
+  priority?: string;
+  [key: string]: unknown;
+}
+
+interface PlanningSecurityContext {
+  constraints?: string[];
+  maxDuration?: number;
+  restrictedStepTypes?: string[];
+  maxSteps?: number;
+  [key: string]: unknown;
+}
+
+interface GeneratePlanEventPayload {
+  requestId: string;
+  agent: Agent;
+  analysis: PlanningAnalysis;
+  userPreferences: PlanningUserPreferences;
+  securityContext: PlanningSecurityContext;
+}
+
+interface ValidatePlanEventPayload {
+  requestId: string;
+  plan: ExecutionPlan;
+  securityContext: PlanningSecurityContext;
+}
+
+interface StorePlanEventPayload {
+  requestId: string;
+  plan: ExecutionPlan;
 }
 
 export class AgentPlanningService {
@@ -77,27 +130,27 @@ export class AgentPlanningService {
    */
   async generateExecutionPlan(
     agent: Agent,
-    analysis: Record<string, unknown>,
-    userPreferences: Record<string, unknown>,
-    securityContext: Record<string, unknown>
+    analysis: PlanningAnalysis,
+    userPreferences: PlanningUserPreferences,
+    securityContext: PlanningSecurityContext
   ): Promise<ExecutionPlan> {
     try {
       logger.info('Generating enhanced execution plan', { agentId: agent.id });
 
       const successfulEpisodeContext = await this.getSuccessfulEpisodeContext(agent.id, analysis);
-      const enhancedAnalysis = {
+      const enhancedAnalysis: PlanningAnalysis = {
         ...analysis,
         planningContext: [
-          ...((analysis?.planningContext as string[] | undefined) || []),
+          ...(analysis.planningContext || []),
           ...successfulEpisodeContext,
         ],
       };
 
       // Get relevant knowledge for plan generation
       const planningKnowledge = this.knowledgeGraphService
-        ? await this.searchRelevantKnowledge(
+          ? await this.searchRelevantKnowledge(
             agent.id,
-            `execution planning ${enhancedAnalysis?.intent?.primary}`,
+            `execution planning ${this.getPrimaryIntent(enhancedAnalysis) || 'general assistance'}`,
             enhancedAnalysis
           )
         : [];
@@ -133,11 +186,11 @@ export class AgentPlanningService {
         steps: optimizedSteps,
         dependencies,
         estimatedDuration,
-        priority: userPreferences?.priority || 'medium',
-        constraints: securityContext?.constraints || [],
+        priority: userPreferences.priority || 'medium',
+        constraints: securityContext.constraints || [],
         metadata: {
           generatedBy: agent.id,
-          basedOnAnalysis: analysis.timestamp,
+          basedOnAnalysis: this.resolveAnalysisTimestamp(analysis),
           userPreferences,
           version: '2.0.0', // Enhanced version
         },
@@ -165,7 +218,7 @@ export class AgentPlanningService {
         agentId: agent.id,
         planId: plan.id,
         planSteps: plan.steps.length,
-        intent: analysis?.intent?.primary || this.extractPlanIntent(plan),
+        intent: this.getPrimaryIntent(analysis) || this.extractPlanIntent(plan),
         planJson: JSON.stringify(plan),
         timestamp: new Date(),
       });
@@ -179,13 +232,14 @@ export class AgentPlanningService {
 
   private async getSuccessfulEpisodeContext(
     agentId: string,
-    analysis: Record<string, unknown>
+    analysis: PlanningAnalysis
   ): Promise<string[]> {
     if (!this.knowledgeGraphService) {
       return [];
     }
 
-    const query = analysis?.intent?.primary || analysis?.intent?.description || 'general planning';
+    const query =
+      this.getPrimaryIntent(analysis) || this.getIntentDescription(analysis) || 'general planning';
     const similarEpisodesResult = await this.knowledgeGraphService.search({
       query: `similar situation: ${query}`,
       filters: {
@@ -207,19 +261,31 @@ export class AgentPlanningService {
       .map((episode) => `Similar past success: ${this.summarizeEpisode(episode)}`);
   }
 
-  private isSuccessfulEpisode(episode: Record<string, unknown>): boolean {
-    if (episode?.outcome === 'success') {
+  private isSuccessfulEpisode(episode: KnowledgeItem): boolean {
+    const metadata = this.asRecord(episode.metadata);
+
+    if (this.asString(metadata?.outcome) === 'success') {
       return true;
     }
 
-    if (typeof episode?.significance?.success === 'number' && episode.significance.success >= 0.6) {
+    const significance = this.asRecord(metadata?.significance);
+    const successScore = this.asNumber(significance?.success);
+    if (successScore !== undefined && successScore >= 0.6) {
       return true;
     }
 
-    const outcomeDescriptions = (episode?.experience?.outcomes || [])
-      .map((outcome: Record<string, unknown>) =>
-        String(outcome?.description || outcome || '').toLowerCase()
-      )
+    const experience = this.asRecord(metadata?.experience);
+    const outcomes = this.asArray(experience?.outcomes);
+    const outcomeDescriptions = outcomes
+      .map((outcome) => {
+        if (typeof outcome === 'string') {
+          return outcome.toLowerCase();
+        }
+
+        const outcomeRecord = this.asRecord(outcome);
+        const description = this.asString(outcomeRecord?.description);
+        return description ? description.toLowerCase() : '';
+      })
       .filter(Boolean);
 
     return outcomeDescriptions.some((description: string) =>
@@ -227,11 +293,21 @@ export class AgentPlanningService {
     );
   }
 
-  private summarizeEpisode(episode: Record<string, unknown>): string {
+  private summarizeEpisode(episode: KnowledgeItem): string {
+    const metadata = this.asRecord(episode.metadata);
+    const context = this.asRecord(metadata?.context);
+    const what = this.asString(context?.what);
+
+    const experience = this.asRecord(metadata?.experience);
+    const outcomes = this.asArray(experience?.outcomes);
+    const firstOutcome = outcomes[0];
+    const firstOutcomeRecord = this.asRecord(firstOutcome);
+    const firstOutcomeDescription = this.asString(firstOutcomeRecord?.description);
+
     return (
-      episode?.summary ||
-      episode?.context?.what ||
-      episode?.experience?.outcomes?.[0]?.description ||
+      episode.summary ||
+      what ||
+      firstOutcomeDescription ||
       'successful prior execution'
     );
   }
@@ -239,8 +315,8 @@ export class AgentPlanningService {
   /**
    * Determine plan type based on analysis
    */
-  determinePlanType(analysis: Record<string, unknown>): string {
-    const intent = analysis?.intent?.primary;
+  determinePlanType(analysis: PlanningAnalysis): string {
+    const intent = (this.getPrimaryIntent(analysis) || '').toLowerCase();
     switch (intent) {
       case 'creation':
       case 'create':
@@ -264,12 +340,12 @@ export class AgentPlanningService {
    * Generate enhanced plan steps with knowledge integration
    */
   private async generateEnhancedPlanSteps(
-    agent: Agent,
-    analysis: Record<string, unknown>,
+    _agent: Agent,
+    _analysis: PlanningAnalysis,
     planType: string,
     knowledge: KnowledgeItem[]
-  ): Promise<Record<string, unknown>[]> {
-    const baseSteps = [
+  ): Promise<PlanStep[]> {
+    const baseSteps: PlanStep[] = [
       {
         id: 'validate_input',
         type: 'validation',
@@ -368,18 +444,14 @@ export class AgentPlanningService {
    * Calculate enhanced dependencies with knowledge graph insights
    */
   private async calculateEnhancedDependencies(
-    steps: Record<string, unknown>[],
+    steps: PlanStep[],
     knowledge: KnowledgeItem[]
-  ): Promise<Record<string, unknown>[]> {
-    const dependencies = [];
+  ): Promise<string[]> {
+    const dependencies = new Set<string>();
 
     // Sequential dependencies
     for (let i = 1; i < steps.length; i++) {
-      dependencies.push({
-        stepId: steps[i].id,
-        dependsOn: [steps[i - 1].id],
-        type: 'sequential',
-      });
+      dependencies.add(steps[i - 1].id);
     }
 
     // Knowledge-based dependencies
@@ -390,25 +462,21 @@ export class AgentPlanningService {
           ['execution', 'generation', 'analysis'].includes(s.type)
         );
 
-        executionSteps.forEach((step) => {
-          dependencies.push({
-            stepId: step.id,
-            dependsOn: [knowledgeStep.id],
-            type: 'knowledge_dependency',
-          });
-        });
+        if (executionSteps.length > 0) {
+          dependencies.add(knowledgeStep.id);
+        }
       }
     }
 
-    return dependencies;
+    return Array.from(dependencies);
   }
 
   /**
    * Estimate enhanced duration with historical data
    */
   private async estimateEnhancedDuration(
-    steps: Record<string, unknown>[],
-    dependencies: Record<string, unknown>[],
+    steps: PlanStep[],
+    dependencies: string[],
     _agentId: string
   ): Promise<number> {
     // Get historical performance data for this agent
@@ -427,25 +495,25 @@ export class AgentPlanningService {
    * Apply enhanced user preferences with knowledge-based optimization
    */
   private applyEnhancedUserPreferences(
-    steps: Record<string, unknown>[],
-    userPreferences: Record<string, unknown>,
+    steps: PlanStep[],
+    userPreferences: PlanningUserPreferences,
     knowledge: KnowledgeItem[]
-  ): Record<string, unknown>[] {
+  ): PlanStep[] {
     let optimizedSteps = [...steps];
+    const priority = (userPreferences.priority || '').toLowerCase();
 
     // Apply user preferences
-    if (userPreferences?.priority === 'speed') {
+    if (priority === 'speed') {
       optimizedSteps = optimizedSteps.map((step) => ({
         ...step,
         estimatedDuration: Math.round(step.estimatedDuration * 0.8),
       }));
     }
 
-    if (userPreferences?.priority === 'quality') {
+    if (priority === 'quality') {
       optimizedSteps = optimizedSteps.map((step) => ({
         ...step,
         estimatedDuration: Math.round(step.estimatedDuration * 1.2),
-        qualityEnhanced: true,
       }));
     }
 
@@ -467,11 +535,11 @@ export class AgentPlanningService {
    */
   async validatePlanSecurity(
     plan: ExecutionPlan,
-    securityContext: Record<string, unknown>
+    securityContext: PlanningSecurityContext
   ): Promise<void> {
     // Check duration limits
     if (
-      securityContext?.maxDuration &&
+      securityContext.maxDuration &&
       plan.estimatedDuration &&
       plan.estimatedDuration > securityContext.maxDuration
     ) {
@@ -479,9 +547,9 @@ export class AgentPlanningService {
     }
 
     // Check step restrictions
-    if (securityContext?.restrictedStepTypes) {
+    if (securityContext.restrictedStepTypes) {
       const restrictedSteps = plan.steps.filter((step) =>
-        securityContext.restrictedStepTypes.includes(step.type)
+        securityContext.restrictedStepTypes?.includes(step.type)
       );
       if (restrictedSteps.length > 0) {
         throw new Error(
@@ -491,7 +559,7 @@ export class AgentPlanningService {
     }
 
     // Check resource constraints
-    if (securityContext?.maxSteps && plan.steps.length > securityContext.maxSteps) {
+    if (securityContext.maxSteps && plan.steps.length > securityContext.maxSteps) {
       throw new Error('Plan exceeds maximum allowed steps');
     }
 
@@ -510,18 +578,23 @@ export class AgentPlanningService {
 
   validatePlanResult(
     originalIntent: string,
-    toolOutput: Record<string, unknown>,
+    toolOutput: unknown,
     planStep: PlanStep
   ): boolean {
     if (toolOutput === null || toolOutput === undefined) {
       return false;
     }
 
+    const outputRecord = this.asRecord(toolOutput);
+    const outputStatus = this.asString(outputRecord?.status);
+    const outputError = this.asString(outputRecord?.error);
+    const outputSuccess = this.asBoolean(outputRecord?.success);
+
     if (
-      toolOutput?.success === false ||
-      toolOutput?.error ||
-      toolOutput?.status === 'failed' ||
-      toolOutput?.status === 'error'
+      outputSuccess === false ||
+      !!outputError ||
+      outputStatus === 'failed' ||
+      outputStatus === 'error'
     ) {
       return false;
     }
@@ -553,7 +626,7 @@ export class AgentPlanningService {
       .filter((term) => term.length > 3);
     const matchesStep = stepTerms.some((term) => outputText.includes(term));
 
-    return matchesIntent || matchesStep || toolOutput?.success === true || !!toolOutput?.result;
+    return matchesIntent || matchesStep || outputSuccess === true || !!outputRecord?.result;
   }
 
   async executePlanWithSelfCorrection(
@@ -605,7 +678,7 @@ export class AgentPlanningService {
   private async executePlanStep(
     step: PlanStep,
     context: Record<string, unknown>
-  ): Promise<unknown> {
+  ): Promise<Record<string, unknown>> {
     const parameters = {
       stepId: step.id,
       stepType: step.type,
@@ -614,10 +687,20 @@ export class AgentPlanningService {
     };
 
     if (['execution', 'generation', 'analysis', 'retrieval'].includes(step.type)) {
-      return this.eventBusService.request('agent.tool.execute', {
+      const result = await this.eventBusService.request('agent.tool.execute', {
         planStep: step,
         parameters,
       });
+
+      if (this.isRecord(result)) {
+        return result;
+      }
+
+      return {
+        success: false,
+        status: 'invalid_output',
+        error: 'agent.tool.execute returned non-object output',
+      };
     }
 
     return {
@@ -647,7 +730,6 @@ export class AgentPlanningService {
         priority: plan.priority,
         constraints: plan.constraints,
         metadata: plan.metadata,
-        createdAt: plan.created_at,
       });
 
       logger.info('Plan stored successfully', { planId: plan.id, agentId: plan.agentId });
@@ -663,7 +745,7 @@ export class AgentPlanningService {
   private async storePlanKnowledge(
     agentId: string,
     plan: ExecutionPlan,
-    analysis: Record<string, unknown>
+    analysis: PlanningAnalysis
   ): Promise<void> {
     if (this.knowledgeGraphService) {
       try {
@@ -672,7 +754,7 @@ export class AgentPlanningService {
             content: `Execution Plan: ${plan.type}
 Steps: ${plan.steps?.length}
 Duration: ${plan.estimatedDuration}
-Based on Analysis: ${analysis.intent?.primary}`,
+Based on Analysis: ${this.getPrimaryIntent(analysis) || 'unknown'}`,
             type: KnowledgeType.PROCEDURAL,
             tags: ['execution-plan', `agent-${agentId}`, plan.type],
             source: {
@@ -693,7 +775,13 @@ Based on Analysis: ${analysis.intent?.primary}`,
    * Event handlers
    */
   private async handleGeneratePlan(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agent, analysis, userPreferences, securityContext } = event;
+    const payload = this.parseGeneratePlanEvent(event);
+    if (!payload) {
+      logger.warn('Invalid generate plan event payload', { event });
+      return;
+    }
+
+    const { requestId, agent, analysis, userPreferences, securityContext } = payload;
     try {
       const plan = await this.generateExecutionPlan(
         agent,
@@ -702,12 +790,12 @@ Based on Analysis: ${analysis.intent?.primary}`,
         securityContext
       );
 
-      if (analysis?.executeImmediately) {
+      if (analysis.executeImmediately) {
         const executionResults = await this.executePlanWithSelfCorrection(
           plan,
-          analysis?.intent?.primary || 'general_assistance',
+          this.getPrimaryIntent(analysis) || 'general_assistance',
           {
-            agentId: agent?.id,
+            agentId: agent.id,
             analysis,
             userPreferences,
             securityContext,
@@ -715,7 +803,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
         );
 
         await this.publishPlanningEvent('agent.plan.executed', {
-          agentId: agent?.id,
+          agentId: agent.id,
           planId: plan.id,
           executedSteps: executionResults.length,
         });
@@ -723,22 +811,40 @@ Based on Analysis: ${analysis.intent?.primary}`,
 
       await this.respondToRequest(requestId, { success: true, data: plan });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
   private async handleValidatePlan(event: Record<string, unknown>): Promise<void> {
-    const { requestId, plan, securityContext } = event;
+    const payload = this.parseValidatePlanEvent(event);
+    if (!payload) {
+      logger.warn('Invalid validate plan event payload', { event });
+      return;
+    }
+
+    const { requestId, plan, securityContext } = payload;
     try {
       await this.validatePlanSecurity(plan, securityContext);
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
   private async handleStorePlan(event: Record<string, unknown>): Promise<void> {
-    const { requestId, plan } = event;
+    const payload = this.parseStorePlanEvent(event);
+    if (!payload) {
+      logger.warn('Invalid store plan event payload', { event });
+      return;
+    }
+
+    const { requestId, plan } = payload;
     try {
       await this.storePlan(plan);
       this.auditLog('EXECUTED_SUCCESSFULLY', {
@@ -752,15 +858,18 @@ Based on Analysis: ${analysis.intent?.primary}`,
       await this.respondToRequest(requestId, { success: true });
     } catch (error) {
       this.auditLog('EXECUTION_FAILED', {
-        agentId: plan?.agentId,
-        planId: plan?.id,
-        planSteps: plan?.steps?.length || 0,
+        agentId: plan.agentId,
+        planId: plan.id,
+        planSteps: plan.steps.length || 0,
         intent: this.extractPlanIntent(plan),
-        planJson: plan ? JSON.stringify(plan) : undefined,
+        planJson: JSON.stringify(plan),
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date(),
       });
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
@@ -770,7 +879,7 @@ Based on Analysis: ${analysis.intent?.primary}`,
   private async searchRelevantKnowledge(
     agentId: string,
     query: string,
-    _context?: Record<string, unknown>
+    _context?: PlanningAnalysis
   ): Promise<KnowledgeItem[]> {
     if (!this.knowledgeGraphService) return [];
 
@@ -796,7 +905,17 @@ Based on Analysis: ${analysis.intent?.primary}`,
     // Request agent data through event bus
     try {
       const response = await this.eventBusService.request('agent.query.get', { agentId });
-      return response.success ? response.data : null;
+      if (!this.isRecord(response)) {
+        return null;
+      }
+
+      const success = this.asBoolean(response.success);
+      if (!success) {
+        return null;
+      }
+
+      const parsedAgent = AgentSchema.safeParse(response.data);
+      return parsedAgent.success ? parsedAgent.data : null;
     } catch (error) {
       logger.warn('Failed to get agent data', { error, agentId });
       return null;
@@ -849,19 +968,176 @@ Based on Analysis: ${analysis.intent?.primary}`,
     });
   }
 
-  private extractPlanIntent(plan: ExecutionPlan | { type?: string } | undefined): string {
+  private extractPlanIntent(plan: ExecutionPlan | { type?: string; intent?: unknown } | undefined): string {
     if (!plan) {
       return 'unknown';
     }
 
-    if (
-      'intent' in plan &&
-      typeof (plan as { intent?: Record<string, unknown> }).intent === 'string'
-    ) {
-      return (plan as { intent: string }).intent;
+    if ('intent' in plan) {
+      const rawIntent = plan.intent;
+      if (typeof rawIntent === 'string') {
+        return rawIntent;
+      }
+
+      const intentRecord = this.asRecord(rawIntent);
+      const primary = this.asString(intentRecord?.primary);
+      if (primary) {
+        return primary;
+      }
     }
 
     return plan.type || 'unknown';
+  }
+
+  private getPrimaryIntent(analysis: PlanningAnalysis): string | undefined {
+    if (!analysis.intent) {
+      return undefined;
+    }
+
+    return analysis.intent.primary;
+  }
+
+  private getIntentDescription(analysis: PlanningAnalysis): string | undefined {
+    if (!analysis.intent) {
+      return undefined;
+    }
+
+    return analysis.intent.description;
+  }
+
+  private resolveAnalysisTimestamp(analysis: PlanningAnalysis): Date {
+    return analysis.timestamp instanceof Date ? analysis.timestamp : new Date();
+  }
+
+  private parseGeneratePlanEvent(event: Record<string, unknown>): GeneratePlanEventPayload | null {
+    const requestId = this.asString(event.requestId);
+    if (!requestId) {
+      return null;
+    }
+
+    const agentParse = AgentSchema.safeParse(event.agent);
+    if (!agentParse.success) {
+      return null;
+    }
+
+    return {
+      requestId,
+      agent: agentParse.data,
+      analysis: this.parsePlanningAnalysis(event.analysis),
+      userPreferences: this.parseUserPreferences(event.userPreferences),
+      securityContext: this.parseSecurityContext(event.securityContext),
+    };
+  }
+
+  private parseValidatePlanEvent(event: Record<string, unknown>): ValidatePlanEventPayload | null {
+    const requestId = this.asString(event.requestId);
+    if (!requestId) {
+      return null;
+    }
+
+    const planParse = ExecutionPlanSchema.safeParse(event.plan);
+    if (!planParse.success) {
+      return null;
+    }
+
+    return {
+      requestId,
+      plan: planParse.data,
+      securityContext: this.parseSecurityContext(event.securityContext),
+    };
+  }
+
+  private parseStorePlanEvent(event: Record<string, unknown>): StorePlanEventPayload | null {
+    const requestId = this.asString(event.requestId);
+    if (!requestId) {
+      return null;
+    }
+
+    const planParse = ExecutionPlanSchema.safeParse(event.plan);
+    if (!planParse.success) {
+      return null;
+    }
+
+    return {
+      requestId,
+      plan: planParse.data,
+    };
+  }
+
+  private parsePlanningAnalysis(value: unknown): PlanningAnalysis {
+    const analysisRecord = this.asRecord(value);
+    if (!analysisRecord) {
+      return {};
+    }
+
+    const intentRecord = this.asRecord(analysisRecord.intent);
+    const timestampValue = analysisRecord.timestamp;
+    const timestamp = timestampValue instanceof Date ? timestampValue : undefined;
+
+    return {
+      intent: intentRecord
+        ? {
+            primary: this.asString(intentRecord.primary),
+            description: this.asString(intentRecord.description),
+          }
+        : undefined,
+      planningContext: this.asStringArray(analysisRecord.planningContext),
+      timestamp,
+      executeImmediately: this.asBoolean(analysisRecord.executeImmediately),
+    };
+  }
+
+  private parseUserPreferences(value: unknown): PlanningUserPreferences {
+    const preferencesRecord = this.asRecord(value);
+    if (!preferencesRecord) {
+      return {};
+    }
+
+    return {
+      priority: this.asString(preferencesRecord.priority),
+    };
+  }
+
+  private parseSecurityContext(value: unknown): PlanningSecurityContext {
+    const contextRecord = this.asRecord(value);
+    if (!contextRecord) {
+      return {};
+    }
+
+    return {
+      constraints: this.asStringArray(contextRecord.constraints),
+      maxDuration: this.asNumber(contextRecord.maxDuration),
+      restrictedStepTypes: this.asStringArray(contextRecord.restrictedStepTypes),
+      maxSteps: this.asNumber(contextRecord.maxSteps),
+    };
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | undefined {
+    return this.isRecord(value) ? value : undefined;
+  }
+
+  private asString(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private asNumber(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
+  }
+
+  private asBoolean(value: unknown): boolean | undefined {
+    return typeof value === 'boolean' ? value : undefined;
+  }
+
+  private asArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
+  }
+
+  private asStringArray(value: unknown): string[] {
+    return this.asArray(value).filter((item): item is string => typeof item === 'string');
   }
 
   private auditLog(event: string, data: Record<string, unknown>): void {

@@ -36,6 +36,10 @@ async function generateUniqueSlug(repo: Repository<ProjectEntity>): Promise<stri
   return tryGenerate(0);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 // ---------------------------------------------------------------------------
 // Public interfaces
 // ---------------------------------------------------------------------------
@@ -144,7 +148,10 @@ export class ProjectManagementService {
         slug,
         tags: data.tags,
         settings: {
-          allowedTools: (data.settings as unknown)?.allowedTools ?? [],
+          allowedTools:
+            isRecord(data.settings) && Array.isArray(data.settings.allowedTools)
+              ? data.settings.allowedTools
+              : [],
           ...(data.settings ?? {}),
         },
         metadata: {
@@ -408,7 +415,7 @@ export class ProjectManagementService {
 
   async updateTask(id: string, updates: unknown): Promise<unknown> {
     logger.warn('updateTask called but TaskEntity integration not yet implemented', { id });
-    return { id, ...updates };
+    return { id, ...(isRecord(updates) ? updates : {}) };
   }
 
   async recordToolUsage(data: unknown): Promise<void> {

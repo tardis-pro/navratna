@@ -53,7 +53,7 @@ export class CapabilityDiscoveryService {
 
       return capabilities;
     } catch (error: unknown) {
-      logger.error('Error searching capabilities', { query, error: error.message });
+      logger.error('Error searching capabilities', { query, error: error instanceof Error ? error.message : String(error) });
       throw new ApiError(500, 'Failed to search capabilities', 'SEARCH_ERROR');
     }
   }
@@ -71,16 +71,17 @@ export class CapabilityDiscoveryService {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
+      const intelligenceConfig =
+        (agentConfig.metadata?.intelligenceConfig as Record<string, unknown> | undefined) ||
+        (agentConfig.intelligenceConfig as Record<string, unknown> | undefined);
       const configuredCapabilities =
-        (agentConfig.metadata?.intelligenceConfig as unknown)?.capabilities ||
-        (agentConfig.intelligenceConfig as unknown)?.capabilities ||
-        {};
+        (intelligenceConfig?.capabilities as Record<string, unknown> | undefined) || {};
 
       // Get capabilities from database
       const capabilityIds = [
-        ...(configuredCapabilities.tools || []),
-        ...(configuredCapabilities.artifacts || []),
-        ...(configuredCapabilities.hybrid || []),
+        ...((configuredCapabilities.tools as string[]) || []),
+        ...((configuredCapabilities.artifacts as string[]) || []),
+        ...((configuredCapabilities.hybrid as string[]) || []),
       ];
 
       if (capabilityIds.length === 0) {
@@ -93,7 +94,7 @@ export class CapabilityDiscoveryService {
 
       return capabilityResult.map((row) => this.mapCapabilityFromDB(row));
     } catch (error: unknown) {
-      logger.error('Error getting agent capabilities', { agentId, error: error.message });
+      logger.error('Error getting agent capabilities', { agentId, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -112,7 +113,7 @@ export class CapabilityDiscoveryService {
 
       return this.mapCapabilityFromDB(result);
     } catch (error: unknown) {
-      logger.error('Error getting capability by ID', { capabilityId, error: error.message });
+      logger.error('Error getting capability by ID', { capabilityId, error: error instanceof Error ? error.message : String(error) });
       throw new ApiError(500, 'Failed to retrieve capability', 'DATABASE_ERROR');
     }
   }
@@ -148,7 +149,7 @@ export class CapabilityDiscoveryService {
 
       return { dependencies, dependents };
     } catch (error: unknown) {
-      logger.error('Error getting capability dependencies', { capabilityId, error: error.message });
+      logger.error('Error getting capability dependencies', { capabilityId, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -194,7 +195,7 @@ export class CapabilityDiscoveryService {
         )
         .slice(0, 10);
     } catch (error: unknown) {
-      logger.error('Error discovering capabilities by intent', { intent, error: error.message });
+      logger.error('Error discovering capabilities by intent', { intent, error: error instanceof Error ? error.message : String(error) });
       throw new ApiError(500, 'Failed to discover capabilities', 'DISCOVERY_ERROR');
     }
   }
@@ -202,20 +203,21 @@ export class CapabilityDiscoveryService {
   // Private helper methods
 
   private mapCapabilityFromDB(row: unknown): Capability {
+    const r = row as Record<string, unknown>;
     return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      type: row.type,
-      status: row.status,
-      metadata: row.metadata || {},
-      toolConfig: row.tool_config || undefined,
-      artifactConfig: row.artifact_config || undefined,
-      dependencies: row.dependencies || [],
-      securityRequirements: this.parseSecurityRequirements(row.security_requirements),
-      resourceRequirements: row.resource_requirements || undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      id: r.id as string,
+      name: r.name as string,
+      description: r.description as string,
+      type: r.type as Capability['type'],
+      status: r.status as Capability['status'],
+      metadata: (r.metadata as Record<string, unknown>) || {},
+      toolConfig: (r.tool_config as Capability['toolConfig']) || undefined,
+      artifactConfig: (r.artifact_config as Capability['artifactConfig']) || undefined,
+      dependencies: (r.dependencies as string[]) || [],
+      securityRequirements: this.parseSecurityRequirements(r.security_requirements),
+      resourceRequirements: (r.resource_requirements as Capability['resourceRequirements']) || undefined,
+      createdAt: r.created_at as Date,
+      updatedAt: r.updated_at as Date,
     };
   }
 
@@ -256,13 +258,14 @@ export class CapabilityDiscoveryService {
     }
 
     if (typeof requirements === 'object') {
+      const req = requirements as Record<string, unknown>;
       return {
-        minimumSecurityLevel: requirements.minimumSecurityLevel || 'medium',
-        requiredPermissions: Array.isArray(requirements.requiredPermissions)
-          ? requirements.requiredPermissions
+        minimumSecurityLevel: (req.minimumSecurityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
+        requiredPermissions: Array.isArray(req.requiredPermissions)
+          ? (req.requiredPermissions as string[])
           : [],
-        sensitiveData: Boolean(requirements.sensitiveData),
-        auditRequired: Boolean(requirements.auditRequired),
+        sensitiveData: Boolean(req.sensitiveData),
+        auditRequired: Boolean(req.auditRequired),
       };
     }
 
@@ -387,7 +390,7 @@ export class CapabilityDiscoveryService {
       logger.error('Failed to assign capability to agent', {
         agentId,
         capabilityId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw new ApiError(500, 'Failed to assign capability', 'ASSIGNMENT_ERROR');
     }
@@ -395,7 +398,7 @@ export class CapabilityDiscoveryService {
 
   public async executeTool(
     toolId: string,
-    parameters: unknown,
+    parameters: Record<string, unknown>,
     context?: {
       agentId?: string;
       userId?: string;
@@ -426,7 +429,7 @@ export class CapabilityDiscoveryService {
       logger.info('Tool executed successfully', { toolId, result });
       return result;
     } catch (error: unknown) {
-      logger.error('Failed to execute tool', { toolId, error: error.message });
+      logger.error('Failed to execute tool', { toolId, error: error instanceof Error ? error.message : String(error) });
       throw new ApiError(500, 'Tool execution failed', 'EXECUTION_ERROR');
     }
   }
@@ -458,12 +461,15 @@ export class CapabilityDiscoveryService {
         searchTime,
       };
     } catch (error: unknown) {
-      logger.error('Error in advanced capability search', { searchParams, error: error.message });
+      logger.error('Error in advanced capability search', { searchParams, error: error instanceof Error ? error.message : String(error) });
       throw new ApiError(500, 'Failed to search capabilities', 'SEARCH_ERROR');
     }
   }
 
-  private generateRecommendations(capabilities: Capability[], searchParams: unknown): string[] {
+  private generateRecommendations(
+    capabilities: Capability[],
+    searchParams: Record<string, unknown>
+  ): string[] {
     const recommendations: string[] = [];
 
     if (capabilities.length === 0) {

@@ -1,4 +1,4 @@
-import { ProjectManagementService } from './project-management.service';
+import { ProjectManagementService, ProjectMetrics } from './project-management.service';
 import { EventBusService } from './eventBusService';
 import { DatabaseService } from './databaseService';
 import { logger } from '@uaip/utils';
@@ -63,6 +63,44 @@ export class ProjectLifecycleService {
     private databaseService: DatabaseService
   ) {}
 
+  private static getProjectDetails(project: ProjectEntity): {
+    budgetUtilization?: number;
+    isOverdue?: boolean;
+    isOverBudget?: boolean;
+    endDate?: Date;
+    startDate?: Date;
+    completionPercentage?: number;
+  } {
+    return project as ProjectEntity & {
+      budgetUtilization?: number;
+      isOverdue?: boolean;
+      isOverBudget?: boolean;
+      endDate?: Date;
+      startDate?: Date;
+      completionPercentage?: number;
+    };
+  }
+
+  private static getNotifyConfig(config: unknown): { message?: string; recipients?: unknown[] } {
+    return typeof config === 'object' && config !== null
+      ? (config as { message?: string; recipients?: unknown[] })
+      : {};
+  }
+
+  private static getEscalateConfig(config: unknown): { level?: string; reason?: string } {
+    return typeof config === 'object' && config !== null
+      ? (config as { level?: string; reason?: string })
+      : {};
+  }
+
+  private static getProjectEvent(
+    event: unknown
+  ): { projectId?: string; statusChanged?: boolean; cost?: number } {
+    return typeof event === 'object' && event !== null
+      ? (event as { projectId?: string; statusChanged?: boolean; cost?: number })
+      : {};
+  }
+
   async initialize(): Promise<void> {
     // Set up event subscriptions
     await this.setupEventSubscriptions();
@@ -84,6 +122,7 @@ export class ProjectLifecycleService {
       }
 
       const metrics = await this.projectService.getProjectMetrics(projectId);
+      const projectDetails = ProjectLifecycleService.getProjectDetails(project);
 
       // Calculate health scores
       const budgetHealth = this.assessBudgetHealth(project);
@@ -121,7 +160,7 @@ export class ProjectLifecycleService {
         agentHealth,
         recommendations,
         metrics: {
-          budgetUtilization: (project as unknown).budgetUtilization ?? 0,
+          budgetUtilization: projectDetails.budgetUtilization ?? 0,
           completionRate: metrics.completionRate,
           averageTaskDuration: metrics.averageTaskDuration,
           activeAgents: metrics.agentPerformance.length,
@@ -341,39 +380,39 @@ export class ProjectLifecycleService {
   }
 
   private assessBudgetHealth(project: ProjectEntity): 'on-track' | 'over-budget' | 'critical' {
-    const utilization = (project as unknown).budgetUtilization ?? 0;
+    const projectDetails = ProjectLifecycleService.getProjectDetails(project);
+    const utilization = projectDetails.budgetUtilization ?? 0;
     if (utilization > 100) return 'critical';
     if (utilization > 85) return 'over-budget';
     return 'on-track';
   }
 
   private assessScheduleHealth(project: ProjectEntity): 'on-time' | 'delayed' | 'overdue' {
-    if ((project as unknown).isOverdue) return 'overdue';
+    const projectDetails = ProjectLifecycleService.getProjectDetails(project);
+    if (projectDetails.isOverdue) return 'overdue';
 
     // Calculate if we're behind schedule based on completion rate vs time elapsed
-    if ((project as unknown).endDate) {
+    if (projectDetails.endDate) {
       const totalDuration =
-        (project as unknown).endDate.getTime() - ((project as unknown).startDate?.getTime() ?? 0);
-      const elapsed = Date.now() - ((project as unknown).startDate?.getTime() ?? 0);
+        projectDetails.endDate.getTime() - (projectDetails.startDate?.getTime() ?? 0);
+      const elapsed = Date.now() - (projectDetails.startDate?.getTime() ?? 0);
       const expectedCompletion = (elapsed / totalDuration) * 100;
 
-      if (((project as unknown).completionPercentage ?? 0) < expectedCompletion - 20)
+      if ((projectDetails.completionPercentage ?? 0) < expectedCompletion - 20)
         return 'delayed';
     }
 
     return 'on-time';
   }
 
-  private assessTaskHealth(metrics: unknown): 'progressing' | 'stalled' | 'blocked' {
+  private assessTaskHealth(metrics: ProjectMetrics): 'progressing' | 'stalled' | 'blocked' {
     if (metrics.taskCompletionRate === 0) return 'blocked';
     if (metrics.taskCompletionRate < 20) return 'stalled';
     return 'progressing';
   }
 
-  private assessAgentHealth(metrics: unknown): 'active' | 'inactive' | 'overloaded' {
-    const activeAgents = metrics.agentPerformance.filter(
-      (agent: unknown) => agent.tasksCompleted > 0
-    ).length;
+  private assessAgentHealth(metrics: ProjectMetrics): 'active' | 'inactive' | 'overloaded' {
+    const activeAgents = metrics.agentPerformance.filter((agent) => agent.tasksCompleted > 0).length;
     const totalAgents = metrics.agentPerformance.length;
 
     if (activeAgents === 0) return 'inactive';
@@ -403,7 +442,7 @@ export class ProjectLifecycleService {
 
   private generateRecommendations(
     project: ProjectEntity,
-    metrics: unknown,
+    metrics: ProjectMetrics,
     budgetHealth: string,
     scheduleHealth: string,
     taskHealth: string,
@@ -597,10 +636,11 @@ export class ProjectLifecycleService {
   }
 
   private async executeNotifyAction(projectId: string, config: unknown): Promise<void> {
+    const notifyConfig = ProjectLifecycleService.getNotifyConfig(config);
     await this.eventBusService.publish('project.notification', {
       projectId,
-      message: config.message,
-      recipients: config.recipients,
+      message: notifyConfig.message,
+      recipients: notifyConfig.recipients,
     });
   }
 
@@ -617,16 +657,21 @@ export class ProjectLifecycleService {
   }
 
   private async executeEscalateAction(projectId: string, config: unknown): Promise<void> {
+    const escalateConfig = ProjectLifecycleService.getEscalateConfig(config);
     await this.eventBusService.publish('project.escalation', {
       projectId,
-      escalationLevel: config.level,
-      reason: config.reason,
+      escalationLevel: escalateConfig.level,
+      reason: escalateConfig.reason,
     });
   }
 
   // Event handlers
   private async onProjectCreated(event: unknown): Promise<void> {
-    const { projectId } = event;
+    const { projectId } = ProjectLifecycleService.getProjectEvent(event);
+
+    if (!projectId) {
+      return;
+    }
 
     // Set up default automations for new projects
     await this.createAutomation({
@@ -652,7 +697,7 @@ export class ProjectLifecycleService {
   }
 
   private async onTaskUpdated(event: unknown): Promise<void> {
-    const { projectId, statusChanged } = event;
+    const { projectId, statusChanged } = ProjectLifecycleService.getProjectEvent(event);
 
     if (statusChanged && projectId) {
       // Trigger health check for project when task status changes
@@ -661,12 +706,13 @@ export class ProjectLifecycleService {
   }
 
   private async onToolUsageRecorded(event: unknown): Promise<void> {
-    const { projectId, cost } = event;
+    const { projectId, cost } = ProjectLifecycleService.getProjectEvent(event);
 
     // Check if this tool usage pushes project over budget
     if (cost > 0 && projectId) {
       const project = await this.projectService.getProject(projectId);
-      if (project && (project as unknown).isOverBudget) {
+      const projectDetails = project ? ProjectLifecycleService.getProjectDetails(project) : null;
+      if (project && projectDetails?.isOverBudget) {
         await this.executeAutomations(projectId);
       }
     }

@@ -8,7 +8,9 @@ import {
   Agent,
   Episode,
   KnowledgeItem,
+  EventBusMessage,
   WorkingMemoryUpdate,
+  WorkingMemory,
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
@@ -22,6 +24,51 @@ import { QmdSearchService } from '@/knowledge-graph/qmd-search.service.js';
 import { MacrodataMemoryService } from '@/agent-memory/macrodata-memory.service.js';
 import { ThoughtChain, THOUGHT_SYSTEM_PROMPT } from '@uaip/types';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
+import { QdrantService } from '@/knowledge-graph/qdrant.service.js';
+import { EmbeddingService } from '@/knowledge-graph/embedding.service.js';
+
+type UnknownRecord = Record<string, unknown>;
+
+type LLMResponsePayload = {
+  content?: string;
+  response?: string;
+  message?: string;
+  text?: string;
+  error?: string;
+  model?: string;
+  tokensUsed?: number;
+  confidence?: number;
+  suggestedTools?: UnknownRecord[];
+  toolsExecuted?: UnknownRecord[];
+};
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === 'object' && value !== null;
+
+const toRecord = (value: unknown): UnknownRecord => (isRecord(value) ? value : {});
+
+const toStringValue = (value: unknown, fallback = ''): string =>
+  typeof value === 'string' ? value : fallback;
+
+const toNumberValue = (value: unknown, fallback = 0): number =>
+  typeof value === 'number' ? value : fallback;
+
+const toRecordArray = (value: unknown): UnknownRecord[] =>
+  Array.isArray(value) ? value.filter(isRecord) : [];
+
+const toStringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+
+const toGenerationResponse = (
+  value: unknown
+): { content: string; confidence: number; model: string } => {
+  const record = toRecord(value);
+  return {
+    content: toStringValue(record.content, 'I have some thoughts on this.'),
+    confidence: toNumberValue(record.confidence, 0.7),
+    model: toStringValue(record.model, 'unknown'),
+  };
+};
 
 export interface AgentDiscussionConfig {
   databaseService: DatabaseService;
@@ -53,7 +100,7 @@ export class AgentDiscussionService {
       timestamp: number;
       timeout: NodeJS.Timeout | null;
       responseChannel: string;
-      handler: ((responseData: Record<string, unknown>) => Promise<void>) | null;
+      handler: ((responseData: EventBusMessage) => Promise<void>) | null;
     }
   >();
 
@@ -102,9 +149,12 @@ export class AgentDiscussionService {
       const ds = typeormService.getDataSource();
       if (ds) {
         const { getKnowledgeGraphService } = await import('@uaip/shared-services');
-        const kgs = (await getKnowledgeGraphService()) as Record<string, unknown>;
-        if (kgs?.vectorDb && kgs?.embeddings) {
-          this.qmdSearchService = new QmdSearchService(ds, kgs.vectorDb, kgs.embeddings);
+        const kgs = await getKnowledgeGraphService();
+        const kgsRecord = toRecord(kgs as unknown);
+        const vectorDb = kgsRecord.vectorDb;
+        const embeddings = kgsRecord.embeddings;
+        if (vectorDb instanceof QdrantService && embeddings instanceof EmbeddingService) {
+          this.qmdSearchService = new QmdSearchService(ds, vectorDb, embeddings);
           logger.info('QmdSearchService initialized for hybrid BM25+vector memory search');
         }
         this.macrodataMemoryService = new MacrodataMemoryService(ds);
@@ -128,8 +178,16 @@ export class AgentDiscussionService {
   private async setupLLMEventSubscriptions(): Promise<void> {
     // Subscribe to LLM generation responses
     await this.eventBusService.subscribe('llm.agent.generate.response', async (event) => {
-      const { requestId, content, error, confidence, model } = (event as Record<string, unknown>)
-        .data;
+      const payload = toRecord(event.data);
+      const requestId = toStringValue(payload.requestId);
+      const content = toStringValue(payload.content);
+      const error = toStringValue(payload.error);
+      const confidence = toNumberValue(payload.confidence, 0.7);
+      const model = toStringValue(payload.model, 'unknown');
+
+      if (!requestId) {
+        return;
+      }
 
       const isPending = await this.llmRequestTracker.isPending(requestId);
       if (!isPending) {
@@ -154,7 +212,7 @@ export class AgentDiscussionService {
       } else {
         await this.llmRequestTracker.completePendingRequest(requestId, {
           content: content || 'I have some thoughts on this.',
-          confidence: confidence || 0.7,
+          confidence,
           model: model || 'unknown',
         });
       }
@@ -183,7 +241,7 @@ export class AgentDiscussionService {
         // Add to Redis-based request tracker (30 seconds timeout)
         await this.llmRequestTracker.addPendingRequest(
           requestId,
-          (response) => resolve(response),
+          (response) => resolve(toGenerationResponse(response)),
           (error) => reject(error),
           30000,
           'agent-discussion'
@@ -334,7 +392,7 @@ export class AgentDiscussionService {
       const safeHistory = conversationHistory.filter(
         (m: Record<string, unknown>) => m?.content && String(m.content).trim().length > 0
       );
-      const contextualKnowledge = this.knowledgeGraphService
+      const contextualKnowledge: KnowledgeItem[] = this.knowledgeGraphService
         ? await this.knowledgeGraphService.getContextualKnowledge({
             conversationHistory: safeHistory,
             relevantTags: ['chat', 'conversation'],
@@ -353,9 +411,7 @@ export class AgentDiscussionService {
             limit: 6,
           });
           // Merge: add QMD results not already in contextualKnowledge
-          const existingIds = new Set(
-            contextualKnowledge.map((k: Record<string, unknown>) => k.id)
-          );
+          const existingIds = new Set(contextualKnowledge.map((k: KnowledgeItem) => k.id));
           for (const qr of qmdResults) {
             if (!existingIds.has(qr.id)) {
               contextualKnowledge.push({
@@ -393,15 +449,13 @@ export class AgentDiscussionService {
             userId,
             query: message,
             sessionEpisodes: conversationHistory.map((e: Record<string, unknown>) => ({
-              role: e.sender === agent.name ? 'assistant' : 'user',
-              content: e.content || '',
-              timestamp: e.timestamp || new Date().toISOString(),
+              role: toStringValue(e.sender) === agent.name ? 'assistant' : 'user',
+              content: toStringValue(e.content),
+              timestamp: toStringValue(e.timestamp, new Date().toISOString()),
             })),
           });
           // Add macrodata topics as knowledge items
-          const existingIds = new Set(
-            contextualKnowledge.map((k: Record<string, unknown>) => k.id)
-          );
+          const existingIds = new Set(contextualKnowledge.map((k: KnowledgeItem) => k.id));
           for (const t of macroCtx.topics) {
             if (t.content && !existingIds.has(t.content.slice(0, 30))) {
               contextualKnowledge.push({
@@ -539,6 +593,10 @@ export class AgentDiscussionService {
       if (!discussion) {
         throw new Error('Discussion not found');
       }
+      const discussionRecord = toRecord(discussion);
+      const discussionTopic = toStringValue(discussionRecord.topic);
+      const discussionIdValue = toStringValue(discussionRecord.id, discussionId);
+      const discussionParticipants = toRecordArray(discussionRecord.participants);
 
       // Get discussion messages for context
       const discussionMessages = await this.getDiscussionMessages(discussionId);
@@ -547,11 +605,11 @@ export class AgentDiscussionService {
       const context = {
         query: message,
         filters: {
-          tags: [discussion.topic],
+          tags: discussionTopic ? [discussionTopic] : [],
           agentId: agentId,
-          discussionId: discussion.id,
+          discussionId: discussionIdValue,
         },
-        scope: 'agent' as Record<string, unknown>,
+        scope: { agentId },
       };
 
       // Get contextual knowledge
@@ -565,10 +623,12 @@ export class AgentDiscussionService {
           currentContext: {
             activeDiscussion: {
               discussionId,
-              topic: discussion.topic,
-              participants: discussion.participants.map((p: Record<string, unknown>) => p.id),
+              topic: discussionTopic,
+              participants: discussionParticipants
+                .map((p: UnknownRecord) => toStringValue(p.id))
+                .filter((id: string) => id.length > 0),
               myRole: 'participant',
-              conversationHistory: discussionMessages?.messages?.slice(-5) || [],
+              conversationHistory: discussionMessages.slice(-5),
               currentGoals: ['contribute meaningfully', 'share relevant knowledge'],
             },
           },
@@ -581,7 +641,7 @@ export class AgentDiscussionService {
       // Generate knowledge-enhanced response
       const response = await this.generateDiscussionResponseInternal(
         message,
-        discussion,
+        discussionRecord,
         contextualKnowledge,
         agentId,
         agent?.createdBy
@@ -596,8 +656,10 @@ export class AgentDiscussionService {
           context: {
             when: new Date(),
             where: 'discussion-platform',
-            who: discussion.participants.map((p: Record<string, unknown>) => p.id),
-            what: `Participated in discussion about ${discussion.topic}`,
+            who: discussionParticipants
+              .map((p: UnknownRecord) => toStringValue(p.id))
+              .filter((id: string) => id.length > 0),
+            what: `Participated in discussion about ${discussionTopic}`,
             why: 'Knowledge sharing and collaboration',
             how: 'Text-based discussion',
           },
@@ -614,7 +676,7 @@ export class AgentDiscussionService {
             decisions: [],
             outcomes: [],
             emotions: [],
-            learnings: [`Contributed to discussion on ${discussion.topic}`],
+            learnings: [`Contributed to discussion on ${discussionTopic}`],
           },
           significance: {
             importance: 0.7,
@@ -644,7 +706,7 @@ export class AgentDiscussionService {
       this.auditLog('DISCUSSION_PARTICIPATED', {
         agentId,
         discussionId,
-        topic: discussion.topic,
+        topic: discussionTopic,
       });
 
       return {
@@ -689,7 +751,7 @@ export class AgentDiscussionService {
       }
 
       // Extract user message
-      const userMessage = messages[messages.length - 1]?.content || '';
+      const userMessage = toStringValue(messages[messages.length - 1]?.content);
 
       // Search for relevant knowledge
       const relevantKnowledge = this.knowledgeGraphService
@@ -702,6 +764,16 @@ export class AgentDiscussionService {
         : null;
 
       // Build agent request for LLM
+      const currentGoals = toStringArray(
+        toRecord(toRecord(toRecord(workingMemory).currentContext).activeDiscussion).currentGoals
+      );
+      const condensedWorkingMemory: { lastInteraction: null; currentGoals: string[] } | null =
+        workingMemory
+          ? {
+              lastInteraction: null,
+              currentGoals,
+            }
+          : null;
       const agentRequest = {
         agentId,
         agent: agent,
@@ -709,12 +781,7 @@ export class AgentDiscussionService {
         context: {
           ...context,
           relevantKnowledge: relevantKnowledge.slice(0, 5), // Limit to top 5
-          workingMemory: workingMemory
-            ? {
-                lastInteraction: null,
-                currentGoals: workingMemory?.currentContext?.activeDiscussion?.currentGoals || [],
-              }
-            : null,
+          workingMemory: condensedWorkingMemory,
           agentPersona: agent.persona,
         },
       };
@@ -722,7 +789,7 @@ export class AgentDiscussionService {
       // Use provided userId or fall back to agent's creator
       const effectiveUserId = userId || agent.createdBy;
 
-      let llmResponse;
+      let llmResponse: LLMResponsePayload;
       // Use event bus for LLM requests
       if (effectiveUserId) {
         logger.info('Requesting user-specific LLM response via event bus', {
@@ -794,8 +861,9 @@ export class AgentDiscussionService {
         toolsExecuted: llmResponse.toolsExecuted || [],
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Failed to generate agent response', {
-        error: error.message,
+        error: errorMessage,
         errorDetails: error,
         agentId,
         hasUserLLMService: !!this.userLLMService,
@@ -804,7 +872,7 @@ export class AgentDiscussionService {
       return {
         response: 'I apologize, but I encountered an error while processing your request.',
         model: 'error',
-        error: error.message,
+        error: errorMessage,
         knowledgeUsed: 0,
         memoryEnhanced: false,
         suggestedTools: [],
@@ -1147,15 +1215,21 @@ export class AgentDiscussionService {
   /**
    * Event handlers
    */
-  private async handleParticipateInDiscussion(event: Record<string, unknown>): Promise<void> {
+  private async handleParticipateInDiscussion(event: EventBusMessage): Promise<void> {
     // Extract data from the correct event structure
-    const { requestId } = event;
-    const { agentId, discussionId, participantId, discussionContext } = event.data || {};
+    const requestId = toStringValue(event.correlationId || event.id);
+    const eventData = toRecord(event.data);
+    const agentId = toStringValue(eventData.agentId);
+    const discussionId = toStringValue(eventData.discussionId);
+    const participantId = toStringValue(eventData.participantId);
+    const discussionContext = toRecord(eventData.discussionContext);
+    const recentMessages = toRecordArray(discussionContext.recentMessages);
+    const activeParticipants = toRecordArray(discussionContext.activeParticipants);
 
     // Debug logging to understand what's being received
     logger.info('Received participation event', {
       eventKeys: Object.keys(event),
-      dataKeys: event.data ? Object.keys(event.data) : [],
+      dataKeys: Object.keys(eventData),
       requestId,
       agentId: agentId || 'MISSING',
       agentIdType: typeof agentId,
@@ -1185,12 +1259,11 @@ export class AgentDiscussionService {
       let participationPrompt = '';
       let conversationHistory: Record<string, unknown>[] = [];
 
-      if (discussionContext?.recentMessages && discussionContext.recentMessages.length > 0) {
+      if (recentMessages.length > 0) {
         // Filter out error messages and extract conversation history from recent messages
-        const validMessages = discussionContext.recentMessages.filter(
-          (msg: Record<string, unknown>) => {
+        const validMessages = recentMessages.filter((msg: UnknownRecord) => {
             // Filter out common error messages
-            const content = msg.content?.toLowerCase() || '';
+            const content = toStringValue(msg.content).toLowerCase();
             return (
               !content.includes('i apologize, but i encountered an error') &&
               !content.includes('please try again') &&
@@ -1199,69 +1272,73 @@ export class AgentDiscussionService {
               !content.includes('error while generating') &&
               content.trim().length > 0
             );
-          }
-        );
+          });
 
-        conversationHistory = validMessages.map(
-          (msg: Record<string, unknown>): Record<string, unknown> => {
-            // Resolve participant name from available data
-            let participantName = 'Unknown';
-            if (msg.participantName) {
-              participantName = msg.participantName;
-            } else if (msg.agentId && discussionContext.activeParticipants) {
-              // Find agent participant
-              const agentParticipant = discussionContext.activeParticipants.find(
-                (p: Record<string, unknown>) => p.agentId === msg.agentId
-              );
-              participantName =
-                agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
-            } else if (msg.participantId && discussionContext.activeParticipants) {
-              // Find participant by ID
-              const participant = discussionContext.activeParticipants.find(
-                (p: Record<string, unknown>) => p.id === msg.participantId
-              );
-              participantName = participant?.displayName || participant?.agentId || 'User';
-            }
-
-            return {
-              id: msg.id,
-              content: msg.content,
-              sender: participantName,
-              timestamp: msg.timestamp,
-              type: msg.agentId ? 'agent' : 'user',
-            };
+        conversationHistory = validMessages.map((msg: UnknownRecord): UnknownRecord => {
+          // Resolve participant name from available data
+          let participantName = 'Unknown';
+          if (typeof msg.participantName === 'string') {
+            participantName = msg.participantName;
+          } else if (typeof msg.agentId === 'string') {
+            const agentParticipant = activeParticipants.find(
+              (p: UnknownRecord) => toStringValue(p.agentId) === toStringValue(msg.agentId)
+            );
+            participantName =
+              toStringValue(agentParticipant?.displayName) ||
+              toStringValue(agentParticipant?.agentId) ||
+              'Agent';
+          } else if (typeof msg.participantId === 'string') {
+            const participant = activeParticipants.find(
+              (p: UnknownRecord) => toStringValue(p.id) === toStringValue(msg.participantId)
+            );
+            participantName =
+              toStringValue(participant?.displayName) ||
+              toStringValue(participant?.agentId) ||
+              'User';
           }
-        );
+
+          return {
+            id: toStringValue(msg.id),
+            content: toStringValue(msg.content),
+            sender: participantName,
+            timestamp: toStringValue(msg.timestamp, new Date().toISOString()),
+            type: toStringValue(msg.agentId) ? 'agent' : 'user',
+          };
+        });
 
         // Check if this agent has already introduced itself (use filtered messages)
         const hasIntroduced = validMessages.some(
           (msg: Record<string, unknown>) =>
-            msg.agentId === agentId &&
-            (msg.content.toLowerCase().includes('hello') ||
-              msg.content.toLowerCase().includes("i'm") ||
-              msg.content.toLowerCase().includes('excited to join'))
+            toStringValue(msg.agentId) === agentId &&
+            (toStringValue(msg.content).toLowerCase().includes('hello') ||
+              toStringValue(msg.content).toLowerCase().includes("i'm") ||
+              toStringValue(msg.content).toLowerCase().includes('excited to join'))
         );
 
         // Get the last few messages for immediate context (use filtered messages)
         const lastMessages = validMessages.slice(-3);
-        const lastMessageContent = lastMessages[lastMessages.length - 1]?.content || '';
+        const lastMessageContent = toStringValue(lastMessages[lastMessages.length - 1]?.content);
 
         // Resolve last speaker name using the same logic as above
         let lastSpeaker = '';
         const lastMessage = lastMessages[lastMessages.length - 1];
         if (lastMessage) {
-          if (lastMessage.participantName) {
+          if (typeof lastMessage.participantName === 'string') {
             lastSpeaker = lastMessage.participantName;
-          } else if (lastMessage.agentId && discussionContext.activeParticipants) {
-            const agentParticipant = discussionContext.activeParticipants.find(
-              (p: Record<string, unknown>) => p.agentId === lastMessage.agentId
+          } else if (typeof lastMessage.agentId === 'string') {
+            const agentParticipant = activeParticipants.find(
+              (p: UnknownRecord) => toStringValue(p.agentId) === toStringValue(lastMessage.agentId)
             );
-            lastSpeaker = agentParticipant?.displayName || agentParticipant?.agentId || 'Agent';
-          } else if (lastMessage.participantId && discussionContext.activeParticipants) {
-            const participant = discussionContext.activeParticipants.find(
-              (p: Record<string, unknown>) => p.id === lastMessage.participantId
+            lastSpeaker =
+              toStringValue(agentParticipant?.displayName) ||
+              toStringValue(agentParticipant?.agentId) ||
+              'Agent';
+          } else if (typeof lastMessage.participantId === 'string') {
+            const participant = activeParticipants.find(
+              (p: UnknownRecord) => toStringValue(p.id) === toStringValue(lastMessage.participantId)
             );
-            lastSpeaker = participant?.displayName || participant?.agentId || 'User';
+            lastSpeaker =
+              toStringValue(participant?.displayName) || toStringValue(participant?.agentId) || 'User';
           }
         }
 
@@ -1295,9 +1372,9 @@ export class AgentDiscussionService {
         conversationHistory,
         context: {
           discussionId,
-          topic: discussionContext?.topic,
-          phase: discussionContext?.phase,
-          activeParticipants: discussionContext?.activeParticipants || [],
+          topic: toStringValue(discussionContext.topic),
+          phase: toStringValue(discussionContext.phase),
+          activeParticipants,
         },
       });
 
@@ -1305,25 +1382,30 @@ export class AgentDiscussionService {
       const discussion = this.discussionService
         ? await this.discussionService.getDiscussion(discussionId)
         : null;
-      const participant = discussion?.participants?.find(
-        (p: Record<string, unknown>) => p.agentId === agentId
+      const discussionRecord = toRecord(discussion);
+      const participants = toRecordArray(discussionRecord.participants);
+      const participant = participants.find(
+        (p: UnknownRecord) => toStringValue(p.agentId) === agentId
       );
+      const participantIdValue = toStringValue(participant?.id);
 
       if (participant && result.response) {
         const relevanceScore = this.calculateTurnRelevanceScore(
-          discussionContext?.topic,
+          toStringValue(discussionContext.topic),
           participationPrompt,
-          discussionContext?.relevanceScore
+          typeof discussionContext.relevanceScore === 'number'
+            ? discussionContext.relevanceScore
+            : undefined
         );
 
         if (relevanceScore >= 0.8) {
-          await this.requestPriorityTurn(discussionId, participant.id, relevanceScore);
+          await this.requestPriorityTurn(discussionId, participantIdValue, relevanceScore);
         }
 
         // Send the generated response back to the discussion orchestration
         await this.eventBusService.publish('discussion.agent.message', {
           discussionId,
-          participantId: participant.id,
+          participantId: participantIdValue,
           agentId,
           content: result.response,
           messageType: 'agent_participation',
@@ -1337,7 +1419,7 @@ export class AgentDiscussionService {
         logger.info('Agent participation message sent to discussion', {
           discussionId,
           agentId,
-          participantId: participant.id,
+          participantId: participantIdValue,
           contentLength: result.response.length,
         });
       } else {
@@ -1348,44 +1430,76 @@ export class AgentDiscussionService {
             agentId,
             hasParticipant: !!participant,
             hasResponse: !!result.response,
-            participantId: participant?.id,
+            participantId: participantIdValue,
           }
         );
       }
 
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error: Record<string, unknown>) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+    } catch (error: unknown) {
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  private async handleGenerateResponse(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, messages, context, userId } = event.data || event;
+  private async handleGenerateResponse(event: EventBusMessage): Promise<void> {
+    const eventData = toRecord(event.data);
+    const requestId = toStringValue(event.correlationId || event.id);
+    const agentId = toStringValue(eventData.agentId);
+    const messages = toRecordArray(eventData.messages);
+    const context = toRecord(eventData.context);
+    const userId = toStringValue(eventData.userId);
     try {
       const result = await this.generateAgentResponse(agentId, messages, context, userId);
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error: Record<string, unknown>) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+    } catch (error: unknown) {
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  private async handleProcessInput(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, input } = event.data || event;
+  private async handleProcessInput(event: EventBusMessage): Promise<void> {
+    const eventData = toRecord(event.data);
+    const requestId = toStringValue(event.correlationId || event.id);
+    const agentId = toStringValue(eventData.agentId);
+    const inputRecord = toRecord(eventData.input);
     try {
-      const result = await this.processAgentInput(agentId, input);
+      const result = await this.processAgentInput(agentId, {
+        message: toStringValue(inputRecord.message),
+        context: toRecord(inputRecord.context),
+        discussionId: toStringValue(inputRecord.discussionId) || undefined,
+        operationId: toStringValue(inputRecord.operationId) || undefined,
+        userId: toStringValue(inputRecord.userId) || undefined,
+      });
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error: Record<string, unknown>) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+    } catch (error: unknown) {
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  private async handleTriggerParticipation(event: Record<string, unknown>): Promise<void> {
-    const { requestId, params } = event.data || event;
+  private async handleTriggerParticipation(event: EventBusMessage): Promise<void> {
+    const eventData = toRecord(event.data);
+    const requestId = toStringValue(event.correlationId || event.id);
+    const paramsRecord = toRecord(eventData.params);
     try {
-      const result = await this.triggerAgentParticipation(params);
+      const result = await this.triggerAgentParticipation({
+        discussionId: toStringValue(paramsRecord.discussionId),
+        agentId: toStringValue(paramsRecord.agentId),
+        comment: toStringValue(paramsRecord.comment) || undefined,
+      });
       await this.respondToRequest(requestId, { success: true, data: result });
-    } catch (error: Record<string, unknown>) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+    } catch (error: unknown) {
+      await this.respondToRequest(requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -1395,7 +1509,7 @@ export class AgentDiscussionService {
   private async requestLLMResponse(
     agentRequest: Record<string, unknown>,
     userId?: string
-  ): Promise<unknown> {
+  ): Promise<LLMResponsePayload> {
     try {
       const requestId = `llm-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -1420,9 +1534,9 @@ export class AgentDiscussionService {
       await this.eventBusService.publish(eventType, eventData);
 
       // Wait for response (with timeout)
-      return new Promise((resolve, reject) => {
+      return new Promise<LLMResponsePayload>((resolve, reject) => {
         const responseChannel = `llm.response.${requestId}`;
-        let responseHandler: ((responseData: Record<string, unknown>) => Promise<void>) | null =
+        let responseHandler: ((responseData: EventBusMessage) => Promise<void>) | null =
           null;
 
         // Cleanup function
@@ -1447,12 +1561,12 @@ export class AgentDiscussionService {
                 responseChannel,
                 reason,
               });
-            } catch (cleanupError: Record<string, unknown>) {
+            } catch (cleanupError: unknown) {
               logger.warn('Failed to cleanup subscription', {
                 requestId,
                 responseChannel,
                 reason,
-                error: cleanupError.message,
+                error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
               });
             }
           }
@@ -1469,27 +1583,44 @@ export class AgentDiscussionService {
         }, 90000); // 90 second timeout (LM Studio can be slow under load)
 
         // Define response handler with cleanup
-        responseHandler = async (responseData: Record<string, unknown>): Promise<void> => {
+        responseHandler = async (responseData: EventBusMessage): Promise<void> => {
           logger.info('LLM response received', { requestId, hasResponseData: !!responseData });
 
           try {
             // Extract content from event data structure
-            let actualResponse = responseData;
-            if (responseData && responseData.data) {
-              actualResponse = responseData.data;
-            }
+            const actualResponse = toRecord(responseData.data);
 
             logger.info('LLM response data extracted', {
               requestId,
               hasActualResponse: !!actualResponse,
               actualResponseKeys: actualResponse ? Object.keys(actualResponse) : 'none',
-              hasContent: !!actualResponse?.content,
+              hasContent: !!actualResponse.content,
             });
 
             await cleanup('response_received');
-            resolve(actualResponse);
-          } catch (error: Record<string, unknown>) {
-            logger.error('Error processing LLM response', { requestId, error: error.message });
+            resolve({
+              content: toStringValue(actualResponse.content) || undefined,
+              response: toStringValue(actualResponse.response) || undefined,
+              message: toStringValue(actualResponse.message) || undefined,
+              text: toStringValue(actualResponse.text) || undefined,
+              error: toStringValue(actualResponse.error) || undefined,
+              model: toStringValue(actualResponse.model) || undefined,
+              tokensUsed:
+                typeof actualResponse.tokensUsed === 'number' ? actualResponse.tokensUsed : undefined,
+              confidence:
+                typeof actualResponse.confidence === 'number' ? actualResponse.confidence : undefined,
+              suggestedTools: Array.isArray(actualResponse.suggestedTools)
+                ? toRecordArray(actualResponse.suggestedTools)
+                : undefined,
+              toolsExecuted: Array.isArray(actualResponse.toolsExecuted)
+                ? toRecordArray(actualResponse.toolsExecuted)
+                : undefined,
+            });
+          } catch (error: unknown) {
+            logger.error('Error processing LLM response', {
+              requestId,
+              error: error instanceof Error ? error.message : String(error),
+            });
             await cleanup('response_error');
             reject(error);
           }
@@ -1510,13 +1641,14 @@ export class AgentDiscussionService {
         });
         this.eventBusService.subscribe(responseChannel, responseHandler);
       });
-    } catch (error: Record<string, unknown>) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Failed to request LLM response via event bus', { error });
       // Return fallback response
       return {
         response: 'I apologize, but I cannot process your request at the moment.',
         model: 'fallback',
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
@@ -1529,7 +1661,7 @@ export class AgentDiscussionService {
     input: Record<string, unknown>,
     relevantKnowledge: KnowledgeItem[],
     reasoning: string[],
-    _workingMemory: Record<string, unknown>,
+    _workingMemory: WorkingMemory | null,
     _userId?: string
   ): Promise<string> {
     try {
@@ -1540,10 +1672,7 @@ Context: ${input.context ? JSON.stringify(input.context) : 'No additional contex
 User Message: ${input.message}
 
 Relevant Knowledge:
-${relevantKnowledge
-  .slice(0, 3)
-  .map((k: Record<string, unknown>) => `- ${k.content}`)
-  .join('\n')}
+${relevantKnowledge.slice(0, 3).map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}
 
 Reasoning:
 ${reasoning.join('\n')}
@@ -1569,7 +1698,11 @@ Be helpful, knowledgeable, and maintain consistency with your character.`,
       return llmResponse.content;
     } catch (error) {
       logger.error('Error generating LLM agent response', { error });
-      return this.generateFallbackResponse(input.message, reasoning, relevantKnowledge);
+      return this.generateFallbackResponse(
+        toStringValue(input.message),
+        reasoning,
+        relevantKnowledge
+      );
     }
   }
 
@@ -1588,10 +1721,7 @@ Message to respond to: ${message}
 
 ${
   knowledge.length > 0
-    ? `Relevant knowledge:\n${knowledge
-        .slice(0, 3)
-        .map((k: Record<string, unknown>) => `- ${k.content}`)
-        .join('\n')}\n`
+    ? `Relevant knowledge:\n${knowledge.slice(0, 3).map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}\n`
     : ''
 }Provide a direct, thoughtful response. Avoid generic greetings or introductions.`,
         systemPrompt: `You are an AI assistant in an ongoing discussion. Be direct and substantive. Focus on the content rather than pleasantries. Contribute meaningful insights without repeating what others have said.`,
@@ -1630,10 +1760,7 @@ Topic: ${context.discussionTopic || 'General discussion'}
 ${context.lastMessage ? `Recent message: ${context.lastMessage}` : 'Start the conversation'}
 
 Available Knowledge:
-${knowledge
-  .slice(0, 3)
-  .map((k: Record<string, unknown>) => `- ${k.content}`)
-  .join('\n')}
+${knowledge.slice(0, 3).map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}
 
 Reasoning:
 ${reasoning.join('\n')}
@@ -1663,8 +1790,8 @@ Participate constructively in discussions while staying true to your character.`
   private async generateReasoning(
     message: string,
     knowledge: KnowledgeItem[],
-    episodes: Record<string, unknown>[],
-    workingMemory: Record<string, unknown>
+    episodes: Episode[],
+    workingMemory: WorkingMemory | null
   ): Promise<string[]> {
     const reasoning = [
       `Analyzing message: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`,
@@ -1679,7 +1806,7 @@ Participate constructively in discussions while staying true to your character.`
       reasoning.push(`Found ${episodes.length} similar past episodes`);
     }
 
-    if (workingMemory?.lastInteraction) {
+    if ((workingMemory?.shortTermMemory?.recentInteractions?.length || 0) > 0) {
       reasoning.push(`Previous interaction context available`);
     }
 
@@ -1711,7 +1838,7 @@ Participate constructively in discussions while staying true to your character.`
 
     // Boost confidence if agent has relevant expertise
     if (context.discussionTopic && agent.persona?.capabilities) {
-      const topicKeywords = context.discussionTopic.toLowerCase().split(' ');
+      const topicKeywords = toStringValue(context.discussionTopic).toLowerCase().split(' ');
       const hasRelevantExpertise = agent.persona.capabilities.some((capability: string) =>
         topicKeywords.some((keyword: string) => capability.toLowerCase().includes(keyword))
       );
@@ -1722,7 +1849,7 @@ Participate constructively in discussions while staying true to your character.`
     }
 
     // Boost confidence if we have clear context
-    if (context.lastMessage && context.lastMessage.length > 10) {
+    if (toStringValue(context.lastMessage).length > 10) {
       confidence += 0.1;
     }
 
@@ -1824,17 +1951,17 @@ Reasoning: ${reasoning.join('; ')}`,
     }
   }
 
-  private async getDiscussion(discussionId: string): Promise<unknown> {
+  private async getDiscussion(discussionId: string): Promise<UnknownRecord | null> {
     if (!this.discussionService) return null;
     try {
-      return await this.discussionService.getDiscussion(discussionId);
+      return toRecord(await this.discussionService.getDiscussion(discussionId));
     } catch (error) {
       logger.warn('Failed to get discussion', { error, discussionId });
       return null;
     }
   }
 
-  private async getDiscussionMessages(discussionId: string): Promise<unknown> {
+  private async getDiscussionMessages(discussionId: string): Promise<UnknownRecord[]> {
     try {
       // Get messages directly from discussion service
       if (!this.discussionService) {
@@ -1842,21 +1969,20 @@ Reasoning: ${reasoning.join('; ')}`,
         return [];
       }
       const messages = await this.discussionService.getDiscussionMessages(discussionId);
+      const messageRecords = toRecordArray(messages);
 
       logger.debug('Retrieved discussion messages for context', {
         discussionId,
-        messageCount: messages?.length || 0,
+        messageCount: messageRecords.length,
       });
 
       // Format messages for conversation history
-      return (
-        messages?.map((msg: Record<string, unknown>) => ({
-          content: msg.content,
-          sender: msg.participantId === 'system' ? 'system' : 'participant',
-          timestamp: msg.createdAt,
-          participantId: msg.participantId,
-        })) || []
-      );
+      return messageRecords.map((msg: UnknownRecord) => ({
+        content: toStringValue(msg.content),
+        sender: toStringValue(msg.participantId) === 'system' ? 'system' : 'participant',
+        timestamp: toStringValue(msg.createdAt),
+        participantId: toStringValue(msg.participantId),
+      }));
     } catch (error) {
       logger.warn('Failed to get discussion messages', { error, discussionId });
       return [];
@@ -1962,7 +2088,7 @@ Reasoning: ${reasoning.join('; ')}`,
     message: string,
     agent: Agent,
     conversationHistory: Record<string, unknown>[],
-    contextualKnowledge: Record<string, unknown>[],
+    contextualKnowledge: KnowledgeItem[],
     userId: string
   ): Promise<string> {
     try {
@@ -1974,7 +2100,7 @@ Reasoning: ${reasoning.join('; ')}`,
       // Build knowledge context
       const knowledgeContext =
         contextualKnowledge.length > 0
-          ? `\n\nRelevant knowledge:\n${contextualKnowledge.map((k: Record<string, unknown>) => `- ${k.content}`).join('\n')}`
+          ? `\n\nRelevant knowledge:\n${contextualKnowledge.map((k: KnowledgeItem) => `- ${k.content}`).join('\n')}`
           : '';
 
       // Create agent request for event bus
@@ -2019,9 +2145,9 @@ Reasoning: ${reasoning.join('; ')}`,
         },
         agentPersonaData: agentRequest.agent?.persona
           ? {
-              description: agentRequest.agent.persona.description,
-              capabilities: agentRequest.agent.persona.capabilities,
-              role: agentRequest.agent.persona.role,
+              description: toStringValue(toRecord(agentRequest.agent.persona).description),
+              capabilities: toRecord(agentRequest.agent.persona).capabilities,
+              role: toStringValue(toRecord(agentRequest.agent.persona).role),
             }
           : 'No persona data',
       });

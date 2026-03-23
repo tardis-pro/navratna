@@ -332,8 +332,10 @@ export class CacheManager {
 
     try {
       const info = await client.info('stats');
-      const keyspaceHits = this.extractInfoValue(info, 'keyspace_hits');
-      const keyspaceMisses = this.extractInfoValue(info, 'keyspace_misses');
+      const keyspaceHitsRaw = this.extractInfoValue(info, 'keyspace_hits');
+      const keyspaceMissesRaw = this.extractInfoValue(info, 'keyspace_misses');
+      const keyspaceHits = typeof keyspaceHitsRaw === 'number' ? keyspaceHitsRaw : 0;
+      const keyspaceMisses = typeof keyspaceMissesRaw === 'number' ? keyspaceMissesRaw : 0;
       const totalOps = keyspaceHits + keyspaceMisses;
 
       const hitRate = totalOps > 0 ? (keyspaceHits / totalOps) * 100 : 0;
@@ -341,7 +343,8 @@ export class CacheManager {
 
       const keyCount = await client.dbsize();
       const memoryInfo = await client.info('memory');
-      const memoryUsage = this.extractInfoValue(memoryInfo, 'used_memory_human') || '0B';
+      const memoryRaw = this.extractInfoValue(memoryInfo, 'used_memory_human');
+      const memoryUsage = typeof memoryRaw === 'string' ? memoryRaw : '0B';
 
       // Simple response time test
       const start = Date.now();
@@ -394,11 +397,10 @@ export class CacheManager {
   /**
    * Helper method to extract values from Redis INFO output
    */
-  private extractInfoValue(info: string, key: string): unknown {
+  private extractInfoValue(info: string, key: string): number | string | null {
     const match = info.match(new RegExp(`${key}:([^\\r\\n]+)`));
     if (match) {
       const value = match[1].trim();
-      // Try to parse as number if possible
       const numValue = Number(value);
       return isNaN(numValue) ? value : numValue;
     }

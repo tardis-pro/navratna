@@ -1,5 +1,6 @@
 import { typeormService } from './typeormService';
 import { createLogger } from '@uaip/utils';
+import { OperationStatus } from '@uaip/types';
 
 /**
  * Operation Management Service
@@ -156,7 +157,7 @@ export class OperationManagementService {
       const { Operation } = await import('./entities/index');
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
-        where: { status: status as unknown },
+        where: { status: status as OperationStatus },
         order: { createdAt: 'DESC' },
       });
     } catch (error) {
@@ -172,7 +173,11 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: {
-          status: In(['running', 'pending', 'paused']) as unknown,
+          status: In([
+            OperationStatus.RUNNING,
+            OperationStatus.PENDING,
+            OperationStatus.PAUSED,
+          ]),
         },
         order: { createdAt: 'DESC' },
       });
@@ -189,7 +194,11 @@ export class OperationManagementService {
       const repository = typeormService.getRepository(Operation);
       return await repository.find({
         where: {
-          status: In(['running', 'pending', 'paused']) as unknown,
+          status: In([
+            OperationStatus.RUNNING,
+            OperationStatus.PENDING,
+            OperationStatus.PAUSED,
+          ]),
           updatedAt: LessThan(cutoffDate),
         },
         order: { updatedAt: 'ASC' },

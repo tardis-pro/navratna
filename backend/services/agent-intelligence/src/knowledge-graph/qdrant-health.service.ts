@@ -1,6 +1,6 @@
 import { logger } from '@uaip/utils';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
-import { KnowledgeRepository } from '@uaip/shared-services';
+import { KnowledgeRepository, UserEntity } from '@uaip/shared-services';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { EmbeddingService } from './embedding.service.js';
 import { ToolGraphDatabase } from '@uaip/shared-services';
@@ -73,7 +73,7 @@ export class QdrantHealthService {
       );
 
       const databaseService = DatabaseService.getInstance();
-      const userRepository = await databaseService.getRepository('User' as Record<string, unknown>);
+      const userRepository = await databaseService.getRepository<UserEntity>(UserEntity);
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
@@ -167,7 +167,7 @@ export class QdrantHealthService {
       sampleItems: sampleItems.map((item) => ({
         id: item.id,
         payload: item.payload ? Object.keys(item.payload) : [],
-        vectorSize: item.vector?.length || 0,
+        vectorSize: Array.isArray(item.vector) ? item.vector.length : 0,
       })),
     };
   }

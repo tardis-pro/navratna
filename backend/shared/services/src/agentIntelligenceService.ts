@@ -1,7 +1,7 @@
 import { Pool as _Pool } from 'pg';
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
-import { logger, ApiError } from '@uaip/utils';
+import { logger, createLogger, ApiError } from '@uaip/utils';
 import {
   Agent,
   AgentAnalysis,
@@ -31,7 +31,7 @@ export class AgentIntelligenceService {
           url: process.env.RABBITMQ_URL || 'amqp://localhost',
           serviceName: 'agent-intelligence',
         },
-        console as unknown
+        createLogger({ serviceName: 'agent-intelligence-eventbus', environment: process.env.NODE_ENV || 'development', logLevel: 'info' })
       );
   }
 
@@ -240,9 +240,9 @@ export class AgentIntelligenceService {
 
   public async generateExecutionPlan(
     agent: Agent,
-    analysis: unknown,
-    userPreferences: unknown,
-    securityContext: unknown
+    analysis: Record<string, unknown>,
+    userPreferences: Record<string, unknown>,
+    securityContext: Record<string, unknown>
   ): Promise<ExecutionPlan> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -264,11 +264,11 @@ export class AgentIntelligenceService {
         steps: optimizedSteps,
         dependencies,
         estimatedDuration,
-        priority: userPreferences?.priority || 'medium',
-        constraints: securityContext?.constraints || [],
+        priority: (userPreferences?.priority as string) || 'medium',
+        constraints: (securityContext?.constraints as string[]) || [],
         metadata: {
           generatedBy: agent.id,
-          basedOnAnalysis: analysis.timestamp,
+          basedOnAnalysis: analysis.timestamp as Date,
           userPreferences,
           version: '1.0.0',
         },
@@ -294,7 +294,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async updateAgent(agentId: string, updateData: unknown): Promise<Agent> {
+  public async updateAgent(agentId: string, updateData: Record<string, unknown>): Promise<Agent> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -302,7 +302,7 @@ export class AgentIntelligenceService {
     try {
       const validatedId = this.validateIDParam(agentId, 'agentId');
 
-      const updatePayload: unknown = {};
+      const updatePayload: Record<string, unknown> = {};
       if (updateData.name) updatePayload.name = updateData.name;
       if (updateData.persona) updatePayload.persona = updateData.persona;
       if (updateData.personaId) updatePayload.personaId = updateData.personaId;
@@ -311,22 +311,17 @@ export class AgentIntelligenceService {
       if (updateData.securityContext) updatePayload.securityContext = updateData.securityContext;
       if (updateData.isActive !== undefined) updatePayload.isActive = updateData.isActive;
 
-      // Handle configuration object
       if (updateData.configuration) {
-        updatePayload.configuration = updateData.configuration;
+        const configuration = updateData.configuration as Record<string, unknown>;
+        updatePayload.configuration = configuration;
 
-        // Extract modelId and apiType from configuration if present
-        if (updateData.configuration.modelId && !updateData.modelId) {
-          updatePayload.modelId = updateData.configuration.modelId;
-          logger.info('Extracted modelId from configuration', {
-            modelId: updateData.configuration.modelId,
-          });
+        if (configuration.modelId && !updateData.modelId) {
+          updatePayload.modelId = configuration.modelId;
+          logger.info('Extracted modelId from configuration', { modelId: configuration.modelId });
         }
-        if (updateData.configuration.apiType && !updateData.apiType) {
-          updatePayload.apiType = updateData.configuration.apiType;
-          logger.info('Extracted apiType from configuration', {
-            apiType: updateData.configuration.apiType,
-          });
+        if (configuration.apiType && !updateData.apiType) {
+          updatePayload.apiType = configuration.apiType;
+          logger.info('Extracted apiType from configuration', { apiType: configuration.apiType });
         }
       }
 
@@ -375,7 +370,7 @@ export class AgentIntelligenceService {
     }
   }
 
-  public async createAgent(agentData: unknown): Promise<Agent> {
+  public async createAgent(agentData: Record<string, unknown>): Promise<Agent> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -389,7 +384,7 @@ export class AgentIntelligenceService {
 
       let agentId: string | undefined;
       if (agentData.id) {
-        agentId = this.validateIDParam(agentData.id, 'agentId');
+        agentId = this.validateIDParam(agentData.id as string, 'agentId');
       }
 
       const intelligenceConfig =
@@ -407,34 +402,32 @@ export class AgentIntelligenceService {
         collaborationMode: 'collaborative',
       };
 
-      const role = agentData.role || 'assistant';
+      const role = (agentData.role as string) || 'assistant';
 
-      let createdBy = agentData.createdBy || agentData.created_by;
+      let createdBy: string | null = (agentData.createdBy as string) || (agentData.created_by as string) || null;
 
       if (createdBy) {
         createdBy = this.validateIDParam(createdBy, 'createdBy');
-      } else {
-        createdBy = null;
       }
 
       const createPayload = {
         ...(agentId && { id: agentId }),
-        name: agentData.name,
-        displayName: agentData.displayName || agentData.name,
-        description: agentData.description,
-        type: agentData.type || 'general',
-        role: role,
-        modelProvider: agentData.modelProvider || 'openai',
-        modelName: agentData.modelName || 'gpt-4',
-        temperature: agentData.temperature,
-        maxTokens: agentData.maxTokens,
-        systemPrompt: agentData.systemPrompt,
-        configuration: configuration,
+        name: agentData.name as string,
+        displayName: ((agentData.displayName || agentData.name) as string | undefined),
+        description: agentData.description as string | undefined,
+        type: (agentData.type as string) || 'general',
+        role: role as AgentRole,
+        modelProvider: (agentData.modelProvider as string) || 'openai',
+        modelName: (agentData.modelName as string) || 'gpt-4',
+        temperature: agentData.temperature as number | undefined,
+        maxTokens: agentData.maxTokens as number | undefined,
+        systemPrompt: agentData.systemPrompt as string | undefined,
+        configuration,
         metadata: {
           persona: agentData.persona || {},
-          intelligenceConfig: intelligenceConfig,
-          securityContext: securityContext,
-          createdBy: createdBy,
+          intelligenceConfig,
+          securityContext,
+          createdBy,
         },
       };
 
@@ -507,8 +500,8 @@ export class AgentIntelligenceService {
   public async learnFromOperation(
     agentId: string,
     operationId: string,
-    outcomes: unknown,
-    feedback: unknown
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>
   ): Promise<LearningResult> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -542,8 +535,8 @@ export class AgentIntelligenceService {
       const result: LearningResult = {
         learningApplied: true,
         confidenceAdjustments,
-        newKnowledge: learningData.newKnowledge,
-        improvedCapabilities: learningData.improvedCapabilities,
+        newKnowledge: learningData.newKnowledge as string[],
+        improvedCapabilities: learningData.improvedCapabilities as string[],
       };
 
       await this.safePublishEvent('agent.learning.applied', {
@@ -571,25 +564,27 @@ export class AgentIntelligenceService {
       return this.getDefaultPersona();
     }
 
+    const p = personaData as Record<string, unknown>;
+
     return {
-      id: personaData.id || 'default',
-      name: personaData.name || 'Default Persona',
-      role: personaData.role || 'Assistant',
-      description: personaData.description || 'A helpful AI assistant',
-      traits: personaData.traits || [],
+      id: (p.id as string) || 'default',
+      name: (p.name as string) || 'Default Persona',
+      role: (p.role as string) || 'Assistant',
+      description: (p.description as string) || 'A helpful AI assistant',
+      traits: (p.traits as Persona['traits']) || [],
       expertise:
-        personaData.expertise?.map((exp: unknown, index: number) => ({
+        (p.expertise as unknown[] | undefined)?.map((exp: unknown, index: number) => ({
           id: `${Date.now()}-${index}`,
-          name: typeof exp === 'string' ? exp : exp.name || 'General',
+          name: typeof exp === 'string' ? exp : ((exp as Record<string, unknown>).name as string) || 'General',
           description: '',
           category: 'general',
           level: 'intermediate' as const,
           keywords: [] as string[],
           relatedDomains: [] as string[],
         })) || [],
-      background: personaData.background || 'AI assistant background',
-      systemPrompt: personaData.systemPrompt || 'You are a helpful AI assistant.',
-      conversationalStyle: personaData.conversationalStyle || {
+      background: (p.background as string) || 'AI assistant background',
+      systemPrompt: (p.systemPrompt as string) || 'You are a helpful AI assistant.',
+      conversationalStyle: (p.conversationalStyle as Persona['conversationalStyle']) || {
         tone: 'friendly',
         verbosity: 'moderate',
         formality: 'neutral',
@@ -600,28 +595,28 @@ export class AgentIntelligenceService {
         questioningStyle: 'exploratory',
         responsePattern: 'structured',
       },
-      status: personaData.status || PersonaStatus.ACTIVE,
-      visibility: personaData.visibility || PersonaVisibility.PRIVATE,
-      createdBy: personaData.createdBy || 'system',
-      organizationId: personaData.organizationId,
-      teamId: personaData.teamId,
-      version: personaData.version || 1,
-      parentPersonaId: personaData.parentPersonaId,
-      tags: personaData.tags || [],
-      validation: personaData.validation,
-      usageStats: personaData.usageStats || {
+      status: (p.status as PersonaStatus) || PersonaStatus.ACTIVE,
+      visibility: (p.visibility as PersonaVisibility) || PersonaVisibility.PRIVATE,
+      createdBy: (p.createdBy as string) || 'system',
+      organizationId: p.organizationId as string | undefined,
+      teamId: p.teamId as string | undefined,
+      version: (p.version as number) || 1,
+      parentPersonaId: p.parentPersonaId as string | undefined,
+      tags: (p.tags as string[]) || [],
+      validation: p.validation as Persona['validation'],
+      usageStats: (p.usageStats as Persona['usageStats']) || {
         totalUsages: 0,
         uniqueUsers: 0,
         averageSessionDuration: 0,
         popularityScore: 0,
         feedbackCount: 0,
       },
-      configuration: personaData.configuration || {},
-      capabilities: personaData.capabilities || [],
-      restrictions: personaData.restrictions || {},
-      metadata: personaData.metadata,
-      createdAt: personaData.createdAt || new Date(),
-      updatedAt: personaData.updatedAt || new Date(),
+      configuration: (p.configuration as Record<string, unknown>) || {},
+      capabilities: (p.capabilities as Persona['capabilities']) || [],
+      restrictions: (p.restrictions as Record<string, unknown>) || {},
+      metadata: p.metadata as Persona['metadata'],
+      createdAt: (p.createdAt as Date) || new Date(),
+      updatedAt: (p.updatedAt as Date) || new Date(),
     };
   }
 
@@ -666,18 +661,20 @@ export class AgentIntelligenceService {
     };
   }
 
-  private extractContextualInformation(conversationContext: unknown): unknown {
+  private extractContextualInformation(conversationContext: unknown): Record<string, unknown> {
+    const ctx = conversationContext as Record<string, unknown>;
+    const messages = ctx.messages as unknown[] | undefined;
     return {
-      messageCount: conversationContext.messages?.length,
-      participants: conversationContext.participants || [],
-      topics: this.extractTopics(conversationContext.messages || []),
-      sentiment: this.analyzeSentiment(conversationContext.messages || []),
-      complexity: this.assessComplexity(conversationContext),
-      urgency: this.detectUrgency(conversationContext),
+      messageCount: messages?.length,
+      participants: (ctx.participants as unknown[]) || [],
+      topics: this.extractTopics(messages || []),
+      sentiment: this.analyzeSentiment(messages || []),
+      complexity: this.assessComplexity(ctx),
+      urgency: this.detectUrgency(ctx),
     };
   }
 
-  private analyzeUserIntent(userRequest: string): unknown {
+  private analyzeUserIntent(userRequest: string): Record<string, unknown> {
     const intentPatterns = {
       create: /create|make|build|generate|develop/i,
       analyze: /analyze|examine|check|review|assess/i,
@@ -701,11 +698,11 @@ export class AgentIntelligenceService {
 
   private async generateActionRecommendations(
     agent: Agent,
-    contextAnalysis: unknown,
-    intentAnalysis: unknown,
+    contextAnalysis: Record<string, unknown>,
+    intentAnalysis: Record<string, unknown>,
     _constraints: unknown
-  ): Promise<unknown[]> {
-    const recommendations = [];
+  ): Promise<Record<string, unknown>[]> {
+    const recommendations: Record<string, unknown>[] = [];
 
     switch (intentAnalysis.primary) {
       case 'create':
@@ -745,30 +742,30 @@ export class AgentIntelligenceService {
   }
 
   private calculateConfidence(
-    contextAnalysis: unknown,
-    intentAnalysis: unknown,
-    actionRecommendations: unknown[],
+    contextAnalysis: Record<string, unknown>,
+    intentAnalysis: Record<string, unknown>,
+    actionRecommendations: Record<string, unknown>[],
     _intelligenceConfig: unknown
   ): number {
-    const baseConfidence = intentAnalysis.confidence;
-    const contextQuality = Math.min(contextAnalysis.messageCount / 10, 1);
+    const baseConfidence = (intentAnalysis.confidence as number) || 0;
+    const contextQuality = Math.min(((contextAnalysis.messageCount as number) || 0) / 10, 1);
     const recommendationConfidence =
-      actionRecommendations.reduce((sum, rec) => sum + rec.confidence, 0) /
-      actionRecommendations.length;
+      actionRecommendations.reduce((sum, rec) => sum + ((rec.confidence as number) || 0), 0) /
+      (actionRecommendations.length || 1);
 
     return Math.min((baseConfidence + contextQuality + recommendationConfidence) / 3, 1);
   }
 
   private generateExplanation(
-    contextAnalysis: unknown,
-    intentAnalysis: unknown,
-    actionRecommendations: unknown[],
+    contextAnalysis: Record<string, unknown>,
+    intentAnalysis: Record<string, unknown>,
+    actionRecommendations: Record<string, unknown>[],
     confidence: number
   ): string {
     return `Based on the conversation context with ${contextAnalysis.messageCount} messages and detected intent '${intentAnalysis.primary}', I recommend ${actionRecommendations.length} action(s). Confidence level: ${Math.round(confidence * 100)}%.`;
   }
 
-  private extractAgentCapabilities(agent: Agent): unknown {
+  private extractAgentCapabilities(agent: Agent): Record<string, unknown> {
     return {
       tools: agent.intelligenceConfig?.collaborationMode || 'collaborative',
       artifacts: agent.intelligenceConfig?.analysisDepth || 'intermediate',
@@ -777,17 +774,18 @@ export class AgentIntelligenceService {
     };
   }
 
-  private analyzeEnvironmentFactors(conversationContext: unknown): unknown {
+  private analyzeEnvironmentFactors(conversationContext: unknown): Record<string, unknown> {
+    const ctx = conversationContext as Record<string, unknown>;
     return {
       timeOfDay: new Date().getHours(),
-      userLoad: conversationContext.participants?.length || 1,
+      userLoad: (ctx.participants as unknown[] | undefined)?.length || 1,
       systemLoad: 'normal',
       availableResources: 'high',
     };
   }
 
-  private determinePlanType(analysis: unknown): string {
-    const intent = analysis.intent?.primary;
+  private determinePlanType(analysis: Record<string, unknown>): string {
+    const intent = (analysis.intent as Record<string, unknown> | undefined)?.primary;
     switch (intent) {
       case 'create':
         return 'artifact_generation';
@@ -802,9 +800,9 @@ export class AgentIntelligenceService {
 
   private async generatePlanSteps(
     agent: Agent,
-    analysis: unknown,
+    analysis: Record<string, unknown>,
     planType: string
-  ): Promise<unknown[]> {
+  ): Promise<Record<string, unknown>[]> {
     const baseSteps = [
       {
         id: 'validate_input',
@@ -872,29 +870,29 @@ export class AgentIntelligenceService {
     return baseSteps;
   }
 
-  private async calculateDependencies(steps: unknown[]): Promise<string[]> {
-    return steps.slice(0, -1).map((step) => step.id);
+  private async calculateDependencies(steps: Record<string, unknown>[]): Promise<string[]> {
+    return steps.slice(0, -1).map((step) => step.id as string);
   }
 
-  private estimateDuration(steps: unknown[], _dependencies: string[]): number {
-    return steps.reduce((total, step) => total + step.estimatedDuration, 0);
+  private estimateDuration(steps: Record<string, unknown>[], _dependencies: string[]): number {
+    return steps.reduce((total, step) => total + ((step.estimatedDuration as number) || 0), 0);
   }
 
-  private applyUserPreferences(steps: unknown[], userPreferences: unknown): unknown[] {
+  private applyUserPreferences(steps: Record<string, unknown>[], userPreferences: Record<string, unknown>): Record<string, unknown>[] {
     if (userPreferences?.speed === 'fast') {
       return steps.map((step) => ({
         ...step,
-        estimatedDuration: Math.floor(step.estimatedDuration * 0.7),
+        estimatedDuration: Math.floor(((step.estimatedDuration as number) || 0) * 0.7),
       }));
     }
     return steps;
   }
 
-  private async validatePlanSecurity(plan: ExecutionPlan, securityContext: unknown): Promise<void> {
+  private async validatePlanSecurity(plan: ExecutionPlan, securityContext: Record<string, unknown>): Promise<void> {
     if (
       securityContext?.maxDuration &&
       plan.estimatedDuration &&
-      plan.estimatedDuration > securityContext.maxDuration
+      plan.estimatedDuration > (securityContext.maxDuration as number)
     ) {
       throw new ApiError(403, 'Plan exceeds maximum allowed duration', 'SECURITY_VIOLATION');
     }
@@ -912,13 +910,13 @@ export class AgentIntelligenceService {
     });
   }
 
-  private async getOperation(operationId: string): Promise<unknown> {
+  private async getOperation(operationId: string): Promise<Record<string, unknown> | null> {
     const validatedId = this.validateIDParam(operationId, 'operationId');
     const repo = this.databaseService.operations.getOperationRepository();
     return await repo.getOperationById(validatedId);
   }
 
-  private extractLearning(operation: unknown, outcomes: unknown, feedback: unknown): unknown {
+  private extractLearning(operation: Record<string, unknown>, outcomes: Record<string, unknown>, feedback: Record<string, unknown>): Record<string, unknown> {
     return {
       newKnowledge: feedback?.insights || [],
       improvedCapabilities: outcomes?.successfulActions || [],
@@ -931,28 +929,31 @@ export class AgentIntelligenceService {
   }
 
   private calculateConfidenceAdjustments(
-    operation: unknown,
-    outcomes: unknown,
-    feedback: unknown
-  ): unknown {
+    _operation: Record<string, unknown>,
+    outcomes: Record<string, unknown>,
+    feedback: Record<string, unknown>
+  ): Record<string, unknown> {
     return {
       overallAdjustment: outcomes?.success ? 0.05 : -0.1,
-      specificAdjustments: feedback?.specificFeedback || {},
+      specificAdjustments: (feedback?.specificFeedback as Record<string, unknown>) || {},
     };
   }
 
   private async storeLearningRecord(
     agentId: string,
     operationId: string,
-    _learningData: unknown,
-    _confidenceAdjustments: unknown
+    _learningData: Record<string, unknown>,
+    _confidenceAdjustments: Record<string, unknown>
   ): Promise<void> {
     logger.info('Storing learning record', { agentId, operationId });
   }
 
   private extractTopics(messages: unknown[]): string[] {
     const commonWords = messages
-      .flatMap((msg) => msg.content?.split(' ') || [])
+      .flatMap((msg) => {
+        const m = msg as MessageWithContent;
+        return m.content?.split(' ') || [];
+      })
       .filter((word) => word.length > 3)
       .slice(0, 10);
     return [...new Set(commonWords)];
@@ -962,16 +963,16 @@ export class AgentIntelligenceService {
     return 'neutral';
   }
 
-  private assessComplexity(context: unknown): string {
-    const messageCount = context.messages?.length;
+  private assessComplexity(context: Record<string, unknown>): string {
+    const messageCount = (context.messages as unknown[] | undefined)?.length || 0;
     if (messageCount > 20) return 'high';
     if (messageCount > 5) return 'medium';
     return 'low';
   }
 
-  private detectUrgency(context: unknown): string {
+  private detectUrgency(context: Record<string, unknown>): string {
     const urgentWords = /urgent|asap|immediately|critical|emergency/i;
-    const hasUrgentWords = context.messages?.some((msg: MessageWithContent) =>
+    const hasUrgentWords = (context.messages as MessageWithContent[] | undefined)?.some((msg) =>
       urgentWords.test(msg.content || '')
     );
     return hasUrgentWords ? 'high' : 'normal';

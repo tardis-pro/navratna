@@ -40,6 +40,22 @@ export interface EnhancedAgentMetrics extends AgentMetrics {
   };
 }
 
+interface AgentActivityMetadata extends Record<string, unknown> {
+  initiatedBy?: string;
+  knowledgeUsed?: number;
+}
+
+interface AgentActivityMetricsRow {
+  type: string;
+  duration: number;
+  success: boolean;
+  metadata?: AgentActivityMetadata;
+}
+
+interface AgentLearningMetricsRow {
+  success: boolean;
+}
+
 export class AgentMetricsService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
@@ -305,41 +321,85 @@ export class AgentMetricsService {
    */
   private async handleGetMetrics(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, timeRange } = event;
+    const parsedRequestId = this.getStringValue(requestId);
+    if (!parsedRequestId) {
+      logger.warn('Skipping metrics response because requestId is invalid', { requestId });
+      return;
+    }
+
     try {
-      const metrics = await this.getAgentMetrics(agentId, timeRange);
-      await this.respondToRequest(requestId, { success: true, data: metrics });
+      const parsedAgentId = this.requireStringValue(agentId, 'agentId');
+      const parsedTimeRange = this.parseTimeRange(timeRange);
+      const metrics = await this.getAgentMetrics(parsedAgentId, parsedTimeRange);
+      await this.respondToRequest(parsedRequestId, { success: true, data: metrics });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(parsedRequestId, {
+        success: false,
+        error: this.getErrorMessage(error),
+      });
     }
   }
 
   private async handleCalculateMetrics(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, options } = event;
+    const parsedRequestId = this.getStringValue(requestId);
+    if (!parsedRequestId) {
+      logger.warn('Skipping metrics response because requestId is invalid', { requestId });
+      return;
+    }
+
     try {
-      const metrics = await this.calculateMetrics(agentId, options);
-      await this.respondToRequest(requestId, { success: true, data: metrics });
+      const parsedAgentId = this.requireStringValue(agentId, 'agentId');
+      const parsedOptions = this.parseMetricsOptions(options);
+      const metrics = await this.calculateMetrics(parsedAgentId, parsedOptions);
+      await this.respondToRequest(parsedRequestId, { success: true, data: metrics });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(parsedRequestId, {
+        success: false,
+        error: this.getErrorMessage(error),
+      });
     }
   }
 
   private async handleGenerateSummary(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, timeRange } = event;
+    const parsedRequestId = this.getStringValue(requestId);
+    if (!parsedRequestId) {
+      logger.warn('Skipping metrics response because requestId is invalid', { requestId });
+      return;
+    }
+
     try {
-      const summary = await this.generateMetricsSummary(agentId, timeRange);
-      await this.respondToRequest(requestId, { success: true, data: summary });
+      const parsedAgentId = this.requireStringValue(agentId, 'agentId');
+      const parsedTimeRange = this.parseTimeRange(timeRange);
+      const summary = await this.generateMetricsSummary(parsedAgentId, parsedTimeRange);
+      await this.respondToRequest(parsedRequestId, { success: true, data: summary });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(parsedRequestId, {
+        success: false,
+        error: this.getErrorMessage(error),
+      });
     }
   }
 
   private async handleTrackActivity(event: Record<string, unknown>): Promise<void> {
     const { requestId, agentId, activity } = event;
+    const parsedRequestId = this.getStringValue(requestId);
+    if (!parsedRequestId) {
+      logger.warn('Skipping metrics response because requestId is invalid', { requestId });
+      return;
+    }
+
     try {
-      await this.trackActivity(agentId, activity);
-      await this.respondToRequest(requestId, { success: true });
+      const parsedAgentId = this.requireStringValue(agentId, 'agentId');
+      const parsedActivity = this.parseTrackActivityPayload(activity);
+      await this.trackActivity(parsedAgentId, parsedActivity);
+      await this.respondToRequest(parsedRequestId, { success: true });
     } catch (error) {
-      await this.respondToRequest(requestId, { success: false, error: error.message });
+      await this.respondToRequest(parsedRequestId, {
+        success: false,
+        error: this.getErrorMessage(error),
+      });
     }
   }
 
@@ -351,7 +411,7 @@ export class AgentMetricsService {
     timeRange: { start: Date; end: Date }
   ): Promise<AgentMetrics> {
     // Get activities from database
-    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    const activities = await this.getTypedAgentActivities(agentId, timeRange);
 
     const totalActivities = activities.length;
     const successfulActivities = activities.filter((a) => a.success).length;
@@ -428,7 +488,7 @@ export class AgentMetricsService {
     learningEfficiency: number;
     knowledgeUtilization: number;
   }> {
-    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    const activities = await this.getTypedAgentActivities(agentId, timeRange);
 
     // Response time distribution
     const responseTimeDistribution = this.calculateResponseTimeDistribution(activities);
@@ -488,7 +548,7 @@ export class AgentMetricsService {
     agentId: string,
     timeRange: { start: Date; end: Date }
   ): Promise<Record<string, number>> {
-    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    const activities = await this.getTypedAgentActivities(agentId, timeRange);
     const breakdown: Record<string, number> = {};
 
     activities.forEach((activity) => {
@@ -506,7 +566,7 @@ export class AgentMetricsService {
     responseConsistency: number;
     proactiveActions: number;
   }> {
-    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    const activities = await this.getTypedAgentActivities(agentId, timeRange);
     const days = Math.ceil(
       (timeRange.end.getTime() - timeRange.start.getTime()) / (24 * 60 * 60 * 1000)
     );
@@ -514,7 +574,7 @@ export class AgentMetricsService {
     const dailyActivity = activities.length / Math.max(days, 1);
 
     // Calculate response consistency (simplified)
-    const responseTimes = activities.map((a) => a.duration || 0);
+    const responseTimes = activities.map((a) => a.duration);
     const avgResponseTime =
       responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
     const variance =
@@ -533,7 +593,7 @@ export class AgentMetricsService {
   }
 
   private buildMetricsSummary(
-    agent: Agent | null,
+    agent: Pick<Agent, 'name'> | null,
     metrics: EnhancedAgentMetrics,
     timeRange: { start: Date; end: Date }
   ): string {
@@ -637,7 +697,7 @@ export class AgentMetricsService {
   ): Promise<number> {
     // Simplified learning progress calculation
     // In a real implementation, this would analyze learning records
-    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    const activities = await this.getTypedAgentActivities(agentId, timeRange);
     const learningActivities = activities.filter(
       (a) => a.type === 'learning' || a.type === 'training'
     );
@@ -646,7 +706,7 @@ export class AgentMetricsService {
   }
 
   private calculateResponseTimeDistribution(
-    activities: Record<string, unknown>[]
+    activities: AgentActivityMetricsRow[]
   ): Record<string, number> {
     const distribution = {
       fast: 0, // < 500ms
@@ -656,7 +716,7 @@ export class AgentMetricsService {
     };
 
     activities.forEach((activity) => {
-      const duration = activity.duration || 0;
+      const duration = activity.duration;
       if (duration < 500) distribution.fast++;
       else if (duration < 2000) distribution.normal++;
       else if (duration < 5000) distribution.slow++;
@@ -667,12 +727,12 @@ export class AgentMetricsService {
   }
 
   private calculateSuccessRateByCategory(
-    activities: Record<string, unknown>[]
+    activities: AgentActivityMetricsRow[]
   ): Record<string, number> {
     const categories: Record<string, { total: number; successful: number }> = {};
 
     activities.forEach((activity) => {
-      const category = activity.type || 'unknown';
+      const category = activity.type;
       if (!categories[category]) {
         categories[category] = { total: 0, successful: 0 };
       }
@@ -696,7 +756,7 @@ export class AgentMetricsService {
     timeRange: { start: Date; end: Date }
   ): Promise<number> {
     // Simplified learning efficiency calculation
-    const learningRecords = await this.store.getLearningRecords(agentId, timeRange);
+    const learningRecords = await this.getTypedLearningRecords(agentId, timeRange);
     if (learningRecords.length === 0) return 0.5;
 
     const totalLearnings = learningRecords.length;
@@ -710,7 +770,7 @@ export class AgentMetricsService {
     timeRange: { start: Date; end: Date }
   ): Promise<number> {
     // Simplified knowledge utilization calculation
-    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    const activities = await this.getTypedAgentActivities(agentId, timeRange);
     const knowledgeEnhancedActivities = activities.filter(
       (a) => a.metadata?.knowledgeUsed && a.metadata.knowledgeUsed > 0
     );
@@ -729,7 +789,21 @@ export class AgentMetricsService {
   private async getAgentData(agentId: string): Promise<Agent | null> {
     try {
       const response = await this.eventBusService.request('agent.query.get', { agentId });
-      return response.success ? response.data : null;
+      if (!this.isRecord(response)) {
+        return null;
+      }
+
+      const wasSuccessful = this.getBooleanValue(response.success);
+      if (!wasSuccessful || !this.isRecord(response.data)) {
+        return null;
+      }
+
+      const name = this.getStringValue(response.data.name);
+      if (!name) {
+        return null;
+      }
+
+      return { name };
     } catch (error) {
       logger.warn('Failed to get agent data', { error, agentId });
       return null;
@@ -740,6 +814,183 @@ export class AgentMetricsService {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
       throw new Error(`Invalid ${paramName}: must be a non-empty string`);
     }
+  }
+
+  private async getTypedAgentActivities(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<AgentActivityMetricsRow[]> {
+    const activities = await this.store.getAgentActivities(agentId, timeRange);
+    return activities.map((activity) => this.toAgentActivityMetricsRow(activity));
+  }
+
+  private async getTypedLearningRecords(
+    agentId: string,
+    timeRange: { start: Date; end: Date }
+  ): Promise<AgentLearningMetricsRow[]> {
+    const records = await this.store.getLearningRecords(agentId, timeRange);
+    return records.map((record) => this.toAgentLearningMetricsRow(record));
+  }
+
+  private toAgentActivityMetricsRow(activity: unknown): AgentActivityMetricsRow {
+    if (!this.isRecord(activity)) {
+      return {
+        type: 'unknown',
+        duration: 0,
+        success: false,
+      };
+    }
+
+    const metadata = this.isRecord(activity.metadata)
+      ? this.toAgentActivityMetadata(activity.metadata)
+      : undefined;
+
+    return {
+      type: this.getStringValue(activity.type) ?? 'unknown',
+      duration: this.getNumberValue(activity.duration) ?? 0,
+      success: this.getBooleanValue(activity.success) ?? false,
+      metadata,
+    };
+  }
+
+  private toAgentLearningMetricsRow(record: unknown): AgentLearningMetricsRow {
+    if (!this.isRecord(record)) {
+      return { success: false };
+    }
+
+    return {
+      success: this.getBooleanValue(record.success) ?? false,
+    };
+  }
+
+  private toAgentActivityMetadata(metadata: Record<string, unknown>): AgentActivityMetadata {
+    const normalizedMetadata: AgentActivityMetadata = { ...metadata };
+    const initiatedBy = this.getStringValue(metadata.initiatedBy);
+    const knowledgeUsed = this.getNumberValue(metadata.knowledgeUsed);
+
+    if (initiatedBy !== undefined) {
+      normalizedMetadata.initiatedBy = initiatedBy;
+    }
+
+    if (knowledgeUsed !== undefined) {
+      normalizedMetadata.knowledgeUsed = knowledgeUsed;
+    }
+
+    return normalizedMetadata;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private getStringValue(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private requireStringValue(value: unknown, fieldName: string): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    throw new Error(`Invalid ${fieldName}: must be a string`);
+  }
+
+  private getNumberValue(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
+  }
+
+  private getBooleanValue(value: unknown): boolean | undefined {
+    return typeof value === 'boolean' ? value : undefined;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  private parseTimeRange(value: unknown): { start: Date; end: Date } {
+    if (!this.isRecord(value)) {
+      throw new Error('Invalid timeRange: must be an object with start and end dates');
+    }
+
+    const start = this.parseDate(value.start, 'timeRange.start');
+    const end = this.parseDate(value.end, 'timeRange.end');
+    return { start, end };
+  }
+
+  private parseDate(value: unknown, fieldName: string): Date {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value;
+    }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    throw new Error(`Invalid ${fieldName}: must be a valid date`);
+  }
+
+  private parseMetricsOptions(value: unknown): {
+    includeKnowledge?: boolean;
+    includeMemory?: boolean;
+    includeTrends?: boolean;
+    timeRange?: { start: Date; end: Date };
+  } {
+    if (!this.isRecord(value)) {
+      return {};
+    }
+
+    const includeKnowledge = this.getBooleanValue(value.includeKnowledge);
+    const includeMemory = this.getBooleanValue(value.includeMemory);
+    const includeTrends = this.getBooleanValue(value.includeTrends);
+
+    const parsedOptions: {
+      includeKnowledge?: boolean;
+      includeMemory?: boolean;
+      includeTrends?: boolean;
+      timeRange?: { start: Date; end: Date };
+    } = {};
+
+    if (includeKnowledge !== undefined) {
+      parsedOptions.includeKnowledge = includeKnowledge;
+    }
+    if (includeMemory !== undefined) {
+      parsedOptions.includeMemory = includeMemory;
+    }
+    if (includeTrends !== undefined) {
+      parsedOptions.includeTrends = includeTrends;
+    }
+    if (value.timeRange !== undefined) {
+      parsedOptions.timeRange = this.parseTimeRange(value.timeRange);
+    }
+
+    return parsedOptions;
+  }
+
+  private parseTrackActivityPayload(value: unknown): {
+    type: string;
+    duration: number;
+    success: boolean;
+    context?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  } {
+    if (!this.isRecord(value)) {
+      throw new Error('Invalid activity: must be an object');
+    }
+
+    const type = this.requireStringValue(value.type, 'activity.type');
+    const duration = this.getNumberValue(value.duration) ?? 0;
+    const success = this.getBooleanValue(value.success) ?? false;
+
+    return {
+      type,
+      duration,
+      success,
+      context: this.isRecord(value.context) ? value.context : undefined,
+      metadata: this.isRecord(value.metadata) ? value.metadata : undefined,
+    };
   }
 
   private async publishMetricsEvent(channel: string, data: Record<string, unknown>): Promise<void> {

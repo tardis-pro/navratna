@@ -7,6 +7,7 @@
 import {
   LearningResult,
   AgentInteraction,
+  Action,
   Episode,
   SemanticMemory,
   WorkingMemoryUpdate,
@@ -17,6 +18,7 @@ import {
 import { logger, ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import { Operation } from '@uaip/shared-services';
 import { AgentIntelligenceStore } from './agent-intelligence-store.js';
 import { KnowledgeGraphService } from '@/knowledge-graph/knowledge-graph.service';
 import { AgentMemoryService } from '@/agent-memory/agent-memory.service';
@@ -28,6 +30,32 @@ export interface AgentLearningConfig {
   agentMemoryService?: AgentMemoryService;
   serviceName: string;
   securityLevel: number;
+}
+
+interface LearningData {
+  newKnowledge: string[];
+  improvedCapabilities: string[];
+  adjustedStrategies: string[];
+  enhancedInsights: string[];
+}
+
+interface OperationOutcomes {
+  success?: boolean;
+  successfulActions?: string[];
+}
+
+interface OperationFeedback {
+  insights?: string[];
+  improvements?: string[];
+  keyLearnings?: string[];
+  satisfaction?: number;
+}
+
+interface ExtractedLearning {
+  concept: string;
+  description: string;
+  properties: Record<string, unknown>;
+  confidence: number;
 }
 
 export class AgentLearningService {
@@ -100,7 +128,7 @@ export class AgentLearningService {
 
       // Get operation details
       const operation = await this.getOperation(operationId);
-      if (!operation || operation.agent_id !== agentId) {
+      if (!operation || operation.agentId !== agentId) {
         throw new ApiError(404, 'Operation not found', 'OPERATION_NOT_FOUND');
       }
 
@@ -116,7 +144,6 @@ export class AgentLearningService {
         operationId,
         operation,
         outcomes,
-        feedback,
         learningData
       );
 
@@ -350,7 +377,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
    * Event handlers
    */
   private async handleLearnFromOperation(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, operationId, outcomes, feedback } = event;
+    const requestId = this.requireString(event.requestId, 'requestId');
+    const agentId = this.requireString(event.agentId, 'agentId');
+    const operationId = this.requireString(event.operationId, 'operationId');
+    const outcomes = this.toRecord(event.outcomes);
+    const feedback = this.toRecord(event.feedback);
+
     try {
       const result = await this.learnFromOperation(agentId, operationId, outcomes, feedback);
       await this.respondToRequest(requestId, { success: true, data: result });
@@ -367,7 +399,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async handleLearnFromInteraction(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, interaction } = event;
+    const requestId = this.requireString(event.requestId, 'requestId');
+    const agentId = this.requireString(event.agentId, 'agentId');
+    const interaction = this.requireAgentInteraction(event.interaction);
+
     try {
       await this.learnFromInteraction(agentId, interaction);
       await this.respondToRequest(requestId, { success: true });
@@ -383,7 +418,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async handleConsolidateMemory(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId } = event;
+    const requestId = this.requireString(event.requestId, 'requestId');
+    const agentId = this.requireString(event.agentId, 'agentId');
+
     try {
       await this.consolidateMemory(agentId);
       await this.respondToRequest(requestId, { success: true });
@@ -399,7 +436,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async handleUpdateKnowledge(event: Record<string, unknown>): Promise<void> {
-    const { requestId, agentId, knowledgeItems } = event;
+    const requestId = this.requireString(event.requestId, 'requestId');
+    const agentId = this.requireString(event.agentId, 'agentId');
+    const knowledgeItems = this.requireKnowledgeItems(event.knowledgeItems);
+
     try {
       await this.updateAgentKnowledge(agentId, knowledgeItems);
       await this.respondToRequest(requestId, { success: true });
@@ -418,26 +458,29 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
    * Helper methods
    */
   private async extractEnhancedLearning(
-    operation: Record<string, unknown>,
+    operation: Operation,
     outcomes: Record<string, unknown>,
     feedback: Record<string, unknown>
-  ): Promise<unknown> {
+  ): Promise<LearningData> {
+    const typedOutcomes = this.parseOperationOutcomes(outcomes);
+    const typedFeedback = this.parseOperationFeedback(feedback);
+
     return {
-      newKnowledge: feedback?.insights || [],
-      improvedCapabilities: outcomes?.successfulActions || [],
-      adjustedStrategies: feedback?.improvements || [],
+      newKnowledge: typedFeedback.insights ?? [],
+      improvedCapabilities: typedOutcomes.successfulActions ?? [],
+      adjustedStrategies: typedFeedback.improvements ?? [],
       enhancedInsights: [
-        `Operation ${operation.id} completed with ${outcomes?.success ? 'success' : 'failure'}`,
-        `Key learnings: ${feedback?.keyLearnings?.join(', ') || 'None specified'}`,
+        `Operation ${operation.id} completed with ${typedOutcomes.success ? 'success' : 'failure'}`,
+        `Key learnings: ${typedFeedback.keyLearnings?.join(', ') || 'None specified'}`,
       ],
     };
   }
 
   private async updateKnowledgeGraph(
     agentId: string,
-    learningData: Record<string, unknown>
+    learningData: LearningData
   ): Promise<void> {
-    if (this.knowledgeGraphService && learningData.enhancedInsights?.length > 0) {
+    if (this.knowledgeGraphService && learningData.enhancedInsights.length > 0) {
       await this.knowledgeGraphService.ingest(
         learningData.enhancedInsights.map((insight: string) => ({
           content: insight,
@@ -457,11 +500,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   private async storeOperationEpisode(
     agentId: string,
     operationId: string,
-    operation: Record<string, unknown>,
+    operation: Operation,
     outcomes: Record<string, unknown>,
-    feedback: Record<string, unknown>,
-    learningData: Record<string, unknown>
+    learningData: LearningData
   ): Promise<void> {
+    const typedOutcomes = this.parseOperationOutcomes(outcomes);
+
     if (this.agentMemoryService) {
       const episode: Episode = {
         agentId,
@@ -477,16 +521,16 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
           operationType: operation.type,
         },
         experience: {
-          actions: operation.actions || [],
+          actions: this.extractActionsFromOperation(operation),
           decisions: [],
           outcomes: [],
           emotions: [],
-          learnings: learningData.enhancedInsights || [],
+          learnings: learningData.enhancedInsights,
         },
         significance: {
           importance: 0.8,
           novelty: 0.6,
-          success: outcomes?.success ? 1.0 : 0.2,
+          success: typedOutcomes.success ? 1.0 : 0.2,
           impact: 0.7,
         },
         connections: {
@@ -503,9 +547,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
 
   private async updateSemanticMemoryFromOperation(
     agentId: string,
-    learningData: Record<string, unknown>
+    learningData: LearningData
   ): Promise<void> {
-    if (this.agentMemoryService && learningData.newKnowledge?.length > 0) {
+    if (this.agentMemoryService && learningData.newKnowledge.length > 0) {
       for (const knowledge of learningData.newKnowledge) {
         const concept: SemanticMemory = {
           agentId,
@@ -538,14 +582,17 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private calculateEnhancedConfidenceAdjustments(
-    operation: Record<string, unknown>,
+    operation: Operation,
     outcomes: Record<string, unknown>,
     feedback: Record<string, unknown>,
-    learningData: Record<string, unknown>
+    learningData: LearningData
   ): Record<string, unknown> {
-    const baseAdjustment = outcomes?.success ? 0.1 : -0.05;
-    const feedbackAdjustment = feedback?.satisfaction ? feedback.satisfaction * 0.05 : 0;
-    const learningAdjustment = learningData.newKnowledge?.length > 0 ? 0.02 : 0;
+    const typedOutcomes = this.parseOperationOutcomes(outcomes);
+    const typedFeedback = this.parseOperationFeedback(feedback);
+
+    const baseAdjustment = typedOutcomes.success ? 0.1 : -0.05;
+    const feedbackAdjustment = typedFeedback.satisfaction ? typedFeedback.satisfaction * 0.05 : 0;
+    const learningAdjustment = learningData.newKnowledge.length > 0 ? 0.02 : 0;
 
     return {
       overall: Math.max(
@@ -555,7 +602,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       specific: {
         operationType: operation.type,
         adjustment: baseAdjustment,
-        reason: outcomes?.success ? 'successful_operation' : 'failed_operation',
+        reason: typedOutcomes.success ? 'successful_operation' : 'failed_operation',
       },
     };
   }
@@ -563,13 +610,13 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   private async storeEnhancedLearningRecord(
     agentId: string,
     operationId: string,
-    learningData: Record<string, unknown>,
+    learningData: LearningData,
     confidenceAdjustments: Record<string, unknown>
   ): Promise<void> {
     try {
       await this.store.storeLearningRecord(agentId, {
         operationId,
-        learningData,
+        learningData: this.toRecord(learningData),
         confidenceAdjustments,
         timestamp: new Date(),
         version: '2.0.0',
@@ -579,12 +626,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  private async getOperation(operationId: string): Promise<unknown> {
+  private async getOperation(operationId: string): Promise<Operation | null> {
     return await this.store.getOperationById(operationId);
   }
 
-  private extractLearnings(interaction: AgentInteraction): Record<string, unknown>[] {
-    const learnings = [];
+  private extractLearnings(interaction: AgentInteraction): ExtractedLearning[] {
+    const learnings: ExtractedLearning[] = [];
 
     // Extract learnings from interaction context
     if (interaction.context && interaction.learningPoints.length > 0) {
@@ -715,5 +762,186 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       timestamp: new Date().toISOString(),
       compliance: true,
     });
+  }
+
+  private parseOperationOutcomes(outcomes: Record<string, unknown>): OperationOutcomes {
+    return {
+      success: this.toBoolean(outcomes.success),
+      successfulActions: this.toStringArray(outcomes.successfulActions),
+    };
+  }
+
+  private parseOperationFeedback(feedback: Record<string, unknown>): OperationFeedback {
+    return {
+      insights: this.toStringArray(feedback.insights),
+      improvements: this.toStringArray(feedback.improvements),
+      keyLearnings: this.toStringArray(feedback.keyLearnings),
+      satisfaction: this.toNumber(feedback.satisfaction),
+    };
+  }
+
+  private extractActionsFromOperation(operation: Operation): Action[] {
+    const steps = operation.executionPlan?.steps;
+
+    if (!Array.isArray(steps)) {
+      return [];
+    }
+
+    const actions: Action[] = [];
+
+    for (let index = 0; index < steps.length; index += 1) {
+      const step = steps[index];
+      const stepRecord = this.toRecord(step);
+      const id = this.toNonEmptyString(stepRecord.id) ?? `step-${index}`;
+      const description =
+        this.toNonEmptyString(stepRecord.description) ??
+        this.toNonEmptyString(stepRecord.type) ??
+        `Operation step ${index + 1}`;
+      const type = this.toNonEmptyString(stepRecord.type) ?? 'operation_step';
+
+      actions.push({
+        id,
+        description,
+        type,
+        timestamp: new Date(),
+        success: true,
+        metadata: stepRecord,
+      });
+    }
+
+    return actions;
+  }
+
+  private requireString(value: unknown, fieldName: string): string {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+
+    throw new ApiError(400, `Invalid ${fieldName}`, 'INVALID_EVENT_PAYLOAD');
+  }
+
+  private requireAgentInteraction(value: unknown): AgentInteraction {
+    if (!this.isRecord(value)) {
+      throw new ApiError(400, 'Invalid interaction payload', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    const interactionType = value.interactionType;
+    const outcome = value.outcome;
+    const context = value.context;
+    const learningPoints = value.learningPoints;
+    const performanceMetrics = value.performanceMetrics;
+    const timestamp = value.timestamp;
+    const agentId = value.agentId;
+
+    if (
+      typeof interactionType !== 'string' ||
+      (interactionType !== 'discussion_participation' &&
+        interactionType !== 'operation_execution' &&
+        interactionType !== 'knowledge_query')
+    ) {
+      throw new ApiError(400, 'Invalid interactionType', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    if (
+      typeof outcome !== 'string' ||
+      (outcome !== 'success' && outcome !== 'failure' && outcome !== 'partial')
+    ) {
+      throw new ApiError(400, 'Invalid outcome', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    if (!this.isRecord(performanceMetrics)) {
+      throw new ApiError(400, 'Invalid performanceMetrics', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    const efficiency = this.toNumber(performanceMetrics.efficiency);
+    const accuracy = this.toNumber(performanceMetrics.accuracy);
+
+    if (
+      typeof context !== 'string' ||
+      !Array.isArray(learningPoints) ||
+      efficiency === undefined ||
+      accuracy === undefined
+    ) {
+      throw new ApiError(400, 'Invalid interaction payload', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    const typedTimestamp = timestamp instanceof Date ? timestamp : new Date();
+    const typedLearningPoints = learningPoints.filter(
+      (point): point is string => typeof point === 'string'
+    );
+
+    return {
+      agentId: typeof agentId === 'string' ? agentId : 'unknown',
+      interactionType,
+      context,
+      outcome,
+      learningPoints: typedLearningPoints,
+      performanceMetrics: {
+        efficiency,
+        accuracy,
+        userSatisfaction: this.toNumber(performanceMetrics.userSatisfaction),
+      },
+      timestamp: typedTimestamp,
+    };
+  }
+
+  private requireKnowledgeItems(value: unknown): KnowledgeItem[] {
+    if (!Array.isArray(value)) {
+      throw new ApiError(400, 'Invalid knowledgeItems payload', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    const knowledgeItems = value.filter((item): item is KnowledgeItem => this.isKnowledgeItem(item));
+
+    if (knowledgeItems.length !== value.length) {
+      throw new ApiError(400, 'Invalid knowledge item entry', 'INVALID_EVENT_PAYLOAD');
+    }
+
+    return knowledgeItems;
+  }
+
+  private isKnowledgeItem(value: unknown): value is KnowledgeItem {
+    if (!this.isRecord(value)) {
+      return false;
+    }
+
+    return (
+      typeof value.id === 'string' &&
+      typeof value.content === 'string' &&
+      typeof value.type === 'string' &&
+      Array.isArray(value.tags) &&
+      typeof value.confidence === 'number'
+    );
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> {
+    return this.isRecord(value) ? value : {};
+  }
+
+  private toBoolean(value: unknown): boolean | undefined {
+    return typeof value === 'boolean' ? value : undefined;
+  }
+
+  private toNumber(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
+  }
+
+  private toNonEmptyString(value: unknown): string | undefined {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+
+    return undefined;
+  }
+
+  private toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter((item): item is string => typeof item === 'string');
   }
 }

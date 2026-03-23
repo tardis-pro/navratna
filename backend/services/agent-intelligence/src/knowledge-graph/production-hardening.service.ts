@@ -531,35 +531,36 @@ export class MetricsCollector {
 export class SecurityValidator {
   constructor(private readonly options: SecurityOptions) {}
 
-  async validateFile(file: Record<string, unknown>): Promise<ValidationResult> {
+  async validateFile(file: {
+    size?: number;
+    mimetype?: string;
+    buffer?: string | Buffer;
+    content?: string | Buffer;
+  }): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // File size validation
-    if (file.size > this.options.maxFileSize) {
+    if ((file.size ?? 0) > this.options.maxFileSize) {
       errors.push(
         `File size ${file.size} exceeds maximum allowed size ${this.options.maxFileSize}`
       );
     }
 
-    // MIME type validation
     if (
       this.options.allowedMimeTypes.length > 0 &&
-      !this.options.allowedMimeTypes.includes(file.mimetype)
+      !this.options.allowedMimeTypes.includes(file.mimetype ?? '')
     ) {
       errors.push(`File type ${file.mimetype} is not allowed`);
     }
 
-    // Content validation
     if (this.options.validateContent) {
-      const contentValidation = await this.validateContent(file.buffer || file.content);
+      const contentValidation = await this.validateContent(file.buffer ?? file.content ?? '');
       errors.push(...contentValidation.errors);
       warnings.push(...contentValidation.warnings);
     }
 
-    // Malware scanning
     if (this.options.scanForMalware) {
-      const malwareResult = await this.scanForMalware(file.buffer || file.content);
+      const malwareResult = await this.scanForMalware(file.buffer ?? file.content ?? '');
       if (!malwareResult.clean) {
         errors.push('File failed malware scan');
       }

@@ -10,10 +10,10 @@ interface CollectionOptions {
   collection?: MemoryCollectionType;
 }
 
-interface VectorSearchResult {
+export interface VectorSearchResult {
   id: string;
   score: number;
-  payload?: unknown;
+  payload?: Record<string, unknown>;
 }
 
 export class QdrantService {
@@ -139,14 +139,13 @@ export class QdrantService {
       }
 
       const data = await response.json();
-      return data.result.map((item: unknown) => ({
-        id: item.id,
-        score: item.score,
-        payload: item.payload,
-      }));
+      return data.result.map((item: unknown) => {
+        const point = item as { id: string; score: number; payload: Record<string, unknown> };
+        return { id: point.id, score: point.score, payload: point.payload };
+      });
     } catch (error) {
       console.error('Qdrant search error:', error);
-      throw new Error(`Vector search failed: ${error.message}`, { cause: error });
+      throw new Error(`Vector search failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -184,7 +183,8 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant storage error:', error);
-      throw new Error(`Vector storage failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector storage failed: ${_errMsg}`);
     }
   }
 
@@ -229,7 +229,8 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant deletion error:', error);
-      throw new Error(`Vector deletion failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector deletion failed: ${_errMsg}`);
     }
   }
 
@@ -290,7 +291,8 @@ export class QdrantService {
         container: process.env.container,
         KUBERNETES_SERVICE_HOST: process.env.KUBERNETES_SERVICE_HOST,
       });
-      throw new Error(`Failed to ensure Qdrant collection: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to ensure Qdrant collection: ${_errMsg}`);
     }
   }
 
@@ -301,7 +303,15 @@ export class QdrantService {
     await this.store(data.knowledgeItemId, data.embeddings, { collection: options.collection });
   }
 
-  async getCollectionInfo(collectionOptions?: CollectionOptions): Promise<unknown> {
+  async getCollectionInfo(collectionOptions?: CollectionOptions): Promise<{
+    result?: {
+      config?: { params?: { vectors?: { size?: number } } };
+      points_count?: number;
+      vectors_count?: number;
+      status?: string;
+    };
+    status?: string;
+  }> {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
@@ -315,7 +325,8 @@ export class QdrantService {
       return response.json();
     } catch (error) {
       console.error('Qdrant collection info error:', error);
-      throw new Error(`Failed to get collection info: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get collection info: ${_errMsg}`);
     }
   }
 
@@ -362,7 +373,8 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Failed to update embedding dimensions:', error);
-      throw new Error(`Failed to update embedding dimensions: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to update embedding dimensions: ${_errMsg}`);
     }
   }
 
@@ -384,7 +396,8 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant collection deletion error:', error);
-      throw new Error(`Failed to delete collection: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to delete collection: ${_errMsg}`);
     }
   }
 
@@ -437,7 +450,8 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant upsert error:', error);
-      throw new Error(`Vector upsert failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector upsert failed: ${_errMsg}`);
     }
   }
 
@@ -469,7 +483,8 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant upsert error:', error);
-      throw new Error(`Vector upsert failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector upsert failed: ${_errMsg}`);
     }
   }
 
@@ -507,14 +522,14 @@ export class QdrantService {
       }
 
       const data = await response.json();
-      return data.result.map((item: unknown) => ({
-        id: item.id,
-        vector: item.vector,
-        payload: item.payload,
-      }));
+      return data.result.map((item: unknown) => {
+        const point = item as { id: string; vector: number[]; payload: Record<string, unknown> };
+        return { id: point.id, vector: point.vector, payload: point.payload };
+      });
     } catch (error) {
       console.error('Qdrant get points error:', error);
-      throw new Error(`Vector get points failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector get points failed: ${_errMsg}`);
     }
   }
 
@@ -541,14 +556,20 @@ export class QdrantService {
       }
     } catch (error) {
       console.error('Qdrant delete points error:', error);
-      throw new Error(`Vector delete points failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector delete points failed: ${_errMsg}`);
     }
   }
 
   /**
    * Get document by ID
    */
-  async getById(documentId: string, collectionOptions?: CollectionOptions): Promise<unknown> {
+  async getById(documentId: string, collectionOptions?: CollectionOptions): Promise<{
+    id: string;
+    embedding: number[];
+    content: unknown;
+    metadata: Record<string, unknown>;
+  } | null> {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
@@ -579,7 +600,39 @@ export class QdrantService {
       };
     } catch (error) {
       console.error('Qdrant get error:', error);
-      throw new Error(`Vector get failed: ${error.message}`, { cause: error });
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector get failed: ${_errMsg}`);
+    }
+  }
+
+  async scrollAll(
+    limit: number = 10000,
+    collectionOptions?: CollectionOptions
+  ): Promise<Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>> {
+    try {
+      const workingUrl = await this.ensureConnection();
+      const collectionName = this.getCollectionName(collectionOptions);
+
+      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit, with_payload: true, with_vector: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Qdrant scroll failed: ${response.statusText}`);
+      }
+
+      const data = await response.json() as { result?: { points?: Array<{ id: string | number; vector: number[]; payload: Record<string, unknown> }> } };
+      return (data.result?.points ?? []).map((p) => ({
+        id: String(p.id),
+        vector: p.vector ?? [],
+        payload: p.payload ?? {},
+      }));
+    } catch (error) {
+      console.error('Qdrant scroll error:', error);
+      const _errMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Vector scroll failed: ${_errMsg}`);
     }
   }
 }

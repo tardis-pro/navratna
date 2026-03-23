@@ -25,9 +25,9 @@ interface AgentConnection {
 interface CodingAgentEventData {
   type: string;
   sessionId: string;
-  payload: unknown;
+  payload: any;
   timestamp: string | Date;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 export class CodingAgentSocketHandler {

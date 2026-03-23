@@ -1,8 +1,9 @@
 import { logger } from '@uaip/utils';
 import { KnowledgeRepository } from '@uaip/shared-services';
+import { KnowledgeItem } from '@uaip/types';
 import { ContentClassifier } from './content-classifier.service.js';
 import { EmbeddingService } from './embedding.service.js';
-import { ParsedConversation } from './chat-parser.service.js';
+import { ParsedConversation, ParsedMessage } from './chat-parser.service.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface GeneratedQA {
@@ -105,7 +106,7 @@ export class QAGeneratorService {
    * Generate Q&A pairs from existing knowledge items
    */
   async generateFromKnowledge(
-    items: Record<string, unknown>[],
+    items: KnowledgeItem[],
     options: QAGenerationOptions = {}
   ): Promise<GeneratedQA[]> {
     const startTime = Date.now();
@@ -334,7 +335,7 @@ export class QAGeneratorService {
    * Process a batch of knowledge items
    */
   private async processBatch(
-    items: Record<string, unknown>[],
+    items: KnowledgeItem[],
     sourceType: 'knowledge' | 'conversation',
     options: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
@@ -360,12 +361,12 @@ export class QAGeneratorService {
    * Generate Q&A pairs from a single knowledge item
    */
   private async generateQAFromItem(
-    item: Record<string, unknown>,
+    item: KnowledgeItem,
     sourceType: 'knowledge' | 'conversation',
     options: QAGenerationOptions
   ): Promise<GeneratedQA[]> {
     const qaPairs: GeneratedQA[] = [];
-    const content = item.content || '';
+    const content = String(item.content ?? '');
 
     // Extract facts and generate factual questions
     const facts = this.extractFacts(content);
@@ -592,7 +593,7 @@ export class QAGeneratorService {
   // Q&A generation methods
   private generateFactualQA(
     fact: string,
-    item: Record<string, unknown>,
+    item: KnowledgeItem,
     sourceType: string
   ): GeneratedQA | null {
     const patterns = [
@@ -616,7 +617,7 @@ export class QAGeneratorService {
 
   private generateProceduralQA(
     procedure: string,
-    item: Record<string, unknown>,
+    item: KnowledgeItem,
     sourceType: string
   ): GeneratedQA | null {
     const howToPattern = /(?:to|how to)\s+(.+)/gi;
@@ -634,7 +635,7 @@ export class QAGeneratorService {
 
   private generateDefinitionQA(
     definition: { term: string; definition: string },
-    item: Record<string, unknown>,
+    item: KnowledgeItem,
     sourceType: string
   ): GeneratedQA | null {
     const question = `What is ${definition.term}?`;
@@ -643,18 +644,21 @@ export class QAGeneratorService {
     return this.createQAObject(question, answer, item, sourceType, 'definition');
   }
 
-  private generateMetaQuestions(item: Record<string, unknown>, sourceType: string): GeneratedQA[] {
+  private generateMetaQuestions(item: KnowledgeItem, sourceType: string): GeneratedQA[] {
     const metaQAs: GeneratedQA[] = [];
+    const metadata = item.metadata as Record<string, unknown> | undefined;
     const templates = [
       {
         question: 'What is the main topic of this information?',
-        answer: item.metadata?.topic || 'General knowledge',
+        answer: String(metadata?.topic ?? 'General knowledge'),
       },
       {
         question: 'When was this information created?',
-        answer: new Date(item.createdAt || Date.now()).toISOString(),
+        answer: new Date(
+          typeof item.createdAt === 'string' || typeof item.createdAt === 'number' ? item.createdAt : Date.now()
+        ).toISOString(),
       },
-      { question: 'What is the source of this information?', answer: item.source || 'Unknown' },
+      { question: 'What is the source of this information?', answer: String(item.sourceIdentifier ?? 'Unknown') },
     ];
 
     for (const template of templates) {
@@ -668,8 +672,8 @@ export class QAGeneratorService {
   }
 
   private createQAFromMessages(
-    questionMsg: Record<string, unknown>,
-    answerMsg: Record<string, unknown>,
+    questionMsg: ParsedMessage,
+    answerMsg: ParsedMessage,
     conversation: ParsedConversation
   ): GeneratedQA | null {
     const question = this.cleanQuestion(questionMsg.content);
@@ -698,8 +702,8 @@ export class QAGeneratorService {
   }
 
   private createExplanationQA(
-    requestMsg: Record<string, unknown>,
-    explanationMsg: Record<string, unknown>,
+    requestMsg: ParsedMessage,
+    explanationMsg: ParsedMessage,
     conversation: ParsedConversation
   ): GeneratedQA | null {
     const question = this.extractExplanationQuestion(requestMsg.content);
@@ -730,7 +734,7 @@ export class QAGeneratorService {
   private createQAObject(
     question: string,
     answer: string,
-    item: Record<string, unknown>,
+    item: KnowledgeItem,
     sourceType: string,
     method: string
   ): GeneratedQA | null {
@@ -740,8 +744,8 @@ export class QAGeneratorService {
       id: uuidv4(),
       question: this.cleanQuestion(question),
       answer: this.cleanAnswer(answer),
-      source: item.id || item.source || 'unknown',
-      sourceType: sourceType as Record<string, unknown>,
+      source: String(item.id ?? item.sourceIdentifier ?? 'unknown'),
+      sourceType: sourceType as GeneratedQA['sourceType'],
       confidence: this.calculateInitialConfidence(question, answer, method),
       topic: this.extractTopic(question + ' ' + answer),
       difficulty: this.assessDifficulty(question, answer),
@@ -749,7 +753,7 @@ export class QAGeneratorService {
       metadata: {
         generatedAt: new Date(),
         method,
-        sourceIds: [item.id].filter(Boolean),
+        sourceIds: [item.id].filter(Boolean).map(String),
         reviewStatus: 'pending',
         qualityScore: this.calculateInitialQuality(question, answer),
       },
@@ -758,11 +762,11 @@ export class QAGeneratorService {
 
   // Utility and validation methods
   private filterKnowledgeItems(
-    items: Record<string, unknown>[],
+    items: KnowledgeItem[],
     options: QAGenerationOptions
-  ): Record<string, unknown>[] {
+  ): KnowledgeItem[] {
     return items.filter((item) => {
-      if (options.categories && !options.categories.includes(item.category)) {
+      if (options.categories && !options.categories.includes(item.type as string)) {
         return false;
       }
       return true;
@@ -817,9 +821,9 @@ export class QAGeneratorService {
   }
 
   private findExplanation(
-    messages: Record<string, unknown>[],
+    messages: ParsedMessage[],
     startIndex: number
-  ): Record<string, unknown> | null {
+  ): ParsedMessage | null {
     for (let i = startIndex + 1; i < messages.length && i < startIndex + 3; i++) {
       if (messages[i].content.length > 20) {
         return messages[i];

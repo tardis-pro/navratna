@@ -74,6 +74,10 @@ interface JobContext extends ParseContext {
   jobError?: { error: string; message: string };
 }
 
+interface MiddlewareApp {
+  derive(handler: (ctx: unknown) => unknown): unknown;
+}
+
 // Validation schemas
 const ChatIngestionOptionsSchema = z.object({
   extractKnowledge: z.boolean().optional().default(true),
@@ -103,13 +107,19 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file upload validation
   handleFileUpload() {
-    return (app: Record<string, unknown>) => {
-      return app.derive(({ body, set }: Record<string, unknown>) => {
+    return (app: MiddlewareApp) => {
+      return app.derive((ctx) => {
+        const context =
+          ctx && typeof ctx === 'object'
+            ? (ctx as { body?: unknown; set?: { status?: number | string } })
+            : {};
+        const body = context.body;
+        const set = context.set;
         const requestBody = body as { files?: Record<string, unknown>[] };
         const files = requestBody?.files;
 
         if (!files || !Array.isArray(files) || files.length === 0) {
-          set.status = 400;
+          if (set) set.status = 400;
           return {
             uploadError: {
               error: 'No files uploaded',
@@ -127,7 +137,7 @@ export class ChatIngestionMiddleware {
           name?: string;
         }>) {
           if (file.size > MAX_FILE_SIZE) {
-            set.status = 413;
+            if (set) set.status = 413;
             return {
               uploadError: {
                 error: 'File too large',
@@ -139,7 +149,7 @@ export class ChatIngestionMiddleware {
           if (
             !this.isFileTypeSupported(file.mimetype || file.type, file.originalname || file.name)
           ) {
-            set.status = 415;
+            if (set) set.status = 415;
             return {
               uploadError: {
                 error: 'Unsupported file type',
@@ -156,9 +166,13 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for request validation
   validateRequest() {
-    return (app: Record<string, unknown>) => {
-      return app.derive((ctx: Record<string, unknown>) => {
-        const { body, set } = ctx;
+    return (app: MiddlewareApp) => {
+      return app.derive((ctx) => {
+        const context =
+          ctx && typeof ctx === 'object'
+            ? (ctx as { body?: unknown; set?: { status?: number | string } })
+            : {};
+        const { body, set } = context;
         const { uploadedFiles } = ctx as UploadContext;
 
         try {
@@ -169,7 +183,7 @@ export class ChatIngestionMiddleware {
 
           // Check if files were uploaded
           if (!uploadedFiles || uploadedFiles.length === 0) {
-            set.status = 400;
+            if (set) set.status = 400;
             return {
               validationError: {
                 error: 'No files uploaded',
@@ -180,7 +194,7 @@ export class ChatIngestionMiddleware {
 
           // Validate file count
           if (uploadedFiles.length > MAX_FILES_PER_BATCH) {
-            set.status = 400;
+            if (set) set.status = 400;
             return {
               validationError: {
                 error: 'Too many files',
@@ -195,10 +209,10 @@ export class ChatIngestionMiddleware {
           });
 
           return { validatedOptions: options as ChatIngestionOptions };
-        } catch (error: Record<string, unknown>) {
+        } catch (error: unknown) {
           const err = error as Error & { errors?: Record<string, unknown>[] };
           logger.error('Chat ingestion validation failed', { error: err.message });
-          set.status = 400;
+          if (set) set.status = 400;
           return {
             validationError: {
               error: 'Invalid request',
@@ -213,14 +227,18 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file format validation
   validateFileFormat() {
-    return (app: Record<string, unknown>) => {
-      return app.derive(async (ctx: Record<string, unknown>) => {
-        const { set } = ctx;
+    return (app: MiddlewareApp) => {
+      return app.derive(async (ctx) => {
+        const context =
+          ctx && typeof ctx === 'object'
+            ? (ctx as { set?: { status?: number | string } })
+            : {};
+        const { set } = context;
         const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
 
         try {
           if (!uploadedFiles || !validatedOptions) {
-            set.status = 500;
+            if (set) set.status = 500;
             return {
               formatError: {
                 error: 'Internal error',
@@ -247,7 +265,7 @@ export class ChatIngestionMiddleware {
                   `File ${file.originalname || file.name}: ${processedFile.validationResult.errors.join(', ')}`
                 );
               }
-            } catch (error: Record<string, unknown>) {
+            } catch (error: unknown) {
               const err = error as Error;
               validationErrors.push(`File ${file.originalname || file.name}: ${err.message}`);
             }
@@ -256,7 +274,7 @@ export class ChatIngestionMiddleware {
           // Check if we have unknown valid files
           const validFiles = processedFiles.filter((f) => f.validationResult.isValid);
           if (validFiles.length === 0) {
-            set.status = 400;
+            if (set) set.status = 400;
             return {
               formatError: {
                 error: 'No valid files',
@@ -282,10 +300,10 @@ export class ChatIngestionMiddleware {
           });
 
           return { chatFiles: processedFiles, validationWarnings: validationErrors };
-        } catch (error: Record<string, unknown>) {
+        } catch (error: unknown) {
           const err = error as Error;
           logger.error('File format validation failed', { error: err.message });
-          set.status = 500;
+          if (set) set.status = 500;
           return {
             formatError: {
               error: 'Validation failed',
@@ -299,14 +317,18 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for file content parsing
   parseFileContent() {
-    return (app: Record<string, unknown>) => {
-      return app.derive(async (ctx: Record<string, unknown>) => {
-        const { set } = ctx;
+    return (app: MiddlewareApp) => {
+      return app.derive(async (ctx) => {
+        const context =
+          ctx && typeof ctx === 'object'
+            ? (ctx as { set?: { status?: number | string } })
+            : {};
+        const { set } = context;
         const { chatFiles } = ctx as FileContext;
 
         try {
           if (!chatFiles) {
-            set.status = 500;
+            if (set) set.status = 500;
             return {
               parseError: {
                 error: 'Internal error',
@@ -339,7 +361,7 @@ export class ChatIngestionMiddleware {
 
               // Update file validation metadata
               file.validationResult.metadata.estimatedConversations = conversations.length;
-            } catch (error: Record<string, unknown>) {
+            } catch (error: unknown) {
               const err = error as Error;
               parseResults.push({
                 fileId: file.id,
@@ -358,7 +380,7 @@ export class ChatIngestionMiddleware {
           // Check if unknown files were successfully parsed
           const successfulParses = parseResults.filter((r) => r.success);
           if (successfulParses.length === 0) {
-            set.status = 400;
+            if (set) set.status = 400;
             return {
               parseError: {
                 error: 'No files could be parsed',
@@ -378,10 +400,10 @@ export class ChatIngestionMiddleware {
           });
 
           return { parseResults };
-        } catch (error: Record<string, unknown>) {
+        } catch (error: unknown) {
           const err = error as Error;
           logger.error('File content parsing failed', { error: err.message });
-          set.status = 500;
+          if (set) set.status = 500;
           return {
             parseError: {
               error: 'Parsing failed',
@@ -395,14 +417,18 @@ export class ChatIngestionMiddleware {
 
   // Elysia plugin for creating ingestion job
   createIngestionJob() {
-    return (app: Record<string, unknown>) => {
-      return app.derive((ctx: Record<string, unknown>) => {
-        const { set } = ctx;
+    return (app: MiddlewareApp) => {
+      return app.derive((ctx) => {
+        const context =
+          ctx && typeof ctx === 'object'
+            ? (ctx as { set?: { status?: number | string } })
+            : {};
+        const { set } = context;
         const { chatFiles, validatedOptions } = ctx as FileContext;
 
         try {
           if (!chatFiles) {
-            set.status = 500;
+            if (set) set.status = 500;
             return {
               jobError: {
                 error: 'Internal error',
@@ -431,10 +457,10 @@ export class ChatIngestionMiddleware {
           });
 
           return { chatIngestionJob: job };
-        } catch (error: Record<string, unknown>) {
+        } catch (error: unknown) {
           const err = error as Error;
           logger.error('Job creation failed', { error: err.message });
-          set.status = 500;
+          if (set) set.status = 500;
           return {
             jobError: {
               error: 'Job creation failed',

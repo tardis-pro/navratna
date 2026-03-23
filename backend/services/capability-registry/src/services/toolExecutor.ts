@@ -2,7 +2,7 @@
 // Handles tool execution with PostgreSQL logging and Neo4j usage pattern tracking
 // Part of capability-registry microservice
 
-import { ToolExecution, _ToolUsageRecord, ToolExecutionStatus } from '@uaip/types';
+import { ToolDefinition, ToolExecution, ToolExecutionStatus } from '@uaip/types';
 import { ToolService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
@@ -29,6 +29,10 @@ export interface ExecutionOptions {
 
 export class ToolExecutor {
   private toolService: ToolService;
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
 
   constructor(
     private postgresql: DatabaseService,
@@ -85,7 +89,18 @@ export class ToolExecutor {
 
     try {
       // Store initial execution record
-      await this.toolService.createToolExecution(execution);
+      await this.toolService.createToolExecution({
+        id: execution.id,
+        toolId: execution.toolId,
+        agentId: execution.agentId,
+        parameters: execution.parameters,
+        status: execution.status,
+        startTime: execution.startTime,
+        approvalRequired: execution.approvalRequired,
+        retryCount: execution.retryCount,
+        maxRetries: execution.maxRetries,
+        metadata: execution.metadata,
+      });
 
       // Check if approval is required
       if (tool.requiresApproval) {
@@ -100,24 +115,30 @@ export class ToolExecutor {
       // Execute the tool
       return await this.performExecution(execution, tool);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       logger.error(`Failed to initiate tool execution ${execution.id}:`, error);
       execution.status = ToolExecutionStatus.FAILED;
       execution.error = {
         type: 'execution',
-        message: error.message,
-        details: { stack: error.stack },
+        message: errorMessage,
+        details: { stack: errorStack },
         recoverable: false,
       };
       execution.endTime = new Date();
 
-      await this.toolService.updateToolExecution(execution.id, execution);
+      await this.toolService.updateToolExecution(execution.id, {
+        status: execution.status,
+        error: execution.error,
+        endTime: execution.endTime,
+      });
       await this.recordUsage(execution, false);
 
       throw error;
     }
   }
 
-  private async performExecution(execution: ToolExecution, tool: unknown): Promise<ToolExecution> {
+  private async performExecution(execution: ToolExecution, tool: ToolDefinition): Promise<ToolExecution> {
     const startTime = Date.now();
 
     try {
@@ -136,14 +157,15 @@ export class ToolExecutor {
 
       // Update execution with success
       execution.status = ToolExecutionStatus.COMPLETED;
-      execution.result = result;
+      const resultRecord = this.asRecord(result);
+      execution.result = resultRecord;
       execution.endTime = new Date();
       execution.executionTimeMs = executionTime;
       execution.cost = this.calculateCost(tool, executionTime);
 
       await this.toolService.updateToolExecution(execution.id, {
         status: ToolExecutionStatus.COMPLETED,
-        result,
+        result: resultRecord,
         endTime: execution.endTime,
         executionTimeMs: executionTime,
         cost: execution.cost,
@@ -157,14 +179,16 @@ export class ToolExecutor {
       logger.info(`Tool execution completed: ${execution.id} (${executionTime}ms)`);
       return execution;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       const executionTime = Date.now() - startTime;
 
       // Update execution with failure
       execution.status = ToolExecutionStatus.FAILED;
       execution.error = {
         type: this.categorizeError(error),
-        message: error.message,
-        details: { stack: error.stack },
+        message: errorMessage,
+        details: { stack: errorStack },
         recoverable: this.isRecoverableError(error),
       };
       execution.endTime = new Date();
@@ -251,6 +275,9 @@ export class ToolExecutor {
     logger.info(`Retrying tool execution: ${executionId} (attempt ${execution.retryCount})`);
 
     const tool = await this.toolRegistry.getTool(execution.toolId);
+    if (!tool) {
+      throw new Error(`Tool ${execution.toolId} not found`);
+    }
     return await this.performExecution(execution, tool);
   }
 
@@ -307,6 +334,9 @@ export class ToolExecutor {
 
     // Now execute the tool
     const tool = await this.toolRegistry.getTool(execution.toolId);
+    if (!tool) {
+      throw new Error(`Tool ${execution.toolId} not found`);
+    }
     return await this.performExecution(execution, tool);
   }
 
@@ -321,7 +351,7 @@ export class ToolExecutor {
     status?: string,
     limit = 100
   ): Promise<ToolExecution[]> {
-    const filters: unknown = { limit };
+    const filters: { toolId?: string; agentId?: string; status?: string; limit: number } = { limit };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     if (status) filters.status = status;
@@ -329,7 +359,9 @@ export class ToolExecutor {
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
-    const filters: unknown = { status: ToolExecutionStatus.RUNNING };
+    const filters: { toolId?: string; agentId?: string; status: ToolExecutionStatus; limit?: number } = {
+      status: ToolExecutionStatus.RUNNING,
+    };
     if (agentId) filters.agentId = agentId;
     return await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
   }
@@ -337,7 +369,7 @@ export class ToolExecutor {
   // Private Helper Methods
   private async executeToolLogic(
     toolId: string,
-    parameters: unknown,
+    parameters: Record<string, unknown>,
     timeout: number
   ): Promise<unknown> {
     // Create a timeout promise
@@ -368,9 +400,9 @@ export class ToolExecutor {
     }
   }
 
-  private calculateCost(tool: unknown, executionTime: number): number {
+  private calculateCost(tool: ToolDefinition, executionTime: number): number {
     // Simple cost calculation based on tool's cost estimate and execution time
-    const baseCost = tool.costEstimate;
+    const baseCost = tool.costEstimate ?? 0;
     const timeFactor = executionTime / (tool.executionTimeEstimate || 1000);
     return baseCost * timeFactor;
   }
@@ -396,7 +428,7 @@ export class ToolExecutor {
 
   // Analytics
   async getExecutionStats(toolId?: string, agentId?: string, days = 30): Promise<unknown> {
-    const filters: unknown = { days };
+    const filters: { toolId?: string; agentId?: string; days: number } = { days };
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     const stats = await this.toolService.getToolUsageStats(
@@ -404,28 +436,38 @@ export class ToolExecutor {
       filters.days || 30
     );
 
+    const statsRows = Array.isArray(stats)
+      ? stats.map((stat) => this.asRecord(stat))
+      : [];
+
     return {
-      totalExecutions: stats.reduce(
-        (sum: number, stat: unknown) => sum + parseInt(stat.total_uses),
+      totalExecutions: statsRows.reduce(
+        (sum: number, stat) => sum + parseInt(String(stat.total_uses ?? '0'), 10),
         0
       ),
-      successfulExecutions: stats.reduce(
-        (sum: number, stat: unknown) => sum + parseInt(stat.successful_uses),
+      successfulExecutions: statsRows.reduce(
+        (sum: number, stat) => sum + parseInt(String(stat.successful_uses ?? '0'), 10),
         0
       ),
       averageExecutionTime:
-        stats.reduce(
-          (sum: number, stat: unknown) => sum + parseFloat(stat.avg_execution_time || '0'),
+        statsRows.reduce(
+          (sum: number, stat) => sum + parseFloat(String(stat.avg_execution_time ?? '0')),
           0
-        ) / stats.length,
-      totalCost: stats.reduce(
-        (sum: number, stat: unknown) => sum + parseFloat(stat.total_cost || '0'),
+        ) / (statsRows.length || 1),
+      totalCost: statsRows.reduce(
+        (sum: number, stat) => sum + parseFloat(String(stat.total_cost ?? '0')),
         0
       ),
       successRate:
-        stats.length > 0
-          ? stats.reduce((sum: number, stat: unknown) => sum + parseInt(stat.successful_uses), 0) /
-            stats.reduce((sum: number, stat: unknown) => sum + parseInt(stat.total_uses), 0)
+        statsRows.length > 0
+          ? statsRows.reduce(
+              (sum: number, stat) => sum + parseInt(String(stat.successful_uses ?? '0'), 10),
+              0
+            ) /
+            statsRows.reduce(
+              (sum: number, stat) => sum + parseInt(String(stat.total_uses ?? '0'), 10),
+              0
+            )
           : 0,
     };
   }

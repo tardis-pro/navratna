@@ -148,8 +148,7 @@ export class ConceptExtractorService {
     } catch (error) {
       logger.error('Error extracting concepts:', error);
       throw new Error(
-        `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { cause: error }
+        `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

@@ -2,6 +2,8 @@ import { UserService } from './UserService';
 import { CachedUserLLMProviderRepository } from '../database/repositories/CachedUserLLMProviderRepository';
 import { CachedLLMProviderRepository } from '../database/repositories/CachedLLMProviderRepository';
 import { UserEntity } from '../entities/user.entity';
+import { RefreshTokenEntity } from '../entities/refreshToken.entity';
+import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
 // UserLLMProviderType and LLMProviderType available via repositories
 import { redisCacheService } from '../redis-cache.service';
 import { logger } from '@uaip/utils';
@@ -11,6 +13,10 @@ import { logger } from '@uaip/utils';
  * Extends UserService with Redis caching for improved performance
  */
 export class CachedUserService extends UserService {
+  constructor() {
+    super();
+  }
+
   private cachedUserLLMProviderRepository: CachedUserLLMProviderRepository | null = null;
   private cachedLLMProviderRepository: CachedLLMProviderRepository | null = null;
 
@@ -103,21 +109,19 @@ export class CachedUserService extends UserService {
   /**
    * Find refresh token with caching
    */
-  public async findRefreshToken(token: string, useCache = true): Promise<unknown | null> {
+  public async findRefreshToken(token: string, useCache = true): Promise<RefreshTokenEntity | null> {
     const cacheKey = this.CACHE_KEYS.REFRESH_TOKEN(token);
 
     if (useCache) {
-      const cached = await redisCacheService.get(cacheKey);
+      const cached = await redisCacheService.get<RefreshTokenEntity>(cacheKey);
       if (cached) {
         logger.debug('Refresh token retrieved from cache');
         return cached;
       }
     }
 
-    // Cache miss - get from database
     const refreshToken = await super.findRefreshToken(token);
 
-    // Cache the result
     if (useCache && refreshToken) {
       await redisCacheService.set(cacheKey, refreshToken, this.CACHE_TTL.REFRESH_TOKEN);
       logger.debug('Refresh token cached');
@@ -126,24 +130,22 @@ export class CachedUserService extends UserService {
     return refreshToken;
   }
 
-  /**
-   * Find password reset token with caching
-   */
-  public async findPasswordResetToken(token: string, useCache = true): Promise<unknown | null> {
+  public async findPasswordResetToken(
+    token: string,
+    useCache = true
+  ): Promise<PasswordResetTokenEntity | null> {
     const cacheKey = this.CACHE_KEYS.PASSWORD_RESET_TOKEN(token);
 
     if (useCache) {
-      const cached = await redisCacheService.get(cacheKey);
+      const cached = await redisCacheService.get<PasswordResetTokenEntity>(cacheKey);
       if (cached) {
         logger.debug('Password reset token retrieved from cache');
         return cached;
       }
     }
 
-    // Cache miss - get from database
     const resetToken = await super.findPasswordResetToken(token);
 
-    // Cache the result
     if (useCache && resetToken) {
       await redisCacheService.set(cacheKey, resetToken, this.CACHE_TTL.PASSWORD_RESET_TOKEN);
       logger.debug('Password reset token cached');

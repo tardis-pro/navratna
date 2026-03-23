@@ -126,11 +126,21 @@ export class KnowledgeClusteringService {
         threshold: threshold,
       });
 
-      return searchResults.map((result) => ({
-        id: result.id.toString(),
-        vector: [] as number[], // Search results don't include vectors by default
-        payload: result.payload as Record<string, unknown>,
-      }));
+      return searchResults.map((result) => {
+        const rawPayload = result.payload as Record<string, unknown>;
+        return {
+          id: result.id.toString(),
+          vector: [] as number[],
+          payload: {
+            content: String(rawPayload.content ?? ''),
+            knowledgeType: (rawPayload.knowledgeType as KnowledgeType) ?? KnowledgeType.FACTUAL,
+            tags: Array.isArray(rawPayload.tags) ? (rawPayload.tags as string[]) : [],
+            confidence: typeof rawPayload.confidence === 'number' ? rawPayload.confidence : 0,
+            sourceType: String(rawPayload.sourceType ?? ''),
+            originalMetadata: (rawPayload.originalMetadata as Record<string, unknown>) ?? {},
+          },
+        };
+      });
     } catch (error) {
       console.error('Error finding similar chunks:', error);
       return [];
@@ -176,36 +186,19 @@ export class KnowledgeClusteringService {
    */
   private async getAllQdrantPoints(): Promise<QdrantPoint[]> {
     try {
-      // Use scroll API to get all points
-      const workingUrl = await (this.qdrantService as Record<string, unknown>).ensureConnection();
-      const collectionName = (this.qdrantService as Record<string, unknown>).collectionName;
-
-      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const rawPoints = await this.qdrantService.scrollAll(10000);
+      return rawPoints.map((point) => ({
+        id: point.id,
+        vector: point.vector,
+        payload: {
+          content: String(point.payload.content ?? ''),
+          knowledgeType: (point.payload.knowledgeType as KnowledgeType) ?? KnowledgeType.FACTUAL,
+          tags: Array.isArray(point.payload.tags) ? (point.payload.tags as string[]) : [],
+          confidence: typeof point.payload.confidence === 'number' ? point.payload.confidence : 0,
+          sourceType: String(point.payload.sourceType ?? ''),
+          originalMetadata: (point.payload.originalMetadata as Record<string, unknown>) ?? {},
         },
-        body: JSON.stringify({
-          limit: 10000,
-          with_payload: true,
-          with_vector: true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Qdrant scroll failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data.result.points.map((point: Record<string, unknown>) => {
-        const vector: number[] = Array.isArray(point.vector) ? (point.vector as number[]) : [];
-
-        return {
-          id: point.id.toString(),
-          vector,
-          payload: point.payload as Record<string, unknown>,
-        };
-      });
+      }));
     } catch (error) {
       console.error('Error getting Qdrant points:', error);
       return [];

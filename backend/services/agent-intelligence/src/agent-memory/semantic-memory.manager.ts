@@ -1,4 +1,4 @@
-import { SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeItem, SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class SemanticMemoryManager {
@@ -42,7 +42,8 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
       ]);
     } catch (error) {
       console.error('Concept storage error:', error);
-      throw new Error(`Failed to store concept: ${error.message}`, { cause: error });
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to store concept: ${message}`);
     }
   }
 
@@ -252,8 +253,8 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  private itemToSemanticMemory(item: Record<string, unknown>): SemanticMemory {
-    const metadata = item.source?.metadata || item.metadata;
+  private itemToSemanticMemory(item: KnowledgeItem): SemanticMemory {
+    const metadata = item.metadata;
 
     if (!metadata) {
       // Fallback parsing from content
@@ -261,22 +262,23 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
 
     return {
-      agentId: metadata.agentId,
-      concept: metadata.concept,
-      knowledge: metadata.knowledge || {
+      agentId: typeof metadata.agentId === 'string' ? metadata.agentId : 'unknown',
+      concept: typeof metadata.concept === 'string' ? metadata.concept : 'unknown',
+      knowledge: this.asSemanticKnowledge(metadata.knowledge) || {
         definition: '',
         properties: {},
         relationships: [],
         examples: [],
         counterExamples: [],
       },
-      confidence: metadata.confidence || item.confidence || 0.5,
-      sources: metadata.sources || {
+      confidence:
+        typeof metadata.confidence === 'number' ? metadata.confidence : (item.confidence ?? 0.5),
+      sources: this.asSemanticSources(metadata.sources) || {
         episodeIds: [],
         externalSources: [],
         reinforcements: 0,
       },
-      usage: metadata.usage || {
+      usage: this.asSemanticUsage(metadata.usage) || {
         timesAccessed: 0,
         lastUsed: new Date(),
         successRate: 1.0,
@@ -285,8 +287,8 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     };
   }
 
-  private parseSemanticMemoryFromContent(item: Record<string, unknown>): SemanticMemory {
-    const content = item.content || '';
+  private parseSemanticMemoryFromContent(item: KnowledgeItem): SemanticMemory {
+    const content = item.content;
     const lines = content.split('\n');
 
     let concept = 'unknown';
@@ -324,7 +326,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         examples,
         counterExamples: [],
       },
-      confidence: item.confidence || 0.5,
+      confidence: item.confidence,
       sources: {
         episodeIds: [],
         externalSources: [],
@@ -337,5 +339,26 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         contexts: [],
       },
     };
+  }
+
+  private asSemanticKnowledge(value: unknown): SemanticMemory['knowledge'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+    return value as SemanticMemory['knowledge'];
+  }
+
+  private asSemanticSources(value: unknown): SemanticMemory['sources'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+    return value as SemanticMemory['sources'];
+  }
+
+  private asSemanticUsage(value: unknown): SemanticMemory['usage'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+    return value as SemanticMemory['usage'];
   }
 }

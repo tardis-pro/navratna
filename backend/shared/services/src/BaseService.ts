@@ -80,7 +80,9 @@ export abstract class BaseService {
    * Each service plane registers only its own entities.
    */
   protected registerEntities(entities: unknown[]): void {
-    this.databaseService.registerEntities(entities);
+    this.databaseService.registerEntities(
+      entities as Array<string | Function | import('typeorm').EntitySchema<import('typeorm').ObjectLiteral>>
+    );
   }
 
   protected setupBaseMiddleware(): void {
@@ -102,7 +104,7 @@ export abstract class BaseService {
 
     // Global error handler
     this.app.onError(({ code, error }) => {
-      logger.error(`${this.config.name}: onError`, { code, error: (error as unknown)?.message });
+      logger.error(`${this.config.name}: onError`, { code, error: error instanceof Error ? error.message : String(error) });
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
         headers: { 'content-type': 'application/json' },
@@ -516,8 +518,8 @@ export abstract class BaseService {
       const prefix = options?.logPrefix || eventName;
 
       try {
-        const eventData = event.data as unknown;
-        const { data } = eventData || event;
+        const eventData = event.data;
+        const data = (eventData as Record<string, unknown>)?.data ?? eventData;
         logger.info(`${prefix}: Processing event`, { data });
 
         const result = await handler(data);

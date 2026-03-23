@@ -12,6 +12,7 @@ import { logger } from '@uaip/utils';
 import {
   SERVICE_ACCESS_MATRIX,
   DatabaseTier,
+  DatabaseConnection,
   AccessLevel,
   validateServiceAccess,
   getDatabaseConnectionString,
@@ -291,7 +292,10 @@ export class EnterpriseDatabase extends DatabaseService {
     // Execute query based on database type
     switch (databaseType) {
       case 'postgresql':
-        return connection.query(query, params);
+        const pgConnection = connection as {
+          query: (sql: string, values?: unknown[]) => Promise<T>;
+        };
+        return pgConnection.query(query, params);
       default:
         throw new Error(`Query execution not implemented for ${databaseType}`);
     }
@@ -402,7 +406,7 @@ export class EnterpriseDatabase extends DatabaseService {
     complianceFrameworks: string[];
     auditEventCount: number;
     securityLevel: number;
-    databaseAccess: unknown[];
+    databaseAccess: DatabaseConnection[];
     networkSegments: string[];
     accessViolations: number;
     recommendations: string[];
@@ -450,7 +454,7 @@ export class EnterpriseDatabase extends DatabaseService {
     auditEventCount: number;
   }> {
     const serviceConfig = SERVICE_ACCESS_MATRIX[this.serviceName];
-    const databaseStatus: unknown[] = [];
+    const databaseStatus: Array<{ type: string; instance: string; status: 'healthy' | 'unhealthy'; responseTime?: number; error?: string }> = [];
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
     // Check each database connection

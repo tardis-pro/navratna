@@ -24,8 +24,8 @@ export class EventDrivenDiscussionService extends EventEmitter {
   private pendingRequests = new Map<
     string,
     {
-      resolve: (value: unknown) => void;
-      reject: (reason?: unknown) => void;
+      resolve: (value: any) => void;
+      reject: (reason?: any) => void;
       timeout: NodeJS.Timeout;
     }
   >();
@@ -76,7 +76,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Create a discussion through event bus
    */
-  async createDiscussion(data: unknown, userId: string): Promise<Discussion> {
+  async createDiscussion(data: any, userId: string): Promise<Discussion> {
     const requestId = this.generateRequestId();
 
     const event = {
@@ -286,7 +286,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
    */
   private async publishAndWait<T>(
     channel: string,
-    event: unknown,
+    event: any,
     requestId: string,
     timeout = 5000
   ): Promise<T> {
@@ -316,7 +316,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle discussion response events
    */
-  private handleDiscussionResponse(event: unknown): void {
+  private handleDiscussionResponse(event: any): void {
     const eventData = event as Record<string, unknown>;
     const { requestId, data, error } = eventData;
     const pending = this.pendingRequests.get(requestId as string);
@@ -336,7 +336,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle discussion error events
    */
-  private handleDiscussionError(event: unknown): void {
+  private handleDiscussionError(event: any): void {
     const eventData = event as Record<string, unknown>;
     const { requestId, error } = eventData;
     const pending = this.pendingRequests.get(requestId as string);
@@ -351,42 +351,42 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle real-time discussion updates
    */
-  private handleDiscussionUpdate(event: unknown): void {
+  private handleDiscussionUpdate(event: any): void {
     this.emit('discussion_updated', event);
   }
 
   /**
    * Handle message added events
    */
-  private handleMessageAdded(event: unknown): void {
+  private handleMessageAdded(event: any): void {
     this.emit('message_added', event);
   }
 
   /**
    * Handle turn changed events
    */
-  private handleTurnChanged(event: unknown): void {
+  private handleTurnChanged(event: any): void {
     this.emit('turn_changed', event);
   }
 
   /**
    * Handle agent joined events
    */
-  private handleAgentJoined(event: unknown): void {
+  private handleAgentJoined(event: any): void {
     this.emit('agent_joined', event);
   }
 
   /**
    * Handle agent left events
    */
-  private handleAgentLeft(event: unknown): void {
+  private handleAgentLeft(event: any): void {
     this.emit('agent_left', event);
   }
 
   /**
    * Handle agent response events
    */
-  private handleAgentResponse(event: unknown): void {
+  private handleAgentResponse(event: any): void {
     this.emit('agent_response', event);
   }
 

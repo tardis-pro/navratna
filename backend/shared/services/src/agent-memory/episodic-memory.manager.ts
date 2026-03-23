@@ -43,7 +43,8 @@ export class EpisodicMemoryManager {
       await this.createEpisodeRelationships(episode);
     } catch (error) {
       console.error('Episode storage error:', error);
-      throw new Error(`Failed to store episode: ${error.message}`, { cause: error });
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to store episode: ${msg}`);
     }
   }
 

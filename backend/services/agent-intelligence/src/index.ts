@@ -9,11 +9,17 @@ import {
   serviceFactory,
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
+import { Agent as AgentEntity } from '@uaip/shared-services';
 import {
   ActionRecommendation,
+  AgentRole,
   AgentStatus,
+  DiscussionStatus,
+  DiscussionVisibility,
   LLMTaskType,
   MessageType,
+  PersonaStatus,
+  PersonaVisibility,
   SecurityLevel,
   ToolCategory,
   ToolDefinition,
@@ -44,6 +50,15 @@ interface PendingApproval {
 interface ApprovalRequestContext {
   userId?: string;
   socketId?: string;
+}
+
+interface ConversationMessageHistoryItem {
+  id: string;
+  speaker: string;
+  content: string;
+  timestamp: Date;
+  responseType?: string;
+  topic?: string;
 }
 
 class AgentIntelligenceService extends BaseService {
@@ -88,8 +103,8 @@ class AgentIntelligenceService extends BaseService {
         const filters = {
           limit: query.limit ? parseInt(query.limit as string) : undefined,
           offset: query.offset ? parseInt(query.offset as string) : undefined,
-          role: query.role as Record<string, unknown>,
-          status: query.status as Record<string, unknown>,
+          role: this.parseEnumValue(query.role, AgentRole),
+          status: this.parseEnumValue(query.status, AgentStatus),
           createdBy: query.createdBy as string | undefined,
         };
         const agents = await this.agentCoreService.getAgents(filters);
@@ -324,7 +339,6 @@ class AgentIntelligenceService extends BaseService {
                   {
                     intent: { primary: detectedIntent },
                     timestamp: new Date(),
-                    complexity: 'high',
                   },
                   parsed.data.context || {},
                   { constraints: [] }
@@ -359,13 +373,13 @@ class AgentIntelligenceService extends BaseService {
             message: llmMessage,
             userId,
             conversationHistory: parsed.data.conversationHistory || [],
-            context: contextWithDecision,
+            context: this.ensureRecord(contextWithDecision),
           });
 
           await this.maybeCreateSpecialistHuddleFromResponse(
             params.agentId,
             result.response,
-            contextWithDecision
+            this.ensureRecord(contextWithDecision)
           );
 
           return {
@@ -401,8 +415,8 @@ class AgentIntelligenceService extends BaseService {
         const filters = {
           limit: query.limit ? parseInt(query.limit as string) : undefined,
           offset: query.offset ? parseInt(query.offset as string) : undefined,
-          status: query.status as Record<string, unknown>,
-          visibility: query.visibility as Record<string, unknown>,
+          status: this.parseEnumArray(query.status, PersonaStatus),
+          visibility: this.parseEnumArray(query.visibility, PersonaVisibility),
         };
         const result = await this.personaService.getPersonasForDisplay(filters);
         return { success: true, data: result.personas, total: result.total };
@@ -514,7 +528,7 @@ class AgentIntelligenceService extends BaseService {
     this.app.get('/api/v1/discussions', async ({ query, set }) => {
       try {
         const filters = {
-          status: query.status as Record<string, unknown>,
+          status: this.parseEnumArray(query.status, DiscussionStatus),
           limit: query.limit ? parseInt(query.limit as string) : 20,
           offset: query.offset ? parseInt(query.offset as string) : 0,
         };
@@ -822,7 +836,7 @@ class AgentIntelligenceService extends BaseService {
             const discussion = await this.discussionService.endDiscussion(
               params.discussionId,
               user.id,
-              (body as Record<string, unknown>)?.reason
+              this.pickContextString((body as Record<string, unknown>)?.reason)
             );
             return { success: true, data: discussion };
           } catch (error) {
@@ -904,13 +918,17 @@ class AgentIntelligenceService extends BaseService {
       try {
         // Trigger immediate cleanup on conversation enhancement service
         if (
-          typeof (this.conversationEnhancementService as Record<string, unknown>)[
-            'cleanupStaleLLMRequests'
-          ] === 'function'
+          typeof (
+            this.conversationEnhancementService as unknown as {
+              cleanupStaleLLMRequests?: () => void;
+            }
+          ).cleanupStaleLLMRequests === 'function'
         ) {
-          (this.conversationEnhancementService as Record<string, unknown>)[
-            'cleanupStaleLLMRequests'
-          ]();
+          (
+            this.conversationEnhancementService as unknown as {
+              cleanupStaleLLMRequests: () => void;
+            }
+          ).cleanupStaleLLMRequests();
         }
 
         return {
@@ -996,27 +1014,36 @@ class AgentIntelligenceService extends BaseService {
           _timestamp,
         } = event.data as Record<string, unknown>;
 
+        const resolvedUserId = typeof userId === 'string' ? userId : 'system';
+        const resolvedAgentId = typeof agentId === 'string' ? agentId : '';
+        const resolvedMessage = typeof message === 'string' ? message : '';
+        const resolvedSocketId = typeof socketId === 'string' ? socketId : '';
+        const resolvedConversationHistory = Array.isArray(conversationHistory)
+          ? conversationHistory.filter(
+              (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null
+            )
+          : [];
+        const resolvedContext = this.ensureRecord(context);
+
         logger.info('Processing WebSocket agent chat request', {
           agentId,
           userId,
-          messageLength: message?.length,
+          messageLength: resolvedMessage.length,
           messageId,
-          socketId: socketId?.substring(0, 10) + '...',
+          socketId: resolvedSocketId ? `${resolvedSocketId.substring(0, 10)}...` : undefined,
         });
 
-        const agentRecord = await this.agentCoreService.getAgent(agentId);
+        const agentRecord = await this.agentCoreService.getAgent(resolvedAgentId);
 
         // Use unified model selection for the agent
         let modelSelection = null;
-        if (agentId) {
+        if (resolvedAgentId) {
           try {
-            modelSelection = await this.selectModelForAgent(agentId, LLMTaskType.REASONING);
+            modelSelection = await this.selectModelForAgent(resolvedAgentId, LLMTaskType.REASONING);
             logger.info('Selected model for agent', {
-              agentId,
+              agentId: resolvedAgentId,
               model: modelSelection.model.model,
-              provider:
-                (modelSelection as Record<string, unknown>).provider?.effectiveProvider ||
-                'unknown',
+              provider: modelSelection.model.provider,
               strategy: modelSelection.model.selectionStrategy,
             });
           } catch (error) {
@@ -1025,23 +1052,23 @@ class AgentIntelligenceService extends BaseService {
         }
 
         const contextWithDecision = await this.applyToolExecutionDecisionGate(
-          agentId,
-          context || {},
+          resolvedAgentId,
+          resolvedContext,
           agentRecord,
           {
-            userId,
-            socketId,
+            userId: resolvedUserId,
+            socketId: resolvedSocketId || undefined,
           }
         );
 
         // Process the chat request using AgentDiscussionService
         const result = await this.agentDiscussionService.processDiscussionMessage({
-          agentId,
-          userId,
-          message,
+          agentId: resolvedAgentId,
+          userId: resolvedUserId,
+          message: resolvedMessage,
           conversationId: 'websocket-chat-' + Date.now(),
-          conversationHistory: conversationHistory || [],
-          modelSelection,
+          conversationHistory: resolvedConversationHistory,
+          modelSelection: modelSelection ? this.ensureRecord(modelSelection) : undefined,
         });
 
         // Prepare enhanced response with WebSocket metadata
@@ -1053,15 +1080,15 @@ class AgentIntelligenceService extends BaseService {
         }
 
         await this.maybeCreateSpecialistHuddleFromResponse(
-          agentId,
+          resolvedAgentId,
           result.response,
-          contextWithDecision
+          this.ensureRecord(contextWithDecision)
         );
 
         const responsePayload = {
           socketId,
-          userId,
-          agentId,
+          userId: resolvedUserId,
+          agentId: resolvedAgentId,
           messageId,
           response: result.response,
           agentName: resolvedAgentName,
@@ -1137,19 +1164,36 @@ class AgentIntelligenceService extends BaseService {
           logger.info('ConversationEnhancementService initialized on demand');
         }
 
+        const resolvedDiscussionId = typeof discussionId === 'string' ? discussionId : '';
+        const resolvedAgentIds = Array.isArray(availableAgentIds)
+          ? availableAgentIds.filter((id): id is string => typeof id === 'string')
+          : [];
+        const resolvedMessageHistory = Array.isArray(messageHistory)
+          ? messageHistory.filter(
+              (entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null
+            )
+          : [];
+        const resolvedMessageHistoryItems = this.toMessageHistoryItems(resolvedMessageHistory);
+        const resolvedCurrentTopic = typeof currentTopic === 'string' ? currentTopic : '';
+        const resolvedEnhancementType =
+          enhancementType === 'auto' || enhancementType === 'manual' || enhancementType === 'triggered'
+            ? enhancementType
+            : 'auto';
+        const resolvedEnhancementContext = this.ensureRecord(context);
+
         logger.info('Processing conversation enhancement request', {
           discussionId,
-          agentCount: availableAgentIds?.length,
-          messageCount: messageHistory?.length,
+          agentCount: resolvedAgentIds.length,
+          messageCount: resolvedMessageHistory.length,
           enhancementType,
         });
 
         // Get agent objects from IDs
-        const availableAgents: Record<string, unknown>[] = [];
-        for (const agentId of availableAgentIds || []) {
+        const availableAgents: AgentEntity[] = [];
+        for (const agentId of resolvedAgentIds) {
           try {
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-            const agent = await this.databaseService.findById('agents', agentId);
+            const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
             if (agent) {
               availableAgents.push(agent);
             }
@@ -1165,18 +1209,18 @@ class AgentIntelligenceService extends BaseService {
 
         // Process enhancement request
         const result = await this.conversationEnhancementService.getEnhancedContribution({
-          discussionId,
+          discussionId: resolvedDiscussionId,
           availableAgents,
-          messageHistory: messageHistory || [],
-          currentTopic: currentTopic || '',
-          enhancementType: enhancementType || 'auto',
-          context,
+          messageHistory: resolvedMessageHistoryItems,
+          currentTopic: resolvedCurrentTopic,
+          enhancementType: resolvedEnhancementType,
+          context: resolvedEnhancementContext,
         });
 
         if (result.success && result.enhancedResponse) {
           try {
             // Find the participant ID for the selected agent
-            const discussion = await this.discussionService.getDiscussion(discussionId);
+            const discussion = await this.discussionService.getDiscussion(resolvedDiscussionId);
             const participant = discussion?.participants?.find(
               (p: Record<string, unknown>) => p.agentId === result.selectedAgent?.id
             );
@@ -1185,8 +1229,10 @@ class AgentIntelligenceService extends BaseService {
               // Send enhanced response back to discussion orchestration
               const isInitialParticipation =
                 (discussion?.state?.messageCount ??
-                  context?.messageCount ??
-                  messageHistory?.length ??
+                  (typeof resolvedEnhancementContext.messageCount === 'number'
+                    ? resolvedEnhancementContext.messageCount
+                    : 0) ??
+                  resolvedMessageHistory.length ??
                   0) === 0;
 
               await this.eventBusService.publish('discussion.agent.message', {
@@ -1311,10 +1357,7 @@ class AgentIntelligenceService extends BaseService {
     this.agentPlanningService = new AgentPlanningService({
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
-      knowledgeGraphService: knowledgeGraphService as Record<
-        string,
-        unknown
-      > as LocalKnowledgeGraphService,
+      knowledgeGraphService: knowledgeGraphService as unknown as LocalKnowledgeGraphService,
       serviceName: 'agent-intelligence',
       securityLevel: 2,
     });
@@ -1385,7 +1428,7 @@ class AgentIntelligenceService extends BaseService {
     context: Record<string, unknown>,
     agentRecord?: Record<string, unknown>,
     approvalContext?: ApprovalRequestContext
-  ): Promise<unknown> {
+  ): Promise<Record<string, unknown>> {
     const proposedAction = this.extractProposedAction(context);
     if (!proposedAction) {
       return context;
@@ -1416,10 +1459,11 @@ class AgentIntelligenceService extends BaseService {
           actionType: proposedAction.type,
         });
 
+        const existingToolExecution = this.ensureRecord(context.toolExecution);
         return {
           ...context,
           toolExecution: {
-            ...(context?.toolExecution || {}),
+            ...existingToolExecution,
             skipped: true,
             skipReason: 'confidence_below_threshold',
             decisionConfidence: decision.confidence,
@@ -1440,10 +1484,11 @@ class AgentIntelligenceService extends BaseService {
             operationSecurityLevel,
           });
 
+          const existingToolExecution = this.ensureRecord(context.toolExecution);
           return {
             ...context,
             toolExecution: {
-              ...(context?.toolExecution || {}),
+              ...existingToolExecution,
               skipped: true,
               skipReason: 'security_level_restriction',
               decisionConfidence: decision.confidence,
@@ -1456,10 +1501,10 @@ class AgentIntelligenceService extends BaseService {
       const isHighRisk = decision.selectedAction?.riskLevel === 'high';
       const isCriticalSecurity = operationSecurityLevel === SecurityLevel.CRITICAL;
 
-      if (requiresApproval && (isHighRisk || isCriticalSecurity)) {
-        const toolExecution =
+        if (requiresApproval && (isHighRisk || isCriticalSecurity)) {
+        const toolExecution: Record<string, unknown> =
           context?.toolExecution && typeof context.toolExecution === 'object'
-            ? context.toolExecution
+            ? (context.toolExecution as Record<string, unknown>)
             : {};
         const approvalResult = await this.requestToolExecutionApproval(agentId, {
           toolId: String(toolExecution.toolId || toolExecution.toolName || 'unknown-tool'),
@@ -1472,10 +1517,7 @@ class AgentIntelligenceService extends BaseService {
           securityLevel: isCriticalSecurity
             ? 'critical'
             : String(toolExecution.securityLevel || ''),
-          parameters:
-            toolExecution.parameters && typeof toolExecution.parameters === 'object'
-              ? toolExecution.parameters
-              : {},
+          parameters: this.ensureRecord(toolExecution.parameters),
           userId: approvalContext?.userId,
           socketId: approvalContext?.socketId,
         });
@@ -1487,10 +1529,11 @@ class AgentIntelligenceService extends BaseService {
             reason: approvalResult.reason,
           });
 
+          const existingToolExecution = this.ensureRecord(context.toolExecution);
           return {
             ...context,
             toolExecution: {
-              ...(context?.toolExecution || {}),
+              ...existingToolExecution,
               skipped: true,
               skipReason: 'approval_required',
               approvalId: approvalResult.approvalId,
@@ -1500,10 +1543,11 @@ class AgentIntelligenceService extends BaseService {
         }
       }
 
+      const existingToolExecution = this.ensureRecord(context.toolExecution);
       return {
         ...context,
         toolExecution: {
-          ...(context?.toolExecution || {}),
+          ...existingToolExecution,
           decisionConfidence: decision.confidence,
           decisionReasoning: decision.reasoning,
         },
@@ -1518,7 +1562,10 @@ class AgentIntelligenceService extends BaseService {
   }
 
   private extractProposedAction(context: Record<string, unknown>): ActionRecommendation | null {
-    const toolExecution = context?.toolExecution;
+    const toolExecution =
+      context?.toolExecution && typeof context.toolExecution === 'object'
+        ? (context.toolExecution as Record<string, unknown>)
+        : null;
     if (!toolExecution || typeof toolExecution !== 'object') {
       return null;
     }
@@ -1607,8 +1654,12 @@ class AgentIntelligenceService extends BaseService {
     return fallbackTools;
   }
 
-  private resolveOperationSecurityLevel(toolExecution: Record<string, unknown>): SecurityLevel {
-    const level = toolExecution?.securityLevel;
+  private resolveOperationSecurityLevel(toolExecution: unknown): SecurityLevel {
+    const execution =
+      toolExecution && typeof toolExecution === 'object'
+        ? (toolExecution as Record<string, unknown>)
+        : {};
+    const level = execution.securityLevel;
     if (level === SecurityLevel.LOW) return SecurityLevel.LOW;
     if (level === SecurityLevel.HIGH) return SecurityLevel.HIGH;
     if (level === SecurityLevel.CRITICAL) return SecurityLevel.CRITICAL;
@@ -1729,7 +1780,7 @@ class AgentIntelligenceService extends BaseService {
     }
   }
 
-  private sanitizeApprovalParameters(value: Record<string, unknown>): Record<string, unknown> {
+  private sanitizeApprovalParameters(value: unknown): Record<string, unknown> {
     const sensitiveFields = new Set([
       'password',
       'token',
@@ -1741,7 +1792,9 @@ class AgentIntelligenceService extends BaseService {
     ]);
 
     if (Array.isArray(value)) {
-      return value.map((entry) => this.sanitizeApprovalParameters(entry));
+      return {
+        items: value.map((entry) => this.sanitizeApprovalParameters(entry)),
+      };
     }
 
     if (value && typeof value === 'object') {
@@ -1756,7 +1809,7 @@ class AgentIntelligenceService extends BaseService {
       return result;
     }
 
-    return value;
+    return { value };
   }
 
   private async maybeCreateSpecialistHuddleFromResponse(
@@ -1823,7 +1876,7 @@ class AgentIntelligenceService extends BaseService {
   }
 
   private hasSpecialistSubTaskInContext(context: Record<string, unknown>): boolean {
-    const candidateSubTaskLists: Record<string, unknown>[] = [
+    const candidateSubTaskLists: unknown[] = [
       context.subTasks,
       context.tasks,
       context.plannedSubTasks,
@@ -1872,7 +1925,7 @@ class AgentIntelligenceService extends BaseService {
     return false;
   }
 
-  private pickContextString(value: Record<string, unknown>): string | null {
+  private pickContextString(value: unknown): string | null {
     if (typeof value !== 'string') {
       return null;
     }
@@ -1881,7 +1934,7 @@ class AgentIntelligenceService extends BaseService {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private pickContextStringArray(value: Record<string, unknown>): string[] {
+  private pickContextStringArray(value: unknown): string[] {
     if (!Array.isArray(value)) {
       return [];
     }
@@ -1890,6 +1943,62 @@ class AgentIntelligenceService extends BaseService {
       .filter((entry): entry is string => typeof entry === 'string')
       .map((entry) => entry.trim())
       .filter((entry) => entry.length > 0);
+  }
+
+  private ensureRecord(value: unknown): Record<string, unknown> {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    return {};
+  }
+
+  private parseEnumValue<T extends string>(value: unknown, enumObj: Record<string, T>): T | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+    const candidates = Object.values(enumObj);
+    return candidates.includes(value as T) ? (value as T) : undefined;
+  }
+
+  private parseEnumArray<T extends string>(value: unknown, enumObj: Record<string, T>): T[] | undefined {
+    const values =
+      typeof value === 'string'
+        ? value.split(',').map((entry) => entry.trim())
+        : Array.isArray(value)
+          ? value.filter((entry): entry is string => typeof entry === 'string')
+          : [];
+    if (values.length === 0) {
+      return undefined;
+    }
+    const allowed = new Set(Object.values(enumObj));
+    const parsed = values.filter((entry): entry is T => allowed.has(entry as T));
+    return parsed.length > 0 ? parsed : undefined;
+  }
+
+  private toMessageHistoryItems(messages: Record<string, unknown>[]): ConversationMessageHistoryItem[] {
+    const normalized: ConversationMessageHistoryItem[] = [];
+    for (const [index, message] of messages.entries()) {
+      const content = this.pickContextString(message.content);
+      if (!content) {
+        continue;
+      }
+      normalized.push({
+        id: this.pickContextString(message.id) || `msg-${index}`,
+        speaker: this.pickContextString(message.speaker) || 'unknown',
+        content,
+        timestamp:
+          message.timestamp instanceof Date
+            ? message.timestamp
+            : new Date(
+                typeof message.timestamp === 'string' || typeof message.timestamp === 'number'
+                  ? message.timestamp
+                  : Date.now()
+              ),
+        responseType: this.pickContextString(message.responseType) || undefined,
+        topic: this.pickContextString(message.topic) || undefined,
+      });
+    }
+    return normalized;
   }
 
   private async startMemoryConsolidationCron(): Promise<void> {

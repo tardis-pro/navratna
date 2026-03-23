@@ -1,4 +1,4 @@
-import { typeormService } from './typeormService';
+import { typeormService, TypeOrmService } from './typeormService';
 import { QdrantService } from './qdrant.service';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
@@ -112,7 +112,7 @@ export class ServiceFactory {
       this.serviceInstances.set(serviceName, service);
     }
 
-    return this.serviceInstances.get(serviceName);
+    return this.serviceInstances.get(serviceName) as T;
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -123,12 +123,12 @@ export class ServiceFactory {
 
   // Core Infrastructure Services
 
-  async getTypeOrmService() {
-    return this.serviceInstances.get('typeorm');
+  async getTypeOrmService(): Promise<TypeOrmService> {
+    return this.serviceInstances.get('typeorm') as TypeOrmService;
   }
 
   async getQdrantService(): Promise<QdrantService> {
-    return this.serviceInstances.get('qdrant');
+    return this.serviceInstances.get('qdrant') as QdrantService;
   }
 
   async getToolGraphDatabase(): Promise<ToolGraphDatabase> {
@@ -367,10 +367,11 @@ export class ServiceFactory {
     await Promise.all(
       Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
         try {
-          if (serviceInstance && typeof serviceInstance.isHealthy === 'function') {
-            services[serviceName] = await serviceInstance.isHealthy();
+          const svc = serviceInstance as Record<string, unknown>;
+          if (svc && typeof svc['isHealthy'] === 'function') {
+            services[serviceName] = await (svc['isHealthy'] as () => Promise<boolean>)();
           } else {
-            services[serviceName] = !!serviceInstance;
+            services[serviceName] = !!svc;
           }
         } catch {
           services[serviceName] = false;
@@ -378,15 +379,28 @@ export class ServiceFactory {
       })
     );
 
-    // Get database health including cache status
-    let databaseHealth;
+    type DatabaseHealth = {
+      status: 'healthy' | 'unhealthy';
+      details: {
+        connected: boolean;
+        driver: string;
+        database: string;
+        responseTime?: number;
+        cacheEnabled?: boolean;
+        cacheHealthy?: boolean;
+      };
+    };
+
+    let databaseHealth: DatabaseHealth | undefined;
     try {
-      const typeOrmService = this.serviceInstances.get('typeorm');
-      if (typeOrmService && typeof typeOrmService.checkHealth === 'function') {
-        databaseHealth = await typeOrmService.checkHealth();
+      const typeOrmService = this.serviceInstances.get('typeorm') as Record<string, unknown>;
+      if (typeOrmService && typeof typeOrmService['checkHealth'] === 'function') {
+        databaseHealth = await (typeOrmService['checkHealth'] as () => Promise<DatabaseHealth>)();
       }
     } catch (error) {
-      this.logger.warn('Failed to get database health', { error: error.message });
+      this.logger.warn('Failed to get database health', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     return {
@@ -461,22 +475,24 @@ export class ServiceFactory {
     await Promise.all(
       Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
         try {
-          if (serviceInstance && typeof serviceInstance.close === 'function') {
-            await serviceInstance.close();
+          const svc = serviceInstance as Record<string, unknown>;
+          if (svc && typeof svc['close'] === 'function') {
+            await (svc['close'] as () => Promise<void>)();
           }
         } catch (error) {
           this.logger.error(`Error shutting down service: ${serviceName}`, {
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       })
     );
 
-    // Close TypeORM last
     try {
       await typeormService.close();
     } catch (error) {
-      this.logger.error('Error closing TypeORM service', { error: error.message });
+      this.logger.error('Error closing TypeORM service', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     this.clearServices();

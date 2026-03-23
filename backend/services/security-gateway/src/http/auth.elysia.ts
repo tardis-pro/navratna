@@ -122,8 +122,8 @@ const authRateLimiter = createRateLimiter({
   },
 });
 
-export function registerAuthRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/auth', (app: unknown) =>
+export function registerAuthRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/auth', (app: any) =>
     withOptionalAuth(app)
       .use(authRateLimiter)
       // POST /login
@@ -366,7 +366,7 @@ export function registerAuthRoutes(elysiaApp: unknown): unknown {
       })
 
       // POST /change-password (requires auth)
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/change-password', async ({ body, set, user }) => {
           const parsed = changePasswordSchema.safeParse(body);
@@ -420,7 +420,7 @@ export function registerAuthRoutes(elysiaApp: unknown): unknown {
       )
 
       // GET /me
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).get('/me', async ({ set, user }) => {
           try {

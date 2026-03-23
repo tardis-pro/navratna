@@ -650,7 +650,7 @@ export class PersonaService {
   }
 
   private async generateRecommendations(
-    _userHistory: unknown[],
+    _userHistory: any[],
     _context?: string,
     _limit = 10
   ): Promise<PersonaRecommendation[]> {
@@ -732,7 +732,7 @@ export class PersonaService {
     return Math.min(score, 100);
   }
 
-  private async safePublishEvent(eventType: string, data: unknown): Promise<void> {
+  private async safePublishEvent(eventType: string, data: any): Promise<void> {
     try {
       await this.eventBusService.publish(eventType, data);
     } catch (error) {

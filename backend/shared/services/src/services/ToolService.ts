@@ -133,7 +133,20 @@ export class ToolService extends BaseDomainService {
       duration?: number;
     }
   ): Promise<ToolExecution | null> {
-    const updates: Partial<ToolExecution> & { endTime?: Date } = { ...data };
+    const updates: Partial<ToolExecution> & { endTime?: Date } = {
+      status: data.status,
+      result: data.output,
+      error: data.error
+        ? {
+            type: 'execution',
+            message: data.error,
+            details: data.metadata,
+            recoverable: false,
+          }
+        : undefined,
+      metadata: data.metadata,
+      executionTimeMs: data.duration,
+    };
 
     if (
       data.status === ToolExecutionStatus.COMPLETED ||

@@ -582,7 +582,7 @@ export class TaxonomyGeneratorService {
   }
 
   private evaluateCondition(condition: ClassificationCondition, item: KnowledgeItem): number {
-    let fieldValue: Record<string, unknown>;
+    let fieldValue: unknown;
 
     switch (condition.field) {
       case 'content':
@@ -609,24 +609,24 @@ export class TaxonomyGeneratorService {
       case 'CONTAINS':
         if (Array.isArray(fieldValue)) {
           return fieldValue.some((v) =>
-            v.toString().toLowerCase().includes(condition.value.toString().toLowerCase())
+            String(v).toLowerCase().includes(String(condition.value).toLowerCase())
           )
             ? 1
             : 0;
         }
-        return fieldValue
-          .toString()
+        return String(fieldValue)
           .toLowerCase()
-          .includes(condition.value.toString().toLowerCase())
+          .includes(String(condition.value).toLowerCase())
           ? 1
           : 0;
 
       case 'EQUALS':
         return fieldValue === condition.value ? 1 : 0;
 
-      case 'MATCHES':
-        const regex = new RegExp(condition.value.toString(), 'i');
-        return regex.test(fieldValue.toString()) ? 1 : 0;
+      case 'MATCHES': {
+        const regex = new RegExp(String(condition.value), 'i');
+        return regex.test(String(fieldValue)) ? 1 : 0;
+      }
 
       case 'GREATER_THAN':
         return Number(fieldValue) > Number(condition.value) ? 1 : 0;

@@ -2,6 +2,18 @@ import { BaseProvider } from './BaseProvider.js';
 import { LLMRequest, LLMResponse } from '../interfaces';
 
 export class OpenAIProvider extends BaseProvider {
+  private static isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private static toString(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
+
+  private static toNumber(value: unknown): number | null {
+    return typeof value === 'number' ? value : null;
+  }
+
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`;
@@ -31,18 +43,39 @@ export class OpenAIProvider extends BaseProvider {
         : {};
 
       const data = await this.makeRequest(url, body, headers);
-
-      if (!data.choices?.[0]?.message?.content) {
+      if (!OpenAIProvider.isRecord(data)) {
         throw new Error('Invalid response format from OpenAI');
       }
 
-      const choice = data.choices[0];
+      const choices = Array.isArray(data.choices)
+        ? (data.choices as Array<Record<string, unknown>>)
+        : [];
+      const firstChoice = choices[0];
+      const message =
+        firstChoice && OpenAIProvider.isRecord(firstChoice.message)
+          ? firstChoice.message
+          : undefined;
+      const content = OpenAIProvider.toString(message?.content);
+
+      if (!content) {
+        throw new Error('Invalid response format from OpenAI');
+      }
+
+      const usage = OpenAIProvider.isRecord(data.usage) ? data.usage : undefined;
+      const totalTokens = OpenAIProvider.toNumber(usage?.total_tokens) ?? 0;
+
+      const finishReasonRaw = OpenAIProvider.toString(firstChoice?.finish_reason);
+      const finishReason: LLMResponse['finishReason'] =
+        finishReasonRaw === 'length' || finishReasonRaw === 'tool_calls' || finishReasonRaw === 'error'
+          ? finishReasonRaw
+          : 'stop';
+
       return {
-        content: choice.message.content,
-        model: data.model || request.model || this.config.defaultModel || 'unknown',
-        tokensUsed: data.usage?.total_tokens || 0,
+        content,
+        model: OpenAIProvider.toString(data.model) || request.model || this.config.defaultModel || 'unknown',
+        tokensUsed: totalTokens,
         confidence: 0.9, // OpenAI generally provides high-quality responses
-        finishReason: choice.finish_reason || 'stop',
+        finishReason,
       };
     } catch (error) {
       return this.handleError(error, 'generateResponse');
@@ -71,8 +104,11 @@ export class OpenAIProvider extends BaseProvider {
         : {};
 
       const data = await this.makeGetRequest(url, headers);
+      if (!OpenAIProvider.isRecord(data)) {
+        return [];
+      }
 
-      if (!data.data || !Array.isArray(data.data)) {
+      if (!Array.isArray(data.data)) {
         return [];
       }
 
@@ -84,21 +120,22 @@ export class OpenAIProvider extends BaseProvider {
       let chatModels: Array<Record<string, unknown>>;
       if (isOpenRouterModels || isCustomProvider) {
         // For OpenRouter and custom providers, include all models (they usually only return chat models anyway)
-        chatModels = data.data;
+        chatModels = data.data as Array<Record<string, unknown>>;
       } else {
         // For OpenAI, filter to only chat models
-        chatModels = data.data.filter(
+        chatModels = (data.data as Array<Record<string, unknown>>).filter(
           (model: Record<string, unknown>) =>
-            (model.id as string).includes('gpt') || (model.id as string).includes('chat')
+            (OpenAIProvider.toString(model.id) || '').includes('gpt') ||
+            (OpenAIProvider.toString(model.id) || '').includes('chat')
         );
       }
 
       return chatModels.map((model: Record<string, unknown>) => ({
-        id: model.id,
-        name: model.id,
+        id: OpenAIProvider.toString(model.id) || 'unknown',
+        name: OpenAIProvider.toString(model.id) || 'unknown',
         description: isOpenRouterModels
-          ? `OpenRouter model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`
-          : `OpenAI model: ${model.id}${model.owned_by ? ` (${model.owned_by})` : ''}`,
+          ? `OpenRouter model: ${OpenAIProvider.toString(model.id) || 'unknown'}${OpenAIProvider.toString(model.owned_by) ? ` (${OpenAIProvider.toString(model.owned_by)})` : ''}`
+          : `OpenAI model: ${OpenAIProvider.toString(model.id) || 'unknown'}${OpenAIProvider.toString(model.owned_by) ? ` (${OpenAIProvider.toString(model.owned_by)})` : ''}`,
         source: this.config.baseUrl || 'https://api.openai.com',
         apiEndpoint: `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`,
       }));
@@ -125,7 +162,7 @@ export class OpenAIProvider extends BaseProvider {
           },
         ];
       } else {
-        throw new Error(`OpenAI connection failed: ${errorMessage}`, { cause: error });
+        throw new Error(`OpenAI connection failed: ${errorMessage}`);
       }
     }
   }

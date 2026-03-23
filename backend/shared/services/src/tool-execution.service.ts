@@ -3,7 +3,7 @@ import { ToolExecution as ToolExecutionType, ToolExecutionStatus } from '@uaip/t
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
-import { ToolExecution } from './entities/toolExecution.entity';
+import { ToolExecution as ToolExecutionEntity } from './entities/toolExecution.entity';
 
 export interface ToolExecutionOptions {
   timeout?: number;
@@ -85,6 +85,28 @@ export class ToolExecutionService {
     return `corr_${Date.now()}_${randomUUID().slice(0, 8)}`;
   }
 
+  private static toRecord(value: unknown): Record<string, unknown> | undefined {
+    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined;
+  }
+
+  private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {
+    return {
+      ...execution,
+      result: ToolExecutionService.toRecord(execution.result),
+      data: ToolExecutionService.toRecord(execution.data),
+    };
+  }
+
+  private toEntityExecutionUpdates(
+    updates: Partial<ToolExecutionType>
+  ): Partial<ToolExecutionEntity> {
+    return {
+      ...updates,
+      result: ToolExecutionService.toRecord(updates.result),
+      data: ToolExecutionService.toRecord(updates.data),
+    };
+  }
+
   /**
    * Execute a tool with the given parameters
    * Publishes 'tool.execute.request' event to capability-registry for execution
@@ -156,7 +178,7 @@ export class ToolExecutionService {
 
     try {
       // Store initial execution record
-      await this.databaseService.tools.createToolExecution(execution);
+      await this.databaseService.tools.createToolExecution(this.toEntityExecution(execution));
 
       // Publish tool execution request event to capability-registry
       const eventPayload: ToolExecutionRequestEvent = {
@@ -219,9 +241,12 @@ export class ToolExecutionService {
   /**
    * Update tool execution status
    */
-  async updateExecution(executionId: string, updates: Partial<ToolExecution>): Promise<void> {
+  async updateExecution(executionId: string, updates: Partial<ToolExecutionType>): Promise<void> {
     try {
-      await this.databaseService.tools.updateToolExecution(executionId, updates);
+      await this.databaseService.tools.updateToolExecution(
+        executionId,
+        this.toEntityExecutionUpdates(updates)
+      );
       logger.debug(`Tool execution updated: ${executionId}`, updates);
     } catch (error) {
       logger.error(`Failed to update tool execution ${executionId}:`, error);
@@ -327,7 +352,7 @@ export class ToolExecutionService {
 
     try {
       // Store initial execution record
-      await this.databaseService.tools.createToolExecution(execution);
+      await this.databaseService.tools.createToolExecution(this.toEntityExecution(execution));
 
       // Prepare event payload
       const eventPayload: ToolExecutionRequestEvent = {

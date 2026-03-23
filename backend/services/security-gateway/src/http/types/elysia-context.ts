@@ -75,6 +75,6 @@ export type HandlerContext<
  * @example
  * const userId = getAuthUser(context).id
  */
-export function getAuthUser(context: unknown): AuthUser {
+export function getAuthUser(context: any): AuthUser {
   return context.user as AuthUser;
 }

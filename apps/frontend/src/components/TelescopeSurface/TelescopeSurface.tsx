@@ -272,7 +272,7 @@ export function TelescopeSurface({
   className,
 }: TelescopeSurfaceProps) {
   const arrangeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [arrangeKey, setArrangeKey] = useState(0);
+  const [_arrangeKey, setArrangeKey] = useState(0);
 
   // Sorted and visibility-applied blocks
   const processedBlocks = useMemo(() => {

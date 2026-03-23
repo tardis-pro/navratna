@@ -4,6 +4,51 @@ import { Operation } from '../../entities/operation.entity';
 import { OperationState } from '../../entities/operationState.entity';
 import { OperationCheckpoint } from '../../entities/operationCheckpoint.entity';
 import { StepResult } from '../../entities/stepResult.entity';
+import { OperationStatus } from '@uaip/types';
+
+const isOperationStatus = (value: unknown): value is OperationStatus =>
+  value === OperationStatus.PENDING ||
+  value === OperationStatus.QUEUED ||
+  value === OperationStatus.RUNNING ||
+  value === OperationStatus.COMPLETED ||
+  value === OperationStatus.FAILED ||
+  value === OperationStatus.CANCELLED ||
+  value === OperationStatus.SUSPENDED ||
+  value === OperationStatus.PAUSED ||
+  value === OperationStatus.COMPENSATING;
+
+const toOperationStatus = (value: unknown, fallback: OperationStatus): OperationStatus =>
+  isOperationStatus(value) ? value : fallback;
+
+const toStepStatus = (
+  value: unknown,
+  fallback: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled'
+): 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled' => {
+  if (
+    value === 'pending' ||
+    value === 'running' ||
+    value === 'completed' ||
+    value === 'failed' ||
+    value === 'skipped' ||
+    value === 'cancelled'
+  ) {
+    return value;
+  }
+  return fallback;
+};
+
+const asString = (value: unknown, fallback: string): string =>
+  typeof value === 'string' && value.length > 0 ? value : fallback;
+
+const asNumber = (value: unknown, fallback: number): number =>
+  typeof value === 'number' ? value : fallback;
+
+const toCheckpointType = (value: unknown): 'automatic' | 'manual' | 'step' | 'milestone' => {
+  if (value === 'manual' || value === 'step' || value === 'milestone') {
+    return value;
+  }
+  return 'automatic';
+};
 
 export class OperationRepository extends BaseRepository<Operation> {
   constructor() {
@@ -27,8 +72,7 @@ export class OperationRepository extends BaseRepository<Operation> {
   ): Promise<void> {
     await this.repository.update(operationId, {
       result,
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
-      status: 'completed' as any,
+      status: OperationStatus.COMPLETED,
       completedAt: new Date(),
       updatedAt: new Date(),
     });
@@ -76,7 +120,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
         await this.repository.update(
           { operationId },
           {
-            toStatus: state.status || existingState.toStatus,
+            toStatus: toOperationStatus(state.status, existingState.toStatus),
             context: state,
             transitionedAt: new Date(),
             updatedAt: new Date(),
@@ -86,7 +130,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
         // Create new state
         const newState = this.repository.create({
           operationId,
-          toStatus: state.status || 'pending',
+          toStatus: toOperationStatus(state.status, OperationStatus.PENDING),
           context: state,
           transitionedAt: new Date(),
           isAutomatic: true,
@@ -182,8 +226,7 @@ export class OperationStateRepository extends BaseRepository<OperationState> {
       const [totalOperations, activeOperations, totalCheckpoints] = await Promise.all([
         this.repository.count(),
         this.repository.count({
-          // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM where clause requires flexible typing
-          where: { toStatus: 'running' as any },
+          where: { toStatus: OperationStatus.RUNNING },
         }),
         checkpointRepo.count(),
       ]);
@@ -215,10 +258,10 @@ export class OperationCheckpointRepository extends BaseRepository<OperationCheck
   ): Promise<void> {
     try {
       const newCheckpoint = this.repository.create({
-        id: checkpoint.id,
+        id: asString(checkpoint.id, `checkpoint_${Date.now()}`),
         operationId,
-        name: checkpoint.name || `Checkpoint ${checkpoint.id}`,
-        checkpointType: checkpoint.type || 'automatic',
+        name: asString(checkpoint.name, `Checkpoint ${asString(checkpoint.id, 'unknown')}`),
+        checkpointType: toCheckpointType(checkpoint.type),
         state: checkpoint,
         createdAt: new Date(),
       });
@@ -284,10 +327,10 @@ export class StepResultRepository extends BaseRepository<StepResult> {
     try {
       const stepResult = this.repository.create({
         operationId,
-        stepNumber: result.stepNumber,
-        stepName: result.stepName || result.stepId || 'Unknown Step',
-        stepType: result.stepType || 'generic',
-        status: result.status || 'completed',
+        stepNumber: asNumber(result.stepNumber, 0),
+        stepName: asString(result.stepName ?? result.stepId, 'Unknown Step'),
+        stepType: asString(result.stepType, 'generic'),
+        status: toStepStatus(result.status, 'completed'),
         output: result,
         completedAt: new Date(),
         createdAt: new Date(),

@@ -130,10 +130,7 @@ export class ToolGraphDatabase {
         try {
           testValue = record.get('test');
         } catch (recordError) {
-          throw new Error(
-            `Failed to get 'test' field from record: ${(recordError as Error).message}`,
-            { cause: recordError }
-          );
+          throw new Error(`Failed to get 'test' field from record: ${(recordError as Error).message}`);
         }
 
         logger.info(`Neo4j test value: ${testValue} (type: ${typeof testValue})`);
@@ -195,7 +192,7 @@ export class ToolGraphDatabase {
         await this.verifyConnectivity(2); // Quick retry
       } catch (error) {
         logger.warn(`${operationName} skipped - Neo4j not available:`, (error as Error).message);
-        throw new Error(`Neo4j not available: ${(error as Error).message}`, { cause: error });
+        throw new Error(`Neo4j not available: ${(error as Error).message}`);
       }
     }
 
@@ -609,7 +606,7 @@ export class ToolGraphDatabase {
   }
 
   // Utility Methods
-  async getAgentToolPreferences(agentId: string): Promise<unknown[]> {
+  async getAgentToolPreferences(agentId: string): Promise<AgentToolPreference[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(
@@ -635,7 +632,7 @@ export class ToolGraphDatabase {
     }
   }
 
-  async getPopularTools(category?: string, limit = 10): Promise<unknown[]> {
+  async getPopularTools(category?: string, limit = 10): Promise<PopularToolRecord[]> {
     const session = this.driver.session({ database: this.database });
     try {
       let query = `
@@ -683,7 +680,7 @@ export class ToolGraphDatabase {
     name: string;
     type: string;
     status: string;
-    capabilities?: unknown;
+    capabilities?: MCPServerCapabilities;
     tags?: string[];
     metadata?: Record<string, unknown>;
   }): Promise<void> {

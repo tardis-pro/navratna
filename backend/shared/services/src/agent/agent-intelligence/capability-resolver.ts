@@ -35,7 +35,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       return tool;
     } catch (error) {
       logger.error(`Error resolving capability ${toolName}:`, error);
-      throw new Error(`Failed to resolve capability: ${toolName}`, { cause: error });
+      throw new Error(`Failed to resolve capability: ${toolName}`);
     }
   }
 

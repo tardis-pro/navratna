@@ -67,8 +67,8 @@ const InteractionTrackingSchema = z.object({
     .transform((str) => new Date(str)),
 });
 
-export function registerPersonaRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/users/persona', (app: unknown) =>
+export function registerPersonaRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/users/persona', (app: any) =>
     withRequiredAuth(app)
       // GET /
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -257,8 +257,8 @@ export function registerPersonaRoutes(elysiaApp: unknown): unknown {
             set.status = 400;
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
-          const persona: unknown = entity.userPersona;
-          const behavioral: unknown = entity.behavioralPatterns;
+          const persona: any = entity.userPersona;
+          const behavioral: any = entity.behavioralPatterns;
           const recommendations = await generatePersonaRecommendations(persona, behavioral);
           return recommendations;
         } catch {
@@ -326,7 +326,7 @@ export function registerPersonaRoutes(elysiaApp: unknown): unknown {
   );
 }
 
-async function generatePersonaRecommendations(persona: unknown, _behavioralPatterns: unknown) {
+async function generatePersonaRecommendations(persona: any, _behavioralPatterns: any) {
   const recommendations = {
     recommendedTools: [],
     recommendedAgents: [],
@@ -344,17 +344,17 @@ async function generatePersonaRecommendations(persona: unknown, _behavioralPatte
 async function processUserInteraction(
   userId: string,
   type: string,
-  data: unknown,
+  data: any,
   timestamp: Date
 ) {
   logger.info('Processed user interaction', { userId, type, timestamp });
 }
 
-async function getCompatibleAgents(_persona: unknown) {
+async function getCompatibleAgents(_persona: any) {
   return [] as unknown[];
 }
 
-async function generateOptimizedWorkspace(_persona: unknown, _behavioral: unknown) {
+async function generateOptimizedWorkspace(_persona: any, _behavioral: any) {
   return { layout: 'default', widgets: [] } as unknown;
 }
 

@@ -40,7 +40,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private debateHandler?: DebateHandler;
   private whatsappHandler?: WhatsAppHandler;
   private serviceName = 'discussion-orchestration';
-  private authResponseHandlers = new Map<string, (response: unknown) => void>();
+  private authResponseHandlers = new Map<string, (response: any) => void>();
   private authSubscriptionInitialized = false;
 
   constructor() {
@@ -579,7 +579,7 @@ class DiscussionOrchestrationServer extends BaseService {
   private async publishOrchestrationEvent(
     eventType: string,
     discussionId: string,
-    user: unknown
+    user: any
   ): Promise<void> {
     const event = {
       type: eventType,
@@ -605,7 +605,7 @@ class DiscussionOrchestrationServer extends BaseService {
 
     try {
       // Set up shared authentication response handler
-      const sharedAuthHandler = async (event: unknown) => {
+      const sharedAuthHandler = async (event: any) => {
         const eventData = (event as Record<string, unknown>).data as
           | Record<string, unknown>
           | undefined;
@@ -946,7 +946,7 @@ class DiscussionOrchestrationServer extends BaseService {
 
       try {
         // Register response handler for this specific correlation ID
-        this.authResponseHandlers.set(correlationId, (response: unknown) => {
+        this.authResponseHandlers.set(correlationId, (response: any) => {
           clearTimeout(timeoutId);
 
           logger.debug('Socket.IO auth response received', {
@@ -1070,7 +1070,7 @@ class DiscussionOrchestrationServer extends BaseService {
   /**
    * Get system health metrics for race condition detection
    */
-  private getSystemHealthMetrics(): unknown {
+  private getSystemHealthMetrics(): any {
     const memory = process.memoryUsage();
     const uptime = process.uptime();
 
@@ -1102,8 +1102,8 @@ class DiscussionOrchestrationServer extends BaseService {
    * Detect race condition warnings
    */
   private detectRaceConditionWarnings(
-    orchestrationStats: unknown,
-    systemHealth: unknown
+    orchestrationStats: any,
+    systemHealth: any
   ): string[] {
     const warnings: string[] = [];
 
@@ -1148,7 +1148,7 @@ class DiscussionOrchestrationServer extends BaseService {
    */
   private generateMemoryAlerts(
     memoryUsage: NodeJS.MemoryUsage,
-    orchestrationStats: unknown
+    orchestrationStats: any
   ): string[] {
     const alerts: string[] = [];
     const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
@@ -1181,7 +1181,7 @@ class DiscussionOrchestrationServer extends BaseService {
     return alerts;
   }
 
-  public getStatus(): unknown {
+  public getStatus(): any {
     return {
       service: 'discussion-orchestration',
       status: 'running',

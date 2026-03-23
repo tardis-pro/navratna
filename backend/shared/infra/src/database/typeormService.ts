@@ -6,6 +6,8 @@ import {
   EntityTarget,
   ObjectLiteral,
   SelectQueryBuilder,
+  MixedList,
+  EntitySchema,
 } from 'typeorm';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
@@ -29,7 +31,9 @@ export class TypeOrmService {
     return TypeOrmService.instance;
   }
 
-  public async initialize(entities: unknown[] = []): Promise<void> {
+  public async initialize(
+    entities: MixedList<string | Function | EntitySchema> = []
+  ): Promise<void> {
     try {
       const pg = config.database.postgres;
       this._dataSource = new DataSource({

@@ -87,11 +87,11 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   return safeUser;
 };
 
-export function registerUserRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/users', (app: unknown) =>
+export function registerUserRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/users', (app: any) =>
     withOptionalAuth(app)
       // GET /api/v1/users (admin)
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         withAdminGuard(g).get('/', async ({ set, query }) => {
           const parsed = userQuerySchema.safeParse(query);
           if (!parsed.success) {
@@ -148,7 +148,7 @@ export function registerUserRoutes(elysiaApp: unknown): unknown {
             limit,
             offset,
           });
-          const publicUsers = result.users.map((u: unknown) => ({
+          const publicUsers = result.users.map((u: any) => ({
             id: u.id,
             email: u.email,
             displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
@@ -182,7 +182,7 @@ export function registerUserRoutes(elysiaApp: unknown): unknown {
       })
 
       // GET /api/v1/users/llm-preferences
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         withRequiredAuth(g)
           .get('/llm-preferences', async ({ set, user }) => {
             try {
@@ -237,7 +237,7 @@ export function registerUserRoutes(elysiaApp: unknown): unknown {
       )
 
       // GET /api/v1/users/:userId (admin)
-      .group('', (g: unknown) =>
+      .group('', (g: any) =>
         withAdminGuard(g)
           .get('/:userId', async ({ set, params }) => {
             try {

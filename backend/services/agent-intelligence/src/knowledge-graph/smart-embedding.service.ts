@@ -1,5 +1,5 @@
 import { EmbeddingService } from './embedding.service.js';
-import { TEIEmbeddingService, TEIHealthStatus } from './tei-embedding.service.js';
+import { TEIEmbeddingService, TEIHealthStatus, RerankResult } from './tei-embedding.service.js';
 import { ContextRequest } from '@uaip/types';
 
 export interface EmbeddingServiceConfig {
@@ -237,7 +237,7 @@ export class SmartEmbeddingService extends EmbeddingService {
     query: string,
     documents: string[],
     topK?: number
-  ): Promise<Record<string, unknown>[]> {
+  ): Promise<RerankResult[]> {
     if (this.shouldUseTEI() && this.healthStatus.teiStatus.reranker.status === 'ready') {
       return await this.teiService.rerank(query, documents, topK);
     } else {

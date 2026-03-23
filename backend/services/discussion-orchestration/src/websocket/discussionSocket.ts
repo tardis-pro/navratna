@@ -230,7 +230,7 @@ export function setupWebSocketHandlers(
     });
 
     // Debug: Log all incoming events
-    socket.onAny((eventName: string, ...args: unknown[]) => {
+    socket.onAny((eventName: string, ...args: any[]) => {
       logger.info('🎯 WebSocket event received', {
         socketId: socket.id,
         userId: socket.userId,

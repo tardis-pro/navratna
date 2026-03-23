@@ -4,6 +4,8 @@ import {
   EntityTarget,
   ObjectLiteral,
   Repository,
+  FindManyOptions,
+  FindOptionsWhere,
   DeepPartial as _DeepPartial,
   FindOptionsWhere as _FindOptionsWhere,
 } from 'typeorm';
@@ -334,12 +336,14 @@ export class DatabaseService {
 
   public getPersonaAnalyticsRepository() {
     // TODO: Implement persona analytics repository
-    return this.typeormService.getRepository('persona_analytics' as unknown);
+    return this.typeormService.getRepository('persona_analytics' as EntityTarget<ObjectLiteral>);
   }
 
   public getConversationContextRepository() {
     // TODO: Implement conversation context repository
-    return this.typeormService.getRepository('conversation_contexts' as unknown);
+    return this.typeormService.getRepository(
+      'conversation_contexts' as EntityTarget<ObjectLiteral>
+    );
   }
 
   // Project-related delegations
@@ -393,7 +397,7 @@ export class DatabaseService {
   // Discussion-related delegations (placeholder for now)
   public getDiscussionRepository() {
     // TODO: Implement proper discussion repository when DiscussionService is refactored
-    return this.typeormService.getRepository('discussions' as unknown);
+    return this.typeormService.getRepository('discussions' as EntityTarget<ObjectLiteral>);
   }
 
   // Artifact-related delegations
@@ -497,7 +501,7 @@ export class DatabaseService {
       const { PersonaService } = await import('./personaService');
 
       const personaService = new PersonaService({
-        databaseService: this as unknown,
+        databaseService: this as unknown as import('@uaip/infra/database').DatabaseService,
         eventBusService: EventBusService.getInstance(),
         enableAnalytics: false,
         enableRecommendations: false,
@@ -505,7 +509,7 @@ export class DatabaseService {
       });
 
       this.discussionService = new DiscussionService({
-        databaseService: this as unknown,
+        databaseService: this as unknown as import('@uaip/infra/database').DatabaseService,
         eventBusService: EventBusService.getInstance(),
         personaService: personaService,
         enableRealTimeEvents: true,
@@ -518,7 +522,7 @@ export class DatabaseService {
   }
 
   // Legacy compatibility methods
-  public async getRepository(entityClass: unknown): Promise<unknown> {
+  public async getRepository<T extends ObjectLiteral>(entityClass: EntityTarget<T>): Promise<Repository<T>> {
     await this.ensureInitialized();
     return this.typeormService.getDataSource().getRepository(entityClass);
   }
@@ -583,7 +587,7 @@ export class DatabaseService {
         await queryBuilder.orUpdate(updateColumns, options.conflictColumns).execute();
       } else {
         // Simple insert
-        await repository.save(records as unknown[]);
+        await repository.save(records as _DeepPartial<T>[]);
       }
 
       logger.info('Bulk insert completed', {
@@ -695,7 +699,7 @@ export class DatabaseService {
     await this.ensureInitialized();
     return this.operationService
       .getOperationStateRepository()
-      .saveOperationState(operationId, state);
+      .saveOperationState(operationId, state as Record<string, unknown>);
   }
 
   /**
@@ -717,7 +721,11 @@ export class DatabaseService {
     await this.ensureInitialized();
     return this.operationService
       .getOperationStateRepository()
-      .updateOperationState(operationId, state, updates);
+      .updateOperationState(
+        operationId,
+        state as Record<string, unknown>,
+        updates as Record<string, unknown>
+      );
   }
 
   /**
@@ -727,7 +735,7 @@ export class DatabaseService {
     await this.ensureInitialized();
     return this.operationService
       .getOperationCheckpointRepository()
-      .saveCheckpoint(operationId, checkpoint);
+      .saveCheckpoint(operationId, checkpoint as Record<string, unknown>);
   }
 
   /**
@@ -770,31 +778,38 @@ export class DatabaseService {
   }
 
   // Generic CRUD methods for backward compatibility
-  public async create<T>(entityClass: unknown, data: Partial<T>): Promise<T> {
+  public async create<T extends ObjectLiteral>(
+    entityClass: EntityTarget<T>,
+    data: Partial<T>
+  ): Promise<T> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
-    const entity = repository.create(data as unknown);
-    return (await repository.save(entity)) as T;
+    const entity = repository.create(data as _DeepPartial<T>) as T;
+    return await repository.save(entity);
   }
 
   public async findById<T>(
-    entityClass: unknown,
+    entityClass: EntityTarget<ObjectLiteral>,
     id: string,
     relations?: string[]
   ): Promise<T | null> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     return (await repository.findOne({
-      where: { id } as unknown,
+      where: { id } as FindOptionsWhere<ObjectLiteral>,
       relations,
     })) as T | null;
   }
 
-  public async update<T>(entityClass: unknown, id: string, data: Partial<T>): Promise<T | null> {
+  public async update<T>(
+    entityClass: EntityTarget<ObjectLiteral>,
+    id: string,
+    data: Partial<T>
+  ): Promise<T | null> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
-    await repository.update(id, data as unknown);
-    return (await repository.findOne({ where: { id } as unknown })) as T | null;
+    await repository.update(id, data as ObjectLiteral);
+    return (await repository.findOne({ where: { id } as FindOptionsWhere<ObjectLiteral> })) as T | null;
   }
 
   public async delete<T extends ObjectLiteral>(
@@ -808,9 +823,9 @@ export class DatabaseService {
   }
 
   public async findMany<T>(
-    entityClass: unknown,
-    conditions: unknown,
-    options?: unknown
+    entityClass: EntityTarget<ObjectLiteral>,
+    conditions: FindOptionsWhere<ObjectLiteral>,
+    options?: FindManyOptions<ObjectLiteral>
   ): Promise<T[]> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
@@ -820,7 +835,10 @@ export class DatabaseService {
     })) as T[];
   }
 
-  public async count(entityClass: unknown, conditions?: unknown): Promise<number> {
+  public async count(
+    entityClass: EntityTarget<ObjectLiteral>,
+    conditions?: FindOptionsWhere<ObjectLiteral>
+  ): Promise<number> {
     await this.ensureInitialized();
     const repository = this.typeormService.getRepository(entityClass);
     return await repository.count({ where: conditions });
@@ -917,7 +935,9 @@ export class DatabaseService {
 
   public async storeExecutionPlan(plan: unknown): Promise<void> {
     await this.ensureInitialized();
-    logger.debug('Storing execution plan (placeholder)', { planId: plan.id });
+    const planId =
+      typeof plan === 'object' && plan !== null && 'id' in plan ? String(plan.id) : 'unknown';
+    logger.debug('Storing execution plan (placeholder)', { planId });
     // TODO: Delegate to OperationService
   }
 }

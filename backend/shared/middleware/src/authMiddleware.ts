@@ -3,8 +3,6 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type {
   AuthContext,
-  AuthDeriveContext,
-  ElysiaBaseContext,
   RequiredAuthContext,
   UserContext,
 } from '@uaip/types';
@@ -18,9 +16,12 @@ export type AuthedContext = RequiredAuthContext;
 // Context type for Elysia route handlers where withOptionalAuth has been applied
 export type OptionalAuthContext = AuthContext;
 
-const hasUserContext = (context: ElysiaBaseContext): context is AuthContext => 'user' in context;
+type ContextWithOptionalUser = { user?: UserContext | null; [key: string]: unknown };
 
-const getValidatedUserContext = (context: ElysiaBaseContext): UserContext | null => {
+const hasUserContext = (context: ContextWithOptionalUser): context is { user: UserContext; [key: string]: unknown } =>
+  context.user != null;
+
+const getValidatedUserContext = (context: ContextWithOptionalUser): UserContext | null => {
   if (!hasUserContext(context)) {
     return null;
   }
@@ -46,14 +47,20 @@ const createUserContext = (result: {
   };
 };
 
-const getBearerToken = ({ headers, cookie }: AuthDeriveContext): string | null => {
+const getBearerToken = ({
+  headers,
+  cookie,
+}: {
+  headers: { authorization?: string };
+  cookie?: Record<string, { value?: unknown }>;
+}): string | null => {
   const authHeader = headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     return authHeader.substring(7);
   }
 
-  const accessToken = cookie?.access_token?.value;
-  return accessToken ?? null;
+  const rawValue = cookie?.access_token?.value;
+  return typeof rawValue === 'string' ? rawValue : null;
 };
 
 // Elysia plugin to attach user context from JWT token

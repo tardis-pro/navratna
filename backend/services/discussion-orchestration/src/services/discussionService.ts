@@ -946,7 +946,7 @@ export class DiscussionService {
           decisionsReached: discussion.state?.decisions?.length,
           consensusAchieved: discussion.state?.consensusLevel >= 0.8,
           actionItemsGenerated: discussion.state?.actionItems?.length,
-          keyInsights: discussion.state?.keyPoints?.map((kp: unknown) => kp.point) || [],
+          keyInsights: discussion.state?.keyPoints?.map((kp: any) => kp.point) || [],
           unresolvedIssues: [],
         },
         quality: {
@@ -1199,7 +1199,7 @@ export class DiscussionService {
   private async emitDiscussionEvent(
     discussionId: string,
     type: DiscussionEventType,
-    data: unknown,
+    data: any,
     participantId?: string
   ): Promise<void> {
     if (!this.enableRealTimeEvents) return;

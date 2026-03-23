@@ -59,7 +59,7 @@ const userActivityQuerySchema = z.object({
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
-  data: unknown
+  data: any
 ): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
@@ -71,9 +71,9 @@ function validateWithZod<T>(
   };
 }
 
-export function registerAuditRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/audit', (app: unknown) =>
-    withRequiredAuth(app).group('', (g: unknown) =>
+export function registerAuditRoutes(elysiaApp: any): any {
+  return elysiaApp.group('/api/v1/audit', (app: any) =>
+    withRequiredAuth(app).group('', (g: any) =>
       withAdminGuard(g)
         // GET /logs
         .get('/logs', async ({ set, query }) => {
@@ -82,7 +82,7 @@ export function registerAuditRoutes(elysiaApp: unknown): unknown {
             set.status = 400;
             return {
               error: 'Validation Error',
-              details: error.details.map((d: unknown) => d.message),
+              details: error.details.map((d: any) => d.message),
             };
           }
           try {
@@ -178,7 +178,7 @@ export function registerAuditRoutes(elysiaApp: unknown): unknown {
             set.status = 400;
             return {
               error: 'Validation Error',
-              details: error.details.map((d: unknown) => d.message),
+              details: error.details.map((d: any) => d.message),
             };
           }
           try {
@@ -188,7 +188,7 @@ export function registerAuditRoutes(elysiaApp: unknown): unknown {
               value.endDate,
               value.format
             );
-            let parsedData: unknown;
+            let parsedData: any;
             try {
               parsedData = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
             } catch {
@@ -227,7 +227,7 @@ export function registerAuditRoutes(elysiaApp: unknown): unknown {
             set.status = 400;
             return {
               error: 'Validation Error',
-              details: error.details.map((d: unknown) => d.message),
+              details: error.details.map((d: any) => d.message),
             };
           }
           try {

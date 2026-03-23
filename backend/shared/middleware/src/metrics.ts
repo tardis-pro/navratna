@@ -238,15 +238,14 @@ function generateMessageHash(message: string | undefined): string {
 
 // Enhanced error logging function
 export function recordError(error: Error | unknown, context: ErrorContext): void {
-  const safeError = error || {
-    message: 'Unknown error',
-    constructor: { name: 'UnknownError' },
-    stack: '',
-  };
+  const isError = error instanceof Error;
+  const errorType = isError ? error.constructor.name : 'UnknownError';
+  const stack = isError ? (error.stack ?? '') : '';
+  const message = isError ? error.message : String(error ?? 'Unknown error');
 
-  const errorType = safeError.constructor?.name || 'UnknownError';
-  const stackTraceHash = generateStackTraceHash(safeError.stack || '');
-  const messageHash = generateMessageHash(safeError.message);
+  const stackTraceHash = generateStackTraceHash(stack);
+  const messageHash = generateMessageHash(message);
+  const safeError: Error = isError ? error : Object.assign(new Error(message), { name: errorType });
   const errorId = generateErrorId(safeError, context);
   const severity = context.severity || 'error';
 
@@ -276,7 +275,7 @@ export function recordError(error: Error | unknown, context: ErrorContext): void
   );
 
   if (process.env.NODE_ENV === 'development') {
-    console.error(`[${context.service}] ${errorType}: ${error.message}`, {
+    console.error(`[${context.service}] ${errorType}: ${message}`, {
       errorId,
       stackTraceHash,
       endpoint: context.endpoint,

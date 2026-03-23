@@ -60,6 +60,10 @@ export class ProjectToolIntegrationService {
     this.setupEventSubscriptions();
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   async initialize(): Promise<void> {
     await this.toolRegistry.initialize();
     await this.projectService.initialize();
@@ -241,7 +245,9 @@ export class ProjectToolIntegrationService {
           // Reduce score if tool is expensive relative to project budget
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const project = await this.projectService.getProject(projectId);
-          if (project && projectUsage.averageCost > ((project as unknown).budget ?? 0) * 0.1) {
+          const projectData = this.asRecord(project);
+          const budget = typeof projectData.budget === 'number' ? projectData.budget : 0;
+          if (project && projectUsage.averageCost > budget * 0.1) {
             adjustedScore -= 0.1;
           }
         }
@@ -408,7 +414,8 @@ export class ProjectToolIntegrationService {
 
     // Check project settings
     const project = await this.projectService.getProject(request.context.projectId);
-    if ((project?.settings as unknown)?.requireApproval) return true;
+    const projectSettings = this.asRecord(project?.settings);
+    if (projectSettings.requireApproval === true) return true;
 
     // Check cost threshold
     if (request.estimatedCost && request.estimatedCost > 10) return true;
@@ -560,11 +567,12 @@ export class ProjectToolIntegrationService {
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'credential'];
     const remove = (obj: unknown) => {
       if (typeof obj === 'object' && obj !== null) {
+        const record = obj as Record<string, unknown>;
         for (const key in obj) {
           if (sensitiveFields.some((field) => key.toLowerCase().includes(field))) {
-            obj[key] = '[REDACTED]';
-          } else if (typeof obj[key] === 'object') {
-            remove(obj[key]);
+            record[key] = '[REDACTED]';
+          } else if (typeof record[key] === 'object') {
+            remove(record[key]);
           }
         }
       }
@@ -588,7 +596,10 @@ export class ProjectToolIntegrationService {
   }
 
   private async handleApprovalResponse(event: unknown): Promise<void> {
-    const { executionId, approved, approver } = event;
+    const evt = this.asRecord(event);
+    const executionId = typeof evt.executionId === 'string' ? evt.executionId : '';
+    const approved = evt.approved === true;
+    const approver = typeof evt.approver === 'string' ? evt.approver : undefined;
 
     const request = this.pendingApprovals.get(executionId);
     if (!request) {

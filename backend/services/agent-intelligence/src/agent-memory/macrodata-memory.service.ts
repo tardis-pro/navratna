@@ -212,9 +212,9 @@ export class MacrodataMemoryService {
       );
 
       return rows.map((r: Record<string, unknown>) => ({
-        content: r.content,
-        tags: r.tags ?? [],
-        relevanceScore: parseFloat(r.rank) || 0,
+        content: typeof r.content === 'string' ? r.content : '',
+        tags: Array.isArray(r.tags) ? r.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+        relevanceScore: typeof r.rank === 'number' ? r.rank : Number(r.rank) || 0,
       }));
     } catch (err) {
       logger.warn('Macrodata topics layer failed', {

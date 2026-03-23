@@ -204,9 +204,9 @@ export class AgentCoreService {
         // Model configuration fields from the request
         modelId: agentData.modelId,
         apiType: agentData.apiType,
-        temperature: (agentData as Record<string, unknown>).temperature,
-        maxTokens: (agentData as Record<string, unknown>).maxTokens,
-        systemPrompt: (agentData as Record<string, unknown>).systemPrompt,
+        temperature: agentData.temperature,
+        maxTokens: agentData.maxTokens,
+        systemPrompt: agentData.systemPrompt,
         // Additional optional fields
         metadata: {},
         lastActiveAt: undefined,

@@ -274,7 +274,7 @@ export class ConceptExtractorService {
               relationships.push({
                 sourceConceptId: sourceId,
                 targetConceptId: targetId,
-                relationshipType: relType as Record<string, unknown>,
+                relationshipType: relType as ConceptRelationship['relationshipType'],
                 confidence: 0.75,
                 evidence: [fullMatch.trim()],
               });

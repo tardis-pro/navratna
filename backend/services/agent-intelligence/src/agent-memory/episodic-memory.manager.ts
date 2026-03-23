@@ -1,4 +1,4 @@
-import { Episode, EpisodicQuery, KnowledgeType, SourceType } from '@uaip/types';
+import { Episode, EpisodicQuery, KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
 
 export class EpisodicMemoryManager {
@@ -42,7 +42,8 @@ export class EpisodicMemoryManager {
       }
     } catch (error) {
       console.error('Episode storage error:', error);
-      throw new Error(`Failed to store episode: ${error.message}`, { cause: error });
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to store episode: ${message}`);
     }
   }
 
@@ -176,41 +177,46 @@ Learnings: ${episode.experience.learnings.join('; ')}
 Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}, Impact=${episode.significance.impact}`;
   }
 
-  private contentToEpisode(item: Record<string, unknown>): Episode {
+  private contentToEpisode(item: KnowledgeItem): Episode {
     // Parse content back to episode structure
-    const metadata = item.source?.metadata || item.metadata;
+    const metadata = item.metadata;
 
     if (!metadata) {
       // Fallback parsing from content if metadata is not available
       return this.parseEpisodeFromContent(item);
     }
 
+    const context = this.asEpisodeContext(metadata.context);
+    const experience = this.asEpisodeExperience(metadata.experience);
+    const significance = this.asEpisodeSignificance(metadata.significance, item.confidence);
+    const connections = this.asEpisodeConnections(metadata.connections);
+
     return {
-      agentId: metadata.agentId,
-      episodeId: item.source?.identifier || item.id,
-      type: metadata.episodeType || 'learning',
-      context: metadata.context || {
-        when: new Date(item.createdAt),
+      agentId: typeof metadata.agentId === 'string' ? metadata.agentId : 'unknown',
+      episodeId: item.id,
+      type: this.toEpisodeType(metadata.episodeType),
+      context: context || {
+        when: item.createdAt,
         where: 'unknown',
         who: [],
         what: item.content.substring(0, 100),
         why: 'unknown',
         how: 'unknown',
       },
-      experience: metadata.experience || {
+      experience: experience || {
         actions: [],
         decisions: [],
         outcomes: [],
         emotions: [],
         learnings: [],
       },
-      significance: metadata.significance || {
-        importance: item.confidence || 0.5,
+      significance: significance || {
+        importance: item.confidence,
         novelty: 0.5,
         success: 0.5,
         impact: 0.5,
       },
-      connections: metadata.connections || {
+      connections: connections || {
         relatedEpisodes: [],
         triggeredBy: [],
         ledTo: [],
@@ -219,14 +225,14 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     };
   }
 
-  private parseEpisodeFromContent(item: Record<string, unknown>): Episode {
+  private parseEpisodeFromContent(item: KnowledgeItem): Episode {
     // Basic parsing from content when metadata is not available
-    const content = item.content || '';
+    const content = item.content;
     const lines = content.split('\n');
 
-    let episodeType = 'learning';
+    let episodeType: Episode['type'] = 'learning';
     const context = {
-      when: new Date(item.createdAt),
+      when: item.createdAt,
       where: 'unknown',
       who: [] as string[],
       what: content.substring(0, 100),
@@ -237,7 +243,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     // Try to extract information from content
     for (const line of lines) {
       if (line.startsWith('Episode:')) {
-        episodeType = line.replace('Episode:', '').trim();
+        episodeType = this.toEpisodeType(line.replace('Episode:', '').trim());
       } else if (line.startsWith('Context:')) {
         context.what = line.replace('Context:', '').trim();
       } else if (line.startsWith('Participants:')) {
@@ -251,7 +257,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
     return {
       agentId: item.createdBy || 'unknown',
       episodeId: item.id,
-      type: episodeType as Record<string, unknown>,
+      type: episodeType,
       context,
       experience: {
         actions: [],
@@ -261,7 +267,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         learnings: [],
       },
       significance: {
-        importance: item.confidence || 0.5,
+        importance: item.confidence,
         novelty: 0.5,
         success: 0.5,
         impact: 0.5,
@@ -273,5 +279,51 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         similarTo: [],
       },
     };
+  }
+
+  private toEpisodeType(value: unknown): Episode['type'] {
+    if (
+      value === 'discussion' ||
+      value === 'operation' ||
+      value === 'learning' ||
+      value === 'problem_solving' ||
+      value === 'collaboration'
+    ) {
+      return value;
+    }
+    return 'learning';
+  }
+
+  private asEpisodeContext(value: unknown): Episode['context'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+    return value as Episode['context'];
+  }
+
+  private asEpisodeExperience(value: unknown): Episode['experience'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+    return value as Episode['experience'];
+  }
+
+  private asEpisodeSignificance(value: unknown, fallbackImportance: number): Episode['significance'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return {
+        importance: fallbackImportance,
+        novelty: 0.5,
+        success: 0.5,
+        impact: 0.5,
+      };
+    }
+    return value as Episode['significance'];
+  }
+
+  private asEpisodeConnections(value: unknown): Episode['connections'] | null {
+    if (typeof value !== 'object' || value === null) {
+      return null;
+    }
+    return value as Episode['connections'];
   }
 }

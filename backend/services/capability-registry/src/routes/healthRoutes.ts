@@ -1,8 +1,17 @@
 import { logger } from '@uaip/utils';
 
+interface HealthRouteGroup {
+  get: (path: string, handler: () => unknown) => HealthRouteGroup;
+}
+
+interface HealthRouteApp {
+  group: (path: string, handler: (group: HealthRouteGroup) => HealthRouteGroup) => HealthRouteApp;
+}
+
 export function registerHealthRoutes(app: unknown) {
+  const routeApp = app as HealthRouteApp;
   logger.info('Registering Capability Registry health routes');
-  return app.group('/health', (g: unknown) =>
+  return routeApp.group('/health', (g: HealthRouteGroup) =>
     g
       .get('/', () => ({ status: 'healthy', service: 'capability-registry' }))
       .get('/ready', () => ({ status: 'ready', service: 'capability-registry' }))

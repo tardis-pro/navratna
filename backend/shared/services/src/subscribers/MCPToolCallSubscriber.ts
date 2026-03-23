@@ -9,6 +9,8 @@ import { MCPToolCall } from '../entities/mcpToolCall.entity';
 import { OutboxPublisher } from '../integration/OutboxPublisher';
 import { TypeOrmService } from '../typeormService';
 import { logger } from '@uaip/utils';
+import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
+import { Repository } from 'typeorm';
 
 @EventSubscriber()
 export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolCall> {
@@ -28,7 +30,9 @@ export class MCPToolCallSubscriber implements EntitySubscriberInterface<MCPToolC
     if (!this.outboxPublisher) {
       const typeormService = TypeOrmService.getInstance();
       const integrationEventRepository = typeormService.integrationEventRepository;
-      this.outboxPublisher = new OutboxPublisher(integrationEventRepository);
+      this.outboxPublisher = new OutboxPublisher(
+        integrationEventRepository as Repository<IntegrationEventEntity>
+      );
     }
     return this.outboxPublisher;
   }

@@ -42,7 +42,7 @@ export class SetupProjectWorkspaceWorkflow {
       githubCloneUrl = repoResult.cloneUrl;
       steps.push({ name: 'create_github_repo', status: 'success', detail: githubRepo });
       logger.info('GitHub repo created', { githubRepo });
-    } catch (error: unknown) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error);
       steps.push({ name: 'create_github_repo', status: 'failed', detail: message });
       logger.error('Failed to create GitHub repo', { projectId, error });
@@ -58,7 +58,7 @@ export class SetupProjectWorkspaceWorkflow {
     try {
       await this.initializeRepo(githubToken, githubRepo, projectName);
       steps.push({ name: 'initialize_repo', status: 'success' });
-    } catch (error: unknown) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error);
       steps.push({ name: 'initialize_repo', status: 'failed', detail: message });
       logger.warn('Failed to initialize repo (continuing)', { error });
@@ -74,7 +74,7 @@ export class SetupProjectWorkspaceWorkflow {
         githubToken
       );
       steps.push({ name: 'provision_workspace', status: 'success', detail: workspaceId });
-    } catch (error: unknown) {
+    } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error);
       steps.push({ name: 'provision_workspace', status: 'failed', detail: message });
       logger.error('Failed to provision workspace container', { workspaceId, error });

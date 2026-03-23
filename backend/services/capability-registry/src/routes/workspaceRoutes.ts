@@ -7,6 +7,28 @@ import {
   type CodingAgentEvent,
 } from '../services/coding-agent-executor.service.js';
 
+interface WorkspaceRouteContext {
+  params?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+  body?: unknown;
+  headers?: Record<string, unknown>;
+  request?: {
+    headers?: { get?: (name: string) => string | null };
+    signal?: AbortSignal;
+  };
+  set?: { status?: number };
+}
+
+interface WorkspaceRouteGroup {
+  get: (path: string, handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown) => WorkspaceRouteGroup;
+  post: (path: string, handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown) => WorkspaceRouteGroup;
+  delete: (path: string, handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown) => WorkspaceRouteGroup;
+}
+
+interface WorkspaceRouteApp {
+  group: (path: string, handler: (group: WorkspaceRouteGroup) => WorkspaceRouteGroup) => WorkspaceRouteApp;
+}
+
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
@@ -31,10 +53,10 @@ export function registerWorkspaceRoutes(
 
   logger.info('Registering workspace routes');
 
-  const a = app as unknown;
-  return a.group('/api/v1/workspaces', (g: unknown) =>
+  const a = app as WorkspaceRouteApp;
+  return a.group('/api/v1/workspaces', (g: WorkspaceRouteGroup) =>
     g
-      .post('/', async ({ body, set }: unknown) => {
+      .post('/', async ({ body, set }) => {
         const b = asRecord(body);
         const cfg: WorkspaceConfig = {
           workspaceId: asString(b.workspaceId) || `ws_${Date.now()}`,
@@ -61,7 +83,7 @@ export function registerWorkspaceRoutes(
         return { success: true, data: info };
       })
       .get('/', async () => ({ success: true, data: wm.listWorkspaces() }))
-      .get('/:id', async ({ params, set }: unknown) => {
+      .get('/:id', async ({ params, set }) => {
         const id = asString(params?.id) || '';
         const info = await wm.getWorkspace(id);
         if (!info) {
@@ -70,12 +92,12 @@ export function registerWorkspaceRoutes(
         }
         return { success: true, data: info };
       })
-      .delete('/:id', async ({ params }: unknown) => {
+      .delete('/:id', async ({ params }) => {
         const id = asString(params?.id) || '';
         await wm.destroyWorkspace(id);
         return { success: true };
       })
-      .post('/:id/sessions', async ({ params, body, set }: unknown) => {
+      .post('/:id/sessions', async ({ params, body, set }) => {
         const workspaceId = asString(params?.id) || '';
         const b = asRecord(body);
 
@@ -119,14 +141,16 @@ export function registerWorkspaceRoutes(
         const result = await executor.createSession(opts);
         return { success: true, data: result };
       })
-      .post('/:id/sessions/:sessionId/prompt', async (ctx: unknown) => {
+      .post('/:id/sessions/:sessionId/prompt', async (ctx: WorkspaceRouteContext) => {
         const workspaceId = asString(ctx.params?.id) || '';
         const sessionId = asString(ctx.params?.sessionId) || '';
         const b = asRecord(ctx.body);
         const message = asString(b.message) || asString(b.prompt) || '';
 
         if (!workspaceId || !sessionId || !message) {
-          ctx.set.status = 400;
+          if (ctx.set) {
+            ctx.set.status = 400;
+          }
           return {
             success: false,
             error: {
@@ -209,7 +233,7 @@ export function registerWorkspaceRoutes(
           },
         });
 
-        return new Response(stream as unknown, {
+        return new Response(stream, {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
@@ -217,22 +241,24 @@ export function registerWorkspaceRoutes(
           },
         });
       })
-      .post('/:id/sessions/:sessionId/abort', async ({ params }: unknown) => {
+      .post('/:id/sessions/:sessionId/abort', async ({ params }) => {
         const sessionId = asString(params?.sessionId) || '';
         await executor.abort(sessionId);
         return { success: true };
       })
-      .delete('/:id/sessions/:sessionId', async ({ params }: unknown) => {
+      .delete('/:id/sessions/:sessionId', async ({ params }) => {
         const sessionId = asString(params?.sessionId) || '';
         await executor.closeSession(sessionId);
         return { success: true };
       })
       // Persistent SSE stream: GET /:id/sessions/:sessionId/events
       // CodingSessionPage connects here via EventSource and receives all agent events
-      .get('/:id/sessions/:sessionId/events', (ctx: unknown) => {
+      .get('/:id/sessions/:sessionId/events', (ctx: WorkspaceRouteContext) => {
         const sessionId = asString(ctx.params?.sessionId) || '';
         if (!sessionId) {
-          ctx.set.status = 400;
+          if (ctx.set) {
+            ctx.set.status = 400;
+          }
           return {
             success: false,
             error: { code: 'VALIDATION_ERROR', message: 'sessionId required' },
@@ -295,7 +321,7 @@ export function registerWorkspaceRoutes(
           },
         });
 
-        return new Response(stream as unknown, {
+        return new Response(stream, {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
@@ -304,7 +330,7 @@ export function registerWorkspaceRoutes(
           },
         });
       })
-      .get('/:id/exec', async ({ params, query, body, set }: unknown) => {
+      .get('/:id/exec', async ({ params, query, body, set }) => {
         const workspaceId = asString(params?.id) || '';
         const cmd = asString(asRecord(body).command) || asString(query?.command) || '';
         if (!workspaceId || !cmd) {

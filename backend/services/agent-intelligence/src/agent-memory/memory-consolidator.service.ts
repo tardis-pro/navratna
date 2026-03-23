@@ -1,4 +1,4 @@
-import { ConsolidationResult, WorkingMemory, Episode, SemanticMemory } from '@uaip/types';
+import { ConsolidationResult, Episode, Interaction, SemanticMemory, WorkingMemory } from '@uaip/types';
 import { WorkingMemoryManager } from './working-memory.manager.js';
 import { EpisodicMemoryManager } from './episodic-memory.manager.js';
 import { SemanticMemoryManager } from './semantic-memory.manager.js';
@@ -46,9 +46,10 @@ export class MemoryConsolidator {
       };
     } catch (error) {
       console.error('Memory consolidation error:', error);
+      const message = error instanceof Error ? error.message : String(error);
       return {
         consolidated: false,
-        reason: `Consolidation failed: ${error.message}`,
+        reason: `Consolidation failed: ${message}`,
       };
     }
   }
@@ -198,11 +199,9 @@ export class MemoryConsolidator {
     return { conceptsLearned, connectionsFormed };
   }
 
-  private groupInteractionsIntoEpisodes(
-    interactions: Record<string, unknown>[]
-  ): Record<string, unknown>[][] {
-    const groups: Record<string, unknown>[][] = [];
-    let currentGroup: Record<string, unknown>[] = [];
+  private groupInteractionsIntoEpisodes(interactions: Interaction[]): Interaction[][] {
+    const groups: Interaction[][] = [];
+    let currentGroup: Interaction[] = [];
 
     for (let i = 0; i < interactions.length; i++) {
       const interaction = interactions[i];
@@ -234,7 +233,7 @@ export class MemoryConsolidator {
 
   private createEpisodeFromInteractions(
     agentId: string,
-    interactions: Record<string, unknown>[],
+    interactions: Interaction[],
     workingMemory: WorkingMemory
   ): Episode {
     const firstInteraction = interactions[0];
@@ -253,7 +252,10 @@ export class MemoryConsolidator {
       type: this.determineEpisodeType(interactions),
       context: {
         when: firstInteraction.timestamp,
-        where: firstInteraction.context?.location || 'digital',
+        where:
+          typeof firstInteraction.context?.location === 'string'
+            ? firstInteraction.context.location
+            : 'digital',
         who: [...new Set(interactions.flatMap((i) => i.participants))],
         what: this.summarizeInteractions(interactions),
         why: this.inferPurpose(interactions, workingMemory),
@@ -284,7 +286,7 @@ export class MemoryConsolidator {
   }
 
   private determineEpisodeType(
-    interactions: Record<string, unknown>[]
+    interactions: Interaction[]
   ): 'discussion' | 'operation' | 'learning' | 'problem_solving' | 'collaboration' {
     const types = interactions.map((i) => i.type);
 
@@ -301,15 +303,12 @@ export class MemoryConsolidator {
     }
   }
 
-  private summarizeInteractions(interactions: Record<string, unknown>[]): string {
+  private summarizeInteractions(interactions: Interaction[]): string {
     const descriptions = interactions.map((i) => i.description).slice(0, 3);
     return descriptions.join('; ');
   }
 
-  private inferPurpose(
-    interactions: Record<string, unknown>[],
-    workingMemory: WorkingMemory
-  ): string {
+  private inferPurpose(_interactions: Interaction[], workingMemory: WorkingMemory): string {
     // Try to infer purpose from context and goals
     const goals =
       workingMemory.currentContext.activeDiscussion?.currentGoals ||
@@ -319,7 +318,7 @@ export class MemoryConsolidator {
     return Array.isArray(goals) ? goals.join(', ') : goals;
   }
 
-  private inferMethod(interactions: Record<string, unknown>[]): string {
+  private inferMethod(interactions: Interaction[]): string {
     const methods = interactions.map((i) => i.method).filter(Boolean);
     return methods.length > 0 ? methods[0] : 'interactive';
   }

@@ -85,7 +85,7 @@ export async function useRedisAuthState(redis: Redis): Promise<{
        * Baileys passes a nested object: { type: { id: value | null } }
        * A null value means the key should be deleted.
        */
-      set: async (data: { [type: string]: { [id: string]: unknown } }): Promise<void> => {
+      set: async (data: { [type: string]: { [id: string]: any } }): Promise<void> => {
         const pipeline = redis.pipeline();
 
         for (const [type, typeData] of Object.entries(data)) {

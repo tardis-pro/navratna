@@ -88,7 +88,7 @@ export class QmdSearchService {
     try {
       // Build scope WHERE clause
       const scopeParts: string[] = [];
-      const params: Record<string, unknown>[] = [];
+      const params: Array<string | number> = [];
       let paramIdx = 1;
 
       // Scope filter: agent-specific + user-specific + general (null)
@@ -134,13 +134,13 @@ export class QmdSearchService {
 
       const rows: Record<string, unknown>[] = await this.dataSource.query(sql, params);
       return rows.map((r) => ({
-        id: r.id,
-        content: r.content,
-        summary: r.summary,
-        tags: r.tags ?? [],
-        confidence: parseFloat(r.confidence) || 0.8,
-        sourceType: r.sourceType || 'UNKNOWN',
-        rank: parseFloat(r.rank) || 0,
+        id: String(r.id),
+        content: String(r.content ?? ''),
+        summary: r.summary != null ? String(r.summary) : undefined,
+        tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+        confidence: parseFloat(String(r.confidence)) || 0.8,
+        sourceType: String(r.sourceType || 'UNKNOWN'),
+        rank: parseFloat(String(r.rank)) || 0,
       }));
     } catch (err) {
       logger.warn('QMD BM25 search failed', {

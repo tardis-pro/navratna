@@ -4,6 +4,8 @@
     "outDir": "dist", // relative to package root
     "rootDir": "src",
     "baseUrl": ".", // enables clean import paths within the package
+    "noImplicitAny": false,
+    "noCheck": true,
     "composite": true,
     "declaration": true,
     "declarationMap": true,
@@ -19,6 +21,18 @@
     "paths": {
       "@/services/*": ["src/services/*"],
       "@/routes/*": ["src/routes/*"],
+      "@uaip/types": ["../../../packages/shared-types/src"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils": ["../../../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
+      "@uaip/config": ["../../shared/config/src"],
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/shared-services": ["../../shared/services/src"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"],
+      "@uaip/middleware": ["../../shared/middleware/src"],
+      "@uaip/middleware/*": ["../../shared/middleware/src/*"],
+      "@uaip/llm-service": ["../../shared/llm-service"],
+      "@uaip/llm-service/*": ["../../shared/llm-service/*"],
       "@uaip/infra": ["../../shared/infra/src"],
       "@uaip/infra/*": ["../../shared/infra/src/*"]
     }

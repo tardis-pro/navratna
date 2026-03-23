@@ -56,7 +56,7 @@ export class AgentValidationMiddleware {
             validatedData = AgentCreateRequestSchema.parse(transformedData);
 
             logger.info('Persona transformation and validation successful', {
-              originalRole: rawData.role || rawData.persona?.role,
+              originalRole: rawData.role || (rawData.persona as Record<string, unknown>)?.role,
               transformedRole: validatedData.role,
               capabilities: validatedData.capabilities?.length,
             });
@@ -190,24 +190,24 @@ export class AgentValidationMiddleware {
    * Detects if the input needs persona transformation
    */
   private static needsPersonaTransformation(input: Record<string, unknown>): boolean {
+    const agentRoleValues = Object.values(AgentRole) as string[];
     const hasPersonaStructure =
-      input.persona ||
-      (input.role && !Object.values(AgentRole).includes(input.role)) ||
-      (input.expertise && !input.capabilities) ||
-      input.traits ||
-      input.background;
+      !!input.persona ||
+      !!(input.role && typeof input.role === 'string' && !agentRoleValues.includes(input.role)) ||
+      !!(input.expertise && !input.capabilities) ||
+      !!input.traits ||
+      !!input.background;
 
     const missingAgentFields = !input.capabilities || !input.description;
 
     return hasPersonaStructure || missingAgentFields;
   }
 
-  /**
-   * Detects the input format for logging and analytics
-   */
   private static detectInputFormat(input: Record<string, unknown>): string {
+    const agentRoleValues = Object.values(AgentRole) as string[];
     if (input.persona) return 'nested-persona';
-    if (input.role && !Object.values(AgentRole).includes(input.role)) return 'persona-role';
+    if (input.role && typeof input.role === 'string' && !agentRoleValues.includes(input.role))
+      return 'persona-role';
     if (input.expertise && !input.capabilities) return 'persona-expertise';
     if (input.traits) return 'persona-traits';
     if (input.background && !input.description) return 'persona-background';
@@ -305,7 +305,8 @@ export class AgentValidationMiddleware {
       });
     }
 
-    if (config.temperature && (config.temperature < 0 || config.temperature > 2)) {
+    const temp = config.temperature as number | undefined;
+    if (temp !== undefined && temp !== null && (temp < 0 || temp > 2)) {
       throw new ApiError(400, 'Temperature must be between 0 and 2', 'INVALID_TEMPERATURE');
     }
   }

@@ -52,13 +52,18 @@ export class ToolAdapterService {
     this.initializeAdapters();
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   private initializeAdapters() {
+    const serviceConfig = this.asRecord(this.config);
     // GitHub Adapter
     this.adapters.set('github', {
       id: 'github',
       name: 'GitHub',
       type: 'github',
-      isConfigured: !!(this.config.GITHUB_TOKEN || process.env.GITHUB_TOKEN),
+      isConfigured: !!(serviceConfig.GITHUB_TOKEN || process.env.GITHUB_TOKEN),
       capabilities: [
         'repository_management',
         'issue_tracking',
@@ -75,8 +80,8 @@ export class ToolAdapterService {
       name: 'Jira',
       type: 'jira',
       isConfigured: !!(
-        (this.config.JIRA_URL || process.env.JIRA_URL) &&
-        (this.config.JIRA_API_TOKEN || process.env.JIRA_API_TOKEN)
+        (serviceConfig.JIRA_URL || process.env.JIRA_URL) &&
+        (serviceConfig.JIRA_API_TOKEN || process.env.JIRA_API_TOKEN)
       ),
       capabilities: [
         'issue_management',
@@ -94,8 +99,8 @@ export class ToolAdapterService {
       name: 'Confluence',
       type: 'confluence',
       isConfigured: !!(
-        (this.config.CONFLUENCE_URL || process.env.CONFLUENCE_URL) &&
-        (this.config.CONFLUENCE_API_TOKEN || process.env.CONFLUENCE_API_TOKEN)
+        (serviceConfig.CONFLUENCE_URL || process.env.CONFLUENCE_URL) &&
+        (serviceConfig.CONFLUENCE_API_TOKEN || process.env.CONFLUENCE_API_TOKEN)
       ),
       capabilities: [
         'document_management',
@@ -112,7 +117,7 @@ export class ToolAdapterService {
       id: 'slack',
       name: 'Slack',
       type: 'slack',
-      isConfigured: !!(this.config.SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN),
+      isConfigured: !!(serviceConfig.SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN),
       capabilities: [
         'channel_messaging',
         'direct_messaging',
@@ -192,29 +197,30 @@ export class ToolAdapterService {
   }
 
   private async validateConfiguration(toolId: string, config: unknown): Promise<void> {
+    const cfg = this.asRecord(config);
     switch (toolId) {
       case 'github':
-        if (!config.token) {
+        if (typeof cfg.token !== 'string') {
           throw new Error('GitHub token is required');
         }
         // Test GitHub API connection
-        await this.testGitHubConnection(config as GitHubConfig);
+        await this.testGitHubConnection(cfg as unknown as GitHubConfig);
         break;
 
       case 'jira':
-        if (!config.url || !config.email || !config.apiToken) {
+        if (typeof cfg.url !== 'string' || typeof cfg.email !== 'string' || typeof cfg.apiToken !== 'string') {
           throw new Error('Jira URL, email, and API token are required');
         }
         // Test Jira API connection
-        await this.testJiraConnection(config as JiraConfig);
+        await this.testJiraConnection(cfg as unknown as JiraConfig);
         break;
 
       case 'confluence':
-        if (!config.url || !config.email || !config.apiToken) {
+        if (typeof cfg.url !== 'string' || typeof cfg.email !== 'string' || typeof cfg.apiToken !== 'string') {
           throw new Error('Confluence URL, email, and API token are required');
         }
         // Test Confluence API connection
-        await this.testConfluenceConnection(config as ConfluenceConfig);
+        await this.testConfluenceConnection(cfg as unknown as ConfluenceConfig);
         break;
 
       default:
@@ -295,10 +301,12 @@ export class ToolAdapterService {
   }
 
   private async githubSearch(params: unknown, headers: unknown): Promise<ToolResult> {
-    const { query, type = 'repositories' } = params;
+    const p = this.asRecord(params);
+    const query = String(p.query || '');
+    const type = typeof p.type === 'string' ? p.type : 'repositories';
     const url = `https://api.github.com/search/${type}?q=${encodeURIComponent(query)}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {
@@ -309,10 +317,13 @@ export class ToolAdapterService {
   }
 
   private async githubFetch(params: unknown, headers: unknown): Promise<ToolResult> {
-    const { owner, repo, path = '' } = params;
+    const p = this.asRecord(params);
+    const owner = String(p.owner || '');
+    const repo = String(p.repo || '');
+    const path = typeof p.path === 'string' ? p.path : '';
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {
@@ -323,7 +334,11 @@ export class ToolAdapterService {
   }
 
   private async githubCreate(params: unknown, headers: unknown): Promise<ToolResult> {
-    const { owner, repo, type, data: createData } = params;
+    const p = this.asRecord(params);
+    const owner = String(p.owner || '');
+    const repo = String(p.repo || '');
+    const type = String(p.type || '');
+    const createData = this.asRecord(p.data);
 
     let url: string;
     let body: unknown;
@@ -356,7 +371,7 @@ export class ToolAdapterService {
 
     const response = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: headers as HeadersInit,
       body: JSON.stringify(body),
     });
 
@@ -370,7 +385,9 @@ export class ToolAdapterService {
   }
 
   private async githubList(params: unknown, headers: unknown): Promise<ToolResult> {
-    const { type = 'repos', owner } = params;
+    const p = this.asRecord(params);
+    const type = typeof p.type === 'string' ? p.type : 'repos';
+    const owner = typeof p.owner === 'string' ? p.owner : undefined;
 
     let url: string;
     switch (type) {
@@ -381,17 +398,17 @@ export class ToolAdapterService {
         break;
 
       case 'issues':
-        if (!owner || !params.repo) {
+        if (!owner || typeof p.repo !== 'string') {
           return { success: false, error: 'Owner and repo required for listing issues' };
         }
-        url = `https://api.github.com/repos/${owner}/${params.repo}/issues`;
+        url = `https://api.github.com/repos/${owner}/${p.repo}/issues`;
         break;
 
       default:
         return { success: false, error: `Unsupported list type: ${type}` };
     }
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {
@@ -437,13 +454,14 @@ export class ToolAdapterService {
     headers: unknown,
     config: JiraConfig
   ): Promise<ToolResult> {
-    const { jql } = params;
+    const p = this.asRecord(params);
+    const jql = String(p.jql || '');
     const url = `${config.url}/rest/api/3/search`;
 
     const response = await fetch(url, {
       method: 'POST',
-      headers,
-      body: JSON.stringify({ jql, maxResults: params.maxResults || 50 }),
+      headers: headers as HeadersInit,
+      body: JSON.stringify({ jql, maxResults: p.maxResults || 50 }),
     });
 
     const data = await response.json();
@@ -464,10 +482,11 @@ export class ToolAdapterService {
     headers: unknown,
     config: JiraConfig
   ): Promise<ToolResult> {
-    const { issueKey } = params;
+    const p = this.asRecord(params);
+    const issueKey = String(p.issueKey || '');
     const url = `${config.url}/rest/api/3/issue/${issueKey}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {
@@ -482,7 +501,11 @@ export class ToolAdapterService {
     headers: unknown,
     config: JiraConfig
   ): Promise<ToolResult> {
-    const { issueType, summary, description, projectKey = config.projectKey } = params;
+    const p = this.asRecord(params);
+    const issueType = typeof p.issueType === 'string' ? p.issueType : undefined;
+    const summary = String(p.summary || '');
+    const description = String(p.description || '');
+    const projectKey = typeof p.projectKey === 'string' ? p.projectKey : config.projectKey;
 
     if (!projectKey) {
       return { success: false, error: 'Project key is required' };
@@ -509,7 +532,7 @@ export class ToolAdapterService {
 
     const response = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: headers as HeadersInit,
       body: JSON.stringify(body),
     });
 
@@ -527,16 +550,18 @@ export class ToolAdapterService {
     headers: unknown,
     config: JiraConfig
   ): Promise<ToolResult> {
-    const { type = 'issues', projectKey = config.projectKey } = params;
+    const p = this.asRecord(params);
+    const type = typeof p.type === 'string' ? p.type : 'issues';
+    const projectKey = typeof p.projectKey === 'string' ? p.projectKey : config.projectKey;
 
     switch (type) {
       case 'issues':
         const jql = projectKey ? `project = "${projectKey}"` : 'assignee = currentUser()';
-        return await this.jiraSearch({ jql, maxResults: params.maxResults }, headers, config);
+        return await this.jiraSearch({ jql, maxResults: p.maxResults }, headers, config);
 
       case 'projects':
         const url = `${config.url}/rest/api/3/project`;
-        const response = await fetch(url, { headers });
+         const response = await fetch(url, { headers: headers as HeadersInit });
         const data = await response.json();
 
         return {
@@ -585,10 +610,12 @@ export class ToolAdapterService {
     headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
-    const { query, type = 'page' } = params;
+    const p = this.asRecord(params);
+    const query = String(p.query || '');
+    const type = typeof p.type === 'string' ? p.type : 'page';
     const url = `${config.url}/rest/api/content/search?cql=type=${type} and text~"${encodeURIComponent(query)}"`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {
@@ -603,10 +630,12 @@ export class ToolAdapterService {
     headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
-    const { pageId, expand = 'body.storage,version' } = params;
+    const p = this.asRecord(params);
+    const pageId = String(p.pageId || '');
+    const expand = typeof p.expand === 'string' ? p.expand : 'body.storage,version';
     const url = `${config.url}/rest/api/content/${pageId}?expand=${expand}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {
@@ -621,7 +650,11 @@ export class ToolAdapterService {
     headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
-    const { title, content, spaceKey = config.spaceKey, type = 'page' } = params;
+    const p = this.asRecord(params);
+    const title = String(p.title || '');
+    const content = String(p.content || '');
+    const spaceKey = typeof p.spaceKey === 'string' ? p.spaceKey : config.spaceKey;
+    const type = typeof p.type === 'string' ? p.type : 'page';
 
     if (!spaceKey) {
       return { success: false, error: 'Space key is required' };
@@ -642,7 +675,7 @@ export class ToolAdapterService {
 
     const response = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: headers as HeadersInit,
       body: JSON.stringify(body),
     });
 
@@ -660,14 +693,17 @@ export class ToolAdapterService {
     headers: unknown,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
-    const { type = 'page', spaceKey = config.spaceKey, limit = 25 } = params;
+    const p = this.asRecord(params);
+    const type = typeof p.type === 'string' ? p.type : 'page';
+    const spaceKey = typeof p.spaceKey === 'string' ? p.spaceKey : config.spaceKey;
+    const limit = typeof p.limit === 'number' ? p.limit : 25;
 
     let url = `${config.url}/rest/api/content?type=${type}&limit=${limit}`;
     if (spaceKey) {
       url += `&spaceKey=${spaceKey}`;
     }
 
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers: headers as HeadersInit });
     const data = await response.json();
 
     return {

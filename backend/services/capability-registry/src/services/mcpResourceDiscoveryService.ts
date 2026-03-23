@@ -75,6 +75,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     };
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  }
+
   public static getInstance(): MCPResourceDiscoveryService {
     if (!MCPResourceDiscoveryService.instance) {
       MCPResourceDiscoveryService.instance = new MCPResourceDiscoveryService();
@@ -283,7 +287,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   private categorizeResource = (
     resource: unknown
   ): 'file' | 'database' | 'api' | 'document' | 'media' | 'unknown' => {
-    const { uri, mimeType, name } = resource;
+    const r = this.asRecord(resource);
+    const uri = typeof r.uri === 'string' ? r.uri : '';
+    const mimeType = typeof r.mimeType === 'string' ? r.mimeType : undefined;
+    const name = typeof r.name === 'string' ? r.name : '';
 
     if (mimeType) {
       if (
@@ -321,7 +328,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   private categorizePrompt = (
     prompt: unknown
   ): 'template' | 'generator' | 'analyzer' | 'transformer' | 'unknown' => {
-    const { name, description } = prompt;
+    const p = this.asRecord(prompt);
+    const name = typeof p.name === 'string' ? p.name : '';
+    const description = typeof p.description === 'string' ? p.description : undefined;
     const text = `${name} ${description || ''}`.toLowerCase();
 
     if (text.includes('template') || text.includes('format')) {
@@ -370,7 +379,9 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Extract tool capabilities from schema
   private extractToolCapabilities = (tool: unknown): string[] => {
     const capabilities: string[] = [];
-    const { inputSchema, name, _description } = tool;
+    const t = this.asRecord(tool);
+    const inputSchema = this.asRecord(t.inputSchema);
+    const name = typeof t.name === 'string' ? t.name : '';
 
     // Add capabilities based on tool name patterns
     const lowerName = name.toLowerCase();
@@ -382,8 +393,8 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     if (lowerName.includes('update')) capabilities.push('update');
 
     // Add capabilities based on input schema
-    if (inputSchema?.properties) {
-      const properties = Object.keys(inputSchema.properties);
+    if (inputSchema.properties && typeof inputSchema.properties === 'object') {
+      const properties = Object.keys(inputSchema.properties as Record<string, unknown>);
       if (properties.includes('path')) capabilities.push('file-operations');
       if (properties.includes('url')) capabilities.push('network-operations');
       if (properties.includes('query')) capabilities.push('data-operations');
@@ -395,7 +406,10 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Generate resource tags
   private generateResourceTags = (resource: unknown): string[] => {
     const tags: string[] = [];
-    const { uri, mimeType, _name, serverName } = resource;
+    const r = this.asRecord(resource);
+    const uri = typeof r.uri === 'string' ? r.uri : '';
+    const mimeType = typeof r.mimeType === 'string' ? r.mimeType : undefined;
+    const serverName = typeof r.serverName === 'string' ? r.serverName : 'unknown';
 
     // Server-based tags
     tags.push(`server:${serverName}`);
@@ -421,7 +435,11 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   // Generate prompt tags
   private generatePromptTags = (prompt: unknown): string[] => {
     const tags: string[] = [];
-    const { name, description, serverName, arguments: args } = prompt;
+    const p = this.asRecord(prompt);
+    const name = typeof p.name === 'string' ? p.name : '';
+    const description = typeof p.description === 'string' ? p.description : undefined;
+    const serverName = typeof p.serverName === 'string' ? p.serverName : 'unknown';
+    const args = Array.isArray(p.arguments) ? p.arguments : undefined;
 
     // Server-based tags
     tags.push(`server:${serverName}`);
