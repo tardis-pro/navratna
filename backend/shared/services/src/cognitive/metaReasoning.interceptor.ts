@@ -1,37 +1,12 @@
 import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface MetaReasoningInput {
-  agentId: string;
-  intent: string;
-  proposedAction: string;
-  confidence: number;
-  context: Record<string, unknown>;
-}
-
-export interface MetaReasoningDecision {
-  action: 'proceed' | 'clarify' | 'delegate' | 'abstain' | 'escalate';
-  confidence: number;
-  reasoning: string;
-  suggestedClarification?: string;
-  suggestedDelegate?: string;
-  warnings: string[];
-}
-
-export interface CapabilityGapResult {
-  hasGap: boolean;
-  missingCapabilities: string[];
-}
-
-export interface ErrorHistoryResult {
-  recentErrors: number;
-  errorRate: number;
-}
+import type {
+  MetaReasoningInput,
+  MetaReasoningDecision,
+  CapabilityGapResult,
+  ErrorHistoryResult,
+} from '@uaip/types';
 
 // ---------------------------------------------------------------------------
 // Constants

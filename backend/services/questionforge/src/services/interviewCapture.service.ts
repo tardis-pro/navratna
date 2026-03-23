@@ -8,45 +8,8 @@
 
 import { randomUUID } from 'crypto';
 import { logger } from '@uaip/utils';
-import type { Question, Assumption, Contradiction } from '@uaip/types';
+import type { Question, Assumption, Contradiction, InterviewSession, InterviewAnswer, InterviewResult } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
-
-// --- Interfaces ---
-
-export interface InterviewSession {
-  id: string;
-  projectBriefId: string;
-  stakeholderRole: string;
-  stakeholderName?: string;
-  questions: Question[];
-  currentQuestionIndex: number;
-  answers: InterviewAnswer[];
-  status: 'pending' | 'active' | 'paused' | 'completed';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface InterviewAnswer {
-  questionId: string;
-  answer: string;
-  confidence?: number;
-  followUpNeeded: boolean;
-  resolvedAssumptions: string[];
-  newContradictions: string[];
-  capturedAt: Date;
-}
-
-export interface InterviewResult {
-  sessionId: string;
-  stakeholderRole: string;
-  totalQuestions: number;
-  answeredQuestions: number;
-  resolvedAssumptions: Assumption[];
-  newContradictions: Contradiction[];
-  unresolvedQuestions: Question[];
-  suggestedFollowUps: string[];
-  completedAt: Date;
-}
 
 // --- Service ---
 

@@ -1,19 +1,8 @@
-import { ActionRecommendation, AgentAnalysis, ToolDefinition, SecurityLevel } from '@uaip/types';
-import { CapabilityResolver } from './capability-resolver';
+import { ActionRecommendation, AgentAnalysis, ToolDefinition, SecurityLevel, DecisionResult, CapabilityResolver } from '@uaip/types';
+import { ToolRegistryCapabilityResolver } from './capability-resolver';
 import { AgentStateMachine } from '../../agent-state/agent-state-machine';
 import { AgentEventBus } from '../../observability/agent-event-bus';
 import { logger } from '@uaip/utils';
-
-export interface DecisionResult {
-  selectedAction: ActionRecommendation | null;
-  resolvedCapabilities: ToolDefinition[];
-  confidence: number;
-  reasoning: string;
-  executionPlan?: {
-    steps: Array<{ tool: ToolDefinition; parameters: Record<string, unknown> }>;
-    estimatedDuration: number;
-  };
-}
 
 export class DecisionEngine {
   private readonly confidenceThreshold: number;

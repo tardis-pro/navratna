@@ -1,42 +1,12 @@
 import { readFileSync } from 'node:fs';
+import type {
+  ModelConfig,
+  ProviderChain,
+  AgentModelConfig,
+  ModelRoutingConfig,
+} from '@uaip/types';
 
-export interface ModelConfig {
-  name: string;
-  provider: string;
-  maxTokens: number;
-  temperature: number;
-  topP?: number;
-  capabilities: string[];
-}
-
-export interface ProviderChain {
-  name: string;
-  provider: string;
-  endpoint?: string;
-  apiKeyRef: string;
-  models: ModelConfig[];
-}
-
-export interface AgentModelConfig {
-  agentId: string;
-  agentName: string;
-  primaryProvider: string;
-  fallbackProviders: string[];
-  systemPrompt?: string;
-  maxTokens?: number;
-  temperature?: number;
-}
-
-export interface ModelRoutingConfig {
-  providers: Record<string, ProviderChain>;
-  agents: Record<string, AgentModelConfig>;
-  defaults: {
-    chat: string;
-    embedding: string;
-    reasoning: string;
-    coding: string;
-  };
-}
+export { ModelConfig, ProviderChain, AgentModelConfig, ModelRoutingConfig };
 
 export class ModelRoutingService {
   private configPath: string;

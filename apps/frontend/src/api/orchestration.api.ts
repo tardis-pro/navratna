@@ -13,74 +13,23 @@ import type {
   ExecuteOperationRequest,
   OperationStatusResponse,
 } from '@uaip/types';
+import type {
+  WorkflowDefinition,
+  WorkflowStep,
+  WorkflowTrigger,
+  WorkflowExecution,
+  WorkflowStepExecution,
+  OperationListOptions,
+} from '@uaip/types';
 
-export interface WorkflowDefinition {
-  id: string;
-  name: string;
-  description?: string;
-  steps: WorkflowStep[];
-  triggers?: WorkflowTrigger[];
-  metadata?: Record<string, unknown>;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface WorkflowStep {
-  id: string;
-  name: string;
-  type: string;
-  action: string;
-  parameters?: Record<string, unknown>;
-  conditions?: Record<string, unknown>;
-  retryPolicy?: {
-    maxRetries: number;
-    backoffStrategy: 'fixed' | 'exponential';
-    initialDelay: number;
-  };
-  timeout?: number;
-  dependsOn?: string[];
-}
-
-export interface WorkflowTrigger {
-  type: 'event' | 'schedule' | 'webhook';
-  config: Record<string, unknown>;
-}
-
-export interface WorkflowExecution {
-  id: string;
-  workflowId: string;
-  status: OperationStatus;
-  startedAt: string;
-  completedAt?: string;
-  currentStep?: string;
-  steps: WorkflowStepExecution[];
-  input?: Record<string, unknown>;
-  output?: Record<string, unknown>;
-  error?: string;
-}
-
-export interface WorkflowStepExecution {
-  stepId: string;
-  status: OperationStatus;
-  startedAt?: string;
-  completedAt?: string;
-  output?: Record<string, unknown>;
-  error?: string;
-  retryCount: number;
-}
-
-export interface OperationListOptions {
-  page?: number;
-  limit?: number;
-  status?: OperationStatus;
-  type?: OperationType;
-  priority?: OperationPriority;
-  startDate?: string;
-  endDate?: string;
-  sortBy?: 'createdAt' | 'startedAt' | 'completedAt';
-  sortOrder?: 'asc' | 'desc';
-}
+export type {
+  WorkflowDefinition,
+  WorkflowStep,
+  WorkflowTrigger,
+  WorkflowExecution,
+  WorkflowStepExecution,
+  OperationListOptions,
+};
 
 export const orchestrationAPI = {
   async executeOperation(

@@ -3,59 +3,9 @@
 // Part of @uaip/shared-services
 
 import neo4j, { Driver, Session, Result } from 'neo4j-driver';
-import { ToolDefinition, ToolExample, MCPServerCapabilities } from '@uaip/types';
+import { ToolDefinition, ToolExample, MCPServerCapabilities, ToolGraphRelationship, ToolRecommendation, UsagePattern, ToolUsageAnalyticsRecord, AgentToolPreference, PopularToolRecord } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { config, DatabaseConfig } from '@uaip/config';
-
-export interface ToolRelationship {
-  type: 'DEPENDS_ON' | 'SIMILAR_TO' | 'REPLACES' | 'ENHANCES' | 'REQUIRES';
-  strength: number; // 0.0 to 1.0
-  reason?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface ToolRecommendation {
-  toolId: string;
-  score: number;
-  reason: string;
-  confidence: number;
-}
-
-export interface UsagePattern {
-  agentId: string;
-  toolId: string;
-  frequency: number;
-  successRate: number;
-  avgExecutionTime: number;
-  contextPatterns: string[];
-}
-
-export interface ToolUsageAnalyticsRecord {
-  toolId: string;
-  toolName: string;
-  agentId: string;
-  frequency: number;
-  successRate: number;
-  avgExecutionTime: number;
-  lastUsed: string;
-}
-
-export interface AgentToolPreference {
-  toolId: string;
-  toolName: string;
-  category: string;
-  frequency: number;
-  successRate: number;
-}
-
-export interface PopularToolRecord {
-  toolId: string;
-  toolName: string;
-  category: string;
-  totalUsage: number;
-  avgSuccessRate: number;
-  avgExecutionTime: number;
-}
 
 export class ToolGraphDatabase {
   private driver: Driver;
@@ -312,7 +262,7 @@ export class ToolGraphDatabase {
   async addToolRelationship(
     fromToolId: string,
     toToolId: string,
-    relationship: ToolRelationship
+    relationship: ToolGraphRelationship
   ): Promise<void> {
     return this.executeWithRetry(async (session) => {
       await session.run(

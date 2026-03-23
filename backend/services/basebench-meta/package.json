@@ -21,6 +21,7 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "elysia": "^1.4.28",
     "zod": "catalog:"
   },
   "devDependencies": {

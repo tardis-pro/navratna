@@ -1,6 +1,6 @@
 import Redis from 'ioredis';
 import { logger } from '@uaip/utils';
-import { WebSocketConnection } from './discussionWebSocketHandler.js';
+import type { WebSocketConnection, WebSocketSession, RateLimitData } from './websocket.types.js';
 
 export interface WebSocketSession {
   connectionId: string;

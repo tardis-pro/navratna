@@ -37,7 +37,7 @@ import {
   DecisionPoint,
   KnowledgeExtractionResult,
 } from './chat-knowledge-extractor.service.js';
-import { BatchProcessorService, FileData, ProcessingOptions } from './batch-processor.service.js';
+import { BatchProcessorService, FileData, ProcessingOptions } from './batch-processor.service';
 import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service.js';
 import {
   WorkflowExtractorService,

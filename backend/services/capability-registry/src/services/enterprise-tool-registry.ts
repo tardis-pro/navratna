@@ -8,63 +8,24 @@ import { logger } from '@uaip/utils';
 import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
+import type {
+  ToolDefinition,
+  ToolOperation,
+  ToolAuthentication,
+  RateLimitConfig,
+  SandboxConfig,
+  ComplianceConfig,
+} from '../types/tool-definition.js';
 
-export interface ToolDefinition {
-  id: string;
-  name: string;
-  description: string;
-  category: 'project_management' | 'documentation' | 'communication' | 'development' | 'analytics';
-  vendor: string;
-  version: string;
-  operations: ToolOperation[];
-  authentication: ToolAuthentication;
-  rateLimit?: RateLimitConfig;
-  sandboxing: SandboxConfig;
-  compliance: ComplianceConfig;
-}
-
-export interface ToolOperation {
-  id: string;
-  name: string;
-  description: string;
-  requiredPermissions: string[];
-  inputSchema: unknown; // JSON Schema
-  outputSchema: unknown; // JSON Schema
-  securityLevel: number;
-  auditLevel: 'comprehensive' | 'standard' | 'minimal';
-}
-
-export interface ToolAuthentication {
-  type: 'oauth2' | 'api_key' | 'basic' | 'jwt' | 'saml';
-  config: unknown;
-  scopes?: string[];
-  tokenEndpoint?: string;
-  refreshable?: boolean;
-}
-
-export interface RateLimitConfig {
-  requests: number;
-  window: number; // milliseconds
-  burstAllowance?: number;
-  perUser?: boolean;
-}
-
-export interface SandboxConfig {
-  enabled: boolean;
-  executionTimeout: number; // milliseconds
-  memoryLimit: number; // MB
-  networkAccess: 'none' | 'restricted' | 'full';
-  allowedDomains?: string[];
-}
-
-export interface ComplianceConfig {
-  dataClassification: 'public' | 'internal' | 'confidential' | 'restricted';
-  piiHandling: boolean;
-  encryptionRequired: boolean;
-  auditRetention: number; // days
-  gdprCompliant: boolean;
-  hipaaCompliant: boolean;
-}
+// Re-export shared types for backwards compatibility
+export type {
+  ToolDefinition,
+  ToolOperation,
+  ToolAuthentication,
+  RateLimitConfig,
+  SandboxConfig,
+  ComplianceConfig,
+} from '../types/tool-definition.js';
 
 export class EnterpriseToolRegistry {
   private tools = new Map<string, ToolDefinition>();

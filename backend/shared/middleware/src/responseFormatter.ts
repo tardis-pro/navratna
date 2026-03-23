@@ -3,21 +3,9 @@
  * Eliminates duplicated response formatting across 40+ route handlers.
  */
 
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
-  meta?: {
-    timestamp: Date;
-    page?: number;
-    limit?: number;
-    total?: number;
-  };
-}
+import type { ApiResponse } from '@uaip/types';
+
+export { ApiResponse };
 
 export function successResponse<T>(data: T, meta?: Partial<ApiResponse['meta']>): ApiResponse<T> {
   return {

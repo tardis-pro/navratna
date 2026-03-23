@@ -1,15 +1,7 @@
-import { Capability, SecurityLevel, ToolCategory, ToolDefinition } from '@uaip/types';
+import { Capability, SecurityLevel, ToolCategory, ToolDefinition, CapabilityResolver } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { CapabilityDiscoveryService } from '../../capabilityDiscoveryService';
 import { DatabaseService } from '../../databaseService';
-
-export interface CapabilityResolver {
-  lookup(toolName: string): Promise<ToolDefinition | null>;
-  validateCapabilities(
-    requiredCapabilities: string[]
-  ): Promise<{ valid: boolean; missing: string[] }>;
-  getAvailableCapabilities(): Promise<string[]>;
-}
 
 export class ToolRegistryCapabilityResolver implements CapabilityResolver {
   private capabilityDiscoveryService: CapabilityDiscoveryService;

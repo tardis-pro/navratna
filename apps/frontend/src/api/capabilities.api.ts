@@ -12,64 +12,23 @@ import type {
   CapabilitySearchRequest,
   CapabilityRecommendation,
 } from '@uaip/types';
+import type {
+  CapabilityCreate,
+  CapabilityUpdate,
+  CapabilityCategory,
+  CapabilityDependency,
+  CapabilityValidation,
+  CapabilityListOptions,
+} from '@uaip/types';
 
-export interface CapabilityCreate {
-  name: string;
-  type: CapabilityType;
-  description?: string;
-  provider: string;
-  configuration?: Record<string, unknown>;
-  requiredPermissions?: string[];
-  dependencies?: string[];
-  tags?: string[];
-}
-
-export interface CapabilityUpdate {
-  name?: string;
-  description?: string;
-  configuration?: Record<string, unknown>;
-  requiredPermissions?: string[];
-  dependencies?: string[];
-  tags?: string[];
-  status?: CapabilityStatus;
-}
-
-export interface CapabilityCategory {
-  name: string;
-  displayName: string;
-  description?: string;
-  capabilityCount: number;
-  icon?: string;
-}
-
-export interface CapabilityDependency {
-  capabilityId: string;
-  dependsOn: string[];
-  optional?: string[];
-  conflicts?: string[];
-}
-
-export interface CapabilityValidation {
-  valid: boolean;
-  errors?: Array<{
-    field: string;
-    message: string;
-  }>;
-  warnings?: Array<{
-    field: string;
-    message: string;
-  }>;
-}
-
-export interface CapabilityListOptions {
-  page?: number;
-  limit?: number;
-  type?: CapabilityType;
-  status?: CapabilityStatus;
-  provider?: string;
-  tags?: string[];
-  search?: string;
-}
+export type {
+  CapabilityCreate,
+  CapabilityUpdate,
+  CapabilityCategory,
+  CapabilityDependency,
+  CapabilityValidation,
+  CapabilityListOptions,
+};
 
 export const capabilitiesAPI = {
   async search(request: CapabilitySearchRequest): Promise<Capability[]> {

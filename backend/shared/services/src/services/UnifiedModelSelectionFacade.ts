@@ -1,9 +1,9 @@
-import {
-  ModelSelectionOrchestrator,
+import { ModelSelectionOrchestrator } from './ModelSelectionOrchestrator';
+import type {
   ModelSelectionRequest,
   ModelSelectionResult,
   FallbackChain,
-} from './ModelSelectionOrchestrator';
+} from '@uaip/types';
 import { LLMTaskType, RoutingRequest } from '@uaip/types';
 
 type Repository<T> = unknown;

@@ -3,16 +3,12 @@
  * Provides core HTTP client functionality with authentication, CSRF protection, and error handling
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, _AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { csrfService } from '@/services/CSRFService';
 import { buildAPIURL } from '@/config/apiConfig';
+import type { APIError } from '@uaip/types';
 
-export interface APIError {
-  message: string;
-  code?: string;
-  details?: unknown;
-  statusCode?: number;
-}
+export type { APIError };
 
 export class APIClientError extends Error {
   public code?: string;

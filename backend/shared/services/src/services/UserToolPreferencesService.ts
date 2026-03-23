@@ -1,35 +1,5 @@
 import { getControlPool } from '../database/drizzle/clients/index';
-
-
-export interface UserToolPreferencesData {
-  userId: string;
-  toolId: string;
-  parameterDefaults?: Record<string, unknown>;
-  customConfig?: Record<string, unknown>;
-  isFavorite?: boolean;
-  isEnabled?: boolean;
-  autoApprove?: boolean;
-  rateLimits?: Record<string, number>;
-  budgetLimit?: number;
-  notifyOnCompletion?: boolean;
-  notifyOnError?: boolean;
-}
-
-export interface UserToolAccess {
-  toolId: string;
-  toolName: string;
-  toolDescription: string;
-  parameterDefaults: Record<string, unknown>;
-  customConfig: Record<string, unknown>;
-  isFavorite: boolean;
-  isEnabled: boolean;
-  autoApprove: boolean;
-  usageCount: number;
-  lastUsedAt?: Date;
-  rateLimits: Record<string, number>;
-  budgetLimit?: number;
-  budgetUsed: number;
-}
+import type { UserToolPreferencesData, UserToolAccess } from '@uaip/types';
 
 export class UserToolPreferencesService {
   constructor() {}

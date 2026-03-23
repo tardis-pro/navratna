@@ -5,93 +5,30 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { RiskLevel, _SecurityLevel } from '@uaip/types';
+import type { RiskLevel } from '@uaip/types';
+import type {
+  SecurityPolicy,
+  SecurityRule,
+  RiskAssessment,
+  RiskFactor,
+  ApprovalRequirement,
+  SecurityEvent,
+  SecurityStats,
+  PolicyCreate,
+  PolicyUpdate,
+} from '@uaip/types';
 
-export interface SecurityPolicy {
-  id: string;
-  name: string;
-  description?: string;
-  rules: SecurityRule[];
-  isActive: boolean;
-  priority: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SecurityRule {
-  id: string;
-  type: 'allow' | 'deny' | 'require_approval';
-  resource: string;
-  action: string;
-  conditions?: Record<string, unknown>;
-  riskLevel?: RiskLevel;
-}
-
-export interface RiskAssessment {
-  overallRisk: RiskLevel;
-  riskFactors: RiskFactor[];
-  recommendations: string[];
-  requiresApproval: boolean;
-  approvalRequirements?: ApprovalRequirement[];
-}
-
-export interface RiskFactor {
-  factor: string;
-  level: RiskLevel;
-  description: string;
-  mitigations?: string[];
-}
-
-export interface ApprovalRequirement {
-  type: string;
-  approvers: string[];
-  reason: string;
-  timeout?: number;
-}
-
-export interface SecurityEvent {
-  id: string;
-  type: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  description: string;
-  userId?: string;
-  resourceId?: string;
-  action?: string;
-  outcome: 'success' | 'failure' | 'blocked';
-  timestamp: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface SecurityStats {
-  totalPolicies: number;
-  activePolicies: number;
-  totalEvents: number;
-  eventsBySeverity: Record<string, number>;
-  eventsByType: Record<string, number>;
-  blockedActions: number;
-  approvalsPending: number;
-  riskTrend: Array<{
-    date: string;
-    level: RiskLevel;
-    count: number;
-  }>;
-}
-
-export interface PolicyCreate {
-  name: string;
-  description?: string;
-  rules: Omit<SecurityRule, 'id'>[];
-  priority?: number;
-  isActive?: boolean;
-}
-
-export interface PolicyUpdate {
-  name?: string;
-  description?: string;
-  rules?: SecurityRule[];
-  priority?: number;
-  isActive?: boolean;
-}
+export type {
+  SecurityPolicy,
+  SecurityRule,
+  RiskAssessment,
+  RiskFactor,
+  ApprovalRequirement,
+  SecurityEvent,
+  SecurityStats,
+  PolicyCreate,
+  PolicyUpdate,
+};
 
 export const securityAPI = {
   async assessRisk(resource: string, action: string, context?: unknown): Promise<RiskAssessment> {

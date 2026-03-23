@@ -4,7 +4,7 @@ import type {
   BaseBenchModelOutput,
   BaseBenchTaskFamily,
   BaseBenchTestCase,
-} from './basebenchTypes.js';
+} from '@uaip/types';
 
 export type BaseBenchScoredCaseResult = BaseBenchCaseEvaluationResult;
 

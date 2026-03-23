@@ -6,83 +6,15 @@
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
 import type { AuditEventType } from '@uaip/types';
+import type {
+  AuditEvent,
+  AuditStats,
+  ComplianceReport,
+  AuditLogOptions,
+  AuditExportOptions,
+} from '@uaip/types';
 
-export interface AuditEvent {
-  id: string;
-  eventType: AuditEventType;
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  resourceType: string;
-  resourceId: string;
-  action: string;
-  result: 'success' | 'failure';
-  metadata?: Record<string, unknown>;
-  ipAddress?: string;
-  userAgent?: string;
-  timestamp: string;
-}
-
-export interface AuditStats {
-  totalEvents: number;
-  eventsByType: Record<AuditEventType, number>;
-  eventsByResult: {
-    success: number;
-    failure: number;
-  };
-  eventsByResource: Record<string, number>;
-  topUsers: Array<{
-    userId: string;
-    userName?: string;
-    eventCount: number;
-  }>;
-  recentActivity: Array<{
-    date: string;
-    count: number;
-  }>;
-}
-
-export interface ComplianceReport {
-  id: string;
-  reportType: string;
-  period: {
-    start: string;
-    end: string;
-  };
-  status: 'generated' | 'generating' | 'failed';
-  summary: {
-    totalEvents: number;
-    complianceScore: number;
-    violations: number;
-    warnings: number;
-  };
-  details?: unknown;
-  generatedAt: string;
-  generatedBy?: string;
-}
-
-export interface AuditLogOptions {
-  page?: number;
-  limit?: number;
-  eventType?: AuditEventType;
-  userId?: string;
-  resourceType?: string;
-  resourceId?: string;
-  result?: 'success' | 'failure';
-  startDate?: string;
-  endDate?: string;
-  sortBy?: 'timestamp' | 'eventType' | 'userId';
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface AuditExportOptions {
-  format: 'csv' | 'json' | 'pdf';
-  eventType?: AuditEventType;
-  userId?: string;
-  startDate?: string;
-  endDate?: string;
-  includeMetadata?: boolean;
-}
+export type { AuditEvent, AuditStats, ComplianceReport, AuditLogOptions, AuditExportOptions };
 
 export const auditAPI = {
   async getLogs(options?: AuditLogOptions): Promise<AuditEvent[]> {

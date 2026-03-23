@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LLMProviderType, LLMTaskType, RoutingRequest } from './llm.js';
 
 // Model and Provider Types - Centralized from all locations
 export interface ModelOption {
@@ -79,3 +80,75 @@ export const DebateMessageDataSchema = z.object({
   modelId: z.string(),
   apiType: z.string(),
 });
+
+// ============================================================================
+// Model Selection Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface ModelSelectionRequest {
+  agentId?: string;
+  userId?: string;
+  taskType: LLMTaskType;
+  requestedModel?: string;
+  requestedProvider?: string;
+  context?: RoutingRequest;
+  urgency?: 'low' | 'medium' | 'high' | 'critical';
+  complexity?: 'low' | 'medium' | 'high';
+}
+
+export interface ModelSelectionResult {
+  provider: LLMProviderType;
+  model: string;
+  fallbackModel?: string;
+  settings: {
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    systemPrompt?: string;
+    customSettings?: Record<string, unknown>;
+  };
+  source: 'agent' | 'user' | 'system';
+  reasoning: string;
+  confidence: number;
+  warnings?: string[];
+  selectionStrategy: string;
+}
+
+export interface FallbackChain {
+  primary: ModelSelectionResult;
+  fallbacks: ModelSelectionResult[];
+}
+
+export interface ModelSelectionStrategy {
+  name: string;
+  select(
+    request: ModelSelectionRequest,
+    context: ModelSelectionContext
+  ): Promise<ModelSelectionResult>;
+  canHandle(request: ModelSelectionRequest): boolean;
+  priority: number;
+}
+
+export interface ModelSelectionContext {
+  agentRepository: unknown;
+  userLLMPreferenceRepository: unknown;
+  agentLLMPreferenceRepository: unknown;
+  llmProviderRepository: unknown;
+  systemDefaults: Record<LLMTaskType, ModelSelectionResult>;
+}
+
+export interface ResolvedLLMPreference {
+  provider: LLMProviderType;
+  model: string;
+  fallbackModel?: string;
+  settings?: {
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    systemPrompt?: string;
+    customSettings?: Record<string, unknown>;
+  };
+  source: 'agent' | 'user' | 'system';
+  reasoning: string;
+  confidence: number;
+}

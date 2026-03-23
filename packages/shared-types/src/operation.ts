@@ -393,6 +393,30 @@ export const ResourceUsageSchema = z.object({
 
 export type ResourceUsage = z.infer<typeof ResourceUsageSchema>;
 
+// Resource Management interfaces (moved from backend/shared/services)
+export interface ResourceLimits {
+  maxMemory: number;
+  maxCpu: number;
+  maxDuration: number;
+}
+
+export interface ResourceAllocation {
+  operationId: string;
+  allocatedAt: Date;
+  limits: ResourceLimits;
+  currentUsage: ResourceUsage;
+  released: boolean;
+}
+
+export interface ResourceAvailabilityCheck {
+  available: boolean;
+  reason?: string;
+  availableResources?: {
+    memory: number;
+    cpu: number;
+  };
+}
+
 // Step metrics
 export const StepMetricsSchema = z.object({
   stepId: IDSchema,
@@ -918,3 +942,227 @@ export const createDiscussionOperation = (
       return { ...baseOperation, type };
   }
 };
+
+// ============================================================================
+// Task Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface CreateTaskRequest {
+  title: string;
+  description?: string;
+  projectId: string;
+  priority?: string;
+  type?: string;
+  assigneeType?: string;
+  assignedToUserId?: string;
+  assignedToAgentId?: string;
+  dueDate?: Date;
+  tags?: string[];
+  labels?: string[];
+  epic?: string;
+  sprint?: string;
+  settings?: Record<string, unknown>;
+  estimatedHours?: number;
+  createdBy: string;
+  customFields?: Record<string, unknown>;
+}
+
+export interface UpdateTaskRequest {
+  title?: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  type?: string;
+  assigneeType?: string;
+  assignedToUserId?: string;
+  assignedToAgentId?: string;
+  dueDate?: Date;
+  tags?: string[];
+  labels?: string[];
+  epic?: string;
+  sprint?: string;
+  settings?: Record<string, unknown>;
+  customFields?: Record<string, unknown>;
+  updatedBy: string;
+}
+
+export interface TaskFilters {
+  projectId?: string;
+  status?: string | string[];
+  priority?: string | string[];
+  type?: string | string[];
+  assigneeType?: string;
+  assignedToUserId?: string;
+  assignedToAgentId?: string;
+  createdBy?: string;
+  epic?: string;
+  sprint?: string;
+  tags?: string[];
+  labels?: string[];
+  dueDateBefore?: Date;
+  dueDateAfter?: Date;
+  isOverdue?: boolean;
+  isBlocked?: boolean;
+  search?: string;
+}
+
+export interface TaskAssignmentRequest {
+  taskId: string;
+  assigneeType: string;
+  assignedToUserId?: string;
+  assignedToAgentId?: string;
+  assignedBy: string;
+  reason?: string;
+}
+
+export interface TaskAssignmentSuggestion {
+  type: string;
+  userId?: string;
+  agentId?: string;
+  name: string;
+  score: number;
+  reason: string;
+  availability: 'available' | 'busy' | 'offline';
+  expertise: string[];
+  workload: number;
+}
+
+export interface TaskActivityEntry extends Record<string, unknown> {
+  id: string;
+  timestamp: Date;
+  action: string;
+  userId: string;
+  userName: string;
+  details: Record<string, unknown>;
+  oldValue?: string | number | boolean | null;
+  newValue?: string | number | boolean | null;
+}
+
+// ============================================================================
+// Task Entity Types (moved from backend/shared/services)
+// ============================================================================
+
+export const TaskStatus = {
+  TODO: 'todo',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  BLOCKED: 'blocked',
+} as const;
+export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
+
+export const TaskPriority = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  URGENT: 'urgent',
+} as const;
+export type TaskPriority = typeof TaskPriority[keyof typeof TaskPriority];
+
+export const TaskType = {
+  FEATURE: 'feature',
+  BUG: 'bug',
+  ENHANCEMENT: 'enhancement',
+  DOCUMENTATION: 'documentation',
+  RESEARCH: 'research',
+  TESTING: 'testing',
+} as const;
+export type TaskType = typeof TaskType[keyof typeof TaskType];
+
+export const AssigneeType = {
+  HUMAN: 'human',
+  AGENT: 'agent',
+} as const;
+export type AssigneeType = typeof AssigneeType[keyof typeof AssigneeType];
+
+export interface TaskSettings {
+  timeTracking?: boolean;
+  notifyOnStatusChange?: boolean;
+  notifyOnComments?: boolean;
+  estimatedHours?: number;
+}
+
+export interface TaskMetrics {
+  timeSpent: number;
+  estimatedTime: number;
+  completionPercentage: number;
+  reopenCount: number;
+  commentCount: number;
+  attachmentCount: number;
+}
+
+export interface TaskEntity {
+  id: string;
+  title: string;
+  description?: string;
+  taskNumber: string;
+  projectId: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  type: TaskType;
+  assigneeType?: AssigneeType;
+  assignedToUserId?: string;
+  assignedToAgentId?: string;
+  assignedById?: string;
+  assignedAt?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  dueDate?: Date;
+  tags?: string[];
+  labels?: string[];
+  epic?: string;
+  sprint?: string;
+  settings: TaskSettings;
+  metrics: TaskMetrics;
+  activityLog: TaskActivityEntry[];
+  blockedBy?: string[];
+  deletedAt?: Date;
+  deletedById?: string;
+  lastActivityAt: Date;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  project?: Record<string, unknown>;
+  assignedToUser?: Record<string, unknown>;
+  assignedToAgent?: Record<string, unknown>;
+  creator?: Record<string, unknown>;
+  assignedBy?: Record<string, unknown>;
+  assigneeDisplayName?: string;
+}
+
+// Compensation Service Types (moved from backend/shared/services)
+export interface CompensationStep {
+  id: string;
+  stepId: string;
+  action: string;
+  description: string;
+  compensationData: Record<string, unknown>;
+  timeout: number;
+  retryPolicy?: {
+    maxAttempts: number;
+    backoffStrategy: 'fixed' | 'exponential' | 'linear';
+    retryDelay: number;
+  };
+}
+
+export interface CompensationResult {
+  stepId: string;
+  compensationStepId: string;
+  status: StepStatus;
+  error?: string;
+  executionTime: number;
+  compensationData: Record<string, unknown>;
+}
+
+// State Manager Types (moved from backend/shared/services)
+export interface StateUpdateOptions {
+  status?: string;
+  currentStep?: string;
+  completedSteps?: string[];
+  failedSteps?: string[];
+  variables?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  startedAt?: Date;
+  completedAt?: Date;
+  error?: string;
+  result?: unknown;
+}

@@ -34,7 +34,6 @@ import { _getTheme, resolveTheme } from './desktop/DesktopThemes';
 import { RoleBasedDesktopConfig } from './desktop/RoleBasedDesktopConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { PortalWorkspace } from './PortalWorkspace';
 import { MapWallpaper } from './desktop/MapWallpaper';
 import { LocationService, LocationData } from '@/services/LocationService';
 
@@ -479,9 +478,14 @@ export const DesktopWorkspace: React.FC<DesktopWorkspaceProps> = ({
     agentData: agent,
   }));
 
-  // Show PortalWorkspace when portals are active
+  // Show PortalWorkspace when portals are active - dispatch event for parent to handle
   if (showPortals) {
-    return <PortalWorkspace />;
+    // Dispatch event for parent to switch to PortalWorkspace view
+    useEffect(() => {
+      window.dispatchEvent(new CustomEvent('showPortalWorkspace'));
+    }, [showPortals]);
+    // Return null - the parent will handle rendering PortalWorkspace
+    return null;
   }
 
   // Loading screen

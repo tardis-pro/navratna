@@ -1,5 +1,6 @@
 import { IDSchema } from './common.js';
 import { z } from 'zod';
+import type { ActionRecommendation } from './agent.js';
 
 // Event types
 export enum EventType {
@@ -205,4 +206,88 @@ export interface EventBus {
   publish(event: Event): Promise<void>;
   subscribe<T extends BaseEvent>(eventType: EventType, handler: EventHandler<T>): void;
   unsubscribe(eventType: EventType, handler: EventHandler): void;
+}
+
+// ============================================================================
+// Agent Event Bus Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface AgentEvent {
+  eventType: string;
+  agentId?: string;
+  timestamp: Date;
+  data: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface StateChangedEvent extends AgentEvent {
+  eventType: 'state.changed';
+  agentId: string;
+  data: {
+    from: string;
+    to: string;
+    trigger: string;
+    context?: Record<string, unknown>;
+  };
+}
+
+export interface DecisionMadeEvent extends AgentEvent {
+  eventType: 'decision.made';
+  agentId: string;
+  data: {
+    selectedAction: ActionRecommendation | null;
+    alternatives: ActionRecommendation[];
+    confidence: number;
+    reasoning: string;
+    duration: number;
+  };
+}
+
+export interface MemorySavedEvent extends AgentEvent {
+  eventType: 'memory.saved';
+  agentId: string;
+  data: {
+    memoryType: 'working' | 'episodic' | 'semantic';
+    entryId: string;
+    significance: number;
+    content: string | Record<string, unknown>;
+  };
+}
+
+export interface WorkflowStepEvent extends AgentEvent {
+  eventType: 'workflow.step.started' | 'workflow.step.completed' | 'workflow.step.failed';
+  agentId: string;
+  data: {
+    workflowId: string;
+    stepId: string;
+    stepName: string;
+    status: string;
+    duration?: number;
+    output?: Record<string, unknown>;
+    error?: string;
+  };
+}
+
+export interface ToolExecutionEvent extends AgentEvent {
+  eventType: 'tool.execution.started' | 'tool.execution.completed' | 'tool.execution.failed';
+  agentId: string;
+  data: {
+    toolId: string;
+    toolName: string;
+    duration?: number;
+    success?: boolean;
+    output?: Record<string, unknown>;
+    error?: string;
+  };
+}
+
+export interface PerformanceMetricEvent extends AgentEvent {
+  eventType: 'performance.metric';
+  agentId?: string;
+  data: {
+    metricName: string;
+    value: number;
+    unit: string;
+    tags?: Record<string, string>;
+  };
 }

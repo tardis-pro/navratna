@@ -1,5 +1,12 @@
 import { logger } from '@uaip/utils';
 import { SourceType } from '@uaip/types';
+import type {
+  FileData,
+  ProcessingOptions,
+  BatchJob,
+  ProcessingResult,
+  BatchResult,
+} from '@uaip/types';
 import { ChatParserService } from './chat-parser.service';
 import {
   ChatKnowledgeExtractorService,
@@ -7,58 +14,10 @@ import {
   QAPair,
   DecisionPoint,
 } from './chat-knowledge-extractor.service';
-import { KnowledgeGraphService } from './knowledge-graph.service';
+import { KnowledgeIngestionPort } from './knowledge-ingestion.port';
 import { v4 as uuidv4 } from 'uuid';
 
-export interface FileData {
-  id: string;
-  name: string;
-  content: string;
-  size: number;
-  type: 'claude' | 'gpt' | 'whatsapp' | 'generic';
-  userId: string;
-}
-
-export interface ProcessingOptions {
-  batchSize?: number;
-  concurrency?: number;
-  extractKnowledge?: boolean;
-  saveToGraph?: boolean;
-  generateEmbeddings?: boolean;
-}
-
-export interface BatchJob {
-  id: string;
-  userId: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  filesProcessed: number;
-  totalFiles: number;
-  extractedItems: number;
-  createdAt: Date;
-  completedAt?: Date;
-  error?: string;
-  options: ProcessingOptions;
-}
-
-export interface ProcessingResult {
-  fileId: string;
-  success: boolean;
-  conversationsFound: number;
-  knowledgeExtracted: number;
-  error?: string;
-  processingTime: number;
-}
-
-export interface BatchResult {
-  jobId: string;
-  totalFiles: number;
-  successfulFiles: number;
-  failedFiles: number;
-  totalKnowledgeExtracted: number;
-  totalProcessingTime: number;
-  errors: string[];
-}
+export type { FileData, ProcessingOptions, BatchJob, ProcessingResult, BatchResult } from '@uaip/types';
 
 type ExtractedKnowledgeBundle = {
   extractedKnowledge: ExtractedKnowledge[];
@@ -75,7 +34,7 @@ export class BatchProcessorService {
   constructor(
     private chatParser: ChatParserService,
     private knowledgeExtractor: ChatKnowledgeExtractorService,
-    private knowledgeGraph: KnowledgeGraphService
+    private knowledgeIngestion: KnowledgeIngestionPort
   ) {}
 
   async startBatchJob(files: FileData[], options: ProcessingOptions = {}): Promise<string> {
@@ -318,8 +277,7 @@ export class BatchProcessorService {
     knowledge: ExtractedKnowledgeBundle,
     userId: string
   ): Promise<void> {
-    // Save different types of knowledge to the graph
-    const ingestItems: Parameters<KnowledgeGraphService['ingest']>[0] = [];
+    const ingestItems: Parameters<KnowledgeIngestionPort['ingest']>[0] = [];
 
     // Save extracted knowledge items
     if (knowledge.extractedKnowledge?.length > 0) {
@@ -389,7 +347,7 @@ export class BatchProcessorService {
 
     // Execute all save operations
     if (ingestItems.length > 0) {
-      await this.knowledgeGraph.ingest(ingestItems);
+      await this.knowledgeIngestion.ingest(ingestItems);
     }
   }
 

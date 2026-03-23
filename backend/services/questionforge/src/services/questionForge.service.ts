@@ -7,6 +7,7 @@ import {
   Assumption,
   Contradiction,
 } from '@uaip/types';
+import type { ForgeRequest, ForgeResult } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 
@@ -15,42 +16,6 @@ import { QuestionRankerService } from './questionRanker.service.js';
 import { DebateFlowExtension } from './debateFlow.extension.js';
 import { InterviewCaptureService } from './interviewCapture.service.js';
 import { QuestionPackGeneratorService } from './questionPack.generator.js';
-
-// ─── Interfaces ──────────────────────────────────────────────────────────────
-
-export interface ForgeRequest {
-  projectBriefText: string;
-  inputType?: string;
-  stakeholderRoles?: string[];
-  agentPersonaIds?: string[];
-}
-
-export interface ForgeResult {
-  projectBriefId: string;
-  normalizedBrief: unknown;
-  debateResult: unknown;
-  questionPacks: Map<string, unknown>;
-  topAssumptions: unknown[];
-  contradictions: unknown[];
-  interviewScripts: Map<string, unknown>;
-  metadata: {
-    totalQuestions: number;
-    totalAssumptions: number;
-    totalContradictions: number;
-    processingTimeMs: number;
-  };
-}
-
-export interface InterviewSession {
-  id: string;
-  forgeResultId: string;
-  stakeholderRole: string;
-  questions: Question[];
-  currentQuestionIndex: number;
-  answers: Map<string, string>;
-  status: 'pending' | 'in_progress' | 'completed';
-  createdAt: Date;
-}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@
 
 import { logger } from '@uaip/utils';
 
-import type { DiscoveredEntity } from './processArchaeology.service.js';
+import type { DiscoveredEntity } from './process-archaeology.types';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -8,7 +8,7 @@ import axios, { AxiosInstance } from 'axios';
 import { logger } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra';
 import type { JiraOperationOutcome, JiraOperationStatus } from '@uaip/types';
-import { ToolDefinition } from '../services/enterprise-tool-registry.js';
+import type { ToolDefinition } from '../types/tool-definition.js';
 
 interface JiraUpdateParams {
   issueIdOrKey?: string;

@@ -1,65 +1,12 @@
 import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
+import type {
+  ModelSelectionRequest,
+  ModelSelectionResult,
+  FallbackChain,
+  ModelSelectionStrategy,
+  ModelSelectionContext,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
-
-// =============================================================================
-// UNIFIED MODEL SELECTION INTERFACES
-// =============================================================================
-
-export interface ModelSelectionRequest {
-  agentId?: string;
-  userId?: string;
-  taskType: LLMTaskType;
-  requestedModel?: string;
-  requestedProvider?: string;
-  context?: RoutingRequest;
-  urgency?: 'low' | 'medium' | 'high' | 'critical';
-  complexity?: 'low' | 'medium' | 'high';
-}
-
-export interface ModelSelectionResult {
-  provider: LLMProviderType;
-  model: string;
-  fallbackModel?: string;
-  settings: {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemPrompt?: string;
-    customSettings?: Record<string, unknown>;
-  };
-  source: 'agent' | 'user' | 'system';
-  reasoning: string;
-  confidence: number; // 0-1 confidence score
-  warnings?: string[];
-  selectionStrategy: string;
-}
-
-export interface FallbackChain {
-  primary: ModelSelectionResult;
-  fallbacks: ModelSelectionResult[];
-}
-
-// =============================================================================
-// SELECTION STRATEGIES
-// =============================================================================
-
-export interface ModelSelectionStrategy {
-  name: string;
-  select(
-    request: ModelSelectionRequest,
-    context: ModelSelectionContext
-  ): Promise<ModelSelectionResult>;
-  canHandle(request: ModelSelectionRequest): boolean;
-  priority: number; // Higher = tried first
-}
-
-export interface ModelSelectionContext {
-  agentRepository: unknown;
-  userLLMPreferenceRepository: unknown;
-  agentLLMPreferenceRepository: unknown;
-  llmProviderRepository: unknown;
-  systemDefaults: Record<LLMTaskType, ModelSelectionResult>;
-}
 
 // =============================================================================
 // SYSTEM DEFAULTS CONFIGURATION

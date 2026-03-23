@@ -1,20 +1,5 @@
 import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
-
-export interface ResolvedLLMPreference {
-  provider: LLMProviderType;
-  model: string;
-  fallbackModel?: string;
-  settings?: {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemPrompt?: string;
-    customSettings?: Record<string, unknown>;
-  };
-  source: 'agent' | 'user' | 'system';
-  reasoning: string;
-  confidence: number; // 0-1 confidence in this preference
-}
+import type { ResolvedLLMPreference } from '@uaip/types';
 
 // System defaults for different task types - Updated to use available models
 const SYSTEM_DEFAULTS: Record<LLMTaskType, ResolvedLLMPreference> = {

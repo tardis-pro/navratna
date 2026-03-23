@@ -1,11 +1,4 @@
-/**
- * Frontend Types Index
- * This file provides a clean export interface for all frontend types
- */
-
-// Core shared types (re-exported from @uaip/types)
 export type {
-  // Agent types
   Agent,
   AgentRole,
   AgentCreate,
@@ -14,8 +7,6 @@ export type {
   AgentPersona,
   AgentIntelligenceConfig,
   AgentSecurityContext,
-
-  // Operation types
   Operation,
   OperationType,
   OperationStatus,
@@ -24,8 +15,6 @@ export type {
   ExecutionStep,
   ExecutionContext,
   ExecutionPlan,
-
-  // Tool types
   ToolCall,
   ToolResult,
   ToolPermissionSet,
@@ -39,36 +28,25 @@ export type {
   ToolExecutionError,
   ToolCategory,
   SecurityLevel,
-
-  // Capability types
   Capability,
-
-  // Message types
   Message as SharedMessage,
   MessageRole,
-
-  // Persona types
   PersonaAnalytics,
   PersonaValidation,
   PersonaUsageStats,
   PersonaTemplate,
 } from '@uaip/types';
 
-// Frontend-specific extensions
 export type {
-  // Agent extensions
   AgentState,
   AgentProps,
   AgentContextValue,
   ModelProvider,
   ModelInfo,
-
-  // Message extensions
   Message,
   ConversationPattern,
 } from './frontend-extensions';
 
-// UI-specific interfaces
 export type {
   EnhancedAgentState,
   UIOperation,
@@ -86,27 +64,23 @@ export type {
   UIState,
   UIError,
   DataState,
-} from './ui-interfaces';
+} from '@uaip/types';
 
-// Local types that remain frontend-specific
 export type { Persona } from './persona';
-// AnalysisDepth, CollaborationMode, AuditLevel types were not actually defined - removed
 
-// Microexpression types for visual feedback
 export type {
   Microexpression,
   MicroexpressionConfig,
   ExpressionStyle,
   AgentActivityEventDetail,
   AgentActivityType,
-} from './microexpression';
+} from '@uaip/types';
 export {
   MICROEXPRESSION_COLORS,
   MICROEXPRESSION_STYLES,
   MICROEXPRESSION_LABELS,
   DEFAULT_MICROEXPRESSION_CONFIG,
   AGENT_ACTIVITY_EVENT,
-} from './microexpression';
+} from '@uaip/types';
 
-// Re-export helper functions
 export { createAgentStateFromShared as createAgentStateFromBackend } from './frontend-extensions';

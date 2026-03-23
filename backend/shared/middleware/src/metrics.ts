@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import { register, Counter, Histogram, Gauge } from 'prom-client';
 import { config } from '@uaip/config';
 import * as crypto from 'crypto';
+import type { ErrorContext } from '@uaip/types';
 
 // Create metrics
 const httpRequestsTotal = new Counter({
@@ -196,15 +197,7 @@ export function recordLLMRequest(options: {
   }
 }
 
-// Error logging and tracking interface
-export interface ErrorContext {
-  service: string;
-  endpoint?: string;
-  userId?: string;
-  requestId?: string;
-  severity?: 'error' | 'critical' | 'warning';
-  metadata?: Record<string, unknown>;
-}
+// Error logging and tracking interface - ErrorContext is imported from @uaip/types
 
 // Utility functions for error tracking
 function generateErrorId(error: Error, context: ErrorContext): string {

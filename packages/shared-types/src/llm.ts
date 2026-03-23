@@ -498,3 +498,326 @@ export const RoutingResponseSchema = z.object({
 });
 
 export type RoutingResponse = z.infer<typeof RoutingResponseSchema>;
+
+// Model routing interfaces (moved from llm-service)
+export interface ModelConfig {
+  name: string;
+  provider: string;
+  maxTokens: number;
+  temperature: number;
+  topP?: number;
+  capabilities: string[];
+}
+
+export interface ProviderChain {
+  name: string;
+  provider: string;
+  endpoint?: string;
+  apiKeyRef: string;
+  models: ModelConfig[];
+}
+
+export interface AgentModelConfig {
+  agentId: string;
+  agentName: string;
+  primaryProvider: string;
+  fallbackProviders: string[];
+  systemPrompt?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+export interface ModelRoutingConfig {
+  providers: Record<string, ProviderChain>;
+  agents: Record<string, AgentModelConfig>;
+  defaults: {
+    chat: string;
+    embedding: string;
+    reasoning: string;
+    coding: string;
+  };
+}
+
+// ============================================================================
+// LLM Service Interfaces (moved from backend/shared/llm-service)
+// ============================================================================
+
+// Core LLM request/response interfaces
+export interface LLMRequest {
+  prompt: string;
+  systemPrompt?: string;
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+  stream?: boolean;
+  userId?: string;
+  agentId?: string;
+}
+
+export interface LLMResponse {
+  content: string;
+  tokensUsed?: number;
+  model: string;
+  confidence?: number;
+  error?: string;
+  toolCalls?: LLMToolCall[];
+  finishReason?: 'stop' | 'length' | 'tool_calls' | 'error';
+  response?: string;
+  suggestedTools?: ToolSuggestion[];
+  toolsExecuted?: ToolExecutionResult[];
+}
+
+export interface LLMToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface LLMToolResult {
+  toolCallId: string;
+  result: unknown;
+  error?: string;
+}
+
+// Agent-specific LLM interfaces
+export interface AgentResponseRequest {
+  agent: {
+    id: string;
+    name: string;
+    role: string;
+    capabilities?: string[];
+  };
+  messages: ChatMessage[];
+  context?: DocumentContext;
+  tools?: AvailableTool[];
+}
+
+export interface AgentResponseResponse extends LLMResponse {
+  toolResults?: LLMToolResult[];
+  suggestedTools?: ToolSuggestion[];
+  toolsExecuted?: ToolExecutionResult[];
+  response?: string;
+}
+
+export interface ToolSuggestion {
+  toolId: string;
+  toolName: string;
+  parameters: Record<string, unknown>;
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface ToolExecutionResult {
+  toolId: string;
+  toolName: string;
+  success: boolean;
+  result?: unknown;
+  error?: string;
+  timestamp: string;
+  parameters?: Record<string, unknown>;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  sender: string;
+  timestamp: string;
+  type: 'user' | 'assistant' | 'system' | 'tool';
+  toolCallId?: string;
+}
+
+export interface DocumentContext {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  metadata?: {
+    createdAt: Date;
+    lastModified: Date;
+    author: string;
+  };
+  tags?: string[];
+}
+
+export interface AvailableTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+// Provider configuration
+export interface LLMProviderConfig {
+  type: 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
+  baseUrl: string;
+  apiKey?: string;
+  apiKeyEncrypted?: string;
+  defaultModel?: string;
+  timeout?: number;
+  retries?: number;
+}
+
+// API Key Decryption Events
+export interface ApiKeyDecryptionRequest {
+  providerId: string;
+  providerName: string;
+  encryptedApiKey: string;
+  requestId: string;
+  timestamp: Date;
+}
+
+export interface ApiKeyDecryptionResponse {
+  requestId: string;
+  success: boolean;
+  decryptedApiKey?: string;
+  error?: string;
+  timestamp: Date;
+}
+
+// Artifact generation interfaces
+export interface ArtifactRequest {
+  type: 'code' | 'documentation' | 'test' | 'prd';
+  language?: string;
+  context: string;
+  requirements: string[];
+  constraints?: string[];
+}
+
+export interface ArtifactResponse extends LLMResponse {
+  artifactType: string;
+  metadata: {
+    language?: string;
+    framework?: string;
+    dependencies?: string[];
+  };
+}
+
+// Context analysis interfaces
+export interface LLMContextRequest {
+  conversationHistory: ChatMessage[];
+  currentContext?: DocumentContext;
+  userRequest: string;
+  agentCapabilities?: string[];
+}
+
+export interface LLMResponseAnalysis extends LLMResponse {
+  analysis: {
+    intent: {
+      primary: string;
+      secondary: string[];
+      confidence: number;
+    };
+    context: {
+      messageCount: number;
+      participants: string[];
+      topics: string[];
+      sentiment: string;
+      complexity: string;
+    };
+    recommendations: {
+      type: string;
+      confidence: number;
+      description: string;
+      estimatedDuration: number;
+    }[];
+  };
+}
+
+// Context management interfaces
+export interface TokenBudget {
+  systemPrompt: number;
+  context: number;
+  messages: number;
+  tools: number;
+  response: number;
+  total: number;
+}
+
+export interface ContextWindow {
+  recentMessages: ChatMessage[];
+  summarizedContext?: string;
+  contextDocuments: DocumentContext[];
+  estimatedTokens: number;
+  windowSize: number;
+}
+
+export interface ContextConfig {
+  maxTokens: number;
+  systemPromptTokens: number;
+  toolsTokensPerTool: number;
+  responseTokensReserved: number;
+  recentMessagesWindow: number;
+  summarizationThreshold: number;
+  tokensPerMessage: number;
+  tokensPerChar: number;
+}
+
+
+export interface ModelSyncResult {
+  providerId: string;
+  providerName: string;
+  modelsFound: number;
+  modelsCreated: number;
+  modelsUpdated: number;
+  modelsMarkedUnavailable: number;
+  errors: string[];
+}
+
+export interface ModelData {
+  name: string;
+  description?: string;
+  apiType?: string;
+  apiEndpoint?: string;
+  contextLength?: number;
+  inputTokenCost?: number;
+  outputTokenCost?: number;
+  capabilities?: {
+    streaming?: boolean;
+    functionCalling?: boolean;
+    vision?: boolean;
+    codeGeneration?: boolean;
+    reasoning?: boolean;
+  };
+  parameters?: {
+    maxTokens?: number;
+    temperature?: number;
+    topP?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+  };
+}
+
+// ============================================================================
+// Agent Generation Types (event-driven LLM requests for agents)
+// ============================================================================
+
+export interface AgentGenerationRequest {
+  requestId: string;
+  agentId?: string;
+  messages: Array<{ content: string; sender?: string }>;
+  systemPrompt?: string;
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+  provider?: string;
+}
+
+// LLM Request Tracker interfaces (moved from backend/shared/services)
+export interface PendingLLMRequest {
+  requestId: string;
+  timestamp: number;
+  timeoutMs: number;
+  service: string;
+  reject?: (error: Error) => void;
+  resolve?: (value: unknown) => void;
+}
+
+export interface SerializablePendingRequest {
+  requestId: string;
+  timestamp: number;
+  timeoutMs: number;
+  service: string;
+  expiresAt: number;
+}

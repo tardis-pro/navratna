@@ -1,5 +1,4 @@
-import { typeormService } from './typeormService';
-type TypeOrmService = typeof typeormService;
+import { initializeDatabase, closeDatabase, checkDatabaseHealth, DatabaseService } from './database/index';
 import { QdrantService } from './qdrant.service';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
@@ -60,9 +59,8 @@ export class ServiceFactory {
     try {
       this.logger.info('Initializing ServiceFactory...');
 
-      // Initialize TypeORM first
-      await typeormService.initialize();
-      this.serviceInstances.set('typeorm', typeormService);
+      await initializeDatabase();
+      this.serviceInstances.set('database', DatabaseService.getInstance());
 
 
       // Initialize standalone Redis cache service
@@ -124,8 +122,8 @@ export class ServiceFactory {
 
   // Core Infrastructure Services
 
-  async getTypeOrmService(): Promise<TypeOrmService> {
-    return this.serviceInstances.get('typeorm') as TypeOrmService;
+  async getDatabaseService(): Promise<DatabaseService> {
+    return this.serviceInstances.get('database') as DatabaseService;
   }
 
   async getQdrantService(): Promise<QdrantService> {
@@ -389,10 +387,15 @@ export class ServiceFactory {
 
     let databaseHealth: DatabaseHealth | undefined;
     try {
-      const typeOrmService = this.serviceInstances.get('typeorm') as Record<string, unknown>;
-      if (typeOrmService && typeof typeOrmService['checkHealth'] === 'function') {
-        databaseHealth = await (typeOrmService['checkHealth'] as () => Promise<DatabaseHealth>)();
-      }
+      const dbHealth = await checkDatabaseHealth();
+      databaseHealth = {
+        status: dbHealth.intelligence === 'healthy' && dbHealth.control === 'healthy' ? 'healthy' : 'unhealthy',
+        details: {
+          connected: dbHealth.intelligence === 'healthy' && dbHealth.control === 'healthy',
+          driver: 'drizzle',
+          database: 'postgresql',
+        },
+      };
     } catch (error) {
       this.logger.warn('Failed to get database health', {
         error: error instanceof Error ? error.message : String(error),
@@ -484,9 +487,9 @@ export class ServiceFactory {
     );
 
     try {
-      await typeormService.close();
+      await closeDatabase();
     } catch (error) {
-      this.logger.error('Error closing TypeORM service', {
+      this.logger.error('Error closing database', {
         error: error instanceof Error ? error.message : String(error),
       });
     }

@@ -2,14 +2,8 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger, ApiError } from '@uaip/utils';
 import { AgentCreateRequestSchema, AgentUpdateSchema, AgentRole } from '@uaip/types';
+import type { ValidationMeta } from '@uaip/types';
 import { AgentTransformationService } from './agentTransformationService.js';
-
-// Validation metadata interface
-export interface ValidationMeta {
-  transformationApplied: boolean;
-  originalFormat: string;
-  validatedAt: Date;
-}
 
 /**
  * Enhanced Agent Validation Middleware for Elysia

@@ -76,6 +76,9 @@ export class UserChatHandler {
 
   private setupEventHandlers() {
     this.io.on('connection', (socket: Socket) => {
+      if (socket.data?.user?.userId) {
+        this.handleUserConnect(socket, {});
+      }
       socket.on('user_connect', (data) => this.handleUserConnect(socket, data));
       socket.on('user_message', (data) => this.handleUserMessage(socket, data));
       socket.on('agent_chat', (data) => this.handleAgentChat(socket, data));
@@ -521,7 +524,16 @@ export class UserChatHandler {
         };
 
       // Find the socket by ID and send the response
-      const socket = this.io.sockets.sockets.get(socketId);
+      const socket = socketId ? this.io.sockets.sockets.get(socketId) : undefined;
+      const payload = {
+        agentId,
+        response,
+        agentName,
+        messageId,
+        timestamp: new Date().toISOString(),
+        ...metadata,
+      };
+
       if (socket) {
         const socketUserId = socket.data?.user?.userId as string | undefined;
 
@@ -551,13 +563,25 @@ export class UserChatHandler {
           agentName,
           messageId,
         });
-      } else {
-        this.logger.warn('Socket not found for agent response', {
-          socketId,
+        return;
+      }
+
+      if (userId) {
+        this.io.to(`user_${userId}`).emit('agent_response', payload);
+        this.logger.info('Agent response forwarded via user room', {
+          userId,
           agentId,
+          agentName,
           messageId,
         });
+        return;
       }
+
+      this.logger.warn('Socket not found for agent response', {
+        socketId,
+        agentId,
+        messageId,
+      });
     });
 
     this.eventBusService.subscribe('approval:required', async (event) => {

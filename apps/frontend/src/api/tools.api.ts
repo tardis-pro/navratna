@@ -5,117 +5,31 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { SecurityLevel } from '@uaip/types';
+import type {
+  Tool,
+  ToolCreate,
+  ToolUpdate,
+  ToolExecutionRequest,
+  ToolExecutionResponse,
+  ToolCategory,
+  ToolRecommendation,
+  ToolRelation,
+  ToolAnalytics,
+  ToolListOptions,
+} from '@uaip/types';
 
-export interface Tool {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string;
-  category: string;
-  type: 'internal' | 'external' | 'mcp' | 'oauth';
-  inputSchema?: unknown;
-  outputSchema?: unknown;
-  configuration?: unknown;
-  requiredPermissions?: string[];
-  securityLevel: SecurityLevel;
-  maxRetries: number;
-  timeout: number;
-  isActive: boolean;
-  version: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ToolCreate {
-  name: string;
-  displayName: string;
-  description: string;
-  category: string;
-  type?: 'internal' | 'external' | 'mcp' | 'oauth';
-  inputSchema?: unknown;
-  outputSchema?: unknown;
-  configuration?: unknown;
-  requiredPermissions?: string[];
-  securityLevel?: SecurityLevel;
-  maxRetries?: number;
-  timeout?: number;
-}
-
-export interface ToolUpdate {
-  displayName?: string;
-  description?: string;
-  category?: string;
-  inputSchema?: unknown;
-  outputSchema?: unknown;
-  configuration?: unknown;
-  requiredPermissions?: string[];
-  securityLevel?: SecurityLevel;
-  maxRetries?: number;
-  timeout?: number;
-  isActive?: boolean;
-}
-
-export interface ToolExecutionRequest {
-  input: unknown;
-  context?: unknown;
-  options?: {
-    timeout?: number;
-    retries?: number;
-  };
-}
-
-export interface ToolExecutionResponse {
-  id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  output?: unknown;
-  error?: string;
-  metadata?: unknown;
-  startedAt: string;
-  completedAt?: string;
-  duration?: number;
-}
-
-export interface ToolCategory {
-  name: string;
-  displayName: string;
-  description?: string;
-  toolCount: number;
-}
-
-export interface ToolRecommendation {
-  tool: Tool;
-  score: number;
-  reason: string;
-  relatedTools?: string[];
-}
-
-export interface ToolRelation {
-  fromTool: string;
-  toTool: string;
-  relationType: 'depends_on' | 'similar_to' | 'alternative_to' | 'enhances';
-  strength: number;
-}
-
-export interface ToolAnalytics {
-  toolId: string;
-  executionCount: number;
-  successRate: number;
-  averageExecutionTime: number;
-  errorRate: number;
-  usageByAgent: Record<string, number>;
-  usageByUser: Record<string, number>;
-  period: string;
-}
-
-export interface ToolListOptions {
-  page?: number;
-  limit?: number;
-  category?: string;
-  type?: string;
-  isActive?: boolean;
-  search?: string;
-}
+export type {
+  Tool,
+  ToolCreate,
+  ToolUpdate,
+  ToolExecutionRequest,
+  ToolExecutionResponse,
+  ToolCategory,
+  ToolRecommendation,
+  ToolRelation,
+  ToolAnalytics,
+  ToolListOptions,
+};
 
 export const toolsAPI = {
   async list(options?: ToolListOptions): Promise<Tool[]> {

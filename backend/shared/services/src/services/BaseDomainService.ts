@@ -1,4 +1,4 @@
-import { TypeOrmService } from '../typeormService';
+
 
 /**
  * Abstract base class for domain services.
@@ -20,12 +20,9 @@ import { TypeOrmService } from '../typeormService';
  */
 export abstract class BaseDomainService {
   private static instances = new Map<string, BaseDomainService>();
-  protected readonly typeormService: TypeOrmService;
   private repositories = new Map<string, unknown>();
 
-  protected constructor() {
-    this.typeormService = TypeOrmService.getInstance();
-  }
+  protected constructor() {}
 
   /**
    * Get or create the singleton instance for a service class.

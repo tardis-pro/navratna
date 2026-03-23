@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BaseEntitySchema, IDSchema } from './common.js';
+import type { ToolDefinition } from './tool.js';
 
 // Agent types
 export enum AgentRole {
@@ -698,3 +699,175 @@ export const AgentMessageSchema = z.object({
 });
 
 export type AgentMessage = z.infer<typeof AgentMessageSchema>;
+
+// ============================================================================
+// Agent Decision Engine Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface DecisionResult {
+  selectedAction: ActionRecommendation | null;
+  resolvedCapabilities: ToolDefinition[];
+  confidence: number;
+  reasoning: string;
+  executionPlan?: {
+    steps: Array<{ tool: ToolDefinition; parameters: Record<string, unknown> }>;
+    estimatedDuration: number;
+  };
+}
+
+export interface CapabilityResolver {
+  lookup(toolName: string): Promise<ToolDefinition | null>;
+  validateCapabilities(requiredCapabilities: string[]): Promise<{ valid: boolean; missing: string[] }>;
+  getAvailableCapabilities(): Promise<string[]>;
+}
+
+// ============================================================================
+// Task DAG Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface TaskNode {
+  id: string;
+  description: string;
+  type: 'query' | 'command' | 'monitor' | 'orchestrate' | 'communicate';
+  dependencies: string[];
+  estimatedDurationMs?: number;
+  toolId?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  result?: unknown;
+  startedAt?: Date;
+  completedAt?: Date;
+  error?: string;
+}
+
+export interface TaskDAG {
+  id: string;
+  goal: string;
+  nodes: TaskNode[];
+  edges: Array<{ from: string; to: string }>;
+  status: 'planning' | 'executing' | 'completed' | 'failed';
+  createdAt: Date;
+  completedAt?: Date;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Meta Reasoning Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface MetaReasoningInput {
+  agentId: string;
+  intent: string;
+  proposedAction: string;
+  confidence: number;
+  context: Record<string, unknown>;
+}
+
+export interface MetaReasoningDecision {
+  action: 'proceed' | 'clarify' | 'delegate' | 'abstain' | 'escalate';
+  confidence: number;
+  reasoning: string;
+  suggestedClarification?: string;
+  suggestedDelegate?: string;
+  warnings: string[];
+}
+
+export interface CapabilityGapResult {
+  hasGap: boolean;
+  missingCapabilities: string[];
+}
+
+export interface ErrorHistoryResult {
+  recentErrors: number;
+  errorRate: number;
+}
+
+// ============================================================================
+// Cognitive Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface ExecutionGate {
+  agentId: string;
+  taskType: string;
+  requiredConfidence: number;
+  actualConfidence: number;
+  passed: boolean;
+  reason: string;
+}
+
+export interface ConfidenceProfile {
+  agentId: string;
+  taskType: string;
+  historicalAccuracy: number;
+  sampleSize: number;
+  dynamicThreshold: number;
+  lastUpdated: Date;
+}
+
+export interface ReasoningNode {
+  id: string;
+  type: 'observation' | 'inference' | 'assumption' | 'conclusion' | 'evidence' | 'uncertainty';
+  content: string;
+  confidence: number;
+  source?: string;
+  timestamp: Date;
+}
+
+export interface ReasoningEdge {
+  from: string;
+  to: string;
+  relationship: 'supports' | 'contradicts' | 'requires' | 'derives' | 'weakens';
+  strength: number;
+}
+
+export interface ExplanationDAG {
+  id: string;
+  agentId: string;
+  taskId: string;
+  nodes: ReasoningNode[];
+  edges: ReasoningEdge[];
+  conclusion?: ReasoningNode;
+  overallConfidence: number;
+  uncertainties: ReasoningNode[];
+  createdAt: Date;
+}
+
+export interface CapabilityAssessment {
+  agentId: string;
+  requiredCapabilities: string[];
+  availableCapabilities: string[];
+  gaps: CapabilityGap[];
+  overallReadiness: number;
+  recommendation: 'proceed' | 'augment' | 'delegate' | 'block';
+}
+
+export interface CapabilityGap {
+  capability: string;
+  severity: 'minor' | 'major' | 'critical';
+  alternatives: string[];
+  workaround?: string;
+}
+
+// Agent entity interface (TypeORM)
+export interface AgentEntity {
+  id: string;
+  name: string;
+  role: string;
+  persona?: Record<string, unknown>;
+  intelligenceConfig?: Record<string, unknown>;
+  securityContext?: Record<string, unknown>;
+  configuration?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  isActive: boolean;
+  createdBy?: string;
+  lastActiveAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  modelId?: string;
+  apiType?: string;
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
+  skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
+  capabilities?: string[];
+  status?: string;
+}

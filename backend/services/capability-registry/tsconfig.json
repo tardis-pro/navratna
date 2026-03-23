@@ -6,15 +6,18 @@
     "rootDir": "./src",
     "paths": {
       "@/*": ["*"],
+      "@uaip/types": ["../../../../packages/shared-types/src"],
       "@uaip/types/*": ["../../../../packages/shared-types/src/*"],
+      "@uaip/utils": ["../../../../packages/shared-utils/src"],
       "@uaip/utils/*": ["../../../../packages/shared-utils/src/*"],
+      "@uaip/shared-services": ["../../../shared/services/src"],
       "@uaip/shared-services/*": ["../../../shared/services/src/*"],
+      "@uaip/middleware": ["../../../shared/middleware/src"],
       "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
+      "@uaip/config": ["../../../shared/config/src"],
       "@uaip/config/*": ["../../../shared/config/src/*"],
-      "@uaip/infra": ["../../../shared/infra/dist"],
-      "@uaip/infra/*": ["../../../shared/infra/dist/*"],
-      "typeorm": ["../../../shared/services/node_modules/typeorm"],
-      "typeorm/*": ["../../../shared/services/node_modules/typeorm/*"]
+      "@uaip/infra": ["../../../shared/infra/src"],
+      "@uaip/infra/*": ["../../../shared/infra/src/*"]
     }
   },
   "include": ["src/**/*"],

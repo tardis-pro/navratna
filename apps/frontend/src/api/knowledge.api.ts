@@ -5,84 +5,25 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
+import type {
+  KnowledgeItem,
+  KnowledgeUploadRequest,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResult,
+  KnowledgeRelation,
+  KnowledgeStats,
+  KnowledgeGraph,
+} from '@uaip/types';
 
-export interface KnowledgeItem {
-  id: string;
-  title: string;
-  content: string;
-  type: 'document' | 'concept' | 'entity' | 'relation';
-  category?: string;
-  tags?: string[];
-  embedding?: number[];
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-  createdBy?: string;
-}
-
-export interface KnowledgeUploadRequest {
-  title: string;
-  content: string;
-  type?: 'document' | 'concept' | 'entity' | 'relation';
-  category?: string;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-}
-
-export interface KnowledgeSearchRequest {
-  query: string;
-  type?: string;
-  category?: string;
-  tags?: string[];
-  limit?: number;
-  includeEmbeddings?: boolean;
-  similarityThreshold?: number;
-}
-
-export interface KnowledgeSearchResult {
-  item: KnowledgeItem;
-  score: number;
-  highlights?: string[];
-  relatedItems?: string[];
-}
-
-export interface KnowledgeRelation {
-  id: string;
-  fromId: string;
-  toId: string;
-  relationType: string;
-  strength?: number;
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-}
-
-export interface KnowledgeStats {
-  totalItems: number;
-  itemsByType: Record<string, number>;
-  itemsByCategory: Record<string, number>;
-  totalRelations: number;
-  recentUploads: number;
-  storageUsed: number;
-  topTags: Array<{
-    tag: string;
-    count: number;
-  }>;
-}
-
-export interface KnowledgeGraph {
-  nodes: Array<{
-    id: string;
-    label: string;
-    type: string;
-    properties?: Record<string, unknown>;
-  }>;
-  edges: Array<{
-    source: string;
-    target: string;
-    type: string;
-    properties?: Record<string, unknown>;
-  }>;
-}
+export type {
+  KnowledgeItem,
+  KnowledgeUploadRequest,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResult,
+  KnowledgeRelation,
+  KnowledgeStats,
+  KnowledgeGraph,
+};
 
 export const knowledgeAPI = {
   async upload(request: KnowledgeUploadRequest): Promise<KnowledgeItem> {

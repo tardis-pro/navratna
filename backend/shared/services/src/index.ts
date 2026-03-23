@@ -46,11 +46,6 @@ export { RedisCacheService, redisCacheService } from '@uaip/infra';
 // Unified Model Selection System (replaces distributed selection logic)
 export {
   ModelSelectionOrchestrator,
-  ModelSelectionRequest,
-  ModelSelectionResult,
-  FallbackChain,
-  ModelSelectionStrategy,
-  ModelSelectionContext,
   AgentSpecificStrategy,
   UserSpecificStrategy,
   PerformanceOptimizedStrategy,
@@ -58,6 +53,13 @@ export {
   SystemDefaultStrategy,
   UNIFIED_SYSTEM_DEFAULTS,
 } from './services/ModelSelectionOrchestrator';
+export type {
+  ModelSelectionRequest,
+  ModelSelectionResult,
+  FallbackChain,
+  ModelSelectionStrategy,
+  ModelSelectionContext,
+} from '@uaip/types';
 
 export {
   UnifiedModelSelectionFacade,
@@ -100,7 +102,7 @@ export type {
   TaskAssignmentRequest,
   TaskAssignmentSuggestion,
   TaskFilters,
-} from './services/task.service';
+} from '@uaip/types';
 export type { Project as TaskEntity } from './database/drizzle/schemas/control.schema';
 
 // Agent Intelligence Services
@@ -112,12 +114,12 @@ export { AgentTaskTypeResolver } from './services/AgentTaskTypeResolver';
 
 // Business Logic Services
 export { ToolManagementService } from './tool-management.service';
-export {
-  ToolExecutionService,
+export { ToolExecutionService } from './tool-execution.service';
+export type {
   ToolExecutionRequestEvent,
   ToolExecutionResponseEvent,
   ToolExecutionOptions,
-} from './tool-execution.service';
+} from '@uaip/types';
 export { OperationManagementService } from './operation-management.service';
 export { ProjectManagementService } from './project-management.service';
 export { ProjectLifecycleService } from './project-lifecycle.service';
@@ -161,10 +163,13 @@ export {
 // Tool Graph
 export { ToolGraphDatabase } from './database/toolGraphDatabase';
 export type {
-  ToolRelationship,
+  ToolGraphRelationship,
   ToolRecommendation,
   UsagePattern,
-} from './database/toolGraphDatabase';
+  ToolUsageAnalyticsRecord,
+  AgentToolPreference,
+  PopularToolRecord,
+} from '@uaip/types';
 
 // Knowledge Graph Services
 export * from './knowledge-graph/index';
@@ -182,7 +187,7 @@ export { ThoughtParserService } from './cognitive/thought-parser.service';
 export { CritiqueService } from './cognitive/critique.service';
 export { DebateOrchestratorService } from './cognitive/debate-orchestrator.service';
 export { TaskDAGService } from './cognitive/taskDAG.service';
-export type { TaskNode, TaskDAG } from './cognitive/taskDAG.service';
+export type { TaskNode, TaskDAG } from '@uaip/types';
 export {
   matchTemplate,
   instantiateTemplate,
@@ -195,20 +200,20 @@ export type {
   MetaReasoningDecision,
   CapabilityGapResult,
   ErrorHistoryResult,
-} from './cognitive/metaReasoning.interceptor';
+} from '@uaip/types';
 export { CapabilityGapRadarService } from './cognitive/capabilityGapRadar.service';
-export type { CapabilityAssessment, CapabilityGap } from './cognitive/capabilityGapRadar.service';
+export type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
 export { ConfidenceGatedExecutionService } from './cognitive/confidenceGatedExecution.service';
 export type {
   ExecutionGate,
   ConfidenceProfile,
-} from './cognitive/confidenceGatedExecution.service';
+} from '@uaip/types';
 export { ExplanationDAGService } from './cognitive/explanationDAG.service';
 export type {
   ReasoningNode,
   ReasoningEdge,
   ExplanationDAG,
-} from './cognitive/explanationDAG.service';
+} from '@uaip/types';
 
 // =============================================================================
 // ENTITIES

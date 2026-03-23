@@ -1,88 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
 import { KnowledgeType, SourceType, KnowledgeItem } from '@uaip/types';
-import { ParsedConversation, ParsedMessage } from './chat-parser.service';
+import type {
+  ParsedConversation,
+  ParsedMessage,
+  ChatChatConversationContext,
+  ExtractedKnowledge,
+  QAPair,
+  DecisionPoint,
+  ExpertiseArea,
+  LearningMoment,
+  KnowledgeExtractionResult,
+} from '@uaip/types';
 import { ContentClassifier } from './content-classifier.service';
 import { EmbeddingService } from './embedding.service';
 
-export interface ConversationContext {
-  conversationId: string;
-  participantCount: number;
-  messageIndex: number;
-  totalMessages: number;
-  timeRange: { start: Date; end: Date };
-  platform: string;
-}
-
-export interface ExtractedKnowledge {
-  content: string;
-  type: KnowledgeType;
-  confidence: number;
-  context: ConversationContext;
-  tags: string[];
-  metadata: {
-    extractionMethod: string;
-    sourceMessages: string[];
-    participants: string[];
-    domain?: string;
-  };
-}
-
-export interface QAPair {
-  id: string;
-  question: string;
-  answer: string;
-  context: ConversationContext;
-  confidence: number;
-  tags: string[];
-  participants: { questioner: string; answerer: string };
-}
-
-export interface DecisionPoint {
-  id: string;
-  decision: string;
-  reasoning: string[];
-  alternatives: string[];
-  outcome?: string;
-  context: ConversationContext;
-  confidence: number;
-  participants: string[];
-}
-
-export interface ExpertiseArea {
-  domain: string;
-  participant: string;
-  evidenceMessages: string[];
-  confidence: number;
-  skills: string[];
-  context: ConversationContext;
-}
-
-export interface LearningMoment {
-  id: string;
-  learner: string;
-  teacher: string;
-  topic: string;
-  content: string;
-  learningType: 'explanation' | 'correction' | 'guidance' | 'example' | 'discovery';
-  context: ConversationContext;
-  confidence: number;
-}
-
-export interface KnowledgeExtractionResult {
-  extractedKnowledge: ExtractedKnowledge[];
-  qaPairs: QAPair[];
-  decisionPoints: DecisionPoint[];
-  expertiseAreas: ExpertiseArea[];
-  learningMoments: LearningMoment[];
-  extractionMetrics: {
-    totalMessagesProcessed: number;
-    knowledgeItemsExtracted: number;
-    avgConfidence: number;
-    processingTime: number;
-    extractionMethods: Record<string, number>;
-  };
-}
+export type { ChatChatConversationContext, ExtractedKnowledge, QAPair, DecisionPoint, ExpertiseArea, LearningMoment, KnowledgeExtractionResult } from '@uaip/types';
 
 export class ChatKnowledgeExtractorService {
   private readonly factPatterns = [
@@ -153,7 +86,7 @@ export class ChatKnowledgeExtractorService {
 
     try {
       for (const conversation of conversations) {
-        const context = this.createConversationContext(conversation);
+        const context = this.createChatConversationContext(conversation);
 
         // Filter by domains if specified
         if (options?.domains && options.domains.length > 0) {
@@ -266,7 +199,7 @@ export class ChatKnowledgeExtractorService {
 
   async extractFacts(
     messages: ParsedMessage[],
-    context: ConversationContext
+    context: ChatConversationContext
   ): Promise<ExtractedKnowledge[]> {
     const facts: ExtractedKnowledge[] = [];
 
@@ -309,7 +242,7 @@ export class ChatKnowledgeExtractorService {
 
   async extractProcedures(
     messages: ParsedMessage[],
-    context: ConversationContext
+    context: ChatConversationContext
   ): Promise<ExtractedKnowledge[]> {
     const procedures: ExtractedKnowledge[] = [];
     const steps: string[] = [];
@@ -366,7 +299,7 @@ export class ChatKnowledgeExtractorService {
 
   async extractQuestionAnswerPairs(
     messages: ParsedMessage[],
-    context: ConversationContext
+    context: ChatConversationContext
   ): Promise<QAPair[]> {
     const qaPairs: QAPair[] = [];
 
@@ -406,7 +339,7 @@ export class ChatKnowledgeExtractorService {
 
   async extractDecisions(
     messages: ParsedMessage[],
-    context: ConversationContext
+    context: ChatConversationContext
   ): Promise<DecisionPoint[]> {
     const decisions: DecisionPoint[] = [];
 
@@ -444,7 +377,7 @@ export class ChatKnowledgeExtractorService {
 
   async extractExpertise(
     conversation: ParsedConversation,
-    context: ConversationContext
+    context: ChatConversationContext
   ): Promise<ExpertiseArea[]> {
     const expertiseMap = new Map<
       string,
@@ -499,7 +432,7 @@ export class ChatKnowledgeExtractorService {
 
   async extractLearningMoments(
     messages: ParsedMessage[],
-    context: ConversationContext
+    context: ChatConversationContext
   ): Promise<LearningMoment[]> {
     const learningMoments: LearningMoment[] = [];
 
@@ -541,7 +474,7 @@ export class ChatKnowledgeExtractorService {
 
   // Helper methods
 
-  private createConversationContext(conversation: ParsedConversation): ConversationContext {
+  private createChatConversationContext(conversation: ParsedConversation): ChatConversationContext {
     return {
       conversationId: conversation.id,
       participantCount: conversation.participants.length,

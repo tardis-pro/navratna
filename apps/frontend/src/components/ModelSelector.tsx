@@ -12,7 +12,7 @@ import { _RadioGroup, _RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { _Brain, _Sparkles, _Zap, Cpu, Server, LucideIcon, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { _getModelServiceConfig } from '@/config/modelConfig';
+import { _getModelServiceConfig, ServiceConfig } from '@/config/modelConfig';
 
 export interface ModelOption {
   id: string;
@@ -21,19 +21,6 @@ export interface ModelOption {
   source?: string;
   apiEndpoint?: string;
   apiType?: 'llmstudio' | 'ollama';
-}
-
-export interface ServiceConfig {
-  llmStudio: {
-    baseUrls: string[];
-    modelsPath?: string;
-    chatPath?: string;
-  };
-  ollama: {
-    baseUrls: string[];
-    modelsPath?: string;
-    generatePath?: string;
-  };
 }
 
 interface ModelSelectorProps {

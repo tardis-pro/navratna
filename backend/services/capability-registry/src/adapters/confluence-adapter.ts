@@ -6,7 +6,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '@uaip/utils';
-import { ToolDefinition } from '../services/enterprise-tool-registry.js';
+import type { ToolDefinition } from '../types/tool-definition.js';
 
 interface ConfluenceCreatePageParams {
   type?: string;

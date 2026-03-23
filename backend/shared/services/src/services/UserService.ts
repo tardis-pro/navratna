@@ -7,7 +7,6 @@ import { LLMProviderRepository } from '../database/repositories/LLMProviderRepos
 import { UserLLMProviderRepository } from '../database/repositories/UserLLMProviderRepository';
 import { UserLLMPreferenceRepository } from '../database/repositories/UserLLMPreferenceRepository';
 import { UserContactRepository } from '../database/repositories/UserContactRepository';
-import { TypeOrmService } from '../typeormService';
 import { UserEntity } from '../entities/user.entity';
 import { RefreshTokenEntity } from '../entities/refreshToken.entity';
 import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';

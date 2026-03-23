@@ -5,6 +5,7 @@
  */
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { createLogger } from '@uaip/utils';
+import type { QdrantServiceConfig } from '@uaip/types';
 
 const logger = createLogger({
   serviceName: 'qdrant-service',
@@ -12,14 +13,7 @@ const logger = createLogger({
   logLevel: process.env.LOG_LEVEL || 'info',
 });
 
-export interface QdrantServiceConfig {
-  host: string;
-  port: number;
-  apiKey?: string;
-  collection: string;
-  dimension: number;
-  waitUntilReady?: boolean;
-}
+export type { QdrantServiceConfig };
 
 export class QdrantService {
   private client: QdrantClient;

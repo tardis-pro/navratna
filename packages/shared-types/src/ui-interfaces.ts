@@ -1,17 +1,7 @@
-/**
- * UI-Specific Interfaces
- * These types are purely frontend/UI related and don't belong in shared types
- */
+import type { Operation } from './operation.js';
+import type { Capability } from './capability.js';
+import type { ApprovalWorkflow as SharedApprovalWorkflow } from './security.js';
 
-import type {
-  Operation,
-  _OperationStatus,
-  _OperationPriority,
-  Capability,
-  ApprovalWorkflow as SharedApprovalWorkflow,
-} from '@uaip/types';
-
-// Enhanced frontend-specific interfaces
 export interface EnhancedAgentState {
   id: string;
   name: string;
@@ -42,9 +32,7 @@ export interface EnhancedAgentState {
   };
 }
 
-// Frontend-specific operation interface (extends shared Operation with UI properties)
 export interface UIOperation extends Operation {
-  progress?: number;
   startTime?: Date;
   endTime?: Date;
   name?: string;
@@ -52,9 +40,7 @@ export interface UIOperation extends Operation {
   actualDuration?: number;
 }
 
-// Frontend-specific capability interface (extends shared Capability with UI properties)
 export interface UICapability extends Capability {
-  // UI-specific extensions can be added here
   lastUsed?: Date;
   usageCount?: number;
   agentId?: string;
@@ -63,16 +49,13 @@ export interface UICapability extends Capability {
   version?: string;
 }
 
-// Frontend-specific approval workflow interface
 export interface UIApprovalWorkflow extends SharedApprovalWorkflow {
-  // UI-specific extensions for frontend display
   operationType?: string;
   description?: string;
   riskLevel?: 'low' | 'medium' | 'high' | 'critical';
   requestedBy?: string;
 }
 
-// Agent capability metrics for UI display
 export interface AgentCapabilityMetrics {
   id: string;
   agentId: string;
@@ -104,8 +87,7 @@ export interface AgentCapabilityMetrics {
   timestamp: Date;
 }
 
-// Security context for UI
-export interface SecurityContext {
+export interface UISecurityContext {
   userId: string;
   permissions: string[];
   securityLevel: 'basic' | 'standard' | 'elevated' | 'admin';
@@ -113,8 +95,7 @@ export interface SecurityContext {
   auditRequired: boolean;
 }
 
-// Operation events for UI
-export interface OperationEvent {
+export interface UIOperationEvent {
   id: string;
   operationId: string;
   type: 'started' | 'progress' | 'completed' | 'failed' | 'cancelled' | 'paused';
@@ -124,8 +105,7 @@ export interface OperationEvent {
   severity: 'info' | 'warning' | 'error' | 'critical';
 }
 
-// System metrics for dashboard
-export interface SystemMetrics {
+export interface UISystemMetrics {
   timestamp: Date;
   performance: {
     cpu: number;
@@ -152,7 +132,6 @@ export interface SystemMetrics {
   };
 }
 
-// Tool integration status for UI
 export interface ToolIntegration {
   id: string;
   name: string;
@@ -169,7 +148,6 @@ export interface ToolIntegration {
   };
 }
 
-// AI insights for dashboard
 export interface AIInsight {
   id: string;
   type: 'pattern' | 'optimization' | 'risk' | 'opportunity' | 'anomaly';
@@ -184,8 +162,7 @@ export interface AIInsight {
   status: 'new' | 'acknowledged' | 'acted_upon' | 'dismissed';
 }
 
-// Conversation context for UI
-export interface ConversationContext {
+export interface UIConversationContext {
   id: string;
   agentId: string;
   userId: string;
@@ -199,7 +176,6 @@ export interface ConversationContext {
   status: 'active' | 'paused' | 'completed' | 'archived';
 }
 
-// Capability usage statistics for UI
 export interface CapabilityUsage {
   capabilityId: string;
   name: string;
@@ -211,8 +187,7 @@ export interface CapabilityUsage {
   userSatisfaction: number;
 }
 
-// WebSocket events for real-time UI updates
-export interface WebSocketEvent {
+export interface UIWebSocketEvent {
   type:
     | 'operation_update'
     | 'agent_status'
@@ -223,7 +198,6 @@ export interface WebSocketEvent {
   timestamp: Date;
 }
 
-// UI state management
 export interface UIState {
   activePanel: string;
   selectedAgent?: string;
@@ -244,7 +218,6 @@ export interface UIState {
   };
 }
 
-// UI error handling
 export interface UIError {
   id: string;
   type: 'api_error' | 'websocket_error' | 'validation_error' | 'permission_error';
@@ -254,7 +227,6 @@ export interface UIError {
   resolved: boolean;
 }
 
-// Generic data state for UI components
 export interface DataState<T> {
   data: T;
   isLoading: boolean;

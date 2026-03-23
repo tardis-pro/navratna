@@ -1,87 +1,19 @@
 import { APIClient } from './client';
+import type {
+  TaskFilters,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+  TaskAssignmentRequest,
+  TaskProgressUpdate,
+} from '@uaip/types';
 
-// Types
-export interface TaskFilters {
-  status?: string | string[];
-  priority?: string | string[];
-  type?: string | string[];
-  assigneeType?: 'human' | 'agent';
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  createdBy?: string;
-  epic?: string;
-  sprint?: string;
-  tags?: string[];
-  labels?: string[];
-  dueDateBefore?: Date;
-  dueDateAfter?: Date;
-  isOverdue?: boolean;
-  isBlocked?: boolean;
-  search?: string;
-}
-
-export interface CreateTaskRequest {
-  title: string;
-  description?: string;
-  projectId: string;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  type?:
-    | 'feature'
-    | 'bug'
-    | 'enhancement'
-    | 'research'
-    | 'documentation'
-    | 'testing'
-    | 'deployment'
-    | 'maintenance';
-  assigneeType?: 'human' | 'agent';
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  dueDate?: string;
-  tags?: string[];
-  labels?: string[];
-  epic?: string;
-  sprint?: string;
-  estimatedHours?: number;
-  customFields?: Record<string, unknown>;
-}
-
-export interface UpdateTaskRequest {
-  title?: string;
-  description?: string;
-  status?: 'todo' | 'in_progress' | 'in_review' | 'blocked' | 'completed' | 'cancelled';
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
-  type?:
-    | 'feature'
-    | 'bug'
-    | 'enhancement'
-    | 'research'
-    | 'documentation'
-    | 'testing'
-    | 'deployment'
-    | 'maintenance';
-  assigneeType?: 'human' | 'agent';
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  dueDate?: string;
-  tags?: string[];
-  labels?: string[];
-  epic?: string;
-  sprint?: string;
-  customFields?: Record<string, unknown>;
-}
-
-export interface TaskAssignmentRequest {
-  assigneeType: 'human' | 'agent';
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  reason?: string;
-}
-
-export interface TaskProgressUpdate {
-  completionPercentage: number;
-  timeSpent?: number;
-}
+export type {
+  TaskFilters,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+  TaskAssignmentRequest,
+  TaskProgressUpdate,
+};
 
 // API Functions
 export const tasksApi = {

@@ -5,81 +5,17 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { ProjectStatus, ProjectMemberRole, ProjectType } from '@uaip/types/project';
+import type { ProjectStatus, ProjectMemberRole, ProjectType } from '@uaip/types';
+import type {
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  ProjectMember,
+  ProjectFile,
+  ProjectListOptions,
+} from '@uaip/types';
 
-export interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  ownerId: string;
-  status: ProjectStatus;
-  type: ProjectType;
-  visibility: 'public' | 'private' | 'internal';
-  recommendedAgents?: string[];
-  settings: {
-    allowedTools: string[];
-    enabledFeatures: string[];
-    [key: string]: unknown;
-  };
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProjectCreate {
-  name: string;
-  description?: string;
-  type: ProjectType;
-  visibility?: 'public' | 'private' | 'internal';
-  recommendedAgents?: string[];
-  settings?: unknown;
-  metadata?: unknown;
-}
-
-export interface ProjectUpdate {
-  name?: string;
-  description?: string;
-  status?: ProjectStatus;
-  type?: ProjectType;
-  visibility?: 'public' | 'private' | 'internal';
-  recommendedAgents?: string[];
-  settings?: unknown;
-  metadata?: unknown;
-}
-
-export interface ProjectMember {
-  id: string;
-  projectId: string;
-  userId: string;
-  role: ProjectMemberRole;
-  joinedAt: string;
-  user?: {
-    id: string;
-    email: string;
-    name?: string;
-  };
-}
-
-export interface ProjectFile {
-  id: string;
-  projectId: string;
-  path: string;
-  content?: string;
-  type: string;
-  metadata?: unknown;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProjectListOptions {
-  page?: number;
-  limit?: number;
-  status?: ProjectStatus;
-  visibility?: 'public' | 'private' | 'internal';
-  ownerId?: string;
-  memberId?: string;
-  search?: string;
-}
+export type { Project, ProjectCreate, ProjectUpdate, ProjectMember, ProjectFile, ProjectListOptions };
 
 export const projectsAPI = {
   async list(options?: ProjectListOptions): Promise<Project[]> {

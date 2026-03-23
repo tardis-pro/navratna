@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import type { APIKeyContext } from '@uaip/types';
+import type { APIKeyContext, APIKey } from '@uaip/types';
 
 interface APIKeyConfig {
   headerName?: string;
@@ -10,21 +10,6 @@ interface APIKeyConfig {
   skipPaths?: string[];
   allowedServices?: string[];
   keyPrefix?: string;
-}
-
-export interface APIKey {
-  id: string;
-  name: string;
-  serviceName: string;
-  keyHash: string;
-  permissions: string[];
-  scopes: string[];
-  isActive: boolean;
-  createdAt: Date;
-  lastUsedAt?: Date;
-  expiresAt?: Date;
-  ipRestrictions?: string[];
-  rateLimitOverride?: number;
 }
 
 export type { APIKeyContext };

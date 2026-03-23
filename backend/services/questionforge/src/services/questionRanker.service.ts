@@ -1,29 +1,6 @@
 import { logger } from '@uaip/utils';
 import { Question, QuestionCategory, QuestionPhase, Assumption, Contradiction } from '@uaip/types';
-
-// ---------------------------------------------------------------------------
-// Scoring interfaces
-// ---------------------------------------------------------------------------
-
-export interface QuestionScore {
-  questionId: string;
-  totalScore: number;
-  breakdown: {
-    decisionLeverage: number;
-    stakeholderRelevance: number;
-    assumptionCoverage: number;
-    uniqueness: number;
-    urgency: number;
-  };
-}
-
-export interface RankingConfig {
-  weights?: Partial<Record<keyof QuestionScore['breakdown'], number>>;
-  stakeholderFilter?: string;
-  phaseFilter?: QuestionPhase;
-  limit?: number;
-  minScore?: number;
-}
+import type { QuestionScore, RankingConfig } from '@uaip/types';
 
 // ---------------------------------------------------------------------------
 // Constants

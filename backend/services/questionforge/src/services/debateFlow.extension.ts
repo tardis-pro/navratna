@@ -7,50 +7,13 @@ import {
   QuestionCategory,
   QuestionPhase,
   QuestionStatus,
+  CouncilDebateConfig,
+  CouncilAgentAnalysis,
+  Round2Challenge,
+  CouncilDebateResult,
 } from '@uaip/types';
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
-
-export interface CouncilDebateConfig {
-  projectBriefId: string;
-  normalizedBrief: unknown; // NormalizedBrief from inputNormalizer
-  agentPersonaIds: string[]; // 8 persona IDs
-  maxQuestionsPerAgent?: number; // default 10
-}
-
-export interface AgentAnalysis {
-  agentId: string;
-  agentRole: string;
-  observedAssumptions: string[];
-  hiddenAssumptions: string[];
-  strongestRisks: Array<{ risk: string; severity: 'low' | 'medium' | 'high' | 'critical' }>;
-  missingFromOthers: string[];
-  questions: Array<{
-    text: string;
-    confidence: number;
-    whyItMatters: string;
-    dependentDecision: string;
-    targetStakeholder?: string;
-  }>;
-}
-
-export interface Round2Challenge {
-  challengerId: string;
-  targetId: string;
-  challenge: string;
-  mergedQuestions: string[];
-  escalatedBlockers: string[];
-}
-
-export interface CouncilDebateResult {
-  debateId: string;
-  round1Analyses: AgentAnalysis[];
-  round2Challenges: Round2Challenge[];
-  synthesizedQuestions: Question[];
-  contradictions: Contradiction[];
-  consensusPoints: string[];
-  unresolvedDisagreements: string[];
-}
+export type AgentAnalysis = CouncilAgentAnalysis;
 
 // ─── Agent role map for prompt context ────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { TaskNode, TaskDAG } from './taskDAG.service';
+import type { TaskNode, TaskDAG } from '@uaip/types';
 
 // ============================================================================
 // Workflow Template Interface

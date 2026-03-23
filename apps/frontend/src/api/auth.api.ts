@@ -5,59 +5,17 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
-import type { UserRole } from '@uaip/types';
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  token: string;
-  refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    name?: string;
-    role: UserRole;
-  };
-}
-
-export interface RefreshTokenResponse {
-  token: string;
-  refreshToken: string;
-}
-
-export interface ResetPasswordRequest {
-  email: string;
-}
-
-export interface ResetPasswordConfirm {
-  token: string;
-  newPassword: string;
-}
-
-export interface ChangePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name?: string;
-  organizationName?: string;
-}
-
-export interface RegisterResponse {
-  user: {
-    id: string;
-    email: string;
-    name?: string;
-    role: UserRole;
-  };
-  message: string;
-}
+import type {
+  UserRole,
+  LoginCredentials,
+  LoginResponse,
+  RefreshTokenResponse,
+  ResetPasswordRequest,
+  ResetPasswordConfirm,
+  ChangePasswordRequest,
+  RegisterRequest,
+  RegisterResponse,
+} from '@uaip/types';
 
 export const authAPI = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {

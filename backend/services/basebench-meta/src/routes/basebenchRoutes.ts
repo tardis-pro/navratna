@@ -10,7 +10,7 @@ import type {
   BaseBenchCaseEvaluationRequest,
   BaseBenchModelOutput,
   BaseBenchTestCase,
-} from '../services/basebenchTypes.js';
+} from '@uaip/types';
 
 import { BaseBenchMetaService } from '../services/basebenchMeta.service.js';
 

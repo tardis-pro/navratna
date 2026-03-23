@@ -1,35 +1,6 @@
 import { getControlPool } from '../database/drizzle/clients/index';
 import { logger } from '@uaip/utils';
-
-export interface MCPJobRequest {
-  serverId: string;
-  toolName: string;
-  parameters: Record<string, unknown>;
-  agentId?: string;
-  userId?: string;
-  conversationId?: string;
-  operationId?: string;
-  sessionId?: string;
-  securityLevel?: 'low' | 'medium' | 'high' | 'critical';
-  approvalRequired?: boolean;
-  timeoutSeconds?: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface MCPJobResult {
-  success: boolean;
-  result?: Record<string, unknown>;
-  error?: string;
-  errorCode?: string;
-  errorCategory?: string;
-  executionTimeMs?: number;
-  resourceUsage?: {
-    memoryUsageMb?: number;
-    cpuUsagePercent?: number;
-    networkBytesSent?: number;
-    networkBytesReceived?: number;
-  };
-}
+import type { MCPJobRequest, MCPJobResult } from '@uaip/types';
 
 export class MCPService {
   private static instance: MCPService;

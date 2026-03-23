@@ -1,89 +1,15 @@
-import { APIClient } from './index';
+import { APIClient } from './client';
+import type {
+  UserPersonaData,
+  OnboardingProgress,
+  BehavioralPatterns,
+  UserPersonaUpdate,
+  UserPersonaResponse,
+  PersonaRecommendations,
+  PersonaInsights,
+} from '@uaip/types';
 
-export interface UserPersonaData {
-  workStyle: 'collaborative' | 'independent' | 'hybrid';
-  communicationPreference: 'brief' | 'detailed' | 'visual';
-  domainExpertise: string[];
-  toolPreferences: string[];
-  workflowStyle: 'structured' | 'flexible' | 'experimental';
-  problemSolvingApproach: 'analytical' | 'creative' | 'pragmatic';
-  decisionMaking: 'quick' | 'deliberate' | 'consensus';
-  learningStyle: 'hands-on' | 'theoretical' | 'collaborative';
-  timeManagement: 'deadline-driven' | 'flexible' | 'time-blocked';
-  riskTolerance: 'conservative' | 'moderate' | 'aggressive';
-}
-
-export interface OnboardingProgress {
-  isCompleted: boolean;
-  currentStep: number;
-  completedSteps: string[];
-  startedAt?: Date;
-  completedAt?: Date;
-  responses: Record<string, unknown>;
-}
-
-export interface BehavioralPatterns {
-  sessionDuration: number;
-  activeHours: string[];
-  frequentlyUsedTools: string[];
-  preferredAgents: string[];
-  workflowPatterns: string[];
-  interactionStyle: 'direct' | 'exploratory' | 'methodical';
-  feedbackPreference: 'immediate' | 'summary' | 'detailed';
-}
-
-export interface UserPersonaUpdate {
-  personaData?: Partial<UserPersonaData>;
-  onboardingProgress?: Partial<OnboardingProgress>;
-  behavioralPatterns?: Partial<BehavioralPatterns>;
-}
-
-export interface UserPersonaResponse {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  userPersona?: UserPersonaData;
-  onboardingProgress?: OnboardingProgress;
-  behavioralPatterns?: BehavioralPatterns;
-  updatedAt: string;
-}
-
-export interface PersonaRecommendations {
-  recommendedTools: Array<{
-    id: string;
-    name: string;
-    reason: string;
-    priority: 'high' | 'medium' | 'low';
-  }>;
-  recommendedAgents: Array<{
-    id: string;
-    name: string;
-    reason: string;
-    compatibility: number;
-  }>;
-  workflowSuggestions: Array<{
-    id: string;
-    title: string;
-    description: string;
-    steps: string[];
-  }>;
-  uiCustomizations: {
-    layout: string;
-    density: 'compact' | 'comfortable' | 'spacious';
-    theme: 'default' | 'focus' | 'creative';
-    notifications: 'minimal' | 'standard' | 'detailed';
-  };
-}
-
-export interface PersonaInsights {
-  completionRate: number;
-  strongestTraits: string[];
-  growthAreas: string[];
-  personalityType: string;
-  workStyleMatch: number;
-  recommendations: PersonaRecommendations;
-}
+export type { UserPersonaData, OnboardingProgress, BehavioralPatterns, UserPersonaUpdate, UserPersonaResponse, PersonaRecommendations, PersonaInsights };
 
 class UserPersonaAPI {
   // Get current user's persona data

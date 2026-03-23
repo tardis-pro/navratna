@@ -7,9 +7,9 @@ import {
   DecisionPoint,
   KnowledgeExtractionResult,
 } from './chat-knowledge-extractor.service.js';
-import { KnowledgeGraphService } from './knowledge-graph.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeIngestRequest, SourceType } from '@uaip/types';
+import { KnowledgeIngestionPort } from '@uaip/shared-services';
 
 export interface FileData {
   id: string;
@@ -65,12 +65,12 @@ export class BatchProcessorService {
   private jobs: Map<string, BatchJob> = new Map();
   private readonly DEFAULT_BATCH_SIZE = 5;
   private readonly DEFAULT_CONCURRENCY = 3;
-  private readonly MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+  private readonly MAX_FILE_SIZE = 50 * 1024 * 1024;
 
   constructor(
     private chatParser: ChatParserService,
     private knowledgeExtractor: ChatKnowledgeExtractorService,
-    private knowledgeGraph: KnowledgeGraphService
+    private knowledgeGraph: KnowledgeIngestionPort
   ) {}
 
   async startBatchJob(files: FileData[], options: ProcessingOptions = {}): Promise<string> {

@@ -21,6 +21,7 @@
     "@uaip/utils": "workspace:*",
     "bcryptjs": "^3.0.3",
     "cors": "catalog:backend",
+    "drizzle-orm": "^0.45.1",
     "helmet": "catalog:backend",
     "qrcode": "catalog:backend",
     "zod": "catalog:"

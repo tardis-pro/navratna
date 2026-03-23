@@ -2,24 +2,7 @@ import { getControlDb, getIntelligenceDb, getControlPool, getIntelligencePool } 
 import { sql } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-
-
-export interface IRepository<T> {
-  findById(id: string): Promise<T | null>;
-  findMany(conditions?: Record<string, unknown>, options?: FindManyOptions): Promise<T[]>;
-  create(data: Record<string, unknown>): Promise<T>;
-  update(id: string, data: Record<string, unknown>): Promise<T | null>;
-  delete(id: string): Promise<boolean>;
-  count(conditions?: Record<string, unknown>): Promise<number>;
-  batchCreate(records: Record<string, unknown>[]): Promise<T[]>;
-}
-
-export interface FindManyOptions {
-  orderBy?: Record<string, 'ASC' | 'DESC'>;
-  limit?: number;
-  offset?: number;
-  relations?: string[];
-}
+import type { IRepository, FindManyOptions } from '@uaip/types';
 
 export abstract class BaseRepository<T extends Record<string, unknown>> implements IRepository<T> {
   protected abstract get tableName(): string;

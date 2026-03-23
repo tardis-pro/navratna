@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolUsageRecord, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolRelationship, ToolRecommendation, ToolService } from '@uaip/shared-services';
+import { ToolGraphRelationship, ToolRecommendation, ToolService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';

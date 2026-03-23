@@ -1,34 +1,7 @@
 import { randomUUID } from 'crypto';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-
-export interface NormalizedBrief {
-  projectName: string;
-  rawInput: string;
-  goals: Array<{ description: string; priority: 'high' | 'medium' | 'low'; stakeholder?: string }>;
-  actors: Array<{ name: string; role: string; responsibilities: string[] }>;
-  assumptions: Array<{
-    content: string;
-    confidence: number;
-    source: string;
-    stakeholder?: string;
-  }>;
-  constraints: Array<{
-    description: string;
-    type: 'technical' | 'business' | 'legal' | 'timeline' | 'resource';
-    severity: 'hard' | 'soft';
-  }>;
-  successMetrics: Array<{ metric: string; target?: string; measurement?: string }>;
-  missingInformation: string[];
-  contradictions: Array<{ itemA: string; itemB: string; description: string }>;
-  domainTerms: Array<{ term: string; definition?: string; context: string }>;
-  metadata: {
-    inputType: 'brief' | 'notes' | 'transcript' | 'prd' | 'requirements' | 'mixed';
-    wordCount: number;
-    processedAt: Date;
-    confidence: number;
-  };
-}
+import type { NormalizedBrief } from '@uaip/types';
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a structured data extraction engine. Given a project brief, notes, or transcript, extract the following information and return it as valid JSON only — no markdown, no explanation, no wrapping.
 

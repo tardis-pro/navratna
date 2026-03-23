@@ -1,29 +1,9 @@
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
 import { ResourceUsage } from '@uaip/types';
+import type { ResourceLimits, ResourceAllocation, ResourceAvailabilityCheck } from '@uaip/types';
 
-export interface ResourceLimits {
-  maxMemory: number;
-  maxCpu: number;
-  maxDuration: number;
-}
-
-export interface ResourceAllocation {
-  operationId: string;
-  allocatedAt: Date;
-  limits: ResourceLimits;
-  currentUsage: ResourceUsage;
-  released: boolean;
-}
-
-export interface ResourceAvailabilityCheck {
-  available: boolean;
-  reason?: string;
-  availableResources?: {
-    memory: number;
-    cpu: number;
-  };
-}
+export type { ResourceLimits, ResourceAllocation, ResourceAvailabilityCheck };
 
 export class ResourceManagerService extends EventEmitter {
   private allocatedResources = new Map<string, ResourceAllocation>();

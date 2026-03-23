@@ -175,3 +175,55 @@ export const UserPreferencesSchema = z.object({
 });
 
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+// ===== ENTITY INTERFACES (for TypeORM/repositories) =====
+
+export interface UserEntity {
+  id: string;
+  email: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  department?: string;
+  role: string;
+  passwordHash?: string;
+  isActive: boolean;
+  isOAuthUser?: boolean;
+  securityClearance?: SecurityLevel;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RefreshTokenEntity {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: Date;
+  createdAt: Date;
+  revokedAt?: Date;
+  revokedBy?: string;
+}
+
+export interface PasswordResetTokenEntity {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: Date;
+  createdAt: Date;
+  usedAt?: Date;
+}
+
+export interface UserLLMPreferenceEntity {
+  id: string;
+  userId: string;
+  providerId?: string;
+  modelId?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  isDefault?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

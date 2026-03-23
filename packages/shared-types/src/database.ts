@@ -386,3 +386,62 @@ export const SYSTEM_DISCUSSION_IDS = {
   REMOTE_WORK: '50000000-0000-0000-0000-000000000002',
   ARCHITECTURE_REVIEW: '50000000-0000-0000-0000-000000000003',
 } as const;
+
+// ============================================================================
+// Repository Interfaces (moved from backend/shared/services)
+// ============================================================================
+
+export interface IRepository<T = Record<string, unknown>> {
+  findById(id: string): Promise<T | null>;
+  findMany(conditions?: Record<string, unknown>, options?: FindManyOptions): Promise<T[]>;
+  create(data: Record<string, unknown>): Promise<T>;
+  update(id: string, data: Record<string, unknown>): Promise<T | null>;
+  delete(id: string): Promise<boolean>;
+  count(conditions?: Record<string, unknown>): Promise<number>;
+  batchCreate(records: Record<string, unknown>[]): Promise<T[]>;
+}
+
+export interface FindManyOptions {
+  orderBy?: Record<string, 'ASC' | 'DESC'>;
+  limit?: number;
+  offset?: number;
+  relations?: string[];
+}
+
+// ============================================================================
+// Infrastructure Service Types (moved from backend/shared/infra)
+// ============================================================================
+
+export interface QdrantServiceConfig {
+  host: string;
+  port: number;
+  apiKey?: string;
+  collection: string;
+  dimension: number;
+  waitUntilReady?: boolean;
+}
+
+export interface ToolGraphDatabaseConfig {
+  uri: string;
+  username: string;
+  password: string;
+  database?: string;
+}
+
+export interface ToolNode {
+  id: string;
+  name: string;
+  category: string;
+  tags: string[];
+  capabilities: string[];
+  version?: string;
+  description?: string;
+}
+
+export interface ToolRelationship {
+  sourceToolId: string;
+  targetToolId: string;
+  relationshipType: 'DEPENDS_ON' | 'SIMILAR_TO' | 'COMPLEMENTS' | 'REPLACES' | 'ALTERNATIVE_TO';
+  strength?: number;
+  metadata?: unknown;
+}

@@ -20,4 +20,4 @@ export { RepositoryFactory, repositoryFactory } from './base/RepositoryFactory';
 export * from './repositories/index';
 export * from './drizzle/schemas/intelligence.schema';
 export * from './drizzle/schemas/control.schema';
-export type { ToolRelationship, ToolRecommendation, UsagePattern } from './toolGraphDatabase';
+export { ToolGraphDatabase } from './toolGraphDatabase';

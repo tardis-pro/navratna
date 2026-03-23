@@ -11,37 +11,11 @@ import {
   generateSecureConnectionId,
 } from './websocket-security-utils.js';
 import { RedisSessionManager } from './redis-session-manager.js';
+import type { WebSocketConnection, IWebSocketHandler } from './websocket.types.js';
 
-export interface WebSocketConnection {
-  ws: WebSocket;
-  discussionId: string;
-  userId?: string;
-  participantId?: string;
-  isAlive: boolean;
-  lastPing: Date;
-  connectionId: string;
-  authenticated: boolean;
-  securityLevel: number;
-  messageCount: number;
-  lastActivity: Date;
-  rateLimitReset: number;
-}
+export { WebSocketConnection };
 
-// Message validation schemas
-const WebSocketMessageSchema = z.object({
-  type: z.string(),
-  data: z.record(z.unknown()).optional(),
-  messageId: z.string().optional(),
-});
-
-// Rate limiting constants
-const WS_RATE_LIMITS = {
-  MESSAGES_PER_MINUTE: 60,
-  MAX_MESSAGE_SIZE: 32768, // 32KB
-  MAX_CONNECTIONS_PER_USER: 5,
-};
-
-export class DiscussionWebSocketHandler {
+export class DiscussionWebSocketHandler implements IWebSocketHandler {
   private connections: Map<string, Set<WebSocketConnection>> = new Map();
   private connectionById: Map<string, WebSocketConnection> = new Map();
   private connectionTimers: Map<string, NodeJS.Timeout> = new Map();

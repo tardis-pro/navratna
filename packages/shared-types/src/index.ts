@@ -74,5 +74,7 @@ export * from './critique';
 export * from './debate';
 export * from './workspace.js';
 export * from './basebench';
-// Telescope Knowledge Surface types - NEW
+export type * from './frontend-api.js';
 export * from './telescope';
+export * from './microexpression';
+export * from './ui-interfaces';

@@ -1,17 +1,7 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
-
-export interface AgentGenerationRequest {
-  requestId: string;
-  agentId?: string;
-  messages: Array<{ content: string; sender?: string }>;
-  systemPrompt?: string;
-  maxTokens?: number;
-  temperature?: number;
-  model?: string;
-  provider?: string;
-}
+import type { AgentGenerationRequest } from '@uaip/types';
 
 export class AgentGenerationHandler {
   constructor(

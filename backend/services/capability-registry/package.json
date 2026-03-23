@@ -18,6 +18,7 @@
     "@mariozechner/pi-ai": "^0.55.3",
     "@mariozechner/pi-coding-agent": "^0.55.3",
     "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
     "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",

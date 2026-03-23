@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { ToolExecution as ToolExecutionType, ToolExecutionStatus } from '@uaip/types';
+import { ToolExecution as ToolExecutionType, ToolExecutionStatus, ToolExecutionOptions, ToolExecutionRequestEvent, ToolExecutionResponseEvent } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
@@ -20,41 +20,6 @@ interface ToolExecutionEntity {
   metadata?: Record<string, unknown>;
   createdAt?: Date;
   updatedAt?: Date;
-}
-
-export interface ToolExecutionOptions {
-  timeout?: number;
-  priority?: 'low' | 'normal' | 'high';
-  retryOnFailure?: boolean;
-  maxRetries?: number;
-}
-
-/**
- * Tool Execution Request Event Payload
- * Matches the format expected by ToolExecutionCoordinator in capability-registry
- */
-export interface ToolExecutionRequestEvent {
-  requestId: string;
-  toolId: string;
-  agentId: string;
-  parameters: Record<string, unknown>;
-  securityContext?: Record<string, unknown>;
-  timestamp: string;
-  idempotencyKey?: string;
-  correlationId?: string;
-}
-
-/**
- * Tool Execution Response Event Payload
- */
-export interface ToolExecutionResponseEvent {
-  requestId: string;
-  toolId: string;
-  status: 'SUCCESS' | 'ERROR';
-  result?: unknown;
-  error?: string;
-  executionTime: number;
-  metadata?: Record<string, unknown>;
 }
 
 /**

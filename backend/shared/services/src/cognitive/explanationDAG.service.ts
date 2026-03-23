@@ -1,37 +1,6 @@
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface ReasoningNode {
-  id: string;
-  type: 'observation' | 'inference' | 'assumption' | 'conclusion' | 'evidence' | 'uncertainty';
-  content: string;
-  confidence: number;
-  source?: string;
-  timestamp: Date;
-}
-
-export interface ReasoningEdge {
-  from: string;
-  to: string;
-  relationship: 'supports' | 'contradicts' | 'requires' | 'derives' | 'weakens';
-  strength: number; // 0-1
-}
-
-export interface ExplanationDAG {
-  id: string;
-  agentId: string;
-  taskId: string;
-  nodes: ReasoningNode[];
-  edges: ReasoningEdge[];
-  conclusion?: ReasoningNode;
-  overallConfidence: number;
-  uncertainties: ReasoningNode[];
-  createdAt: Date;
-}
+import type { ReasoningNode, ReasoningEdge, ExplanationDAG } from '@uaip/types';
 
 // ---------------------------------------------------------------------------
 // Constants

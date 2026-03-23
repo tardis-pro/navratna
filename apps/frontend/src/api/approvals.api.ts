@@ -6,81 +6,23 @@
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
 import type { RiskLevel } from '@uaip/types';
+import type {
+  ApprovalWorkflow,
+  ApprovalDecision,
+  ApprovalWorkflowCreate,
+  ApprovalDecisionRequest,
+  ApprovalStats,
+  ApprovalListOptions,
+} from '@uaip/types';
 
-export interface ApprovalWorkflow {
-  id: string;
-  resourceType: string;
-  resourceId: string;
-  action: string;
-  requesterId: string;
-  requesterName?: string;
-  riskLevel: RiskLevel;
-  reason?: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  requiredApprovals: number;
-  currentApprovals: number;
-  decisions: ApprovalDecision[];
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-  expiresAt?: string;
-}
-
-export interface ApprovalDecision {
-  id: string;
-  workflowId: string;
-  approverId: string;
-  approverName?: string;
-  decision: 'approve' | 'reject';
-  reason?: string;
-  timestamp: string;
-}
-
-export interface ApprovalWorkflowCreate {
-  resourceType: string;
-  resourceId: string;
-  action: string;
-  reason?: string;
-  metadata?: Record<string, unknown>;
-  expiresIn?: number; // minutes
-}
-
-export interface ApprovalDecisionRequest {
-  decision: 'approve' | 'reject';
-  reason?: string;
-}
-
-export interface ApprovalStats {
-  totalWorkflows: number;
-  pendingWorkflows: number;
-  approvedWorkflows: number;
-  rejectedWorkflows: number;
-  expiredWorkflows: number;
-  averageApprovalTime: number; // minutes
-  approvalsByRiskLevel: Record<RiskLevel, number>;
-  topRequesters: Array<{
-    userId: string;
-    userName?: string;
-    requestCount: number;
-  }>;
-  topApprovers: Array<{
-    userId: string;
-    userName?: string;
-    approvalCount: number;
-  }>;
-}
-
-export interface ApprovalListOptions {
-  page?: number;
-  limit?: number;
-  status?: 'pending' | 'approved' | 'rejected' | 'expired';
-  requesterId?: string;
-  approverId?: string;
-  resourceType?: string;
-  riskLevel?: RiskLevel;
-  sortBy?: 'createdAt' | 'updatedAt' | 'expiresAt';
-  sortOrder?: 'asc' | 'desc';
-}
+export type {
+  ApprovalWorkflow,
+  ApprovalDecision,
+  ApprovalWorkflowCreate,
+  ApprovalDecisionRequest,
+  ApprovalStats,
+  ApprovalListOptions,
+};
 
 export const approvalsAPI = {
   async create(workflow: ApprovalWorkflowCreate): Promise<ApprovalWorkflow> {

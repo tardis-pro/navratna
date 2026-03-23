@@ -11,39 +11,21 @@ import type {
   DiscussionParticipant,
   DiscussionMessage,
   DiscussionStatus,
-  _TurnStrategy,
-  _TurnStrategyConfig,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionAnalytics as SharedDiscussionAnalytics,
+  MessageRequest,
+  TurnRequest,
+  DiscussionListOptions,
 } from '@uaip/types';
 
 export type DiscussionCreate = CreateDiscussionRequest;
 
 export type DiscussionUpdate = UpdateDiscussionRequest;
 
-export interface MessageRequest {
-  content: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface TurnRequest {
-  participantId: string;
-  action: 'pass' | 'complete';
-  reason?: string;
-}
-
 export type DiscussionAnalytics = SharedDiscussionAnalytics;
 
-export interface DiscussionListOptions {
-  page?: number;
-  limit?: number;
-  status?: DiscussionStatus | DiscussionStatus[];
-  participantId?: string;
-  search?: string;
-  sortBy?: 'createdAt' | 'updatedAt' | 'title';
-  sortOrder?: 'asc' | 'desc';
-}
+export type { MessageRequest, TurnRequest, DiscussionListOptions };
 
 export const discussionsAPI = {
   async list(options?: DiscussionListOptions): Promise<Discussion[]> {

@@ -12,42 +12,14 @@ import type {
   PersonaRecommendation,
   PersonaTemplate,
 } from '@uaip/types';
+import type {
+  PersonaCreate,
+  PersonaUpdate,
+  PersonaSearchRequest,
+  PersonaListOptions,
+} from '@uaip/types';
 
-export interface PersonaCreate {
-  name: string;
-  description?: string;
-  traits?: Record<string, unknown>;
-  preferences?: Record<string, unknown>;
-  constraints?: Record<string, unknown>;
-  isActive?: boolean;
-}
-
-export interface PersonaUpdate {
-  name?: string;
-  description?: string;
-  traits?: Record<string, unknown>;
-  preferences?: Record<string, unknown>;
-  constraints?: Record<string, unknown>;
-  isActive?: boolean;
-}
-
-export interface PersonaSearchRequest {
-  query?: string;
-  tags?: string[];
-  traits?: Record<string, unknown>;
-  isActive?: boolean;
-  page?: number;
-  limit?: number;
-}
-
-export interface PersonaListOptions {
-  page?: number;
-  limit?: number;
-  isActive?: boolean;
-  search?: string;
-  sortBy?: 'name' | 'createdAt' | 'updatedAt';
-  sortOrder?: 'asc' | 'desc';
-}
+export type { PersonaCreate, PersonaUpdate, PersonaSearchRequest, PersonaListOptions };
 
 export const personasAPI = {
   async list(options?: PersonaListOptions): Promise<Persona[]> {

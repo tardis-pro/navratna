@@ -1085,8 +1085,8 @@ class AgentIntelligenceService extends BaseService {
 
         const responsePayload = {
           socketId,
-          userId: resolvedUserId,
-          agentId: resolvedAgentId,
+          agentId,
+          userId,
           messageId,
           response: result.response,
           agentName: resolvedAgentName,
@@ -1122,10 +1122,10 @@ class AgentIntelligenceService extends BaseService {
           (event.data as Record<string, unknown>)?.messageId
         ) {
           await this.eventBusService.publish('agent.chat.response', {
-            socketId: (event.data as Record<string, unknown>).socketId,
-            userId: (event.data as Record<string, unknown>).userId,
-            agentId: (event.data as Record<string, unknown>).agentId,
-            messageId: (event.data as Record<string, unknown>).messageId,
+            socketId: event.data.socketId,
+            agentId: event.data.agentId,
+            userId: event.data.userId,
+            messageId: event.data.messageId,
             response: 'Sorry, I encountered an error processing your request. Please try again.',
             agentName: `Agent ${(event.data as Record<string, unknown>).agentId}`,
             confidence: 0.0,

@@ -9,37 +9,12 @@ import {
   ApprovalStatus,
   SecurityLevel,
   AuditEventType,
+  ApprovalWorkflowConfig,
+  ApprovalRequest,
+  ApprovalWorkflowStatus,
 } from '@uaip/types';
-// Remove TypeORM imports - use DatabaseService instead
 import { NotificationService } from './notificationService.js';
 import { AuditService } from './auditService.js';
-
-export interface ApprovalWorkflowConfig {
-  defaultExpirationHours: number;
-  reminderIntervalHours: number;
-  escalationHours: number;
-  maxApprovers: number;
-  requireAllApprovers: boolean;
-}
-
-export interface ApprovalRequest {
-  operationId: string;
-  operationType: string;
-  requiredApprovers: string[];
-  securityLevel: SecurityLevel;
-  context: Record<string, unknown>;
-  expirationHours?: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface ApprovalWorkflowStatus {
-  workflow: ApprovalWorkflowType;
-  pendingApprovers: string[];
-  completedApprovals: ApprovalDecision[];
-  isComplete: boolean;
-  canProceed: boolean;
-  nextActions: string[];
-}
 
 export class ApprovalWorkflowService {
   private config: ApprovalWorkflowConfig;

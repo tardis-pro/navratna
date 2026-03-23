@@ -9,7 +9,7 @@ import type {
   BaseBenchRunSummary,
   BaseBenchTaskFamily,
   BaseBenchTestCase,
-} from './basebenchTypes.js';
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 import { baseBenchMetaCases } from '../fixtures/basebenchMetaCases.js';

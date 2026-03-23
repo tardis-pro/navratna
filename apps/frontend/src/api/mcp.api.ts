@@ -5,58 +5,15 @@
 
 import { APIClient } from './client';
 import { _API_ROUTES } from '@/config/apiConfig';
+import type {
+  MCPServer,
+  MCPTool,
+  MCPStatus,
+  MCPConfig,
+  MCPUploadResult,
+} from '@uaip/types';
 
-export interface MCPServer {
-  name: string;
-  command: string;
-  args: string[];
-  disabled: boolean;
-  status: 'unknown' | 'running' | 'stopped' | 'error' | 'starting';
-  toolCount?: number;
-  uptime?: number;
-}
-
-export interface MCPTool {
-  id: string;
-  name: string;
-  description: string;
-  serverName: string;
-  command: string;
-  parameters: unknown;
-  category: string;
-}
-
-export interface MCPStatus {
-  configExists: boolean;
-  configPath: string;
-  servers: MCPServer[];
-}
-
-export interface MCPConfig {
-  exists: boolean;
-  config: unknown | null;
-  serversCount?: number;
-  servers?: string[];
-  message?: string;
-}
-
-export interface MCPUploadResult {
-  message: string;
-  configPath: string;
-  serversProcessed: number;
-  successCount: number;
-  errorCount: number;
-  skippedCount: number;
-  installationResults: Array<{
-    name: string;
-    status: 'success' | 'error' | 'skipped';
-    error?: string;
-    pid?: number;
-  }>;
-  installationStatus: Record<string, string>;
-  installationErrors: Record<string, string>;
-  mergedServers: string[];
-}
+export type { MCPServer, MCPTool, MCPStatus, MCPConfig, MCPUploadResult };
 
 export const mcpAPI = {
   /**

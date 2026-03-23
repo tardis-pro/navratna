@@ -28,6 +28,7 @@ export { QdrantHealthService } from './qdrant-health.service';
 export { ChatParserService } from './chat-parser.service';
 export { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service';
 export { BatchProcessorService } from './batch-processor.service';
+export { KnowledgeIngestionPort } from './knowledge-ingestion.port';
 export {
   ChatIngestionMiddleware,
   createChatIngestionMiddleware,

@@ -1,26 +1,7 @@
 import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface CapabilityAssessment {
-  agentId: string;
-  requiredCapabilities: string[];
-  availableCapabilities: string[];
-  gaps: CapabilityGap[];
-  overallReadiness: number; // 0-1
-  recommendation: 'proceed' | 'augment' | 'delegate' | 'block';
-}
-
-export interface CapabilityGap {
-  capability: string;
-  severity: 'minor' | 'major' | 'critical';
-  alternatives: string[]; // agent IDs or tool IDs that have this capability
-  workaround?: string;
-}
+import type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
 
 interface CacheEntry<T> {
   value: T;

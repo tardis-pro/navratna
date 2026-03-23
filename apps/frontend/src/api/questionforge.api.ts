@@ -2,176 +2,39 @@
  * QuestionForge API - Stakeholder Discovery Council
  */
 import { APIClient } from './client';
+import type {
+  ForgeRequest,
+  ForgeResult,
+  NormalizedBrief,
+  AgentAnalysis,
+  CouncilDebateResult,
+  Question,
+  QuestionPack,
+  Assumption,
+  Contradiction,
+  InterviewScript,
+  InterviewSession,
+  InterviewAnswer,
+  InterviewResult,
+} from '@uaip/types';
+
+export type {
+  ForgeRequest,
+  ForgeResult,
+  NormalizedBrief,
+  AgentAnalysis,
+  CouncilDebateResult,
+  Question,
+  QuestionPack,
+  Assumption,
+  Contradiction,
+  InterviewScript,
+  InterviewSession,
+  InterviewAnswer,
+  InterviewResult,
+};
 
 const BASE = '/api/v1/questionforge';
-
-export interface ForgeRequest {
-  projectBriefText: string;
-  inputType?: string;
-  stakeholderRoles?: string[];
-  agentPersonaIds?: string[];
-}
-
-export interface ForgeResult {
-  projectBriefId: string;
-  normalizedBrief: NormalizedBrief;
-  debateResult: CouncilDebateResult;
-  questionPacks: Record<string, QuestionPack>;
-  topAssumptions: Assumption[];
-  contradictions: Contradiction[];
-  interviewScripts: Record<string, InterviewScript>;
-  metadata: {
-    totalQuestions: number;
-    totalAssumptions: number;
-    totalContradictions: number;
-    processingTimeMs: number;
-  };
-}
-
-export interface NormalizedBrief {
-  projectName: string;
-  rawInput: string;
-  goals: Array<{ description: string; priority: 'high' | 'medium' | 'low'; stakeholder?: string }>;
-  actors: Array<{ name: string; role: string; responsibilities: string[] }>;
-  assumptions: Array<{ content: string; confidence: number; source: string; stakeholder?: string }>;
-  constraints: Array<{
-    description: string;
-    type: 'technical' | 'business' | 'legal' | 'timeline' | 'resource';
-    severity: 'hard' | 'soft';
-  }>;
-  successMetrics: Array<{ metric: string; target?: string; measurement?: string }>;
-  missingInformation: string[];
-  contradictions: Array<{ itemA: string; itemB: string; description: string }>;
-  domainTerms: Array<{ term: string; definition?: string; context: string }>;
-  metadata: {
-    inputType: string;
-    wordCount: number;
-    processedAt: string;
-    confidence: number;
-  };
-}
-
-export interface AgentAnalysis {
-  agentId: string;
-  agentRole: string;
-  observedAssumptions: string[];
-  hiddenAssumptions: string[];
-  strongestRisks: Array<{ risk: string; severity: 'low' | 'medium' | 'high' | 'critical' }>;
-  missingFromOthers: string[];
-  questions: Array<{
-    text: string;
-    confidence: number;
-    whyItMatters: string;
-    dependentDecision: string;
-    targetStakeholder?: string;
-  }>;
-}
-
-export interface CouncilDebateResult {
-  debateId: string;
-  round1Analyses: AgentAnalysis[];
-  round2Challenges: Array<{
-    challengerId: string;
-    targetId: string;
-    challenge: string;
-    mergedQuestions: string[];
-    escalatedBlockers: string[];
-  }>;
-  synthesizedQuestions: Question[];
-  contradictions: Contradiction[];
-  consensusPoints: string[];
-  unresolvedDisagreements: string[];
-}
-
-export interface Question {
-  id: string;
-  projectBriefId: string;
-  stakeholderId?: string;
-  stakeholderName?: string;
-  category: string;
-  text: string;
-  intent: string;
-  priority: number;
-  phase: string;
-  tags: string[];
-  status: string;
-  usageCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface QuestionPack {
-  id: string;
-  projectBriefId: string;
-  stakeholderId?: string;
-  stakeholderName?: string;
-  questions: Question[];
-  totalQuestions: number;
-  priorityQuestions: Question[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Assumption {
-  id: string;
-  stakeholderId: string;
-  stakeholderName: string;
-  content: string;
-  confidence: number;
-  tags: string[];
-}
-
-export interface Contradiction {
-  id: string;
-  assumptionAContent: string;
-  assumptionBContent: string;
-  stakeholderAName: string;
-  stakeholderBName: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  description: string;
-  status: string;
-}
-
-export interface InterviewScript {
-  stakeholderRole: string;
-  questions: Question[];
-  totalQuestions: number;
-}
-
-export interface InterviewSession {
-  id: string;
-  projectBriefId: string;
-  stakeholderRole: string;
-  stakeholderName?: string;
-  questions: Question[];
-  currentQuestionIndex: number;
-  answers: InterviewAnswer[];
-  status: 'pending' | 'active' | 'paused' | 'completed';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface InterviewAnswer {
-  questionId: string;
-  answer: string;
-  confidence?: number;
-  followUpNeeded: boolean;
-  resolvedAssumptions: string[];
-  newContradictions: string[];
-  capturedAt: string;
-}
-
-export interface InterviewResult {
-  sessionId: string;
-  stakeholderRole: string;
-  totalQuestions: number;
-  answeredQuestions: number;
-  resolvedAssumptions: Assumption[];
-  newContradictions: Contradiction[];
-  unresolvedQuestions: Question[];
-  suggestedFollowUps: string[];
-  completedAt: string;
-}
 
 export const questionforgeAPI = {
   /** Run the full QuestionForge pipeline */

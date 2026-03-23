@@ -1,32 +1,7 @@
-import { Message, DocumentContext } from '../interfaces.js';
+import type { Message, DocumentContext } from '../interfaces.js';
+import type { TokenBudget, ContextWindow, ContextConfig } from '@uaip/types';
 
-export interface TokenBudget {
-  systemPrompt: number;
-  context: number;
-  messages: number;
-  tools: number;
-  response: number;
-  total: number;
-}
-
-export interface ContextWindow {
-  recentMessages: Message[];
-  summarizedContext?: string;
-  contextDocuments: DocumentContext[];
-  estimatedTokens: number;
-  windowSize: number;
-}
-
-export interface ContextConfig {
-  maxTokens: number;
-  systemPromptTokens: number;
-  toolsTokensPerTool: number;
-  responseTokensReserved: number;
-  recentMessagesWindow: number;
-  summarizationThreshold: number;
-  tokensPerMessage: number;
-  tokensPerChar: number;
-}
+export { TokenBudget, ContextWindow, ContextConfig };
 
 export class ContextManager {
   public config: ContextConfig;

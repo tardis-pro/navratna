@@ -6,93 +6,21 @@
  */
 
 import { API_BASE_URL } from '../config/apiConfig';
+import type {
+  ConversationEnhancementRequest,
+  ConversationEnhancementResult,
+  ConversationAnalysisRequest,
+  HybridPersonaRequest,
+  ContextualResponseRequest,
+} from '@uaip/types';
 
-export interface ConversationEnhancementRequest {
-  discussionId: string;
-  availableAgentIds: string[];
-  messageHistory: Array<{
-    id: string;
-    speaker: string;
-    content: string;
-    timestamp: Date;
-    metadata?: unknown;
-  }>;
-  currentTopic: string;
-  conversationState?: {
-    activePersonaId: string | null;
-    lastSpeakerContinuityCount: number;
-    recentContributors: string[];
-    conversationEnergy: number;
-    needsClarification: boolean;
-    topicStability: 'stable' | 'shifting' | 'diverging';
-  };
-  participantId?: string;
-  enhancementType?: 'auto' | 'manual' | 'triggered';
-  context?: unknown;
-}
-
-export interface ConversationEnhancementResult {
-  success: boolean;
-  data?: {
-    selectedAgent: unknown;
-    selectedPersona: unknown;
-    enhancedResponse: string;
-    contributionScores: Array<{
-      personaId: string;
-      score: number;
-      reasons: string[];
-    }>;
-    updatedState: unknown;
-    flowAnalysis: unknown;
-    suggestions: string[];
-    nextActions: string[];
-  };
-  error?: string;
-}
-
-export interface ConversationAnalysisRequest {
-  discussionId: string;
-  messageHistory: Array<{
-    id: string;
-    speaker: string;
-    content: string;
-    timestamp: Date;
-    metadata?: unknown;
-  }>;
-  conversationState: {
-    activePersonaId: string | null;
-    lastSpeakerContinuityCount: number;
-    recentContributors: string[];
-    conversationEnergy: number;
-    needsClarification: boolean;
-    topicStability: 'stable' | 'shifting' | 'diverging';
-  };
-  analysisType: 'flow' | 'insights' | 'health' | 'patterns';
-}
-
-export interface HybridPersonaRequest {
-  persona1Id: string;
-  persona2Id: string;
-  hybridConfig?: {
-    name?: string;
-    dominantTraits?: 'persona1' | 'persona2' | 'balanced';
-    blendRatio?: number;
-    customAttributes?: unknown;
-  };
-}
-
-export interface ContextualResponseRequest {
-  agentId: string;
-  personaId: string;
-  context: {
-    recentTopics: string[];
-    conversationMomentum: 'building' | 'stable' | 'declining' | 'clarifying' | 'deciding';
-    overallTone: 'collaborative' | 'competitive' | 'analytical' | 'creative';
-    topicShiftDetected: boolean;
-    participantCount: number;
-  };
-  baseContent: string;
-}
+export type {
+  ConversationEnhancementRequest,
+  ConversationEnhancementResult,
+  ConversationAnalysisRequest,
+  HybridPersonaRequest,
+  ContextualResponseRequest,
+};
 
 class ConversationEnhancementAPI {
   private baseUrl: string;

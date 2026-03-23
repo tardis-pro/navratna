@@ -6,83 +6,23 @@
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
 import { ModelProvider } from '@/types';
+import type {
+  LLMModel,
+  LLMProvider,
+  LLMGenerateRequest,
+  LLMGenerateResponse,
+  LLMContextAnalysis,
+  UserLLMProvider,
+} from '@uaip/types';
 
-export interface LLMModel {
-  id: string;
-  name: string;
-  provider: ModelProvider;
-  maxTokens: number;
-  contextWindow: number;
-  capabilities: string[];
-  isActive: boolean;
-  costPer1kTokens?: {
-    input: number;
-    output: number;
-  };
-}
-
-export interface LLMProvider {
-  id: string;
-  name: string;
-  type: ModelProvider;
-  apiEndpoint?: string;
-  isActive: boolean;
-  configuration?: Record<string, unknown>;
-  models?: string[];
-}
-
-export interface LLMGenerateRequest {
-  modelId: string;
-  messages: Array<{
-    role: 'system' | 'user' | 'assistant';
-    content: string;
-  }>;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  stream?: boolean;
-  metadata?: Record<string, unknown>;
-}
-
-export interface LLMGenerateResponse {
-  id: string;
-  modelId: string;
-  content: string;
-  usage: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-  finishReason?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface LLMContextAnalysis {
-  topics: string[];
-  entities: Array<{
-    text: string;
-    type: string;
-    confidence: number;
-  }>;
-  sentiment: {
-    score: number;
-    label: 'positive' | 'negative' | 'neutral';
-  };
-  summary?: string;
-}
-
-export interface UserLLMProvider {
-  id: string;
-  userId: string;
-  provider: ModelProvider;
-  apiKey?: string; // Encrypted
-  configuration?: Record<string, unknown>;
-  isActive: boolean;
-  isDefault: boolean;
-  models?: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+export type {
+  LLMModel,
+  LLMProvider,
+  LLMGenerateRequest,
+  LLMGenerateResponse,
+  LLMContextAnalysis,
+  UserLLMProvider,
+};
 
 export const llmAPI = {
   // Global LLM management

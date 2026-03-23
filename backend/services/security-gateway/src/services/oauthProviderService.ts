@@ -16,6 +16,7 @@ import {
   GitHubProviderConfig as _GitHubProviderConfig,
   EmailProviderConfig as _EmailProviderConfig,
   AuditEventType,
+  AgentOperationValidation,
 } from '@uaip/types';
 import { AuditService } from './auditService.js';
 import { config } from '@uaip/config';
@@ -43,15 +44,6 @@ interface ProviderEndpoints {
   token: string;
   userInfo: string;
   revoke?: string;
-}
-
-export interface AgentOperationValidation {
-  allowed: boolean;
-  reason?: string;
-  rateLimit?: {
-    remaining: number;
-    resetTime: Date;
-  };
 }
 
 export class OAuthProviderService {

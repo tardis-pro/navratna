@@ -1,13 +1,6 @@
 import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
-
-export interface RequestLoggerOptions {
-  logLevel?: 'debug' | 'info' | 'warn' | 'error';
-  includeBody?: boolean;
-  includeHeaders?: boolean;
-  excludePaths?: string[];
-  maxBodyLength?: number;
-}
+import type { RequestLoggerOptions } from '@uaip/types';
 
 const defaultOptions: RequestLoggerOptions = {
   logLevel: 'info',

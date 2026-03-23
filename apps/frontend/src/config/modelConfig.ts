@@ -1,4 +1,15 @@
-import { ServiceConfig } from '@/components/ModelSelector';
+export interface ServiceConfig {
+  llmStudio: {
+    baseUrls: string[];
+    modelsPath?: string;
+    chatPath?: string;
+  };
+  ollama: {
+    baseUrls: string[];
+    modelsPath?: string;
+    generatePath?: string;
+  };
+}
 
 // Configuration for model services
 export const modelServiceConfig: ServiceConfig = {

@@ -2,35 +2,11 @@ import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { EventBusHandler } from '@uaip/types';
+import type { TaskNode, TaskDAG } from '@uaip/types';
 
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
-
-export interface TaskNode {
-  id: string;
-  description: string;
-  type: 'query' | 'command' | 'monitor' | 'orchestrate' | 'communicate';
-  dependencies: string[]; // IDs of tasks that must complete first
-  estimatedDurationMs?: number;
-  toolId?: string; // capability to execute this
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
-  result?: unknown;
-  startedAt?: Date;
-  completedAt?: Date;
-  error?: string;
-}
-
-export interface TaskDAG {
-  id: string;
-  goal: string;
-  nodes: TaskNode[];
-  edges: Array<{ from: string; to: string }>;
-  status: 'planning' | 'executing' | 'completed' | 'failed';
-  createdAt: Date;
-  completedAt?: Date;
-  metadata?: Record<string, unknown>;
-}
 
 interface DecomposeResponseNode {
   description: string;

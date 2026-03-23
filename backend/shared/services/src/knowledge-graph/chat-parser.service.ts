@@ -1,38 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
+import type {
+  ParsedMessage,
+  ParsedConversation,
+  ChatParsingResult,
+} from '@uaip/types';
 
-export interface ParsedMessage {
-  id: string;
-  timestamp: Date;
-  sender: string;
-  content: string;
-  type: 'text' | 'image' | 'file' | 'system';
-  metadata: Record<string, unknown>;
-}
-
-export interface ParsedConversation {
-  id: string;
-  platform: 'claude' | 'gpt' | 'whatsapp' | 'generic';
-  title?: string;
-  participants: string[];
-  messages: ParsedMessage[];
-  metadata: {
-    totalMessages: number;
-    dateRange: { start: Date; end: Date };
-    fileSize: number;
-    originalFilename: string;
-    parsedAt: Date;
-  };
-}
-
-export interface ChatParsingResult {
-  conversations: ParsedConversation[];
-  totalMessages: number;
-  totalConversations: number;
-  parsingErrors: string[];
-  processingTime: number;
-  detectedPlatform: string;
-}
+export type { ParsedMessage, ParsedConversation, ChatParsingResult } from '@uaip/types';
 
 type ChatPlatform = ParsedConversation['platform'];
 

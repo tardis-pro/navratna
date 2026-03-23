@@ -1,49 +1,8 @@
 import { QdrantService } from '../qdrant.service';
 import { knowledgeItems } from '../database/drizzle/schemas/intelligence.schema';
 import { getIntelligenceDb } from '../database/drizzle/clients/index';
-import { KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeType, SourceType, KnowledgeCluster, QdrantPoint, ClusteringResult, SourceMetadata } from '@uaip/types';
 import { SmartEmbeddingService } from './smart-embedding.service';
-
-export interface KnowledgeCluster {
-  clusterId: string;
-  primaryVector: QdrantPoint;
-  similarChunks: QdrantPoint[];
-  consolidatedContent: string;
-  confidence: number;
-  sources: SourceMetadata[];
-  consolidatedType: KnowledgeType;
-  consolidatedTags: string[];
-  averageConfidence: number;
-}
-
-export interface QdrantPoint {
-  id: string;
-  vector: number[];
-  payload: {
-    content: string;
-    knowledgeType: KnowledgeType;
-    tags: string[];
-    confidence: number;
-    sourceType: string;
-    originalMetadata: Record<string, unknown>;
-  };
-}
-
-export interface SourceMetadata {
-  id: string;
-  sourceType: string;
-  confidence: number;
-  originalMetadata: Record<string, unknown>;
-}
-
-export interface ClusteringResult {
-  totalClusters: number;
-  totalOriginalItems: number;
-  totalConsolidatedItems: number;
-  reductionRatio: number;
-  averageClusterSize: number;
-  clusters: KnowledgeCluster[];
-}
 
 type QdrantServiceWithConnection = {
   ensureConnection: () => Promise<string>;

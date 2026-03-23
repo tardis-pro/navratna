@@ -1,5 +1,6 @@
 import { KnowledgeSyncService } from './knowledge-sync.service';
-import { SimplifiedSyncService, SimplifiedSyncResult } from './simplified-sync.service';
+import { SimplifiedSyncService } from './simplified-sync.service';
+import type { SimplifiedSyncResult } from '@uaip/types';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
 import { QdrantService } from '../qdrant.service';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
@@ -16,22 +17,9 @@ import { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.servic
 import { BatchProcessorService } from './batch-processor.service';
 import { KnowledgeGraphService } from './knowledge-graph.service';
 import { logger } from '@uaip/utils';
+import type { BootstrapConfig, BootstrapStatus } from '@uaip/types';
 
-export interface BootstrapConfig {
-  enableAutoSync: boolean;
-  syncOnStartup: boolean;
-  batchSize: number;
-  retryAttempts: number;
-  retryDelay: number;
-  useSimplifiedSync: boolean; // New flag for simplified sync
-}
-
-export interface BootstrapStatus {
-  syncResult: SimplifiedSyncResult;
-  clusteringEnabled: boolean;
-  totalReduction: number;
-  finalKnowledgeItems: number;
-}
+export type { BootstrapConfig, BootstrapStatus } from '@uaip/types';
 
 export class KnowledgeBootstrapService {
   private syncService: KnowledgeSyncService;
@@ -115,7 +103,8 @@ export class KnowledgeBootstrapService {
       this.qdrantService,
       this.knowledgeRepository,
       this.embeddingService,
-      this.graphDb
+      this.graphDb,
+      null // User repository optional for Qdrant health checks
     );
 
     // Initialize chat services

@@ -6,6 +6,7 @@
 import { Driver, Session } from 'neo4j-driver';
 import neo4j from 'neo4j-driver';
 import { createLogger } from '@uaip/utils';
+import type { ToolGraphDatabaseConfig, ToolNode, ToolRelationship } from '@uaip/types';
 
 const logger = createLogger({
   serviceName: 'tool-graph-database',
@@ -13,30 +14,7 @@ const logger = createLogger({
   logLevel: process.env.LOG_LEVEL || 'info',
 });
 
-export interface ToolGraphDatabaseConfig {
-  uri: string;
-  username: string;
-  password: string;
-  database?: string;
-}
-
-export interface ToolNode {
-  id: string;
-  name: string;
-  category: string;
-  tags: string[];
-  capabilities: string[];
-  version?: string;
-  description?: string;
-}
-
-export interface ToolRelationship {
-  sourceToolId: string;
-  targetToolId: string;
-  relationshipType: 'DEPENDS_ON' | 'SIMILAR_TO' | 'COMPLEMENTS' | 'REPLACES' | 'ALTERNATIVE_TO';
-  strength?: number;
-  metadata?: unknown;
-}
+export type { ToolGraphDatabaseConfig, ToolNode, ToolRelationship };
 
 export class ToolGraphDatabase {
   private driver: Driver | null = null;

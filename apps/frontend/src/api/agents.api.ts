@@ -10,78 +10,31 @@ import type {
   AgentRole,
   AgentCreate,
   AgentUpdate,
-  _AgentIntelligenceConfig,
-  AgentSecurityContext,
-  ConversationContext,
-  ContextAnalysis,
+  AgentStatus,
   AgentAnalysisResult,
   ExecutionPlan,
-  _SecurityLevel,
-  AgentStatus,
-  AgentContextData,
+} from '@uaip/types';
+import type {
+  AgentHealthCheck,
+  AgentListOptions,
+  AgentAnalysisRequest,
+  AgentPlanRequest,
+  AgentLearningData,
+  AgentParticipationRequest,
+  AgentChatRequest,
+  AgentChatResponse,
 } from '@uaip/types';
 
-export interface AgentHealthCheck {
-  status: string;
-  message?: string;
-  timestamp: string;
-  dependencies?: {
-    [key: string]: {
-      status: string;
-      message?: string;
-    };
-  };
-}
-
-export interface AgentListOptions {
-  page?: number;
-  limit?: number;
-  role?: AgentRole;
-  status?: AgentStatus;
-  search?: string;
-}
-
-export interface AgentAnalysisRequest {
-  context: ContextAnalysis;
-  conversationHistory?: ConversationContext[];
-  securityContext?: AgentSecurityContext;
-}
-
-export interface AgentPlanRequest {
-  context: ContextAnalysis;
-  conversationHistory?: ConversationContext[];
-  agentSecurityContext?: AgentSecurityContext;
-  options?: {
-    includeRiskAssessment?: boolean;
-    includeCostEstimate?: boolean;
-  };
-}
-
-export interface AgentLearningData {
-  executionId: string;
-  outcome: 'success' | 'failure' | 'partial';
-  feedback?: string;
-  metrics?: Record<string, unknown>;
-}
-
-export interface AgentParticipationRequest {
-  discussionId: string;
-  message?: string;
-  turnData?: unknown;
-}
-
-export interface AgentChatRequest {
-  message: string;
-  conversationId?: string;
-  context?: AgentContextData;
-}
-
-export interface AgentChatResponse {
-  response: string;
-  conversationId: string;
-  timestamp: string;
-  metadata?: Record<string, unknown>;
-}
+export type {
+  AgentHealthCheck,
+  AgentListOptions,
+  AgentAnalysisRequest,
+  AgentPlanRequest,
+  AgentLearningData,
+  AgentParticipationRequest,
+  AgentChatRequest,
+  AgentChatResponse,
+};
 
 export const agentsAPI = {
   async list(options?: AgentListOptions): Promise<Agent[]> {

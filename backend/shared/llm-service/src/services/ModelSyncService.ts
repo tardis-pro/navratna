@@ -10,41 +10,9 @@ import { BaseProvider } from '../providers/BaseProvider.js';
 import { OllamaProvider } from '../providers/OllamaProvider.js';
 import { LLMStudioProvider } from '../providers/LLMStudioProvider.js';
 import { OpenAIProvider } from '../providers/OpenAIProvider.js';
-import { LLMProviderConfig } from '../interfaces.js';
+import type { LLMProviderConfig, ModelSyncResult, ModelData } from '@uaip/types';
 
-export interface ModelSyncResult {
-  providerId: string;
-  providerName: string;
-  modelsFound: number;
-  modelsCreated: number;
-  modelsUpdated: number;
-  modelsMarkedUnavailable: number;
-  errors: string[];
-}
-
-export interface ModelData {
-  name: string;
-  description?: string;
-  apiType?: string;
-  apiEndpoint?: string;
-  contextLength?: number;
-  inputTokenCost?: number;
-  outputTokenCost?: number;
-  capabilities?: {
-    streaming?: boolean;
-    functionCalling?: boolean;
-    vision?: boolean;
-    codeGeneration?: boolean;
-    reasoning?: boolean;
-  };
-  parameters?: {
-    maxTokens?: number;
-    temperature?: number;
-    topP?: number;
-    frequencyPenalty?: number;
-    presencePenalty?: number;
-  };
-}
+export type { ModelSyncResult, ModelData };
 
 export class ModelSyncService {
   private llmModelRepository = new LLMModelRepository();

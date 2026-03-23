@@ -11,6 +11,8 @@ import {
   KnowledgeType,
   SourceType,
   Interaction,
+  IngestionOptions,
+  IngestionResult,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant.service';
@@ -31,6 +33,7 @@ import {
   DecisionPoint,
 } from './chat-knowledge-extractor.service';
 import { BatchProcessorService, FileData, ProcessingOptions } from './batch-processor.service';
+import { KnowledgeIngestionPort } from './knowledge-ingestion.port';
 import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa-generator.service';
 import {
   WorkflowExtractorService,
@@ -48,22 +51,6 @@ import {
   LearningDetectionOptions,
 } from './learning-detector.service';
 
-export interface IngestionOptions {
-  extractKnowledge?: boolean;
-  saveToGraph?: boolean;
-  generateEmbeddings?: boolean;
-  batchSize?: number;
-  concurrency?: number;
-}
-
-export interface IngestionResult {
-  conversationsFound: number;
-  knowledgeExtracted: number;
-  processingTime: number;
-  success: boolean;
-  errors?: string[];
-}
-
 type VectorSearchResult = {
   id: string;
   score: number;
@@ -80,7 +67,7 @@ type ExtractedKnowledgeBundle = {
   decisionPoints: DecisionPoint[];
 };
 
-export class KnowledgeGraphService {
+export class KnowledgeGraphService implements KnowledgeIngestionPort {
   private readonly conceptExtractor: ConceptExtractorService;
   private readonly ontologyBuilder: OntologyBuilderService;
   private readonly taxonomyGenerator: TaxonomyGeneratorService;

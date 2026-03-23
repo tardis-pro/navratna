@@ -1,5 +1,5 @@
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
-import { TypeOrmService } from '../typeormService';
+import { initializeDatabase } from '../database/index';
 import { OutboxPublisher } from './OutboxPublisher';
 import { GraphSyncWorker } from './GraphSyncWorker';
 import { logger } from '@uaip/utils';
@@ -33,9 +33,7 @@ export class IntegrationService {
     try {
       logger.info('Initializing IntegrationService...');
 
-      // Initialize TypeORM service first
-      const typeormService = TypeOrmService.getInstance();
-      await typeormService.initialize();
+      await initializeDatabase();
 
       // Initialize ToolGraphDatabase
       this.toolGraphDatabase = new ToolGraphDatabase(config.database.neo4j);

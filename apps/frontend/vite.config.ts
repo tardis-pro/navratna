@@ -55,8 +55,8 @@ export default defineConfig(({ _mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '@uaip/types': path.resolve(__dirname, '../../packages/shared-types/dist'),
-        '@uaip/utils': path.resolve(__dirname, '../../packages/shared-utils/dist'),
+        '@uaip/types': path.resolve(__dirname, '../../packages/shared-types/src'),
+        '@uaip/utils': path.resolve(__dirname, '../../packages/shared-utils/src'),
       },
     },
     test: {

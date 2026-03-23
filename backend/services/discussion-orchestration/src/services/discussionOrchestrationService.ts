@@ -11,7 +11,7 @@ import { logger } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
 import { DiscussionService } from './discussionService.js';
 import { TurnStrategyService } from './turnStrategyService.js';
-import { DiscussionWebSocketHandler } from '../websocket/discussionWebSocketHandler.js';
+import type { IWebSocketHandler } from '../websocket/websocket.types.js';
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
@@ -30,7 +30,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private turnStrategyService: TurnStrategyService;
   private discussionService: DiscussionService;
   private eventBusService: EventBusService;
-  private webSocketHandler?: DiscussionWebSocketHandler;
+  private webSocketHandler?: IWebSocketHandler;
   private turnTimers: Map<string, NodeJS.Timeout> = new Map();
   private activeDiscussions: Map<string, Discussion> = new Map();
   private recentParticipationRequests: Map<string, number> = new Map(); // Track recent participation requests
@@ -45,7 +45,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   constructor(
     discussionService: DiscussionService,
     eventBusService: EventBusService,
-    webSocketHandler?: DiscussionWebSocketHandler
+    webSocketHandler?: IWebSocketHandler
   ) {
     super();
     this.discussionService = discussionService;
@@ -63,7 +63,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Set WebSocket handler (can be set after construction)
    */
-  setWebSocketHandler(handler: DiscussionWebSocketHandler): void {
+  setWebSocketHandler(handler: IWebSocketHandler): void {
     this.webSocketHandler = handler;
   }
 

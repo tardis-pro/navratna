@@ -1,8 +1,7 @@
-import type {
-  RequiredAuthContext,
-  OptionalAuthContext,
-  ElysiaContext,
-} from './types/elysia-context.js';
+// Types imported from @uaip/types for reference/compatibility:
+// import type { UserContext, AuthContext, RequiredAuthContext } from '@uaip/types';
+// Local definitions below serve service-specific needs and may differ from shared-types
+
 /**
  * Elysia Context Types
  *

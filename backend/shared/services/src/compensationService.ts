@@ -10,29 +10,9 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { OperationRepository } from './database/repositories/OperationRepository';
 import { EventBusService } from './eventBusService';
+import type { CompensationStep, CompensationResult } from '@uaip/types';
 
-export interface CompensationStep {
-  id: string;
-  stepId: string; // The original step this compensates for
-  action: string;
-  description: string;
-  compensationData: Record<string, unknown>;
-  timeout: number;
-  retryPolicy?: {
-    maxAttempts: number;
-    backoffStrategy: 'fixed' | 'exponential' | 'linear';
-    retryDelay: number;
-  };
-}
-
-export interface CompensationResult {
-  stepId: string;
-  compensationStepId: string;
-  status: StepStatus;
-  error?: string;
-  executionTime: number;
-  compensationData: Record<string, unknown>;
-}
+export type { CompensationStep, CompensationResult };
 
 export class CompensationService extends EventEmitter {
   private databaseService: DatabaseService;

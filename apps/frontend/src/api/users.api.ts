@@ -6,64 +6,17 @@
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/apiConfig';
 import type { UserRole, UserLLMPreference } from '@uaip/types';
+import type {
+  User,
+  UserCreate,
+  UserUpdate,
+  UserListOptions,
+  UserStats,
+  PasswordResetRequest,
+  BulkUserAction,
+} from '@uaip/types';
 
-export interface User {
-  id: string;
-  email: string;
-  name?: string;
-  role: UserRole;
-  isActive: boolean;
-  isLocked: boolean;
-  createdAt: string;
-  updatedAt: string;
-  lastLoginAt?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface UserCreate {
-  email: string;
-  password: string;
-  name?: string;
-  role?: UserRole;
-  metadata?: Record<string, unknown>;
-}
-
-export interface UserUpdate {
-  email?: string;
-  name?: string;
-  role?: UserRole;
-  isActive?: boolean;
-  metadata?: Record<string, unknown>;
-}
-
-export interface UserListOptions {
-  page?: number;
-  limit?: number;
-  role?: UserRole;
-  isActive?: boolean;
-  isLocked?: boolean;
-  search?: string;
-  sortBy?: 'email' | 'name' | 'createdAt' | 'lastLoginAt';
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface UserStats {
-  totalUsers: number;
-  activeUsers: number;
-  lockedUsers: number;
-  usersByRole: Record<UserRole, number>;
-  recentSignups: number;
-  recentLogins: number;
-}
-
-export interface PasswordResetRequest {
-  email: string;
-}
-
-export interface BulkUserAction {
-  userIds: string[];
-  action: 'activate' | 'deactivate' | 'lock' | 'unlock' | 'delete';
-}
+export type { User, UserCreate, UserUpdate, UserListOptions, UserStats, PasswordResetRequest, BulkUserAction };
 
 export const usersAPI = {
   async list(options?: UserListOptions): Promise<User[]> {

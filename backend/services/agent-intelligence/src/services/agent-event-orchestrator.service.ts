@@ -18,16 +18,14 @@ import {
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
-import {
-  AgentCoreService,
-  AgentContextService,
-  AgentPlanningService,
-  AgentLearningService,
-  AgentDiscussionService,
-  AgentMetricsService,
-  AgentIntentService,
-  AgentInitializationService,
-} from './index.js';
+import type { AgentCoreService } from './agent-core.service';
+import type { AgentContextService } from './agent-context.service';
+import type { AgentPlanningService } from './agent-planning.service';
+import type { AgentLearningService } from './agent-learning.service';
+import type { AgentDiscussionService } from './agent-discussion.service';
+import type { AgentMetricsService } from './agent-metrics.service';
+import type { AgentIntentService } from './agent-intent.service';
+import type { AgentInitializationService } from './agent-initialization.service';
 
 export interface AgentEventOrchestratorConfig {
   databaseService: DatabaseService;

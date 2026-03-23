@@ -122,12 +122,10 @@ export function buildErrorResponse(
   };
 }
 
-// Async error handler options
-export interface AsyncHandlerOptions {
-  operation: string;
-  logError?: boolean;
-  rethrow?: boolean;
-}
+import type { AsyncHandlerOptions } from '@uaip/types';
+
+// Re-export for backward compatibility
+export type { AsyncHandlerOptions };
 
 /**
  * Generic async error handler wrapper

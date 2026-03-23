@@ -5,7 +5,14 @@ import {
   TaskType,
   AssigneeType,
   TaskSettings,
-} from '../entities/task.entity';
+  TaskMetrics,
+  TaskActivityEntry,
+  CreateTaskRequest,
+  UpdateTaskRequest,
+  TaskFilters,
+  TaskAssignmentRequest,
+  TaskAssignmentSuggestion,
+} from '@uaip/types';
 import { ProjectEntity } from '../entities/project.entity';
 import { UserEntity } from '../entities/user.entity';
 import { Agent } from '../entities/agent.entity';
@@ -45,97 +52,6 @@ const logger = {
   warn: (msg: string, data?: unknown) => console.warn('[WARN]', msg, data),
   debug: (_msg: string, _data?: unknown) => {},
 };
-
-export interface CreateTaskRequest {
-  title: string;
-  description?: string;
-  projectId: string;
-  priority?: TaskPriority;
-  type?: TaskType;
-  assigneeType?: AssigneeType;
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  dueDate?: Date;
-  tags?: string[];
-  labels?: string[];
-  epic?: string;
-  sprint?: string;
-  settings?: TaskSettings;
-  estimatedHours?: number;
-  createdBy: string;
-  customFields?: Record<string, unknown>;
-}
-
-export interface UpdateTaskRequest {
-  title?: string;
-  description?: string;
-  status?: TaskStatus;
-  priority?: TaskPriority;
-  type?: TaskType;
-  assigneeType?: AssigneeType;
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  dueDate?: Date;
-  tags?: string[];
-  labels?: string[];
-  epic?: string;
-  sprint?: string;
-  settings?: TaskSettings;
-  customFields?: Record<string, unknown>;
-  updatedBy: string;
-}
-
-export interface TaskFilters {
-  projectId?: string;
-  status?: TaskStatus | TaskStatus[];
-  priority?: TaskPriority | TaskPriority[];
-  type?: TaskType | TaskType[];
-  assigneeType?: AssigneeType;
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  createdBy?: string;
-  epic?: string;
-  sprint?: string;
-  tags?: string[];
-  labels?: string[];
-  dueDateBefore?: Date;
-  dueDateAfter?: Date;
-  isOverdue?: boolean;
-  isBlocked?: boolean;
-  search?: string;
-}
-
-export interface TaskAssignmentRequest {
-  taskId: string;
-  assigneeType: AssigneeType;
-  assignedToUserId?: string;
-  assignedToAgentId?: string;
-  assignedBy: string;
-  reason?: string;
-}
-
-export interface TaskAssignmentSuggestion {
-  type: AssigneeType;
-  userId?: string;
-  agentId?: string;
-  name: string;
-  score: number;
-  reason: string;
-  availability: 'available' | 'busy' | 'offline';
-  expertise: string[];
-  workload: number;
-}
-
-export interface TaskActivityEntry extends Record<string, unknown> {
-  id: string;
-  timestamp: Date;
-  action: string;
-  userId: string;
-  userName: string;
-  details: Record<string, unknown>;
-  oldValue?: string | number | boolean | null;
-  newValue?: string | number | boolean | null;
-}
 
 export class TaskService {
   private static instance: TaskService;

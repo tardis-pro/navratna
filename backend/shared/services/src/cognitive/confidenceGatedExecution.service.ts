@@ -1,27 +1,6 @@
 import { EventBusService } from '../eventBusService';
 import { logger } from '@uaip/utils';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface ExecutionGate {
-  agentId: string;
-  taskType: string;
-  requiredConfidence: number; // dynamic threshold
-  actualConfidence: number;
-  passed: boolean;
-  reason: string;
-}
-
-export interface ConfidenceProfile {
-  agentId: string;
-  taskType: string;
-  historicalAccuracy: number; // 0-1
-  sampleSize: number;
-  dynamicThreshold: number;
-  lastUpdated: Date;
-}
+import type { ExecutionGate, ConfidenceProfile } from '@uaip/types';
 
 // ---------------------------------------------------------------------------
 // Constants

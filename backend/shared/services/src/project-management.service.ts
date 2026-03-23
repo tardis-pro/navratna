@@ -1,9 +1,8 @@
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
-import { ProjectEntity, ProjectStatus, ProjectVisibility } from './entities/project.entity';
-import { ProjectMemberEntity, ProjectRole, MemberStatus } from './entities/project-member.entity';
-import { ProjectType } from '@uaip/types';
+import { ProjectEntity, ProjectStatus, ProjectVisibility, ProjectMemberEntity, ProjectRole, MemberStatus, ProjectType } from '@uaip/types';
+import type { CreateProjectData, CreateTaskData, ProjectAnalytics, ProjectMetrics } from '@uaip/types';
 
 interface IRepository<T = any> {
   findOne(opts: { where?: any }): Promise<T | null>;
@@ -54,70 +53,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // Public interfaces
 // ---------------------------------------------------------------------------
 
-export interface CreateProjectData {
-  name: string;
-  description?: string;
-  ownerId: string;
-  organizationId?: string;
-  type?: ProjectType;
-  category?: string;
-  tags?: string[];
-  priority?: string;
-  visibility?: string;
-  startDate?: Date;
-  endDate?: Date;
-  budget?: number;
-  settings?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}
-
-export interface CreateTaskData {
-  projectId: string;
-  title: string;
-  description?: string;
-  priority?: string;
-  assignedAgentId?: string;
-  assignedUserId?: string;
-  requirements?: unknown;
-  tools?: string[];
-  estimatedCost?: number;
-  estimatedDuration?: number;
-  dueDate?: Date;
-}
-
-export interface ProjectAnalytics {
-  totalProjects: number;
-  activeProjects: number;
-  completedProjects: number;
-  totalBudget: number;
-  totalSpent: number;
-  averageCompletionTime: number;
-  topCategories: Array<{ category: string; count: number }>;
-  budgetUtilization: number;
-  overBudgetProjects: number;
-  overdueProjects: number;
-}
-
-export interface ProjectMetrics {
-  completionRate: number;
-  budgetUtilization: number;
-  taskCompletionRate: number;
-  averageTaskDuration: number;
-  toolUsageStats: Array<{
-    toolId: string;
-    toolName: string;
-    usageCount: number;
-    successRate: number;
-    averageCost: number;
-  }>;
-  agentPerformance: Array<{
-    agentId: string;
-    tasksCompleted: number;
-    successRate: number;
-    averageTaskTime: number;
-    toolsUsed: number;
-  }>;
-}
+export type { CreateProjectData, CreateTaskData, ProjectAnalytics, ProjectMetrics };
 
 // ---------------------------------------------------------------------------
 // Service

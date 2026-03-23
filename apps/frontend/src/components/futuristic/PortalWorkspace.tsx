@@ -20,7 +20,6 @@ import { _InsightsPanel } from './portals/InsightsPanel';
 import { KnowledgePortal } from './portals/KnowledgePortal';
 import { DashboardPortal } from './portals/DashboardPortal';
 import { ArtifactsPortal } from './portals/ArtifactsPortal';
-import { DesktopWorkspace } from './DesktopWorkspace';
 import {
   Plus,
   Layout,
@@ -1653,15 +1652,7 @@ export const PortalWorkspace: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Desktop Workspace - Always visible as base layer */}
-      <DesktopWorkspace
-        onOpenPortal={createPortal}
-        isPortalOpen={(type) => portals.some((p) => p.type === type && p.isVisible)}
-        portals={portals}
-        viewport={viewport}
-      />
-
-      {/* Portal Instances - Float above desktop */}
+      {/* Portal Instances - Rendered directly without DesktopWorkspace base */}
       <AnimatePresence>
         {portals
           .filter((p) => !p.isMinimized)

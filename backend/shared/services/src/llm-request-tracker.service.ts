@@ -8,23 +8,9 @@
 import { Redis as _Redis } from 'ioredis';
 import { logger } from '@uaip/utils';
 import { redisCacheService } from './redis-cache.service';
+import type { PendingLLMRequest, SerializablePendingRequest } from '@uaip/types';
 
-export interface PendingLLMRequest {
-  requestId: string;
-  timestamp: number;
-  timeoutMs: number;
-  service: string;
-  reject: (error: Error) => void;
-  resolve: (value: unknown) => void;
-}
-
-export interface SerializablePendingRequest {
-  requestId: string;
-  timestamp: number;
-  timeoutMs: number;
-  service: string;
-  expiresAt: number;
-}
+export type { PendingLLMRequest, SerializablePendingRequest };
 
 export class LLMRequestTracker {
   private keyPrefix: string;

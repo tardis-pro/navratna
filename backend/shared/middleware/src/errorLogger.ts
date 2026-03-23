@@ -1,11 +1,5 @@
-import { recordError, ErrorContext, setupGlobalErrorHandlers } from './metrics';
-
-export interface StructuredErrorLogger {
-  error(error: Error, context?: Partial<ErrorContext>): void;
-  warning(error: Error, context?: Partial<ErrorContext>): void;
-  critical(error: Error, context?: Partial<ErrorContext>): void;
-  business(error: Error, context?: Partial<ErrorContext>): void;
-}
+import { recordError, setupGlobalErrorHandlers } from './metrics';
+import type { ErrorContext, StructuredErrorLogger } from '@uaip/types';
 
 export class ServiceErrorLogger implements StructuredErrorLogger {
   constructor(private serviceName: string) {

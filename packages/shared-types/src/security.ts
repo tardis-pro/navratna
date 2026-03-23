@@ -1047,3 +1047,76 @@ export const ApprovalStatsSchema = z.object({
 });
 
 export type ApprovalStats = z.infer<typeof ApprovalStatsSchema>;
+
+// Additional approval workflow interfaces for security-gateway
+export interface ApprovalWorkflowConfig {
+  defaultExpirationHours: number;
+  reminderIntervalHours: number;
+  escalationHours: number;
+  maxApprovers: number;
+  requireAllApprovers: boolean;
+}
+
+export interface ApprovalRequest {
+  operationId: string;
+  operationType: string;
+  requiredApprovers: string[];
+  securityLevel: SecurityLevel;
+  context: Record<string, unknown>;
+  expirationHours?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ApprovalWorkflowStatus {
+  workflow: ApprovalWorkflow;
+  pendingApprovers: string[];
+  completedApprovals: ApprovalDecision[];
+  isComplete: boolean;
+  canProceed: boolean;
+  nextActions: string[];
+}
+
+// Risk assessment config for security-gateway
+export interface RiskAssessmentConfig {
+  operationTypeWeights: Record<string, number>;
+  resourceTypeWeights: Record<string, number>;
+  userRoleWeights: Record<string, number>;
+  timeBasedFactors: {
+    offHours: number;
+    weekend: number;
+    holiday: number;
+  };
+  thresholds: {
+    low: number;
+    medium: number;
+    high: number;
+    critical: number;
+  };
+}
+
+// Agent operation validation for OAuth providers
+export interface AgentOperationValidation {
+  allowed: boolean;
+  reason?: string;
+  rateLimit?: {
+    remaining: number;
+    resetTime: Date;
+  };
+}
+
+// Gateway-specific security policy (internal use for risk assessment)
+export interface GatewaySecurityPolicy {
+  id: string;
+  name: string;
+  description: string;
+  conditions: Record<string, unknown>;
+  actions: {
+    allow?: boolean;
+    requireApproval?: boolean;
+    requiredApprovers?: string[];
+    maxRiskLevel?: SecurityLevel;
+    additionalValidations?: string[];
+  };
+  priority: number;
+  isActive: boolean;
+}

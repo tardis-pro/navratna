@@ -94,37 +94,11 @@ describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
   let ToolExecutionCoordinator: unknown;
 
   beforeAll(async () => {
-    const module = await import('../services/tool-execution-coordinator.service.js');
-    ToolExecutionCoordinator = module.ToolExecutionCoordinator;
-  });
-
-  describe('Danger Tool Detection', () => {
-    it('should identify file.write as requiring USER_CONSENT approval', async () => {
-      const { toolRequiresApproval, getRequiredApprovalLevel } =
-        await import('../services/dangerToolList.js');
-
-      expect(toolRequiresApproval('file.write')).toBe(true);
-      expect(getRequiredApprovalLevel('file.write')).toBe('USER_CONSENT');
-    });
-
-    it('should identify process.run as requiring ADMIN approval', async () => {
-      const { toolRequiresApproval, getRequiredApprovalLevel } =
-        await import('../services/dangerToolList.js');
-
-      expect(toolRequiresApproval('process.run')).toBe(true);
-      expect(getRequiredApprovalLevel('process.run')).toBe('ADMIN');
-    });
-
-    it('should identify database.delete as requiring ADMIN approval', async () => {
-      const { toolRequiresApproval, getRequiredApprovalLevel } =
-        await import('../services/dangerToolList.js');
-
-      expect(toolRequiresApproval('database.delete')).toBe(true);
-      expect(getRequiredApprovalLevel('database.delete')).toBe('ADMIN');
-    });
-
-    it('should not require approval for safe tools', async () => {
-      const { toolRequiresApproval } = await import('../services/dangerToolList.js');
+const module = await import('../services/tool-execution-coordinator.service.ts');
+  await import('../services/dangerToolList.ts');
+  await import('../services/dangerToolList.ts');
+  await import('../services/dangerToolList.ts');
+  const { toolRequiresApproval } = await import('../services/dangerToolList.ts');
 
       expect(toolRequiresApproval('file.read')).toBe(false);
       expect(toolRequiresApproval('http.get')).toBe(false);

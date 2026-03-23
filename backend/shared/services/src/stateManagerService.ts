@@ -13,19 +13,9 @@ import {
   OperationStateRepository,
   OperationCheckpointRepository,
 } from './database/repositories/OperationRepository';
+import type { StateUpdateOptions } from '@uaip/types';
 
-export interface StateUpdateOptions {
-  status?: string;
-  currentStep?: string;
-  completedSteps?: string[];
-  failedSteps?: string[];
-  variables?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-  startedAt?: Date;
-  completedAt?: Date;
-  error?: string;
-  result?: unknown;
-}
+export type { StateUpdateOptions };
 
 // Helper function to safely extract error messages
 function getErrorMessage(error: unknown): string {

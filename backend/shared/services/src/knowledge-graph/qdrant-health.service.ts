@@ -1,19 +1,12 @@
 import { logger } from '@uaip/utils';
 import { QdrantService } from '../qdrant.service';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
-import { KnowledgeSyncService } from './knowledge-sync.service';
+import { KnowledgeSyncService, UserRepositoryLike } from './knowledge-sync.service';
 import { EmbeddingService } from './embedding.service';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
-import { DatabaseService } from '../databaseService';
+import type { QdrantHealthStatus } from '@uaip/types';
 
-export interface QdrantHealthStatus {
-  isConnected: boolean;
-  collectionExists: boolean;
-  pointsCount: number;
-  postgresItemsCount: number;
-  syncNeeded: boolean;
-  lastError?: string;
-}
+export type { QdrantHealthStatus } from '@uaip/types';
 
 type QdrantCollectionInfo = { result?: { points_count?: number } };
 type QdrantSampleItem = {
@@ -27,7 +20,8 @@ export class QdrantHealthService {
     private readonly qdrantService: QdrantService,
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly embeddingService: EmbeddingService,
-    private readonly graphDatabase: ToolGraphDatabase
+    private readonly graphDatabase: ToolGraphDatabase,
+    private readonly userRepository?: UserRepositoryLike | null
   ) {}
 
   async checkHealth(): Promise<QdrantHealthStatus> {
@@ -79,17 +73,12 @@ export class QdrantHealthService {
         `Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`
       );
 
-      const databaseService = DatabaseService.getInstance();
-      const userRepository = databaseService.getUserRepository();
-      const userRepositoryWrapper: { findById: (id: string) => Promise<import('../database/drizzle/schemas/control.schema').User | null> } = {
-        findById: (id: string) => userRepository.findById(id) as unknown as Promise<import('../database/drizzle/schemas/control.schema').User | null>,
-      };
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
         this.graphDatabase,
         this.embeddingService,
-        userRepositoryWrapper as any
+        this.userRepository ?? null
       );
 
       // Get items to sync

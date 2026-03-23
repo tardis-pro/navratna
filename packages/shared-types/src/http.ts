@@ -372,6 +372,106 @@ export interface FullAgentContext extends ElysiaBaseContext {
 }
 
 // ============================================================================
+// Token Payload Types
+// ============================================================================
+
+/**
+ * JWT token payload for authentication
+ */
+export interface TokenPayload {
+  userId: string;
+  email: string;
+  role: string;
+  sessionId?: string;
+  userType?: string;
+  securityLevel?: number;
+  agentCapabilities?: string[];
+}
+
+// ============================================================================
+// Error Logger Types
+// ============================================================================
+
+/**
+ * Structured error logger interface for consistent error tracking
+ */
+export interface StructuredErrorLogger {
+  error(error: Error, context?: Partial<ErrorContext>): void;
+  warning(error: Error, context?: Partial<ErrorContext>): void;
+  critical(error: Error, context?: Partial<ErrorContext>): void;
+  business(error: Error, context?: Partial<ErrorContext>): void;
+}
+
+// ============================================================================
+// Request Logger Types
+// ============================================================================
+
+/**
+ * Options for request logging middleware
+ */
+export interface RequestLoggerOptions {
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  includeBody?: boolean;
+  includeHeaders?: boolean;
+  excludePaths?: string[];
+  maxBodyLength?: number;
+}
+
+/**
+ * Async error handler options
+ */
+export interface AsyncHandlerOptions {
+  operation: string;
+  logError?: boolean;
+  rethrow?: boolean;
+}
+
+// ============================================================================
+// API Key Types
+// ============================================================================
+
+/**
+ * API Key model for service-to-service authentication
+ */
+export interface APIKey {
+  id: string;
+  name: string;
+  serviceName: string;
+  keyHash: string;
+  permissions: string[];
+  scopes: string[];
+  isActive: boolean;
+  createdAt: Date;
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  ipRestrictions?: string[];
+  rateLimitOverride?: number;
+}
+
+// ============================================================================
+// Response Types
+// ============================================================================
+
+/**
+ * Standardized API response wrapper
+ */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+  meta?: {
+    timestamp: Date;
+    page?: number;
+    limit?: number;
+    total?: number;
+  };
+}
+
+// ============================================================================
 // Handler Type Helpers
 // ============================================================================
 

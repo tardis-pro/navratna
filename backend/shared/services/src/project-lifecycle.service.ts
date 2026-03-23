@@ -2,55 +2,11 @@ import { ProjectManagementService, ProjectMetrics } from './project-management.s
 import { EventBusService } from './eventBusService';
 import { DatabaseService } from './databaseService';
 import { logger } from '@uaip/utils';
-import { ProjectStatus } from './entities/project.entity';
-import { ProjectEntity } from './entities/project.entity';
+import { ProjectStatus } from '@uaip/types';
+import { ProjectEntity } from '@uaip/types';
+import type { ProjectHealthCheck, ProjectAlert, ProjectAutomation } from '@uaip/types';
 
-export interface ProjectHealthCheck {
-  projectId: string;
-  overallHealth: 'excellent' | 'good' | 'warning' | 'critical';
-  budgetHealth: 'on-track' | 'over-budget' | 'critical';
-  scheduleHealth: 'on-time' | 'delayed' | 'overdue';
-  taskHealth: 'progressing' | 'stalled' | 'blocked';
-  agentHealth: 'active' | 'inactive' | 'overloaded';
-  recommendations: string[];
-  metrics: {
-    budgetUtilization: number;
-    completionRate: number;
-    averageTaskDuration: number;
-    activeAgents: number;
-    blockedTasks: number;
-    overdueTasksCount: number;
-  };
-}
-
-export interface ProjectAlert {
-  id: string;
-  projectId: string;
-  type: 'budget' | 'schedule' | 'task' | 'agent' | 'security';
-  severity: 'info' | 'warning' | 'error' | 'critical';
-  message: string;
-  actionRequired?: string;
-  triggeredAt: Date;
-  acknowledged: boolean;
-  resolvedAt?: Date;
-}
-
-export interface ProjectAutomation {
-  id: string;
-  projectId: string;
-  type: 'budget_threshold' | 'task_overdue' | 'agent_idle' | 'completion_trigger';
-  trigger: {
-    condition: string;
-    threshold?: number;
-    schedule?: string;
-  };
-  actions: Array<{
-    type: 'notify' | 'reassign' | 'pause' | 'escalate' | 'archive';
-    config: unknown;
-  }>;
-  isActive: boolean;
-  lastExecuted?: Date;
-}
+export type { ProjectHealthCheck, ProjectAlert, ProjectAutomation };
 
 export class ProjectLifecycleService {
   private alerts = new Map<string, ProjectAlert[]>();

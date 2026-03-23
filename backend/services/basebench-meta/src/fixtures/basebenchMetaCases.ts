@@ -1,4 +1,4 @@
-import type { BaseBenchTestCase } from '../services/basebenchTypes.js';
+import type { BaseBenchTestCase } from '@uaip/types';
 
 export const baseBenchMetaCases: readonly BaseBenchTestCase[] = [
   {

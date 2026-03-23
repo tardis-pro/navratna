@@ -10,23 +10,7 @@ import {
   Assumption,
   Contradiction,
 } from '@uaip/types';
-
-// ---------------------------------------------------------------------------
-// Input / Output Interfaces
-// ---------------------------------------------------------------------------
-
-export interface PackGenerationInput {
-  projectBriefId: string;
-  questions: Question[];
-  assumptions: Assumption[];
-  contradictions: Contradiction[];
-  scores: Array<{ questionId: string; totalScore: number; breakdown: Record<string, unknown> }>;
-  stakeholderRoles?: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+import type { PackGenerationInput } from '@uaip/types';
 
 export const DEFAULT_STAKEHOLDER_ROLES: string[] = [
   'Founder / client',

@@ -1,20 +1,5 @@
-interface VectorSearchOptions {
-  limit: number;
-  threshold: number;
-  filters?: unknown;
-}
-
-export type MemoryCollectionType = 'episodic' | 'semantic';
-
-interface CollectionOptions {
-  collection?: MemoryCollectionType;
-}
-
-export interface VectorSearchResult {
-  id: string;
-  score: number;
-  payload?: Record<string, unknown>;
-}
+import type { VectorSearchResult, MemoryCollectionType, CollectionOptions, VectorSearchOptions } from '@uaip/types';
+export type { VectorSearchResult, MemoryCollectionType, CollectionOptions, VectorSearchOptions } from '@uaip/types';
 
 export class QdrantService {
   private qdrantUrl: string;

@@ -3021,6 +3021,14 @@ This sprint plan covers:
 
 ---
 
+## Verification Note (2025-12-26)
+
+- Verified in repo: Tasks 1.1-1.4, 1.6-1.7, 2.1-2.3, 3.1-3.2, 4.1-4.3, 5.1 are implemented.
+- Pending: Wire `StreamingHandler` into `backend/services/discussion-orchestration/src/index.ts` (import + initialize).
+- Optional: Add `@tanstack/ai-client` to `apps/frontend/package.json` if you want to mirror Task 1.1's dependency list.
+
+---
+
 Plan complete and saved to `docs/plans/2025-12-15-cognitive-streaming-sprint.md`.
 
 **Two execution options:**

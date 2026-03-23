@@ -1,30 +1,12 @@
-import { KnowledgeType, SourceType } from '@uaip/types';
+import { KnowledgeType, SourceType, KnowledgeCluster } from '@uaip/types';
+import type { SimplifiedSyncResult, Neo4jKnowledgeItem } from '@uaip/types';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
 import { QdrantService } from '../qdrant.service';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
 import { SmartEmbeddingService } from './smart-embedding.service';
-import { KnowledgeClusteringService, KnowledgeCluster } from './knowledge-clustering.service';
+import { KnowledgeClusteringService } from './knowledge-clustering.service';
 
-export interface SimplifiedSyncResult {
-  totalFromNeo4j: number;
-  totalToQdrant: number;
-  totalClustered: number;
-  totalToPostgres: number;
-  clustersCreated: number;
-  reductionRatio: number;
-  errors: string[];
-  syncTimestamp: Date;
-}
-
-export interface Neo4jKnowledgeItem {
-  id: string;
-  content: string;
-  type: string;
-  tags: string[];
-  confidence: number;
-  sourceType: string;
-  metadata: Record<string, unknown>;
-}
+export type { SimplifiedSyncResult, Neo4jKnowledgeItem } from '@uaip/types';
 
 /**
  * Simplified Unidirectional Sync Service

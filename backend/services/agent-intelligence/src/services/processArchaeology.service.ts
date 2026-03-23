@@ -10,50 +10,16 @@
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
-import { EntityMatcherService } from './entityMatcher.service.js';
+import { EntityMatcherService } from './entityMatcher.service';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+export type { DataSource, DiscoveredEntity, EntityRelationship, OntologyProposal } from './process-archaeology.types';
 
-export interface DataSource {
-  id: string;
-  type: 'database' | 'api' | 'file' | 'repository' | 'saas';
-  name: string;
-  connectionConfig: Record<string, unknown>;
-  status: 'pending' | 'crawling' | 'analyzed' | 'failed';
-}
-
-export interface DiscoveredEntity {
-  id: string;
-  sourceId: string;
-  name: string;
-  type: 'field' | 'table' | 'endpoint' | 'file' | 'concept';
-  metadata: Record<string, unknown>;
-  sampleValues?: string[];
-}
-
-export interface EntityRelationship {
-  entityA: string;
-  entityB: string;
-  relationshipType: 'same_entity' | 'parent_child' | 'reference' | 'derived' | 'unknown';
-  confidence: number;
-  evidence: string;
-}
-
-export interface OntologyProposal {
-  id: string;
-  entities: DiscoveredEntity[];
-  relationships: EntityRelationship[];
-  suggestedMerges: Array<{
-    entities: string[];
-    proposedName: string;
-    confidence: number;
-    reason: string;
-  }>;
-  missingConnections: string[];
-  createdAt: Date;
-}
+import type {
+  DataSource,
+  DiscoveredEntity,
+  EntityRelationship,
+  OntologyProposal,
+} from './process-archaeology.types';
 
 // ---------------------------------------------------------------------------
 // Service

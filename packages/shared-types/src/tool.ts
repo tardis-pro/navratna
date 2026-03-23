@@ -259,3 +259,119 @@ export interface ToolSystemConfig {
     encryptResults: boolean;
   };
 }
+
+// ============================================================================
+// Tool Execution Event Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface ToolExecutionOptions {
+  timeout?: number;
+  priority?: 'low' | 'normal' | 'high';
+  retryOnFailure?: boolean;
+  maxRetries?: number;
+}
+
+export interface ToolExecutionRequestEvent {
+  requestId: string;
+  toolId: string;
+  agentId: string;
+  parameters: Record<string, unknown>;
+  securityContext?: Record<string, unknown>;
+  timestamp: string;
+  idempotencyKey?: string;
+  correlationId?: string;
+}
+
+export interface ToolExecutionResponseEvent {
+  requestId: string;
+  toolId: string;
+  status: 'SUCCESS' | 'ERROR';
+  result?: unknown;
+  error?: string;
+  executionTime: number;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Tool Graph Database Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface ToolGraphRelationship {
+  type: 'DEPENDS_ON' | 'SIMILAR_TO' | 'REPLACES' | 'ENHANCES' | 'REQUIRES';
+  strength: number;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ToolRecommendation {
+  toolId: string;
+  score: number;
+  reason: string;
+  confidence: number;
+}
+
+export interface UsagePattern {
+  agentId: string;
+  toolId: string;
+  frequency: number;
+  successRate: number;
+  avgExecutionTime: number;
+  contextPatterns: string[];
+}
+
+export interface ToolUsageAnalyticsRecord {
+  toolId: string;
+  toolName: string;
+  agentId: string;
+  frequency: number;
+  successRate: number;
+  avgExecutionTime: number;
+  lastUsed: string;
+}
+
+export interface AgentToolPreference {
+  toolId: string;
+  toolName: string;
+  category: string;
+  frequency: number;
+  successRate: number;
+}
+
+export interface PopularToolRecord {
+  toolId: string;
+  toolName: string;
+  category: string;
+  totalUsage: number;
+  avgSuccessRate: number;
+  avgExecutionTime: number;
+}
+
+export interface UserToolPreferencesData {
+  userId: string;
+  toolId: string;
+  parameterDefaults?: Record<string, unknown>;
+  customConfig?: Record<string, unknown>;
+  isFavorite?: boolean;
+  isEnabled?: boolean;
+  autoApprove?: boolean;
+  rateLimits?: Record<string, number>;
+  budgetLimit?: number;
+  notifyOnCompletion?: boolean;
+  notifyOnError?: boolean;
+}
+
+export interface UserToolAccess {
+  toolId: string;
+  toolName: string;
+  toolDescription: string;
+  parameterDefaults: Record<string, unknown>;
+  customConfig: Record<string, unknown>;
+  isFavorite: boolean;
+  isEnabled: boolean;
+  autoApprove: boolean;
+  usageCount: number;
+  lastUsedAt?: Date;
+  rateLimits: Record<string, number>;
+  budgetLimit?: number;
+  budgetUsed: number;
+}

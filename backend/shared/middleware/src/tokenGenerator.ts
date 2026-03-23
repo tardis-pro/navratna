@@ -1,16 +1,7 @@
 import { JWTValidator } from './JWTValidator.js';
 import { config } from '@uaip/config';
 import jwt from 'jsonwebtoken';
-
-export interface TokenPayload {
-  userId: string;
-  email: string;
-  role: string;
-  sessionId?: string;
-  userType?: string;
-  securityLevel?: number;
-  agentCapabilities?: string[];
-}
+import type { TokenPayload } from '@uaip/types';
 
 /**
  * Generates both access and refresh tokens for authentication

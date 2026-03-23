@@ -568,3 +568,266 @@ export interface WorkingMemoryUpdate {
   agentState?: Record<string, unknown>;
   knowledgeUpdated?: Record<string, unknown>;
 }
+
+// ============================================================================
+// Knowledge Clustering Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface QdrantPoint {
+  id: string;
+  vector: number[];
+  payload: {
+    content: string;
+    knowledgeType: KnowledgeType;
+    tags: string[];
+    confidence: number;
+    sourceType: string;
+    originalMetadata: Record<string, unknown>;
+  };
+}
+
+export interface SourceMetadata {
+  id: string;
+  sourceType: string;
+  confidence: number;
+  originalMetadata: Record<string, unknown>;
+}
+
+export interface KnowledgeCluster {
+  clusterId: string;
+  primaryVector: QdrantPoint;
+  similarChunks: QdrantPoint[];
+  consolidatedContent: string;
+  confidence: number;
+  sources: SourceMetadata[];
+  consolidatedType: KnowledgeType;
+  consolidatedTags: string[];
+  averageConfidence: number;
+}
+
+export interface ClusteringResult {
+  totalClusters: number;
+  totalOriginalItems: number;
+  totalConsolidatedItems: number;
+  reductionRatio: number;
+  averageClusterSize: number;
+  clusters: KnowledgeCluster[];
+}
+
+// ============================================================================
+// Chat Ingestion Types (moved from backend/shared/services)
+// ============================================================================
+
+export interface FileData {
+  id: string;
+  name: string;
+  content: string;
+  size: number;
+  type: 'claude' | 'gpt' | 'whatsapp' | 'generic';
+  userId: string;
+}
+
+export interface BatchJob {
+  id: string;
+  userId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  filesProcessed: number;
+  totalFiles: number;
+  extractedItems: number;
+  createdAt: Date;
+  completedAt?: Date;
+  error?: string;
+  options: ProcessingOptions;
+}
+
+export interface ProcessingOptions {
+  batchSize?: number;
+  concurrency?: number;
+  extractKnowledge?: boolean;
+  saveToGraph?: boolean;
+  generateEmbeddings?: boolean;
+}
+
+export interface ProcessingResult {
+  fileId: string;
+  success: boolean;
+  conversationsFound: number;
+  knowledgeExtracted: number;
+  error?: string;
+  processingTime: number;
+}
+
+export interface BatchResult {
+  jobId: string;
+  totalFiles: number;
+  successfulFiles: number;
+  failedFiles: number;
+  totalKnowledgeExtracted: number;
+  totalProcessingTime: number;
+  errors: string[];
+}
+
+// Chat Parser Types
+export interface ParsedMessage {
+  id: string;
+  timestamp: Date;
+  sender: string;
+  content: string;
+  type: 'text' | 'image' | 'file' | 'system';
+  metadata: Record<string, unknown>;
+}
+
+export interface ParsedConversation {
+  id: string;
+  platform: 'claude' | 'gpt' | 'whatsapp' | 'generic';
+  title?: string;
+  participants: string[];
+  messages: ParsedMessage[];
+  metadata: {
+    totalMessages: number;
+    dateRange: { start: Date; end: Date };
+    fileSize: number;
+    originalFilename: string;
+    parsedAt: Date;
+  };
+}
+
+export interface ChatParsingResult {
+  conversations: ParsedConversation[];
+  totalMessages: number;
+  totalConversations: number;
+  parsingErrors: string[];
+  processingTime: number;
+  detectedPlatform: string;
+}
+
+// Chat Knowledge Extractor Types
+export interface ChatConversationContext {
+  conversationId: string;
+  participantCount: number;
+  messageIndex: number;
+  totalMessages: number;
+  timeRange: { start: Date; end: Date };
+  platform: string;
+}
+
+// Alias for backward compatibility with services that use ConversationContext
+export type ConversationContext = ChatConversationContext;
+
+export interface ExtractedKnowledge {
+  content: string;
+  type: KnowledgeType;
+  confidence: number;
+  context: ChatConversationContext;
+  tags: string[];
+  metadata: {
+    extractionMethod: string;
+    sourceMessages: string[];
+    participants: string[];
+    domain?: string;
+  };
+}
+
+export interface QAPair {
+  id: string;
+  question: string;
+  answer: string;
+  context: ChatConversationContext;
+  confidence: number;
+  tags: string[];
+  participants: { questioner: string; answerer: string };
+}
+
+export interface DecisionPoint {
+  id: string;
+  decision: string;
+  reasoning: string[];
+  alternatives: string[];
+  outcome?: string;
+  context: ChatConversationContext;
+  confidence: number;
+  participants: string[];
+}
+
+export interface ExpertiseArea {
+  domain: string;
+  participant: string;
+  evidenceMessages: string[];
+  confidence: number;
+  skills: string[];
+  context: ChatConversationContext;
+}
+
+export interface LearningMoment {
+  id: string;
+  learner: string;
+  teacher: string;
+  topic: string;
+  content: string;
+  learningType: 'explanation' | 'correction' | 'guidance' | 'example' | 'discovery';
+  context: ChatConversationContext;
+  confidence: number;
+}
+
+export interface KnowledgeExtractionResult {
+  extractedKnowledge: ExtractedKnowledge[];
+  qaPairs: QAPair[];
+  decisionPoints: DecisionPoint[];
+  expertiseAreas: ExpertiseArea[];
+  learningMoments: LearningMoment[];
+  extractionMetrics: {
+    totalMessagesProcessed: number;
+    knowledgeItemsExtracted: number;
+    avgConfidence: number;
+    processingTime: number;
+    extractionMethods: Record<string, number>;
+  };
+}
+
+// Health and Sync Types
+export interface QdrantHealthStatus {
+  isConnected: boolean;
+  collectionExists: boolean;
+  pointsCount: number;
+  postgresItemsCount: number;
+  syncNeeded: boolean;
+  lastError?: string;
+}
+
+export interface SimplifiedSyncResult {
+  totalFromNeo4j: number;
+  totalToQdrant: number;
+  totalClustered: number;
+  totalToPostgres: number;
+  clustersCreated: number;
+  reductionRatio: number;
+  errors: string[];
+  syncTimestamp: Date;
+}
+
+export interface Neo4jKnowledgeItem {
+  id: string;
+  content: string;
+  type: string;
+  tags: string[];
+  confidence: number;
+  sourceType: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface BootstrapConfig {
+  enableAutoSync: boolean;
+  syncOnStartup: boolean;
+  batchSize: number;
+  retryAttempts: number;
+  retryDelay: number;
+  useSimplifiedSync: boolean;
+}
+
+export interface BootstrapStatus {
+  syncResult: SimplifiedSyncResult;
+  clusteringEnabled: boolean;
+  totalReduction: number;
+  finalKnowledgeItems: number;
+}
