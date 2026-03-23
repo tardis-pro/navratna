@@ -59,7 +59,7 @@ export class AgentInitializationService {
     this.personaService = config.personaService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
-    this.store = new AgentIntelligenceStore(this.databaseService);
+    this.store = new AgentIntelligenceStore();
   }
 
   async initialize(): Promise<void> {

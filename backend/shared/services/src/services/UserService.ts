@@ -77,9 +77,7 @@ export class UserService {
 
   public getUserLLMPreferenceRepository(): UserLLMPreferenceRepository {
     if (!this.userLLMPreferenceRepository) {
-      const typeormService = this.typeormService || TypeOrmService.getInstance();
-      const repository = typeormService.getRepository(UserLLMPreference);
-      this.userLLMPreferenceRepository = new UserLLMPreferenceRepository(repository);
+      this.userLLMPreferenceRepository = new UserLLMPreferenceRepository();
     }
     return this.userLLMPreferenceRepository;
   }
@@ -124,7 +122,7 @@ export class UserService {
   }
 
   public async findUserById(id: string): Promise<UserEntity | null> {
-    return await this.getUserRepository().findById(id);
+    return await this.getUserRepository().findById(id) as unknown as UserEntity | null;
   }
 
   public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {

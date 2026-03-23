@@ -3,11 +3,33 @@ import { BaseDomainService } from './BaseDomainService';
 import { AgentRepository } from '../database/repositories/AgentRepository';
 import { CapabilityRepository } from '../database/repositories/CapabilityRepository';
 import { AgentLLMPreferenceRepository } from '../database/repositories/AgentLLMPreferenceRepository';
-import { Agent } from '../entities/agent.entity';
-import { Capability } from '../entities/capability.entity';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 import { EventBusService } from '../eventBusService';
+import type { Agent } from '../database/drizzle/schemas/intelligence.schema';
+
+interface Capability {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  configuration?: Record<string, unknown>;
+  isEnabled: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface AgentLLMPreference {
+  id: string;
+  agentId: string;
+  modelId?: string;
+  temperature?: number;
+  maxTokens?: number;
+  systemPrompt?: string;
+  preferences?: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export class AgentService extends BaseDomainService {
   protected constructor() {
@@ -31,13 +53,9 @@ export class AgentService extends BaseDomainService {
   }
 
   public getAgentLLMPreferenceRepository(): AgentLLMPreferenceRepository {
-    return this.getRepository('agentLLMPrefRepo', () => {
-      const repository = this.typeormService.getRepository(AgentLLMPreference);
-      return new AgentLLMPreferenceRepository(repository);
-    });
+    return this.getRepository('agentLLMPrefRepo', () => new AgentLLMPreferenceRepository());
   }
 
-  // Core agent operations
   public async createAgent(data: {
     name: string;
     displayName?: string;
@@ -51,30 +69,40 @@ export class AgentService extends BaseDomainService {
     status?: AgentStatus;
   }): Promise<Agent> {
     const agentRepo = this.getAgentRepository();
-    return await agentRepo.create({
-      ...data,
+    const result = await agentRepo.create({
+      name: data.name,
+      description: data.description,
       role: data.role || AgentRole.ASSISTANT,
+      systemPrompt: data.instructions,
       modelId: data.modelId || 'gpt-4',
       temperature: data.temperature || 0.7,
       maxTokens: data.maxTokens || 4096,
       securityLevel: data.securityLevel || SecurityLevel.MEDIUM,
       status: data.status || AgentStatus.IDLE,
+      isActive: true,
+      createdBy: 'system',
+      version: '1.0.0',
+      tags: [],
+      capabilities: [],
+      metadata: {},
     });
+    return result as unknown as Agent;
   }
 
   public async findAgentById(id: string): Promise<Agent | null> {
-    return await this.getAgentRepository().findById(id);
+    const result = await this.getAgentRepository().findById(id);
+    return result as unknown as Agent | null;
   }
 
   public async findAgentByName(name: string): Promise<Agent | null> {
     const agents = await this.getAgentRepository().findMany({ name });
-    return agents.length > 0 ? agents[0] : null;
+    return (agents[0] as unknown as Agent) || null;
   }
 
   public async findActiveAgents(): Promise<Agent[]> {
     const idleAgents = await this.getAgentRepository().findMany({ status: AgentStatus.IDLE });
     const activeAgents = await this.getAgentRepository().findMany({ status: AgentStatus.ACTIVE });
-    return [...idleAgents, ...activeAgents];
+    return [...idleAgents, ...activeAgents] as unknown as Agent[];
   }
 
   public async updateAgent(id: string, data: Partial<Agent>): Promise<Agent | null> {
@@ -83,21 +111,20 @@ export class AgentService extends BaseDomainService {
       return null;
     }
 
-    const updatedAgent = await this.getAgentRepository().update(id, data);
+    const updatedAgent = await this.getAgentRepository().update(id, data as Record<string, unknown>);
 
-    // Check if model or provider configuration changed
-    if (updatedAgent && this.hasModelConfigChanged(originalAgent, updatedAgent)) {
+    if (updatedAgent && this.hasModelConfigChanged(originalAgent as unknown as Agent, updatedAgent as unknown as Agent)) {
       try {
-        await this.publishAgentConfigChangeEvent(updatedAgent);
+        await this.publishAgentConfigChangeEvent(updatedAgent as unknown as Agent);
       } catch (error) {
         logger.error('Failed to publish agent config change event', {
           agentId: id,
-          error: error.message,
+          error: (error as Error).message,
         });
       }
     }
 
-    return updatedAgent;
+    return updatedAgent as unknown as Agent | null;
   }
 
   private hasModelConfigChanged(original: Agent, updated: Agent): boolean {
@@ -130,7 +157,6 @@ export class AgentService extends BaseDomainService {
       timestamp: new Date().toISOString(),
     });
 
-    // Also publish general provider change event for LLM service cache invalidation
     await eventBus.publish('llm.provider.changed', {
       eventType: 'agent-config-changed',
       agentId: agent.id,
@@ -142,7 +168,7 @@ export class AgentService extends BaseDomainService {
   }
 
   public async updateAgentStatus(id: string, status: AgentStatus): Promise<boolean> {
-    const result = await this.getAgentRepository().update(id, { status });
+    const result = await this.getAgentRepository().update(id, { status } as Record<string, unknown>);
     return result !== null;
   }
 
@@ -150,7 +176,6 @@ export class AgentService extends BaseDomainService {
     return await this.getAgentRepository().delete(id);
   }
 
-  // Capability operations
   public async createCapability(data: {
     name: string;
     description?: string;
@@ -158,14 +183,19 @@ export class AgentService extends BaseDomainService {
     isActive?: boolean;
   }): Promise<Capability> {
     const capabilityRepo = this.getCapabilityRepository();
-    return await capabilityRepo.create({
-      ...data,
-      isActive: data.isActive ?? true,
+    const result = await capabilityRepo.create({
+      name: data.name,
+      description: data.description,
+      type: data.category,
+      isEnabled: data.isActive ?? true,
+      metadata: {},
     });
+    return result as unknown as Capability;
   }
 
   public async findCapabilityById(id: string): Promise<Capability | null> {
-    return await this.getCapabilityRepository().findById(id);
+    const result = await this.getCapabilityRepository().findById(id);
+    return result as unknown as Capability | null;
   }
 
   public async assignCapabilityToAgent(agentId: string, capabilityId: string): Promise<void> {
@@ -175,15 +205,10 @@ export class AgentService extends BaseDomainService {
     const capability = await this.getCapabilityRepository().findById(capabilityId);
     if (!capability) throw new Error('Capability not found');
 
-    if (!agent.capabilities) {
-      agent.capabilities = [];
-    }
-
-    // Check if already assigned
-    const isAssigned = agent.capabilities.includes(capabilityId);
-    if (!isAssigned) {
-      agent.capabilities.push(capabilityId);
-      await this.getAgentRepository().update(agent.id, { capabilities: agent.capabilities });
+    const agentCapabilities = (agent.capabilities || []) as string[];
+    if (!agentCapabilities.includes(capabilityId)) {
+      agentCapabilities.push(capabilityId);
+      await this.getAgentRepository().update(agent.id, { capabilities: agentCapabilities } as Record<string, unknown>);
     }
   }
 
@@ -191,19 +216,19 @@ export class AgentService extends BaseDomainService {
     const agent = await this.findAgentById(agentId);
     if (!agent) throw new Error('Agent not found');
 
-    if (agent.capabilities) {
-      agent.capabilities = agent.capabilities.filter((cap) => cap !== capabilityId);
-      await this.getAgentRepository().update(agent.id, { capabilities: agent.capabilities });
-    }
+    const agentCapabilities = (agent.capabilities || []) as string[];
+    const filtered = agentCapabilities.filter((cap) => cap !== capabilityId);
+    await this.getAgentRepository().update(agent.id, { capabilities: filtered } as Record<string, unknown>);
   }
 
-  // Bulk operations
   public async createBulkAgents(agents: Array<Partial<Agent>>): Promise<Agent[]> {
     const agentRepo = this.getAgentRepository();
-    return await agentRepo.batchCreate(agents);
+    const results = await agentRepo.batchCreate(agents as unknown as Record<string, unknown>[]);
+    return results as unknown as Agent[];
   }
 
   public async findAgentsByRole(role: AgentRole): Promise<Agent[]> {
-    return await this.getAgentRepository().findMany({ role });
+    const results = await this.getAgentRepository().findMany({ role: role as unknown as string });
+    return results as unknown as Agent[];
   }
 }

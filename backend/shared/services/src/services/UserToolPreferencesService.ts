@@ -1,8 +1,5 @@
-import { Repository, DataSource } from 'typeorm';
-import { UserToolPreferences } from '../entities/userToolPreferences.entity';
-import { ToolDefinition } from '../entities/toolDefinition.entity';
-import { UserEntity } from '../entities/user.entity';
-import { logger } from '@uaip/utils';
+import { getControlPool } from '../database/drizzle/clients/index';
+
 
 export interface UserToolPreferencesData {
   userId: string;
@@ -34,220 +31,160 @@ export interface UserToolAccess {
   budgetUsed: number;
 }
 
-/**
- * Service for managing user tool preferences
- * Maintains proper 1-to-many relationship: 1 Tool -> Many UserToolPreferences
- */
 export class UserToolPreferencesService {
-  private repository: Repository<UserToolPreferences>;
-  private toolRepository: Repository<ToolDefinition>;
-  private userRepository: Repository<UserEntity>;
+  constructor() {}
 
-  constructor(private dataSource: DataSource) {
-    this.repository = this.dataSource.getRepository(UserToolPreferences);
-    this.toolRepository = this.dataSource.getRepository(ToolDefinition);
-    this.userRepository = this.dataSource.getRepository(UserEntity);
-  }
-
-  /**
-   * Get user's tool preferences with tool details
-   */
   async getUserToolAccess(userId: string): Promise<UserToolAccess[]> {
-    try {
-      const preferences = await this.repository.find({
-        where: { userId },
-        relations: ['tool'],
-      });
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT up.*, td.name as tool_name, td.description as tool_description
+       FROM user_tool_preferences up
+       LEFT JOIN tool_definitions td ON up.user_id = td.id
+       WHERE up.user_id = $1`,
+      [userId]
+    );
 
-      return preferences.map((pref) => ({
-        toolId: pref.toolId,
-        toolName: pref.tool.name,
-        toolDescription: pref.tool.description,
-        parameterDefaults: pref.parameterDefaults || {},
-        customConfig: pref.customConfig || {},
-        isFavorite: pref.isFavorite,
-        isEnabled: pref.isEnabled,
-        autoApprove: pref.autoApprove,
-        usageCount: pref.usageCount,
-        lastUsedAt: pref.lastUsedAt,
-        rateLimits: pref.rateLimits || pref.tool.rateLimits || {},
-        budgetLimit: pref.budgetLimit,
-        budgetUsed: pref.budgetUsed,
-      }));
-    } catch (error) {
-      logger.error('Failed to get user tool access:', error);
-      throw error;
+    return result.rows.map((row: Record<string, unknown>): UserToolAccess => ({
+      toolId: row.user_id as string,
+      toolName: (row.tool_name as string) || '',
+      toolDescription: (row.tool_description as string) || '',
+      parameterDefaults: (((row.preferences as Record<string, unknown>) || {}).parameterDefaults as Record<string, unknown>) || {},
+      customConfig: (((row.preferences as Record<string, unknown>) || {}).customConfig as Record<string, unknown>) || {},
+      isFavorite: false,
+      isEnabled: true,
+      autoApprove: false,
+      usageCount: 0,
+      lastUsedAt: undefined,
+      rateLimits: (((row.preferences as Record<string, unknown>) || {}).rateLimits as Record<string, number>) || {},
+      budgetLimit: (((row.preferences as Record<string, unknown>) || {}).budgetLimit as number | undefined),
+      budgetUsed: 0,
+    }));
+  }
+
+  async getAvailableToolsForUser(userId: string): Promise<Record<string, unknown>[]> {
+    const pool = getControlPool();
+    const userResult = await pool.query(
+      `SELECT security_clearance FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const securityClearance = userResult.rows[0].security_clearance;
+    const availableTools = await pool.query(
+      `SELECT * FROM tool_definitions WHERE is_enabled = true AND security_level <= $1`,
+      [securityClearance]
+    );
+
+    return availableTools.rows;
+  }
+
+  async setUserToolPreferences(data: UserToolPreferencesData): Promise<Record<string, unknown>> {
+    const pool = getControlPool();
+
+    const existingResult = await pool.query(
+      `SELECT * FROM user_tool_preferences WHERE user_id = $1 LIMIT 1`,
+      [data.userId]
+    );
+
+    const preferencesData = {
+      parameterDefaults: data.parameterDefaults || {},
+      customConfig: data.customConfig || {},
+      isFavorite: data.isFavorite || false,
+      isEnabled: data.isEnabled ?? true,
+      autoApprove: data.autoApprove || false,
+      rateLimits: data.rateLimits || {},
+      budgetLimit: data.budgetLimit,
+      notifyOnCompletion: data.notifyOnCompletion ?? true,
+      notifyOnError: data.notifyOnError ?? true,
+    };
+
+    if (existingResult.rows.length > 0) {
+      const existing = existingResult.rows[0] as Record<string, unknown>;
+      const existingPrefs = (existing.preferences as Record<string, unknown>) || {};
+      const mergedPrefs = { ...existingPrefs, ...preferencesData };
+
+      await pool.query(
+        `UPDATE user_tool_preferences SET preferences = $1, updated_at = NOW() WHERE user_id = $2`,
+        [JSON.stringify(mergedPrefs), data.userId]
+      );
+      return { ...existing, preferences: mergedPrefs };
+    }
+
+    const result = await pool.query(
+      `INSERT INTO user_tool_preferences (user_id, preferences) VALUES ($1, $2) RETURNING *`,
+      [data.userId, JSON.stringify(preferencesData)]
+    );
+    return result.rows[0];
+  }
+
+  async getUserToolPreferences(userId: string, _toolId: string): Promise<Record<string, unknown> | null> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM user_tool_preferences WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async trackToolUsage(userId: string, toolId: string, _costIncurred: number = 0): Promise<void> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM user_tool_preferences WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO user_tool_preferences (user_id, preferences) VALUES ($1, $2)`,
+        [userId, JSON.stringify({ usageCount: 1, lastUsedToolId: toolId })]
+      );
     }
   }
 
-  /**
-   * Get available tools for a user (tools they can access)
-   */
-  async getAvailableToolsForUser(userId: string): Promise<ToolDefinition[]> {
-    try {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      // Get all tools that match user's security clearance
-      const availableTools = await this.toolRepository.find({
-        where: {
-          isEnabled: true,
-          securityLevel: user.securityClearance, // Only tools within security clearance
-        },
-      });
-
-      return availableTools;
-    } catch (error) {
-      logger.error('Failed to get available tools for user:', error);
-      throw error;
-    }
+  async getUserFavoriteTools(userId: string): Promise<Record<string, unknown>[]> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT up.*, td.*
+       FROM user_tool_preferences up
+       LEFT JOIN tool_definitions td ON (up.preferences->>'favoriteTools')::jsonb @> to_jsonb(td.id)
+       WHERE up.user_id = $1`,
+      [userId]
+    );
+    return result.rows;
   }
 
-  /**
-   * Set user preferences for a specific tool
-   */
-  async setUserToolPreferences(data: UserToolPreferencesData): Promise<UserToolPreferences> {
-    try {
-      // Verify tool exists
-      const tool = await this.toolRepository.findOne({ where: { id: data.toolId } });
-      if (!tool) {
-        throw new Error('Tool not found');
-      }
-
-      // Verify user exists
-      const user = await this.userRepository.findOne({ where: { id: data.userId } });
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      // Check if preference already exists
-      let preference = await this.repository.findOne({
-        where: { userId: data.userId, toolId: data.toolId },
-      });
-
-      if (preference) {
-        // Update existing preference
-        Object.assign(preference, data);
-      } else {
-        // Create new preference
-        preference = this.repository.create(data);
-      }
-
-      return await this.repository.save(preference);
-    } catch (error) {
-      logger.error('Failed to set user tool preferences:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user's specific tool preferences
-   */
-  async getUserToolPreferences(
-    userId: string,
-    toolId: string
-  ): Promise<UserToolPreferences | null> {
-    try {
-      return await this.repository.findOne({
-        where: { userId, toolId },
-        relations: ['tool'],
-      });
-    } catch (error) {
-      logger.error('Failed to get user tool preferences:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update tool usage tracking
-   */
-  async trackToolUsage(userId: string, toolId: string, costIncurred: number = 0): Promise<void> {
-    try {
-      let preference = await this.repository.findOne({
-        where: { userId, toolId },
-      });
-
-      if (!preference) {
-        // Create default preference if doesn't exist
-        preference = this.repository.create({
-          userId,
-          toolId,
-          usageCount: 0,
-          budgetUsed: 0,
-        });
-      }
-
-      preference.usageCount += 1;
-      preference.budgetUsed += costIncurred;
-      preference.lastUsedAt = new Date();
-
-      await this.repository.save(preference);
-    } catch (error) {
-      logger.error('Failed to track tool usage:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get user's favorite tools
-   */
-  async getUserFavoriteTools(userId: string): Promise<ToolDefinition[]> {
-    try {
-      const preferences = await this.repository.find({
-        where: { userId, isFavorite: true },
-        relations: ['tool'],
-      });
-
-      return preferences.map((pref) => pref.tool);
-    } catch (error) {
-      logger.error('Failed to get user favorite tools:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Check if user can access a tool
-   */
   async canUserAccessTool(userId: string, toolId: string): Promise<boolean> {
-    try {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
-      const tool = await this.toolRepository.findOne({ where: { id: toolId } });
+    const pool = getControlPool();
+    const userResult = await pool.query(
+      `SELECT security_clearance FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    const toolResult = await pool.query(
+      `SELECT security_level, is_enabled FROM tool_definitions WHERE id = $1 LIMIT 1`,
+      [toolId]
+    );
 
-      if (!user || !tool) {
-        return false;
-      }
-
-      // Check security clearance
-      if (tool.securityLevel > user.securityClearance) {
-        return false;
-      }
-
-      // Check if tool is enabled
-      if (!tool.isEnabled) {
-        return false;
-      }
-
-      // Check user-specific preferences
-      const preference = await this.repository.findOne({
-        where: { userId, toolId },
-      });
-
-      if (preference && !preference.isEnabled) {
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      logger.error('Failed to check user tool access:', error);
+    if (userResult.rows.length === 0 || toolResult.rows.length === 0) {
       return false;
     }
+
+    const user = userResult.rows[0];
+    const tool = toolResult.rows[0];
+
+    if (!tool.is_enabled) {
+      return false;
+    }
+
+    if (tool.security_level > user.security_clearance) {
+      return false;
+    }
+
+    return true;
   }
 
-  /**
-   * Get tool usage statistics for a user
-   */
   async getUserToolUsageStats(userId: string): Promise<{
     totalTools: number;
     enabledTools: number;
@@ -256,28 +193,30 @@ export class UserToolPreferencesService {
     totalBudgetUsed: number;
     mostUsedTool?: string;
   }> {
-    try {
-      const preferences = await this.repository.find({
-        where: { userId },
-        relations: ['tool'],
-      });
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM user_tool_preferences WHERE user_id = $1`,
+      [userId]
+    );
 
-      const stats = {
-        totalTools: preferences.length,
-        enabledTools: preferences.filter((p) => p.isEnabled).length,
-        favoriteTools: preferences.filter((p) => p.isFavorite).length,
-        totalUsage: preferences.reduce((sum, p) => sum + p.usageCount, 0),
-        totalBudgetUsed: preferences.reduce((sum, p) => sum + Number(p.budgetUsed), 0),
-        mostUsedTool: preferences.reduce(
-          (max, p) => (p.usageCount > (max?.usageCount || 0) ? p : max),
-          null as UserToolPreferences | null
-        )?.tool?.name,
-      };
+    const preferences = result.rows as Array<Record<string, unknown>>;
+    const stats = {
+      totalTools: preferences.length,
+      enabledTools: 0,
+      favoriteTools: 0,
+      totalUsage: 0,
+      totalBudgetUsed: 0,
+      mostUsedTool: undefined as string | undefined,
+    };
 
-      return stats;
-    } catch (error) {
-      logger.error('Failed to get user tool usage stats:', error);
-      throw error;
+    for (const pref of preferences) {
+      const prefs = pref.preferences as Record<string, unknown>;
+      if (prefs.isEnabled) stats.enabledTools++;
+      if (prefs.isFavorite) stats.favoriteTools++;
+      if (prefs.usageCount) stats.totalUsage += prefs.usageCount as number;
+      if (prefs.budgetUsed) stats.totalBudgetUsed += Number(prefs.budgetUsed);
     }
+
+    return stats;
   }
 }

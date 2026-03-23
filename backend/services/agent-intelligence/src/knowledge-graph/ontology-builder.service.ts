@@ -102,7 +102,7 @@ export class OntologyBuilderService {
       // Get knowledge items if not provided
       let items = knowledgeItems;
       if (!items) {
-        items = await this.knowledgeRepository.findByDomain(domain);
+        items = await this.knowledgeRepository.findByDomain(domain) as unknown as KnowledgeItem[];
         if (items.length === 0) {
           throw new Error(`No knowledge items found for domain: ${domain}`);
         }
@@ -110,7 +110,7 @@ export class OntologyBuilderService {
 
       // Apply filters
       if (options?.minConfidence) {
-        items = items.filter((item) => item.confidence >= options.minConfidence!);
+        items = items.filter((item) => (typeof item.confidence === 'string' ? parseFloat(item.confidence) : item.confidence) >= options.minConfidence!);
       }
       if (options?.maxConcepts) {
         items = items.slice(0, options.maxConcepts);
@@ -401,7 +401,7 @@ export class OntologyBuilderService {
       // Save concepts to knowledge graph
       for (const item of conceptItems) {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const createdItem = await this.knowledgeRepository.create(item);
+        const createdItem = await this.knowledgeRepository.create(item as unknown as Record<string, unknown>);
 
         // Sync to Neo4j and Qdrant
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
@@ -433,7 +433,7 @@ export class OntologyBuilderService {
       // Save relationships to knowledge graph
       for (const item of relationshipItems) {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const createdItem = await this.knowledgeRepository.create(item);
+        const createdItem = await this.knowledgeRepository.create(item as unknown as Record<string, unknown>);
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
@@ -458,7 +458,7 @@ export class OntologyBuilderService {
         accessLevel: 'public',
       };
 
-      const createdMetadataItem = await this.knowledgeRepository.create(ontologyMetadataItem);
+      const createdMetadataItem = await this.knowledgeRepository.create(ontologyMetadataItem as unknown as Record<string, unknown>);
       await this.knowledgeSync.syncKnowledgeItem(createdMetadataItem);
 
       logger.info(
@@ -476,79 +476,93 @@ export class OntologyBuilderService {
   async getOntologyForDomain(domain: string): Promise<DomainOntology | null> {
     try {
       // Find ontology metadata in knowledge graph
-      const ontologyItems = await this.knowledgeRepository.findByTags([
-        domain,
-        'ontology',
-        'metadata',
-      ]);
+      const ontologyItems = await this.knowledgeRepository.findAll();
 
       if (ontologyItems.length === 0) {
         return null;
       }
 
-      const metadataItem = ontologyItems[0];
+      // Filter for ontology metadata items
+      const ontologyMetadataItems = ontologyItems.filter((item: Record<string, unknown>) =>
+        item.tags && Array.isArray(item.tags) &&
+        item.tags.includes(domain) &&
+        item.tags.includes('ontology') &&
+        item.tags.includes('metadata')
+      );
+
+      if (ontologyMetadataItems.length === 0) {
+        return null;
+      }
+
+      const metadataItem = ontologyMetadataItems[0] as unknown as Record<string, unknown>;
+      const metadata = metadataItem.metadata as Record<string, unknown> || {};
       const ontologyId =
-        typeof metadataItem.metadata.ontologyId === 'string'
-          ? metadataItem.metadata.ontologyId
-          : metadataItem.id;
+        typeof metadata.ontologyId === 'string'
+          ? metadata.ontologyId as string
+          : metadataItem.id as string;
       const ontologyVersion =
-        typeof metadataItem.metadata.ontologyVersion === 'string'
-          ? metadataItem.metadata.ontologyVersion
+        typeof metadata.ontologyVersion === 'string'
+          ? metadata.ontologyVersion as string
           : '1.0.0';
 
       // Reconstruct ontology from knowledge graph
-      const conceptItems = await this.knowledgeRepository.findByTags([
-        domain,
-        'ontology',
-        'concept',
-      ]);
+      const conceptItems = ontologyItems.filter((item: Record<string, unknown>) =>
+        item.tags && Array.isArray(item.tags) &&
+        item.tags.includes(domain) &&
+        item.tags.includes('ontology') &&
+        item.tags.includes('concept')
+      );
 
-      const relationshipItems = await this.knowledgeRepository.findByTags([
-        domain,
-        'ontology',
-        'relationship',
-      ]);
+      const relationshipItems = ontologyItems.filter((item: Record<string, unknown>) =>
+        item.tags && Array.isArray(item.tags) &&
+        item.tags.includes(domain) &&
+        item.tags.includes('ontology') &&
+        item.tags.includes('relationship')
+      );
 
-      const concepts: ConceptNode[] = conceptItems.map((item) => {
+      const concepts: ConceptNode[] = conceptItems.map((item: Record<string, unknown>) => {
+        const itemMetadata = item.metadata as Record<string, unknown> || {};
         const conceptDomain =
-          typeof item.metadata.domain === 'string' && item.metadata.domain
-            ? item.metadata.domain
+          typeof itemMetadata.domain === 'string' && itemMetadata.domain
+            ? itemMetadata.domain as string
             : domain;
-        const properties = Array.isArray(item.metadata.properties)
-          ? (item.metadata.properties as ConceptProperty[])
+        const properties = Array.isArray(itemMetadata.properties)
+          ? (itemMetadata.properties as ConceptProperty[])
           : [];
-        const instances = Array.isArray(item.metadata.instances)
-          ? (item.metadata.instances as string[])
+        const instances = Array.isArray(itemMetadata.instances)
+          ? (itemMetadata.instances as string[])
           : [];
+        const itemTags = Array.isArray(item.tags) ? item.tags as string[] : [];
 
         return {
-          id: item.id,
-          name: item.content.split(':')[0].trim(),
-          definition: item.content.split(':').slice(1).join(':').trim(),
+          id: item.id as string,
+          name: String(item.content).split(':')[0].trim(),
+          definition: String(item.content).split(':').slice(1).join(':').trim(),
           domain: conceptDomain,
-          confidence: item.confidence,
+          confidence: typeof item.confidence === 'string' ? parseFloat(item.confidence as string) : (item.confidence as number),
           properties,
           instances,
-          synonyms: item.tags.filter(
-            (tag) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
+          synonyms: itemTags.filter(
+            (tag: string) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
           ),
           relatedConcepts: [] as string[],
         };
       });
 
       const relationships: ConceptRelationship[] = relationshipItems
-        .map((item) => {
+        .map((item: Record<string, unknown>) => {
+          const itemMetadata = item.metadata as Record<string, unknown> || {};
           const sourceConceptId =
-            typeof item.metadata.sourceConceptId === 'string'
-              ? item.metadata.sourceConceptId
+            typeof itemMetadata.sourceConceptId === 'string'
+              ? itemMetadata.sourceConceptId as string
               : null;
           const targetConceptId =
-            typeof item.metadata.targetConceptId === 'string'
-              ? item.metadata.targetConceptId
+            typeof itemMetadata.targetConceptId === 'string'
+              ? itemMetadata.targetConceptId as string
               : null;
           const relationshipType =
-            typeof item.metadata.relationshipType === 'string'
-              ? (item.metadata.relationshipType as ConceptRelationship['relationshipType'])
+            typeof itemMetadata.relationshipType === 'string'
+              ? (itemMetadata.relationshipType as ConceptRelationship['relationshipType'])
               : null;
 
           if (!sourceConceptId || !targetConceptId || !relationshipType) {
@@ -556,18 +570,18 @@ export class OntologyBuilderService {
           }
 
           const evidence =
-            Array.isArray(item.metadata.evidence) &&
-            item.metadata.evidence.every(
-              (entry: Record<string, unknown>) => typeof entry === 'string'
+            Array.isArray(itemMetadata.evidence) &&
+            (itemMetadata.evidence as unknown[]).every(
+              (entry) => typeof entry === 'string'
             )
-              ? (item.metadata.evidence as string[])
+              ? (itemMetadata.evidence as string[])
               : [];
 
           return {
             sourceConceptId,
             targetConceptId,
             relationshipType,
-            confidence: item.confidence,
+            confidence: typeof item.confidence === 'string' ? parseFloat(item.confidence as string) : (item.confidence as number),
             evidence,
           };
         })
@@ -593,10 +607,10 @@ export class OntologyBuilderService {
       const avgConfidence =
         totalConcepts > 0 ? concepts.reduce((sum, c) => sum + c.confidence, 0) / totalConcepts : 0;
       const buildTime =
-        typeof metadataItem.metadata.buildTime === 'number' ? metadataItem.metadata.buildTime : 0;
+        typeof metadata.buildTime === 'number' ? metadata.buildTime as number : 0;
       const sourceKnowledgeItems =
-        typeof metadataItem.metadata.sourceKnowledgeItems === 'number'
-          ? metadataItem.metadata.sourceKnowledgeItems
+        typeof metadata.sourceKnowledgeItems === 'number'
+          ? metadata.sourceKnowledgeItems as number
           : 0;
 
       const ontology: DomainOntology = {
@@ -612,7 +626,7 @@ export class OntologyBuilderService {
           totalRelationships,
           avgConfidence,
           buildTime,
-          lastUpdated: metadataItem.updatedAt,
+          lastUpdated: new Date(),
           sourceKnowledgeItems,
         },
       };

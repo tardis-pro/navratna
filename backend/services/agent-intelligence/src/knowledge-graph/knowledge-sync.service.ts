@@ -1,14 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeItemEntity } from '@uaip/shared-services';
-import { KnowledgeRelationshipEntity } from '@uaip/shared-services';
-import { UserEntity } from '@uaip/shared-services';
-import { KnowledgeRepository } from '@uaip/shared-services';
+import type { KnowledgeItemEntity, KnowledgeRelationshipEntity, UserEntity } from '@uaip/shared-services';
+import { KnowledgeRepository, getControlPool } from '@uaip/shared-services';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { ToolGraphDatabase } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding.service.js';
 import { logger } from '@uaip/utils';
-import { Repository } from 'typeorm';
 
 export interface KnowledgeSyncResult {
   success: boolean;
@@ -41,8 +38,7 @@ export class KnowledgeSyncService {
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly qdrantService: QdrantService,
     private readonly graphDb: ToolGraphDatabase,
-    private readonly embeddingService: EmbeddingService,
-    private readonly userRepository: Repository<UserEntity>
+    private readonly embeddingService: EmbeddingService
   ) {}
 
   /**
@@ -53,7 +49,8 @@ export class KnowledgeSyncService {
     try {
       // Get knowledge item and user data
       const knowledgeItem = await this.knowledgeRepository.findById(knowledgeItemId);
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const userRows = await getControlPool().query(`SELECT * FROM "users" WHERE id = $1 LIMIT 1`, [userId]);
+      const user = userRows.rows[0] as UserEntity | undefined;
 
       if (!knowledgeItem || !user) {
         return {
@@ -601,7 +598,7 @@ export class KnowledgeSyncService {
   private async syncAllRelationships(): Promise<void> {
     logger.info('Syncing knowledge relationships to Neo4j');
 
-    const relationships = await this.knowledgeRepository.findAllRelationships();
+    const relationships = await this.knowledgeRepository.findRelationships('all');
 
     for (const rel of relationships) {
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
@@ -627,11 +624,11 @@ export class KnowledgeSyncService {
     `;
 
     const params = {
-      sourceId: rel.sourceItemId,
-      targetId: rel.targetItemId,
+      sourceId: rel.sourceId,
+      targetId: rel.targetId,
       relType: rel.relationshipType,
-      confidence: rel.confidence,
-      summary: rel.summary,
+      confidence: (rel.metadata as Record<string, unknown>)?.confidence ?? 0.5,
+      summary: (rel.metadata as Record<string, unknown>)?.summary ?? '',
       createdAt: rel.createdAt.toISOString(),
       updatedAt: rel.updatedAt.toISOString(),
     };
@@ -674,7 +671,7 @@ export class KnowledgeSyncService {
 
     // 1. Discover from PostgreSQL
     try {
-      const pgItems = await this.knowledgeRepository.findAll();
+      const pgItems = await this.knowledgeRepository.findByFilters({});
       for (const item of pgItems) {
         itemsMap.set(item.id, {
           id: item.id,
@@ -892,19 +889,19 @@ export class KnowledgeSyncService {
       return item.pgEntity;
     }
 
-    // If no PostgreSQL entity, create a temporary one for sync
-    const entity = new KnowledgeItemEntity();
-    entity.id = item.id;
-    entity.content = item.content;
-    entity.type = item.type;
-    entity.sourceType = SourceType.AGENT_INTERACTION;
-    entity.sourceIdentifier = `sync-${item.source}-${item.id}`;
-    entity.tags = [];
-    entity.confidence = 0.8;
-    entity.metadata = item.metadata;
-    entity.accessLevel = 'STANDARD';
-    entity.createdAt = new Date();
-    entity.updatedAt = new Date();
+    const entity: KnowledgeItemEntity = {
+      id: item.id,
+      content: item.content,
+      type: item.type,
+      sourceType: SourceType.AGENT_INTERACTION,
+      sourceIdentifier: `sync-${item.source}-${item.id}`,
+      tags: [],
+      confidence: '0.8',
+      metadata: item.metadata ?? {},
+      accessLevel: 'standard',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as unknown as KnowledgeItemEntity;
 
     return entity;
   }

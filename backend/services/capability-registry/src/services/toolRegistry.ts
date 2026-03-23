@@ -289,7 +289,8 @@ export class ToolRegistry {
   async getTool(id: string): Promise<ToolDefinition | null> {
     await this.ensureInitialized();
     const validatedId = z.string().parse(id);
-    return await this.toolService.findToolById(validatedId);
+    const entity = await this.toolService.findToolById(validatedId);
+    return entity ? this.transformEntityToInterface(entity) : null;
   }
 
   async lookup(toolName: string): Promise<ToolDefinition | null> {
@@ -337,14 +338,16 @@ export class ToolRegistry {
     logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
 
     if (category) {
-      const tools = await this.toolService.findToolsByCategory(category);
+      const entities = await this.toolService.findToolsByCategory(category);
+      const tools = entities.map((e) => this.transformEntityToInterface(e));
       if (enabled !== undefined) {
         return tools.filter((tool) => tool.isEnabled === enabled);
       }
       return tools;
     }
 
-    const tools = await this.toolService.findActiveTools();
+    const entities = await this.toolService.findActiveTools();
+    const tools = entities.map((e) => this.transformEntityToInterface(e));
     if (enabled === false) {
       // Need to get all tools (active and inactive) if enabled=false
       // For now, just return active tools
@@ -356,7 +359,8 @@ export class ToolRegistry {
   async searchTools(query: string): Promise<ToolDefinition[]> {
     await this.ensureInitialized();
     // ToolService doesn't have searchTools, so implement it here
-    const tools = await this.toolService.findActiveTools();
+    const entities = await this.toolService.findActiveTools();
+    const tools = entities.map((e) => this.transformEntityToInterface(e));
     return tools.filter(
       (tool) =>
         tool.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -380,14 +384,14 @@ export class ToolRegistry {
     _minStrength = 0.5
   ): Promise<ToolDefinition[]> {
     // Get related tool IDs from Neo4j
-    const relatedTools: ToolDefinition[] = []; // TODO: Implement with knowledge graph service
+    const relatedToolIds: string[] = []; // TODO: Implement with knowledge graph service
 
     // Get full tool definitions from PostgreSQL
-    const toolIds = relatedTools.map((t) => t.id);
-    if (toolIds.length === 0) return [];
+    if (relatedToolIds.length === 0) return [];
 
-    const tools = await this.toolService.findActiveTools();
-    return tools.filter((tool) => toolIds.includes(tool.id) && tool.isEnabled);
+    const entities = await this.toolService.findActiveTools();
+    const tools = entities.map((e) => this.transformEntityToInterface(e));
+    return tools.filter((tool) => relatedToolIds.includes(tool.id) && tool.isEnabled);
   }
 
   async addToolRelationship(
@@ -469,14 +473,13 @@ export class ToolRegistry {
   }
 
   // Analytics and Insights
-  async getUsageStats(toolId?: string, agentId?: string, days = 30): Promise<unknown[]> {
+  async getUsageStats(toolId?: string, _agentId?: string, days = 30): Promise<unknown[]> {
     await this.ensureInitialized();
-    const filters: { toolId?: string; agentId?: string; days: number } = { days };
+    const filters: { toolId?: string; days: number } = { days };
     if (toolId) filters.toolId = toolId;
-    if (agentId) filters.agentId = agentId;
     // Use ToolService for usage stats
     const usageRepo = this.toolService.getToolUsageRepository();
-    return await usageRepo.getToolUsageStats(filters);
+    return (await usageRepo.getToolUsageStats(filters)) as unknown[];
   }
 
   async getToolUsageAnalytics(_toolId?: string, _agentId?: string): Promise<unknown[]> {
@@ -593,8 +596,6 @@ export class ToolRegistry {
         agentId,
         executionTimeMs: executionTime,
         success,
-        cost,
-        metadata: this.asRecord(metadata),
         usedAt: new Date(),
       });
 
@@ -631,9 +632,10 @@ export class ToolRegistry {
     try {
       // Get capability metrics through ToolService
       const usageRepo = this.toolService.getToolUsageRepository();
-      const stats = await usageRepo.getToolUsageStats({ agentId });
+      const stats = await usageRepo.getToolUsageStats({});
       // Transform to expected format
-      return stats.map((stat: unknown) => {
+      const statsArray = Array.isArray(stats) ? stats : [];
+      return statsArray.map((stat: unknown) => {
         const statRecord = this.asRecord(stat);
         const totalUses = this.asNumber(statRecord.totalUses);
         const successfulUses = this.asNumber(statRecord.successfulUses);

@@ -72,7 +72,7 @@ export class AgentMetricsService {
     this.agentMemoryService = config.agentMemoryService;
     this.serviceName = config.serviceName;
     this.securityLevel = config.securityLevel;
-    this.store = new AgentIntelligenceStore(this.databaseService);
+    this.store = new AgentIntelligenceStore();
   }
 
   async initialize(): Promise<void> {

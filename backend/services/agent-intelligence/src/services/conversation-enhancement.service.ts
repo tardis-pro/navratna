@@ -618,7 +618,7 @@ export class ConversationEnhancementService extends EventEmitter {
   private async loadAgentPersonaMappings(): Promise<void> {
     try {
       // Load all active agents
-      const agents = await this.databaseService.findMany<AgentEntity>(AgentEntity, {
+      const agents = await this.databaseService.findMany<AgentEntity>('agents', {
         status: 'active',
       });
 
@@ -849,7 +849,7 @@ export class ConversationEnhancementService extends EventEmitter {
     for (const agentId of agentIds) {
       try {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
+const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
         if (agent) {
           const sharedAgent = this.toSharedAgent(agent);
           if (sharedAgent) {
@@ -865,7 +865,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   public async getAgentById(agentId: string): Promise<Agent | null> {
     try {
-      const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
+      const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
       return agent ? this.toSharedAgent(agent) : null;
     } catch (error) {
       logger.error('Failed to get agent by ID', { agentId, error });
@@ -879,7 +879,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
-      const discussion = await this.databaseService.findById(DiscussionEntity, discussionId);
+      const discussion = await this.databaseService.findById('discussions', discussionId);
       return discussion as Discussion | null;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
@@ -904,7 +904,7 @@ export class ConversationEnhancementService extends EventEmitter {
         }>;
       };
       const fullDiscussion = (await this.databaseService.findById(
-        DiscussionEntity,
+        'discussions',
         discussion.id
       )) as DiscussionWithParticipants | null;
       const participantMap = new Map<string, string>();
@@ -916,7 +916,7 @@ export class ConversationEnhancementService extends EventEmitter {
             if (participant.agentId) {
               // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const agent = await this.databaseService.findById<AgentEntity>(
-                AgentEntity,
+                'agents',
                 participant.agentId
               );
               if (agent) {
@@ -929,11 +929,11 @@ export class ConversationEnhancementService extends EventEmitter {
             if (participant.userId) {
               // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const user = await this.databaseService.findById<UserEntity>(
-                UserEntity,
+                'users',
                 participant.userId
               );
-              if (user && (user.name || user.email)) {
-                participantMap.set(participant.id, user.name || user.email);
+              if (user && (user.firstName || user.email)) {
+                participantMap.set(participant.id, `${user.firstName} ${user.lastName}`.trim() || user.email);
                 continue;
               }
             }
@@ -977,7 +977,7 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       const agentId = event.agentId as string;
 
-      const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
+      const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
       if (agent) {
         const personas = await this.createPersonasFromAgent(agent);
         this.agentPersonaMappings.set(agentId, {

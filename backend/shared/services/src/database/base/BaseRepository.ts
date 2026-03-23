@@ -1,359 +1,159 @@
-import { Repository, EntityTarget, ObjectLiteral, EntityManager, QueryRunner } from 'typeorm';
+import { getControlDb, getIntelligenceDb, getControlPool, getIntelligencePool } from '../drizzle/clients/index';
+import { sql } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../../typeormService';
-import { DatabaseError } from '../../databaseService';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-// Repository interface for standardization
-export interface IRepository<T extends ObjectLiteral> {
+
+export interface IRepository<T> {
   findById(id: string): Promise<T | null>;
-  findMany(
-    conditions?: Record<string, unknown>,
-    options?: {
-      orderBy?: Record<string, 'ASC' | 'DESC'>;
-      limit?: number;
-      offset?: number;
-      relations?: string[];
-    }
-  ): Promise<T[]>;
-  create(data: Partial<T>): Promise<T>;
-  update(id: string, data: Partial<T>): Promise<T | null>;
+  findMany(conditions?: Record<string, unknown>, options?: FindManyOptions): Promise<T[]>;
+  create(data: Record<string, unknown>): Promise<T>;
+  update(id: string, data: Record<string, unknown>): Promise<T | null>;
   delete(id: string): Promise<boolean>;
   count(conditions?: Record<string, unknown>): Promise<number>;
-  batchCreate(records: Partial<T>[]): Promise<T[]>;
+  batchCreate(records: Record<string, unknown>[]): Promise<T[]>;
 }
 
-export abstract class BaseRepository<T extends ObjectLiteral> implements IRepository<T> {
-  protected repository: Repository<T>;
-  protected typeormService: TypeOrmService;
+export interface FindManyOptions {
+  orderBy?: Record<string, 'ASC' | 'DESC'>;
+  limit?: number;
+  offset?: number;
+  relations?: string[];
+}
 
-  constructor(
-    protected entity: EntityTarget<T>,
-    typeormService?: TypeOrmService
-  ) {
-    this.typeormService = typeormService || TypeOrmService.getInstance();
-    this.repository = this.typeormService.getRepository(entity);
+export abstract class BaseRepository<T extends Record<string, unknown>> implements IRepository<T> {
+  protected abstract get tableName(): string;
+  protected abstract get plane(): 'intelligence' | 'control';
+
+  protected get db(): NodePgDatabase<Record<string, unknown>> {
+    return (this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb()) as NodePgDatabase<Record<string, unknown>>;
   }
 
-  // Repository factory method for dependency injection
-  protected getRepository<U extends ObjectLiteral>(entityClass: EntityTarget<U>): Repository<U> {
-    return this.typeormService.getRepository(entityClass);
+  protected async rawQuery<R = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<R[]> {
+    const pool = this.plane === 'intelligence' ? getIntelligencePool() : getControlPool();
+    const result = await pool.query<R>(query, params);
+    return result.rows;
   }
 
-  // Get entity manager for complex operations
-  protected getEntityManager(): EntityManager {
-    return this.typeormService.getDataSource().manager;
-  }
-
-  // Get a query runner for transaction handling
-  protected async getQueryRunner(): Promise<QueryRunner> {
+  async findById(id: string): Promise<T | null> {
     try {
-      const queryRunner = this.typeormService.getDataSource().createQueryRunner();
-      await queryRunner.connect();
-      return queryRunner;
+      const rows = await this.rawQuery<T>(`SELECT * FROM "${this.tableName}" WHERE id = $1 LIMIT 1`, [id]);
+      return rows[0] ?? null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to acquire database client', { error: errorMessage });
-      throw new DatabaseError('Failed to acquire database client', {
-        originalError: errorMessage,
-      });
-    }
-  }
-
-  // Release a client back to the pool
-  protected releaseQueryRunner(queryRunner: QueryRunner): void {
-    try {
-      queryRunner.release();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Error releasing database client', { error: errorMessage });
-    }
-  }
-
-  // Execute multiple operations in a transaction
-  protected async transaction<R>(callback: (manager: EntityManager) => Promise<R>): Promise<R> {
-    return await this.typeormService.transaction(callback);
-  }
-
-  // Generic CRUD operations
-  public async findById(id: string): Promise<T | null> {
-    try {
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM where clause requires flexible typing
-      return await this.repository.findOne({ where: { id } as any });
-    } catch (error) {
-      logger.error('Failed to find by ID', {
-        entity: this.entity.toString(),
-        id,
-        error: (error as Error).message,
-      });
+      logger.error(`BaseRepository.findById failed for ${this.tableName}`, { id, error: (error as Error).message });
       throw error;
     }
   }
 
-  public async findMany(
-    conditions: Record<string, unknown> = {},
-    options: {
-      orderBy?: Record<string, 'ASC' | 'DESC'>;
-      limit?: number;
-      offset?: number;
-      relations?: string[];
-    } = {}
-  ): Promise<T[]> {
+  async findMany(conditions: Record<string, unknown> = {}, options: FindManyOptions = {}): Promise<T[]> {
     try {
-      const queryBuilder = this.repository.createQueryBuilder();
-
-      // Add WHERE conditions
-      Object.keys(conditions).forEach((key, index) => {
-        if (index === 0) {
-          queryBuilder.where(`${key} = :${key}`, { [key]: conditions[key] });
-        } else {
-          queryBuilder.andWhere(`${key} = :${key}`, { [key]: conditions[key] });
-        }
-      });
-
-      // Add ORDER BY
+      const keys = Object.keys(conditions);
+      const whereClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+      const values = Object.values(conditions);
+      let query = `SELECT * FROM "${this.tableName}"`;
+      if (whereClauses) query += ` WHERE ${whereClauses}`;
       if (options.orderBy) {
-        Object.keys(options.orderBy).forEach((column) => {
-          queryBuilder.addOrderBy(column, options.orderBy![column]);
-        });
+        const orderClauses = Object.entries(options.orderBy).map(([col, dir]) => `"${col}" ${dir}`).join(', ');
+        query += ` ORDER BY ${orderClauses}`;
       }
+      if (options.limit) query += ` LIMIT ${options.limit}`;
+      if (options.offset) query += ` OFFSET ${options.offset}`;
+      return this.rawQuery<T>(query, values);
+    } catch (error) {
+      logger.error(`BaseRepository.findMany failed for ${this.tableName}`, { conditions, error: (error as Error).message });
+      throw error;
+    }
+  }
 
-      // Add LIMIT and OFFSET
-      if (options.limit) {
-        queryBuilder.limit(options.limit);
+  async create(data: Record<string, unknown>): Promise<T> {
+    try {
+      const keys = Object.keys(data);
+      const cols = keys.map(k => `"${k}"`).join(', ');
+      const params = keys.map((_, i) => `$${i + 1}`).join(', ');
+      const rows = await this.rawQuery<T>(
+        `INSERT INTO "${this.tableName}" (${cols}) VALUES (${params}) RETURNING *`,
+        Object.values(data)
+      );
+      return rows[0];
+    } catch (error) {
+      logger.error(`BaseRepository.create failed for ${this.tableName}`, { error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  async update(id: string, data: Record<string, unknown>): Promise<T | null> {
+    try {
+      const keys = Object.keys(data);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
+      const rows = await this.rawQuery<T>(
+        `UPDATE "${this.tableName}" SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [id, ...Object.values(data)]
+      );
+      return rows[0] ?? null;
+    } catch (error) {
+      logger.error(`BaseRepository.update failed for ${this.tableName}`, { id, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  async delete(id: string): Promise<boolean> {
+    try {
+      const result = await this.db.execute(sql`DELETE FROM ${sql.identifier(this.tableName)} WHERE id = ${id}`);
+      return ((result as { rowCount?: number }).rowCount ?? 0) > 0;
+    } catch (error) {
+      logger.error(`BaseRepository.delete failed for ${this.tableName}`, { id, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  async count(conditions: Record<string, unknown> = {}): Promise<number> {
+    try {
+      const keys = Object.keys(conditions);
+      const whereClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+      const values = Object.values(conditions);
+      let query = `SELECT COUNT(*)::int as cnt FROM "${this.tableName}"`;
+      if (whereClauses) query += ` WHERE ${whereClauses}`;
+      const rows = await this.rawQuery<{ cnt: number }>(query, values);
+      return rows[0]?.cnt ?? 0;
+    } catch (error) {
+      logger.error(`BaseRepository.count failed for ${this.tableName}`, { conditions, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  async batchCreate(records: Record<string, unknown>[]): Promise<T[]> {
+    if (records.length === 0) return [];
+    const results: T[] = [];
+    for (const record of records) {
+      results.push(await this.create(record));
+    }
+    return results;
+  }
+
+  async batchUpdate(updates: Array<{ id: string; data: Record<string, unknown> }>): Promise<T[]> {
+    if (updates.length === 0) return [];
+    const results: T[] = [];
+    for (const { id, data } of updates) {
+      const result = await this.update(id, data);
+      if (result) results.push(result);
+    }
+    return results;
+  }
+
+  async bulkInsert(records: Record<string, unknown>[], options?: { onConflict?: 'ignore' | 'update' }): Promise<number> {
+    if (records.length === 0) return 0;
+    for (const record of records) {
+      try {
+        await this.create(record);
+      } catch {
+        if (options?.onConflict === 'ignore') continue;
+        throw new Error(`Bulk insert failed for ${this.tableName}`);
       }
-      if (options.offset) {
-        queryBuilder.offset(options.offset);
-      }
-
-      // Add relations
-      if (options.relations) {
-        options.relations.forEach((relation) => {
-          queryBuilder.leftJoinAndSelect(relation, relation);
-        });
-      }
-
-      return await queryBuilder.getMany();
-    } catch (error) {
-      logger.error('Failed to find many', {
-        entity: this.entity.toString(),
-        conditions,
-        error: (error as Error).message,
-      });
-      throw error;
     }
+    return records.length;
   }
 
-  public async create(data: Partial<T>): Promise<T> {
-    try {
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM create requires flexible typing
-      const newEntity = this.repository.create(data as any);
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM save requires flexible typing
-      return await this.repository.save(newEntity as any);
-    } catch (error) {
-      logger.error('Failed to create', {
-        entity: this.entity.toString(),
-        data,
-        error: (error as Error).message,
-      });
-      throw error;
-    }
-  }
-
-  public async update(id: string, data: Partial<T>): Promise<T | null> {
-    try {
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM update requires flexible typing
-      await this.repository.update(id, { ...data, updatedAt: new Date() } as any);
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM where clause requires flexible typing
-      return await this.repository.findOne({ where: { id } as any });
-    } catch (error) {
-      logger.error('Failed to update', {
-        entity: this.entity.toString(),
-        id,
-        data,
-        error: (error as Error).message,
-      });
-      throw error;
-    }
-  }
-
-  public async delete(id: string): Promise<boolean> {
-    try {
-      const result = await this.repository.delete(id);
-      return result.affected > 0;
-    } catch (error) {
-      logger.error('Failed to delete', {
-        entity: this.entity.toString(),
-        id,
-        error: (error as Error).message,
-      });
-      throw error;
-    }
-  }
-
-  public async count(conditions: Record<string, unknown> = {}): Promise<number> {
-    try {
-      return await this.repository.count({
-        where: conditions as import('typeorm').FindOptionsWhere<T>,
-      });
-    } catch (error) {
-      logger.error('Failed to count', {
-        entity: this.entity.toString(),
-        conditions,
-        error: (error as Error).message,
-      });
-      throw error;
-    }
-  }
-
-  public async batchCreate(records: Partial<T>[]): Promise<T[]> {
-    if (records.length === 0) {
-      return [];
-    }
-
-    try {
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM create requires flexible typing
-      const entities = records.map((record) => this.repository.create(record as any));
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM save requires flexible typing
-      return await this.repository.save(entities as any);
-    } catch (error) {
-      logger.error('Failed to batch create', {
-        entity: this.entity.toString(),
-        recordCount: records.length,
-        error: (error as Error).message,
-      });
-      throw error;
-    }
-  }
-
-  public async batchUpdate(updates: Array<{ id: string; data: Partial<T> }>): Promise<T[]> {
-    if (updates.length === 0) {
-      return [];
-    }
-
-    return await this.transaction(async (manager) => {
-      const repository = manager.getRepository(this.entity);
-      const results: T[] = [];
-
-      for (const update of updates) {
-        // oxlint-disable-next-line no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required; TypeORM update requires flexible typing
-        await repository.update(update.id, { ...update.data, updatedAt: new Date() } as any);
-        // oxlint-disable-next-line no-await-in-loop, @typescript-eslint/no-explicit-any -- sequential processing required; TypeORM where clause requires flexible typing
-        const result = await repository.findOne({ where: { id: update.id } as any });
-        if (result) {
-          results.push(result);
-        }
-      }
-
-      return results;
-    });
-  }
-
-  // Bulk insert helper
-  public async bulkInsert(
-    records: Partial<T>[],
-    options?: {
-      onConflict?: 'ignore' | 'update' | 'error';
-      conflictColumns?: string[];
-      updateColumns?: string[];
-    }
-  ): Promise<number> {
-    if (records.length === 0) {
-      return 0;
-    }
-
-    const startTime = Date.now();
-
-    try {
-      if (options?.onConflict === 'ignore') {
-        await this.repository
-          .createQueryBuilder()
-          .insert()
-          .into(this.entity)
-          .values(records)
-          .orIgnore()
-          .execute();
-      } else if (
-        options?.onConflict === 'update' &&
-        options.conflictColumns &&
-        options.updateColumns
-      ) {
-        const queryBuilder = this.repository
-          .createQueryBuilder()
-          .insert()
-          .into(this.entity)
-          .values(records);
-
-        await queryBuilder.orUpdate(options.updateColumns, options.conflictColumns).execute();
-      } else {
-        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM save requires flexible typing
-        await this.repository.save(records as any[]);
-      }
-
-      const duration = Date.now() - startTime;
-      logger.info('Bulk insert completed', {
-        entity: this.entity.toString(),
-        rowCount: records.length,
-        insertedCount: records.length,
-        duration,
-      });
-
-      return records.length;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Bulk insert failed', {
-        entity: this.entity.toString(),
-        rowCount: records.length,
-        error: errorMessage,
-      });
-      throw error;
-    }
-  }
-
-  // Stream query results
-  public async *streamQuery(
-    conditions?: Record<string, unknown>,
-    batchSize: number = 1000
-  ): AsyncGenerator<T[], void, unknown> {
-    try {
-      logger.debug('Starting streaming query', {
-        entity: this.entity.toString(),
-        batchSize,
-      });
-
-      let offset = 0;
-      let hasMoreRows = true;
-
-      while (hasMoreRows) {
-        const queryBuilder = this.repository.createQueryBuilder();
-
-        // Add WHERE conditions
-        if (conditions) {
-          Object.keys(conditions).forEach((key, index) => {
-            if (index === 0) {
-              queryBuilder.where(`${key} = :${key}`, { [key]: conditions[key] });
-            } else {
-              queryBuilder.andWhere(`${key} = :${key}`, { [key]: conditions[key] });
-            }
-          });
-        }
-
-        // oxlint-disable-next-line no-await-in-loop -- sequential batch processing required
-        const results = await queryBuilder.limit(batchSize).offset(offset).getMany();
-
-        if (results.length === 0) {
-          hasMoreRows = false;
-        } else {
-          yield results;
-          offset += batchSize;
-          hasMoreRows = results.length === batchSize;
-        }
-      }
-    } catch (error) {
-      logger.error('Streaming query failed', {
-        entity: this.entity.toString(),
-        error: (error as Error).message,
-      });
-      throw error;
-    }
+  async transaction<R>(callback: (db: unknown) => Promise<R>): Promise<R> {
+    return this.db.transaction(callback as (tx: unknown) => Promise<R>);
   }
 }

@@ -8,4 +8,4 @@ export {
 export { OutboxPublisher } from './OutboxPublisher';
 export { GraphSyncWorker } from './GraphSyncWorker';
 export { IntegrationService } from './IntegrationService';
-export { IntegrationEventEntity } from '../entities/integrationEvent.entity';
+

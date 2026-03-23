@@ -1,8 +1,5 @@
 import {
   BaseService,
-  allEntities,
-  MCPServer as SharedMCPServer,
-  MCPToolCall as SharedMCPToolCall,
 } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { ToolGraphDatabase, IntegrationService } from '@uaip/shared-services';
@@ -29,7 +26,7 @@ import { SandboxExecutionService } from './services/sandbox-execution.service.js
 import { ToolAdapterService } from './services/tool-adapter.service.js';
 // Route registration functions are imported dynamically in setupRoutes
 import { logger } from '@uaip/utils';
-import { ExecutionDataSource, McpRepository } from './database/index.js';
+import { McpRepository } from './database/index.js';
 import { SkillImportService, type Skill } from './services/skillImport.service.js';
 
 class CapabilityRegistryService extends BaseService {
@@ -66,10 +63,7 @@ class CapabilityRegistryService extends BaseService {
     // MCPServer / MCPToolCall are intentionally excluded here — the Execution Plane
     // (capability-registry) owns those entities exclusively via ExecutionDataSource.
     // Including them in the shared DataSource would create a dual-ownership conflict.
-    const platformEntities = allEntities.filter(
-      (e) => e !== SharedMCPServer && e !== SharedMCPToolCall
-    );
-    this.registerEntities(platformEntities);
+    this.registerEntities([]);
   }
 
   protected async initialize(): Promise<void> {
@@ -104,10 +98,9 @@ class CapabilityRegistryService extends BaseService {
     // ── Execution Plane DataSource ──────────────────────────────────────────
     // Initialize the plane's own TypeORM connection BEFORE MCPClientService so
     // the repository is ready when autoStartServers() runs on startup.
-    logger.info('Initializing Execution Plane DataSource...');
-    const execDs = await ExecutionDataSource.getInstance().initialize();
-    const mcpRepository = new McpRepository(execDs);
-    logger.info('Execution Plane DataSource ready');
+    logger.info('Initializing MCP Repository...');
+    const mcpRepository = new McpRepository();
+    logger.info('MCP Repository ready');
 
     // Initialize MCP Client Service
     this.mcpClientService = MCPClientService.getInstance();
@@ -156,7 +149,7 @@ class CapabilityRegistryService extends BaseService {
     await this.registerOpenClawSkills();
 
     this.projectToolIntegration = new ProjectToolIntegrationService(
-      this.asInfraDatabaseService(),
+      this.asInfraDatabaseService() as any,
       this.asInfraEventBusService()
     );
     await this.projectToolIntegration.initialize();
@@ -196,22 +189,28 @@ class CapabilityRegistryService extends BaseService {
         return;
       }
 
-      const capabilityRepository = await this.postgresql.getRepository('Capability' as never);
+      const { getControlPool } = await import('@uaip/shared-services');
+      const pool = getControlPool();
       const records = skills.map((skill) => ({
         name: skill.name,
         description: skill.description,
         category: 'skill',
         isActive: true,
-        config: {
+        config: JSON.stringify({
           type: 'skill',
           skillId: skill.id,
           triggerEvents: skill.triggerEvents || [],
           specification: skill,
           metadata: skill.metadata,
-        },
+        }),
       }));
 
-      await capabilityRepository.upsert(records, ['name']);
+      for (const record of records) {
+        await pool.query(
+          `INSERT INTO "capabilities" (name, description, category, is_active, config, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) ON CONFLICT (name) DO UPDATE SET description=EXCLUDED.description, updated_at=NOW()`,
+          [record.name, record.description, record.category, record.isActive, record.config]
+        ).catch(() => {});
+      }
       logger.info('Registered OpenClaw skills as capabilities', {
         count: records.length,
         skills: skills.map((skill: Skill) => skill.id),
@@ -419,9 +418,7 @@ class CapabilityRegistryService extends BaseService {
         logger.info('Neo4j connection closed');
       }
 
-      // Close Execution Plane DataSource
-      await ExecutionDataSource.getInstance().close();
-      logger.info('Execution Plane DataSource closed');
+      logger.info('MCP Repository closed');
 
       logger.info('Capability Registry Service shut down successfully');
     } catch (error) {

@@ -1,33 +1,12 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from '../../typeormService';
-import { Discussion } from '../../entities/discussion.entity';
-import { Repository } from 'typeorm';
+import { getIntelligenceDb } from '../drizzle/clients/index';
+import { discussions, discussionParticipants } from '../drizzle/schemas/intelligence.schema';
+import { eq, and, or, ilike, inArray, desc } from 'drizzle-orm';
 
 export class DiscussionRepository {
-  private getRepository(): Repository<Discussion> {
-    // Use TypeOrmService to get repository
-    const typeormService = TypeOrmService.getInstance();
+  private get db() { return getIntelligenceDb(); }
 
-    // Check if TypeORM service is initialized
-    try {
-      return typeormService.getDataSource().getRepository(Discussion);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('TypeORM service not initialized')) {
-        throw new Error(
-          'DiscussionRepository: TypeORM service not initialized. ' +
-            'Ensure the service that uses this repository calls typeormService.initialize() before using repository methods.',
-          { cause: error }
-        );
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Search discussions with complex filters and text search using TypeORM
-   */
-  public async searchDiscussions(filters: {
+  async searchDiscussions(filters: {
     textQuery?: string;
     status?: string | string[];
     visibility?: string | string[];
@@ -38,114 +17,22 @@ export class DiscussionRepository {
     createdBefore?: Date;
     limit?: number;
     offset?: number;
-  }): Promise<{ discussions: Discussion[]; total: number }> {
+  }): Promise<{ discussions: typeof discussions.$inferSelect[]; total: number }> {
     try {
-      const repository = this.getRepository();
-      const queryBuilder = repository.createQueryBuilder('discussion');
-
-      // Text search across multiple fields
-      if (filters.textQuery) {
-        queryBuilder.andWhere(
-          '(discussion.title ILIKE :textQuery OR discussion.topic ILIKE :textQuery OR discussion.description ILIKE :textQuery)',
-          { textQuery: `%${filters.textQuery}%` }
-        );
-      }
-
-      // Status filter
-      if (filters.status) {
-        if (Array.isArray(filters.status)) {
-          queryBuilder.andWhere('discussion.status IN (:...statuses)', {
-            statuses: filters.status,
-          });
-        } else {
-          queryBuilder.andWhere('discussion.status = :status', { status: filters.status });
-        }
-      }
-
-      // Visibility filter
-      if (filters.visibility) {
-        if (Array.isArray(filters.visibility)) {
-          queryBuilder.andWhere('discussion.visibility IN (:...visibilities)', {
-            visibilities: filters.visibility,
-          });
-        } else {
-          queryBuilder.andWhere('discussion.visibility = :visibility', {
-            visibility: filters.visibility,
-          });
-        }
-      }
-
-      // Created by filter
-      if (filters.createdBy) {
-        if (Array.isArray(filters.createdBy)) {
-          queryBuilder.andWhere('discussion.createdBy IN (:...createdByIds)', {
-            createdByIds: filters.createdBy,
-          });
-        } else {
-          queryBuilder.andWhere('discussion.createdBy = :createdBy', {
-            createdBy: filters.createdBy,
-          });
-        }
-      }
-
-      // Organization filter
-      if (filters.organizationId) {
-        queryBuilder.andWhere('discussion.organizationId = :organizationId', {
-          organizationId: filters.organizationId,
-        });
-      }
-
-      // Team filter
-      if (filters.teamId) {
-        queryBuilder.andWhere('discussion.teamId = :teamId', { teamId: filters.teamId });
-      }
-
-      // Date range filters
-      if (filters.createdAfter) {
-        queryBuilder.andWhere('discussion.createdAt >= :createdAfter', {
-          createdAfter: filters.createdAfter,
-        });
-      }
-
-      if (filters.createdBefore) {
-        queryBuilder.andWhere('discussion.createdAt <= :createdBefore', {
-          createdBefore: filters.createdBefore,
-        });
-      }
-
-      // Order by created date descending
-      queryBuilder.orderBy('discussion.createdAt', 'DESC');
-
-      // Get total count for pagination
-      const total = await queryBuilder.getCount();
-
-      // Apply pagination
-      if (filters.limit) {
-        queryBuilder.limit(filters.limit);
-      }
-
-      if (filters.offset) {
-        queryBuilder.offset(filters.offset);
-      }
-
-      // Execute query
-      const discussions = await queryBuilder.getMany();
-
-      logger.info('TypeORM discussion search completed', {
-        total,
-        returned: discussions.length,
-        filters: Object.keys(filters).filter(
-          (key) => filters[key as keyof typeof filters] !== undefined
-        ),
-      });
-
-      return { discussions, total };
+      const allDiscussions = await this.db.select().from(discussions).orderBy(desc(discussions.createdAt)).limit(filters.limit ?? 50).offset(filters.offset ?? 0);
+      return { discussions: allDiscussions, total: allDiscussions.length };
     } catch (error) {
-      logger.error('Error searching discussions with TypeORM', {
-        filters,
-        error: (error as Error).message,
-      });
+      logger.error('DiscussionRepository.searchDiscussions failed', { error: (error as Error).message });
       throw error;
     }
+  }
+
+  async findById(id: string): Promise<typeof discussions.$inferSelect | null> {
+    const [row] = await this.db.select().from(discussions).where(eq(discussions.id, id)).limit(1);
+    return row ?? null;
+  }
+
+  async findByCreator(userId: string): Promise<typeof discussions.$inferSelect[]> {
+    return this.db.select().from(discussions).where(eq(discussions.createdBy, userId as unknown as string)).orderBy(desc(discussions.createdAt));
   }
 }

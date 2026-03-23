@@ -2,10 +2,8 @@ import { ToolGraphDatabase } from '../database/toolGraphDatabase';
 import { TypeOrmService } from '../typeormService';
 import { OutboxPublisher } from './OutboxPublisher';
 import { GraphSyncWorker } from './GraphSyncWorker';
-import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { Repository } from 'typeorm';
 
 export class IntegrationService {
   private static instance: IntegrationService;
@@ -56,10 +54,7 @@ export class IntegrationService {
       }
 
       // Initialize OutboxPublisher
-      const integrationEventRepository = typeormService.integrationEventRepository;
-      this.outboxPublisher = new OutboxPublisher(
-        integrationEventRepository as Repository<IntegrationEventEntity>
-      );
+      this.outboxPublisher = new OutboxPublisher();
 
       // Initialize GraphSyncWorker
       this.graphSyncWorker = new GraphSyncWorker(this.outboxPublisher, this.toolGraphDatabase);

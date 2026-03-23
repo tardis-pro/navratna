@@ -41,7 +41,7 @@ export class RelationshipDetector {
         );
 
         // Detect relationship type and confidence
-        const relationshipInfo = this.analyzeRelationship(newItem, existingItem, similarity);
+        const relationshipInfo = this.analyzeRelationship(newItem, existingItem as unknown as KnowledgeItem, similarity);
 
         if (relationshipInfo) {
           relationships.push({
@@ -311,7 +311,17 @@ export class RelationshipDetector {
   ): Promise<KnowledgeRelationship[]> {
     try {
       const relationships = await this.knowledgeRepository.getRelationships(itemId);
-      return relationships.filter((rel) => rel.confidence >= threshold);
+      return relationships
+        .filter((rel) => rel.strength !== null && Number(rel.strength) >= threshold)
+        .map((rel) => ({
+          id: rel.id,
+          sourceItemId: rel.sourceId,
+          targetItemId: rel.targetId,
+          relationshipType: rel.relationshipType,
+          confidence: rel.strength !== null ? Number(rel.strength) : 0,
+          createdAt: rel.createdAt,
+          metadata: rel.metadata ?? {},
+        }));
     } catch (error) {
       console.error('Strong relationship retrieval error:', error);
       return [];

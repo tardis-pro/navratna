@@ -1,4 +1,4 @@
-import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
+type IntegrationEventEntity = Record<string, unknown>;
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
 import { OutboxPublisher } from './OutboxPublisher';
 import { IntegrationEvent, GraphSyncResult, GraphSyncBatch } from './IntegrationEvent';
@@ -75,7 +75,7 @@ export class GraphSyncWorker {
     });
 
     const batch: GraphSyncBatch = {
-      events: events.map(this.mapEntityToEvent),
+      events: events.map((e) => this.mapEntityToEvent(e as unknown as IntegrationEventEntity)),
       batchId,
       startTime: new Date(),
     };
@@ -390,16 +390,16 @@ export class GraphSyncWorker {
    */
   private mapEntityToEvent(entity: IntegrationEventEntity): IntegrationEvent {
     return {
-      id: entity.id,
-      entityType: entity.entityType,
-      entityId: entity.entityId,
-      action: entity.action,
-      payload: entity.payload,
-      timestamp: entity.timestamp,
-      processed: entity.processed,
-      retries: entity.retries,
-      lastError: entity.lastError,
-      version: entity.version,
+      id: entity.id as string,
+      entityType: entity.entityType as IntegrationEvent['entityType'],
+      entityId: entity.entityId as string,
+      action: entity.action as IntegrationEvent['action'],
+      payload: entity.payload as IntegrationEvent['payload'],
+      timestamp: entity.timestamp as Date ?? new Date(),
+      processed: entity.processed as boolean,
+      retries: entity.retries as number,
+      lastError: entity.lastError as string,
+      version: entity.version as number,
     };
   }
 
@@ -416,7 +416,7 @@ export class GraphSyncWorker {
     logger.info('Processing retry events', { count: retryableEvents.length });
 
     for (const entity of retryableEvents) {
-      const event = this.mapEntityToEvent(entity);
+      const event = this.mapEntityToEvent(entity as unknown as IntegrationEventEntity);
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.processEvent(event);
 

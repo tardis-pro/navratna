@@ -19,7 +19,6 @@ import { OpenAIProvider } from './providers/OpenAIProvider.js';
 import {
   LLMProviderRepository,
   UserLLMProviderRepository,
-  UserLLMProvider,
   RedisCacheService,
 } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
@@ -82,7 +81,7 @@ export class LLMService {
       }
 
       // Get active providers from all users (UserLLMProvider)
-      const userProviders = await this.userLLMProviderRepository!.findActiveProviders();
+      const userProviders = await this.userLLMProviderRepository!.findMany({ isActive: true });
 
       logger.info(`Found ${userProviders.length} active user providers in database`);
 
@@ -90,54 +89,56 @@ export class LLMService {
       this.providers.clear();
 
       // Group providers by type to avoid duplicates
-      const providersByType = new Map<string, UserLLMProvider>();
+      const providersByType = new Map<string, Record<string, unknown>>();
       for (const userProvider of userProviders) {
-        if (!providersByType.has(userProvider.type)) {
-          providersByType.set(userProvider.type, userProvider);
+        if (!providersByType.has(userProvider.type as string)) {
+          providersByType.set(userProvider.type as string, userProvider);
         }
       }
 
       // Initialize providers from user provider configuration
       for (const [_type, dbProvider] of providersByType) {
+        const providerType = (dbProvider.type as string) || 'custom';
+        const providerName = (dbProvider.name as string) || 'Unknown';
         try {
-          const providerConfig = dbProvider.getProviderConfig();
+          const providerConfig = (dbProvider.configuration as Record<string, unknown>) || {};
           let provider: BaseProvider;
 
           // Cast the type to the expected LLMProviderConfig type
           const llmProviderConfig = {
             ...providerConfig,
-            type: providerConfig.type as 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom',
-            baseUrl: providerConfig.baseUrl || 'http://localhost:11434', // Default baseUrl if not provided
+            type: providerType as 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom',
+            baseUrl: (providerConfig.baseUrl as string) || 'http://localhost:11434', // Default baseUrl if not provided
           };
 
-          switch (dbProvider.type) {
+          switch (providerType) {
             case 'ollama':
-              provider = new OllamaProvider(llmProviderConfig, dbProvider.name);
+              provider = new OllamaProvider(llmProviderConfig, providerName);
               break;
             case 'llmstudio':
-              provider = new LLMStudioProvider(llmProviderConfig, dbProvider.name);
+              provider = new LLMStudioProvider(llmProviderConfig, providerName);
               break;
             case 'openai':
             case 'anthropic':
             case 'google':
             case 'custom':
               // All OpenAI-compatible and cloud providers use OpenAIProvider
-              provider = new OpenAIProvider(llmProviderConfig, dbProvider.name);
+              provider = new OpenAIProvider(llmProviderConfig, providerName);
               break;
             default:
-              logger.warn(`Unsupported provider type: ${dbProvider.type}`, {
+              logger.warn(`Unsupported provider type: ${providerType}`, {
                 providerId: dbProvider.id,
               });
               continue;
           }
 
-          this.providers.set(dbProvider.type, provider);
-          logger.info(`Initialized provider: ${dbProvider.name}`, {
-            type: dbProvider.type,
+          this.providers.set(providerType, provider);
+          logger.info(`Initialized provider: ${providerName}`, {
+            type: providerType,
             id: dbProvider.id,
           });
         } catch (error) {
-          logger.error(`Failed to initialize provider: ${dbProvider.name}`, {
+          logger.error(`Failed to initialize provider: ${providerName}`, {
             error,
             providerId: dbProvider.id,
           });
@@ -531,42 +532,45 @@ export class LLMService {
     const allModels: AvailableModel[] = [];
     try {
       // Get only active providers from database
-      const dbProviders = await this.llmProviderRepository.findActiveProviders();
+      const dbProviders = await this.llmProviderRepository.findMany();
 
       logger.info(
         `Getting available models from ${dbProviders.length} database-configured providers`
       );
 
       for (const dbProvider of dbProviders) {
-        const provider = this.providers.get(dbProvider.type);
+        const providerType = (dbProvider.type as string) || 'custom';
+        const providerName = (dbProvider.name as string) || 'Unknown';
+        const providerBaseUrl = (dbProvider.base_url as string) || '';
+        const provider = this.providers.get(providerType);
         if (!provider) {
-          logger.warn(`Provider type ${dbProvider.type} not initialized, skipping`);
+          logger.warn(`Provider type ${providerType} not initialized, skipping`);
           continue;
         }
 
         try {
           logger.info(
-            `Fetching models from database provider: ${dbProvider.name} (${dbProvider.type})`,
+            `Fetching models from database provider: ${providerName} (${providerType})`,
             {
-              baseUrl: dbProvider.baseUrl,
+              baseUrl: providerBaseUrl,
             }
           );
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const models = await provider.getAvailableModels();
-          logger.info(`Provider ${dbProvider.name} returned ${models.length} models`);
+          logger.info(`Provider ${providerName} returned ${models.length} models`);
           allModels.push(
             ...models.map((model) => ({
               ...model,
-              provider: dbProvider.type,
-              apiType: this.normalizeApiType(dbProvider.type),
+              provider: providerType,
+              apiType: this.normalizeApiType(providerType),
               isAvailable: true,
             }))
           );
         } catch (error) {
-          logger.error(`Failed to get models from database provider ${dbProvider.name}`, {
+          logger.error(`Failed to get models from database provider ${providerName}`, {
             error: error instanceof Error ? error.message : error,
             stack: error instanceof Error ? error.stack : undefined,
-            baseUrl: dbProvider.baseUrl,
+            baseUrl: providerBaseUrl,
           });
         }
       }
@@ -699,27 +703,32 @@ export class LLMService {
       try {
         const dbProviders = await this.llmProviderRepository.findMany();
         for (const dbProvider of dbProviders) {
-          const isInitialized = this.providers.has(dbProvider.type);
+          const providerType = (dbProvider.type as string) || 'custom';
+          const providerName = (dbProvider.name as string) || 'Unknown';
+          const providerBaseUrl = (dbProvider.base_url as string) || '';
+          const providerIsActive = (dbProvider.is_active as boolean) || false;
+          const providerDefaultModel = (dbProvider.default_model as string) || undefined;
+          const isInitialized = this.providers.has(providerType);
           let modelCount = 0;
 
           if (isInitialized) {
             try {
               // eslint-disable-next-line no-await-in-loop -- sequential processing required
-              const models = await this.getModelsFromProvider(dbProvider.type);
+              const models = await this.getModelsFromProvider(providerType);
               modelCount = models.length;
             } catch (error) {
-              logger.warn(`Failed to get model count for provider ${dbProvider.name}`, { error });
+              logger.warn(`Failed to get model count for provider ${providerName}`, { error });
             }
           }
 
           providers.push({
-            name: dbProvider.name,
-            type: dbProvider.type,
-            baseUrl: dbProvider.baseUrl,
-            isActive: dbProvider.isActive && isInitialized,
-            defaultModel: dbProvider.defaultModel,
+            name: providerName,
+            type: providerType,
+            baseUrl: providerBaseUrl,
+            isActive: providerIsActive && isInitialized,
+            defaultModel: providerDefaultModel,
             modelCount,
-            status: (dbProvider.isActive && isInitialized ? 'active' : 'inactive') as
+            status: (providerIsActive && isInitialized ? 'active' : 'inactive') as
               | 'active'
               | 'inactive'
               | 'error',

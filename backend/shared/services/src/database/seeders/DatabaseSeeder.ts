@@ -1,4 +1,8 @@
-import { DataSource } from 'typeorm';
+import { getControlDb } from '../drizzle/clients/index';
+import { getIntelligenceDb } from '../drizzle/clients/index';
+import { users } from '../drizzle/schemas/control.schema';
+import { agents } from '../drizzle/schemas/intelligence.schema';
+import { personas } from '../drizzle/schemas/intelligence.schema';
 import { UserSeed } from './UserSeed';
 import { UserLLMProviderSeed } from './UserLLMProviderSeed';
 import { LLMPreferencesSeed } from './LLMPreferencesSeed';
@@ -7,27 +11,11 @@ import { PersonaSeed } from './PersonaSeed';
 import { AgentSeed } from './AgentSeed';
 import { ToolDefinitionSeed } from './ToolDefinitionSeed';
 import { ProjectSeed } from './ProjectSeed';
-import { getViralAgentsData } from './data/viralAgents';
 
-// Import all entities
-import { UserEntity } from '../../entities/user.entity';
-import { UserLLMProvider } from '../../entities/userLLMProvider.entity';
-import { Agent } from '../../entities/agent.entity';
-import { Persona as PersonaEntity } from '../../entities/persona.entity';
-
-/**
- * Main Database Seeder that orchestrates all individual seeders
- */
 export class DatabaseSeeder {
-  private dataSource: DataSource;
+  private controlDb = getControlDb();
+  private intelligenceDb = getIntelligenceDb();
 
-  constructor(dataSource: DataSource) {
-    this.dataSource = dataSource;
-  }
-
-  /**
-   * Main seeding method - seeds all entities in proper dependency order
-   */
   async seedAll(): Promise<void> {
     const results = {
       users: false,
@@ -40,198 +28,118 @@ export class DatabaseSeeder {
       projects: false,
     };
 
-    // Seed in dependency order, but continue even if individual seeders fail
     try {
       await this.seedUsers();
       results.users = true;
     } catch (error) {
-      console.error('   ❌ User seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ User seeding failed:', error);
     }
 
     try {
       await this.seedUserLLMProviders();
       results.userLLMProviders = true;
     } catch (error) {
-      console.error('   ❌ User LLM provider seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ User LLM provider seeding failed:', error);
     }
 
     try {
       await this.seedSecurityPolicies();
       results.securityPolicies = true;
     } catch (error) {
-      console.error('   ❌ Security policy seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ Security policy seeding failed:', error);
     }
 
     try {
       await this.seedPersonas();
       results.personas = true;
     } catch (error) {
-      console.error('   ❌ Persona seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ Persona seeding failed:', error);
     }
 
     try {
       await this.seedAgents();
       results.agents = true;
     } catch (error) {
-      console.error('   ❌ Agent seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ Agent seeding failed:', error);
     }
 
     try {
       await this.seedLLMPreferences();
       results.llmPreferences = true;
     } catch (error) {
-      console.error('   ❌ LLM preferences seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ LLM preferences seeding failed:', error);
     }
 
     try {
       await this.seedToolDefinitions();
       results.toolDefinitions = true;
     } catch (error) {
-      console.error('   ❌ Tool definition seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ Tool definition seeding failed:', error);
     }
 
     try {
       await this.seedProjects();
       results.projects = true;
     } catch (error) {
-      console.error('   ❌ Project seeding failed:', error.message);
-      console.warn('   ⚠️ Continuing with other seeders...');
+      console.error('   ❌ Project seeding failed:', error);
     }
 
-    // Report final results
     const successCount = Object.values(results).filter(Boolean).length;
     const totalCount = Object.keys(results).length;
-
     if (successCount === totalCount) {
+      console.log('✅ All seeders completed successfully');
     } else if (successCount > 0) {
+      console.log(`⚠️ ${successCount}/${totalCount} seeders completed`);
     } else {
-      console.error('❌ Database seeding failed completely - no seeders succeeded');
       throw new Error('All seeders failed');
     }
   }
 
-  /**
-   * Seed Users with different roles and security levels
-   */
   private async seedUsers(): Promise<void> {
-    const userSeed = new UserSeed(this.dataSource);
+    const userSeed = new UserSeed();
     await userSeed.seed();
   }
 
-  /**
-   * Seed User LLM Providers based on user roles and security clearance
-   */
   private async seedUserLLMProviders(): Promise<void> {
-    // Get users for LLM provider creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const users = await userRepository.find();
-
-    const userLLMProviderSeed = new UserLLMProviderSeed(this.dataSource, users);
-    await userLLMProviderSeed.seed();
+    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+    const userSeed = new UserLLMProviderSeed(allUsers.map(u => u.id));
+    await userSeed.seed();
   }
 
-  /**
-   * Seed Security Policies
-   */
   private async seedSecurityPolicies(): Promise<void> {
-    // Get users for security policy creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const users = await userRepository.find();
-
-    const securityPolicySeed = new SecurityPolicySeed(this.dataSource, users);
+    const securityPolicySeed = new SecurityPolicySeed();
     await securityPolicySeed.seed();
   }
 
-  /**
-   * Seed Personas with diverse characteristics
-   */
   private async seedPersonas(): Promise<void> {
-    // Get users for persona creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const users = await userRepository.find();
-
-    const personaSeed = new PersonaSeed(this.dataSource, users);
+    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+    const personaSeed = new PersonaSeed(allUsers.map(u => u.id));
     await personaSeed.seed();
   }
 
-  /**
-   * Seed Agents with different roles and configurations
-   */
   private async seedAgents(): Promise<void> {
-    // Get users and personas for agent creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const personaRepository = this.dataSource.getRepository(PersonaEntity);
-    const users = await userRepository.find();
-    const personas = await personaRepository.find();
-
-    // Get user LLM providers for agent seeding
-    const userLLMProviderRepository = this.dataSource.getRepository(UserLLMProvider);
-    const userLLMProviders = await userLLMProviderRepository.find();
-
-    const agentSeed = new AgentSeed(this.dataSource, users, personas, userLLMProviders);
+    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+    const allPersonas = await this.intelligenceDb.select({ id: personas.id }).from(personas);
+    const agentSeed = new AgentSeed(allUsers.map(u => u.id), allPersonas.map(p => p.id));
     await agentSeed.seed();
-
-    // Add viral agents using simple upsert
-    const viralAgentsData = getViralAgentsData(users, personas);
-    const agentRepository = this.dataSource.getRepository(Agent);
-
-    for (const agentData of viralAgentsData) {
-      try {
-        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        await agentRepository.upsert(agentData, {
-          conflictPaths: ['name'],
-          skipUpdateIfNoValuesChanged: true,
-        });
-      } catch (error) {
-        console.error(`   ❌ Error processing viral agent ${agentData.name}:`, error);
-      }
-    }
   }
 
-  /**
-   * Seed LLM Preferences for Users and Agents
-   */
   private async seedLLMPreferences(): Promise<void> {
-    // Get users and agents for LLM preferences creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const agentRepository = this.dataSource.getRepository(Agent);
-    const users = await userRepository.find();
-    const agents = await agentRepository.find();
-
-    const llmPreferencesSeed = new LLMPreferencesSeed(this.dataSource, users, agents);
+    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+    const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
+    const llmPreferencesSeed = new LLMPreferencesSeed(allUsers.map(u => u.id), allAgents.map(a => a.id));
     await llmPreferencesSeed.seed();
   }
 
-  /**
-   * Seed Tool Definitions
-   */
   private async seedToolDefinitions(): Promise<void> {
-    // Get users for tool definition creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const users = await userRepository.find();
-
-    const toolDefinitionSeed = new ToolDefinitionSeed(this.dataSource, users);
+    const toolDefinitionSeed = new ToolDefinitionSeed();
     await toolDefinitionSeed.seed();
   }
 
-  /**
-   * Seed Projects with different types and agent recommendations
-   */
   private async seedProjects(): Promise<void> {
-    // Get users and agents for project creation
-    const userRepository = this.dataSource.getRepository(UserEntity);
-    const agentRepository = this.dataSource.getRepository(Agent);
-    const users = await userRepository.find();
-    const agents = await agentRepository.find();
-
-    const projectSeed = new ProjectSeed(this.dataSource, users, agents);
+    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+    const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
+    const projectSeed = new ProjectSeed(allUsers.map(u => u.id), allAgents.map(a => a.id));
     await projectSeed.seed();
   }
 }

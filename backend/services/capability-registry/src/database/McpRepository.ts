@@ -1,7 +1,14 @@
-import { DataSource, Repository } from 'typeorm';
+/**
+ * McpRepository — Execution Plane data-access layer using Drizzle ORM.
+ *
+ * Uses the Control Plane DB via getControlDb() from @uaip/shared-services.
+ * MCP tables (mcpServers, mcpToolCalls) live in the control schema.
+ */
+
 import { logger } from '@uaip/utils';
-import { MCPServer } from './entities/mcp-server.entity.js';
-import { MCPToolCall } from './entities/mcp-tool-call.entity.js';
+import { getControlDb, eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
+import { mcpServers, mcpToolCalls } from '@uaip/shared-services/drizzle/control';
+import type { ControlDB } from '@uaip/shared-services';
 
 // ── Domain error ────────────────────────────────────────────────────────────
 
@@ -50,18 +57,13 @@ export interface McpJobResult {
 // ── Repository ────────────────────────────────────────────────────────────────
 
 /**
- * McpRepository — Execution Plane data-access layer.
+ * McpRepository — Drizzle-based data-access layer for MCP servers and tool calls.
  *
- * Fully self-contained: initialized with the plane's own DataSource.
- * No dependency on @uaip/shared-services.
+ * Self-contained: uses getControlDb() directly (no constructor args).
  */
 export class McpRepository {
-  private readonly servers: Repository<MCPServer>;
-  private readonly toolCalls: Repository<MCPToolCall>;
-
-  constructor(dataSource: DataSource) {
-    this.servers = dataSource.getRepository(MCPServer);
-    this.toolCalls = dataSource.getRepository(MCPToolCall);
+  private get db(): ControlDB {
+    return getControlDb();
   }
 
   private getErrorMessage(err: unknown): string {
@@ -70,31 +72,25 @@ export class McpRepository {
 
   // ── Tool Call operations ──────────────────────────────────────────────────
 
-  async createToolCall(req: McpJobRequest): Promise<MCPToolCall> {
+  async createToolCall(req: McpJobRequest) {
     try {
-      const row = this.toolCalls.create({
-        serverId: req.serverId,
-        toolName: req.toolName,
-        parameters:
-          req.parameters && typeof req.parameters === 'object'
-            ? (req.parameters as Record<string, unknown>)
-            : { value: req.parameters },
-        agentId: req.agentId,
-        userId: req.userId,
-        conversationId: req.conversationId,
-        operationId: req.operationId,
-        sessionId: req.sessionId,
-        securityLevel: req.securityLevel ?? 'medium',
-        approvalRequired: req.approvalRequired ?? false,
-        timeoutSeconds: req.timeoutSeconds ?? 30,
-        metadata: req.metadata,
-        timestamp: new Date(),
-        status: 'pending',
-        retryCount: 0,
-      }) as MCPToolCall;
-      const saved = await this.toolCalls.save(row);
-      logger.info(`McpRepository: created tool call ${saved.id} (${req.serverId}:${req.toolName})`);
-      return saved;
+      const [row] = await this.db
+        .insert(mcpToolCalls)
+        .values({
+          serverId: req.serverId,
+          toolName: req.toolName,
+          parameters:
+            req.parameters && typeof req.parameters === 'object'
+              ? (req.parameters as Record<string, unknown>)
+              : { value: req.parameters },
+          agentId: req.agentId,
+          status: 'pending',
+          metadata: req.metadata,
+        })
+        .returning();
+
+      logger.info(`McpRepository: created tool call ${row.id} (${req.serverId}:${req.toolName})`);
+      return row;
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to create MCP tool call', {
         cause: this.getErrorMessage(err),
@@ -103,10 +99,14 @@ export class McpRepository {
     }
   }
 
-  async updateToolCall(id: string, updates: Partial<MCPToolCall>): Promise<MCPToolCall> {
+  async updateToolCall(id: string, updates: Record<string, unknown>) {
     try {
-      await this.toolCalls.update(id, updates);
-      const row = await this.toolCalls.findOne({ where: { id } });
+      const [row] = await this.db
+        .update(mcpToolCalls)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(mcpToolCalls.id, id))
+        .returning();
+
       if (!row) throw new McpDatabaseError(`Tool call not found: ${id}`);
       return row;
     } catch (err: unknown) {
@@ -118,11 +118,16 @@ export class McpRepository {
     }
   }
 
-  async getToolCall(id: string): Promise<MCPToolCall | null> {
-    return this.toolCalls.findOne({ where: { id } });
+  async getToolCall(id: string) {
+    const [row] = await this.db
+      .select()
+      .from(mcpToolCalls)
+      .where(eq(mcpToolCalls.id, id))
+      .limit(1);
+    return row ?? null;
   }
 
-  async startToolCall(id: string): Promise<MCPToolCall> {
+  async startToolCall(id: string) {
     return this.updateToolCall(id, { status: 'running', startTime: new Date() });
   }
 
@@ -130,7 +135,7 @@ export class McpRepository {
     id: string,
     result: unknown,
     executionTimeMs?: number
-  ): Promise<MCPToolCall> {
+  ) {
     return this.updateToolCall(id, {
       status: 'completed',
       result,
@@ -143,8 +148,8 @@ export class McpRepository {
     id: string,
     error: string,
     errorCode?: string,
-    errorCategory?: MCPToolCall['errorCategory']
-  ): Promise<MCPToolCall> {
+    errorCategory?: string
+  ) {
     return this.updateToolCall(id, {
       status: 'failed',
       error,
@@ -154,7 +159,7 @@ export class McpRepository {
     });
   }
 
-  async cancelToolCall(id: string, reason?: string, cancelledBy?: string): Promise<MCPToolCall> {
+  async cancelToolCall(id: string, reason?: string, cancelledBy?: string) {
     return this.updateToolCall(id, {
       status: 'failed',
       cancelledAt: new Date(),
@@ -164,71 +169,90 @@ export class McpRepository {
     });
   }
 
-  async retryToolCall(id: string): Promise<MCPToolCall | null> {
+  async retryToolCall(id: string) {
     const row = await this.getToolCall(id);
     if (!row) return null;
-    if (row.retryCount >= row.maxRetries) {
+    const currentRetryCount = (row as unknown as { retryCount?: number }).retryCount ?? 0;
+    const maxRetries = (row as unknown as { maxRetries?: number }).maxRetries ?? 0;
+    if (currentRetryCount >= maxRetries) {
       logger.warn(`McpRepository: max retries exceeded for tool call ${id}`);
       return null;
     }
-    return this.updateToolCall(id, { retryCount: row.retryCount + 1, status: 'pending' });
+    return this.updateToolCall(id, { retryCount: currentRetryCount + 1, status: 'pending' });
   }
 
-  async getToolCallsByServer(serverId: string, limit = 100): Promise<MCPToolCall[]> {
-    return this.toolCalls.find({ where: { serverId }, order: { timestamp: 'DESC' }, take: limit });
+  async getToolCallsByServer(serverId: string, limit = 100) {
+    return this.db
+      .select()
+      .from(mcpToolCalls)
+      .where(eq(mcpToolCalls.serverId, serverId))
+      .orderBy(desc(mcpToolCalls.createdAt))
+      .limit(limit);
   }
 
-  async getToolCallsByAgent(agentId: string, limit = 100): Promise<MCPToolCall[]> {
-    return this.toolCalls.find({ where: { agentId }, order: { timestamp: 'DESC' }, take: limit });
+  async getToolCallsByAgent(agentId: string, limit = 100) {
+    return this.db
+      .select()
+      .from(mcpToolCalls)
+      .where(eq(mcpToolCalls.agentId, agentId))
+      .orderBy(desc(mcpToolCalls.createdAt))
+      .limit(limit);
   }
 
-  async getToolCallsByStatus(status: MCPToolCall['status']): Promise<MCPToolCall[]> {
-    return this.toolCalls.find({ where: { status }, order: { timestamp: 'DESC' } });
+  async getToolCallsByStatus(status: string) {
+    return this.db
+      .select()
+      .from(mcpToolCalls)
+      .where(eq(mcpToolCalls.status, status))
+      .orderBy(desc(mcpToolCalls.createdAt));
   }
 
   async getToolCallStats(serverId?: string) {
-    const qb = this.toolCalls.createQueryBuilder('call');
-    if (serverId) qb.where('call.serverId = :serverId', { serverId });
-    const [rows, total] = await qb.getManyAndCount();
+    const baseCondition = serverId ? eq(mcpToolCalls.serverId, serverId) : undefined;
+    const rows = await this.db
+      .select()
+      .from(mcpToolCalls)
+      .where(baseCondition);
 
     const completed = rows.filter((r) => r.status === 'completed');
     const avgExecTime =
       completed.length > 0
-        ? completed.reduce((s, r) => s + (r.executionTimeMs ?? 0), 0) / completed.length
+        ? completed.reduce((s, r) => s + ((r as unknown as { executionTimeMs?: number }).executionTimeMs ?? 0), 0) / completed.length
         : 0;
 
     return {
-      total,
+      total: rows.length,
       completed: completed.length,
       failed: rows.filter((r) => r.status === 'failed').length,
       pending: rows.filter((r) => r.status === 'pending').length,
       running: rows.filter((r) => r.status === 'running').length,
       averageExecutionTime: avgExecTime,
-      successRate: total > 0 ? (completed.length / total) * 100 : 0,
+      successRate: rows.length > 0 ? (completed.length / rows.length) * 100 : 0,
     };
   }
 
   async cleanupOldToolCalls(daysToKeep = 30): Promise<number> {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - daysToKeep);
-    const res = await this.toolCalls
-      .createQueryBuilder()
-      .delete()
-      .where('timestamp < :cutoff', { cutoff })
-      .execute();
-    const count = res.affected ?? 0;
+    const result = await this.db
+      .delete(mcpToolCalls)
+      .where(sql`${mcpToolCalls.createdAt} < ${cutoff}`);
+    const count = result.rowCount ?? 0;
     logger.info(`McpRepository: cleaned up ${count} tool calls older than ${daysToKeep} days`);
     return count;
   }
 
   // ── Server operations ─────────────────────────────────────────────────────
 
-  async createServer(data: Partial<MCPServer>): Promise<MCPServer> {
+  async createServer(data: Record<string, unknown>) {
     try {
-      const row = this.servers.create(data);
-      const saved = await this.servers.save(row);
-      logger.info(`McpRepository: created server ${saved.id} (${saved.name})`);
-      return saved;
+      const [row] = await this.db
+        .insert(mcpServers)
+        .values(data as typeof mcpServers.$inferInsert)
+        .returning();
+
+      logger.info(`McpRepository: created server ${row.id} (${row.name})`);
+      return row;
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to create MCP server', {
         cause: this.getErrorMessage(err),
@@ -236,10 +260,14 @@ export class McpRepository {
     }
   }
 
-  async updateServer(id: string, updates: Partial<MCPServer>): Promise<MCPServer> {
+  async updateServer(id: string, updates: Record<string, unknown>) {
     try {
-      await this.servers.update(id, updates);
-      const row = await this.servers.findOne({ where: { id } });
+      const [row] = await this.db
+        .update(mcpServers)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(mcpServers.id, id))
+        .returning();
+
       if (!row) throw new McpDatabaseError(`Server not found: ${id}`);
       return row;
     } catch (err: unknown) {
@@ -251,13 +279,23 @@ export class McpRepository {
     }
   }
 
-  async getServer(id: string): Promise<MCPServer | null> {
-    return this.servers.findOne({ where: { id } });
+  async getServer(id: string) {
+    const [row] = await this.db
+      .select()
+      .from(mcpServers)
+      .where(eq(mcpServers.id, id))
+      .limit(1);
+    return row ?? null;
   }
 
-  async getServerByName(name: string): Promise<MCPServer | null> {
+  async getServerByName(name: string) {
     try {
-      return await this.servers.findOne({ where: { name } });
+      const [row] = await this.db
+        .select()
+        .from(mcpServers)
+        .where(eq(mcpServers.name, name))
+        .limit(1);
+      return row ?? null;
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to get MCP server by name', {
         name,
@@ -266,9 +304,12 @@ export class McpRepository {
     }
   }
 
-  async getAllServers(): Promise<MCPServer[]> {
+  async getAllServers() {
     try {
-      return await this.servers.find({ order: { name: 'ASC' } });
+      return this.db
+        .select()
+        .from(mcpServers)
+        .orderBy(mcpServers.name);
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to get all MCP servers', {
         cause: this.getErrorMessage(err),
@@ -278,7 +319,7 @@ export class McpRepository {
 
   async deleteServer(id: string): Promise<void> {
     try {
-      await this.servers.delete(id);
+      await this.db.delete(mcpServers).where(eq(mcpServers.id, id));
       logger.info(`McpRepository: deleted server ${id}`);
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to delete MCP server', {

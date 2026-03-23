@@ -1,419 +1,132 @@
-import { Repository, In } from 'typeorm';
-import {
-  KnowledgeItem,
-  KnowledgeIngestRequest,
-  KnowledgeFilters,
-  KnowledgeRelationship,
-  KnowledgeType,
-  SourceType,
-  KnowledgeScope,
-} from '@uaip/types';
-import { KnowledgeItemEntity } from '../../entities/knowledge-item.entity';
-import { KnowledgeRelationshipEntity } from '../../entities/knowledge-relationship.entity';
+import { getIntelligenceDb, getIntelligencePool } from '../drizzle/clients/index';
+import { knowledgeItems, knowledgeRelationships } from '../drizzle/schemas/intelligence.schema';
+import { eq, and, ilike, inArray, desc, sql, gte } from 'drizzle-orm';
+import { logger } from '@uaip/utils';
+
+export type KnowledgeRow = typeof knowledgeItems.$inferSelect;
+export type RelationshipRow = typeof knowledgeRelationships.$inferSelect;
 
 export class KnowledgeRepository {
-  constructor(
-    private readonly knowledgeRepo: Repository<KnowledgeItemEntity>,
-    private readonly relationshipRepo: Repository<KnowledgeRelationshipEntity>
-  ) {}
+  private get db() { return getIntelligenceDb(); }
+  private get pool() { return getIntelligencePool(); }
 
-  async create(
-    request: KnowledgeIngestRequest & { userId?: string; agentId?: string; summary?: string }
-  ): Promise<KnowledgeItem> {
-    const entity = this.knowledgeRepo.create({
-      content: request.content,
-      type: request.type || KnowledgeType.FACTUAL,
-      sourceType: request.source.type,
-      sourceIdentifier: request.source.identifier,
-      sourceUrl: request.source.url,
-      tags: request.tags || [],
-      confidence: request.confidence || 0.8,
-      metadata: (request.source.metadata || {}) as Record<string, unknown>,
-      createdBy: request.createdBy,
-      organizationId: request.organizationId,
-      accessLevel: request.accessLevel || 'public',
-      // Three-layered knowledge architecture
-      userId: request.userId,
-      agentId: request.agentId,
-      summary: request.summary,
-    });
-
-    const saved = await this.knowledgeRepo.save(entity);
-    return this.entityToModel(saved);
+  async create(request: Record<string, unknown>): Promise<KnowledgeRow> {
+    const [row] = await this.db.insert(knowledgeItems).values(request as typeof knowledgeItems.$inferInsert).returning();
+    return row;
   }
 
-  async update(id: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
-    const numericId = id;
-    await this.knowledgeRepo.update(numericId, {
-      ...updates,
-      updatedAt: new Date(),
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM update requires flexible typing
-    } as any);
+  async findById(id: string): Promise<KnowledgeRow | null> {
+    const [row] = await this.db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+    return row ?? null;
+  }
 
-    const updated = await this.knowledgeRepo.findOne({ where: { id: numericId } });
-    if (!updated) {
-      throw new Error(`Knowledge item not found: ${id}`);
+  async findAll(): Promise<KnowledgeRow[]> {
+    return this.db.select().from(knowledgeItems).orderBy(desc(knowledgeItems.createdAt));
+  }
+
+  async findBySourceIdentifier(sourceId: string): Promise<KnowledgeRow | null> {
+    const [row] = await this.db.select().from(knowledgeItems).where(eq(knowledgeItems.sourceIdentifier, sourceId)).limit(1);
+    return row ?? null;
+  }
+
+  async findByFilters(filters: Record<string, unknown>): Promise<KnowledgeRow[]> {
+    return this.applyFilters(filters);
+  }
+
+  async applyFilters(filters: Record<string, unknown>): Promise<KnowledgeRow[]> {
+    const conditions = [];
+    if (filters.type) conditions.push(eq(knowledgeItems.type, filters.type as import('@uaip/types').KnowledgeType));
+    if (filters.agentId) conditions.push(eq(knowledgeItems.agentId, filters.agentId as string));
+    if (filters.userId) conditions.push(eq(knowledgeItems.userId, filters.userId as string));
+    if (filters.accessLevel) conditions.push(eq(knowledgeItems.accessLevel, filters.accessLevel as string));
+    const limit = typeof filters.limit === 'number' ? filters.limit : 100;
+    const offset = typeof filters.offset === 'number' ? filters.offset : 0;
+    const query = this.db.select().from(knowledgeItems);
+    if (conditions.length > 0) {
+      return query.where(and(...conditions)).orderBy(desc(knowledgeItems.createdAt)).limit(limit).offset(offset);
     }
-
-    return this.entityToModel(updated);
+    return query.orderBy(desc(knowledgeItems.createdAt)).limit(limit).offset(offset);
   }
 
-  async delete(id: string): Promise<void> {
-    const numericId = id;
-    // Delete relationships first
-    await this.relationshipRepo.delete({
-      sourceItemId: numericId,
-    });
-    await this.relationshipRepo.delete({
-      targetItemId: numericId,
-    });
-
-    // Delete the knowledge item
-    await this.knowledgeRepo.delete(numericId);
+  async findByScope(scope: { agentId?: string; userId?: string; accessLevel?: string }): Promise<KnowledgeRow[]> {
+    return this.applyFilters(scope as Record<string, unknown>);
   }
 
-  async findById(id: string): Promise<KnowledgeItem | null> {
-    const entity = await this.knowledgeRepo.findOne({ where: { id: id } });
-    return entity ? this.entityToModel(entity) : null;
-  }
-
-  async getItems(ids: string[]): Promise<KnowledgeItem[]> {
-    const numericIds = ids.map((id) => id);
-    const entities = await this.knowledgeRepo.find({
-      where: { id: In(numericIds) },
-    });
-    return entities.map((entity) => this.entityToModel(entity));
-  }
-
-  async applyFilters(
-    vectorResults: Array<{ payload?: { knowledge_item_id?: string } }>,
-    filters?: KnowledgeFilters,
-    scope?: KnowledgeScope
-  ): Promise<KnowledgeItem[]> {
-    if (!vectorResults.length) return [];
-
-    const knowledgeItemIds = vectorResults.map((r) => r.payload?.knowledge_item_id).filter(Boolean);
-
-    let query = this.knowledgeRepo
-      .createQueryBuilder('ki')
-      .where('ki.id IN (:...ids)', { ids: knowledgeItemIds });
-
-    // Apply scope filtering
-    if (scope) {
-      query = this.applyScopeFilter(query, scope);
-    }
-
-    if (filters) {
-      if (filters.tags?.length) {
-        query = query.andWhere('ki.tags && :tags', { tags: filters.tags });
-      }
-
-      if (filters.types?.length) {
-        query = query.andWhere('ki.type IN (:...types)', { types: filters.types });
-      }
-
-      if (filters.confidence) {
-        query = query.andWhere('ki.confidence >= :confidence', { confidence: filters.confidence });
-      }
-
-      if (filters.sourceTypes?.length) {
-        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', {
-          sourceTypes: filters.sourceTypes,
-        });
-      }
-
-      if (filters.timeRange) {
-        query = query.andWhere('ki.createdAt BETWEEN :start AND :end', {
-          start: filters.timeRange.start,
-          end: filters.timeRange.end,
-        });
-      }
-    }
-
-    const entities = await query.getMany();
-
-    // Maintain the order from vector search results
-    const entityMap = new Map(entities.map((e) => [e.id, e]));
-    const orderedEntities = knowledgeItemIds
-      .map((id) => entityMap.get(id))
-      .filter(Boolean) as KnowledgeItemEntity[];
-
-    return orderedEntities.map((entity) => this.entityToModel(entity));
-  }
-
-  async hydrate(
-    vectorResults: Array<{ payload?: { knowledge_item_id?: string } }>
-  ): Promise<KnowledgeItem[]> {
-    return this.applyFilters(vectorResults);
-  }
-
-  async createRelationships(
-    relationships: Omit<KnowledgeRelationship, 'id' | 'createdAt'>[]
-  ): Promise<void> {
-    const entities = relationships.map((rel) => this.relationshipRepo.create(rel));
-    await this.relationshipRepo.save(entities);
-  }
-
-  async getRelationships(
-    itemId: string,
-    relationshipTypes?: string[],
-    scope?: KnowledgeScope
-  ): Promise<KnowledgeRelationship[]> {
-    let query = this.relationshipRepo
-      .createQueryBuilder('kr')
-      .where('kr.sourceItemId = :itemId', { itemId: itemId });
-
-    // Apply scope filtering
-    if (scope) {
-      query = this.applyRelationshipScopeFilter(query, scope);
-    }
-
-    if (relationshipTypes?.length) {
-      query = query.andWhere('kr.relationshipType IN (:...types)', { types: relationshipTypes });
-    }
-
-    const entities = await query.getMany();
-    return entities.map((entity) => this.relationshipEntityToModel(entity));
-  }
-
-  async getStatistics(): Promise<{
-    totalItems: number;
-    itemsByType: Record<string, number>;
-    itemsBySource: Record<string, number>;
-    averageConfidence: number;
-  }> {
-    const totalItems = await this.knowledgeRepo.count();
-
-    const typeStats = await this.knowledgeRepo
-      .createQueryBuilder('ki')
-      .select('ki.type', 'type')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('ki.type')
-      .getRawMany();
-
-    const sourceStats = await this.knowledgeRepo
-      .createQueryBuilder('ki')
-      .select('ki.sourceType', 'sourceType')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('ki.sourceType')
-      .getRawMany();
-
-    const avgConfidence = await this.knowledgeRepo
-      .createQueryBuilder('ki')
-      .select('AVG(ki.confidence)', 'average')
-      .getRawOne();
-
-    const itemsByType = typeStats.reduce(
-      (acc, stat) => {
-        acc[stat.type] = parseInt(stat.count);
-        return acc;
-      },
-      {} as Record<string, number>
+  async findByDomain(domain: string, limit = 50): Promise<KnowledgeRow[]> {
+    const rows = await this.pool.query<KnowledgeRow>(
+      `SELECT * FROM "knowledge_items" WHERE tags @> ARRAY[$1] OR type = $1 ORDER BY created_at DESC LIMIT $2`,
+      [domain, limit]
     );
+    return rows.rows;
+  }
 
-    const itemsBySource = sourceStats.reduce(
-      (acc, stat) => {
-        acc[stat.sourceType] = parseInt(stat.count);
-        return acc;
-      },
-      {} as Record<string, number>
+  async findByTags(tags: string[], limit = 20): Promise<KnowledgeRow[]> {
+    if (tags.length === 0) return [];
+    const rows = await this.pool.query<KnowledgeRow>(
+      `SELECT * FROM "knowledge_items" WHERE tags && $1 ORDER BY created_at DESC LIMIT $2`,
+      [tags, limit]
     );
-
-    return {
-      totalItems,
-      itemsByType,
-      itemsBySource,
-      averageConfidence: parseFloat(avgConfidence.average),
-    };
+    return rows.rows;
   }
 
-  async findByTags(tags: string[], limit: number = 10): Promise<KnowledgeItem[]> {
-    const entities = await this.knowledgeRepo
-      .createQueryBuilder('ki')
-      .where('ki.tags && :tags', { tags })
-      .orderBy('ki.confidence', 'DESC')
-      .limit(limit)
-      .getMany();
-
-    return entities.map((entity) => this.entityToModel(entity));
-  }
-
-  async findBySourceType(sourceType: SourceType, limit: number = 10): Promise<KnowledgeItem[]> {
-    const entities = await this.knowledgeRepo.find({
-      where: { sourceType },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-
-    return entities.map((entity) => this.entityToModel(entity));
-  }
-
-  async findRecentItems(limit: number = 10): Promise<KnowledgeItem[]> {
-    const entities = await this.knowledgeRepo.find({
-      order: { createdAt: 'DESC' },
-      take: limit,
-    });
-
-    return entities.map((entity) => this.entityToModel(entity));
-  }
-
-  async findAll(): Promise<KnowledgeItemEntity[]> {
-    return await this.knowledgeRepo.find({
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async findAllRelationships(): Promise<KnowledgeRelationshipEntity[]> {
-    return await this.relationshipRepo.find({
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  // Scoped search methods
-  async findByScope(
-    scope: KnowledgeScope,
-    filters?: KnowledgeFilters,
-    limit: number = 20
-  ): Promise<KnowledgeItem[]> {
-    let query = this.knowledgeRepo.createQueryBuilder('ki');
-
-    query = this.applyScopeFilter(query, scope);
-
-    if (filters) {
-      if (filters.tags?.length) {
-        query = query.andWhere('ki.tags && :tags', { tags: filters.tags });
-      }
-
-      if (filters.types?.length) {
-        query = query.andWhere('ki.type IN (:...types)', { types: filters.types });
-      }
-
-      if (filters.confidence) {
-        query = query.andWhere('ki.confidence >= :confidence', { confidence: filters.confidence });
-      }
-
-      if (filters.sourceTypes?.length) {
-        query = query.andWhere('ki.sourceType IN (:...sourceTypes)', {
-          sourceTypes: filters.sourceTypes,
-        });
-      }
-
-      if (filters.timeRange) {
-        query = query.andWhere('ki.createdAt BETWEEN :start AND :end', {
-          start: filters.timeRange.start,
-          end: filters.timeRange.end,
-        });
-      }
+  async findRecentItems(limit = 20, since?: Date): Promise<KnowledgeRow[]> {
+    if (since) {
+      return this.db.select().from(knowledgeItems).where(gte(knowledgeItems.createdAt, since)).orderBy(desc(knowledgeItems.createdAt)).limit(limit);
     }
-
-    const entities = await query.orderBy('ki.createdAt', 'DESC').limit(limit).getMany();
-
-    return entities.map((entity) => this.entityToModel(entity));
+    return this.db.select().from(knowledgeItems).orderBy(desc(knowledgeItems.createdAt)).limit(limit);
   }
 
-  private entityToModel(entity: KnowledgeItemEntity): KnowledgeItem {
-    return {
-      id: entity.id,
-      content: entity.content,
-      type: entity.type,
-      sourceType: entity.sourceType,
-      sourceIdentifier: entity.sourceIdentifier,
-      sourceUrl: entity.sourceUrl,
-      tags: entity.tags,
-      confidence: entity.confidence,
-      metadata: entity.metadata,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
-      createdBy: entity.createdBy,
-      organizationId: entity.organizationId,
-      accessLevel: entity.accessLevel,
-      userId: entity.userId,
-      agentId: entity.agentId,
-      summary: entity.summary,
-    };
+  async getItems(ids: string[]): Promise<KnowledgeRow[]> {
+    if (ids.length === 0) return [];
+    return this.db.select().from(knowledgeItems).where(inArray(knowledgeItems.id, ids));
   }
 
-  private relationshipEntityToModel(entity: KnowledgeRelationshipEntity): KnowledgeRelationship {
-    return {
-      id: entity.id,
-      sourceItemId: entity.sourceItemId,
-      targetItemId: entity.targetItemId,
-      relationshipType: entity.relationshipType,
-      confidence: entity.confidence,
-      createdAt: entity.createdAt,
-      userId: entity.userId,
-      agentId: entity.agentId,
-      summary: entity.summary,
-    };
+  async update(id: string, data: Partial<typeof knowledgeItems.$inferInsert>): Promise<KnowledgeRow | null> {
+    const [row] = await this.db.update(knowledgeItems).set({ ...data, updatedAt: new Date() }).where(eq(knowledgeItems.id, id)).returning();
+    return row ?? null;
   }
 
-  // Private helper methods for scope filtering
-  // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM SelectQueryBuilder generic typing
-  private applyScopeFilter(query: any, scope: KnowledgeScope): any {
-    if (scope.agentId && scope.userId) {
-      // Both agent and user specified - return items for both
-      query = query.andWhere(
-        '(ki.agentId = :agentId OR ki.userId = :userId OR (ki.agentId IS NULL AND ki.userId IS NULL))',
-        {
-          agentId: scope.agentId,
-          userId: scope.userId,
-        }
-      );
-    } else if (scope.agentId) {
-      // Agent-specific knowledge + general knowledge
-      query = query.andWhere('(ki.agentId = :agentId OR ki.agentId IS NULL)', {
-        agentId: scope.agentId,
-      });
-    } else if (scope.userId) {
-      // User-specific knowledge + general knowledge
-      query = query.andWhere('(ki.userId = :userId OR ki.userId IS NULL)', {
-        userId: scope.userId,
-      });
+  async delete(id: string): Promise<boolean> {
+    const result = await this.db.delete(knowledgeItems).where(eq(knowledgeItems.id, id));
+    return ((result as { rowCount?: number }).rowCount ?? 0) > 0;
+  }
+
+  async createRelationship(data: Record<string, unknown>): Promise<RelationshipRow> {
+    const [row] = await this.db.insert(knowledgeRelationships).values(data as typeof knowledgeRelationships.$inferInsert).returning();
+    return row;
+  }
+
+  async createRelationships(items: Record<string, unknown>[]): Promise<RelationshipRow[]> {
+    if (items.length === 0) return [];
+    const rows = await this.db.insert(knowledgeRelationships).values(items as typeof knowledgeRelationships.$inferInsert[]).returning();
+    return rows;
+  }
+
+  async findRelationships(sourceId: string): Promise<RelationshipRow[]> {
+    if (sourceId === 'all') {
+      return this.db.select().from(knowledgeRelationships).orderBy(desc(knowledgeRelationships.createdAt));
     }
-    // If no scope provided, return all (general knowledge)
-
-    return query;
+    return this.db.select().from(knowledgeRelationships).where(eq(knowledgeRelationships.sourceId, sourceId));
   }
 
-  // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM SelectQueryBuilder generic typing
-  private applyRelationshipScopeFilter(query: any, scope: KnowledgeScope): any {
-    if (scope.agentId && scope.userId) {
-      // Both agent and user specified - return relationships for both
-      query = query.andWhere(
-        '(kr.agentId = :agentId OR kr.userId = :userId OR (kr.agentId IS NULL AND kr.userId IS NULL))',
-        {
-          agentId: scope.agentId,
-          userId: scope.userId,
-        }
-      );
-    } else if (scope.agentId) {
-      // Agent-specific relationships + general relationships
-      query = query.andWhere('(kr.agentId = :agentId OR kr.agentId IS NULL)', {
-        agentId: scope.agentId,
-      });
-    } else if (scope.userId) {
-      // User-specific relationships + general relationships
-      query = query.andWhere('(kr.userId = :userId OR kr.userId IS NULL)', {
-        userId: scope.userId,
-      });
-    }
-    // If no scope provided, return all (general relationships)
-
-    return query;
+  async findAllRelationships(): Promise<RelationshipRow[]> {
+    return this.db.select().from(knowledgeRelationships).orderBy(desc(knowledgeRelationships.createdAt));
   }
 
-  async findByDomain(domain: string, limit?: number): Promise<KnowledgeItem[]> {
-    let query = this.knowledgeRepo
-      .createQueryBuilder('ki')
-      .where('ki.tags @> :domain', { domain: [domain] })
-      .orWhere("ki.metadata->>'domain' = :domainValue", { domainValue: domain })
-      .orderBy('ki.createdAt', 'DESC');
+  async getRelationships(itemId: string): Promise<RelationshipRow[]> {
+    return this.db.select().from(knowledgeRelationships).where(
+      sql`${knowledgeRelationships.sourceId} = ${itemId} OR ${knowledgeRelationships.targetId} = ${itemId}`
+    );
+  }
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+  async getStatistics(): Promise<{ totalItems: number; byType: Record<string, number>; recentItems: number }> {
+    const [total] = await this.db.select({ cnt: sql<number>`count(*)::int` }).from(knowledgeItems);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [recent] = await this.db.select({ cnt: sql<number>`count(*)::int` }).from(knowledgeItems).where(gte(knowledgeItems.createdAt, weekAgo));
+    return { totalItems: total?.cnt ?? 0, byType: {}, recentItems: recent?.cnt ?? 0 };
+  }
 
-    const entities = await query.getMany();
-    return entities.map((entity) => this.entityToModel(entity));
+  async getStats(): Promise<{ totalItems: number; byType: Record<string, number> }> {
+    return this.getStatistics();
   }
 }

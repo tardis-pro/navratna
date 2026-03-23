@@ -1,18 +1,15 @@
-import { Repository } from 'typeorm';
 import { logger } from '@uaip/utils';
 import { BaseDomainService } from './BaseDomainService';
 import {
   ToolRepository,
   ToolExecutionRepository,
   ToolUsageRepository,
+  ToolAssignmentRepository,
 } from '../database/repositories/ToolRepository';
-import { ToolDefinition } from '../entities/toolDefinition.entity';
-import { ToolExecution } from '../entities/toolExecution.entity';
-import { ToolUsageRecord } from '../entities/toolUsageRecord.entity';
-import { ToolAssignment } from '../entities/toolAssignment.entity';
 import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
 import { RedisCacheService } from '../redis-cache.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
+import { getControlPool } from '../database/drizzle/clients/index';
 
 export class ToolService extends BaseDomainService {
   private redisService: RedisCacheService;
@@ -39,13 +36,10 @@ export class ToolService extends BaseDomainService {
     return this.getRepository('toolUsageRepo', () => new ToolUsageRepository());
   }
 
-  public getToolAssignmentRepository(): Repository<ToolAssignment> {
-    return this.getRepository('toolAssignRepo', () =>
-      this.typeormService.getRepository(ToolAssignment)
-    );
+  public getToolAssignmentRepository(): ToolAssignmentRepository {
+    return this.getRepository('toolAssignRepo', () => new ToolAssignmentRepository());
   }
 
-  // Tool definition operations
   public async createTool(data: {
     name: string;
     displayName: string;
@@ -60,38 +54,48 @@ export class ToolService extends BaseDomainService {
     securityLevel?: SecurityLevel;
     maxRetries?: number;
     timeout?: number;
-  }): Promise<ToolDefinition> {
+  }): Promise<Record<string, unknown>> {
     const toolRepo = this.getToolRepository();
     return await toolRepo.createTool({
-      ...data,
+      name: data.name,
+      description: data.description,
+      category: data.category,
       isEnabled: data.isEnabled ?? true,
       version: data.version || '1.0.0',
       securityLevel: data.securityLevel || SecurityLevel.MEDIUM,
     });
   }
 
-  public async findToolByName(name: string): Promise<ToolDefinition | null> {
-    const tools = await this.getToolRepository().findMany({ name });
-    return tools.length > 0 ? tools[0] : null;
+  public async findToolByName(name: string): Promise<Record<string, unknown> | null> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM tool_definitions WHERE name = $1 LIMIT 1`,
+      [name]
+    );
+    return result.rows[0] ?? null;
   }
 
-  public async findToolById(id: string): Promise<ToolDefinition | null> {
-    return await this.getToolRepository().findById(id);
+  public async findToolById(id: string): Promise<Record<string, unknown> | null> {
+    const toolRepo = this.getToolRepository();
+    return await toolRepo.findById(id);
   }
 
-  public async findActiveTools(): Promise<ToolDefinition[]> {
-    return await this.getToolRepository().getTools({ enabled: true });
+  public async findActiveTools(): Promise<Record<string, unknown>[]> {
+    const toolRepo = this.getToolRepository();
+    return await toolRepo.getTools({ enabled: true });
   }
 
-  public async findToolsByCategory(category: string): Promise<ToolDefinition[]> {
-    return await this.getToolRepository().getTools({ category });
+  public async findToolsByCategory(category: string): Promise<Record<string, unknown>[]> {
+    const toolRepo = this.getToolRepository();
+    return await toolRepo.getTools({ category });
   }
 
   public async updateTool(
     id: string,
-    data: Partial<ToolDefinition>
-  ): Promise<ToolDefinition | null> {
-    await this.getToolRepository().update(id, data);
+    data: Record<string, unknown>
+  ): Promise<Record<string, unknown> | null> {
+    const toolRepo = this.getToolRepository();
+    await toolRepo.update(id, data);
     return await this.findToolById(id);
   }
 
@@ -100,7 +104,6 @@ export class ToolService extends BaseDomainService {
     return result !== null;
   }
 
-  // Tool execution operations
   public async createExecution(data: {
     toolId: string;
     agentId?: string;
@@ -108,7 +111,7 @@ export class ToolService extends BaseDomainService {
     input: Record<string, unknown>;
     context?: Record<string, unknown>;
     traceId?: string;
-  }): Promise<ToolExecution> {
+  }): Promise<Record<string, unknown>> {
     const executionRepo = this.getToolExecutionRepository();
     return await executionRepo.createToolExecution({
       toolId: data.toolId,
@@ -132,52 +135,59 @@ export class ToolService extends BaseDomainService {
       metadata?: Record<string, unknown>;
       duration?: number;
     }
-  ): Promise<ToolExecution | null> {
-    const updates: Partial<ToolExecution> & { endTime?: Date } = {
+  ): Promise<Record<string, unknown> | null> {
+    const executionRepo = this.getToolExecutionRepository();
+    const updates: Record<string, unknown> = {
       status: data.status,
       result: data.output,
-      error: data.error
-        ? {
-            type: 'execution',
-            message: data.error,
-            details: data.metadata,
-            recoverable: false,
-          }
-        : undefined,
-      metadata: data.metadata,
-      executionTimeMs: data.duration,
     };
 
-    if (
-      data.status === ToolExecutionStatus.COMPLETED ||
-      data.status === ToolExecutionStatus.FAILED
-    ) {
-      updates.endTime = new Date();
+    if (data.error) {
+      updates.error = JSON.stringify({
+        type: 'execution',
+        message: data.error,
+        details: data.metadata,
+        recoverable: false,
+      });
     }
 
-    await this.getToolExecutionRepository().update(id, updates);
-    return await this.getToolExecutionRepository().getToolExecution(id);
+    if (data.metadata) {
+      updates.metadata = data.metadata;
+    }
+
+    if (data.duration) {
+      updates.duration = data.duration;
+    }
+
+    if (data.status === ToolExecutionStatus.COMPLETED || data.status === ToolExecutionStatus.FAILED) {
+      updates.end_time = new Date();
+    }
+
+    await executionRepo.update(id, updates);
+    return await executionRepo.getToolExecution(id);
   }
 
-  public async findExecutionById(id: string): Promise<ToolExecution | null> {
-    return await this.getToolExecutionRepository().getToolExecution(id);
+  public async findExecutionById(id: string): Promise<Record<string, unknown> | null> {
+    const executionRepo = this.getToolExecutionRepository();
+    return await executionRepo.getToolExecution(id);
   }
 
-  public async findExecutionsByTool(toolId: string, limit?: number): Promise<ToolExecution[]> {
-    return await this.getToolExecutionRepository().getToolExecutions({
+  public async findExecutionsByTool(toolId: string, limit?: number): Promise<Record<string, unknown>[]> {
+    const executionRepo = this.getToolExecutionRepository();
+    return await executionRepo.getToolExecutions({
       toolId,
       limit: limit || 100,
     });
   }
 
-  public async findExecutionsByAgent(agentId: string, limit?: number): Promise<ToolExecution[]> {
-    return await this.getToolExecutionRepository().getToolExecutions({
+  public async findExecutionsByAgent(agentId: string, limit?: number): Promise<Record<string, unknown>[]> {
+    const executionRepo = this.getToolExecutionRepository();
+    return await executionRepo.getToolExecutions({
       agentId,
       limit: limit || 100,
     });
   }
 
-  // Tool usage tracking
   public async trackUsage(data: {
     toolId: string;
     agentId?: string;
@@ -188,7 +198,7 @@ export class ToolService extends BaseDomainService {
     executionTime?: number;
     success: boolean;
     error?: string;
-  }): Promise<ToolUsageRecord> {
+  }): Promise<Record<string, unknown>> {
     const usageRepo = this.getToolUsageRepository();
     return await usageRepo.recordToolUsage({
       toolId: data.toolId,
@@ -201,9 +211,6 @@ export class ToolService extends BaseDomainService {
   }
 
   public async getToolUsageStats(toolId: string, days: number = 30): Promise<unknown> {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
     const usageRepo = this.getToolUsageRepository();
     return await usageRepo.getToolUsageStats({
       toolId,
@@ -211,7 +218,6 @@ export class ToolService extends BaseDomainService {
     });
   }
 
-  // Tool assignment operations
   public async assignToolToAgent(
     agentId: string,
     toolId: string,
@@ -220,58 +226,56 @@ export class ToolService extends BaseDomainService {
       canRead?: boolean;
       customConfig?: Record<string, unknown>;
     } = {}
-  ): Promise<ToolAssignment> {
+  ): Promise<Record<string, unknown>> {
     const assignmentRepo = this.getToolAssignmentRepository();
+    const pool = getControlPool();
 
-    // Check if assignment already exists
-    const existing = await assignmentRepo.findOne({
-      where: { agent: { id: agentId }, tool: { id: toolId } },
-    });
+    const existing = await assignmentRepo.findByAgentAndTool(agentId, toolId);
 
     if (existing) {
-      // Update existing assignment
-      await assignmentRepo.update(existing.id, {
-        canExecute: permissions.canExecute ?? existing.canExecute,
-        canRead: permissions.canRead ?? existing.canRead,
-        customConfig: permissions.customConfig ?? existing.customConfig,
-      });
-      return (await assignmentRepo.findOne({ where: { id: existing.id } })) as ToolAssignment;
+      await pool.query(
+        `UPDATE tool_assignments SET is_enabled = $1, configuration = $2 WHERE id = $3`,
+        [
+          permissions.canExecute ?? true,
+          JSON.stringify({ canRead: permissions.canRead ?? true, customConfig: permissions.customConfig }),
+          existing.id
+        ]
+      );
+      return await assignmentRepo.findByAgentAndTool(agentId, toolId) as Record<string, unknown>;
     }
 
-    // Create new assignment
-    const assignment = assignmentRepo.create({
-      agent: { id: agentId },
-      tool: { id: toolId },
-      canExecute: permissions.canExecute ?? true,
-      canRead: permissions.canRead ?? true,
-      customConfig: permissions.customConfig,
-    });
-
-    return await assignmentRepo.save(assignment);
+    const result = await pool.query(
+      `INSERT INTO tool_assignments (tool_id, agent_id, is_enabled, configuration)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [
+        toolId,
+        agentId,
+        permissions.canExecute ?? true,
+        JSON.stringify({ canRead: permissions.canRead ?? true, customConfig: permissions.customConfig })
+      ]
+    );
+    return result.rows[0];
   }
 
   public async removeToolFromAgent(agentId: string, toolId: string): Promise<boolean> {
-    const result = await this.getToolAssignmentRepository().delete({
-      agent: { id: agentId },
-      tool: { id: toolId },
-    });
-    return result.affected !== 0;
+    const pool = getControlPool();
+    const result = await pool.query(
+      `DELETE FROM tool_assignments WHERE agent_id = $1 AND tool_id = $2`,
+      [agentId, toolId]
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
-  public async getAgentTools(agentId: string): Promise<ToolAssignment[]> {
-    return await this.getToolAssignmentRepository().find({
-      where: { agent: { id: agentId } },
-      relations: ['tool'],
-    });
+  public async getAgentTools(agentId: string): Promise<Record<string, unknown>[]> {
+    const assignmentRepo = this.getToolAssignmentRepository();
+    return await assignmentRepo.findByAgent(agentId);
   }
 
-  // Bulk operations
-  public async createBulkTools(tools: Array<Partial<ToolDefinition>>): Promise<ToolDefinition[]> {
+  public async createBulkTools(tools: Array<Record<string, unknown>>): Promise<Record<string, unknown>[]> {
     const toolRepo = this.getToolRepository();
-    const results: ToolDefinition[] = [];
+    const results: Record<string, unknown>[] = [];
     for (const tool of tools) {
-      // eslint-disable-next-line no-await-in-loop
-      const created = await toolRepo.createTool(tool);
+      const created = await toolRepo.createTool(tool as Parameters<typeof toolRepo.createTool>[0]);
       results.push(created);
     }
     return results;
@@ -281,51 +285,46 @@ export class ToolService extends BaseDomainService {
     const tools = await this.getToolRepository().getTools({ category });
     let count = 0;
     for (const tool of tools) {
-      // eslint-disable-next-line no-await-in-loop
-      await this.getToolRepository().update(tool.id, { isEnabled: false });
+      await this.getToolRepository().update(tool.id as string, { isEnabled: false });
       count++;
     }
     return count;
   }
 
-  // Tool execution operations
-  public async createToolExecution(execution: Partial<ToolExecution>): Promise<ToolExecution> {
+  public async createToolExecution(execution: Partial<Record<string, unknown>>): Promise<Record<string, unknown>> {
     const executionRepo = this.getToolExecutionRepository();
-    return await executionRepo.createToolExecution(execution);
+    return await executionRepo.createToolExecution(execution as Parameters<typeof executionRepo.createToolExecution>[0]);
   }
 
-  public async getToolExecution(executionId: string): Promise<ToolExecution | null> {
+  public async getToolExecution(executionId: string): Promise<Record<string, unknown> | null> {
     const executionRepo = this.getToolExecutionRepository();
     return await executionRepo.getToolExecution(executionId);
   }
 
   public async updateToolExecution(
     executionId: string,
-    updates: Partial<ToolExecution>
+    updates: Record<string, unknown>
   ): Promise<void> {
     const executionRepo = this.getToolExecutionRepository();
     await executionRepo.update(executionId, updates);
   }
 
-  // Redis service access
   public getRedisService(): RedisCacheService {
     return this.redisService;
   }
 
-  // Knowledge graph service access (optional)
   public get neo4jService(): KnowledgeGraphService | null {
     return this.knowledgeGraphService;
   }
 
-  // Helper methods for capability-registry compatibility
-  public async getTool(toolId: string): Promise<ToolDefinition | null> {
+  public async getTool(toolId: string): Promise<Record<string, unknown> | null> {
     return this.findToolById(toolId);
   }
 
   public async getTools(filters: {
     enabled?: boolean;
     category?: string;
-  }): Promise<ToolDefinition[]> {
+  }): Promise<Record<string, unknown>[]> {
     if (filters.category) {
       return this.findToolsByCategory(filters.category);
     }
@@ -335,12 +334,12 @@ export class ToolService extends BaseDomainService {
     return this.findActiveTools();
   }
 
-  public async searchTools(query: string): Promise<ToolDefinition[]> {
+  public async searchTools(query: string): Promise<Record<string, unknown>[]> {
     const tools = await this.findActiveTools();
     return tools.filter(
       (tool) =>
-        tool.name.toLowerCase().includes(query.toLowerCase()) ||
-        tool.description.toLowerCase().includes(query.toLowerCase())
+        (tool.name as string).toLowerCase().includes(query.toLowerCase()) ||
+        (tool.description as string).toLowerCase().includes(query.toLowerCase())
     );
   }
 
@@ -362,7 +361,7 @@ export class ToolService extends BaseDomainService {
     toolId?: string;
     agentId?: string;
     limit?: number;
-  }): Promise<ToolExecution[]> {
+  }): Promise<Record<string, unknown>[]> {
     if (filters.toolId) {
       return this.findExecutionsByTool(filters.toolId, filters.limit);
     }
@@ -372,10 +371,8 @@ export class ToolService extends BaseDomainService {
     return [];
   }
 
-  // Neo4j-related methods for tool relationships (using knowledge graph if available)
-  public async createToolNode(tool: ToolDefinition): Promise<void> {
+  public async createToolNode(tool: Record<string, unknown>): Promise<void> {
     if (this.knowledgeGraphService) {
-      // Use knowledge graph for tool relationships
       logger.info('Creating tool node in knowledge graph', { toolId: tool.id });
     }
   }
@@ -386,7 +383,6 @@ export class ToolService extends BaseDomainService {
     _limit = 5
   ): Promise<unknown[]> {
     if (this.knowledgeGraphService) {
-      // Use knowledge graph for recommendations
       logger.info('Getting tool recommendations from knowledge graph', { toolId, context });
     }
     return [];
@@ -394,13 +390,12 @@ export class ToolService extends BaseDomainService {
 
   public async getToolRelationships(toolId: string): Promise<unknown[]> {
     if (this.knowledgeGraphService) {
-      // Use knowledge graph for tool relationships
       logger.info('Getting tool relationships from knowledge graph', { toolId });
     }
     return [];
   }
 
-  public async getToolsByCategory(category: string): Promise<ToolDefinition[]> {
+  public async getToolsByCategory(category: string): Promise<Record<string, unknown>[]> {
     return this.findToolsByCategory(category);
   }
 }

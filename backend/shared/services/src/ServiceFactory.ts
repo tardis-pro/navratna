@@ -1,4 +1,5 @@
-import { typeormService, TypeOrmService } from './typeormService';
+import { typeormService } from './typeormService';
+type TypeOrmService = typeof typeormService;
 import { QdrantService } from './qdrant.service';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
@@ -19,7 +20,7 @@ import { SemanticMemoryManager } from './agent-memory/semantic-memory.manager';
 import { MemoryConsolidator } from './agent-memory/memory-consolidator.service';
 import { ToolManagementService } from './tool-management.service';
 import { OperationManagementService } from './operation-management.service';
-import { KnowledgeItemEntity, KnowledgeRelationshipEntity } from './entities/index';
+
 import { seedDatabase as _seedDatabase } from './database/seeders/index';
 import { KnowledgeBootstrapService as _KnowledgeBootstrapService } from './knowledge-graph/bootstrap.service';
 import { KnowledgeSyncService } from './knowledge-graph/knowledge-sync.service';
@@ -62,7 +63,7 @@ export class ServiceFactory {
       // Initialize TypeORM first
       await typeormService.initialize();
       this.serviceInstances.set('typeorm', typeormService);
-      const _dataSource = typeormService.getDataSource();
+
 
       // Initialize standalone Redis cache service
       try {
@@ -148,12 +149,7 @@ export class ServiceFactory {
   // Repository Services
 
   async getKnowledgeRepository(): Promise<KnowledgeRepository> {
-    return this.getOrCreateService('knowledge-repository', async () => {
-      const typeOrm = await this.getTypeOrmService();
-      const knowledgeRepo = typeOrm.getRepository(KnowledgeItemEntity);
-      const relationshipRepo = typeOrm.getRepository(KnowledgeRelationshipEntity);
-      return new KnowledgeRepository(knowledgeRepo, relationshipRepo);
-    });
+    return this.getOrCreateService('knowledge-repository', () => new KnowledgeRepository());
   }
 
   // Embedding Services

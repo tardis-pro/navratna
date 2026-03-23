@@ -1,318 +1,121 @@
-import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository';
-import { Capability } from '../../entities/capability.entity';
+import { logger } from '@uaip/utils';
+import { getControlDb } from '../drizzle/clients/index';
 
-/** Raw row shape returned by capability SQL queries */
-export interface CapabilityRow {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  status: string;
-  metadata: Record<string, unknown> | null;
-  tool_config?: Record<string, unknown> | null;
-  artifact_config?: Record<string, unknown> | null;
-  dependencies?: string[] | null;
-  security_requirements?: Record<string, unknown> | null;
-  resource_requirements?: Record<string, unknown> | null;
-  created_at: Date;
-  updated_at: Date;
-}
+export class CapabilityRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'capabilities'; }
+  get plane(): 'control' { return 'control'; }
 
-export class CapabilityRepository extends BaseRepository<Capability> {
-  constructor() {
-    super(Capability);
-  }
-
-  /**
-   * Search capabilities with complex filters
-   */
-  public async searchCapabilities(filters: {
+  async searchCapabilities(filters: {
     query?: string;
     type?: string;
     securityLevel?: string;
     limit?: number;
-  }): Promise<CapabilityRow[]> {
-    try {
-      const manager = this.getEntityManager();
-
-      let sqlQuery = `
-        SELECT
-          id, name, description, type, status, metadata,
-          tool_config, artifact_config, dependencies,
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities
-        WHERE status = 'active'
-      `;
-
-      const queryParams: (string | number)[] = [];
-      let paramIndex = 1;
-
-      // Add text search
-      if (filters.query) {
-        sqlQuery += ` AND (
-          name ILIKE $${paramIndex} OR 
-          description ILIKE $${paramIndex} OR 
-          metadata->>'tags' ILIKE $${paramIndex}
-        )`;
-        queryParams.push(`%${filters.query}%`);
-        paramIndex++;
-      }
-
-      // Filter by type
-      if (filters.type) {
-        sqlQuery += ` AND type = $${paramIndex}`;
-        queryParams.push(filters.type);
-        paramIndex++;
-      }
-
-      // Apply security context filtering
-      if (filters.securityLevel) {
-        sqlQuery += ` AND security_requirements->>'maxLevel' >= $${paramIndex}`;
-        queryParams.push(filters.securityLevel);
-        paramIndex++;
-      }
-
-      // Limit results
-      const limit = Math.min(filters.limit || 20, 100);
-      sqlQuery += ` ORDER BY 
-        CASE 
-          WHEN name ILIKE $${paramIndex} THEN 1
-          WHEN description ILIKE $${paramIndex} THEN 2
-          ELSE 3
-        END,
-        created_at DESC
-        LIMIT $${paramIndex + 1}`;
-      queryParams.push(`%${filters.query || ''}%`, limit);
-
-      const result = await manager.query(sqlQuery, queryParams);
-      return result;
-    } catch (error) {
-      logger.error('Error searching capabilities', { filters, error: (error as Error).message });
-      throw error;
-    }
-  }
-
-  /**
-   * Get capabilities by IDs
-   */
-  public async getCapabilitiesByIds(capabilityIds: string[]): Promise<CapabilityRow[]> {
-    try {
-      const manager = this.getEntityManager();
-
-      if (capabilityIds.length === 0) {
-        return [];
-      }
-
-      const query = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE id = ANY($1) AND status = 'active'
-        ORDER BY type, name
-      `;
-
-      const result = await manager.query(query, [capabilityIds]);
-      return result;
-    } catch (error) {
-      logger.error('Error getting capabilities by IDs', {
-        capabilityIds,
-        error: (error as Error).message,
+  }): Promise<Record<string, unknown>[]> {
+    const conditions: Record<string, unknown> = {};
+    if (filters.type) conditions.type = filters.type;
+    if (filters.securityLevel) conditions.security_level = filters.securityLevel;
+    
+    let results = await this.findMany(conditions);
+    
+    // Filter by query text (name or description contains query)
+    if (filters.query) {
+      const q = filters.query.toLowerCase();
+      results = results.filter(r => {
+        const name = (r.name as string || '').toLowerCase();
+        const description = (r.description as string || '').toLowerCase();
+        return name.includes(q) || description.includes(q);
       });
-      throw error;
     }
+    
+    if (filters.limit) {
+      results = results.slice(0, filters.limit);
+    }
+    
+    return results;
   }
 
-  /**
-   * Get single capability by ID
-   */
-  public async getCapabilityById(capabilityId: string): Promise<CapabilityRow | null> {
-    try {
-      const manager = this.getEntityManager();
-
-      const query = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE id = $1
-      `;
-
-      const result = await manager.query(query, [capabilityId]);
-      return result.length > 0 ? result[0] : null;
-    } catch (error) {
-      logger.error('Error getting capability by ID', {
-        capabilityId,
-        error: (error as Error).message,
-      });
-      throw error;
+  async getCapabilitiesByIds(ids: string[]): Promise<Record<string, unknown>[]> {
+    if (ids.length === 0) return [];
+    const results: Record<string, unknown>[] = [];
+    for (const id of ids) {
+      const row = await this.findById(id);
+      if (row) results.push(row);
     }
+    return results;
   }
 
-  /**
-   * Get capability dependencies
-   */
-  public async getCapabilityDependencies(dependencyIds: string[]): Promise<CapabilityRow[]> {
-    try {
-      const manager = this.getEntityManager();
-
-      if (dependencyIds.length === 0) {
-        return [];
-      }
-
-      const query = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          security_requirements, dependencies
-        FROM capabilities 
-        WHERE id = ANY($1) AND status = 'active'
-      `;
-
-      const result = await manager.query(query, [dependencyIds]);
-      return result;
-    } catch (error) {
-      logger.error('Error getting capability dependencies', {
-        dependencyIds,
-        error: (error as Error).message,
-      });
-      throw error;
-    }
+  async getCapabilityById(id: string): Promise<Record<string, unknown> | null> {
+    return this.findById(id);
   }
 
-  /**
-   * Get capabilities that depend on a given capability (dependents)
-   */
-  public async getCapabilityDependents(capabilityId: string): Promise<CapabilityRow[]> {
-    try {
-      const manager = this.getEntityManager();
-
-      const query = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          security_requirements, dependencies
-        FROM capabilities 
-        WHERE $1 = ANY(dependencies) AND status = 'active'
-      `;
-
-      const result = await manager.query(query, [capabilityId]);
-      return result;
-    } catch (error) {
-      logger.error('Error getting capability dependents', {
-        capabilityId,
-        error: (error as Error).message,
-      });
-      throw error;
+  async getCapabilityDependencies(ids: string[]): Promise<Record<string, unknown>[]> {
+    if (ids.length === 0) return [];
+    const results: Record<string, unknown>[] = [];
+    for (const id of ids) {
+      const row = await this.findById(id);
+      if (row) results.push(row);
     }
+    return results;
   }
 
-  /**
-   * Advanced capability search with multiple filters
-   */
-  public async searchCapabilitiesAdvanced(searchParams: {
+  async getCapabilityDependents(capabilityId: string): Promise<Record<string, unknown>[]> {
+    // Find capabilities that have this capabilityId in their dependencies
+    const all = await this.findMany({});
+    return all.filter(r => {
+      const deps = r.dependencies as string[] || [];
+      return deps.includes(capabilityId);
+    });
+  }
+
+  async searchCapabilitiesAdvanced(params: {
     query?: string;
     types?: string[];
     tags?: string[];
     securityLevel?: string;
+    agentId?: string;
     includeExperimental?: boolean;
     limit?: number;
     offset?: number;
-  }): Promise<{ capabilities: CapabilityRow[]; totalCount: number }> {
-    try {
-      const manager = this.getEntityManager();
-
-      let sqlQuery = `
-        SELECT 
-          id, name, description, type, status, metadata, 
-          tool_config, artifact_config, dependencies, 
-          security_requirements, resource_requirements,
-          created_at, updated_at
-        FROM capabilities 
-        WHERE 1=1
-      `;
-
-      const queryParams: (string | string[] | number)[] = [];
-      let paramIndex = 1;
-
-      // Status filter
-      if (!searchParams.includeExperimental) {
-        sqlQuery += ` AND status IN ('active', 'deprecated')`;
-      } else {
-        sqlQuery += ` AND status != 'disabled'`;
-      }
-
-      // Text search
-      if (searchParams.query) {
-        sqlQuery += ` AND (
-          name ILIKE $${paramIndex} OR 
-          description ILIKE $${paramIndex} OR 
-          metadata->>'tags' ILIKE $${paramIndex}
-        )`;
-        queryParams.push(`%${searchParams.query}%`);
-        paramIndex++;
-      }
-
-      // Type filter
-      if (searchParams.types && searchParams.types.length > 0) {
-        sqlQuery += ` AND type = ANY($${paramIndex})`;
-        queryParams.push(searchParams.types);
-        paramIndex++;
-      }
-
-      // Security level filter
-      if (searchParams.securityLevel) {
-        sqlQuery += ` AND security_requirements->>'maxLevel' >= $${paramIndex}`;
-        queryParams.push(searchParams.securityLevel);
-        paramIndex++;
-      }
-
-      // Tag filter
-      if (searchParams.tags && searchParams.tags.length > 0) {
-        const tagConditions = searchParams.tags
-          .map(() => {
-            const condition = `metadata->'tags' ? $${paramIndex}`;
-            paramIndex++;
-            return condition;
-          })
-          .join(' OR ');
-
-        sqlQuery += ` AND (${tagConditions})`;
-        queryParams.push(...searchParams.tags);
-      }
-
-      // Count total results
-      const countQuery = sqlQuery.replace(/SELECT.*FROM/, 'SELECT COUNT(*) FROM');
-      const countResult = await manager.query(countQuery, queryParams);
-      const totalCount = parseInt(countResult[0].count);
-
-      // Add ordering and pagination
-      sqlQuery += ` ORDER BY 
-        CASE 
-          WHEN status = 'active' THEN 1
-          WHEN status = 'experimental' THEN 2
-          ELSE 3
-        END,
-        created_at DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-
-      const limit = Math.min(searchParams.limit || 20, 100);
-      const offset = searchParams.offset;
-      queryParams.push(limit, offset);
-
-      const capabilities = await manager.query(sqlQuery, queryParams);
-
-      return { capabilities, totalCount };
-    } catch (error) {
-      logger.error('Error in advanced capability search', {
-        searchParams,
-        error: (error as Error).message,
-      });
-      throw error;
+  }): Promise<{ capabilities: Record<string, unknown>[]; totalCount: number }> {
+    let results = await this.findMany({});
+    
+    // Filter by types
+    if (params.types && params.types.length > 0) {
+      results = results.filter(r => params.types!.includes(r.type as string));
     }
+    
+    // Filter by query text
+    if (params.query) {
+      const q = params.query.toLowerCase();
+      results = results.filter(r => {
+        const name = (r.name as string || '').toLowerCase();
+        const description = (r.description as string || '').toLowerCase();
+        return name.includes(q) || description.includes(q);
+      });
+    }
+    
+    // Filter by security level
+    if (params.securityLevel) {
+      results = results.filter(r => r.security_level === params.securityLevel);
+    }
+    
+    // Filter experimental if not included
+    if (!params.includeExperimental) {
+      results = results.filter(r => r.status !== 'experimental');
+    }
+    
+    const totalCount = results.length;
+    
+    // Apply offset and limit
+    if (params.offset) {
+      results = results.slice(params.offset);
+    }
+    if (params.limit) {
+      results = results.slice(0, params.limit);
+    }
+    
+    return { capabilities: results, totalCount };
   }
 }
+

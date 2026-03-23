@@ -129,8 +129,7 @@ export class ModelBootstrapService {
     try {
       // Initialize ModelSyncService lazily
       if (!this.modelSyncService) {
-        const dataSource = await DatabaseService.getInstance().getDataSource();
-        this.modelSyncService = new ModelSyncService(dataSource);
+        this.modelSyncService = new ModelSyncService();
       }
 
       // Sync models to database
@@ -286,9 +285,9 @@ export class ModelBootstrapService {
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const providers = await this.userService
             .getUserLLMProviderRepository()
-            .findAllProvidersByUser(user.id);
+            .findByUserId(user.id as string);
           if (providers.length > 0) {
-            usersWithProviders.push(user.id);
+            usersWithProviders.push(user.id as string);
           }
         } catch (error) {
           logger.warn('Failed to check providers for user', { userId: user.id, error });

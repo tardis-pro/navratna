@@ -1,4 +1,3 @@
-import { Repository } from 'typeorm';
 import {
   TaskEntity,
   TaskStatus,
@@ -11,6 +10,33 @@ import { ProjectEntity } from '../entities/project.entity';
 import { UserEntity } from '../entities/user.entity';
 import { Agent } from '../entities/agent.entity';
 import { v4 as uuidv4 } from 'uuid';
+
+// Local interface compatible with DrizzleRepository
+interface IRepository<T = any> {
+  findOne(opts: { where?: any }): Promise<T | null>;
+  find(opts?: { where?: any; order?: any; take?: number; skip?: number }): Promise<T[]>;
+  save(entity: any): Promise<T>;
+  create(entity: any): Promise<T>;
+  update(id: string, data: any): Promise<T | null>;
+  count(opts?: { where?: any }): Promise<number>;
+  createQueryBuilder(alias?: string): IQueryBuilder<T>;
+}
+
+interface IQueryBuilder<T = any> {
+  leftJoinAndSelect(relation: string, alias: string): this;
+  innerJoin(table: string, alias: string, condition: string): this;
+  where(condition: string, params?: any): this;
+  andWhere(condition: string, params?: any): this;
+  orderBy(column: string, direction: 'ASC' | 'DESC'): this;
+  addOrderBy(column: string, direction: 'ASC' | 'DESC'): this;
+  skip(n: number): this;
+  take(n: number): this;
+  select(cols: string[]): this;
+  addSelect(expr: string, alias?: string): this;
+  groupBy(expr: string): this;
+  getMany(): Promise<T[]>;
+  getRawMany(): Promise<any[]>;
+}
 
 // Simple logger fallback
 const logger = {
@@ -115,10 +141,10 @@ export class TaskService {
   private static instance: TaskService;
 
   // Repositories - will be injected/initialized when needed
-  private taskRepository: Repository<TaskEntity> | null = null;
-  private projectRepository: Repository<ProjectEntity> | null = null;
-  private userRepository: Repository<UserEntity> | null = null;
-  private agentRepository: Repository<Agent> | null = null;
+  private taskRepository: IRepository<TaskEntity> | null = null;
+  private projectRepository: IRepository<ProjectEntity> | null = null;
+  private userRepository: IRepository<UserEntity> | null = null;
+  private agentRepository: IRepository<Agent> | null = null;
   private eventBusService: {
     publish: (event: string, data: Record<string, unknown>) => void;
   } | null = null;
@@ -136,10 +162,10 @@ export class TaskService {
 
   // Repository setters for dependency injection
   public setRepositories(repositories: {
-    taskRepository: Repository<TaskEntity>;
-    projectRepository: Repository<ProjectEntity>;
-    userRepository: Repository<UserEntity>;
-    agentRepository: Repository<Agent>;
+    taskRepository: IRepository<TaskEntity>;
+    projectRepository: IRepository<ProjectEntity>;
+    userRepository: IRepository<UserEntity>;
+    agentRepository: IRepository<Agent>;
     eventBusService?: { publish: (event: string, data: Record<string, unknown>) => void };
   }) {
     this.taskRepository = repositories.taskRepository;
@@ -442,7 +468,6 @@ export class TaskService {
   async getTaskById(taskId: string): Promise<TaskEntity | null> {
     return await this.taskRepository.findOne({
       where: { id: taskId },
-      relations: ['project', 'assignedToUser', 'assignedToAgent', 'creator', 'assignedBy'],
     });
   }
 

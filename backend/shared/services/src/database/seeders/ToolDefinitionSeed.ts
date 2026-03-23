@@ -1,28 +1,26 @@
-import { DataSource, DeepPartial } from 'typeorm';
+import { getControlDb } from '../drizzle/clients/index';
+import { toolDefinitions } from '../../database/drizzle/schemas/control.schema';
 import { BaseSeed } from './BaseSeed';
-import { ToolDefinition } from '../../entities/toolDefinition.entity';
-import { UserEntity } from '../../entities/user.entity';
 import { ToolCategory, SecurityLevel } from '@uaip/types';
 
-/**
- * Tool Definition seeder
- */
-export class ToolDefinitionSeed extends BaseSeed<ToolDefinition> {
-  private users: UserEntity[] = [];
+export class ToolDefinitionSeed extends BaseSeed {
+  private db = getControlDb();
 
-  constructor(dataSource: DataSource, users: UserEntity[]) {
-    super(dataSource, dataSource.getRepository(ToolDefinition), 'ToolDefinitions');
-    this.users = users;
+  constructor() {
+    super('ToolDefinitions');
   }
 
-  getUniqueField(): keyof ToolDefinition {
-    return 'name';
+  async seed(): Promise<any[]> {
+    const seedData = await this.getSeedData();
+
+    for (const tool of seedData) {
+      await this.db.insert(toolDefinitions).values(tool as any).onConflictDoNothing();
+    }
+
+    return await this.db.select().from(toolDefinitions);
   }
 
-  async getSeedData(): Promise<DeepPartial<ToolDefinition>[]> {
-    const _adminUser = this.users.find((u) => u.role === 'system_admin') || this.users[0];
-    const _developerUser = this.users.find((u) => u.role === 'developer') || this.users[0];
-
+  async getSeedData(): Promise<any[]> {
     return [
       {
         name: 'File System Reader',

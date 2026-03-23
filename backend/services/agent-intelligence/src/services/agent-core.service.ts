@@ -7,10 +7,14 @@
 import { Agent, AgentStatus, AgentRole, CreateAgentRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import {
-  Repository,
   validateServiceAccess,
   AccessLevel,
   PersonaService,
+  getIntelligenceDb,
+  agents,
+  eq,
+  and,
+  desc,
 } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
@@ -64,7 +68,6 @@ export class AgentCoreService {
   private eventBusService: EventBusService;
   private serviceName: string;
   private securityLevel: number;
-  private agentRepository: Repository<Agent>;
 
   constructor(coreConfig: AgentCoreConfig) {
     this.databaseService = coreConfig.databaseService;
@@ -107,9 +110,6 @@ export class AgentCoreService {
       useEnterpriseMatrix,
       configAvailable: !!config.enterprise,
     });
-
-    // Initialize agent repository
-    this.agentRepository = await this.databaseService.getRepository('Agent');
 
     // Set up event subscriptions
     await this.setupEventSubscriptions();
@@ -213,7 +213,8 @@ export class AgentCoreService {
       };
 
       // Save to database
-      const savedAgent = await this.agentRepository.save(agent);
+      const db = getIntelligenceDb();
+      const [savedAgent] = await db.insert(agents).values(agent as unknown as typeof agents.$inferInsert).returning();
 
       // Publish agent created event
       await this.publishAgentEvent('agent.event.created', {
@@ -229,7 +230,7 @@ export class AgentCoreService {
         createdBy,
       });
 
-      return savedAgent;
+      return savedAgent as unknown as Agent;
     } catch (error) {
       logger.error('Failed to create agent', { error, agentData });
       throw error;
@@ -243,9 +244,9 @@ export class AgentCoreService {
     try {
       this.validateID(agentId, 'agentId');
 
-      const agent = await this.agentRepository.findOne({
-        where: { id: agentId },
-      });
+      const db = getIntelligenceDb();
+      const result = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
+      const agent = result[0] as unknown as Agent | null;
 
       if (agent) {
         // Publish agent accessed event for analytics
@@ -299,40 +300,27 @@ export class AgentCoreService {
     createdBy?: string;
   }): Promise<Agent[]> {
     try {
-      const queryBuilder = this.agentRepository.createQueryBuilder('agent');
+      const db = getIntelligenceDb();
 
-      // Apply filters
-      if (filters?.role) {
-        queryBuilder.andWhere('agent.role = :role', { role: filters.role });
-      }
-      if (filters?.status) {
-        queryBuilder.andWhere('agent.status = :status', { status: filters.status });
-      }
-      if (filters?.createdBy) {
-        queryBuilder.andWhere('agent.createdBy = :createdBy', { createdBy: filters.createdBy });
-      }
+      const allConditions = [];
+      if (filters?.role) allConditions.push(eq(agents.role, filters.role));
+      if (filters?.status) allConditions.push(eq(agents.status, filters.status));
+      if (filters?.createdBy) allConditions.push(eq(agents.createdBy, filters.createdBy));
 
-      // Apply pagination
-      if (filters?.offset) {
-        queryBuilder.skip(filters.offset);
-      }
-      if (filters?.limit) {
-        queryBuilder.take(filters.limit);
-      }
+      const baseQuery = db.select().from(agents);
+      const filteredQuery = allConditions.length > 0 ? baseQuery.where(and(...allConditions)) : baseQuery;
+      const offsetQuery = filters?.offset ? filteredQuery.offset(filters.offset) : filteredQuery;
+      const limitedQuery = filters?.limit ? offsetQuery.limit(filters.limit) : offsetQuery;
 
-      // Order by creation date
-      queryBuilder.orderBy('agent.createdAt', 'DESC');
+      const agentsResult = await limitedQuery.orderBy(desc(agents.createdAt));
 
-      const agents = await queryBuilder.getMany();
-
-      // Publish list accessed event for analytics
       await this.publishAgentEvent('agent.event.listed', {
-        count: agents.length,
+        count: agentsResult.length,
         filters,
         timestamp: new Date().toISOString(),
       });
 
-      return agents;
+      return agentsResult as unknown as Agent[];
     } catch (error) {
       logger.error('Failed to list agents', { error, filters });
       throw error;
@@ -363,7 +351,8 @@ export class AgentCoreService {
       };
 
       // Update in database
-      await this.agentRepository.update({ id: agentId }, updatePayload);
+      const dbUpdate = getIntelligenceDb();
+      await dbUpdate.update(agents).set(updatePayload as unknown as typeof agents.$inferInsert).where(eq(agents.id, agentId));
 
       // Get updated agent
       const updatedAgent = await this.getAgent(agentId);
@@ -406,18 +395,16 @@ export class AgentCoreService {
       }
 
       // Soft delete by updating status
-      await this.agentRepository.update(
-        { id: agentId },
-        {
-          status: AgentStatus.DELETED,
-          deletedAt: new Date(),
-          deletedBy,
-          metadata: {
-            ...agent.metadata,
-            deletedFrom: this.serviceName,
-          },
-        }
-      );
+      const dbDelete = getIntelligenceDb();
+      await dbDelete.update(agents).set({
+        status: AgentStatus.DELETED,
+        deletedAt: new Date(),
+        deletedBy,
+        metadata: {
+          ...agent.metadata,
+          deletedFrom: this.serviceName,
+        },
+      } as unknown as typeof agents.$inferInsert).where(eq(agents.id, agentId));
 
       // Publish agent deleted event
       await this.publishAgentEvent('agent.event.deleted', {

@@ -1,23 +1,33 @@
-import { DataSource, DeepPartial } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { BaseSeed } from './BaseSeed';
-import { UserEntity } from '../../entities/user.entity';
+import { getControlDb } from '../drizzle/clients/index';
+import { users } from '../../database/drizzle/schemas/control.schema';
 import { SecurityLevel } from '@uaip/types';
 
-/**
- * User seeder with roles matching frontend expectations
- */
-export class UserSeed extends BaseSeed<UserEntity> {
-  constructor(dataSource: DataSource) {
-    super(dataSource, dataSource.getRepository(UserEntity), 'Users');
+interface SeedUser {
+  email: string;
+  firstName: string;
+  lastName: string;
+  department: string;
+  role: string;
+  passwordHash: string;
+  securityClearance: SecurityLevel;
+  isActive: boolean;
+}
+
+export class UserSeed {
+  private db = getControlDb();
+
+  async seed(): Promise<typeof users.$inferSelect[]> {
+    const seedData = await this.getSeedData();
+
+    for (const user of seedData) {
+      await this.db.insert(users).values(user).onConflictDoNothing();
+    }
+
+    return await this.db.select().from(users);
   }
 
-  getUniqueField(): keyof UserEntity {
-    return 'email';
-  }
-
-  async getSeedData(): Promise<DeepPartial<UserEntity>[]> {
-    // Hash passwords to match Login.tsx demo credentials
+  private async getSeedData(): Promise<SeedUser[]> {
     const adminHash = await bcrypt.hash('admin123!', 12);
     const managerHash = await bcrypt.hash('manager123!', 12);
     const analystHash = await bcrypt.hash('analyst123!', 12);
@@ -29,129 +39,95 @@ export class UserSeed extends BaseSeed<UserEntity> {
     const geniusHash = await bcrypt.hash('genius123!', 10);
 
     return [
-      // System Accounts (Red category in Login.tsx)
       {
         email: 'admin1@uaip.dev',
         firstName: 'System',
         lastName: 'Administrator',
         department: 'IT Operations',
-        role: 'admin', // Maps to RoleBasedDesktopConfig admin level
+        role: 'admin',
         passwordHash: adminHash,
         securityClearance: SecurityLevel.CRITICAL,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
       {
         email: 'manager1@uaip.dev',
         firstName: 'Operations',
         lastName: 'Manager',
         department: 'Operations',
-        role: 'moderator', // Maps to RoleBasedDesktopConfig moderator level
+        role: 'moderator',
         passwordHash: managerHash,
         securityClearance: SecurityLevel.HIGH,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
-
-      // Professional Roles (Blue category in Login.tsx)
       {
         email: 'analyst1@uaip.dev',
         firstName: 'Data',
         lastName: 'Analyst',
         department: 'Analytics',
-        role: 'user', // Maps to RoleBasedDesktopConfig user level
+        role: 'user',
         passwordHash: analystHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
       {
         email: 'developer1@uaip.dev',
         firstName: 'Software',
         lastName: 'Developer',
         department: 'Engineering',
-        role: 'user', // Maps to RoleBasedDesktopConfig user level
+        role: 'user',
         passwordHash: devHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
-
-      // Specialized Users (Purple category in Login.tsx)
       {
         email: 'codemaster@uaip.dev',
         firstName: 'Elite',
         lastName: 'CodeMaster',
         department: 'AI Research',
-        role: 'user', // Maps to RoleBasedDesktopConfig user level
+        role: 'user',
         passwordHash: viralHash,
         securityClearance: SecurityLevel.HIGH,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
       {
         email: 'creativeguru@uaip.dev',
         firstName: 'Creative',
         lastName: 'ArtistAI',
         department: 'Content Creation',
-        role: 'user', // Maps to RoleBasedDesktopConfig user level
+        role: 'user',
         passwordHash: createHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
       {
         email: 'socialguru@uaip.dev',
         firstName: 'Social',
         lastName: 'Influencer',
         department: 'Community',
-        role: 'user', // Maps to RoleBasedDesktopConfig user level
+        role: 'user',
         passwordHash: socialHash,
         securityClearance: SecurityLevel.MEDIUM,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
-
-      // Guest Access (Green category in Login.tsx)
       {
         email: 'guest1@uaip.dev',
         firstName: 'Guest',
         lastName: 'User',
         department: 'External',
-        role: 'guest', // Maps to RoleBasedDesktopConfig guest level
+        role: 'guest',
         passwordHash: guestHash,
         securityClearance: SecurityLevel.LOW,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
       {
         email: 'devgenius@uaip.dev',
         firstName: 'Dev',
         lastName: 'Genius',
         department: 'Engineering',
-        role: 'user', // Maps to RoleBasedDesktopConfig user level
+        role: 'user',
         passwordHash: geniusHash,
         securityClearance: SecurityLevel.HIGH,
         isActive: true,
-        failedLoginAttempts: 0,
-        passwordChangedAt: new Date(),
-        lastLoginAt: new Date(),
       },
     ];
   }

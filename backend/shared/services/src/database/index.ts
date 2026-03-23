@@ -1,45 +1,23 @@
-// TypeORM Configuration and DataSource
 export {
-  AppDataSource,
-  getAppDataSource,
-  createTypeOrmConfig,
-  initializeDatabase,
-  closeDatabase,
-  getDataSource,
-  checkDatabaseHealth,
-} from './typeorm.config';
+  initializePlanes as initializeDatabase,
+  closePlanes as closeDatabase,
+  checkPlanesHealth as checkDatabaseHealth,
+  getIntelligenceDb,
+  getControlDb,
+  getIntelligencePool,
+  getControlPool,
+  CrossPlaneGuard,
+  type IntelligenceDB,
+  type ControlDB,
+  eq, ne, gt, gte, lt, lte, and, or, not, isNull, isNotNull,
+  inArray, notInArray, like, ilike, between, desc, asc, sql,
+  count, sum, avg, max, min,
+} from './drizzle/clients/index';
 
-// TypeORM Types
-export { Repository } from 'typeorm';
-
-export { seedDatabase } from './seedDatabase';
-export { DefaultUserLLMProviderSeed } from './seeders/DefaultUserLLMProviderSeed';
-// Legacy DataSource exports for backward compatibility
-export { initializeDataSource, closeDataSource, createDataSource } from './dataSource';
-
-// Database Services
 export { DatabaseService, DatabaseError } from '../databaseService';
-export { ToolDatabase } from './toolDatabase';
-export { ToolGraphDatabase } from './toolGraphDatabase';
-export { BaseRepository, IRepository } from './base/BaseRepository';
+export { BaseRepository } from './base/BaseRepository';
 export { RepositoryFactory, repositoryFactory } from './base/RepositoryFactory';
-
-// Repositories
-export { LLMProviderRepository } from './repositories/LLMProviderRepository';
-export { LLMModelRepository } from '../repositories/llmModelRepository';
-export { UserLLMProviderRepository } from './repositories/UserLLMProviderRepository';
-export { UserLLMPreferenceRepository } from './repositories/UserLLMPreferenceRepository';
-export { AgentLLMPreferenceRepository } from './repositories/AgentLLMPreferenceRepository';
 export * from './repositories/index';
-
-// Entities
-export { LLMProvider } from '../entities/llmProvider.entity';
-export { LLMModel } from '../entities/llmModel.entity';
-export {
-  UserLLMProvider,
-  UserLLMProviderType,
-  UserLLMProviderStatus,
-} from '../entities/userLLMProvider.entity';
-
-// Types
+export * from './drizzle/schemas/intelligence.schema';
+export * from './drizzle/schemas/control.schema';
 export type { ToolRelationship, ToolRecommendation, UsagePattern } from './toolGraphDatabase';

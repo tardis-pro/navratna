@@ -1,5 +1,4 @@
-import { LLMModel, LLMModelRepository } from '@uaip/shared-services';
-import { DataSource } from 'typeorm';
+import { LLMModelRepository, getControlPool } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 
 export interface ModelForUser {
@@ -16,35 +15,17 @@ export interface ModelForUser {
 }
 
 export class ModelService {
-  private llmModelRepository: LLMModelRepository;
+  private llmModelRepository = new LLMModelRepository();
 
-  constructor(private dataSource: DataSource) {
-    this.llmModelRepository = new LLMModelRepository(dataSource);
-  }
-
-  /**
-   * Get all models available to a user (based on their LLM provider configurations)
-   * This method only reads from the database - no external API calls
-   */
   async getModelsForUser(userId: string): Promise<ModelForUser[]> {
     try {
-      // Get user's provider IDs from the database (UserLLMProvider IDs)
       const userProviderIds = await this.getUserProviderIds(userId);
-
       if (userProviderIds.length === 0) {
         logger.warn('No LLM providers found for user', { userId });
         return [];
       }
-
-      // Get models from database using UserLLMProvider IDs as providerId
       const models = await this.llmModelRepository.findByUserProviders(userProviderIds);
-
-      logger.info('Retrieved models for user from database', {
-        userId,
-        modelCount: models.length,
-        providerCount: userProviderIds.length,
-      });
-
+      logger.info('Retrieved models for user from database', { userId, modelCount: models.length });
       return models.map((model) => this.transformToLegacyFormat(model));
     } catch (error) {
       logger.error('Error getting models for user', { error, userId });
@@ -52,17 +33,10 @@ export class ModelService {
     }
   }
 
-  /**
-   * Get all available models from database
-   */
   async getAllAvailableModels(): Promise<ModelForUser[]> {
     try {
       const models = await this.llmModelRepository.findAvailableModels();
-
-      logger.info('Retrieved all available models from database', {
-        modelCount: models.length,
-      });
-
+      logger.info('Retrieved all available models from database', { modelCount: models.length });
       return models.map((model) => this.transformToLegacyFormat(model));
     } catch (error) {
       logger.error('Error getting all available models', { error });
@@ -70,18 +44,10 @@ export class ModelService {
     }
   }
 
-  /**
-   * Get models for a specific provider
-   */
   async getModelsForProvider(providerId: string): Promise<ModelForUser[]> {
     try {
       const models = await this.llmModelRepository.findByProviderId(providerId);
-
-      logger.info('Retrieved models for provider from database', {
-        providerId,
-        modelCount: models.length,
-      });
-
+      logger.info('Retrieved models for provider', { providerId, modelCount: models.length });
       return models.map((model) => this.transformToLegacyFormat(model));
     } catch (error) {
       logger.error('Error getting models for provider', { error, providerId });
@@ -89,55 +55,40 @@ export class ModelService {
     }
   }
 
-  /**
-   * Get user's provider IDs from database (UserLLMProvider IDs)
-   */
   private async getUserProviderIds(userId: string): Promise<string[]> {
     try {
-      const result = await this.dataSource.query(
-        `
-        SELECT DISTINCT id 
-        FROM user_llm_providers 
-        WHERE "userId" = $1 
-        AND "isActive" = true
-        AND status IN ('active', 'testing')
-      `,
+      const pool = getControlPool();
+      const result = await pool.query<{ id: string }>(
+        `SELECT DISTINCT id FROM "user_llm_providers" WHERE "user_id" = $1 AND "is_active" = true AND "status" IN ('active', 'testing')`,
         [userId]
       );
-
-      return result.map((row: unknown) => row.id);
+      return result.rows.map((row) => row.id);
     } catch (error) {
       logger.error('Error getting user provider IDs', { error, userId });
       return [];
     }
   }
 
-  /**
-   * Transform LLMModel entity to legacy format for compatibility
-   */
-  private transformToLegacyFormat(model: LLMModel): ModelForUser {
-    // Extract provider identifier from apiType or use providerId
-    const providerName = model.apiType || 'unknown';
+  private transformToLegacyFormat(model: Record<string, unknown>): ModelForUser {
+    const providerName = (model.apiType as string) || 'unknown';
     return {
       id: `${providerName}-${model.name}`,
-      name: model.name,
-      description: model.description || `${model.name} from ${providerName}`,
+      name: model.name as string,
+      description: (model.description as string) || `${model.name} from ${providerName}`,
       source: providerName,
-      apiEndpoint: model.apiEndpoint,
-      apiType: model.apiType,
+      apiEndpoint: model.apiEndpoint as string | undefined,
+      apiType: model.apiType as string | undefined,
       provider: providerName,
-      providerId: model.providerId,
-      isAvailable: model.isAvailable,
-      isDefault: false, // We don't have this info in the new format
+      providerId: model.providerId as string,
+      isAvailable: (model.isEnabled as boolean) ?? true,
+      isDefault: false,
     };
   }
 
-  /**
-   * Check if the model service is healthy (database connection)
-   */
   async healthCheck(): Promise<boolean> {
     try {
-      await this.dataSource.query('SELECT 1');
+      const pool = getControlPool();
+      await pool.query('SELECT 1');
       return true;
     } catch (error) {
       logger.error('Model service health check failed', { error });

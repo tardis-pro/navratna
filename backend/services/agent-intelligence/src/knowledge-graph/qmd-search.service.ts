@@ -10,8 +10,8 @@
  * (vector) — better than either alone.
  */
 
-import { DataSource } from 'typeorm';
 import { logger } from '@uaip/utils';
+import type { QueryExecutor } from '../agent-memory/macrodata-memory.service.js';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { EmbeddingService } from './embedding.service.js';
 
@@ -40,7 +40,7 @@ const RRF_K = 60; // standard RRF constant
 
 export class QmdSearchService {
   constructor(
-    private readonly dataSource: DataSource,
+    private readonly dataSource: QueryExecutor,
     private readonly vectorDb: QdrantService,
     private readonly embeddings: EmbeddingService
   ) {}
@@ -132,7 +132,7 @@ export class QmdSearchService {
         LIMIT $${paramIdx}
       `;
 
-      const rows: Record<string, unknown>[] = await this.dataSource.query(sql, params);
+      const rows = (await this.dataSource.query(sql, params)) as Record<string, unknown>[];
       return rows.map((r) => ({
         id: String(r.id),
         content: String(r.content ?? ''),

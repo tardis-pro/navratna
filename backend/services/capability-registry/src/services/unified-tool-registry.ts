@@ -360,7 +360,7 @@ export class UnifiedToolRegistry {
 
       // Convert to UnifiedToolDefinition and enhance with graph data if available
       const unifiedTools: UnifiedToolDefinition[] = tools.map((tool) => ({
-        ...tool,
+        ...(tool as unknown as ToolDefinition),
         recommendations: [] as ToolRecommendation[],
         relationships: [] as ToolRelationship[],
         projectContext: [] as ProjectContext[],
@@ -402,7 +402,7 @@ export class UnifiedToolRegistry {
 
       // Convert to UnifiedToolDefinition
       return {
-        ...tool,
+        ...(tool as unknown as ToolDefinition),
         recommendations: [] as ToolRecommendation[],
         relationships: [] as ToolRelationship[],
         projectContext: [] as ProjectContext[],
@@ -436,7 +436,7 @@ export class UnifiedToolRegistry {
 
       // Convert to UnifiedToolDefinition for additional features
       const tool: UnifiedToolDefinition = {
-        ...baseTool,
+        ...(baseTool as unknown as ToolDefinition),
         recommendations: [] as ToolRecommendation[],
         relationships: [] as ToolRelationship[],
         projectContext: [] as ProjectContext[],
@@ -883,8 +883,8 @@ export class UnifiedToolRegistry {
       if (context.category) {
         const categoryRecs = await this.toolService.getToolsByCategory(context.category);
         recommendations.push(
-          ...categoryRecs.map((tool) => ({
-            toolId: tool.id,
+          ...categoryRecs.map((tool: Record<string, unknown>) => ({
+            toolId: String(tool.id),
             score: 0.7,
             reason: `Recommended for ${context.category} category`,
             context: context.objective || 'category match',

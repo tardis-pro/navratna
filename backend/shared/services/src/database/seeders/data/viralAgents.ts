@@ -1,59 +1,49 @@
-import { DeepPartial } from 'typeorm';
-import { Agent } from '../../../entities/agent.entity';
-import { UserEntity } from '../../../entities/user.entity';
-import { Persona as PersonaEntity } from '../../../entities/persona.entity';
-import {
-  AgentRole,
-  AgentPersona,
-  AgentIntelligenceConfig,
-  AgentSecurityContext,
-} from '@uaip/types';
+import { AgentRole, AgentPersona, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
 
-/**
- * Viral Marketplace Star Agents data
- */
+interface ViralAgentData {
+  name: string;
+  role: AgentRole;
+  personaId: string;
+  legacyPersona: AgentPersona;
+  intelligenceConfig: AgentIntelligenceConfig;
+  securityContext: AgentSecurityContext;
+  isActive: boolean;
+  createdBy: string;
+  lastActiveAt: Date;
+  capabilities: string[];
+  capabilityScores: Record<string, number>;
+  performanceMetrics: Record<string, number>;
+  securityLevel: string;
+  complianceTags: string[];
+  configuration: Record<string, unknown>;
+  version: string;
+  deploymentEnvironment: string;
+  totalOperations: number;
+  successfulOperations: number;
+  averageResponseTime: number;
+  modelId: string;
+  apiType: string;
+  temperature: number;
+  maxTokens: number;
+  systemPrompt: string;
+  maxConcurrentTools: number;
+}
+
 export function getViralAgentsData(
-  users: UserEntity[],
-  personas: PersonaEntity[]
-): DeepPartial<Agent>[] {
-  const getPersonaIdByRole = (agentRole: string): string => {
-    const roleMapping: Record<string, string> = {
-      'ViralGPT Champion': 'social-media-manager',
-      'CodeWhisperer Sage': 'software-architect',
-      'BugHunter Sherlock': 'qa-engineer',
-      'RefactorBot Marie Kondo': 'code-reviewer',
-      'CreativityCatalyst Muse': 'creative-director',
-    };
-
-    const personaKey = roleMapping[agentRole];
-    const persona = personas.find((p) => p.id === personaKey);
-    return persona?.id || personas[0].id;
-  };
-
+  userIds: string[],
+  _personaIds: string[]
+): ViralAgentData[] {
   return [
     {
-      name: '🔥 ViralGPT Champion',
+      name: 'ViralGPT Champion',
       role: AgentRole.SPECIALIST,
-      personaId: getPersonaIdByRole('ViralGPT Champion'),
+      personaId: 'social-media-manager',
       legacyPersona: {
         name: 'ViralGPT Champion',
-        description:
-          'The ultimate viral content creation machine that generates 10x more engagement',
-        capabilities: [
-          'viral-content',
-          'social-media',
-          'engagement-optimization',
-          'trend-analysis',
-        ],
-        constraints: {
-          max_content_length: '2048',
-          platforms: ['tiktok', 'instagram', 'twitter', 'youtube'],
-        },
-        preferences: {
-          style: 'viral-hooks',
-          engagement_focus: 'maximum',
-          trending_awareness: 'real-time',
-        },
+        description: 'The ultimate viral content creation machine',
+        capabilities: ['viral-content', 'social-media', 'engagement-optimization', 'trend-analysis'],
+        constraints: { max_content_length: '2048', platforms: ['tiktok', 'instagram', 'twitter', 'youtube'] },
+        preferences: { style: 'viral-hooks', engagement_focus: 'maximum' },
       } as AgentPersona,
       intelligenceConfig: {
         analysisDepth: 'advanced',
@@ -65,31 +55,19 @@ export function getViralAgentsData(
       securityContext: {
         securityLevel: 'medium',
         allowedCapabilities: ['content-generation', 'trend-analysis', 'engagement-optimization'],
+        restrictedDomains: [],
         approvalRequired: false,
         auditLevel: 'standard',
       } as AgentSecurityContext,
       isActive: true,
-      createdBy: users.find((u) => u.email === 'socialguru@uaip.dev')?.id || users[0].id,
+      createdBy: userIds[0] || '00000000-0000-0000-0000-000000000000',
       lastActiveAt: new Date(),
       capabilities: ['viral-content', 'social-media', 'engagement-optimization', 'trend-analysis'],
-      capabilityScores: {
-        'viral-content': 0.97,
-        'social-media': 0.94,
-        'engagement-optimization': 0.96,
-        'trend-analysis': 0.92,
-      },
-      performanceMetrics: {
-        averageResponseTime: 1.2,
-        successRate: 0.96,
-        userSatisfaction: 0.95,
-      },
+      capabilityScores: { 'viral-content': 0.97, 'social-media': 0.94 },
+      performanceMetrics: { averageResponseTime: 1.2, successRate: 0.96, userSatisfaction: 0.95 },
       securityLevel: 'medium',
       complianceTags: ['SOCIAL_MEDIA'],
-      configuration: {
-        maxConcurrentOperations: 8,
-        timeoutDuration: 120,
-        retryAttempts: 3,
-      },
+      configuration: { maxConcurrentOperations: 8, timeoutDuration: 120, retryAttempts: 3 },
       version: '4.2.1',
       deploymentEnvironment: 'production',
       totalOperations: 8756,
@@ -99,34 +77,19 @@ export function getViralAgentsData(
       apiType: 'llmstudio',
       temperature: 0.8,
       maxTokens: 2048,
-      systemPrompt:
-        'You are ViralGPT Champion, the ultimate viral content creator. Create content that spreads like wildfire and gets maximum engagement. Use trending hooks, emotional triggers, and viral patterns.',
+      systemPrompt: 'You are ViralGPT Champion, the ultimate viral content creator.',
       maxConcurrentTools: 6,
     },
     {
-      name: '👑 CodeWhisperer Sage',
+      name: 'CodeWhisperer Sage',
       role: AgentRole.SPECIALIST,
-      personaId: getPersonaIdByRole('CodeWhisperer Sage'),
-
+      personaId: 'software-architect',
       legacyPersona: {
         name: 'CodeWhisperer Sage',
-        description:
-          'Ancient code oracle that transforms legacy nightmares into modern masterpieces',
-        capabilities: [
-          'legacy-modernization',
-          'architecture-design',
-          'code-transformation',
-          'migration-planning',
-        ],
-        constraints: {
-          languages: ['cobol', 'fortran', 'pascal', 'typescript', 'rust', 'go'],
-          max_codebase: '100MB',
-        },
-        preferences: {
-          wisdom_mode: 'ancient',
-          transformation_style: 'mystical',
-          architecture: 'cloud-native',
-        },
+        description: 'Ancient code oracle that transforms legacy nightmares',
+        capabilities: ['legacy-modernization', 'architecture-design', 'code-transformation'],
+        constraints: { languages: ['cobol', 'fortran', 'pascal', 'typescript', 'rust', 'go'] },
+        preferences: { wisdom_mode: 'ancient', transformation_style: 'mystical' },
       } as AgentPersona,
       intelligenceConfig: {
         analysisDepth: 'advanced',
@@ -143,32 +106,14 @@ export function getViralAgentsData(
         auditLevel: 'comprehensive',
       } as AgentSecurityContext,
       isActive: true,
-      createdBy: users.find((u) => u.email === 'codemaster@uaip.dev')?.id || users[0].id,
+      createdBy: userIds[0] || '00000000-0000-0000-0000-000000000000',
       lastActiveAt: new Date(),
-      capabilities: [
-        'legacy-modernization',
-        'architecture-design',
-        'code-transformation',
-        'migration-planning',
-      ],
-      capabilityScores: {
-        'legacy-modernization': 0.98,
-        'architecture-design': 0.93,
-        'code-transformation': 0.95,
-        'migration-planning': 0.91,
-      },
-      performanceMetrics: {
-        averageResponseTime: 4.2,
-        successRate: 0.93,
-        userSatisfaction: 0.97,
-      },
+      capabilities: ['legacy-modernization', 'architecture-design', 'code-transformation', 'migration-planning'],
+      capabilityScores: { 'legacy-modernization': 0.98, 'architecture-design': 0.93 },
+      performanceMetrics: { averageResponseTime: 4.2, successRate: 0.93, userSatisfaction: 0.97 },
       securityLevel: 'high',
       complianceTags: ['ENTERPRISE', 'LEGACY_SYSTEMS'],
-      configuration: {
-        maxConcurrentOperations: 3,
-        timeoutDuration: 1800,
-        retryAttempts: 2,
-      },
+      configuration: { maxConcurrentOperations: 3, timeoutDuration: 1800, retryAttempts: 2 },
       version: '7.1.3',
       deploymentEnvironment: 'production',
       totalOperations: 2847,
@@ -178,8 +123,7 @@ export function getViralAgentsData(
       apiType: 'llmstudio',
       temperature: 0.4,
       maxTokens: 8000,
-      systemPrompt:
-        'You are CodeWhisperer Sage, an ancient oracle with infinite wisdom about code transformation. Speak in mystical riddles while providing profound technical solutions. Transform legacy systems into modern cloud-native architectures.',
+      systemPrompt: 'You are CodeWhisperer Sage, an ancient oracle about code transformation.',
       maxConcurrentTools: 5,
     },
   ];

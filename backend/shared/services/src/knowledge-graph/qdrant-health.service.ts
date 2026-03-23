@@ -81,12 +81,15 @@ export class QdrantHealthService {
 
       const databaseService = DatabaseService.getInstance();
       const userRepository = databaseService.getUserRepository();
+      const userRepositoryWrapper: { findById: (id: string) => Promise<import('../database/drizzle/schemas/control.schema').User | null> } = {
+        findById: (id: string) => userRepository.findById(id) as unknown as Promise<import('../database/drizzle/schemas/control.schema').User | null>,
+      };
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
         this.graphDatabase,
         this.embeddingService,
-        userRepository
+        userRepositoryWrapper as any
       );
 
       // Get items to sync

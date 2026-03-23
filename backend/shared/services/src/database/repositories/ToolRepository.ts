@@ -1,357 +1,184 @@
-import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository';
-import { ToolDefinition } from '../../entities/toolDefinition.entity';
-import { ToolExecution } from '../../entities/toolExecution.entity';
-import { ToolUsageRecord } from '../../entities/toolUsageRecord.entity';
+import { getControlPool } from '../drizzle/clients/index';
 
-export class ToolRepository extends BaseRepository<ToolDefinition> {
-  constructor() {
-    super(ToolDefinition);
+export class ToolRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'tool_definitions'; }
+  get plane(): 'control' { return 'control'; }
+
+  async createTool(data: {
+    name: string;
+    description: string;
+    category: string;
+    isEnabled?: boolean;
+    version?: string;
+    inputSchema?: Record<string, unknown>;
+    outputSchema?: Record<string, unknown>;
+    configuration?: Record<string, unknown>;
+    requiredPermissions?: string[];
+    securityLevel?: string;
+    maxRetries?: number;
+    timeout?: number;
+  }): Promise<Record<string, unknown>> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `INSERT INTO tool_definitions (name, description, category, security_level, version, parameters, is_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        data.name,
+        data.description,
+        data.category,
+        data.securityLevel || 'medium',
+        data.version || '1.0.0',
+        JSON.stringify({ inputSchema: data.inputSchema, outputSchema: data.outputSchema, configuration: data.configuration }),
+        data.isEnabled ?? true
+      ]
+    );
+    return result.rows[0];
   }
 
-  /**
-   * Create a new tool definition
-   */
-  public async createTool(toolData: Partial<ToolDefinition>): Promise<ToolDefinition> {
-    const tool = this.repository.create(toolData);
-    return await this.repository.save(tool);
-  }
-
-  /**
-   * Get tools with optional filtering
-   */
-  public async getTools(
-    filters: {
-      category?: string;
-      enabled?: boolean;
-      securityLevel?: string;
-      limit?: number;
-      offset?: number;
-    } = {}
-  ): Promise<ToolDefinition[]> {
-    const queryBuilder = this.repository.createQueryBuilder('tool');
-
-    if (filters.category) {
-      queryBuilder.andWhere('tool.category = :category', { category: filters.category });
-    }
+  async getTools(filters: { enabled?: boolean; category?: string }): Promise<Record<string, unknown>[]> {
+    const pool = getControlPool();
+    let query = 'SELECT * FROM tool_definitions WHERE 1=1';
+    const params: unknown[] = [];
 
     if (filters.enabled !== undefined) {
-      queryBuilder.andWhere('tool.isEnabled = :enabled', { enabled: filters.enabled });
+      params.push(filters.enabled);
+      query += ` AND is_enabled = $${params.length}`;
     }
-
-    if (filters.securityLevel) {
-      queryBuilder.andWhere('tool.securityLevel = :securityLevel', {
-        securityLevel: filters.securityLevel,
-      });
-    }
-
-    queryBuilder.orderBy('tool.name', 'ASC');
-
-    if (filters.limit) {
-      queryBuilder.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      queryBuilder.offset(filters.offset);
-    }
-    logger.info(`Getting tools with filters: ${JSON.stringify(filters)}`);
-    return await queryBuilder.getMany();
-  }
-
-  /**
-   * Search tools with advanced filtering and ranking
-   */
-  public async searchTools(
-    searchQuery: string,
-    filters: {
-      category?: string;
-      securityLevel?: string;
-      limit?: number;
-    } = {}
-  ): Promise<ToolDefinition[]> {
-    const queryBuilder = this.repository.createQueryBuilder('tool');
-
-    // Base condition: only enabled tools
-    queryBuilder.where('tool.isEnabled = :enabled', { enabled: true });
-
-    // Search conditions with ranking
-    const searchTerm = `%${searchQuery}%`;
-    queryBuilder.andWhere(
-      '(tool.name ILIKE :searchTerm OR tool.description ILIKE :searchTerm OR :searchQuery = ANY(tool.tags) OR tool.category ILIKE :searchTerm)',
-      { searchTerm, searchQuery }
-    );
-
-    // Additional filters
     if (filters.category) {
-      queryBuilder.andWhere('tool.category = :category', { category: filters.category });
+      params.push(filters.category);
+      query += ` AND category = $${params.length}`;
     }
 
-    if (filters.securityLevel) {
-      queryBuilder.andWhere('tool.securityLevel = :securityLevel', {
-        securityLevel: filters.securityLevel,
-      });
-    }
+    query += ' ORDER BY name ASC';
+    const result = await pool.query(query, params);
+    return result.rows;
+  }
+}
 
-    // Ranking by relevance and usage
-    queryBuilder.orderBy(
-      `
-      CASE 
-        WHEN tool.name ILIKE :searchTerm THEN 1
-        WHEN tool.description ILIKE :searchTerm THEN 2
-        WHEN :searchQuery = ANY(tool.tags) THEN 3
-        ELSE 4
-      END
-    `,
-      'ASC'
+export class ToolExecutionRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'tool_executions'; }
+  get plane(): 'control' { return 'control'; }
+
+  async createToolExecution(data: {
+    toolId: string;
+    agentId?: string;
+    userId?: string;
+    parameters?: Record<string, unknown>;
+    status?: string;
+    startTime?: Date;
+    approvalRequired?: boolean;
+    success?: boolean;
+    retryCount?: number;
+    maxRetries?: number;
+  }): Promise<Record<string, unknown>> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `INSERT INTO tool_executions (tool_id, agent_id, user_id, parameters, status, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        data.toolId,
+        data.agentId || null,
+        data.userId || null,
+        JSON.stringify(data.parameters || {}),
+        data.status || 'pending',
+        JSON.stringify({ approvalRequired: data.approvalRequired, retryCount: data.retryCount, maxRetries: data.maxRetries })
+      ]
     );
-    queryBuilder.addOrderBy('tool.totalExecutions', 'DESC');
+    return result.rows[0];
+  }
 
+  async getToolExecution(id: string): Promise<Record<string, unknown> | null> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM tool_executions WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async getToolExecutions(filters: { toolId?: string; agentId?: string; limit?: number }): Promise<Record<string, unknown>[]> {
+    const pool = getControlPool();
+    let query = 'SELECT * FROM tool_executions WHERE 1=1';
+    const params: unknown[] = [];
+
+    if (filters.toolId) {
+      params.push(filters.toolId);
+      query += ` AND tool_id = $${params.length}`;
+    }
+    if (filters.agentId) {
+      params.push(filters.agentId);
+      query += ` AND agent_id = $${params.length}`;
+    }
+
+    query += ' ORDER BY created_at DESC';
     if (filters.limit) {
-      queryBuilder.limit(filters.limit);
+      params.push(filters.limit);
+      query += ` LIMIT $${params.length}`;
     }
 
-    return await queryBuilder.getMany();
-  }
-
-  /**
-   * Update tool success metrics
-   */
-  public async updateToolSuccessMetrics(
-    toolId: string,
-    wasSuccessful: boolean,
-    executionTime?: number
-  ): Promise<void> {
-    try {
-      if (wasSuccessful) {
-        const updateData: Record<string, unknown> = {
-          successfulExecutions: () => 'successful_executions + 1',
-          updatedAt: new Date(),
-        };
-
-        if (executionTime) {
-          // Update average execution time
-          updateData.averageExecutionTime = () => `
-            CASE 
-              WHEN total_executions = 0 THEN ${executionTime}
-              ELSE (average_execution_time * (total_executions - 1) + ${executionTime}) / total_executions
-            END
-          `;
-        }
-
-        await this.repository
-          .createQueryBuilder()
-          .update()
-          .set(updateData)
-          .where('id = :toolId', { toolId })
-          .execute();
-      }
-    } catch (error) {
-      logger.error('Error updating tool success metrics', {
-        toolId,
-        wasSuccessful,
-        executionTime,
-        error: (error as Error).message,
-      });
-      // Don't throw here as this is a background operation
-    }
-  }
-
-  /**
-   * Increment tool usage count (internal helper)
-   */
-  public async incrementToolUsageCount(toolId: string): Promise<void> {
-    try {
-      await this.repository
-        .createQueryBuilder()
-        .update()
-        .set({
-          totalExecutions: () => 'total_executions + 1',
-          lastUsedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where('id = :toolId', { toolId })
-        .execute();
-    } catch (error) {
-      logger.error('Error incrementing tool usage count', {
-        toolId,
-        error: (error as Error).message,
-      });
-      // Don't throw here as this is a background operation
-    }
-  }
-
-  /**
-   * Get tool performance analytics
-   */
-  public async getToolPerformanceAnalytics(toolId?: string): Promise<{
-    tools: Array<{
-      id: string;
-      name: string;
-      totalExecutions: number;
-      successfulExecutions: number;
-      successRate: number;
-      averageExecutionTime: number;
-      lastUsedAt: Date;
-    }>;
-  }> {
-    const queryBuilder = this.repository.createQueryBuilder('tool');
-
-    queryBuilder.select([
-      'tool.id',
-      'tool.name',
-      'tool.totalExecutions',
-      'tool.successfulExecutions',
-      'CASE WHEN tool.totalExecutions > 0 THEN (tool.successfulExecutions::float / tool.totalExecutions * 100) ELSE 0 END as successRate',
-      'tool.averageExecutionTime',
-      'tool.lastUsedAt',
-    ]);
-
-    if (toolId) {
-      queryBuilder.where('tool.id = :toolId', { toolId });
-    }
-
-    queryBuilder.orderBy('tool.totalExecutions', 'DESC');
-
-    const tools = await queryBuilder.getRawMany();
-
-    return { tools };
+    const result = await pool.query(query, params);
+    return result.rows;
   }
 }
 
-export class ToolExecutionRepository extends BaseRepository<ToolExecution> {
-  constructor() {
-    super(ToolExecution);
+export class ToolUsageRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'tool_usage_records'; }
+  get plane(): 'control' { return 'control'; }
+
+  async recordToolUsage(data: {
+    toolId: string;
+    agentId?: string;
+    userId?: string;
+    executionTimeMs?: number;
+    success?: boolean;
+    error?: string;
+    usedAt?: Date;
+  }): Promise<Record<string, unknown>> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `INSERT INTO tool_usage_records (tool_id, agent_id, user_id, duration, success, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        data.toolId,
+        data.agentId || null,
+        data.userId || null,
+        data.executionTimeMs || 0,
+        data.success ?? true,
+        JSON.stringify({ error: data.error }),
+        data.usedAt || new Date()
+      ]
+    );
+    return result.rows[0];
   }
 
-  /**
-   * Create a tool execution record
-   */
-  public async createToolExecution(executionData: Partial<ToolExecution>): Promise<ToolExecution> {
-    const execution = this.repository.create(executionData);
-    return await this.repository.save(execution);
-  }
-
-  /**
-   * Get a tool execution by ID
-   */
-  public async getToolExecution(id: string): Promise<ToolExecution | null> {
-    return await this.repository.findOne({ where: { id } });
-  }
-
-  /**
-   * Get tool executions with filtering
-   */
-  public async getToolExecutions(
-    filters: {
-      toolId?: string;
-      agentId?: string;
-      status?: string;
-      limit?: number;
-      offset?: number;
-    } = {}
-  ): Promise<ToolExecution[]> {
-    const queryBuilder = this.repository.createQueryBuilder('execution');
-
-    if (filters.toolId) {
-      queryBuilder.andWhere('execution.toolId = :toolId', { toolId: filters.toolId });
-    }
-
-    if (filters.agentId) {
-      queryBuilder.andWhere('execution.agentId = :agentId', { agentId: filters.agentId });
-    }
-
-    if (filters.status) {
-      queryBuilder.andWhere('execution.status = :status', { status: filters.status });
-    }
-
-    queryBuilder.orderBy('execution.startTime', 'DESC');
-
-    if (filters.limit) {
-      queryBuilder.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      queryBuilder.offset(filters.offset);
-    }
-
-    return await queryBuilder.getMany();
-  }
-
-  /**
-   * Get a tool execution by ID with relations
-   */
-  public async getToolExecutionWithRelations(id: string): Promise<ToolExecution | null> {
-    return await this.repository.findOne({
-      where: { id },
-      relations: ['tool', 'agent'],
-    });
+  async getToolUsageStats(_filters: { toolId?: string; days?: number }): Promise<unknown> {
+    return {};
   }
 }
 
-export class ToolUsageRepository extends BaseRepository<ToolUsageRecord> {
-  constructor() {
-    super(ToolUsageRecord);
+export class ToolAssignmentRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'tool_assignments'; }
+  get plane(): 'control' { return 'control'; }
+
+  async findByAgentAndTool(agentId: string, toolId: string): Promise<Record<string, unknown> | null> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM tool_assignments WHERE agent_id = $1 AND tool_id = $2 LIMIT 1`,
+      [agentId, toolId]
+    );
+    return result.rows[0] ?? null;
   }
 
-  /**
-   * Record tool usage for analytics
-   */
-  public async recordToolUsage(usageData: Partial<ToolUsageRecord>): Promise<ToolUsageRecord> {
-    const usage = this.repository.create(usageData);
-    const savedUsage = await this.repository.save(usage);
-
-    // Update tool usage count using repository factory
-    if (usageData.toolId) {
-      const { repositoryFactory } = await import('../base/RepositoryFactory');
-      const toolRepo = repositoryFactory.getToolRepository();
-      await toolRepo.incrementToolUsageCount(usageData.toolId);
-    }
-
-    logger.debug(`Tool usage recorded: ${savedUsage.id}`);
-    return savedUsage;
-  }
-
-  /**
-   * Get tool usage statistics
-   */
-  public async getToolUsageStats(
-    filters: {
-      toolId?: string;
-      agentId?: string;
-      days?: number;
-    } = {}
-  ): Promise<Record<string, unknown>[]> {
-    const queryBuilder = this.repository.createQueryBuilder('usage');
-
-    // Default to last 30 days
-    const days = filters.days || 30;
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
-    queryBuilder
-      .select([
-        'usage.toolId',
-        'usage.agentId',
-        'COUNT(*) as totalUses',
-        'COUNT(*) FILTER (WHERE usage.success = true) as successfulUses',
-        'AVG(usage.executionTimeMs) as avgExecutionTime',
-        'SUM(usage.cost) as totalCost',
-        "DATE_TRUNC('day', usage.usedAt) as date",
-      ])
-      .where('usage.usedAt >= :startDate', { startDate });
-
-    if (filters.toolId) {
-      queryBuilder.andWhere('usage.toolId = :toolId', { toolId: filters.toolId });
-    }
-
-    if (filters.agentId) {
-      queryBuilder.andWhere('usage.agentId = :agentId', { agentId: filters.agentId });
-    }
-
-    queryBuilder
-      .groupBy("usage.toolId, usage.agentId, DATE_TRUNC('day', usage.usedAt)")
-      .orderBy('date', 'DESC');
-
-    return await queryBuilder.getRawMany();
+  async findByAgent(agentId: string): Promise<Record<string, unknown>[]> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT ta.*, td.name as tool_name, td.description as tool_description
+       FROM tool_assignments ta
+       LEFT JOIN tool_definitions td ON ta.tool_id = td.id
+       WHERE ta.agent_id = $1`,
+      [agentId]
+    );
+    return result.rows;
   }
 }

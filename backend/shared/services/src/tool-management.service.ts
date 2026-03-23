@@ -1,10 +1,7 @@
 import { typeormService } from './typeormService';
+import { getIntelligencePool, getControlPool } from './database/drizzle/clients/index';
 import { createLogger } from '@uaip/utils';
 
-/**
- * Tool Management Service
- * Provides high-level operations for tool management without exposing TypeORM details
- */
 export class ToolManagementService {
   private logger = createLogger({
     serviceName: 'tool-management-service',
@@ -12,55 +9,53 @@ export class ToolManagementService {
     logLevel: process.env.LOG_LEVEL || 'info',
   });
 
-  // Tool Definition Operations
   async createTool(toolData: unknown): Promise<unknown> {
     try {
-      return await typeormService.create('ToolDefinition', toolData);
+      return await typeormService.create('tool_definitions', toolData as Record<string, unknown>);
     } catch (error) {
-      this.logger.error('Failed to create tool', { error: error.message, toolData });
+      this.logger.error('Failed to create tool', { error: (error as Error).message });
       throw error;
     }
   }
 
   async updateTool(toolId: string, updates: unknown): Promise<unknown> {
     try {
-      return await typeormService.update('ToolDefinition', toolId, updates);
+      return await typeormService.update('tool_definitions', toolId, updates as Record<string, unknown>);
     } catch (error) {
-      this.logger.error('Failed to update tool', { error: error.message, toolId, updates });
+      this.logger.error('Failed to update tool', { error: (error as Error).message, toolId });
       throw error;
     }
   }
 
   async deleteTool(toolId: string): Promise<boolean> {
     try {
-      return await typeormService.delete('ToolDefinition', toolId);
+      return await typeormService.delete('tool_definitions', toolId);
     } catch (error) {
-      this.logger.error('Failed to delete tool', { error: error.message, toolId });
+      this.logger.error('Failed to delete tool', { error: (error as Error).message, toolId });
       throw error;
     }
   }
 
   async getTool(toolId: string): Promise<unknown> {
     try {
-      return await typeormService.findById('ToolDefinition', toolId);
+      return await typeormService.findById('tool_definitions', toolId);
     } catch (error) {
-      this.logger.error('Failed to get tool', { error: error.message, toolId });
+      this.logger.error('Failed to get tool', { error: (error as Error).message, toolId });
       throw error;
     }
   }
 
-  async getTools(filters?: unknown): Promise<unknown[]> {
+  async getTools(_filters?: unknown): Promise<unknown[]> {
     try {
-      const { ToolDefinition } = await import('./entities/index');
-      const repository = typeormService.getRepository(ToolDefinition);
-      return await repository.find(filters || {});
+      const pool = getControlPool();
+      const result = await pool.query(`SELECT * FROM "tool_definitions" ORDER BY created_at DESC`);
+      return result.rows;
     } catch (error) {
-      this.logger.error('Failed to get tools', { error: error.message, filters });
+      this.logger.error('Failed to get tools', { error: (error as Error).message });
       throw error;
     }
   }
 
-  // Tool Usage Operations
   async recordToolUsage(usageData: {
     toolId: string;
     agentId: string;
@@ -70,20 +65,15 @@ export class ToolManagementService {
     metadata?: unknown;
   }): Promise<void> {
     try {
-      const usageRecord = {
+      await typeormService.create('tool_usage_records', {
         ...usageData,
         timestamp: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
-
-      await typeormService.create('ToolUsageRecord', usageRecord);
-      this.logger.info('Tool usage recorded', {
-        toolId: usageData.toolId,
-        agentId: usageData.agentId,
       });
+      this.logger.info('Tool usage recorded', { toolId: usageData.toolId, agentId: usageData.agentId });
     } catch (error) {
-      this.logger.error('Failed to record tool usage', { error: error.message, usageData });
+      this.logger.error('Failed to record tool usage', { error: (error as Error).message });
       throw error;
     }
   }
@@ -92,34 +82,20 @@ export class ToolManagementService {
     try {
       const since = new Date();
       since.setDate(since.getDate() - days);
-
-      const { ToolUsageRecord } = await import('./entities/index');
-      const { MoreThanOrEqual } = await import('typeorm');
-      const repository = typeormService.getRepository(ToolUsageRecord);
-      const usageRecords = await repository.find({
-        where: {
-          toolId,
-          usedAt: MoreThanOrEqual(since),
-        } as unknown,
-      });
-
-      type UsageRecordView = {
-        success?: boolean;
-        cost?: number;
-        executionTime?: number;
-        agentId?: string;
-      };
-      const usageRecordViews = usageRecords as UsageRecordView[];
-
+      const pool = getControlPool();
+      const result = await pool.query<{
+        success: boolean; cost: number; execution_time: number; agent_id: string;
+      }>(
+        `SELECT * FROM "tool_usage_records" WHERE tool_id = $1 AND created_at >= $2`,
+        [toolId, since]
+      );
+      const usageRecords = result.rows;
       const totalUsage = usageRecords.length;
-      const successfulUsage = usageRecordViews.filter((r) => r.success).length;
-      const totalCost = usageRecordViews.reduce((sum: number, r) => sum + (r.cost || 0), 0);
-      const avgExecutionTime =
-        usageRecords.length > 0
-          ? usageRecordViews.reduce((sum: number, r) => sum + (r.executionTime || 0), 0) /
-            usageRecords.length
-          : 0;
-
+      const successfulUsage = usageRecords.filter((r) => r.success).length;
+      const totalCost = usageRecords.reduce((sum, r) => sum + (r.cost || 0), 0);
+      const avgExecTime = totalUsage > 0
+        ? usageRecords.reduce((sum, r) => sum + (r.execution_time || 0), 0) / totalUsage
+        : 0;
       return {
         toolId,
         period: `${days} days`,
@@ -127,16 +103,15 @@ export class ToolManagementService {
         successfulUsage,
         successRate: totalUsage > 0 ? successfulUsage / totalUsage : 0,
         totalCost,
-        averageExecutionTime: avgExecutionTime,
-        uniqueAgents: new Set(usageRecordViews.map((r) => r.agentId).filter(Boolean)).size,
+        averageExecutionTime: avgExecTime,
+        uniqueAgents: new Set(usageRecords.map((r) => r.agent_id).filter(Boolean)).size,
       };
     } catch (error) {
-      this.logger.error('Failed to get tool usage stats', { error: error.message, toolId });
+      this.logger.error('Failed to get tool usage stats', { error: (error as Error).message, toolId });
       throw error;
     }
   }
 
-  // Agent Capability Metrics Operations
   async updateCapabilityMetrics(data: {
     agentId: string;
     toolId: string;
@@ -144,76 +119,48 @@ export class ToolManagementService {
     executionTime: number;
   }): Promise<void> {
     try {
-      const { AgentCapabilityMetric } = await import('./entities/index');
-      const repository = typeormService.getRepository(AgentCapabilityMetric);
-
-      const metric = await repository.findOne({
-        where: { agentId: data.agentId, toolId: data.toolId } as unknown,
-      });
-
-      type MetricView = {
-        id: string;
-        totalExecutions: number;
-        successfulExecutions: number;
-        totalExecutionTime: number;
-      };
-
-      if (metric) {
-        const metricView = metric as unknown as MetricView;
-        // Update existing metric
-        const totalExecutions = metricView.totalExecutions + 1;
-        const successfulExecutions = metricView.successfulExecutions + (data.success ? 1 : 0);
-        const totalExecutionTime = metricView.totalExecutionTime + data.executionTime;
-
-        await typeormService.update('AgentCapabilityMetric', metricView.id, {
-          totalExecutions,
-          successfulExecutions,
-          totalExecutionTime,
-          averageExecutionTime: totalExecutionTime / totalExecutions,
-          successRate: successfulExecutions / totalExecutions,
-          lastUsed: new Date(),
-          updatedAt: new Date(),
-        });
+      const pool = getIntelligencePool();
+      const existing = await pool.query<{ id: string; total_executions: number; successful_executions: number; total_execution_time: number }>(
+        `SELECT * FROM "agent_capability_metrics" WHERE agent_id = $1 AND tool_id = $2 LIMIT 1`,
+        [data.agentId, data.toolId]
+      );
+      if (existing.rows[0]) {
+        const m = existing.rows[0];
+        const total = m.total_executions + 1;
+        const successful = m.successful_executions + (data.success ? 1 : 0);
+        const totalTime = m.total_execution_time + data.executionTime;
+        await pool.query(
+          `UPDATE "agent_capability_metrics" SET total_executions=$1, successful_executions=$2, total_execution_time=$3, average_execution_time=$4, success_rate=$5, last_used=NOW(), updated_at=NOW() WHERE id=$6`,
+          [total, successful, totalTime, totalTime / total, successful / total, m.id]
+        );
       } else {
-        // Create new metric
-        const newMetric = {
-          agentId: data.agentId,
-          toolId: data.toolId,
-          totalExecutions: 1,
-          successfulExecutions: data.success ? 1 : 0,
-          totalExecutionTime: data.executionTime,
-          averageExecutionTime: data.executionTime,
-          successRate: data.success ? 1.0 : 0.0,
-          lastUsed: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        await typeormService.create('AgentCapabilityMetric', newMetric);
+        await typeormService.create('agent_capability_metrics', {
+          agentId: data.agentId, toolId: data.toolId,
+          totalExecutions: 1, successfulExecutions: data.success ? 1 : 0,
+          totalExecutionTime: data.executionTime, averageExecutionTime: data.executionTime,
+          successRate: data.success ? 1.0 : 0.0, lastUsed: new Date(),
+        });
       }
     } catch (error) {
-      this.logger.error('Failed to update capability metrics', { error: error.message, data });
+      this.logger.error('Failed to update capability metrics', { error: (error as Error).message });
       throw error;
     }
   }
 
   async getAgentCapabilityMetrics(agentId: string): Promise<unknown[]> {
     try {
-      const { AgentCapabilityMetric } = await import('./entities/index');
-      const repository = typeormService.getRepository(AgentCapabilityMetric);
-      return await repository.find({
-        where: { agentId },
-      });
+      const pool = getIntelligencePool();
+      const result = await pool.query(
+        `SELECT * FROM "agent_capability_metrics" WHERE agent_id = $1`,
+        [agentId]
+      );
+      return result.rows;
     } catch (error) {
-      this.logger.error('Failed to get agent capability metrics', {
-        error: error.message,
-        agentId,
-      });
+      this.logger.error('Failed to get agent capability metrics', { error: (error as Error).message, agentId });
       throw error;
     }
   }
 
-  // Health check
   async isHealthy(): Promise<boolean> {
     try {
       const health = await typeormService.healthCheck();

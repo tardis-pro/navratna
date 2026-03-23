@@ -1,11 +1,19 @@
-import { typeormService } from './typeormService';
+import { getControlDb } from './database/drizzle/clients/index';
+import {
+  operations,
+  operationStates,
+  operationCheckpoints,
+  stepResults,
+} from './database/drizzle/schemas/control.schema';
+import { eq, inArray, and, lt, desc, asc } from 'drizzle-orm';
 import { createLogger } from '@uaip/utils';
 import { OperationStatus } from '@uaip/types';
 
-/**
- * Operation Management Service
- * Provides high-level operations for operation and workflow management
- */
+type OperationRow = typeof operations.$inferSelect;
+type OperationStateRow = typeof operationStates.$inferSelect;
+type CheckpointRow = typeof operationCheckpoints.$inferSelect;
+type StepResultRow = typeof stepResults.$inferSelect;
+
 export class OperationManagementService {
   private logger = createLogger({
     serviceName: 'operation-management-service',
@@ -13,209 +21,150 @@ export class OperationManagementService {
     logLevel: process.env.LOG_LEVEL || 'info',
   });
 
-  // Operation Operations
-  async createOperation(operationData: unknown): Promise<unknown> {
+  private get db() { return getControlDb(); }
+
+  async createOperation(operationData: typeof operations.$inferInsert): Promise<OperationRow> {
     try {
-      return await typeormService.create('Operation', operationData);
+      const [row] = await this.db.insert(operations).values(operationData).returning();
+      return row;
     } catch (error) {
-      this.logger.error('Failed to create operation', { error: error.message, operationData });
+      this.logger.error('Failed to create operation', { error: (error as Error).message });
       throw error;
     }
   }
 
-  async getOperation(operationId: string): Promise<unknown> {
+  async getOperation(operationId: string): Promise<OperationRow | null> {
     try {
-      return await typeormService.findById('Operation', operationId);
+      const [row] = await this.db.select().from(operations).where(eq(operations.id, operationId)).limit(1);
+      return row ?? null;
     } catch (error) {
-      this.logger.error('Failed to get operation', { error: error.message, operationId });
+      this.logger.error('Failed to get operation', { error: (error as Error).message, operationId });
       throw error;
     }
   }
 
-  async updateOperation(operationId: string, updates: unknown): Promise<unknown> {
+  async updateOperation(operationId: string, updates: Partial<typeof operations.$inferInsert>): Promise<OperationRow | null> {
     try {
-      return await typeormService.update('Operation', operationId, updates);
+      const [row] = await this.db.update(operations)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(operations.id, operationId))
+        .returning();
+      return row ?? null;
     } catch (error) {
-      this.logger.error('Failed to update operation', {
-        error: error.message,
-        operationId,
-        updates,
-      });
+      this.logger.error('Failed to update operation', { error: (error as Error).message, operationId });
       throw error;
     }
   }
 
-  // Operation State Operations
-  async createOperationState(stateData: unknown): Promise<unknown> {
+  async createOperationState(stateData: typeof operationStates.$inferInsert): Promise<OperationStateRow> {
     try {
-      return await typeormService.create('OperationState', stateData);
+      const [row] = await this.db.insert(operationStates).values(stateData).returning();
+      return row;
     } catch (error) {
-      this.logger.error('Failed to create operation state', { error: error.message, stateData });
+      this.logger.error('Failed to create operation state', { error: (error as Error).message });
       throw error;
     }
   }
 
-  async updateOperationState(operationId: string, stateData: unknown): Promise<unknown> {
+  async updateOperationState(operationId: string, stateData: Partial<typeof operationStates.$inferInsert>): Promise<OperationStateRow | null> {
     try {
-      return await typeormService.update('OperationState', operationId, stateData);
+      const [row] = await this.db.update(operationStates)
+        .set({ ...stateData, updatedAt: new Date() })
+        .where(eq(operationStates.operationId, operationId))
+        .returning();
+      return row ?? null;
     } catch (error) {
-      this.logger.error('Failed to update operation state', {
-        error: error.message,
-        operationId,
-        stateData,
-      });
+      this.logger.error('Failed to update operation state', { error: (error as Error).message, operationId });
       throw error;
     }
   }
 
-  // Operation Checkpoint Operations
-  async createCheckpoint(checkpointData: unknown): Promise<unknown> {
+  async createCheckpoint(checkpointData: typeof operationCheckpoints.$inferInsert): Promise<CheckpointRow> {
     try {
-      return await typeormService.create('OperationCheckpoint', checkpointData);
+      const [row] = await this.db.insert(operationCheckpoints).values(checkpointData).returning();
+      return row;
     } catch (error) {
-      this.logger.error('Failed to create checkpoint', { error: error.message, checkpointData });
+      this.logger.error('Failed to create checkpoint', { error: (error as Error).message });
       throw error;
     }
   }
 
-  async getCheckpoints(operationId: string): Promise<unknown[]> {
+  async getCheckpoints(operationId: string): Promise<CheckpointRow[]> {
     try {
-      const { OperationCheckpoint } = await import('./entities/index');
-      const repository = typeormService.getRepository(OperationCheckpoint);
-      return await repository.find({
-        where: { operationId },
-        order: { createdAt: 'DESC' },
-      });
+      return await this.db.select().from(operationCheckpoints)
+        .where(eq(operationCheckpoints.operationId, operationId))
+        .orderBy(desc(operationCheckpoints.createdAt));
     } catch (error) {
-      this.logger.error('Failed to get checkpoints', { error: error.message, operationId });
+      this.logger.error('Failed to get checkpoints', { error: (error as Error).message, operationId });
       throw error;
     }
   }
 
-  // Step Result Operations
-  async createStepResult(stepResultData: unknown): Promise<unknown> {
+  async createStepResult(stepResultData: typeof stepResults.$inferInsert): Promise<StepResultRow> {
     try {
-      return await typeormService.create('StepResult', stepResultData);
+      const [row] = await this.db.insert(stepResults).values(stepResultData).returning();
+      return row;
     } catch (error) {
-      this.logger.error('Failed to create step result', { error: error.message, stepResultData });
+      this.logger.error('Failed to create step result', { error: (error as Error).message });
       throw error;
     }
   }
 
-  async getStepResults(operationId: string): Promise<unknown[]> {
+  async getStepResults(operationId: string): Promise<StepResultRow[]> {
     try {
-      const { StepResult } = await import('./entities/index');
-      const repository = typeormService.getRepository(StepResult);
-      return await repository.find({
-        where: { operationId },
-        order: { createdAt: 'ASC' },
-      });
+      return await this.db.select().from(stepResults)
+        .where(eq(stepResults.operationId, operationId))
+        .orderBy(asc(stepResults.createdAt));
     } catch (error) {
-      this.logger.error('Failed to get step results', { error: error.message, operationId });
+      this.logger.error('Failed to get step results', { error: (error as Error).message, operationId });
       throw error;
     }
   }
 
-  // Workflow Instance Operations
-  async createWorkflowInstance(workflowData: unknown): Promise<unknown> {
+  async getOperationsByStatus(status: OperationStatus): Promise<OperationRow[]> {
     try {
-      return await typeormService.create('WorkflowInstance', workflowData);
+      return await this.db.select().from(operations)
+        .where(eq(operations.status, status))
+        .orderBy(desc(operations.createdAt));
     } catch (error) {
-      this.logger.error('Failed to create workflow instance', {
-        error: error.message,
-        workflowData,
-      });
+      this.logger.error('Failed to get operations by status', { error: (error as Error).message, status });
       throw error;
     }
   }
 
-  async getWorkflowInstance(workflowId: string): Promise<unknown> {
+  async getActiveOperations(): Promise<OperationRow[]> {
     try {
-      return await typeormService.findById('WorkflowInstance', workflowId);
+      const activeStatuses = [OperationStatus.RUNNING, OperationStatus.PENDING, OperationStatus.PAUSED] as OperationStatus[];
+      return await this.db.select().from(operations)
+        .where(inArray(operations.status, activeStatuses))
+        .orderBy(desc(operations.createdAt));
     } catch (error) {
-      this.logger.error('Failed to get workflow instance', { error: error.message, workflowId });
+      this.logger.error('Failed to get active operations', { error: (error as Error).message });
       throw error;
     }
   }
 
-  async updateWorkflowInstance(workflowId: string, updates: unknown): Promise<unknown> {
+  async findStaleOperations(cutoffDate: Date): Promise<OperationRow[]> {
     try {
-      return await typeormService.update('WorkflowInstance', workflowId, updates);
+      const activeStatuses = [OperationStatus.RUNNING, OperationStatus.PENDING, OperationStatus.PAUSED] as OperationStatus[];
+      return await this.db.select().from(operations)
+        .where(and(inArray(operations.status, activeStatuses), lt(operations.updatedAt, cutoffDate)))
+        .orderBy(asc(operations.updatedAt));
     } catch (error) {
-      this.logger.error('Failed to update workflow instance', {
-        error: error.message,
-        workflowId,
-        updates,
-      });
+      this.logger.error('Failed to find stale operations', { error: (error as Error).message, cutoffDate });
       throw error;
     }
   }
 
-  // Query Operations
-  async getOperationsByStatus(status: string): Promise<unknown[]> {
-    try {
-      const { Operation } = await import('./entities/index');
-      const repository = typeormService.getRepository(Operation);
-      return await repository.find({
-        where: { status: status as OperationStatus },
-        order: { createdAt: 'DESC' },
-      });
-    } catch (error) {
-      this.logger.error('Failed to get operations by status', { error: error.message, status });
-      throw error;
-    }
+  async executeInTransaction<T>(callback: (db: ReturnType<typeof getControlDb>) => Promise<T>): Promise<T> {
+    return this.db.transaction(callback);
   }
 
-  async getActiveOperations(): Promise<unknown[]> {
-    try {
-      const { Operation } = await import('./entities/index');
-      const { In } = await import('typeorm');
-      const repository = typeormService.getRepository(Operation);
-      return await repository.find({
-        where: {
-          status: In([OperationStatus.RUNNING, OperationStatus.PENDING, OperationStatus.PAUSED]),
-        },
-        order: { createdAt: 'DESC' },
-      });
-    } catch (error) {
-      this.logger.error('Failed to get active operations', { error: error.message });
-      throw error;
-    }
-  }
-
-  async findStaleOperations(cutoffDate: Date): Promise<unknown[]> {
-    try {
-      const { Operation } = await import('./entities/index');
-      const { In, LessThan } = await import('typeorm');
-      const repository = typeormService.getRepository(Operation);
-      return await repository.find({
-        where: {
-          status: In([OperationStatus.RUNNING, OperationStatus.PENDING, OperationStatus.PAUSED]),
-          updatedAt: LessThan(cutoffDate),
-        },
-        order: { updatedAt: 'ASC' },
-      });
-    } catch (error) {
-      this.logger.error('Failed to find stale operations', { error: error.message, cutoffDate });
-      throw error;
-    }
-  }
-
-  // Transaction support
-  async executeInTransaction<T>(callback: (manager: unknown) => Promise<T>): Promise<T> {
-    try {
-      return await typeormService.transaction(callback);
-    } catch (error) {
-      this.logger.error('Transaction failed', { error: error.message });
-      throw error;
-    }
-  }
-
-  // Health check
   async isHealthy(): Promise<boolean> {
     try {
-      const health = await typeormService.healthCheck();
-      return health.status === 'healthy';
+      const { sql } = await import('drizzle-orm');
+      await this.db.execute(sql`SELECT 1`);
+      return true;
     } catch {
       return false;
     }

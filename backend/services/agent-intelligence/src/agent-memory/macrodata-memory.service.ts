@@ -12,7 +12,11 @@
  */
 
 import { logger } from '@uaip/utils';
-import { DataSource } from 'typeorm';
+
+/** Minimal interface compatible with both pg.Pool (via adapter) and raw query executors */
+export interface QueryExecutor {
+  query(sql: string, params?: unknown[]): Promise<unknown[]>;
+}
 
 export interface MacrodataMemoryLayer {
   /** Fixed role + expertise + values from the agent's persona */
@@ -31,7 +35,7 @@ export interface MacrodataContext {
 }
 
 export class MacrodataMemoryService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: QueryExecutor) {}
 
   /**
    * Build a fully-layered memory context for an agent response.
@@ -153,7 +157,7 @@ export class MacrodataMemoryService {
       );
       if (!rows.length) return '';
 
-      const agent = rows[0];
+      const agent = rows[0] as Record<string, unknown>;
       const persona =
         typeof agent.persona === 'string' ? JSON.parse(agent.persona) : (agent.persona ?? {});
       const caps =

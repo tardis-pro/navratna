@@ -18,8 +18,8 @@ import {
 } from '@uaip/types';
 import { Persona as _Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository';
-import { Discussion } from './entities/discussion.entity';
-import { DiscussionParticipant } from './entities/discussionParticipant.entity';
+
+
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { PersonaService } from './personaService';
@@ -45,7 +45,7 @@ export class DiscussionService {
   private enableAnalytics: boolean;
   private maxParticipants: number;
   private defaultTurnTimeout: number;
-  private activeDiscussions: Map<string, Discussion>;
+  private activeDiscussions: Map<string, Record<string, unknown>>;
 
   constructor(config: DiscussionServiceConfig) {
     this.databaseService = config.databaseService;
@@ -131,16 +131,17 @@ export class DiscussionService {
         updatedAt: new Date(),
       };
 
-      const discussion = await this.databaseService.create<Discussion>(Discussion, discussionData);
+      const discussion = await this.databaseService.create<Record<string, unknown>>('discussions', discussionData);
+      const discussionId = discussion.id as string;
 
       if (request.createdBy) {
-        await this.addUserParticipant(discussion.id!, request.createdBy);
+        await this.addUserParticipant(discussionId, request.createdBy);
       }
 
       // Add initial participants
       if (request.initialParticipants) {
         logger.debug('Adding initial participants', {
-          discussionId: discussion.id,
+          discussionId,
           participantCount: request.initialParticipants.length,
           discussionSettings: discussion.settings,
         });
@@ -148,7 +149,7 @@ export class DiscussionService {
           request.initialParticipants
             .filter((participantRequest) => participantRequest && participantRequest.agentId)
             .map((participantRequest) =>
-              this.addParticipant(discussion.id!, {
+              this.addParticipant(discussionId, {
                 agentId: participantRequest.agentId,
                 role: participantRequest.role,
                 userId: undefined,
@@ -158,10 +159,10 @@ export class DiscussionService {
       }
 
       // Cache active discussion
-      this.activeDiscussions.set(discussion.id!, discussion);
+      this.activeDiscussions.set(discussionId, discussion);
 
       // Emit creation event
-      await this.emitDiscussionEvent(discussion.id!, DiscussionEventType.STATUS_CHANGED, {
+      await this.emitDiscussionEvent(discussionId, DiscussionEventType.STATUS_CHANGED, {
         oldStatus: null,
         newStatus: DiscussionStatus.DRAFT,
         createdBy: discussion.createdBy,
@@ -186,9 +187,7 @@ export class DiscussionService {
       }
 
       // Fetch from database with relations
-      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, [
-        'participants',
-      ]);
+      const discussion = await this.databaseService.findById<Record<string, unknown>>('discussions', id);
       if (discussion && discussion.status === DiscussionStatus.ACTIVE) {
         this.activeDiscussions.set(id, discussion);
       }
@@ -218,15 +217,13 @@ export class DiscussionService {
       void participants;
       void outcomes;
       void analytics;
-      await this.databaseService.update<Discussion>(Discussion, id, {
+      await this.databaseService.update<Record<string, unknown>>('discussions', id, {
         ...discussionUpdates,
         updatedAt: new Date(),
       });
 
       // Fetch the updated discussion with all relations (especially participants)
-      const discussion = await this.databaseService.findById<Discussion>(Discussion, id, [
-        'participants',
-      ]);
+      const discussion = await this.databaseService.findById<Record<string, unknown>>('discussions', id);
 
       if (!discussion) {
         throw new Error(`Failed to update discussion: ${id}`);
@@ -470,21 +467,24 @@ export class DiscussionService {
 
       // Emit participant joined event with proper participant ID
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.PARTICIPANT_JOINED, {
-        participantId: participant.participantId, // Use the unique participant ID
+        participantId: participant.id, // Use the unique participant ID
         agentId: participant.agentId,
-        role: participant.roleInDiscussion,
-        displayName: participant.displayName,
+        role: participant.role,
+        displayName: participant.metadata?.displayName || 'Unknown',
       });
 
       logger.info('Enterprise participant added successfully', {
         discussionId,
-        participantId: participant.participantId,
+        participantId: participant.id,
         agentId: participant.agentId,
-        displayName: participant.displayName,
-        role: participant.roleInDiscussion,
+        displayName: participant.metadata?.displayName || 'Unknown',
+        role: participant.role,
       });
 
-      return participant;
+      return {
+        ...participant,
+        role: participant.role as DiscussionParticipantType['role'],
+      } as DiscussionParticipantType;
     } catch (error) {
       logger.error('Failed to add participant', {
         error: (error as Error).message,
@@ -584,21 +584,24 @@ export class DiscussionService {
       });
 
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.PARTICIPANT_JOINED, {
-        participantId: participant.participantId,
+        participantId: participant.id,
         userId: participant.userId,
-        role: participant.roleInDiscussion,
-        displayName: participant.displayName,
+        role: participant.role,
+        displayName: participant.metadata?.displayName || 'Unknown',
       });
 
       logger.info('User participant added successfully', {
         discussionId,
-        participantId: participant.participantId,
+        participantId: participant.id,
         userId: participant.userId,
-        displayName: participant.displayName,
-        role: participant.roleInDiscussion,
+        displayName: participant.metadata?.displayName || 'Unknown',
+        role: participant.role,
       });
 
-      return participant;
+      return {
+        ...participant,
+        role: participant.role as DiscussionParticipantType['role'],
+      } as DiscussionParticipantType;
     } catch (error) {
       logger.error('Failed to add user participant', {
         error: (error as Error).message,
@@ -621,7 +624,7 @@ export class DiscussionService {
         removedBy,
       });
 
-      const participant = await this.databaseService.findById<DiscussionParticipant>(
+      const participant = await this.databaseService.findById<Record<string, unknown>>(
         'discussion_participants',
         participantId
       );
@@ -689,7 +692,7 @@ export class DiscussionService {
       }
 
       // Validate participant
-      const participant = await this.databaseService.findById<DiscussionParticipant>(
+      const participant = await this.databaseService.findById<Record<string, unknown>>(
         'discussion_participants',
         participantId
       );
@@ -729,7 +732,7 @@ export class DiscussionService {
 
       // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
-        messageCount: participant.messageCount + 1,
+        messageCount: ((participant.messageCount as number) ?? 0) + 1,
         lastMessageAt: new Date(),
       });
 
@@ -789,7 +792,7 @@ export class DiscussionService {
         {
           take: limit,
           skip: offset,
-          order: { createdAt: 'ASC' } as unknown,
+          order: { createdAt: 'ASC' } as Record<string, 'ASC' | 'DESC'>,
         }
       );
 
@@ -872,7 +875,7 @@ export class DiscussionService {
     limit = 20,
     offset = 0
   ): Promise<{
-    discussions: Discussion[];
+    discussions: DiscussionType[];
     total: number;
     hasMore: boolean;
   }> {

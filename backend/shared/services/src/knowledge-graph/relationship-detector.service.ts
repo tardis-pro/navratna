@@ -1,10 +1,32 @@
 import { KnowledgeItem, KnowledgeRelationship } from '@uaip/types';
 import { EmbeddingService } from './embedding.service';
 import { SmartEmbeddingService } from './smart-embedding.service';
-import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
+import { KnowledgeRepository, KnowledgeRow } from '../database/repositories/knowledge.repository';
 
 // Type for any service that can generate embeddings and calculate similarity
 type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;
+
+// Convert KnowledgeRow (DB type) to KnowledgeItem (domain type)
+function toKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
+  return {
+    id: row.id,
+    content: row.content,
+    type: row.type,
+    tags: row.tags ?? [],
+    confidence: typeof row.confidence === 'number' ? row.confidence : parseFloat(String(row.confidence)) || 0.8,
+    accessLevel: row.accessLevel,
+    sourceIdentifier: row.sourceIdentifier,
+    sourceType: row.sourceType,
+    metadata: row.metadata ?? {},
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    summary: row.summary ?? undefined,
+    userId: row.userId ?? undefined,
+    agentId: row.agentId ?? undefined,
+    organizationId: row.organizationId ?? undefined,
+    createdBy: row.createdBy ?? undefined,
+  };
+}
 
 export class RelationshipDetector {
   constructor(
@@ -24,8 +46,11 @@ export class RelationshipDetector {
       // Generate embedding for the new item
       const newItemEmbedding = await this.embeddingService.generateEmbedding(newItem.content);
 
-      for (const existingItem of recentItems) {
-        if (existingItem.id === newItem.id) continue;
+      for (const existingRow of recentItems) {
+        if (existingRow.id === newItem.id) continue;
+
+        // Convert DB row to domain type for analyzeRelationship
+        const existingItem = toKnowledgeItem(existingRow);
 
         // Generate embedding for existing item
         // oxlint-disable-next-line no-await-in-loop
@@ -308,7 +333,22 @@ export class RelationshipDetector {
   ): Promise<KnowledgeRelationship[]> {
     try {
       const relationships = await this.knowledgeRepository.getRelationships(itemId);
-      return relationships.filter((rel) => rel.confidence >= threshold);
+      return relationships
+        .filter((rel) => {
+          const strength = typeof rel.strength === 'number' ? rel.strength : parseFloat(String(rel.strength)) || 0;
+          return strength >= threshold;
+        })
+        .map((rel) => ({
+          id: rel.id,
+          sourceItemId: rel.sourceId,
+          targetItemId: rel.targetId,
+          relationshipType: rel.relationshipType,
+          confidence: rel.strength,
+          createdAt: rel.createdAt,
+          userId: rel.metadata?.userId as string | undefined,
+          agentId: rel.metadata?.agentId as string | undefined,
+          summary: rel.metadata?.summary as string | undefined,
+        }));
     } catch (error) {
       console.error('Strong relationship retrieval error:', error);
       return [];

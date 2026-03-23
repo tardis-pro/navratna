@@ -1,5 +1,6 @@
 import { QdrantService } from '../qdrant.service';
-import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
+import { knowledgeItems } from '../database/drizzle/schemas/intelligence.schema';
+import { getIntelligenceDb } from '../database/drizzle/clients/index';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import { SmartEmbeddingService } from './smart-embedding.service';
 
@@ -151,7 +152,7 @@ export class KnowledgeClusteringService {
   /**
    * Consolidate a cluster into a single knowledge item
    */
-  async consolidateCluster(cluster: KnowledgeCluster): Promise<KnowledgeItemEntity> {
+  async consolidateCluster(cluster: KnowledgeCluster): Promise<typeof knowledgeItems.$inferSelect> {
     // Create consolidated content
     const consolidatedContent = this.mergeContent(cluster.similarChunks);
 
@@ -164,22 +165,20 @@ export class KnowledgeClusteringService {
     // Calculate average confidence
     const averageConfidence = this.calculateAverageConfidence(cluster.similarChunks);
 
-    // Create knowledge item entity
-    const knowledgeItem = new KnowledgeItemEntity();
-    knowledgeItem.content = consolidatedContent;
-    knowledgeItem.type = consolidatedType;
-    knowledgeItem.tags = consolidatedTags;
-    knowledgeItem.confidence = averageConfidence;
-    knowledgeItem.sourceType = SourceType.CLUSTERED;
-    knowledgeItem.sourceIdentifier = `cluster_${cluster.clusterId}`;
-    knowledgeItem.metadata = {
-      clusterId: cluster.clusterId,
-      originalItemsCount: cluster.similarChunks.length,
-      consolidatedAt: new Date().toISOString(),
-      sources: cluster.sources,
-    };
-
-    return knowledgeItem;
+    return {
+      content: consolidatedContent,
+      type: consolidatedType,
+      tags: consolidatedTags,
+      confidence: String(averageConfidence),
+      sourceType: SourceType.CLUSTERED,
+      sourceIdentifier: `cluster_${cluster.clusterId}`,
+      metadata: {
+        clusterId: cluster.clusterId,
+        originalItemsCount: cluster.similarChunks.length,
+        consolidatedAt: new Date().toISOString(),
+        sources: cluster.sources,
+      },
+    } as unknown as typeof knowledgeItems.$inferSelect;
   }
 
   /**

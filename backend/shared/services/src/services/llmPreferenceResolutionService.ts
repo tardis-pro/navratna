@@ -1,7 +1,3 @@
-import { Repository } from 'typeorm';
-import { UserLLMPreference } from '../entities/userLLMPreference.entity';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
-import { Agent } from '../entities/agent.entity';
 import { LLMTaskType, LLMProviderType, RoutingRequest } from '@uaip/types';
 
 export interface ResolvedLLMPreference {
@@ -114,9 +110,9 @@ const SYSTEM_DEFAULTS: Record<LLMTaskType, ResolvedLLMPreference> = {
 
 export class LLMPreferenceResolutionService {
   constructor(
-    private userLLMPreferenceRepository: Repository<UserLLMPreference>,
-    private agentLLMPreferenceRepository: Repository<AgentLLMPreference>,
-    private agentRepository: Repository<Agent>
+    private userLLMPreferenceRepository: unknown,
+    private agentLLMPreferenceRepository: unknown,
+    private agentRepository: unknown
   ) {}
 
   /**
@@ -130,35 +126,36 @@ export class LLMPreferenceResolutionService {
   ): Promise<ResolvedLLMPreference> {
     // Step 1: Check for agent-specific preference
     const agentPreference = await this.getAgentPreference(agentId, taskType);
-    if (agentPreference && agentPreference.isActive) {
+    if (agentPreference && (agentPreference as { isActive: boolean }).isActive) {
+      const pref = agentPreference as { preferredProvider: LLMProviderType; preferredModel: string; fallbackModel?: string; getEffectiveSettings: Function; reasoning?: string; getPerformanceScore: Function };
       return {
-        provider: agentPreference.preferredProvider,
-        model: agentPreference.preferredModel,
-        fallbackModel: agentPreference.fallbackModel,
-        settings: agentPreference.getEffectiveSettings(),
+        provider: pref.preferredProvider,
+        model: pref.preferredModel,
+        fallbackModel: pref.fallbackModel,
+        settings: pref.getEffectiveSettings(),
         source: 'agent',
-        reasoning: `Agent-specific preference: ${agentPreference.reasoning || 'Optimized for agent role'}`,
-        confidence: this.calculateConfidence(agentPreference.getPerformanceScore(), 'agent'),
+        reasoning: `Agent-specific preference: ${pref.reasoning || 'Optimized for agent role'}`,
+        confidence: this.calculateConfidence(pref.getPerformanceScore(), 'agent'),
       };
     }
 
     // Step 2: Check for user-specific preference
-    const agent = await this.agentRepository.findOne({
+    const agent = await (this.agentRepository as { findOne: Function }).findOne({
       where: { id: agentId },
       select: ['createdBy'],
     });
 
-    if (agent?.createdBy) {
-      const userPreference = await this.getUserPreference(agent.createdBy, taskType);
-      if (userPreference && userPreference.isActive) {
+    if ((agent as { createdBy?: string })?.createdBy) {
+      const userPreference = await this.getUserPreference((agent as { createdBy: string }).createdBy, taskType);
+      if (userPreference && (userPreference as { isActive: boolean }).isActive) {
         return {
-          provider: userPreference.preferredProvider,
-          model: userPreference.preferredModel,
-          fallbackModel: userPreference.fallbackModel,
-          settings: userPreference.getEffectiveSettings(),
+          provider: (userPreference as { preferredProvider: LLMProviderType }).preferredProvider,
+          model: (userPreference as { preferredModel: string }).preferredModel,
+          fallbackModel: (userPreference as { fallbackModel?: string }).fallbackModel,
+          settings: (userPreference as { getEffectiveSettings: Function }).getEffectiveSettings(),
           source: 'user',
-          reasoning: `User preference: ${userPreference.description || 'User-defined default'}`,
-          confidence: this.calculateConfidence(userPreference.getPerformanceScore(), 'user'),
+          reasoning: `User preference: ${(userPreference as { description?: string }).description || 'User-defined default'}`,
+          confidence: this.calculateConfidence((userPreference as { getPerformanceScore: Function }).getPerformanceScore(), 'user'),
         };
       }
     }
@@ -184,15 +181,16 @@ export class LLMPreferenceResolutionService {
   ): Promise<ResolvedLLMPreference> {
     // Check for user-specific preference
     const userPreference = await this.getUserPreference(userId, taskType);
-    if (userPreference && userPreference.isActive) {
+    if (userPreference && (userPreference as { isActive: boolean }).isActive) {
+      const pref = userPreference as { preferredProvider: LLMProviderType; preferredModel: string; fallbackModel?: string; getEffectiveSettings: Function; description?: string; getPerformanceScore: Function };
       return {
-        provider: userPreference.preferredProvider,
-        model: userPreference.preferredModel,
-        fallbackModel: userPreference.fallbackModel,
-        settings: userPreference.getEffectiveSettings(),
+        provider: pref.preferredProvider,
+        model: pref.preferredModel,
+        fallbackModel: pref.fallbackModel,
+        settings: pref.getEffectiveSettings(),
         source: 'user',
-        reasoning: `User preference: ${userPreference.description || 'User-defined default'}`,
-        confidence: this.calculateConfidence(userPreference.getPerformanceScore(), 'user'),
+        reasoning: `User preference: ${pref.description || 'User-defined default'}`,
+        confidence: this.calculateConfidence(pref.getPerformanceScore(), 'user'),
       };
     }
 
@@ -245,34 +243,38 @@ export class LLMPreferenceResolutionService {
     success: boolean,
     quality?: number
   ): Promise<void> {
+    const agentPrefRepo = this.agentLLMPreferenceRepository as { findOne: Function; save: Function };
+    const userPrefRepo = this.userLLMPreferenceRepository as { findOne: Function; save: Function };
+    const agentRepo = this.agentRepository as { findOne: Function };
+
     // Update agent-specific stats if preference exists
     const agentPreference = await this.getAgentPreference(agentId, taskType);
     if (agentPreference) {
-      agentPreference.updateUsageStats(responseTime, success, quality);
-      await this.agentLLMPreferenceRepository.save(agentPreference);
+      (agentPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success, quality);
+      await agentPrefRepo.save(agentPreference);
     }
 
     // Update user-specific stats
-    const agent = await this.agentRepository.findOne({
+    const agent = await agentRepo.findOne({
       where: { id: agentId },
       select: ['createdBy'],
     });
 
-    if (agent?.createdBy) {
-      const userPreference = await this.getUserPreference(agent.createdBy, taskType);
+    if ((agent as { createdBy?: string })?.createdBy) {
+      const userPreference = await this.getUserPreference((agent as { createdBy: string }).createdBy, taskType);
       if (userPreference) {
-        userPreference.updateUsageStats(responseTime, success);
-        await this.userLLMPreferenceRepository.save(userPreference);
+        (userPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success);
+        await userPrefRepo.save(userPreference);
       }
     }
   }
 
-  // Private helper methods
   private async getAgentPreference(
     agentId: string,
     taskType: LLMTaskType
-  ): Promise<AgentLLMPreference | null> {
-    return this.agentLLMPreferenceRepository.findOne({
+  ): Promise<unknown | null> {
+    const repo = this.agentLLMPreferenceRepository as { findOne: Function };
+    return repo.findOne({
       where: { agentId, taskType, isActive: true },
     });
   }
@@ -280,8 +282,9 @@ export class LLMPreferenceResolutionService {
   private async getUserPreference(
     userId: string,
     taskType: LLMTaskType
-  ): Promise<UserLLMPreference | null> {
-    return this.userLLMPreferenceRepository.findOne({
+  ): Promise<unknown | null> {
+    const repo = this.userLLMPreferenceRepository as { findOne: Function };
+    return repo.findOne({
       where: { userId, taskType, isActive: true },
     });
   }

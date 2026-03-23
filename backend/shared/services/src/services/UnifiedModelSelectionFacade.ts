@@ -1,17 +1,17 @@
-import { Repository } from 'typeorm';
-import { UserLLMPreference } from '../entities/userLLMPreference.entity';
-import { AgentLLMPreference } from '../entities/agentLLMPreference.entity';
-import { Agent } from '../entities/agent.entity';
-import { LLMProvider } from '../entities/llmProvider.entity';
 import {
   ModelSelectionOrchestrator,
   ModelSelectionRequest,
   ModelSelectionResult,
   FallbackChain,
 } from './ModelSelectionOrchestrator';
-// Fallback service removed - no fallback logic allowed
 import { LLMTaskType, RoutingRequest } from '@uaip/types';
-import { UserLLMProvider } from '../entities/userLLMProvider.entity';
+
+type Repository<T> = unknown;
+type Agent = Record<string, unknown>;
+type UserLLMPreference = Record<string, unknown>;
+type AgentLLMPreference = Record<string, unknown>;
+type LLMProvider = Record<string, unknown>;
+type UserLLMProvider = Record<string, unknown>;
 import { logger } from '@uaip/utils';
 
 // =============================================================================
@@ -74,16 +74,16 @@ export class UnifiedModelSelectionFacade {
   private metrics: SelectionMetrics;
 
   constructor(
-    agentRepository: Repository<Agent>,
-    userLLMPreferenceRepository: Repository<UserLLMPreference>,
-    agentLLMPreferenceRepository: Repository<AgentLLMPreference>,
-    llmProviderRepository: Repository<LLMProvider>
+    agentRepository?: Repository<Agent>,
+    userLLMPreferenceRepository?: Repository<UserLLMPreference>,
+    agentLLMPreferenceRepository?: Repository<AgentLLMPreference>,
+    llmProviderRepository?: Repository<LLMProvider>
   ) {
     this.orchestrator = new ModelSelectionOrchestrator(
-      agentRepository,
-      userLLMPreferenceRepository,
-      agentLLMPreferenceRepository,
-      llmProviderRepository
+      agentRepository as Repository<Agent>,
+      userLLMPreferenceRepository as Repository<UserLLMPreference>,
+      agentLLMPreferenceRepository as Repository<AgentLLMPreference>,
+      llmProviderRepository as Repository<LLMProvider>
     );
 
     this.metrics = {

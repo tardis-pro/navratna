@@ -1,7 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
-import { DiscussionParticipant } from './entities/discussionParticipant.entity';
+import type { DiscussionParticipant } from './database/drizzle/schemas/intelligence.schema';
+
+const PARTICIPANTS_TABLE = 'discussion_participants';
 
 /**
  * Enterprise Participant Management Service
@@ -54,11 +56,11 @@ export class ParticipantManagementService {
     const {
       discussionId,
       agentId,
-      displayName,
+      displayName: _displayName,
       roleInDiscussion = 'participant',
-      permissions = ['speak', 'listen', 'react'],
-      turnOrder,
-      turnWeight = 1.0,
+      permissions: _permissions,
+      turnOrder: _turnOrder,
+      turnWeight: _turnWeight,
       participationConfig,
       behavioralConstraints,
       contextAwareness,
@@ -67,7 +69,7 @@ export class ParticipantManagementService {
     try {
       // Check if participant already exists for this agent in this discussion
       const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         {
           discussionId,
           participantType: 'agent',
@@ -80,66 +82,36 @@ export class ParticipantManagementService {
         logger.info('Agent participant already exists, returning existing', {
           discussionId,
           agentId,
-          participantId: existingParticipant.participantId,
+          participantId: existingParticipant.id,
         });
         return existingParticipant;
       }
 
-      // Generate unique participant ID
-      const participantId = uuidv4();
-
-      // Create new participant with enterprise-grade configuration
+      // Create new participant
       const participant = await this.databaseService.create<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         {
-          // Core Identity
           discussionId,
           participantType: 'agent',
-          participantId,
           agentId,
-          displayName,
-
-          // Role & Permissions
-          roleInDiscussion,
-          permissions,
-
-          // Turn Management
-          turnOrder,
-          turnWeight,
-          canInitiateTurns: true,
-          canModerate: roleInDiscussion === 'moderator',
-          maxConsecutiveTurns: roleInDiscussion === 'moderator' ? 5 : 3,
-
-          // Advanced Configuration
-          participationConfig,
-          behavioralConstraints,
-          contextAwareness,
-
-          // Lifecycle
+          role: roleInDiscussion,
           joinedAt: new Date(),
           isActive: true,
-          isMuted: false,
-
-          // Analytics
+          turnCount: 0,
           messageCount: 0,
-          expertiseTags: [],
-          topics: [],
-          interruptionCount: 0,
-          questionsAsked: 0,
-          questionsAnswered: 0,
-
-          // Timestamps
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          metadata: {
+            participationConfig,
+            behavioralConstraints,
+            contextAwareness,
+          },
         }
       );
 
       logger.info('Created new agent participant', {
         discussionId,
         agentId,
-        participantId: participant.participantId,
+        participantId: participant.id,
         roleInDiscussion,
-        permissions: permissions.length,
       });
 
       return participant;
@@ -177,11 +149,11 @@ export class ParticipantManagementService {
     const {
       discussionId,
       userId,
-      displayName,
+      displayName: _displayName,
       roleInDiscussion = 'participant',
-      permissions = ['speak', 'listen', 'react'],
-      turnOrder,
-      turnWeight = 1.0,
+      permissions: _permissions,
+      turnOrder: _turnOrder,
+      turnWeight: _turnWeight,
       participationConfig,
       behavioralConstraints,
       contextAwareness,
@@ -189,7 +161,7 @@ export class ParticipantManagementService {
 
     try {
       const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         {
           discussionId,
           participantType: 'user',
@@ -202,51 +174,35 @@ export class ParticipantManagementService {
         logger.info('User participant already exists, returning existing', {
           discussionId,
           userId,
-          participantId: existingParticipant.participantId,
+          participantId: existingParticipant.id,
         });
         return existingParticipant;
       }
 
-      const participantId = uuidv4();
-
       const participant = await this.databaseService.create<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         {
           discussionId,
           participantType: 'user',
-          participantId,
           userId,
-          displayName,
-          roleInDiscussion,
-          permissions,
-          turnOrder,
-          turnWeight,
-          canInitiateTurns: true,
-          canModerate: roleInDiscussion === 'moderator',
-          maxConsecutiveTurns: roleInDiscussion === 'moderator' ? 5 : 3,
-          participationConfig,
-          behavioralConstraints,
-          contextAwareness,
+          role: roleInDiscussion,
           joinedAt: new Date(),
           isActive: true,
-          isMuted: false,
+          turnCount: 0,
           messageCount: 0,
-          expertiseTags: [],
-          topics: [],
-          interruptionCount: 0,
-          questionsAsked: 0,
-          questionsAnswered: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          metadata: {
+            participationConfig,
+            behavioralConstraints,
+            contextAwareness,
+          },
         }
       );
 
       logger.info('Created new user participant', {
         discussionId,
         userId,
-        participantId: participant.participantId,
+        participantId: participant.id,
         roleInDiscussion,
-        permissions: permissions.length,
       });
 
       return participant;
@@ -261,13 +217,12 @@ export class ParticipantManagementService {
   }
 
   /**
-   * Get participant by their unique participant ID
+   * Get participant by their unique ID
    */
   async getParticipantById(participantId: string): Promise<DiscussionParticipant | null> {
     try {
-      // Use 'id' (primary key) instead of 'participantId' field for lookup
       const participants = await this.databaseService.findMany<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         { id: participantId }
       );
       return participants[0] || null;
@@ -286,7 +241,7 @@ export class ParticipantManagementService {
   async getDiscussionParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
     try {
       return await this.databaseService.findMany<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         { discussionId },
         { order: { joinedAt: 'ASC' } }
       );
@@ -305,13 +260,12 @@ export class ParticipantManagementService {
   async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
     try {
       return await this.databaseService.findMany<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         {
           discussionId,
           isActive: true,
-          isMuted: false,
         },
-        { order: { turnOrder: 'ASC', joinedAt: 'ASC' } }
+        { order: { joinedAt: 'ASC' } }
       );
     } catch (error) {
       logger.error('Error getting active participants', {
@@ -335,20 +289,31 @@ export class ParticipantManagementService {
     }
   ): Promise<void> {
     try {
-      // First find the participant to get the database ID
       const participant = await this.getParticipantById(participantId);
       if (!participant) {
         logger.error('Participant not found for activity update', { participantId });
         return;
       }
 
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date(),
+      };
+      if (messageData.messageCount !== undefined) {
+        updateData.messageCount = messageData.messageCount;
+      }
+      if (messageData.lastMessageAt !== undefined) {
+        updateData.metadata = {
+          ...(participant.metadata as Record<string, unknown> || {}),
+          lastMessageAt: messageData.lastMessageAt,
+          contributionScore: messageData.contributionScore,
+          engagementLevel: messageData.engagementLevel,
+        };
+      }
+
       await this.databaseService.update<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         participant.id,
-        {
-          ...messageData,
-          updatedAt: new Date(),
-        }
+        updateData
       );
 
       logger.debug('Updated participant activity', {
@@ -372,7 +337,7 @@ export class ParticipantManagementService {
   ): Promise<DiscussionParticipant | null> {
     try {
       const participants = await this.databaseService.findMany<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         {
           discussionId,
           participantType: 'agent',
@@ -450,7 +415,6 @@ export class ParticipantManagementService {
    */
   async removeParticipant(participantId: string): Promise<void> {
     try {
-      // First find the participant to get the database ID
       const participant = await this.getParticipantById(participantId);
       if (!participant) {
         logger.error('Participant not found for removal', { participantId });
@@ -458,7 +422,7 @@ export class ParticipantManagementService {
       }
 
       await this.databaseService.update<DiscussionParticipant>(
-        DiscussionParticipant,
+        PARTICIPANTS_TABLE,
         participant.id,
         {
           isActive: false,
@@ -491,12 +455,14 @@ export class ParticipantManagementService {
       const participant = await this.getParticipantById(participantId);
       if (!participant) return null;
 
+      const metadata = (participant.metadata || {}) as Record<string, unknown>;
+
       return {
         messageCount: participant.messageCount,
-        contributionScore: participant.contributionScore || 0,
-        engagementLevel: participant.engagementLevel || 0,
-        averageResponseTime: participant.totalSpeakingTimeMs || 0,
-        topTopics: participant.topics || [],
+        contributionScore: (metadata.contributionScore as number) || 0,
+        engagementLevel: (metadata.engagementLevel as number) || 0,
+        averageResponseTime: (metadata.totalSpeakingTimeMs as number) || 0,
+        topTopics: (metadata.topics as string[]) || [],
       };
     } catch (error) {
       logger.error('Error getting participant stats', {

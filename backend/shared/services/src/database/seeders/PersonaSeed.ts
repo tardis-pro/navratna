@@ -1,93 +1,88 @@
-import { DataSource, DeepPartial } from 'typeorm';
+import { getIntelligenceDb } from '../drizzle/clients/index';
+import { personas } from '../../database/drizzle/schemas/intelligence.schema';
 import { BaseSeed } from './BaseSeed';
-import { Persona as PersonaEntity } from '../../entities/persona.entity';
-import { UserEntity } from '../../entities/user.entity';
-import {
-  Persona,
-  getAllPersonasFlatWrapper,
-  PersonaTone,
-  PersonaStyle,
-  PersonaEnergyLevel,
-} from '@uaip/types';
+import { getAllPersonasFlatWrapper, type Persona, type PersonaStatus, type PersonaVisibility } from '@uaip/types';
+import type { InferInsertModel } from 'drizzle-orm';
 
-/**
- * Persona seeder with diverse characteristics
- */
-export class PersonaSeed extends BaseSeed<PersonaEntity> {
-  private users: UserEntity[] = [];
+type PersonaInsert = InferInsertModel<typeof personas>;
 
-  constructor(dataSource: DataSource, users: UserEntity[]) {
-    super(dataSource, dataSource.getRepository(PersonaEntity), 'Personas');
-    this.users = users;
+export class PersonaSeed extends BaseSeed {
+  private db = getIntelligenceDb();
+  private users: { id: string }[] = [];
+
+  constructor(userIds: string[]) {
+    super('Personas');
+    this.users = userIds.map(id => ({ id }));
   }
 
-  getUniqueField(): keyof PersonaEntity {
-    return 'name';
+  async seed(): Promise<PersonaInsert[]> {
+    const seedData = await this.getSeedData();
+
+    for (const persona of seedData) {
+      await this.db.insert(personas).values(persona as any).onConflictDoNothing();
+    }
+
+    return await this.db.select().from(personas);
   }
 
-  async getSeedData(): Promise<DeepPartial<PersonaEntity>[]> {
-    // Get all personas as a flat array
+  async getSeedData(): Promise<any[]> {
     const allPersonasFlat: Persona[] = getAllPersonasFlatWrapper();
 
-    // Convert personas to database entities, assigning createdBy from seeded users
-    return allPersonasFlat.map((persona: Persona, index: number) => ({
-      name: persona.name,
-      role: persona.role,
-      description: persona.description,
-      background: persona.background,
-      systemPrompt: persona.systemPrompt,
-      traits: persona.traits,
-      expertise: persona.expertise?.map((e) => e.name) || [], // Convert ExpertiseDomain[] to string[]
-      conversationalStyle: persona.conversationalStyle,
-      status: persona.status,
-      visibility: persona.visibility,
-      createdBy: this.users[index % this.users.length].id, // Distribute across available users
-      organizationId: persona.organizationId,
-      teamId: persona.teamId,
-      version: persona.version || 1,
-      parentPersonaId: persona.parentPersonaId,
-      tags: persona.tags || [],
-      validation: persona.validation,
-      usageStats: persona.usageStats,
-      configuration: persona.configuration || {
-        maxTokens: 4000,
-        temperature: 0.7,
-        topP: 0.9,
-        frequencyPenalty: 0,
-        presencePenalty: 0,
-        stopSequences: [],
-      },
-      capabilities: persona.capabilities || [],
-      restrictions: persona.restrictions || {
-        allowedTopics: [],
-        forbiddenTopics: [],
-        requiresApproval: false,
-      },
-      // Add missing required properties from PersonaEntity
-      totalInteractions: 0,
-      successfulInteractions: 0,
-      discussionParticipants: [] as unknown[],
-      analytics: [] as unknown[],
-      // Optional properties with defaults
-      qualityScore: undefined as number | undefined,
-      consistencyScore: undefined as number | undefined,
-      userSatisfaction: undefined as number | undefined,
-      lastUsedAt: undefined as Date | undefined,
-      lastUpdatedBy: undefined as string | undefined,
-      // Hybrid persona properties (optional)
-      tone: undefined as PersonaTone | undefined,
-      style: undefined as PersonaStyle | undefined,
-      energyLevel: undefined as PersonaEnergyLevel | undefined,
-      chattiness: undefined as number | undefined,
-      empathyLevel: undefined as number | undefined,
-      parentPersonas: undefined as string[] | undefined,
-      hybridTraits: undefined as string[] | undefined,
-      dominantExpertise: persona.expertise?.[0]?.name,
-      personalityBlend: undefined as Record<string, number> | undefined,
-
-      createdAt: persona.createdAt || new Date(),
-      updatedAt: persona.updatedAt || new Date(),
-      metadata: persona.metadata || {},
-    }));
+    return allPersonasFlat.map((persona: Persona, index: number) => {
+      const record: any = {
+        name: persona.name,
+        role: persona.role,
+        description: persona.description,
+        background: persona.background,
+        systemPrompt: persona.systemPrompt,
+        traits: persona.traits || [],
+        expertise: persona.expertise?.map((e) => e.name) || [],
+        conversationalStyle: persona.conversationalStyle,
+        status: (persona.status || 'draft') as PersonaStatus,
+        visibility: (persona.visibility || 'private') as PersonaVisibility,
+        createdBy: this.users[index % this.users.length]?.id || '00000000-0000-0000-0000-000000000000',
+        organizationId: persona.organizationId || null,
+        teamId: persona.teamId || null,
+        version: persona.version || 1,
+        parentPersonaId: persona.parentPersonaId || null,
+        tags: persona.tags || [],
+        validation: persona.validation || null,
+        usageStats: persona.usageStats || null,
+        configuration: persona.configuration || {
+          maxTokens: 4000,
+          temperature: 0.7,
+          topP: 0.9,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          stopSequences: [],
+        },
+        capabilities: persona.capabilities || [],
+        restrictions: persona.restrictions || {
+          allowedTopics: [],
+          forbiddenTopics: [],
+          requiresApproval: false,
+        },
+        totalInteractions: 0,
+        successfulInteractions: 0,
+        qualityScore: null,
+        consistencyScore: null,
+        userSatisfaction: null,
+        lastUsedAt: null,
+        lastUpdatedBy: null,
+        tone: null,
+        style: null,
+        energyLevel: null,
+        chattiness: null,
+        empathyLevel: null,
+        parentPersonas: null,
+        hybridTraits: null,
+        dominantExpertise: persona.expertise?.[0]?.name || null,
+        personalityBlend: null,
+        createdAt: persona.createdAt || new Date(),
+        updatedAt: persona.updatedAt || new Date(),
+        metadata: persona.metadata || {},
+      };
+      return record;
+    });
   }
 }

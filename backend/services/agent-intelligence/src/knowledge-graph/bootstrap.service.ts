@@ -1,5 +1,6 @@
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { SimplifiedSyncService, SimplifiedSyncResult } from './simplified-sync.service.js';
+import { KnowledgeItem } from '@uaip/types';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { ToolGraphDatabase } from '@uaip/shared-services';
@@ -81,8 +82,7 @@ export class KnowledgeBootstrapService {
       knowledgeRepository,
       qdrantService,
       graphDb,
-      embeddingService,
-      null // Temporarily disable user repository
+      embeddingService
     );
 
     this.simplifiedSyncService = new SimplifiedSyncService(
@@ -547,7 +547,7 @@ export class KnowledgeBootstrapService {
 
       // Detect conflicts across all knowledge
       const conflicts = await this.reconciliationService.detectConflicts(
-        await this.knowledgeRepository.findRecentItems(200),
+        await this.knowledgeRepository.findRecentItems(200) as unknown as KnowledgeItem[],
         {
           similarityThreshold: 0.85,
           maxConflictsPerBatch: 50,
@@ -594,7 +594,7 @@ export class KnowledgeBootstrapService {
           if (items.length >= 10) {
             // Minimum items for meaningful taxonomy
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-            const result = await this.taxonomyGenerator.generateTaxonomy(items, domain, {
+            const result = await this.taxonomyGenerator.generateTaxonomy(items as unknown as KnowledgeItem[], domain, {
               maxCategories: 15,
               minCategorySize: 2,
               autoClassify: true,
@@ -824,9 +824,9 @@ export class KnowledgeBootstrapService {
       logger.info('Running knowledge reconciliation...', { domain });
 
       // Get knowledge items for the domain
-      const items = domain
+      const items = (domain
         ? await this.knowledgeRepository.findByDomain(domain)
-        : await this.knowledgeRepository.findRecentItems(100);
+        : await this.knowledgeRepository.findRecentItems(100)) as unknown as KnowledgeItem[];
 
       logger.info(`Found ${items.length} knowledge items for reconciliation`);
 

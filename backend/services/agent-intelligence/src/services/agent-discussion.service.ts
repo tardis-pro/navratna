@@ -143,23 +143,25 @@ export class AgentDiscussionService {
     // Set up LLM event subscriptions
     await this.setupLLMEventSubscriptions();
 
-    // Initialize QMD and Macrodata services using the shared typeorm DataSource
     try {
-      const { typeormService } = await import('@uaip/infra/database');
-      const ds = typeormService.getDataSource();
-      if (ds) {
-        const { getKnowledgeGraphService } = await import('@uaip/shared-services');
-        const kgs = await getKnowledgeGraphService();
-        const kgsRecord = toRecord(kgs as unknown);
-        const vectorDb = kgsRecord.vectorDb;
-        const embeddings = kgsRecord.embeddings;
-        if (vectorDb instanceof QdrantService && embeddings instanceof EmbeddingService) {
-          this.qmdSearchService = new QmdSearchService(ds, vectorDb, embeddings);
-          logger.info('QmdSearchService initialized for hybrid BM25+vector memory search');
-        }
-        this.macrodataMemoryService = new MacrodataMemoryService(ds);
-        logger.info('MacrodataMemoryService initialized for layered agent memory');
+      const { getIntelligencePool, getKnowledgeGraphService } = await import('@uaip/shared-services');
+      const pool = getIntelligencePool();
+      const pgQueryExecutor = {
+        query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+          const result = await pool.query(sql, params as unknown[]);
+          return result.rows;
+        },
+      };
+      const kgs = await getKnowledgeGraphService();
+      const kgsRecord = toRecord(kgs as unknown);
+      const vectorDb = kgsRecord.vectorDb;
+      const embeddings = kgsRecord.embeddings;
+      if (vectorDb instanceof QdrantService && embeddings instanceof EmbeddingService) {
+        this.qmdSearchService = new QmdSearchService(pgQueryExecutor, vectorDb, embeddings);
+        logger.info('QmdSearchService initialized for hybrid BM25+vector memory search');
       }
+      this.macrodataMemoryService = new MacrodataMemoryService(pgQueryExecutor);
+      logger.info('MacrodataMemoryService initialized for layered agent memory');
     } catch (err) {
       logger.warn('QMD/Macrodata init skipped (non-fatal)', {
         error: err instanceof Error ? err.message : String(err),

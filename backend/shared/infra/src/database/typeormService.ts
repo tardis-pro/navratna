@@ -1,14 +1,4 @@
-import {
-  DataSource,
-  EntityManager,
-  Repository,
-  QueryRunner,
-  EntityTarget,
-  ObjectLiteral,
-  SelectQueryBuilder,
-  MixedList,
-  EntitySchema,
-} from 'typeorm';
+import { Pool } from 'pg';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
 
@@ -20,7 +10,7 @@ const logger = createLogger({
 
 export class TypeOrmService {
   private static instance: TypeOrmService;
-  private _dataSource: DataSource | null = null;
+  private pool: Pool | null = null;
 
   private constructor() {}
 
@@ -31,32 +21,25 @@ export class TypeOrmService {
     return TypeOrmService.instance;
   }
 
-  public async initialize(
-    entities: MixedList<string | Function | EntitySchema> = []
-  ): Promise<void> {
+  public async initialize(): Promise<void> {
     try {
-      const pg = config.database.postgres;
-      this._dataSource = new DataSource({
-        type: 'postgres',
-        host: pg.host,
-        port: pg.port,
-        username: pg.user,
-        password: pg.password,
-        database: pg.database,
-        synchronize: false,
-        logging: false,
-        entities: entities,
-        migrations: [],
-        subscribers: [],
-        ssl: pg.ssl ? { rejectUnauthorized: false } : false,
-        extra: {
-          max: pg.maxConnections,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 5000,
-        },
+      const pgConfig = config.database.postgres;
+      this.pool = new Pool({
+        host: pgConfig.host,
+        port: pgConfig.port,
+        user: pgConfig.user,
+        password: pgConfig.password,
+        database: pgConfig.database,
+        ssl: pgConfig.ssl ? { rejectUnauthorized: false } : false,
+        max: pgConfig.maxConnections,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
       });
 
-      await this._dataSource.initialize();
+      // Test connection
+      const client = await this.pool.connect();
+      client.release();
+      
       logger.info('TypeORM service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize TypeORM service', {
@@ -67,44 +50,75 @@ export class TypeOrmService {
   }
 
   public async close(): Promise<void> {
-    if (this._dataSource && this._dataSource.isInitialized) {
-      await this._dataSource.destroy();
-      this._dataSource = null;
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
       logger.info('TypeORM service closed');
     }
   }
 
-  public getDataSource(): DataSource {
-    if (!this._dataSource) {
+  public getDataSource(): never {
+    throw new Error(
+      'getDataSource() is not supported in pg-based implementation. ' +
+      'Use getEntityManager().query() for raw SQL operations.'
+    );
+  }
+
+  public getRepository(): never {
+    throw new Error(
+      'getRepository() requires TypeORM. Use executeQuery() or getEntityManager().query() instead.'
+    );
+  }
+
+  public getEntityManager(): { query: (sql: string, params?: unknown[]) => Promise<unknown[]> } {
+    if (!this.pool) {
       throw new Error('TypeORM service not initialized. Call initialize() first.');
     }
-    return this._dataSource;
+
+    return {
+      query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+        const client = await this.pool!.connect();
+        try {
+          const result = await client.query(sql, params);
+          return result.rows;
+        } finally {
+          client.release();
+        }
+      },
+    };
   }
 
-  public get dataSource(): DataSource {
-    return this.getDataSource();
-  }
+  public async transaction<T>(
+    runInTransaction: (manager: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<T>
+  ): Promise<T> {
+    if (!this.pool) {
+      throw new Error('TypeORM service not initialized. Call initialize() first.');
+    }
 
-  public getRepository<Entity extends ObjectLiteral>(
-    entity: EntityTarget<Entity>
-  ): Repository<Entity> {
-    return this.getDataSource().getRepository(entity);
-  }
-
-  public getQueryRunner(): QueryRunner {
-    return this.getDataSource().createQueryRunner();
-  }
-
-  public createQueryBuilder<Entity extends ObjectLiteral>(
-    entity: EntityTarget<Entity>,
-    alias: string
-  ): SelectQueryBuilder<Entity> {
-    return this.getDataSource().getRepository(entity).createQueryBuilder(alias);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const manager = {
+        query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+          const result = await client.query(sql, params);
+          return result.rows;
+        },
+      };
+      const result = await runInTransaction(manager);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   public async query(sql: string, parameters?: unknown[]): Promise<unknown> {
     try {
-      return await this.getDataSource().query(sql, parameters);
+      const manager = this.getEntityManager();
+      return await manager.query(sql, parameters);
     } catch (error) {
       logger.error('Raw query execution failed', {
         sql,
@@ -114,20 +128,18 @@ export class TypeOrmService {
     }
   }
 
-  public async transaction<T>(
-    runInTransaction: (manager: EntityManager) => Promise<T>
-  ): Promise<T> {
-    return this.getDataSource().transaction(runInTransaction);
-  }
-
   public async isHealthy(): Promise<boolean> {
     try {
-      const ds = this.getDataSource();
-      if (!ds.isInitialized) {
+      if (!this.pool) {
         return false;
       }
-      await ds.query('SELECT 1');
-      return true;
+      const client = await this.pool.connect();
+      try {
+        await client.query('SELECT 1');
+        return true;
+      } finally {
+        client.release();
+      }
     } catch (error) {
       logger.error('Database health check failed', {
         error: error instanceof Error ? error.message : 'Unknown',
@@ -136,22 +148,32 @@ export class TypeOrmService {
     }
   }
 
-  public getEntityManager() {
-    return this.getDataSource().manager;
-  }
-
   public async healthCheck(): Promise<{
     status: 'healthy' | 'unhealthy';
     database: string;
     connected: boolean;
   }> {
     try {
-      const ds = this.getDataSource();
-      return {
-        status: ds.isInitialized ? 'healthy' : 'unhealthy',
-        database: ds.options.database as string,
-        connected: ds.isInitialized,
-      };
+      if (!this.pool) {
+        return {
+          status: 'unhealthy',
+          database: 'unknown',
+          connected: false,
+        };
+      }
+
+      const pgConfig = config.database.postgres;
+      const client = await this.pool.connect();
+      try {
+        await client.query('SELECT 1');
+        return {
+          status: 'healthy',
+          database: pgConfig.database,
+          connected: true,
+        };
+      } finally {
+        client.release();
+      }
     } catch {
       return {
         status: 'unhealthy',
@@ -162,7 +184,11 @@ export class TypeOrmService {
   }
 
   public getDatabase(): string | undefined {
-    return this._dataSource?.options.database as string | undefined;
+    return config.database.postgres.database;
+  }
+
+  public getPool(): Pool | null {
+    return this.pool;
   }
 }
 

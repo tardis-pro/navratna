@@ -1,14 +1,163 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from './typeormService';
-import {
-  EntityTarget,
-  ObjectLiteral,
-  Repository,
-  FindManyOptions,
-  FindOptionsWhere,
-  DeepPartial as _DeepPartial,
-  FindOptionsWhere as _FindOptionsWhere,
-} from 'typeorm';
+import { getControlPool, getIntelligencePool } from './database/drizzle/clients/index';
+
+type EntityTarget<T> = (new () => T) | string;
+type ObjectLiteral = Record<string, unknown>;
+type Repository<T extends ObjectLiteral> = DrizzleRepository<T>;
+type FindManyOptions<T = ObjectLiteral> = { where?: Partial<T>; order?: Partial<Record<keyof T, 'ASC' | 'DESC'>>; take?: number; skip?: number };
+type FindOptionsWhere<T = ObjectLiteral> = Partial<T>;
+
+const INTELLIGENCE_TABLES = new Set(['agents','personas','discussions','discussion_participants','discussion_messages','artifacts','artifact_reviews','artifact_deployments','knowledge_items','knowledge_relationships','llm_providers','llm_models']);
+
+class DrizzleRepository<T extends ObjectLiteral> {
+  constructor(private readonly table: string) {}
+
+  private get pool() {
+    return INTELLIGENCE_TABLES.has(this.table) ? getIntelligencePool() : getControlPool();
+  }
+
+  async findOne(opts: { where?: Partial<T>; select?: (keyof T)[] }): Promise<T | null> {
+    const keys = Object.keys(opts.where ?? {});
+    const vals = Object.values(opts.where ?? {});
+    let q = `SELECT * FROM "${this.table}"`;
+    if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
+    q += ' LIMIT 1';
+    const result = await this.pool.query<T>(q, vals);
+    return result.rows[0] ?? null;
+  }
+
+  async find(opts?: { where?: Partial<T>; order?: Partial<Record<string, string>>; take?: number; skip?: number }): Promise<T[]> {
+    const keys = Object.keys(opts?.where ?? {});
+    const vals: unknown[] = Object.values(opts?.where ?? {});
+    let q = `SELECT * FROM "${this.table}"`;
+    if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
+    if (opts?.order) {
+      const clauses = Object.entries(opts.order).map(([c, d]) => `"${c}" ${d}`).join(', ');
+      q += ` ORDER BY ${clauses}`;
+    }
+    if (opts?.take) q += ` LIMIT ${opts.take}`;
+    if (opts?.skip) q += ` OFFSET ${opts.skip}`;
+    const result = await this.pool.query<T>(q, vals);
+    return result.rows;
+  }
+
+  async count(opts?: { where?: Partial<T> }): Promise<number> {
+    const keys = Object.keys(opts?.where ?? {});
+    const vals: unknown[] = Object.values(opts?.where ?? {});
+    let q = `SELECT COUNT(*)::int AS cnt FROM "${this.table}"`;
+    if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
+    const result = await this.pool.query<{ cnt: number }>(q, vals);
+    return result.rows[0]?.cnt ?? 0;
+  }
+
+  async save(entity: Partial<T>): Promise<T> {
+    const rec = entity as Record<string, unknown>;
+    if (rec.id) {
+      const keys = Object.keys(rec).filter(k => k !== 'id');
+      const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
+      const vals: unknown[] = [rec.id, ...keys.map(k => rec[k])];
+      const result = await this.pool.query<T>(`UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1 RETURNING *`, vals);
+      return result.rows[0];
+    }
+    const keys = Object.keys(rec);
+    const cols = keys.map(k => `"${k}"`).join(', ');
+    const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
+    const vals = keys.map(k => rec[k]);
+    const result = await this.pool.query<T>(`INSERT INTO "${this.table}" (${cols}) VALUES (${placeholders}) RETURNING *`, vals);
+    return result.rows[0];
+  }
+
+  async update(id: string, data: Partial<T>): Promise<void> {
+    const keys = Object.keys(data as Record<string, unknown>);
+    if (keys.length === 0) return;
+    const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
+    const vals: unknown[] = [id, ...keys.map(k => (data as Record<string, unknown>)[k])];
+    await this.pool.query(`UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1`, vals);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.pool.query(`DELETE FROM "${this.table}" WHERE id = $1`, [id]);
+  }
+
+  createQueryBuilder(_alias?: string): DrizzleQueryBuilder<T> {
+    return new DrizzleQueryBuilder<T>(this.table, this.pool);
+  }
+}
+
+class DrizzleQueryBuilder<T extends ObjectLiteral> {
+  private conditions: string[] = [];
+  private params: unknown[] = [];
+  private orderClauses: string[] = [];
+  private limitVal?: number;
+  private offsetVal?: number;
+  private selects: string[] = ['*'];
+
+  constructor(private readonly table: string, private readonly pool: import('pg').Pool) {}
+
+  where(condition: string, params?: Record<string, unknown>): this {
+    this.conditions = [this.substituteParams(condition, params)];
+    return this;
+  }
+  andWhere(condition: string, params?: Record<string, unknown>): this {
+    this.conditions.push(this.substituteParams(condition, params));
+    return this;
+  }
+  orderBy(col: string, dir: string): this { this.orderClauses.push(`"${col.replace(/^[^.]+\./, '')}" ${dir}`); return this; }
+  skip(n: number): this { this.offsetVal = n; return this; }
+  take(n: number): this { this.limitVal = n; return this; }
+  select(cols: string[]): this { this.selects = cols; return this; }
+  addSelect(expr: string, alias?: string): this { this.selects.push(alias ? `${expr} AS ${alias}` : expr); return this; }
+
+  private substituteParams(cond: string, params?: Record<string, unknown>): string {
+    if (!params) return cond;
+    let result = cond;
+    for (const [key, val] of Object.entries(params)) {
+      const idx = this.params.length + 1;
+      if (Array.isArray(val)) {
+        const placeholders = val.map((_v, i) => `$${idx + i}`);
+        this.params.push(...val);
+        result = result.replace(new RegExp(`:${key}\\b|\\.\\.\\.${key}\\b|\\(:${key}\\)|\\(\\.\\.\\.${key}\\)`, 'g'), `(${placeholders.join(',')})`);
+      } else {
+        this.params.push(val);
+        result = result.replace(new RegExp(`:${key}\\b`, 'g'), `$${idx}`);
+      }
+    }
+    return result;
+  }
+
+  private buildQuery(countOnly = false): string {
+    const sel = countOnly ? 'COUNT(*)::int AS count' : this.selects.join(', ');
+    let q = `SELECT ${sel} FROM "${this.table}"`;
+    if (this.conditions.length) q += ` WHERE ${this.conditions.join(' AND ')}`;
+    if (!countOnly) {
+      if (this.orderClauses.length) q += ` ORDER BY ${this.orderClauses.join(', ')}`;
+      if (this.limitVal != null) q += ` LIMIT ${this.limitVal}`;
+      if (this.offsetVal != null) q += ` OFFSET ${this.offsetVal}`;
+    }
+    return q;
+  }
+
+  async getMany(): Promise<T[]> {
+    const result = await this.pool.query<T>(this.buildQuery(), this.params);
+    return result.rows;
+  }
+
+  async getOne(): Promise<T | null> {
+    this.limitVal = 1;
+    const result = await this.pool.query<T>(this.buildQuery(), this.params);
+    return result.rows[0] ?? null;
+  }
+
+  async getCount(): Promise<number> {
+    const result = await this.pool.query<{ count: number }>(this.buildQuery(true), this.params);
+    return result.rows[0]?.count ?? 0;
+  }
+
+  async getRawMany(): Promise<Record<string, unknown>[]> {
+    const result = await this.pool.query(this.buildQuery(), this.params);
+    return result.rows;
+  }
+}
 import { UserService } from './services/UserService';
 import { ToolService } from './services/ToolService';
 import { AgentService } from './services/AgentService';
@@ -28,11 +177,7 @@ import { KnowledgeRepository } from './database/repositories/knowledge.repositor
 import { QdrantService } from './qdrant.service';
 import { ToolGraphDatabase } from './database/toolGraphDatabase';
 import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service';
-import { Persona } from './entities/persona.entity';
-import { AgentCapabilityMetric } from './entities/agentCapabilityMetric.entity';
-import { PersonaAnalytics as _PersonaAnalytics } from './entities/personaAnalytics.entity';
-import { ConversationContext as _ConversationContext } from './entities/conversationContext.entity';
-import { Discussion as _Discussion } from './entities/discussion.entity';
+
 
 // Database error handling
 export class DatabaseError extends Error {
@@ -59,7 +204,6 @@ export class DatabaseError extends Error {
  */
 export class DatabaseService {
   private static instance: DatabaseService;
-  private typeormService: TypeOrmService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
   private logger = logger;
@@ -86,8 +230,6 @@ export class DatabaseService {
   private _smartEmbeddingService: SmartEmbeddingService | null = null;
 
   constructor() {
-    this.typeormService = TypeOrmService.getInstance();
-
     // Initialize domain services
     this.userService = UserService.getInstance();
     this.toolService = ToolService.getInstance();
@@ -114,13 +256,15 @@ export class DatabaseService {
 
   private async ensureInitialized(): Promise<void> {
     if (!this.isInitialized) {
-      await this.initializeConnection();
+      // Drizzle uses connection pools that are initialized on demand
+      this.isInitialized = true;
+      logger.info('Database connection initialized successfully');
     }
   }
 
   private async initializeConnection(): Promise<void> {
     try {
-      await this.typeormService.initialize();
+      // Drizzle connection pools are initialized on first use
       this.isInitialized = true;
       logger.info('Database connection initialized successfully');
     } catch (error) {
@@ -133,15 +277,7 @@ export class DatabaseService {
   public async getKnowledgeRepository(): Promise<KnowledgeRepository> {
     if (!this._knowledgeRepository) {
       await this.ensureInitialized();
-      const dataSource = this.typeormService.getDataSource();
-      const { KnowledgeItemEntity } = await import('./entities/knowledge-item.entity');
-      const { KnowledgeRelationshipEntity } =
-        await import('./entities/knowledge-relationship.entity');
-
-      this._knowledgeRepository = new KnowledgeRepository(
-        dataSource.getRepository(KnowledgeItemEntity),
-        dataSource.getRepository(KnowledgeRelationshipEntity)
-      );
+      this._knowledgeRepository = new KnowledgeRepository();
     }
     return this._knowledgeRepository;
   }
@@ -188,17 +324,10 @@ export class DatabaseService {
 
   private async runDatabaseSeedingAndSync(): Promise<void> {
     try {
-      this.logger.info('Starting database migrations and seeding process...');
+      this.logger.info('Starting database seeding process...');
 
-      // Run database migrations first
-      const dataSource = this.typeormService.getDataSource();
-      this.logger.info('Running database migrations...');
-      await dataSource.runMigrations();
-      this.logger.info('Database migrations completed successfully');
-
-      // Run database seeding
-      this.logger.info('Starting database seeding...');
-      await seedDatabase(dataSource);
+      // Run database seeding (Drizzle-based, no migrations needed)
+      await seedDatabase();
 
       // Initialize knowledge graph services
       const knowledgeRepository = await this.getKnowledgeRepository();
@@ -225,19 +354,19 @@ export class DatabaseService {
         error: seedError.message,
         stack: seedError.stack,
       });
-      // Don't throw the error - allow service to continue without seeding
-      // This prevents the entire service from failing due to seeding issues
     }
   }
 
   public async getDataSource() {
     await this.ensureInitialized();
-    return this.typeormService.getDataSource();
+    throw new Error('TypeORM DataSource has been removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
   }
 
   public async isHealthy(): Promise<boolean> {
     try {
-      return await this.typeormService.isHealthy();
+      const pool = getIntelligencePool();
+      await pool.query('SELECT 1');
+      return true;
     } catch (error) {
       logger.error('Database health check failed:', error);
       return false;
@@ -253,7 +382,7 @@ export class DatabaseService {
     this.isClosing = true;
 
     try {
-      await this.typeormService.close();
+      // Drizzle pools are managed automatically, but we can end them if needed
       logger.info('Database disconnected successfully');
     } catch (error) {
       logger.error('Failed to disconnect database:', error);
@@ -279,25 +408,25 @@ export class DatabaseService {
 
   // OAuth-related delegations
   public getOAuthProviderRepository() {
-    return this.oauthService.getOAuthProviderRepository();
+    return new DrizzleRepository('oauth_providers');
   }
 
   public getOAuthStateRepository() {
-    return this.oauthService.getOAuthStateRepository();
+    return new DrizzleRepository('oauth_states');
   }
 
   public getAgentOAuthConnectionRepository() {
-    return this.oauthService.getAgentOAuthConnectionRepository();
+    return new DrizzleRepository('agent_oauth_connections');
   }
 
   // MFA-related delegations
   public getMFAChallengeRepository() {
-    return this.mfaService.getMFAChallengeRepository();
+    return new DrizzleRepository('mfa_challenges');
   }
 
   // Session-related delegations
   public getSessionRepository() {
-    return this.sessionService.getSessionRepository();
+    return new DrizzleRepository('sessions');
   }
 
   // Tool-related delegations
@@ -322,41 +451,37 @@ export class DatabaseService {
     return this.agentService.getAgentRepository();
   }
 
-  public getPersonaRepository(): Repository<Persona> {
-    return this.typeormService.getRepository(Persona);
+  public getPersonaRepository(): Repository<Record<string, unknown>> {
+    return new DrizzleRepository('personas');
   }
 
   public getCapabilityRepository() {
     return this.agentService.getCapabilityRepository();
   }
 
-  public getAgentCapabilityMetricRepository(): Repository<AgentCapabilityMetric> {
-    return this.typeormService.getRepository(AgentCapabilityMetric);
+  public getAgentCapabilityMetricRepository(): Repository<Record<string, unknown>> {
+    return new DrizzleRepository('agent_capability_metrics');
   }
 
   public getPersonaAnalyticsRepository() {
-    // TODO: Implement persona analytics repository
-    return this.typeormService.getRepository('persona_analytics' as EntityTarget<ObjectLiteral>);
+    return new DrizzleRepository('persona_analytics');
   }
 
   public getConversationContextRepository() {
-    // TODO: Implement conversation context repository
-    return this.typeormService.getRepository(
-      'conversation_contexts' as EntityTarget<ObjectLiteral>
-    );
+    return new DrizzleRepository('conversation_contexts');
   }
 
   // Project-related delegations
   public getProjectRepository() {
-    return this.projectService.getProjectRepository();
+    return new DrizzleRepository('projects');
   }
 
   public getProjectMemberRepository() {
-    return this.projectService.getProjectMemberRepository();
+    return new DrizzleRepository('project_members');
   }
 
   public getProjectFileRepository() {
-    return this.projectService.getProjectFileRepository();
+    return new DrizzleRepository('project_files');
   }
 
   // Operation-related delegations
@@ -394,10 +519,9 @@ export class DatabaseService {
     return this.auditService.getAuditRepository();
   }
 
-  // Discussion-related delegations (placeholder for now)
+  // Discussion-related delegations
   public getDiscussionRepository() {
-    // TODO: Implement proper discussion repository when DiscussionService is refactored
-    return this.typeormService.getRepository('discussions' as EntityTarget<ObjectLiteral>);
+    return new DrizzleRepository('discussions');
   }
 
   // Artifact-related delegations
@@ -483,13 +607,6 @@ export class DatabaseService {
   }
 
   public getMCPService(): MCPService {
-    // Initialize the MCP service with the dataSource if not already done
-    try {
-      const dataSource = this.typeormService.getDataSource();
-      this.mcpService.setDataSource(dataSource);
-    } catch (error) {
-      logger.warn('DataSource not available for MCP service:', error);
-    }
     return this.mcpService;
   }
 
@@ -523,25 +640,31 @@ export class DatabaseService {
 
   // Legacy compatibility methods
   public async getRepository<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>
+    entityName: string
   ): Promise<Repository<T>> {
     await this.ensureInitialized();
-    return this.typeormService.getDataSource().getRepository(entityClass);
+    return new DrizzleRepository(entityName);
   }
 
   public get dataSource() {
-    return this.typeormService.getDataSource();
+    throw new Error('TypeORM DataSource has been removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
   }
 
   // Health check method
   public async healthCheck(): Promise<unknown> {
-    return await this.typeormService.healthCheck();
+    try {
+      const pool = getIntelligencePool();
+      await pool.query('SELECT 1');
+      return { status: 'healthy', timestamp: new Date().toISOString() };
+    } catch (error) {
+      return { status: 'unhealthy', error: String(error), timestamp: new Date().toISOString() };
+    }
   }
 
   // Close method
   public async close(): Promise<void> {
     this.isClosing = true;
-    await this.typeormService.close();
+    this.isInitialized = false;
   }
 
   // Enhanced database operations from database/DatabaseService.ts
@@ -550,9 +673,9 @@ export class DatabaseService {
    * Bulk insert with conflict resolution
    */
   public async bulkInsert<T extends ObjectLiteral>(
-    entity: EntityTarget<T>,
+    tableName: string,
     records: Partial<T>[],
-    options?: {
+    _options?: {
       onConflict?: 'ignore' | 'update';
       conflictColumns?: string[];
       updateColumns?: string[];
@@ -565,48 +688,39 @@ export class DatabaseService {
     }
 
     try {
-      const repository = this.typeormService.getRepository(entity);
+      const pool = INTELLIGENCE_TABLES.has(tableName) ? getIntelligencePool() : getControlPool();
 
-      if (options?.onConflict === 'ignore') {
-        // Use upsert with ignore
-        await repository
-          .createQueryBuilder()
-          .insert()
-          .into(entity)
-          .values(records)
-          .orIgnore()
-          .execute();
-      } else if (
-        options?.onConflict === 'update' &&
-        options.conflictColumns &&
-        options.updateColumns
-      ) {
-        // Use upsert with update
-        const queryBuilder = repository.createQueryBuilder().insert().into(entity).values(records);
-
-        const updateColumns = options.updateColumns;
-
-        await queryBuilder.orUpdate(updateColumns, options.conflictColumns).execute();
+      if (records.length === 1) {
+        const keys = Object.keys(records[0]);
+        const cols = keys.map(k => `"${k}"`).join(', ');
+        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+        const vals = keys.map(k => (records[0] as Record<string, unknown>)[k]);
+        await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`, vals);
       } else {
-        // Simple insert
-        await repository.save(records as _DeepPartial<T>[]);
+        const keys = Object.keys(records[0]);
+        const cols = keys.map(k => `"${k}"`).join(', ');
+        const valuesClauses = records.map((rec, idx) => {
+          const placeholders = keys.map((_, i) => `$${idx * keys.length + i + 1}`).join(', ');
+          return `(${placeholders})`;
+        }).join(', ');
+        const vals = records.flatMap(rec => keys.map(k => (rec as Record<string, unknown>)[k]));
+        await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES ${valuesClauses}`, vals);
       }
 
       logger.info('Bulk insert completed', {
-        entity: entity.toString(),
+        table: tableName,
         recordCount: records.length,
-        conflictResolution: options?.onConflict,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Bulk insert failed', {
-        entity: entity.toString(),
+        table: tableName,
         recordCount: records.length,
         error: errorMessage,
       });
       throw new DatabaseError('Bulk insert operation failed', {
         code: 'BULK_INSERT_ERROR',
-        details: { entity: entity.toString(), recordCount: records.length },
+        details: { table: tableName, recordCount: records.length },
         originalError: errorMessage,
       });
     }
@@ -619,16 +733,8 @@ export class DatabaseService {
     try {
       logger.info('Starting database seeding...');
 
-      const dataSource = this.typeormService.getDataSource();
-
-      if (!dataSource.isInitialized) {
-        throw new Error('DataSource not initialized');
-      }
-
-      // Use the existing DatabaseSeeder infrastructure
-      const { DatabaseSeeder } = await import('./database/seeders/DatabaseSeeder');
-      const seeder = new DatabaseSeeder(dataSource);
-      await seeder.seedAll();
+      // Call the seedDatabase function without arguments (handles its own DataSource)
+      await seedDatabase();
 
       logger.info('Database seeding completed successfully');
     } catch (error) {
@@ -645,25 +751,25 @@ export class DatabaseService {
    */
   public async vacuum(tableName?: string): Promise<void> {
     await this.ensureInitialized();
-    const manager = this.typeormService.getEntityManager();
+    const pool = getControlPool();
     const query = tableName ? `VACUUM ${tableName}` : 'VACUUM';
-    await manager.query(query);
+    await pool.query(query);
     logger.info('Database vacuum completed', { tableName });
   }
 
   public async analyze(tableName?: string): Promise<void> {
     await this.ensureInitialized();
-    const manager = this.typeormService.getEntityManager();
+    const pool = getControlPool();
     const query = tableName ? `ANALYZE ${tableName}` : 'ANALYZE';
-    await manager.query(query);
+    await pool.query(query);
     logger.info('Database analyze completed', { tableName });
   }
 
   public async reindex(indexName?: string): Promise<void> {
     await this.ensureInitialized();
-    const manager = this.typeormService.getEntityManager();
+    const pool = getControlPool();
     const query = indexName ? `REINDEX INDEX ${indexName}` : 'REINDEX DATABASE';
-    await manager.query(query);
+    await pool.query(query);
     logger.info('Database reindex completed', { indexName });
   }
 
@@ -671,7 +777,7 @@ export class DatabaseService {
    * Get entity manager for advanced operations
    */
   public getEntityManager() {
-    return this.typeormService.getEntityManager();
+    return getControlPool();
   }
 
   /**
@@ -680,8 +786,9 @@ export class DatabaseService {
   public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
-      const result = await this.typeormService.getEntityManager().query(query, parameters);
-      return result;
+      const pool = getControlPool();
+      const result = await pool.query(query, parameters);
+      return result.rows as T[];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Query execution failed', { query, error: errorMessage });
@@ -781,70 +888,66 @@ export class DatabaseService {
 
   // Generic CRUD methods for backward compatibility
   public async create<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
+    tableName: string,
     data: Partial<T>
   ): Promise<T> {
     await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    const entity = repository.create(data as _DeepPartial<T>) as T;
-    return await repository.save(entity);
+    const repository = new DrizzleRepository<T>(tableName);
+    return await repository.save(data);
   }
 
-  public async findById<T>(
-    entityClass: EntityTarget<ObjectLiteral>,
+  public async findById<T extends ObjectLiteral>(
+    tableName: string,
     id: string,
-    relations?: string[]
+    _relations?: string[]
   ): Promise<T | null> {
     await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    return (await repository.findOne({
-      where: { id } as FindOptionsWhere<ObjectLiteral>,
-      relations,
-    })) as T | null;
+    const repository = new DrizzleRepository<T>(tableName);
+    return await repository.findOne({ where: { id } as unknown as Partial<T> });
   }
 
-  public async update<T>(
-    entityClass: EntityTarget<ObjectLiteral>,
+  public async update<T extends ObjectLiteral>(
+    tableName: string,
     id: string,
     data: Partial<T>
   ): Promise<T | null> {
     await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    await repository.update(id, data as ObjectLiteral);
-    return (await repository.findOne({
-      where: { id } as FindOptionsWhere<ObjectLiteral>,
-    })) as T | null;
+    const repository = new DrizzleRepository<T>(tableName);
+    await repository.update(id, data);
+    return await repository.findOne({ where: { id } as unknown as Partial<T> });
   }
 
   public async delete<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
+    tableName: string,
     id: string
   ): Promise<boolean> {
     await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    const result = await repository.delete(id);
-    return (result.affected ?? 0) > 0;
+    const repository = new DrizzleRepository<T>(tableName);
+    await repository.delete(id);
+    return true;
   }
 
-  public async findMany<T>(
-    entityClass: EntityTarget<ObjectLiteral>,
-    conditions: FindOptionsWhere<ObjectLiteral>,
-    options?: FindManyOptions<ObjectLiteral>
+  public async findMany<T extends ObjectLiteral>(
+    tableName: string,
+    conditions: Partial<Record<string, unknown>>,
+    options?: { order?: Partial<Record<string, string>>; take?: number; skip?: number }
   ): Promise<T[]> {
     await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    return (await repository.find({
-      where: conditions,
-      ...options,
-    })) as T[];
+    const repository = new DrizzleRepository<T>(tableName);
+    return await repository.find({
+      where: conditions as Partial<T>,
+      order: options?.order,
+      take: options?.take,
+      skip: options?.skip,
+    });
   }
 
   public async count(
-    entityClass: EntityTarget<ObjectLiteral>,
-    conditions?: FindOptionsWhere<ObjectLiteral>
+    tableName: string,
+    conditions?: Partial<Record<string, unknown>>
   ): Promise<number> {
     await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
+    const repository = new DrizzleRepository(tableName);
     return await repository.count({ where: conditions });
   }
 
@@ -861,9 +964,10 @@ export class DatabaseService {
   }
 
   // Security validation methods (placeholders until implemented)
-  public async createApprovalWorkflow(data: unknown): Promise<unknown> {
+  public async createApprovalWorkflow(data: Record<string, unknown>): Promise<unknown> {
     await this.ensureInitialized();
-    return this.security.getApprovalWorkflowRepository().create(data);
+    const repo = this.security.getApprovalWorkflowRepository();
+    return repo.create(data);
   }
 
   public async getUserAuthDetails(userId: string): Promise<unknown> {

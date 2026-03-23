@@ -11,10 +11,6 @@ import {
   UnifiedSelectionRequest,
 } from './services/UnifiedModelSelectionFacade';
 import { LLMTaskType } from '@uaip/types';
-import { Agent } from './entities/agent.entity';
-import { UserLLMPreference } from './entities/userLLMPreference.entity';
-import { AgentLLMPreference } from './entities/agentLLMPreference.entity';
-import { LLMProvider } from './entities/llmProvider.entity';
 
 // HyperExpress types are already available
 
@@ -73,18 +69,7 @@ export abstract class BaseService {
     }
   }
 
-  /**
-   * Register plane-specific TypeORM entities with the database layer.
-   * Call this in your service constructor or before start(), e.g.:
-   *   this.registerEntities([Agent, Persona, Discussion, ...])
-   * Each service plane registers only its own entities.
-   */
-  protected registerEntities(entities: unknown[]): void {
-    this.databaseService.registerEntities(
-      entities as Array<
-        string | Function | import('typeorm').EntitySchema<import('typeorm').ObjectLiteral>
-      >
-    );
+  protected registerEntities(_entities: unknown[]): void {
   }
 
   protected setupBaseMiddleware(): void {
@@ -193,22 +178,13 @@ export abstract class BaseService {
 
   protected async initializeModelSelection(): Promise<void> {
     try {
-      // Get TypeORM repositories for the facade
-      const dataSource = await this.databaseService.getDataSource();
-
-      this.modelSelectionFacade = new UnifiedModelSelectionFacade(
-        dataSource.getRepository(Agent),
-        dataSource.getRepository(UserLLMPreference),
-        dataSource.getRepository(AgentLLMPreference),
-        dataSource.getRepository(LLMProvider)
-      );
+      this.modelSelectionFacade = new UnifiedModelSelectionFacade();
       logger.info(`${this.config.name}: Unified model selection initialized`);
     } catch (error) {
       logger.warn(
         `${this.config.name}: Model selection initialization failed, continuing without it:`,
         error
       );
-      // Service can still function without model selection
     }
   }
 

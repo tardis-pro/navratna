@@ -1148,7 +1148,7 @@ export class MCPClientService extends EventEmitter {
       if (existing) {
         await mcpService.updateServer(existing.id, payload);
       } else {
-        await mcpService.createServer(payload as unknown);
+        await mcpService.createServer(payload as Record<string, unknown>);
       }
       logger.info(`Updated MCP server config for ${serverName}`);
       this.emit('configUpdated', { serverName, config });
@@ -1968,7 +1968,7 @@ export class MCPClientService extends EventEmitter {
         const createdTool = await toolService.createTool(toolDefinition);
 
         // Create tool assignment
-        const assignment = await toolService.assignToolToAgent(agentId, createdTool.id, {
+        const assignment = await toolService.assignToolToAgent(agentId, String(createdTool.id), {
           canExecute: true,
           canRead: true,
           customConfig: {
@@ -1984,7 +1984,7 @@ export class MCPClientService extends EventEmitter {
 
         return {
           success: true,
-          toolId: createdTool.id,
+          toolId: String(createdTool.id),
           assignment,
         };
       }

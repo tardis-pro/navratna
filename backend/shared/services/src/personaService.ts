@@ -17,8 +17,6 @@ import {
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
-import { Persona as PersonaEntity } from './entities/persona.entity';
-import { SelectQueryBuilder } from 'typeorm';
 
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
@@ -62,8 +60,6 @@ export class PersonaService {
       // Validate the persona data
       const validation = await this.validatePersona(request);
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-
       const personaData = {
         name: request.name,
         role: request.role,
@@ -97,7 +93,7 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
-      const savedEntity = await personaRepo.save(personaData);
+      const savedEntity = await this.databaseService.create('personas', personaData) as Record<string, unknown>;
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -124,8 +120,7 @@ export class PersonaService {
         return cached;
       }
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-      const entity = await personaRepo.findOne({ where: { id } });
+      const entity = await this.databaseService.findById('personas', id) as Record<string, unknown> | null;
 
       if (!entity) {
         return null;
@@ -157,15 +152,13 @@ export class PersonaService {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-      await personaRepo.update(id, {
+      const updatedEntity = await this.databaseService.update('personas', id, {
         ...updateData,
         validation,
         version: existingPersona.version + 1,
         updatedAt: new Date(),
-      });
+      }) as Record<string, unknown> | null;
 
-      const updatedEntity = await personaRepo.findOne({ where: { id } });
       if (!updatedEntity) {
         throw new Error(`Failed to update persona: ${id}`);
       }
@@ -207,8 +200,7 @@ export class PersonaService {
         return;
       }
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-      await personaRepo.delete(id);
+      await this.databaseService.delete('personas', id);
 
       this.personaCache.delete(id);
 
@@ -237,16 +229,17 @@ export class PersonaService {
     hasMore: boolean;
   }> {
     try {
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-      const queryBuilder = personaRepo.createQueryBuilder('persona');
+      const { whereClause, params, orderBy } = this.buildSearchQuery(filters);
 
-      this.applySearchFilters(queryBuilder, filters);
+      // Get total count
+      const countQuery = `SELECT COUNT(*)::int as cnt FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''}`;
+      const countResult = await this.databaseService.executeQuery(countQuery, params) as Array<{ cnt: number }>;
+      const total = countResult[0]?.cnt ?? 0;
 
-      const total = await queryBuilder.getCount();
-
-      queryBuilder.orderBy('persona.createdAt', 'DESC').skip(offset).take(limit);
-
-      const entities: PersonaEntity[] = await queryBuilder.getMany();
+      // Get paginated results
+      const dataQuery = `SELECT * FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''} ORDER BY ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      const dataParams = [...params, limit, offset];
+      const entities = await this.databaseService.executeQuery(dataQuery, dataParams) as Record<string, unknown>[];
       const personas = entities.map((entity) => this.entityToPersona(entity));
 
       return {
@@ -459,24 +452,26 @@ export class PersonaService {
 
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
-      const queryBuilder = personaRepo.createQueryBuilder('persona');
+      let query = `SELECT * FROM "personas"`;
+      const params: unknown[] = [];
 
       if (category) {
-        queryBuilder.where('persona.tags LIKE :category', { category: `%${category}%` });
+        query += ` WHERE tags LIKE $1`;
+        params.push(`%${category}%`);
       }
 
-      queryBuilder.orderBy('persona.totalInteractions', 'DESC');
-      const entities: PersonaEntity[] = await queryBuilder.getMany();
+      query += ` ORDER BY totalInteractions DESC`;
 
-      return entities.map((entity: PersonaEntity) => ({
-        id: entity.id,
-        name: entity.name,
-        description: entity.description,
+      const entities = await this.databaseService.executeQuery(query, params) as Record<string, unknown>[];
+
+      return entities.map((entity) => ({
+        id: entity.id as string,
+        name: entity.name as string,
+        description: entity.description as string,
         category: 'general',
-        traits: entity.traits,
-        expertise: entity.expertise,
-        usageCount: entity.totalInteractions,
+        traits: entity.traits as string[],
+        expertise: entity.expertise as string[],
+        usageCount: (entity.totalInteractions as number) || 0,
       }));
     } catch (error) {
       logger.error('Failed to get persona templates', {
@@ -566,80 +561,92 @@ export class PersonaService {
     return cached.persona;
   }
 
-  private applySearchFilters(
-    queryBuilder: SelectQueryBuilder<PersonaEntity>,
-    filters: PersonaSearchFilters
-  ): void {
+  private buildSearchQuery(filters: PersonaSearchFilters): {
+    whereClause: string;
+    params: unknown[];
+    orderBy: string;
+  } {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIndex = 1;
+
     if (filters.query) {
-      queryBuilder.andWhere(
-        '(persona.name ILIKE :query OR persona.description ILIKE :query OR persona.role ILIKE :query)',
-        { query: `%${filters.query}%` }
+      conditions.push(
+        `(name ILIKE $${paramIndex} OR description ILIKE $${paramIndex} OR role ILIKE $${paramIndex})`
       );
+      params.push(`%${filters.query}%`);
+      paramIndex++;
     }
 
     if (filters.expertise && filters.expertise.length > 0) {
-      queryBuilder.andWhere(
-        'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.expertise) AS exp WHERE exp = ANY(:expertise))',
-        { expertise: filters.expertise }
+      conditions.push(
+        `EXISTS (SELECT 1 FROM jsonb_array_elements_text(expertise) AS exp WHERE exp = ANY($${paramIndex}::text[]))`
       );
+      params.push(filters.expertise);
+      paramIndex++;
     }
 
     if (filters.status && filters.status.length > 0) {
-      queryBuilder.andWhere('persona.status IN (:...status)', { status: filters.status });
+      const statusList = filters.status.map(() => `$${paramIndex++}`).join(', ');
+      conditions.push(`status IN (${statusList})`);
+      params.push(...filters.status);
     }
 
     if (filters.visibility && filters.visibility.length > 0) {
-      queryBuilder.andWhere('persona.visibility IN (:...visibility)', {
-        visibility: filters.visibility,
-      });
+      const visibilityList = filters.visibility.map(() => `$${paramIndex++}`).join(', ');
+      conditions.push(`visibility IN (${visibilityList})`);
+      params.push(...filters.visibility);
     }
 
     if (filters.createdBy && filters.createdBy.length > 0) {
-      queryBuilder.andWhere('persona.createdBy IN (:...createdBy)', {
-        createdBy: filters.createdBy,
-      });
+      const createdByList = filters.createdBy.map(() => `$${paramIndex++}`).join(', ');
+      conditions.push(`createdBy IN (${createdByList})`);
+      params.push(...filters.createdBy);
     }
 
     if (filters.organizationId) {
-      queryBuilder.andWhere('persona.organizationId = :organizationId', {
-        organizationId: filters.organizationId,
-      });
+      conditions.push(`organizationId = $${paramIndex++}`);
+      params.push(filters.organizationId);
     }
 
     if (filters.teamId) {
-      queryBuilder.andWhere('persona.teamId = :teamId', { teamId: filters.teamId });
+      conditions.push(`teamId = $${paramIndex++}`);
+      params.push(filters.teamId);
     }
 
     if (filters.tags && filters.tags.length > 0) {
-      queryBuilder.andWhere(
-        'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.tags) AS tag WHERE tag = ANY(:tags))',
-        { tags: filters.tags }
+      conditions.push(
+        `EXISTS (SELECT 1 FROM jsonb_array_elements_text(tags) AS tag WHERE tag = ANY($${paramIndex}::text[]))`
       );
+      params.push(filters.tags);
+      paramIndex++;
     }
 
     if (filters.minUsageCount !== undefined) {
-      queryBuilder.andWhere('persona.totalInteractions >= :minUsageCount', {
-        minUsageCount: filters.minUsageCount,
-      });
+      conditions.push(`totalInteractions >= $${paramIndex++}`);
+      params.push(filters.minUsageCount);
     }
 
     if (filters.minFeedbackScore !== undefined) {
-      queryBuilder.andWhere('persona.userSatisfaction >= :minFeedbackScore', {
-        minFeedbackScore: filters.minFeedbackScore,
-      });
+      conditions.push(`userSatisfaction >= $${paramIndex++}`);
+      params.push(filters.minFeedbackScore);
     }
 
     if (filters.createdAfter) {
-      queryBuilder.andWhere('persona.createdAt >= :createdAfter', {
-        createdAfter: filters.createdAfter,
-      });
+      conditions.push(`createdAt >= $${paramIndex++}`);
+      params.push(filters.createdAfter);
     }
 
     if (filters.createdBefore) {
-      queryBuilder.andWhere('persona.createdAt <= :createdBefore', {
-        createdBefore: filters.createdBefore,
-      });
+      conditions.push(`createdAt <= $${paramIndex++}`);
+      params.push(filters.createdBefore);
     }
+
+    return {
+      whereClause: conditions.join(' AND '),
+      params,
+      orderBy: 'createdAt DESC',
+    };
   }
 
   private async getPersonaUsageCount(_personaId: string): Promise<number> {
@@ -742,16 +749,25 @@ export class PersonaService {
   }
 
   /**
-   * Convert PersonaEntity to Persona type
+   * Convert entity record to Persona type
    */
-  private entityToPersona(entity: PersonaEntity): Persona {
+  private entityToPersona(entity: Record<string, unknown>): Persona {
+    const expertise = entity.expertise as string[] || [];
+    const traits = entity.traits as string[] || [];
+    const tags = entity.tags as string[] || [];
+    const capabilities = entity.capabilities as string[] || [];
+    const restrictions = entity.restrictions as Record<string, unknown> || {};
+    const configuration = entity.configuration as Record<string, unknown> || {};
+    const validation = entity.validation as PersonaValidation | undefined;
+    const usageStats = entity.usageStats as PersonaUsageStats | undefined;
+
     return {
-      id: entity.id,
-      name: entity.name,
-      role: entity.role,
-      description: entity.description,
-      traits: entity.traits || [],
-      expertise: (entity.expertise || []).map(
+      id: entity.id as string,
+      name: entity.name as string,
+      role: entity.role as string,
+      description: entity.description as string,
+      traits: entity.traits as Persona['traits'],
+      expertise: expertise.map(
         (expName: string, index: number): ExpertiseDomain => ({
           id: `${Date.now()}-${index}`,
           name: expName,
@@ -762,33 +778,33 @@ export class PersonaService {
           relatedDomains: [] as string[],
         })
       ),
-      background: entity.background,
-      systemPrompt: entity.systemPrompt,
-      conversationalStyle: entity.conversationalStyle!,
-      status: entity.status,
-      visibility: entity.visibility,
-      createdBy: entity.createdBy,
-      organizationId: entity.organizationId,
-      teamId: entity.teamId,
-      version: entity.version,
-      parentPersonaId: entity.parentPersonaId,
-      tags: entity.tags || [],
-      validation: entity.validation,
-      usageStats: entity.usageStats || {
-        totalUsages: entity.totalInteractions,
+      background: entity.background as string | undefined,
+      systemPrompt: entity.systemPrompt as string,
+      conversationalStyle: entity.conversationalStyle as ConversationalStyle,
+      status: entity.status as PersonaStatus,
+      visibility: entity.visibility as PersonaVisibility,
+      createdBy: entity.createdBy as string,
+      organizationId: entity.organizationId as string | undefined,
+      teamId: entity.teamId as string | undefined,
+      version: entity.version as number,
+      parentPersonaId: entity.parentPersonaId as string | undefined,
+      tags,
+      validation,
+      usageStats: usageStats || {
+        totalUsages: (entity.totalInteractions as number) || 0,
         uniqueUsers: 0,
         averageSessionDuration: 0,
-        lastUsedAt: entity.lastUsedAt || undefined,
+        lastUsedAt: entity.lastUsedAt as Date | undefined,
         popularityScore: 0,
-        feedbackScore: entity.userSatisfaction,
+        feedbackScore: entity.userSatisfaction as number | undefined,
         feedbackCount: 0,
       },
-      configuration: entity.configuration || {},
-      capabilities: entity.capabilities || [],
-      restrictions: entity.restrictions || {},
-      metadata: entity.metadata,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      configuration,
+      capabilities,
+      restrictions,
+      metadata: entity.metadata as Record<string, unknown> | undefined,
+      createdAt: entity.createdAt as Date,
+      updatedAt: entity.updatedAt as Date,
     };
   }
 

@@ -1,31 +1,31 @@
-import { DataSource, DeepPartial } from 'typeorm';
+import { getControlDb } from '../drizzle/clients/index';
+import { securityPolicies } from '../../database/drizzle/schemas/control.schema';
 import { BaseSeed } from './BaseSeed';
-import { SecurityPolicy } from '../../entities/securityPolicy.entity';
-import { UserEntity } from '../../entities/user.entity';
 
-/**
- * Security Policy seeder
- */
-export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
-  private users: UserEntity[] = [];
+export class SecurityPolicySeed extends BaseSeed {
+  private db = getControlDb();
 
-  constructor(dataSource: DataSource, users: UserEntity[]) {
-    super(dataSource, dataSource.getRepository(SecurityPolicy), 'SecurityPolicies');
-    this.users = users;
+  constructor() {
+    super('SecurityPolicies');
   }
 
-  getUniqueField(): keyof SecurityPolicy {
-    return 'name';
+  async seed(): Promise<any[]> {
+    const seedData = await this.getSeedData();
+
+    for (const policy of seedData) {
+      await this.db.insert(securityPolicies).values(policy as any).onConflictDoNothing();
+    }
+
+    return await this.db.select().from(securityPolicies);
   }
 
-  async getSeedData(): Promise<DeepPartial<SecurityPolicy>[]> {
-    const adminUser = this.users.find((u) => u.role === 'system_admin') || this.users[0];
-
+  async getSeedData(): Promise<any[]> {
     return [
       {
         name: 'High Security Operations Policy',
         description: 'Security policy for high-risk operations requiring approval',
-        conditions: {
+        policyType: 'high-risk',
+        rules: {
           operationTypes: ['high-risk'],
           resourceTypes: ['database', 'api'],
           userRoles: ['system_admin', 'operations_manager'],
@@ -40,31 +40,16 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
             maxRiskScore: 0.95,
           },
         },
-        actions: {
-          requireApproval: true,
-          approvalRequirements: {
-            minimumApprovers: 2,
-            requiredRoles: ['system_admin', 'operations_manager'],
-            timeoutHours: 24,
-          },
-          blockOperation: true,
-          logLevel: 'error',
-          notificationChannels: ['email', 'slack'],
-          additionalActions: {
-            auditLog: true,
-            notification: true,
-          },
-        },
-        isActive: true,
-        createdBy: adminUser.id,
+        isEnabled: true,
         priority: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        appliesTo: ['system_admin', 'operations_manager'],
+        metadata: {},
       },
       {
         name: 'Standard Operations Policy',
         description: 'Default security policy for standard operations',
-        conditions: {
+        policyType: 'standard',
+        rules: {
           operationTypes: ['standard'],
           resourceTypes: ['database', 'api'],
           userRoles: ['developer', 'data_analyst', 'operations_manager'],
@@ -79,31 +64,16 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
             maxRiskScore: 0.95,
           },
         },
-        actions: {
-          requireApproval: true,
-          approvalRequirements: {
-            minimumApprovers: 1,
-            requiredRoles: ['guest'],
-            timeoutHours: 24,
-          },
-          blockOperation: true,
-          logLevel: 'error',
-          notificationChannels: ['email', 'slack'],
-          additionalActions: {
-            auditLog: true,
-            notification: true,
-          },
-        },
-        isActive: true,
-        createdBy: adminUser.id,
+        isEnabled: true,
         priority: 2,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        appliesTo: ['developer', 'data_analyst', 'operations_manager'],
+        metadata: {},
       },
       {
         name: 'Guest Access Policy',
         description: 'Restricted policy for guest users',
-        conditions: {
+        policyType: 'guest',
+        rules: {
           operationTypes: ['standard'],
           resourceTypes: ['database', 'api'],
           userRoles: ['guest'],
@@ -118,26 +88,10 @@ export class SecurityPolicySeed extends BaseSeed<SecurityPolicy> {
             maxRiskScore: 0.95,
           },
         },
-        actions: {
-          requireApproval: true,
-          approvalRequirements: {
-            minimumApprovers: 1,
-            requiredRoles: ['guest'],
-            timeoutHours: 24,
-          },
-          blockOperation: true,
-          logLevel: 'error',
-          notificationChannels: ['email', 'slack'],
-          additionalActions: {
-            auditLog: true,
-            notification: true,
-          },
-        },
-        isActive: true,
-        createdBy: adminUser.id,
+        isEnabled: true,
         priority: 3,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        appliesTo: ['guest'],
+        metadata: {},
       },
     ];
   }

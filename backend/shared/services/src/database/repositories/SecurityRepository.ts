@@ -1,264 +1,54 @@
-import { logger } from '@uaip/utils';
 import { BaseRepository } from '../base/BaseRepository';
-import {
-  SecurityPolicy,
-  SecurityPolicyConditions,
-  SecurityPolicyActions,
-} from '../../entities/securityPolicy.entity';
-import { ApprovalWorkflow } from '../../entities/approvalWorkflow.entity';
-import { ApprovalDecision } from '../../entities/approvalDecision.entity';
+import { logger } from '@uaip/utils';
 
-export class SecurityPolicyRepository extends BaseRepository<SecurityPolicy> {
-  constructor() {
-    super(SecurityPolicy);
+export class SecurityPolicyRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'security_policies'; }
+  get plane(): 'control' { return 'control'; }
+
+  async findEnabled(): Promise<Record<string, unknown>[]> {
+    return this.findMany({ is_enabled: true });
   }
 
-  /**
-   * Create security policy
-   */
-  public async createSecurityPolicy(policyData: {
-    name: string;
-    description: string;
-    priority: number;
-    isActive: boolean;
-    conditions: SecurityPolicyConditions;
-    actions: SecurityPolicyActions;
-    createdBy: string;
-  }): Promise<SecurityPolicy> {
-    const policy = this.repository.create(policyData);
-    return await this.repository.save(policy);
-  }
-
-  /**
-   * Query security policies with filters and pagination
-   */
-  public async querySecurityPolicies(filters: {
-    active?: boolean;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ policies: SecurityPolicy[]; total: number }> {
-    const queryBuilder = this.repository.createQueryBuilder('policy');
-
-    if (filters.active !== undefined) {
-      queryBuilder.andWhere('policy.isActive = :active', { active: filters.active });
-    }
-
-    if (filters.search) {
-      queryBuilder.andWhere('(policy.name ILIKE :search OR policy.description ILIKE :search)', {
-        search: `%${filters.search}%`,
-      });
-    }
-
-    queryBuilder.orderBy('policy.priority', 'DESC').addOrderBy('policy.createdAt', 'DESC');
-
-    // Get total count for pagination
-    const total = await queryBuilder.getCount();
-
-    if (filters.limit) {
-      queryBuilder.limit(filters.limit);
-    }
-
-    if (filters.offset) {
-      queryBuilder.offset(filters.offset);
-    }
-
-    const policies = await queryBuilder.getMany();
-
-    return { policies, total };
-  }
-
-  /**
-   * Get security policy by ID
-   */
-  public async getSecurityPolicy(id: string): Promise<SecurityPolicy | null> {
-    return await this.repository.findOne({ where: { id } });
-  }
-
-  /**
-   * Update security policy
-   */
-  public async updateSecurityPolicy(
-    id: string,
-    updates: Partial<SecurityPolicy>
-  ): Promise<SecurityPolicy | null> {
-    await this.repository.update(id, updates);
-    return await this.repository.findOne({ where: { id } });
-  }
-
-  /**
-   * Delete security policy
-   */
-  public async deleteSecurityPolicy(id: string): Promise<boolean> {
-    const result = await this.repository.delete(id);
-    return result.affected > 0;
-  }
-
-  /**
-   * Get security policy statistics
-   */
-  public async getSecurityPolicyStats(): Promise<{
-    totalPolicies: number;
-    activePolicies: number;
-    inactivePolicies: number;
-  }> {
-    const [totalPolicies, activePolicies] = await Promise.all([
-      this.repository.count(),
-      this.repository.count({ where: { isActive: true } }),
-    ]);
-
-    return {
-      totalPolicies,
-      activePolicies,
-      inactivePolicies: totalPolicies - activePolicies,
-    };
+  async findByType(policyType: string): Promise<Record<string, unknown>[]> {
+    return this.findMany({ policy_type: policyType });
   }
 }
 
-export class ApprovalWorkflowRepository extends BaseRepository<ApprovalWorkflow> {
-  constructor() {
-    super(ApprovalWorkflow);
+export class ApprovalWorkflowRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'approval_workflows'; }
+  get plane(): 'control' { return 'control'; }
+
+  async findByOperationId(operationId: string): Promise<Record<string, unknown> | null> {
+    const rows = await this.findMany({ operation_id: operationId });
+    return rows[0] ?? null;
   }
 
-  /**
-   * Create a new approval workflow
-   */
-  public async createApprovalWorkflow(workflowData: {
-    id: string;
-    operationId: string;
-    requiredApprovers: string[];
-    currentApprovers?: string[];
-    status: string;
-    expiresAt?: Date;
-    metadata?: Record<string, unknown>;
-  }): Promise<ApprovalWorkflow> {
-    const workflow = this.repository.create({
-      id: workflowData.id,
-      operationId: workflowData.operationId,
-      requiredApprovers: workflowData.requiredApprovers,
-      currentApprovers: workflowData.currentApprovers || [],
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- TypeORM enum cast
-      status: workflowData.status as any,
-      expiresAt: workflowData.expiresAt,
-      metadata: workflowData.metadata,
-    });
-    return await this.repository.save(workflow);
+  async findPending(): Promise<Record<string, unknown>[]> {
+    return this.findMany({ status: 'pending' });
   }
 
-  /**
-   * Update approval workflow
-   */
-  public async updateApprovalWorkflow(
-    workflowId: string,
-    updates: Partial<ApprovalWorkflow>
-  ): Promise<ApprovalWorkflow | null> {
-    await this.repository.update(workflowId, { ...updates, updatedAt: new Date() });
-    return await this.repository.findOne({ where: { id: workflowId } });
+  async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return super.create(data);
   }
 
-  /**
-   * Get workflows for a user (as approver)
-   */
-  public async getUserApprovalWorkflows(
-    userId: string,
-    status?: string
-  ): Promise<ApprovalWorkflow[]> {
-    const queryBuilder = this.repository
-      .createQueryBuilder('workflow')
-      .where('workflow.requiredApprovers @> :userId', {
-        userId: JSON.stringify([userId]),
-      });
-
-    if (status) {
-      queryBuilder.andWhere('workflow.status = :status', { status });
-    }
-
-    return await queryBuilder.orderBy('workflow.createdAt', 'DESC').getMany();
+  async saveOperationState(operationId: string, state: Record<string, unknown>): Promise<void> {
+    await this.update(operationId, { state });
   }
 
-  /**
-   * Get pending workflows for reminders
-   */
-  public async getPendingWorkflowsForReminders(
-    reminderThreshold: Date
-  ): Promise<ApprovalWorkflow[]> {
-    return await this.repository
-      .createQueryBuilder('workflow')
-      .where('workflow.status = :status', { status: 'pending' })
-      .andWhere('workflow.createdAt <= :threshold', { threshold: reminderThreshold })
-      .andWhere('(workflow.lastReminderAt IS NULL OR workflow.lastReminderAt <= :threshold)', {
-        threshold: reminderThreshold,
-      })
-      .getMany();
+  async getOperationState(operationId: string): Promise<Record<string, unknown> | null> {
+    return this.findById(operationId);
   }
 
-  /**
-   * Get expired workflows
-   */
-  public async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
-    try {
-      const now = new Date();
-      logger.debug('Querying for expired workflows', {
-        currentTime: now.toISOString(),
-        query: 'status = pending AND expiresAt <= now',
-      });
-
-      const workflows = await this.repository
-        .createQueryBuilder('workflow')
-        .where('workflow.status = :status', { status: 'pending' })
-        .andWhere('workflow.expiresAt <= :now', { now })
-        .getMany();
-
-      logger.debug('Expired workflows query result', {
-        count: workflows.length,
-        workflowIds: workflows.map((w) => w.id),
-      });
-
-      return workflows;
-    } catch (error) {
-      logger.error('Failed to query expired workflows', {
-        error:
-          error instanceof Error
-            ? {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-              }
-            : error,
-      });
-      throw error;
-    }
+  async updateOperationState(operationId: string, state: Record<string, unknown>, updates: Record<string, unknown>): Promise<void> {
+    await this.update(operationId, { ...state, ...updates });
   }
 }
 
-export class ApprovalDecisionRepository extends BaseRepository<ApprovalDecision> {
-  constructor() {
-    super(ApprovalDecision);
-  }
+export class ApprovalDecisionRepository extends BaseRepository<Record<string, unknown>> {
+  get tableName() { return 'approval_decisions'; }
+  get plane(): 'control' { return 'control'; }
 
-  /**
-   * Create approval decision
-   */
-  public async createApprovalDecision(decisionData: {
-    id: string;
-    workflowId: string;
-    approverId: string;
-    decision: 'approve' | 'reject';
-    conditions?: string[];
-    feedback?: string;
-    decidedAt: Date;
-  }): Promise<ApprovalDecision> {
-    const decision = this.repository.create(decisionData);
-    return await this.repository.save(decision);
-  }
-
-  /**
-   * Get approval decisions for a workflow
-   */
-  public async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
-    return await this.repository.find({
-      where: { workflowId },
-      order: { decidedAt: 'ASC' },
-    });
+  async findByWorkflowId(workflowId: string): Promise<Record<string, unknown>[]> {
+    return this.findMany({ workflow_id: workflowId });
   }
 }

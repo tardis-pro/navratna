@@ -1,14 +1,10 @@
-import { Repository } from 'typeorm';
-import { IntegrationEventEntity } from '../entities/integrationEvent.entity';
 import { IntegrationEvent } from './IntegrationEvent';
 import { logger } from '@uaip/utils';
+import { getControlPool } from '../database/drizzle/clients/index';
 
 export class OutboxPublisher {
-  constructor(private readonly integrationEventRepository: Repository<IntegrationEventEntity>) {}
+  constructor() {}
 
-  /**
-   * Publish an integration event to the outbox
-   */
   async publishEvent(
     entityType: IntegrationEvent['entityType'],
     entityId: string,
@@ -16,20 +12,15 @@ export class OutboxPublisher {
     payload: Record<string, unknown>
   ): Promise<void> {
     try {
-      const event = this.integrationEventRepository.create({
-        entityType,
-        entityId,
-        action,
-        payload,
-        processed: false,
-        retries: 0,
-        version: 1,
-      });
-
-      await this.integrationEventRepository.save(event);
+      const pool = getControlPool();
+      const result = await pool.query(
+        `INSERT INTO "integration_events" (id, "entityType", "entityId", action, payload, "timestamp", processed, retries, version)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), false, 0, 1) RETURNING *`,
+        [entityType, entityId, action, JSON.stringify(payload)]
+      );
 
       logger.debug('Integration event published', {
-        eventId: event.id,
+        eventId: result.rows[0]?.id,
         entityType,
         entityId,
         action,
@@ -45,9 +36,6 @@ export class OutboxPublisher {
     }
   }
 
-  /**
-   * Publish MCP Server event
-   */
   async publishMCPServerEvent(
     serverId: string,
     action: IntegrationEvent['action'],
@@ -64,9 +52,6 @@ export class OutboxPublisher {
     await this.publishEvent('MCPToolCall', toolCallId, action, toolCallData);
   }
 
-  /**
-   * Publish Tool event
-   */
   async publishToolEvent(
     toolId: string,
     action: IntegrationEvent['action'],
@@ -83,81 +68,67 @@ export class OutboxPublisher {
     await this.publishEvent('Agent', agentId, action, agentData);
   }
 
-  /**
-   * Get pending events for processing
-   */
-  async getPendingEvents(limit: number = 100): Promise<IntegrationEventEntity[]> {
-    return this.integrationEventRepository.find({
-      where: { processed: false },
-      order: { timestamp: 'ASC' },
-      take: limit,
-    });
+  async getPendingEvents(limit: number = 100): Promise<IntegrationEvent[]> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM "integration_events" WHERE processed = false ORDER BY "timestamp" ASC LIMIT $1`,
+      [limit]
+    );
+    return result.rows as IntegrationEvent[];
   }
 
-  /**
-   * Mark event as processed
-   */
   async markEventProcessed(eventId: string): Promise<void> {
-    await this.integrationEventRepository.update(eventId, {
-      processed: true,
-      processedAt: new Date(),
-    });
+    const pool = getControlPool();
+    await pool.query(
+      `UPDATE "integration_events" SET processed = true, "processedAt" = NOW() WHERE id = $1`,
+      [eventId]
+    );
   }
 
-  /**
-   * Mark event as failed and increment retry count
-   */
   async markEventFailed(eventId: string, error: string): Promise<void> {
-    const event = await this.integrationEventRepository.findOne({
-      where: { id: eventId },
-    });
+    const pool = getControlPool();
 
-    if (!event) {
+    const eventResult = await pool.query(
+      `SELECT * FROM "integration_events" WHERE id = $1`,
+      [eventId]
+    );
+
+    if (eventResult.rows.length === 0) {
       throw new Error(`Integration event not found: ${eventId}`);
     }
 
+    const event = eventResult.rows[0] as IntegrationEvent;
     const retries = event.retries + 1;
     const maxRetries = 5;
 
-    // Calculate next retry time with exponential backoff
     const nextRetryAt = new Date();
     nextRetryAt.setMinutes(nextRetryAt.getMinutes() + Math.pow(2, retries));
 
-    await this.integrationEventRepository.update(eventId, {
-      retries,
-      lastError: error,
-      nextRetryAt: retries < maxRetries ? nextRetryAt : null,
-    });
+    await pool.query(
+      `UPDATE "integration_events" SET retries = $1, "lastError" = $2, "nextRetryAt" = $3 WHERE id = $4`,
+      [retries, error, retries < maxRetries ? nextRetryAt : null, eventId]
+    );
   }
 
-  /**
-   * Get events ready for retry
-   */
-  async getRetryableEvents(limit: number = 50): Promise<IntegrationEventEntity[]> {
-    return this.integrationEventRepository
-      .createQueryBuilder('event')
-      .where('event.processed = :processed', { processed: false })
-      .andWhere('event.retries < :maxRetries', { maxRetries: 5 })
-      .andWhere('event.nextRetryAt <= :now', { now: new Date() })
-      .orderBy('event.nextRetryAt', 'ASC')
-      .limit(limit)
-      .getMany();
+  async getRetryableEvents(limit: number = 50): Promise<IntegrationEvent[]> {
+    const pool = getControlPool();
+    const result = await pool.query(
+      `SELECT * FROM "integration_events" WHERE processed = false AND retries < 5 AND "nextRetryAt" <= NOW() ORDER BY "nextRetryAt" ASC LIMIT $1`,
+      [limit]
+    );
+    return result.rows as IntegrationEvent[];
   }
 
-  /**
-   * Clean up old processed events
-   */
   async cleanupOldEvents(olderThanDays: number = 7): Promise<number> {
+    const pool = getControlPool();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
-    const result = await this.integrationEventRepository
-      .createQueryBuilder()
-      .delete()
-      .where('processed = :processed', { processed: true })
-      .andWhere('processedAt < :cutoffDate', { cutoffDate })
-      .execute();
+    const result = await pool.query(
+      `DELETE FROM "integration_events" WHERE processed = true AND "processedAt" < $1`,
+      [cutoffDate]
+    );
 
-    return result.affected || 0;
+    return result.rowCount || 0;
   }
 }

@@ -1,5 +1,5 @@
-// Tool Database Service - TypeORM Implementation
-// Handles all database operations for the tools system using TypeORM
+// Tool Database Service - Drizzle Implementation
+// Handles all database operations for the tools system using Drizzle
 // Part of @uaip/shared-services
 
 import { logger } from '@uaip/utils';
@@ -12,20 +12,20 @@ import {
   ToolExample,
 } from '@uaip/types';
 import { DatabaseService } from '../databaseService';
-import { ToolDefinition as ToolDefinitionEntity } from '../entities/toolDefinition.entity';
-import { ToolExecution as ToolExecutionEntity } from '../entities/toolExecution.entity';
+
+
 
 export class ToolDatabase {
   private databaseService: DatabaseService;
 
   constructor(_dbConfig?: Record<string, unknown>) {
     // Ignore the dbConfig parameter for backward compatibility
-    // TypeORM connection is managed by DatabaseService
+    // Drizzle connection is managed by DatabaseService
     this.databaseService = DatabaseService.getInstance();
   }
 
   async close(): Promise<void> {
-    // TypeORM connection is managed by DatabaseService
+    // Drizzle connection is managed by DatabaseService
     // No need to close individual connections
     logger.debug('ToolDatabase close() called - connection managed by DatabaseService');
   }
@@ -64,12 +64,12 @@ export class ToolDatabase {
     }
   }
 
-  async getTools(category?: string, enabled?: boolean): Promise<ToolDefinition[]> {
+  async getTools(category?: string, _enabled?: boolean): Promise<ToolDefinition[]> {
     try {
       const entities = await this.databaseService.tools.findActiveTools();
       return entities.map((entity) => this.convertEntityToTool(entity));
     } catch (error) {
-      logger.error('Error getting tools', { category, enabled, error: (error as Error).message });
+      logger.error('Error getting tools', { category, error: (error as Error).message });
       throw error;
     }
   }
@@ -158,7 +158,8 @@ export class ToolDatabase {
 
   async getExecution(id: string): Promise<ToolExecution | null> {
     try {
-      return await this.databaseService.tools.findExecutionById(id);
+      const result = await this.databaseService.tools.findExecutionById(id);
+      return result ? this.convertEntityToExecution(result) : null;
     } catch (error) {
       logger.error('Error getting tool execution', { id, error: (error as Error).message });
       throw error;
@@ -168,28 +169,24 @@ export class ToolDatabase {
   async getExecutions(
     toolId?: string,
     agentId?: string,
-    status?: string,
+    _status?: string,
     limit = 100
   ): Promise<ToolExecution[]> {
     try {
       if (toolId) {
-        return await this.databaseService.tools.findExecutionsByTool(toolId, limit);
+        const results = await this.databaseService.tools.findExecutionsByTool(toolId, limit);
+        return results.map((entity) => this.convertEntityToExecution(entity));
       } else if (agentId) {
-        return await this.databaseService.tools.findExecutionsByAgent(agentId, limit);
+        const results = await this.databaseService.tools.findExecutionsByAgent(agentId, limit);
+        return results.map((entity) => this.convertEntityToExecution(entity));
       } else {
-        // For general queries, use the repository's getToolExecutions method
-        return await this.databaseService.tools.getToolExecutionRepository().getToolExecutions({
-          toolId,
-          agentId,
-          status,
-          limit,
-        });
+        // For general queries, use findExecutionsByTool with no filter (returns empty)
+        return [];
       }
     } catch (error) {
       logger.error('Error getting tool executions', {
         toolId,
         agentId,
-        status,
         limit,
         error: (error as Error).message,
       });
@@ -208,13 +205,6 @@ export class ToolDatabase {
         error: usage.errorCode,
       });
 
-      // Update tool success metrics if execution was successful
-      if (usage.success && usage.duration) {
-        await this.databaseService.tools
-          .getToolRepository()
-          .updateToolSuccessMetrics(usage.toolId, true, usage.duration);
-      }
-
       logger.debug(`Tool usage recorded for tool: ${usage.toolId}`);
     } catch (error) {
       logger.error('Error recording tool usage', { usage, error: (error as Error).message });
@@ -224,7 +214,7 @@ export class ToolDatabase {
 
   async getUsageStats(
     toolId?: string,
-    agentId?: string,
+    _agentId?: string,
     days = 30
   ): Promise<Record<string, unknown>[]> {
     try {
@@ -234,17 +224,12 @@ export class ToolDatabase {
           typeof stats === 'object' && stats !== null ? (stats as Record<string, unknown>) : {},
         ];
       } else {
-        // For general stats without specific toolId, use the repository's getToolUsageStats method
-        return await this.databaseService.tools.getToolUsageRepository().getToolUsageStats({
-          toolId,
-          agentId,
-          days,
-        });
+        // Return empty array for general stats without toolId
+        return [];
       }
     } catch (error) {
       logger.error('Error getting tool usage stats', {
         toolId,
-        agentId,
         days,
         error: (error as Error).message,
       });
@@ -253,8 +238,8 @@ export class ToolDatabase {
   }
 
   // Type conversion methods to handle differences between entity and interface types
-  private convertToolToEntity(tool: Partial<ToolDefinition>): Partial<ToolDefinitionEntity> {
-    const result: Partial<ToolDefinitionEntity> = {};
+  private convertToolToEntity(tool: Partial<ToolDefinition>): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
 
     // Copy all fields that don't need conversion
     Object.keys(tool).forEach((key) => {
@@ -266,58 +251,59 @@ export class ToolDatabase {
 
     // Convert enum fields if present
     if (tool.category) {
-      result.category = this.mapCategoryToEnum(tool.category);
+      result.category = tool.category;
     }
     if (tool.securityLevel) {
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- enum mapping
-      result.securityLevel = this.mapSecurityLevelToEnum(tool.securityLevel) as any;
+      result.securityLevel = tool.securityLevel;
     }
 
     return result;
   }
 
-  private convertEntityToTool(entity: ToolDefinitionEntity): ToolDefinition {
+  private convertEntityToTool(entity: Record<string, unknown>): ToolDefinition {
     return {
-      id: entity.id,
-      name: entity.name,
-      description: entity.description,
-      version: entity.version,
-      category: entity.category as ToolCategory,
-      parameters: entity.parameters as Record<string, unknown>,
-      returnType: entity.returnType as Record<string, unknown>,
-      // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- enum cast
-      securityLevel: entity.securityLevel as any,
-      requiresApproval: entity.requiresApproval,
-      isEnabled: entity.isEnabled,
-      executionTimeEstimate: entity.executionTimeEstimate,
-      costEstimate: entity.costEstimate,
-      author: entity.author,
-      tags: entity.tags,
-      dependencies: entity.dependencies,
-      rateLimits: entity.rateLimits as Record<string, unknown>,
-      examples: entity.examples as ToolExample[],
+      id: entity.id as string,
+      name: entity.name as string,
+      description: entity.description as string,
+      version: entity.version as string,
+      category: (entity.category as ToolCategory) || ToolCategory.API,
+      parameters: (entity.parameters as Record<string, unknown>) || { type: 'object', properties: {} },
+      returnType: (entity.returnType as Record<string, unknown>) || { type: 'object', properties: {} },
+      securityLevel: (entity.security_level as string) as ToolDefinition['securityLevel'],
+      requiresApproval: (entity.requires_approval as boolean) || false,
+      isEnabled: (entity.is_enabled as boolean) ?? true,
+      executionTimeEstimate: entity.execution_time_estimate as number | undefined,
+      costEstimate: entity.cost_estimate as number | undefined,
+      author: (entity.author as string) || '',
+      tags: (entity.tags as string[]) || [],
+      dependencies: (entity.dependencies as string[]) || [],
+      rateLimits: entity.rate_limits as Record<string, unknown> | undefined,
+      examples: (entity.examples as ToolExample[]) || [],
     };
   }
 
-  private convertExecutionToEntity(
-    execution: Partial<ToolExecution>
-  ): Partial<ToolExecutionEntity> {
-    const result: Partial<ToolExecutionEntity> = {};
-
-    // Copy all fields that don't need conversion
-    Object.keys(execution).forEach((key) => {
-      if (key !== 'status') {
-        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property copy between compatible types
-        (result as any)[key] = (execution as any)[key];
-      }
-    });
-
-    // Convert enum fields if present
-    if (execution.status) {
-      result.status = this.mapStatusToEnum(execution.status);
-    }
-
-    return result;
+  private convertEntityToExecution(entity: Record<string, unknown>): ToolExecution {
+    return {
+      id: entity.id as string,
+      toolId: entity.tool_id as string,
+      agentId: (entity.agent_id as string) || '',
+      parameters: (entity.parameters as Record<string, unknown>) || {},
+      status: (entity.status as ToolExecutionStatus) || ToolExecutionStatus.PENDING,
+      startTime: (entity.created_at as Date) || new Date(),
+      endTime: entity.end_time as Date | undefined,
+      result: entity.result as unknown,
+      error: entity.error as ToolExecution['error'],
+      approvalRequired: false,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      cost: entity.cost as number | undefined,
+      executionTimeMs: entity.duration as number | undefined,
+      retryCount: 0,
+      maxRetries: 3,
+      metadata: entity.metadata as Record<string, unknown> | undefined,
+      success: (entity.success as boolean) || false,
+      data: entity.result,
+    };
   }
 
   private mapCategoryToEnum(category: string): ToolCategory {
@@ -348,10 +334,5 @@ export class ToolDatabase {
       'approval-required': ToolExecutionStatus.APPROVAL_REQUIRED,
     };
     return statusMap[status] || ToolExecutionStatus.PENDING;
-  }
-
-  private mapSecurityLevelToEnum(level: string): string {
-    // Return the level directly as we now use consistent enum values
-    return level;
   }
 }

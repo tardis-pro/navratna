@@ -1,18 +1,6 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService } from './typeormService.js';
-import {
-  EntityTarget,
-  ObjectLiteral,
-  Repository,
-  EntitySchema,
-  DeepPartial,
-  FindOptionsWhere,
-  FindOptionsOrder,
-} from 'typeorm';
+import { TypeOrmService, typeormService } from './typeormService.js';
 
-/**
- * Database error handling
- */
 export class DatabaseError extends Error {
   public readonly code?: string;
   public readonly details?: Record<string, unknown>;
@@ -32,21 +20,14 @@ export class DatabaseError extends Error {
   }
 }
 
-/**
- * Pure DatabaseService - Infrastructure layer only
- * Contains TypeORM wrapper, connection pooling, health checks, bulk operations
- * NO domain service delegation
- */
 export class DatabaseService {
   private static instance: DatabaseService;
   private typeormService: TypeOrmService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
-  private pendingEntities: Array<string | Function | EntitySchema<ObjectLiteral>> = [];
-  private readonly logger = logger;
 
   private constructor() {
-    this.typeormService = TypeOrmService.getInstance();
+    this.typeormService = typeormService;
   }
 
   public static getInstance(): DatabaseService {
@@ -58,15 +39,13 @@ export class DatabaseService {
 
   private async ensureInitialized(): Promise<void> {
     if (!this.isInitialized) {
-      await this.initializeConnection(this.pendingEntities);
+      await this.initialize();
     }
   }
 
-  private async initializeConnection(
-    entities: Array<string | Function | EntitySchema<ObjectLiteral>> = []
-  ): Promise<void> {
+  public async initialize(): Promise<void> {
     try {
-      await this.typeormService.initialize(entities);
+      await this.typeormService.initialize();
       this.isInitialized = true;
       logger.info('Database connection initialized successfully');
     } catch (error) {
@@ -75,31 +54,15 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Register domain entities for this service's database plane.
-   * Call this BEFORE any database operations (e.g. before start()).
-   * Domain services use this to inject their plane-specific entities.
-   */
-  public registerEntities(entities: Array<string | Function | EntitySchema<ObjectLiteral>>): void {
-    this.pendingEntities = entities;
-    // If already initialized with wrong entities, tear down so next access re-initializes
-    if (this.isInitialized) {
-      logger.warn(
-        'DatabaseService.registerEntities() called after initialization — resetting connection'
-      );
-      this.isInitialized = false;
-      this.typeormService.close().catch(() => {});
-    }
+  public registerEntities(): void {
+    logger.warn('registerEntities() is no-op in Drizzle-based implementation');
   }
 
-  public async getDataSource() {
+  public async getDataSource(): Promise<never> {
     await this.ensureInitialized();
     return this.typeormService.getDataSource();
   }
 
-  /**
-   * Health check - returns true if database is healthy
-   */
   public async isHealthy(): Promise<boolean> {
     try {
       return await this.typeormService.isHealthy();
@@ -109,9 +72,6 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Detailed health check with metadata
-   */
   public async healthCheck(): Promise<{
     status: 'healthy' | 'unhealthy';
     responseTime?: number;
@@ -126,8 +86,8 @@ export class DatabaseService {
         status: isConnected ? 'healthy' : 'unhealthy',
         responseTime,
         details: {
-          database: this.typeormService.getDatabase?.() || 'unknown',
-          driver: 'typeorm',
+          database: this.typeormService.getDatabase() || 'unknown',
+          driver: 'pg',
         },
       };
     } catch (error) {
@@ -138,9 +98,6 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Gracefully disconnect from database
-   */
   public async disconnect(): Promise<void> {
     if (this.isClosing) {
       logger.warn('Database is already closing');
@@ -161,182 +118,15 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Get entity manager for advanced operations
-   */
-  public getEntityManager() {
+  public getEntityManager(): { query: (sql: string, params?: unknown[]) => Promise<unknown[]> } {
     return this.typeormService.getEntityManager();
   }
 
-  /**
-   * Get a repository for an entity class
-   */
-  public async getRepository<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>
-  ): Promise<Repository<T>> {
-    await this.ensureInitialized();
-    return this.typeormService.getRepository(entityClass);
-  }
-
-  /**
-   * Bulk insert with conflict resolution
-   */
-  public async bulkInsert<T extends ObjectLiteral>(
-    entity: EntityTarget<T>,
-    records: Partial<T>[],
-    options?: {
-      onConflict?: 'ignore' | 'update';
-      conflictColumns?: string[];
-      updateColumns?: string[];
-    }
-  ): Promise<void> {
-    await this.ensureInitialized();
-
-    if (!records || records.length === 0) {
-      return;
-    }
-
-    try {
-      const repository = this.typeormService.getRepository(entity);
-
-      if (options?.onConflict === 'ignore') {
-        await repository
-          .createQueryBuilder()
-          .insert()
-          .into(entity)
-          .values(records)
-          .orIgnore()
-          .execute();
-      } else if (
-        options?.onConflict === 'update' &&
-        options.conflictColumns &&
-        options.updateColumns
-      ) {
-        const queryBuilder = repository.createQueryBuilder().insert().into(entity).values(records);
-        await queryBuilder.orUpdate(options.updateColumns, options.conflictColumns).execute();
-      } else {
-        await repository.save(records as T[]);
-      }
-
-      logger.info('Bulk insert completed', {
-        entity: entity.toString(),
-        recordCount: records.length,
-        conflictResolution: options?.onConflict,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Bulk insert failed', {
-        entity: entity.toString(),
-        recordCount: records.length,
-        error: errorMessage,
-      });
-      throw new DatabaseError('Bulk insert operation failed', {
-        code: 'BULK_INSERT_ERROR',
-        details: { entity: entity.toString(), recordCount: records.length },
-        originalError: errorMessage,
-      });
-    }
-  }
-
-  /**
-   * Create a new entity record
-   */
-  public async create<T>(entityClass: EntityTarget<T>, data: DeepPartial<T>): Promise<T> {
-    await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    const entity = repository.create(data);
-    return (await repository.save(entity)) as T;
-  }
-
-  /**
-   * Find entity by ID
-   */
-  public async findById<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
-    id: string,
-    relations?: string[]
-  ): Promise<T | null> {
-    await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    return (await repository.findOne({
-      where: { id } as unknown as FindOptionsWhere<T>,
-      relations,
-    })) as T | null;
-  }
-
-  /**
-   * Update entity by ID
-   */
-  public async update<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
-    id: string,
-    data: DeepPartial<T>
-  ): Promise<T | null> {
-    await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    await repository.update(id, data as unknown as T);
-    return (await repository.findOne({
-      where: { id } as unknown as FindOptionsWhere<T>,
-    })) as T | null;
-  }
-
-  /**
-   * Find multiple entities matching conditions
-   */
-  public async findMany<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
-    conditions: FindOptionsWhere<T>,
-    options?: {
-      take?: number;
-      skip?: number;
-      order?: FindOptionsOrder<T>;
-      relations?: string[];
-    }
-  ): Promise<T[]> {
-    await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    return (await repository.find({
-      where: conditions,
-      take: options?.take,
-      skip: options?.skip,
-      order: options?.order,
-      relations: options?.relations,
-    })) as T[];
-  }
-
-  /**
-   * Count entities matching conditions
-   */
-  public async count<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
-    conditions?: FindOptionsWhere<T>
-  ): Promise<number> {
-    await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    return await repository.count({ where: conditions });
-  }
-
-  /**
-   * Delete entity by ID
-   */
-  public async delete<T extends ObjectLiteral>(
-    entityClass: EntityTarget<T>,
-    id: string
-  ): Promise<boolean> {
-    await this.ensureInitialized();
-    const repository = this.typeormService.getRepository(entityClass);
-    const result = await repository.delete(id);
-    return (result.affected ?? 0) > 0;
-  }
-
-  /**
-   * Execute raw SQL query (use with caution)
-   */
   public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
       const result = await this.typeormService.getEntityManager().query(query, parameters);
-      return result;
+      return result as T[];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Query execution failed', { query, error: errorMessage });
@@ -346,5 +136,105 @@ export class DatabaseService {
         originalError: errorMessage,
       });
     }
+  }
+
+  private resolveTableName(tableOrEntity: unknown): string {
+    if (typeof tableOrEntity === 'string') return tableOrEntity;
+    if (typeof tableOrEntity === 'function') {
+      const raw = (tableOrEntity as { name: string }).name
+        .replace(/Entity$/, '')
+        .replace(/([A-Z])/g, (_m: string, c: string, i: number) => (i > 0 ? '_' : '') + c.toLowerCase())
+        .replace(/^_/, '');
+      return raw.endsWith('s') ? raw : raw + 's';
+    }
+    return String(tableOrEntity);
+  }
+
+  async create<T = Record<string, unknown>>(tableOrEntity: unknown, data: Record<string, unknown>): Promise<T> {
+    await this.ensureInitialized();
+    const table = this.resolveTableName(tableOrEntity);
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    if (keys.length === 0) {
+      const rows = await this.executeQuery<T>(`INSERT INTO "${table}" DEFAULT VALUES RETURNING *`);
+      return rows[0];
+    }
+    const cols = keys.map(k => `"${k}"`).join(', ');
+    const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
+    const rows = await this.executeQuery<T>(
+      `INSERT INTO "${table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values
+    );
+    return rows[0];
+  }
+
+  async findById<T = Record<string, unknown>>(tableOrEntity: unknown, id: string): Promise<T | null> {
+    await this.ensureInitialized();
+    const table = this.resolveTableName(tableOrEntity);
+    const rows = await this.executeQuery<T>(`SELECT * FROM "${table}" WHERE id = $1 LIMIT 1`, [id]);
+    return rows[0] ?? null;
+  }
+
+  async update<T = Record<string, unknown>>(tableOrEntity: unknown, id: string, data: Record<string, unknown>): Promise<T | null> {
+    await this.ensureInitialized();
+    const table = this.resolveTableName(tableOrEntity);
+    const keys = Object.keys(data);
+    if (keys.length === 0) return this.findById<T>(table, id);
+    const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
+    const vals: unknown[] = [id, ...Object.values(data)];
+    const rows = await this.executeQuery<T>(
+      `UPDATE "${table}" SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      vals
+    );
+    return rows[0] ?? null;
+  }
+
+  async findMany<T = Record<string, unknown>>(
+    tableOrEntity: unknown,
+    conditions: Record<string, unknown> = {},
+    options: { take?: number; skip?: number; order?: Record<string, 'ASC' | 'DESC'> } = {}
+  ): Promise<T[]> {
+    await this.ensureInitialized();
+    const table = this.resolveTableName(tableOrEntity);
+    const keys = Object.keys(conditions);
+    let query = `SELECT * FROM "${table}"`;
+    const values: unknown[] = [];
+    if (keys.length > 0) {
+      const where = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+      query += ` WHERE ${where}`;
+      values.push(...Object.values(conditions));
+    }
+    if (options.order) {
+      const orderClauses = Object.entries(options.order).map(([col, dir]) => `"${col}" ${dir}`).join(', ');
+      query += ` ORDER BY ${orderClauses}`;
+    }
+    if (options.take) query += ` LIMIT ${options.take}`;
+    if (options.skip) query += ` OFFSET ${options.skip}`;
+    return this.executeQuery<T>(query, values);
+  }
+
+  async count(tableOrEntity: unknown, conditions: Record<string, unknown> = {}): Promise<number> {
+    await this.ensureInitialized();
+    const table = this.resolveTableName(tableOrEntity);
+    const keys = Object.keys(conditions);
+    let query = `SELECT COUNT(*)::int AS cnt FROM "${table}"`;
+    const values: unknown[] = [];
+    if (keys.length > 0) {
+      const where = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+      query += ` WHERE ${where}`;
+      values.push(...Object.values(conditions));
+    }
+    const rows = await this.executeQuery<{ cnt: number }>(query, values);
+    return rows[0]?.cnt ?? 0;
+  }
+
+  async delete(tableOrEntity: unknown, id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    const table = this.resolveTableName(tableOrEntity);
+    const rows = await this.executeQuery<{ id: string }>(
+      `DELETE FROM "${table}" WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    return rows.length > 0;
   }
 }

@@ -160,30 +160,30 @@ export class KnowledgeGraphService {
             },
             filters
           );
-          filteredResults = await this.repository.applyFilters(
-            vectorResults as Array<{ payload?: { knowledge_item_id?: string } }>,
-            filters,
-            scope
-          );
+          filteredResults = await this.repository.applyFilters({
+            ...filters,
+            ...scope,
+            limit: options?.limit,
+          });
         } catch (vectorError) {
           // If vector search fails, fall back to repository search
           console.warn(
             'Vector search failed, falling back to repository search:',
             vectorError.message
           );
-          filteredResults = await this.repository.findByScope(
-            scope || {},
-            filters,
-            options?.limit || 20
-          );
+          filteredResults = await this.repository.applyFilters({
+            ...(scope || {}),
+            ...filters,
+            limit: options?.limit || 20,
+          });
         }
       } else {
         // When no query is provided, get all items with scope filtering
-        filteredResults = await this.repository.findByScope(
-          scope || {},
-          filters,
-          options?.limit || 20
-        );
+        filteredResults = await this.repository.applyFilters({
+          ...(scope || {}),
+          ...filters,
+          limit: options?.limit || 20,
+        });
       }
 
       // Build vector filters including scope
@@ -313,7 +313,7 @@ export class KnowledgeGraphService {
 
       // Vector search succeeded — hydrate from Postgres
       if (results.length > 0) {
-        return this.repository.applyFilters(results, undefined, context.scope);
+        return this.repository.applyFilters(context.scope as Record<string, unknown> || {});
       }
 
       // Qdrant empty or returned nothing — fall back to Postgres scope/text search
@@ -322,7 +322,7 @@ export class KnowledgeGraphService {
         tags: context.relevantTags,
       });
       if (context.scope) {
-        return this.repository.findByScope(context.scope, undefined, 10);
+        return this.repository.applyFilters({ ...context.scope, limit: 10 });
       }
       // No scope at all — return recent general items
       return this.repository.findRecentItems(10);
@@ -351,13 +351,12 @@ export class KnowledgeGraphService {
     scope?: KnowledgeScope
   ): Promise<KnowledgeItem[]> {
     try {
-      const relationships = await this.repository.getRelationships(
-        itemId,
-        relationshipTypes,
-        scope
-      );
-      const relatedIds = relationships.map((r) => r.targetItemId);
-      return this.repository.getItems(relatedIds.map((id) => id));
+      const relationships = await this.repository.getRelationships(itemId);
+      const filteredRels = relationshipTypes
+        ? relationships.filter((r) => relationshipTypes.includes(r.relationshipType))
+        : relationships;
+      const relatedIds = filteredRels.map((r) => r.targetId);
+      return this.repository.getItems(relatedIds);
     } catch (error) {
       console.error('Related knowledge retrieval error:', error);
       return [];
@@ -431,10 +430,14 @@ export class KnowledgeGraphService {
   async getStatistics(): Promise<{
     totalItems: number;
     itemsByType: Record<string, number>;
-    itemsBySource: Record<string, number>;
-    averageConfidence: number;
+    recentItems: number;
   }> {
-    return this.repository.getStatistics();
+    const stats = await this.repository.getStatistics();
+    return {
+      totalItems: stats.totalItems,
+      itemsByType: stats.byType,
+      recentItems: stats.recentItems,
+    };
   }
 
   private async searchAcrossCollections(
@@ -494,7 +497,7 @@ export class KnowledgeGraphService {
 
     for (const item of items) {
       // oxlint-disable-next-line no-await-in-loop
-      const relationships = await this.repository.getRelationships(item.id, undefined, scope);
+      const relationships = await this.repository.getRelationships(item.id);
       enhanced.push({
         ...item,
         relationships: relationships,

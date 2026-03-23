@@ -2,9 +2,9 @@ import {
   LLMModel,
   LLMModelRepository,
   UserLLMProviderRepository,
-  TypeOrmService,
+  getIntelligencePool,
+  getControlPool,
 } from '@uaip/shared-services';
-import { DataSource } from 'typeorm';
 import { logger } from '@uaip/utils';
 import { BaseProvider } from '../providers/BaseProvider.js';
 import { OllamaProvider } from '../providers/OllamaProvider.js';
@@ -47,13 +47,8 @@ export interface ModelData {
 }
 
 export class ModelSyncService {
-  private llmModelRepository: LLMModelRepository;
-  private userLLMProviderRepository: UserLLMProviderRepository;
-
-  constructor(private dataSource: DataSource) {
-    this.llmModelRepository = new LLMModelRepository(dataSource);
-    this.userLLMProviderRepository = new UserLLMProviderRepository(TypeOrmService.getInstance());
-  }
+  private llmModelRepository = new LLMModelRepository();
+  private userLLMProviderRepository = new UserLLMProviderRepository();
 
   private toProviderConfig(config: unknown): LLMProviderConfig {
     if (!config || typeof config !== 'object') {
@@ -179,7 +174,11 @@ export class ModelSyncService {
     const results: ModelSyncResult[] = [];
 
     // Get all active user providers from database
-    const dbProviders = await this.userLLMProviderRepository.findActiveProviders();
+    const pool = getControlPool();
+    const providerResult = await pool.query<Record<string, unknown>>(
+      `SELECT * FROM "user_llm_providers" WHERE "is_active" = true ORDER BY "created_at" DESC`
+    );
+    const dbProviders = providerResult.rows;
 
     logger.info('Starting model sync for all user providers', {
       providerCount: dbProviders.length,
@@ -188,11 +187,16 @@ export class ModelSyncService {
     for (const dbProvider of dbProviders) {
       let provider: BaseProvider | null = null;
       try {
-        provider = this.createProviderInstance(dbProvider);
+        const providerWithMethod = {
+          type: String(dbProvider.provider_type ?? dbProvider.type ?? ''),
+          name: String(dbProvider.name ?? ''),
+          getProviderConfig: () => dbProvider.configuration ?? dbProvider.config ?? {},
+        };
+        provider = this.createProviderInstance(providerWithMethod);
       } catch (error) {
         logger.warn('Provider implementation not found', {
           providerId: dbProvider.id,
-          providerType: dbProvider.type,
+          providerType: dbProvider.provider_type ?? dbProvider.type,
           error,
         });
       }
@@ -200,8 +204,7 @@ export class ModelSyncService {
         continue;
       }
 
-      // eslint-disable-next-line no-await-in-loop -- sequential processing required
-      const result = await this.syncModelsFromProvider(provider, dbProvider.id);
+      const result = await this.syncModelsFromProvider(provider, String(dbProvider.id));
       results.push(result);
     }
 
@@ -255,19 +258,13 @@ export class ModelSyncService {
       return 0;
     }
 
-    const result = await this.dataSource
-      .createQueryBuilder()
-      .update(LLMModel)
-      .set({
-        isAvailable: false,
-        lastCheckedAt: new Date(),
-      })
-      .where('providerId = :providerId', { providerId })
-      .andWhere('name NOT IN (:...names)', { names: availableModelNames })
-      .andWhere('isAvailable = true')
-      .execute();
-
-    return result.affected || 0;
+    const pool = getIntelligencePool();
+    const placeholders = availableModelNames.map((_n, i) => `$${i + 2}`).join(', ');
+    const pgResult = await pool.query(
+      `UPDATE "llm_models" SET "is_enabled" = false, "updated_at" = NOW() WHERE "provider_id" = $1 AND "name" NOT IN (${placeholders}) AND "is_enabled" = true`,
+      [providerId, ...availableModelNames]
+    );
+    return pgResult.rowCount ?? 0;
   }
 
   /**
@@ -293,25 +290,30 @@ export class ModelSyncService {
     activeProviders: number;
     lastSyncTime?: Date;
   }> {
-    const [totalModels, availableModels, totalProviders, activeProviders] = await Promise.all([
-      this.llmModelRepository.count(),
-      this.llmModelRepository.count({ where: { isAvailable: true } }),
-      this.userLLMProviderRepository.count(),
-      this.userLLMProviderRepository.count({ where: { isActive: true } }),
+    const iPool = getIntelligencePool();
+    const cPool = getControlPool();
+    const [totalRes, availRes, totalProv, activeProv] = await Promise.all([
+      iPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "llm_models"`),
+      iPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "llm_models" WHERE "is_enabled" = true`),
+      cPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "user_llm_providers"`),
+      cPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "user_llm_providers" WHERE "is_active" = true`),
     ]);
+    const totalModels = totalRes.rows[0]?.cnt ?? 0;
+    const availableModels = availRes.rows[0]?.cnt ?? 0;
+    const totalProviders = totalProv.rows[0]?.cnt ?? 0;
+    const activeProviders = activeProv.rows[0]?.cnt ?? 0;
 
-    // Get last sync time from most recently checked model
-    const lastSyncResult = await this.llmModelRepository.findOne({
-      order: { lastCheckedAt: 'DESC' },
-      select: ['lastCheckedAt'],
-    });
+    const lastSyncRes = await iPool.query<{ updated_at: Date }>(
+      `SELECT "updated_at" FROM "llm_models" ORDER BY "updated_at" DESC LIMIT 1`
+    );
+    const lastSyncResult = lastSyncRes.rows[0];
 
     return {
       totalModels,
       availableModels,
       totalProviders,
       activeProviders,
-      lastSyncTime: lastSyncResult?.lastCheckedAt,
+      lastSyncTime: lastSyncResult?.updated_at,
     };
   }
 }

@@ -1,96 +1,50 @@
-import { DataSource, DeepPartial } from 'typeorm';
+import { getControlDb } from '../drizzle/clients/index';
+import { projects } from '../../database/drizzle/schemas/control.schema';
 import { BaseSeed } from './BaseSeed';
-import { ProjectEntity, ProjectStatus, ProjectVisibility } from '../../entities/project.entity';
-import { UserEntity } from '../../entities/user.entity';
-import { Agent } from '../../entities/agent.entity';
-import { ProjectType } from '@uaip/types';
 
-/**
- * Project seeder with diverse project types and agent recommendations
- */
-export class ProjectSeed extends BaseSeed<ProjectEntity> {
-  private users: UserEntity[] = [];
-  private agents: Agent[] = [];
+export class ProjectSeed extends BaseSeed {
+  private db = getControlDb();
+  private users: { id: string }[] = [];
 
-  constructor(dataSource: DataSource, users: UserEntity[], agents: Agent[]) {
-    super(dataSource, dataSource.getRepository(ProjectEntity), 'Projects');
-    this.users = users;
-    this.agents = agents;
+  constructor(userIds: string[], _agentIds: string[]) {
+    super('Projects');
+    this.users = userIds.map(id => ({ id }));
   }
 
-  getUniqueField(): keyof ProjectEntity {
-    return 'slug';
+  async seed(): Promise<any[]> {
+    const seedData = await this.getSeedData();
+
+    for (const project of seedData) {
+      await this.db.insert(projects).values(project as any).onConflictDoNothing();
+    }
+
+    return await this.db.select().from(projects);
   }
 
-  private getAgentIdsByRole(roles: string[]): string[] {
-    return this.agents
-      .filter((agent) =>
-        roles.some(
-          (role) =>
-            agent.name.toLowerCase().includes(role.toLowerCase()) ||
-            agent.legacyPersona?.name?.toLowerCase().includes(role.toLowerCase())
-        )
-      )
-      .map((agent) => agent.id)
-      .slice(0, 3); // Limit to 3 recommended agents per project
-  }
-
-  private generateSlug(): string {
-    return Math.random().toString(36).substr(2, 6).toUpperCase();
-  }
-
-  async getSeedData(): Promise<DeepPartial<ProjectEntity>[]> {
-    const adminUser = this.users.find((u) => u.email === 'admin@uaip.dev') || this.users[0];
-    const devUser = this.users.find((u) => u.email === 'developer@uaip.dev') || this.users[1];
-    const analystUser = this.users.find((u) => u.email === 'analyst@uaip.dev') || this.users[2];
-    const designerUser = this.users.find((u) => u.email === 'designer@uaip.dev') || this.users[0];
-
+  async getSeedData(): Promise<any[]> {
     return [
-      // Software Development Projects
       {
         name: 'E-commerce Platform Redesign',
-        description:
-          'Complete overhaul of the existing e-commerce platform with modern architecture and improved UX',
-        type: ProjectType.SOFTWARE_DEVELOPMENT,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.TEAM,
-        ownerId: devUser.id,
-        slug: this.generateSlug(),
-        color: '#3B82F6',
-        tags: ['react', 'typescript', 'microservices', 'aws'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'tech-lead',
-          'software-engineer',
-          'qa-engineer',
-        ]),
+        description: 'Complete overhaul of the existing e-commerce platform with modern architecture and improved UX',
+        status: 'active',
+        type: 'software_development',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
-          maxFileSize: 50 * 1024 * 1024, // 50MB
-          allowedFileTypes: ['.ts', '.ts', '.json', '.md', '.yml'],
+          maxFileSize: 50 * 1024 * 1024,
+          allowedFileTypes: ['.ts', '.tsx', '.json', '.md', '.yml'],
           requireApprovalForArtifacts: false,
           allowedTools: ['git', 'docker', 'jest', 'eslint'],
         },
-        lastActivityAt: new Date(),
-        fileCount: 45,
-        artifactCount: 12,
+        metadata: {},
       },
       {
         name: 'Mobile Banking App',
-        description:
-          'Development of a secure mobile banking application with biometric authentication',
-        type: ProjectType.MOBILE_DEVELOPMENT,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.PRIVATE,
-        ownerId: devUser.id,
-        slug: this.generateSlug(),
-        color: '#10B981',
-        tags: ['react-native', 'security', 'fintech', 'biometrics'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'mobile-developer',
-          'security-engineer',
-          'qa-engineer',
-        ]),
+        description: 'Development of a secure mobile banking application with biometric authentication',
+        status: 'active',
+        type: 'mobile_development',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
@@ -99,54 +53,30 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           requireApprovalForArtifacts: true,
           allowedTools: ['react-native', 'expo', 'firebase', 'jest'],
         },
-        lastActivityAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        fileCount: 78,
-        artifactCount: 8,
+        metadata: {},
       },
-
-      // Business Projects
       {
         name: 'Market Research Analysis',
         description: 'Comprehensive market analysis for new product launch in the SaaS space',
-        type: ProjectType.BUSINESS_ANALYSIS,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.ORGANIZATION,
-        ownerId: analystUser.id,
-        slug: this.generateSlug(),
-        color: '#8B5CF6',
-        tags: ['market-research', 'saas', 'competitive-analysis'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'business-analyst',
-          'market-researcher',
-          'data-analyst',
-        ]),
+        status: 'active',
+        type: 'business_analysis',
+        ownerId: this.users[1]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
-          maxFileSize: 100 * 1024 * 1024, // 100MB for data files
+          maxFileSize: 100 * 1024 * 1024,
           allowedFileTypes: ['.xlsx', '.csv', '.pdf', '.pptx', '.md'],
           requireApprovalForArtifacts: false,
           allowedTools: ['excel', 'tableau', 'surveygizmo'],
         },
-        lastActivityAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-        fileCount: 23,
-        artifactCount: 5,
+        metadata: {},
       },
       {
         name: 'Product Roadmap Q2 2025',
         description: 'Strategic planning and roadmap development for Q2 2025 product initiatives',
-        type: ProjectType.PRODUCT_MANAGEMENT,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.TEAM,
-        ownerId: adminUser.id,
-        slug: this.generateSlug(),
-        color: '#F59E0B',
-        tags: ['roadmap', 'strategy', 'planning', 'okrs'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'product-manager',
-          'business-analyst',
-          'project-manager',
-        ]),
+        status: 'active',
+        type: 'product_management',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
@@ -155,56 +85,30 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           requireApprovalForArtifacts: false,
           allowedTools: ['jira', 'confluence', 'miro'],
         },
-        lastActivityAt: new Date(),
-        fileCount: 15,
-        artifactCount: 7,
+        metadata: {},
       },
-
-      // Creative Projects
       {
         name: 'Brand Identity Refresh',
-        description:
-          'Complete brand identity overhaul including logo, color palette, and brand guidelines',
-        type: ProjectType.DESIGN,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.TEAM,
-        ownerId: designerUser.id,
-        slug: this.generateSlug(),
-        color: '#EF4444',
-        tags: ['branding', 'design', 'visual-identity'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'creative-director',
-          'designer',
-          'brand-strategist',
-        ]),
+        description: 'Complete brand identity overhaul including logo, color palette, and brand guidelines',
+        status: 'active',
+        type: 'design',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
-          maxFileSize: 200 * 1024 * 1024, // 200MB for design files
+          maxFileSize: 200 * 1024 * 1024,
           allowedFileTypes: ['.psd', '.ai', '.sketch', '.fig', '.png', '.jpg', '.svg'],
           requireApprovalForArtifacts: true,
           allowedTools: ['figma', 'photoshop', 'illustrator'],
         },
-        lastActivityAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
-        fileCount: 67,
-        artifactCount: 15,
+        metadata: {},
       },
       {
         name: 'Social Media Campaign',
-        description:
-          'Multi-platform social media campaign for product launch with viral content strategy',
-        type: ProjectType.CONTENT_CREATION,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.TEAM,
-        ownerId: designerUser.id,
-        slug: this.generateSlug(),
-        color: '#06B6D4',
-        tags: ['social-media', 'viral-content', 'marketing'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'social-media-manager',
-          'content-creator',
-          'viral-gpt',
-        ]),
+        description: 'Multi-platform social media campaign for product launch with viral content strategy',
+        status: 'active',
+        type: 'content_creation',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
@@ -213,28 +117,14 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           requireApprovalForArtifacts: false,
           allowedTools: ['canva', 'hootsuite', 'buffer'],
         },
-        lastActivityAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-        fileCount: 89,
-        artifactCount: 25,
+        metadata: {},
       },
-
-      // Research Projects
       {
         name: 'AI Ethics Policy Research',
-        description:
-          'Comprehensive research on AI ethics policies and their implementation in enterprise environments',
-        type: ProjectType.POLICY_ANALYSIS,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.ORGANIZATION,
-        ownerId: analystUser.id,
-        slug: this.generateSlug(),
-        color: '#7C3AED',
-        tags: ['ai-ethics', 'policy', 'governance', 'research'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'policy-analyst',
-          'ethics-researcher',
-          'legal-advisor',
-        ]),
+        description: 'Comprehensive research on AI ethics policies and their implementation in enterprise environments',
+        status: 'active',
+        type: 'policy_analysis',
+        ownerId: this.users[1]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
@@ -243,85 +133,46 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           requireApprovalForArtifacts: true,
           allowedTools: ['zotero', 'mendeley', 'latex'],
         },
-        lastActivityAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-        fileCount: 156,
-        artifactCount: 18,
+        metadata: {},
       },
       {
         name: 'Customer Behavior Analytics',
-        description:
-          'Deep dive analysis of customer behavior patterns using ML and statistical methods',
-        type: ProjectType.DATA_ANALYSIS,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.TEAM,
-        ownerId: analystUser.id,
-        slug: this.generateSlug(),
-        color: '#059669',
-        tags: ['analytics', 'machine-learning', 'customer-behavior'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'data-scientist',
-          'statistician',
-          'business-analyst',
-        ]),
+        description: 'Deep dive analysis of customer behavior patterns using ML and statistical methods',
+        status: 'active',
+        type: 'data_analysis',
+        ownerId: this.users[1]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
-          maxFileSize: 500 * 1024 * 1024, // 500MB for datasets
+          maxFileSize: 500 * 1024 * 1024,
           allowedFileTypes: ['.csv', '.json', '.parquet', '.py', '.ipynb', '.r'],
           requireApprovalForArtifacts: false,
           allowedTools: ['jupyter', 'python', 'r', 'tableau', 'sql'],
         },
-        lastActivityAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        fileCount: 34,
-        artifactCount: 9,
+        metadata: {},
       },
-
-      // Specialized Projects
       {
         name: 'Healthcare Data Platform',
         description: 'HIPAA-compliant healthcare data platform for patient record management',
-        type: ProjectType.HEALTHCARE,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.PRIVATE,
-        ownerId: devUser.id,
-        slug: this.generateSlug(),
-        color: '#DC2626',
-        tags: ['healthcare', 'hipaa', 'data-platform', 'compliance'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'healthcare-it',
-          'compliance-officer',
-          'security-engineer',
-        ]),
+        status: 'active',
+        type: 'healthcare',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
-          maxFileSize: 10 * 1024 * 1024, // Restricted file size for security
+          maxFileSize: 10 * 1024 * 1024,
           allowedFileTypes: ['.md', '.json', '.yml', '.txt'],
           requireApprovalForArtifacts: true,
           allowedTools: ['docker', 'kubernetes', 'postgresql'],
         },
-        lastActivityAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-        fileCount: 28,
-        artifactCount: 6,
+        metadata: {},
       },
-
-      // Collaboration Projects
       {
         name: 'Architecture Review Board',
-        description:
-          'Weekly architecture review sessions for system design decisions and technical debt',
-        type: ProjectType.REVIEW,
-        status: ProjectStatus.ACTIVE,
-        visibility: ProjectVisibility.TEAM,
-        ownerId: adminUser.id,
-        slug: this.generateSlug(),
-        color: '#6366F1',
-        tags: ['architecture', 'review', 'technical-debt', 'collaboration'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'solutions-architect',
-          'tech-lead',
-          'senior-engineer',
-        ]),
+        description: 'Weekly architecture review sessions for system design decisions and technical debt',
+        status: 'active',
+        type: 'review',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
@@ -330,27 +181,14 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           requireApprovalForArtifacts: false,
           allowedTools: ['confluence', 'drawio', 'miro'],
         },
-        lastActivityAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-        fileCount: 42,
-        artifactCount: 11,
+        metadata: {},
       },
-
-      // Completed Project Example
       {
         name: 'Legacy System Migration',
         description: 'Successful migration of legacy COBOL systems to modern cloud architecture',
-        type: ProjectType.DEVOPS,
-        status: ProjectStatus.COMPLETED,
-        visibility: ProjectVisibility.ORGANIZATION,
-        ownerId: devUser.id,
-        slug: this.generateSlug(),
-        color: '#64748B',
-        tags: ['legacy', 'migration', 'cloud', 'modernization'],
-        recommendedAgents: this.getAgentIdsByRole([
-          'migration-specialist',
-          'devops-engineer',
-          'code-whisperer',
-        ]),
+        status: 'completed',
+        type: 'devops',
+        ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         settings: {
           allowFileUploads: true,
           allowArtifactGeneration: true,
@@ -359,10 +197,7 @@ export class ProjectSeed extends BaseSeed<ProjectEntity> {
           requireApprovalForArtifacts: true,
           allowedTools: ['terraform', 'ansible', 'docker', 'kubernetes'],
         },
-        lastActivityAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
-        completedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // Completed 5 days ago
-        fileCount: 127,
-        artifactCount: 23,
+        metadata: {},
       },
     ];
   }

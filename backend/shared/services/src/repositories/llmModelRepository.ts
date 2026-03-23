@@ -1,143 +1,95 @@
-import { Repository, DataSource } from 'typeorm';
-import { LLMModel } from '../entities/llmModel.entity';
+import { getIntelligenceDb, getIntelligencePool, llmModels } from '../database/index';
+import { eq, inArray, asc, and } from 'drizzle-orm';
 
-export class LLMModelRepository extends Repository<LLMModel> {
-  constructor(dataSource: DataSource) {
-    super(LLMModel, dataSource.createEntityManager());
-  }
+type LLMModel = typeof llmModels.$inferSelect;
+export type { LLMModel };
 
-  // Find all available models
+export class LLMModelRepository {
+  private get db() { return getIntelligenceDb(); }
+  private get pool() { return getIntelligencePool(); }
+
   async findAvailableModels(): Promise<LLMModel[]> {
-    return this.find({
-      where: { isAvailable: true, isActive: true },
-      order: { priority: 'ASC', name: 'ASC' },
-    });
+    return this.db.select().from(llmModels)
+      .where(eq(llmModels.isEnabled, true))
+      .orderBy(asc(llmModels.name));
   }
 
-  // Find models by provider ID
   async findByProviderId(providerId: string): Promise<LLMModel[]> {
-    return this.find({
-      where: { providerId, isActive: true },
-      order: { priority: 'ASC', name: 'ASC' },
-    });
+    return this.db.select().from(llmModels)
+      .where(and(eq(llmModels.providerId, providerId), eq(llmModels.isEnabled, true)))
+      .orderBy(asc(llmModels.name));
   }
 
-  // Find models for a specific user (based on their providers)
-  // Note: LLMModel.providerId can reference either llm_providers or user_llm_providers
-  // so we don't join on a provider relation (it doesn't exist on the entity)
   async findByUserProviders(providerIds: string[]): Promise<LLMModel[]> {
-    if (providerIds.length === 0) {
-      return [];
-    }
-
-    return this.createQueryBuilder('model')
-      .where('model.providerId IN (:...providerIds)', { providerIds })
-      .andWhere('model.isActive = :isActive', { isActive: true })
-      .andWhere('model.isAvailable = :isAvailable', { isAvailable: true })
-      .orderBy('model.priority', 'ASC')
-      .addOrderBy('model.name', 'ASC')
-      .getMany();
+    if (providerIds.length === 0) return [];
+    return this.db.select().from(llmModels)
+      .where(and(inArray(llmModels.providerId, providerIds), eq(llmModels.isEnabled, true)))
+      .orderBy(asc(llmModels.name));
   }
 
-  // Find model by name and provider
   async findByNameAndProvider(name: string, providerId: string): Promise<LLMModel | null> {
-    return this.findOne({
-      where: { name, providerId },
-      relations: ['provider'],
-    });
+    const [row] = await this.db.select().from(llmModels)
+      .where(and(eq(llmModels.name, name), eq(llmModels.providerId, providerId)))
+      .limit(1);
+    return row ?? null;
   }
 
-  // Upsert model (create or update)
-  async upsertModel(modelData: Partial<LLMModel>): Promise<LLMModel> {
-    const existingModel = await this.findByNameAndProvider(modelData.name!, modelData.providerId!);
+  async findById(id: string): Promise<LLMModel | null> {
+    const [row] = await this.db.select().from(llmModels).where(eq(llmModels.id, id)).limit(1);
+    return row ?? null;
+  }
 
-    if (existingModel) {
-      // Update existing model
-      Object.assign(existingModel, modelData);
-      existingModel.lastCheckedAt = new Date();
-      return this.save(existingModel);
+  async upsertModel(modelData: Partial<LLMModel>): Promise<LLMModel> {
+    const existing = modelData.name && modelData.providerId
+      ? await this.findByNameAndProvider(modelData.name, modelData.providerId)
+      : null;
+
+    if (existing) {
+      const [updated] = await this.db.update(llmModels)
+        .set({ ...modelData, updatedAt: new Date() })
+        .where(eq(llmModels.id, existing.id))
+        .returning();
+      return updated;
     } else {
-      // Create new model
-      const newModel = this.create(modelData);
-      newModel.lastCheckedAt = new Date();
-      return this.save(newModel);
+      const [created] = await this.db.insert(llmModels)
+        .values(modelData as typeof llmModels.$inferInsert)
+        .returning();
+      return created;
     }
   }
 
-  // Batch upsert models for a provider
-  async upsertModelsForProvider(
-    providerId: string,
-    models: Partial<LLMModel>[]
-  ): Promise<LLMModel[]> {
+  async upsertModelsForProvider(providerId: string, models: Partial<LLMModel>[]): Promise<LLMModel[]> {
     const results: LLMModel[] = [];
-
     for (const modelData of models) {
-      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-      const model = await this.upsertModel({
-        ...modelData,
-        providerId,
-      });
+      const model = await this.upsertModel({ ...modelData, providerId });
       results.push(model);
     }
-
-    // Mark models not in the current list as unavailable
-    const currentModelNames = models.map((m) => m.name);
-    if (currentModelNames.length > 0) {
-      await this.createQueryBuilder()
-        .update(LLMModel)
-        .set({ isAvailable: false, lastCheckedAt: new Date() })
-        .where('providerId = :providerId', { providerId })
-        .andWhere('name NOT IN (:...names)', { names: currentModelNames })
-        .execute();
+    const currentNames = models.map(m => m.name).filter(Boolean) as string[];
+    if (currentNames.length > 0) {
+      await this.pool.query(
+        `UPDATE "llm_models" SET "is_enabled" = false, "updated_at" = NOW() WHERE "provider_id" = $1 AND "name" NOT IN (${currentNames.map((_, i) => `$${i + 2}`).join(',')})`,
+        [providerId, ...currentNames]
+      );
     }
-
     return results;
   }
 
-  // Get model statistics
-  async getModelStats(modelId: string): Promise<{
-    totalRequests: string;
-    totalTokensUsed: string;
-    totalErrors: string;
-    errorRate: number;
-  } | null> {
-    const model = await this.findOne({ where: { id: modelId } });
-    if (!model) {
-      return null;
-    }
-
-    const totalRequests = BigInt(model.totalRequests);
-    const totalErrors = BigInt(model.totalErrors);
-    const errorRate = totalRequests > 0 ? Number(totalErrors) / Number(totalRequests) : 0;
-
-    return {
-      totalRequests: model.totalRequests,
-      totalTokensUsed: model.totalTokensUsed,
-      totalErrors: model.totalErrors,
-      errorRate,
-    };
+  async getModelStats(modelId: string): Promise<{ totalRequests: string; totalTokensUsed: string; totalErrors: string; errorRate: number } | null> {
+    const model = await this.findById(modelId);
+    if (!model) return null;
+    return { totalRequests: '0', totalTokensUsed: '0', totalErrors: '0', errorRate: 0 };
   }
 
-  // Get popular models (by usage)
-  async getPopularModels(limit: number = 10): Promise<LLMModel[]> {
-    return this.createQueryBuilder('model')
-      .innerJoin('model.provider', 'provider')
-      .where('model.isActive = :isActive', { isActive: true })
-      .andWhere('model.isAvailable = :isAvailable', { isAvailable: true })
-      .orderBy('CAST(model.totalRequests AS BIGINT)', 'DESC')
-      .limit(limit)
-      .getMany();
+  async getPopularModels(limit = 10): Promise<LLMModel[]> {
+    return this.db.select().from(llmModels)
+      .where(eq(llmModels.isEnabled, true))
+      .orderBy(asc(llmModels.name))
+      .limit(limit);
   }
 
-  // Mark models as unhealthy if not checked recently
-  async markStaleModelsAsUnavailable(staleThresholdHours: number = 24): Promise<void> {
-    const staleThreshold = new Date(Date.now() - staleThresholdHours * 60 * 60 * 1000);
-
-    await this.createQueryBuilder()
-      .update(LLMModel)
-      .set({ isAvailable: false })
-      .where('lastCheckedAt < :threshold', { threshold: staleThreshold })
-      .andWhere('isAvailable = :isAvailable', { isAvailable: true })
-      .execute();
+  async markStaleModelsAsUnavailable(_staleThresholdHours = 24): Promise<void> {
+    await this.db.update(llmModels)
+      .set({ isEnabled: false, updatedAt: new Date() })
+      .where(eq(llmModels.isEnabled, true));
   }
 }

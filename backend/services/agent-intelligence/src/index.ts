@@ -2,14 +2,12 @@ import {
   BaseService,
   DiscussionService,
   PersonaService,
-  DatabaseService as SharedDatabaseService,
-  allEntities,
   MemoryConsolidator,
   SemanticMemoryManager,
   serviceFactory,
 } from '@uaip/shared-services';
 import { LLMService, UserLLMService } from '@uaip/llm-service';
-import { Agent as AgentEntity } from '@uaip/shared-services';
+import type { Agent as AgentEntity } from '@uaip/shared-services';
 import {
   ActionRecommendation,
   AgentRole,
@@ -86,7 +84,7 @@ class AgentIntelligenceService extends BaseService {
     // Register all entities. TypeORM requires all related entities to be in the same DataSource.
     // TODO: When per-plane databases are implemented, use plane-specific entity lists
     //       (requires removing cross-plane TypeORM relations from entity classes first).
-    this.registerEntities(allEntities);
+    this.registerEntities([]);
   }
 
   protected async setupRoutes(): Promise<void> {
@@ -947,8 +945,8 @@ class AgentIntelligenceService extends BaseService {
     // Test endpoint for manual sync trigger
     this.app.post('/test/sync', async ({ set }) => {
       try {
-        // Use the shared DatabaseService (fat) which has knowledge-graph service getters
-        const sharedDbService = new SharedDatabaseService();
+        const { DatabaseService: SharedDatabaseServiceClass } = await import('@uaip/shared-services/databaseService');
+        const sharedDbService = new SharedDatabaseServiceClass();
         await sharedDbService.initialize();
 
         // Force Neo4j connection verification
@@ -1196,7 +1194,7 @@ class AgentIntelligenceService extends BaseService {
         for (const agentId of resolvedAgentIds) {
           try {
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-            const agent = await this.databaseService.findById<AgentEntity>(AgentEntity, agentId);
+            const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
             if (agent) {
               availableAgents.push(agent);
             }

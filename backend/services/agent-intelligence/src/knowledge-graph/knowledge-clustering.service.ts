@@ -163,22 +163,27 @@ export class KnowledgeClusteringService {
     // Calculate average confidence
     const averageConfidence = this.calculateAverageConfidence(cluster.similarChunks);
 
-    // Create knowledge item entity
-    const knowledgeItem = new KnowledgeItemEntity();
-    knowledgeItem.content = consolidatedContent;
-    knowledgeItem.type = consolidatedType;
-    knowledgeItem.tags = consolidatedTags;
-    knowledgeItem.confidence = averageConfidence;
-    knowledgeItem.sourceType = SourceType.CLUSTERED;
-    knowledgeItem.sourceIdentifier = `cluster_${cluster.clusterId}`;
-    knowledgeItem.metadata = {
-      clusterId: cluster.clusterId,
-      originalItemsCount: cluster.similarChunks.length,
-      consolidatedAt: new Date().toISOString(),
-      sources: cluster.sources,
+    // Create knowledge item entity as plain object
+    const knowledgeItem = {
+      id: '', // Will be assigned by database
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      content: consolidatedContent,
+      type: consolidatedType,
+      tags: consolidatedTags,
+      confidence: averageConfidence,
+      sourceType: SourceType.CLUSTERED,
+      sourceIdentifier: `cluster_${cluster.clusterId}`,
+      metadata: {
+        clusterId: cluster.clusterId,
+        originalItemsCount: cluster.similarChunks.length,
+        consolidatedAt: new Date().toISOString(),
+        sources: cluster.sources,
+      },
+      accessLevel: 'public' as const,
     };
 
-    return knowledgeItem;
+    return knowledgeItem as unknown as KnowledgeItemEntity;
   }
 
   /**

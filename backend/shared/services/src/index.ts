@@ -101,7 +101,7 @@ export type {
   TaskAssignmentSuggestion,
   TaskFilters,
 } from './services/task.service';
-export { TaskEntity } from './entities/task.entity';
+export type { Project as TaskEntity } from './database/drizzle/schemas/control.schema';
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agentIntelligenceService';
@@ -158,7 +158,8 @@ export {
 // SPECIALIZED SERVICES
 // =============================================================================
 
-// Tool Graph Types
+// Tool Graph
+export { ToolGraphDatabase } from './database/toolGraphDatabase';
 export type {
   ToolRelationship,
   ToolRecommendation,
@@ -213,27 +214,17 @@ export type {
 // ENTITIES
 // =============================================================================
 
-// Short Link Entities
-export { ShortLinkEntity, LinkType, LinkStatus } from './entities/short-link.entity';
+// Drizzle type aliases for backward-compat
+export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence.schema';
+export type { Project } from './database/drizzle/schemas/control.schema';
 
-// Project Management Entities
-export {
-  Project,
-  ProjectTask,
-  ProjectToolUsage,
-  ProjectAgent,
-  ProjectWorkflow,
-  TaskExecution,
-} from './entities/Project';
-
-// Contact Management Entities
+// Contact Management Enums
 export { ContactStatus, ContactType } from './database/repositories/UserContactRepository';
+
+export { LLMModelRepository } from './repositories/llmModelRepository';
 
 // Database Seeders
 export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed';
-
-// All Entities Export
-export * from './entities/index';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

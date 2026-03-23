@@ -1,8 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import { KnowledgeItemEntity } from '../entities/knowledge-item.entity';
-import { KnowledgeRelationshipEntity } from '../entities/knowledge-relationship.entity';
-import { UserEntity } from '../entities/user.entity';
+import type { KnowledgeItem as KnowledgeItemEntity, KnowledgeRelationship as KnowledgeRelationshipEntity } from '../database/drizzle/schemas/intelligence.schema';
+import type { User as UserEntity } from '../database/drizzle/schemas/control.schema';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
 import { QdrantService } from '../qdrant.service';
 import { ToolGraphDatabase } from '../database/toolGraphDatabase';
@@ -35,7 +34,7 @@ export interface KnowledgeBootstrapResult {
   errors: string[];
 }
 
-type UserRepositoryLike = {
+export type UserRepositoryLike = {
   findById: (id: string) => Promise<UserEntity | null>;
 };
 
@@ -646,11 +645,11 @@ export class KnowledgeSyncService {
     `;
 
     const params = {
-      sourceId: rel.sourceItemId,
-      targetId: rel.targetItemId,
+      sourceId: rel.sourceId,
+      targetId: rel.targetId,
       relType: rel.relationshipType,
-      confidence: rel.confidence,
-      summary: rel.summary,
+      confidence: rel.strength,
+      summary: rel.metadata?.summary as string | undefined,
       createdAt: rel.createdAt.toISOString(),
       updatedAt: rel.updatedAt.toISOString(),
     };
@@ -918,19 +917,26 @@ export class KnowledgeSyncService {
       return item.pgEntity;
     }
 
-    // If no PostgreSQL entity, create a temporary one for sync
-    const entity = new KnowledgeItemEntity();
-    entity.id = item.id;
-    entity.content = item.content;
-    entity.type = item.type;
-    entity.sourceType = SourceType.EXTERNAL_API;
-    entity.sourceIdentifier = `sync-${item.source}-${item.id}`;
-    entity.tags = [];
-    entity.confidence = 0.8;
-    entity.metadata = item.metadata;
-    entity.accessLevel = 'STANDARD';
-    entity.createdAt = new Date();
-    entity.updatedAt = new Date();
+    // If no PostgreSQL entity, create a plain object conforming to the type
+    const entity: KnowledgeItemEntity = {
+      id: item.id,
+      content: item.content,
+      type: item.type,
+      sourceType: SourceType.EXTERNAL_API,
+      sourceIdentifier: `sync-${item.source}-${item.id}`,
+      tags: [],
+      confidence: 0.8,
+      metadata: item.metadata,
+      accessLevel: 'STANDARD',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: undefined,
+      agentId: undefined,
+      organizationId: undefined,
+      createdBy: undefined,
+      summary: undefined,
+      sourceUrl: undefined,
+    };
 
     return entity;
   }

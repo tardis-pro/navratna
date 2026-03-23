@@ -3,7 +3,24 @@ import { ToolExecution as ToolExecutionType, ToolExecutionStatus } from '@uaip/t
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
-import { ToolExecution as ToolExecutionEntity } from './entities/toolExecution.entity';
+
+interface ToolExecutionEntity {
+  id?: string;
+  toolId: string;
+  agentId?: string;
+  userId?: string;
+  operationId?: string;
+  status: string;
+  parameters?: Record<string, unknown>;
+  result?: unknown;
+  error?: string;
+  duration?: number;
+  tokensUsed?: number;
+  cost?: number;
+  metadata?: Record<string, unknown>;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 export interface ToolExecutionOptions {
   timeout?: number;
@@ -93,9 +110,14 @@ export class ToolExecutionService {
 
   private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {
     return {
-      ...execution,
-      result: ToolExecutionService.toRecord(execution.result),
-      data: ToolExecutionService.toRecord(execution.data),
+      id: execution.id,
+      toolId: execution.toolId,
+      agentId: execution.agentId,
+      parameters: execution.parameters,
+      status: execution.status,
+      result: execution.result,
+      error: execution.error ? JSON.stringify(execution.error) : undefined,
+      metadata: execution.metadata,
     };
   }
 
@@ -103,9 +125,8 @@ export class ToolExecutionService {
     updates: Partial<ToolExecutionType>
   ): Partial<ToolExecutionEntity> {
     return {
-      ...updates,
-      result: ToolExecutionService.toRecord(updates.result),
-      data: ToolExecutionService.toRecord(updates.data),
+      result: updates.result,
+      error: updates.error ? JSON.stringify(updates.error) : undefined,
     };
   }
 
@@ -233,7 +254,7 @@ export class ToolExecutionService {
   async getExecution(executionId: string): Promise<ToolExecutionType | null> {
     try {
       const result = await this.databaseService.tools.getToolExecution(executionId);
-      return result as ToolExecutionType | null;
+      return result as unknown as ToolExecutionType | null;
     } catch (error) {
       logger.error(`Failed to get tool execution ${executionId}:`, error);
       return null;

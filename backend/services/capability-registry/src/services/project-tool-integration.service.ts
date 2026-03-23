@@ -56,7 +56,7 @@ export class ProjectToolIntegrationService {
     private eventBusService: EventBusService
   ) {
     this.toolRegistry = new UnifiedToolRegistry(eventBusService);
-    this.projectService = new ProjectManagementService(databaseService);
+    this.projectService = new ProjectManagementService(databaseService as any);
     this.setupEventSubscriptions();
   }
 
@@ -391,6 +391,7 @@ export class ProjectToolIntegrationService {
 
     if (
       project?.settings?.allowedTools &&
+      Array.isArray(project.settings.allowedTools) &&
       !project.settings.allowedTools.includes(request.toolId)
     ) {
       throw new Error(`Tool ${request.toolId} is not allowed in this project`);

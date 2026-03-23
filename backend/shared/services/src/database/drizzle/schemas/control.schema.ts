@@ -753,6 +753,7 @@ export const integrationEvents = pgTable('integration_events', {
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
+export type UserEntity = User;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;

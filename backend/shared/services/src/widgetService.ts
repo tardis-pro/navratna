@@ -388,7 +388,7 @@ export class WidgetService {
       role: user.role,
       permissions: allPermissions,
       department: user.department,
-      securityLevel: user.securityClearance || SecurityLevel.MEDIUM,
+      securityLevel: (user.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
     };
   }
 

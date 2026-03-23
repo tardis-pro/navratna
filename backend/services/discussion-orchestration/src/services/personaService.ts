@@ -16,8 +16,8 @@ import {
 import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
-import { Persona as PersonaEntity } from '@uaip/shared-services';
-import { SelectQueryBuilder } from 'typeorm';
+
+
 
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
@@ -61,7 +61,7 @@ export class PersonaService {
       // Validate the persona data
       const validation = await this.validatePersona(request);
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository('personas');
 
       const personaData = {
         name: request.name,
@@ -123,7 +123,7 @@ export class PersonaService {
         return cached;
       }
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository('personas');
       const entity = await personaRepo.findOne({ where: { id } });
 
       if (!entity) {
@@ -156,7 +156,7 @@ export class PersonaService {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository('personas');
       await personaRepo.update(id, {
         ...updateData,
         validation,
@@ -206,7 +206,7 @@ export class PersonaService {
         return;
       }
 
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository('personas');
       await personaRepo.delete(id);
 
       this.personaCache.delete(id);
@@ -236,7 +236,7 @@ export class PersonaService {
     hasMore: boolean;
   }> {
     try {
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository('personas');
       const queryBuilder = personaRepo.createQueryBuilder('persona');
 
       this.applySearchFilters(queryBuilder, filters);
@@ -458,7 +458,7 @@ export class PersonaService {
 
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
-      const personaRepo = await this.databaseService.getRepository(PersonaEntity);
+      const personaRepo = await this.databaseService.getRepository('personas');
       const queryBuilder = personaRepo.createQueryBuilder('persona');
 
       if (category) {

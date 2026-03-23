@@ -1,10 +1,20 @@
-import { Repository } from 'typeorm';
-import { DatabaseService } from '@uaip/infra/database';
+import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
 import { ProjectEntity, ProjectStatus, ProjectVisibility } from './entities/project.entity';
 import { ProjectMemberEntity, ProjectRole, MemberStatus } from './entities/project-member.entity';
 import { ProjectType } from '@uaip/types';
+
+interface IRepository<T = any> {
+  findOne(opts: { where?: any }): Promise<T | null>;
+  find(opts?: { where?: any; order?: any; take?: number; skip?: number }): Promise<T[]>;
+  save(entity: any): Promise<T>;
+  update(id: string, data: any): Promise<T | null>;
+  count(opts?: { where?: any }): Promise<number>;
+  createQueryBuilder(alias?: string): any;
+}
+
+type AnyRepository = IRepository<any>;
 
 // ---------------------------------------------------------------------------
 // Slug generation — 8-char alphanumeric, e.g. "A3FX9K2B"
@@ -18,7 +28,7 @@ function generateSlug(length = 8): string {
   return result;
 }
 
-async function generateUniqueSlug(repo: Repository<ProjectEntity>): Promise<string> {
+async function generateUniqueSlug(repo: IRepository<ProjectEntity>): Promise<string> {
   const tryGenerate = async (attempt: number): Promise<string> => {
     if (attempt >= 10) {
       return Date.now().toString(36).toUpperCase().slice(-8);
@@ -114,8 +124,8 @@ export interface ProjectMetrics {
 // ---------------------------------------------------------------------------
 
 export class ProjectManagementService {
-  private projectRepository: Repository<ProjectEntity>;
-  private memberRepository: Repository<ProjectMemberEntity>;
+  private projectRepository: any;
+  private memberRepository: any;
 
   constructor(
     private databaseService: DatabaseService,
@@ -123,9 +133,8 @@ export class ProjectManagementService {
   ) {}
 
   async initialize(): Promise<void> {
-    const dataSource = await this.databaseService.getDataSource();
-    this.projectRepository = dataSource.getRepository(ProjectEntity);
-    this.memberRepository = dataSource.getRepository(ProjectMemberEntity);
+    this.projectRepository = this.databaseService.getProjectRepository();
+    this.memberRepository = this.databaseService.getProjectMemberRepository();
 
     logger.info('Project Management Service initialized');
   }
@@ -381,8 +390,8 @@ export class ProjectManagementService {
 
       const [projects, totalProjects] = await qb.getManyAndCount();
 
-      const activeProjects = projects.filter((p) => p.status === ProjectStatus.ACTIVE).length;
-      const completedProjects = projects.filter((p) => p.status === ProjectStatus.COMPLETED).length;
+      const activeProjects = projects.filter((p: any) => p.status === ProjectStatus.ACTIVE).length;
+      const completedProjects = projects.filter((p: any) => p.status === ProjectStatus.COMPLETED).length;
 
       return {
         totalProjects,

@@ -1,10 +1,9 @@
 import { logger } from '@uaip/utils';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
-import { KnowledgeRepository, UserEntity } from '@uaip/shared-services';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { KnowledgeSyncService } from './knowledge-sync.service.js';
 import { EmbeddingService } from './embedding.service.js';
 import { ToolGraphDatabase } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
 
 export interface QdrantHealthStatus {
   isConnected: boolean;
@@ -72,14 +71,11 @@ export class QdrantHealthService {
         `Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`
       );
 
-      const databaseService = DatabaseService.getInstance();
-      const userRepository = await databaseService.getRepository<UserEntity>(UserEntity);
       const syncService = new KnowledgeSyncService(
         this.knowledgeRepository,
         this.qdrantService,
         this.graphDatabase,
-        this.embeddingService,
-        userRepository
+        this.embeddingService
       );
 
       // Get items to sync

@@ -251,10 +251,12 @@ export class ToolExecutor {
   }
 
   async retryExecution(executionId: string): Promise<ToolExecution> {
-    const execution = await this.toolService.getToolExecution(executionId);
-    if (!execution) {
+    const executionRecord = await this.toolService.getToolExecution(executionId);
+    if (!executionRecord) {
       throw new Error(`Execution ${executionId} not found`);
     }
+
+    const execution = executionRecord as unknown as ToolExecution;
 
     if (execution.retryCount >= execution.maxRetries) {
       throw new Error(`Maximum retries exceeded for execution ${executionId}`);
@@ -313,10 +315,12 @@ export class ToolExecutor {
   }
 
   async approveExecution(executionId: string, approvedBy: string): Promise<ToolExecution> {
-    const execution = await this.toolService.getToolExecution(executionId);
-    if (!execution) {
+    const executionRecord = await this.toolService.getToolExecution(executionId);
+    if (!executionRecord) {
       throw new Error(`Execution ${executionId} not found`);
     }
+
+    const execution = executionRecord as unknown as ToolExecution;
 
     if (execution.status !== ToolExecutionStatus.APPROVAL_REQUIRED) {
       throw new Error(`Execution ${executionId} does not require approval`);
@@ -345,7 +349,8 @@ export class ToolExecutor {
 
   // Execution Management
   async getExecution(executionId: string): Promise<ToolExecution | null> {
-    return await this.toolService.getToolExecution(executionId);
+    const record = await this.toolService.getToolExecution(executionId);
+    return record as unknown as ToolExecution | null;
   }
 
   async getExecutions(
@@ -360,7 +365,8 @@ export class ToolExecutor {
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     if (status) filters.status = status;
-    return await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
+    const records = await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
+    return records as unknown as ToolExecution[];
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
@@ -373,7 +379,8 @@ export class ToolExecutor {
       status: ToolExecutionStatus.RUNNING,
     };
     if (agentId) filters.agentId = agentId;
-    return await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
+    const records = await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
+    return records as unknown as ToolExecution[];
   }
 
   // Private Helper Methods
