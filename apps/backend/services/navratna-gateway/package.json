@@ -1,0 +1,33 @@
+{
+  "name": "@uaip/navratna-gateway",
+  "version": "3.0.0",
+  "description": "Navratna Gateway — consolidated service (security-gateway + orchestration-pipeline + capability-registry)",
+  "main": "./dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "nodemon --exec tsx src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "dotenv": "catalog:backend",
+    "elysia": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "nodemon": "catalog:backend",
+    "rimraf": "^6.1.2",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  }
+}

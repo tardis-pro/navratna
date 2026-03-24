@@ -1,0 +1,20 @@
+{
+  "files": [],
+  "references": [
+    { "path": "../packages/shared-types" },
+    { "path": "../packages/shared-utils" },
+    { "path": "./shared/config" },
+    { "path": "./shared/middleware" },
+    { "path": "./shared/services" },
+    { "path": "./shared/llm-service" },
+    { "path": "./services/agent-intelligence" },
+    { "path": "./services/capability-registry" },
+    { "path": "./services/llm-service" },
+    { "path": "./services/security-gateway" },
+
+    { "path": "./services/artifact-service" },
+    { "path": "./services/orchestration-pipeline" },
+    { "path": "./services/discussion-orchestration" },
+    { "path": "./services/basebench-meta" }
+  ]
+}

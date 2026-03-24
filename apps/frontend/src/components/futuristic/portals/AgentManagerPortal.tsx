@@ -8,6 +8,7 @@ import { AgentState, createAgentStateFromBackend } from '../../../types/agent';
 import { Persona as _Persona, PersonaDisplay } from '../../../types/persona';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip-api';
+import { APIClient } from '../../../api/client';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
 import {
   Users,
@@ -318,22 +319,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     setMcpToolsError(null);
 
     try {
-      const response = await fetch('/api/v1/agents/mcp-tools', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-      });
+      const data = await APIClient.get('/api/v1/agents/mcp-tools');
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch MCP tools: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success && Array.isArray(data.data)) {
-        setAvailableMCPTools(data.data);
+      if (Array.isArray(data)) {
+        setAvailableMCPTools(data);
       } else {
         setMcpToolsError('Invalid MCP tools response format');
       }

@@ -24,26 +24,20 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@uaip/types": ["../../packages/shared-types/src"],
-      "@uaip/types/*": ["../../packages/shared-types/src/*"],
-      "@uaip/utils": ["../../packages/shared-utils/src"],
-      "@uaip/utils/*": ["../../packages/shared-utils/src/*"]
+      "@uaip/types": ["../packages/shared-types/src"],
+      "@uaip/types/*": ["../packages/shared-types/src/*"],
+      "@uaip/utils": ["../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../packages/shared-utils/src/*"]
     },
     "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
   },
-  "include": [
-    "src",
-    "../../node_modules/@types",
-    "../../packages/shared-utils/src/conversationFlow.ts",
-    "../../packages/shared-utils/src/conversationEnhancer.ts",
-    "../../packages/shared-utils/src/personaUtils.ts"
-  ],
+  "include": ["src"],
   "references": [
     {
-      "path": "../../packages/shared-types"
+      "path": "../../apps/packages/shared-types"
     },
     {
-      "path": "../../packages/shared-utils"
+      "path": "../../apps/packages/shared-utils"
     }
   ]
 }

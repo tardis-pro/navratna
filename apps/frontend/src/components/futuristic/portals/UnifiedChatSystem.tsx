@@ -10,7 +10,6 @@ import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
 import { useConversationIntelligence } from '../../../hooks/useConversationIntelligence';
-import '../../../styles/ai-sidekick.css';
 import {
   MessageSquare,
   Bot,

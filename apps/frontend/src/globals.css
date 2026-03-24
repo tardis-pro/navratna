@@ -1,0 +1,436 @@
+/* ============================================================
+   GLOBALS — Navratna Design System
+   Single source of truth for CSS tokens, base styles,
+   keyframes, and critical utility classes.
+
+   Import order matters:
+     main.tsx → globals.css (this file)
+     DesktopApp.tsx → NO extra CSS imports needed
+============================================================ */
+
+@import 'tailwindcss';
+
+/* ============================================================
+   DESIGN TOKENS — Tailwind 4 @theme block
+   OKLCH colors for perceptually uniform color manipulation.
+   Tailwind generates utility classes from these variables.
+============================================================ */
+@theme {
+  /* ── Font Scale ─────────────────────────────────────────
+     Fixed from previous compressed 12px base scale.
+     Old: xs=8.8px sm=10.8px base=12px
+     New: xs=12px  sm=13px   base=14px (readable default)
+  ────────────────────────────────────────────────────── */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.8125rem;  /* 13px */
+  --font-size-base: 0.875rem; /* 14px */
+  --font-size-lg: 1rem;       /* 16px */
+  --font-size-xl: 1.125rem;   /* 18px */
+  --font-size-2xl: 1.25rem;   /* 20px */
+  --font-size-3xl: 1.5rem;    /* 24px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+  --font-size-5xl: 3rem;      /* 48px */
+  --font-size-6xl: 3.75rem;   /* 60px */
+
+  /* ── Light Mode Colors ──────────────────────────────── */
+  --color-background: oklch(100% 0 0);
+  --color-foreground: oklch(9% 0.024 285.82);
+
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(9% 0.024 285.82);
+
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(9% 0.024 285.82);
+
+  --color-primary: oklch(11.2% 0.237 285.82);
+  --color-primary-foreground: oklch(98% 0.016 285.82);
+
+  --color-secondary: oklch(96.1% 0.016 285.82);
+  --color-secondary-foreground: oklch(11.2% 0.237 285.82);
+
+  --color-muted: oklch(96.1% 0.016 285.82);
+  --color-muted-foreground: oklch(46.9% 0.033 264.05);
+
+  --color-accent: oklch(96.1% 0.016 285.82);
+  --color-accent-foreground: oklch(11.2% 0.237 285.82);
+
+  --color-destructive: oklch(60.2% 0.177 29.23);
+  --color-destructive-foreground: oklch(98% 0.016 285.82);
+
+  --color-border: oklch(91.4% 0.032 264.05);
+  --color-input: oklch(91.4% 0.032 264.05);
+  --color-ring: oklch(9% 0.024 285.82);
+  --color-ring-offset-background: oklch(100% 0 0);
+
+  --color-sidebar-background: oklch(98% 0 0);
+  --color-sidebar-foreground: oklch(26.1% 0.011 256.85);
+  --color-sidebar-primary: oklch(10% 0.012 256.85);
+  --color-sidebar-primary-foreground: oklch(98% 0 0);
+  --color-sidebar-accent: oklch(95.9% 0.01 256.85);
+  --color-sidebar-accent-foreground: oklch(10% 0.012 256.85);
+  --color-sidebar-border: oklch(91% 0.026 220);
+  --color-sidebar-ring: oklch(59.8% 0.182 217.2);
+
+  /* ── Brand / App-specific Colors ───────────────────── */
+  --color-llama1: oklch(59.69% 0.179 248.37);
+  --color-llama2: oklch(62.8% 0.257 29.23);
+  --color-debate-bg: oklch(10.98% 0.024 264.05);
+
+  /* ── Border Radius ──────────────────────────────────── */
+  --radius: 0.75rem;
+
+  /* ── Animation Tokens ───────────────────────────────────
+     Tailwind generates animate-* utilities from these.
+     The referenced @keyframes are defined below (once).
+  ────────────────────────────────────────────────────── */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fadeIn 0.5s ease-out forwards;
+  --animate-slide-in-left: slideInLeft 0.4s ease-out forwards;
+  --animate-slide-in-right: slideInRight 0.4s ease-out forwards;
+  --animate-bounce-in: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  --animate-shimmer: shimmer 1.5s infinite;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 2s ease-in-out infinite;
+  --animate-gradient-shift: gradientShift 3s ease infinite;
+}
+
+/* ── Dark Mode Color Overrides ──────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: oklch(4.9% 0.024 285.82);
+    --color-foreground: oklch(98% 0.016 285.82);
+
+    --color-card: oklch(4.9% 0.024 285.82);
+    --color-card-foreground: oklch(98% 0.016 285.82);
+
+    --color-popover: oklch(4.9% 0.024 285.82);
+    --color-popover-foreground: oklch(98% 0.016 285.82);
+
+    --color-primary: oklch(98% 0.016 285.82);
+    --color-primary-foreground: oklch(11.2% 0.237 285.82);
+
+    --color-secondary: oklch(17.5% 0.065 217.2);
+    --color-secondary-foreground: oklch(98% 0.016 285.82);
+
+    --color-muted: oklch(17.5% 0.065 217.2);
+    --color-muted-foreground: oklch(65.1% 0.04 215);
+
+    --color-accent: oklch(17.5% 0.065 217.2);
+    --color-accent-foreground: oklch(98% 0.016 285.82);
+
+    --color-destructive: oklch(30.6% 0.131 29.23);
+    --color-destructive-foreground: oklch(98% 0.016 285.82);
+
+    --color-border: oklch(17.5% 0.065 217.2);
+    --color-input: oklch(17.5% 0.065 217.2);
+    --color-ring: oklch(83.9% 0.054 212.7);
+    --color-ring-offset-background: oklch(4.9% 0.024 285.82);
+
+    --color-sidebar-background: oklch(10% 0.012 240);
+    --color-sidebar-foreground: oklch(95.9% 0.01 240);
+    --color-sidebar-primary: oklch(48% 0.152 224.3);
+    --color-sidebar-primary-foreground: oklch(100% 0 0);
+    --color-sidebar-accent: oklch(15.9% 0.007 240);
+    --color-sidebar-accent-foreground: oklch(95.9% 0.01 240);
+    --color-sidebar-border: oklch(15.9% 0.007 240);
+    --color-sidebar-ring: oklch(59.8% 0.182 217.2);
+
+    --color-llama1: oklch(59.69% 0.179 248.37);
+    --color-llama2: oklch(62.8% 0.257 29.23);
+    --color-debate-bg: oklch(10.98% 0.024 264.05);
+  }
+}
+
+/* ============================================================
+   BASE STYLES
+============================================================ */
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  h1 { @apply text-4xl lg:text-5xl; }
+  h2 { @apply text-3xl lg:text-4xl; }
+  h3 { @apply text-2xl lg:text-3xl; }
+  h4 { @apply text-xl lg:text-2xl; }
+
+  p { @apply leading-7; }
+  small { @apply text-sm font-medium leading-none; }
+}
+
+/* ============================================================
+   ROOT
+============================================================ */
+#root {
+  max-width: 100vw;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ============================================================
+   KEYFRAMES — defined once, referenced by @theme --animate-*
+============================================================ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  50%  { opacity: 1; transform: scale(1.05); }
+  70%  { transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 4px color-mix(in oklch, var(--color-primary) 40%, transparent); }
+  50%       { box-shadow: 0 0 16px color-mix(in oklch, var(--color-primary) 70%, transparent); }
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to   { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to   { height: 0; }
+}
+
+/* ── Microexpression keyframes (used by Microexpression component) ── */
+@keyframes microexpression-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%       { transform: scale(1.08); opacity: 0.85; }
+}
+
+@keyframes microexpression-alarm {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px oklch(55% 0.22 25 / 0.5);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 16px oklch(55% 0.22 25 / 0.8);
+  }
+}
+
+@keyframes microexpression-confused {
+  0%, 100% { opacity: 1;   transform: translateY(0); }
+  25%       { opacity: 0.6; transform: translateY(-1px); }
+  75%       { opacity: 0.6; transform: translateY(1px); }
+}
+
+/* ============================================================
+   Z-INDEX LAYERS — single source of truth
+   Used via CSS vars in style props or the utility classes below.
+============================================================ */
+:root {
+  --z-wallpaper:     -1;
+  --z-desktop:        1;
+  --z-weather:       20;
+  --z-notes:         30;
+  --z-shortcuts:     40;
+  --z-taskbar:       50;
+  --z-menu-backdrop: 55;
+  --z-menu:          60;
+  --z-modal-backdrop: 90;
+  --z-modal:         100;
+  --z-windows:       1000;
+  --z-active-window: 1100;
+}
+
+/* Classes used in DesktopUnified.tsx */
+.z-notes         { z-index: var(--z-notes); }
+.z-weather       { z-index: var(--z-weather); }
+.z-shortcuts     { z-index: var(--z-shortcuts); }
+.z-taskbar       { z-index: var(--z-taskbar); }
+.z-windows       { z-index: var(--z-windows); }
+.z-active-window { z-index: var(--z-active-window); }
+
+/* Radix dialog/popover override — keeps modals above portals */
+[data-radix-dialog-overlay]  { z-index: var(--z-modal-backdrop) !important; }
+[data-radix-dialog-content]  { z-index: var(--z-modal) !important; }
+
+/* ============================================================
+   SCROLLBARS
+============================================================ */
+::-webkit-scrollbar         { width: 6px; height: 6px; }
+::-webkit-scrollbar-track   { background: transparent; border-radius: 6px; }
+::-webkit-scrollbar-thumb   {
+  background: color-mix(in oklch, var(--color-muted-foreground) 30%, transparent);
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--color-muted-foreground) 50%, transparent);
+}
+::-webkit-scrollbar-corner  { background: transparent; }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color:
+    color-mix(in oklch, var(--color-muted-foreground) 30%, transparent)
+    transparent;
+}
+
+/* Component-scoped scrollbar utility (used in DiscussionPortal, AgentManagerPortal) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color:
+    color-mix(in oklch, var(--color-primary) 30%, transparent)
+    transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar       { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--color-primary) 30%, transparent);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--color-primary) 50%, transparent);
+}
+
+/* ============================================================
+   DESKTOP WALLPAPER
+   Used in DesktopUnified.tsx
+============================================================ */
+.desktop-wallpaper {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: var(--z-wallpaper);
+}
+
+.desktop-wallpaper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: oklch(0% 0 0 / 0.25);
+}
+
+/* ============================================================
+   GLASS SURFACE
+   Respects light/dark via background color transparency.
+============================================================ */
+.glass {
+  background: color-mix(in oklch, var(--color-background) 15%, transparent);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+}
+
+/* ============================================================
+   MICROEXPRESSION SYSTEM
+   Classes generated by Microexpression.tsx component.
+   Keyframes are defined above.
+============================================================ */
+.microexpression {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.microexpression--working {
+  animation: microexpression-pulse 2s ease-in-out infinite;
+}
+
+.microexpression--alarmed {
+  animation: microexpression-alarm 0.5s ease-in-out infinite;
+}
+
+.microexpression--confused {
+  animation: microexpression-confused 1s ease-in-out infinite;
+}
+
+/* ============================================================
+   FOCUS UTILITIES
+============================================================ */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+}
+
+/* ============================================================
+   ULTRAWIDE GRID SUPPORT
+============================================================ */
+@media (min-width: 1920px) {
+  .grid-cols-16 { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+}
+
+@media (min-width: 2560px) {
+  .grid-cols-20 { grid-template-columns: repeat(20, minmax(0, 1fr)); }
+}
+
+@media (min-width: 3440px) {
+  .grid-cols-24 { grid-template-columns: repeat(24, minmax(0, 1fr)); }
+}
+
+@media (min-width: 3840px) {
+  .grid-cols-28 { grid-template-columns: repeat(28, minmax(0, 1fr)); }
+}
+
+/* ============================================================
+   ACCESSIBILITY
+============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .microexpression--working,
+  .microexpression--alarmed,
+  .microexpression--confused {
+    animation: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .glass {
+    background: color-mix(in oklch, var(--color-background) 90%, transparent);
+    border: 2px solid var(--color-foreground);
+  }
+}

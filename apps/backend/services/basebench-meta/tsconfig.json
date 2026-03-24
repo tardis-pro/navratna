@@ -1,0 +1,37 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "noCheck": true,
+    "paths": {
+      "@uaip/types": ["../../../packages/shared-types/src/index.ts"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils": ["../../../packages/shared-utils/src/index.ts"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
+      "@uaip/config": ["../../shared/config/src/index.ts"],
+      "@uaip/config/*": ["../../shared/config/src/*"],
+      "@uaip/shared-services": ["../../shared/services/src/index.ts"],
+      "@uaip/shared-services/*": ["../../shared/services/src/*"],
+      "@uaip/middleware": ["../../shared/middleware/src/index.ts"],
+      "@uaip/middleware/*": ["../../shared/middleware/src/*"],
+      "@uaip/infra": ["../../shared/infra/src"],
+      "@uaip/infra/*": ["../../shared/infra/src/*"]
+    },
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../../shared/config" },
+    { "path": "../../shared/services" },
+    { "path": "../../shared/infra" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+}

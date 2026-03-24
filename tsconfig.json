@@ -2,18 +2,17 @@
   "files": [],
   "references": [
     { "path": "./apps/frontend" },
-    { "path": "./packages/shared-types" },
-    { "path": "./packages/shared-utils" },
-    { "path": "./backend" }
+    { "path": "./apps/packages/shared-types" },
+    { "path": "./apps/packages/shared-utils" },
+    { "path": "./apps/backend" }
   ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@uaip/types": ["./packages/shared-types/src"],
-      "@uaip/types/*": ["./packages/shared-types/src/*"],
-      "@uaip/utils": ["./packages/shared-utils/src"],
-      "@uaip/utils/*": ["./packages/shared-utils/src/*"],
-      "@/*": ["./src/*"]
+      "@uaip/types": ["./apps/packages/shared-types/src"],
+      "@uaip/types/*": ["./apps/packages/shared-types/src/*"],
+      "@uaip/utils": ["./apps/packages/shared-utils/src"],
+      "@uaip/utils/*": ["./apps/packages/shared-utils/src/*"]
     },
     "composite": true,
     "declaration": true,

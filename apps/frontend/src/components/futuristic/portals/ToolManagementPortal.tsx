@@ -2,20 +2,20 @@ import React, { useState, useEffect as _useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
 import { motion } from 'framer-motion';
 import {
-  WrenchScrewdriverIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  DocumentIcon,
-  TagIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-  XMarkIcon,
-  CloudIcon,
-  CodeBracketIcon,
-  CubeIcon,
-} from '@heroicons/react/24/outline';
+  Wrench,
+  Search,
+  Plus,
+  Clock,
+  CheckCircle2,
+  File,
+  Tag,
+  RefreshCw,
+  AlertTriangle,
+  X,
+  Cloud,
+  Code,
+  Box,
+} from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
 
 // Shared viewport type
@@ -191,13 +191,13 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
   const getTypeIcon = (type?: string) => {
     switch (type) {
       case 'mcp':
-        return <CloudIcon className="w-4 h-4" />;
+        return <Cloud className="w-4 h-4" />;
       case 'openapi':
-        return <CodeBracketIcon className="w-4 h-4" />;
+        return <Code className="w-4 h-4" />;
       case 'custom':
-        return <CubeIcon className="w-4 h-4" />;
+        return <Box className="w-4 h-4" />;
       default:
-        return <WrenchScrewdriverIcon className="w-4 h-4" />;
+        return <Wrench className="w-4 h-4" />;
     }
   };
 
@@ -272,7 +272,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       <div className="space-y-6">
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
+            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
             <p className="text-red-500 dark:text-red-400">Failed to load tools</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
               {capabilities.error?.message ||
@@ -297,7 +297,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       <div className="space-y-6">
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-purple-400 mx-auto mb-2 animate-spin" />
+            <RefreshCw className="w-8 h-8 text-purple-400 mx-auto mb-2 animate-spin" />
             <p className="text-gray-500 dark:text-gray-400">Loading tools...</p>
           </div>
         </div>
@@ -314,7 +314,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <WrenchScrewdriverIcon className="w-6 h-6 mr-2 text-purple-500" />
+          <Wrench className="w-6 h-6 mr-2 text-purple-500" />
           Tool Management
         </h2>
         <div className="flex items-center space-x-4">
@@ -331,7 +331,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
             className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all flex items-center space-x-2"
             title="Add new tool"
           >
-            <PlusIcon className="w-4 h-4" />
+            <Plus className="w-4 h-4" />
             <span>Add Tool</span>
           </button>
           <button
@@ -339,7 +339,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             title="Refresh tools"
           >
-            <ArrowPathIcon className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
           </button>
           {(capabilities.lastUpdated || toolIntegrations.lastUpdated || agents.lastUpdated) && (
             <span className="text-xs text-gray-400">
@@ -357,7 +357,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search tools..."
@@ -383,13 +383,13 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         {/* Tools List */}
         <div className="space-y-4">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
-            <WrenchScrewdriverIcon className="w-5 h-5 mr-2 text-purple-500" />
+            <Wrench className="w-5 h-5 mr-2 text-purple-500" />
             Available Tools ({filteredTools.length})
           </h3>
 
           {filteredTools.length === 0 ? (
             <div className="text-center py-8">
-              <MagnifyingGlassIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <Search className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-500 dark:text-gray-400">
                 {allTools.length === 0 ? 'No tools registered yet' : 'No tools match your search'}
               </p>
@@ -436,13 +436,13 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                   <div className="flex items-center justify-between text-sm mb-3">
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-1">
-                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
                         <span className="text-gray-900 dark:text-white">
                           {tool.isEnabled ? 'Enabled' : 'Disabled'}
                         </span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <ClockIcon className="w-4 h-4 text-blue-500" />
+                        <Clock className="w-4 h-4 text-blue-500" />
                         <span className="text-gray-900 dark:text-white">v{tool.version}</span>
                       </div>
                     </div>
@@ -473,14 +473,14 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
             <>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
-                  <PlusIcon className="w-5 h-5 mr-2 text-purple-500" />
+                  <Plus className="w-5 h-5 mr-2 text-purple-500" />
                   Add New Tool
                 </h3>
                 <button
                   onClick={() => setShowCreateForm(false)}
                   className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
-                  <XMarkIcon className="w-5 h-5" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
@@ -630,7 +630,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                             onClick={() => removeTag(tag)}
                             className="text-purple-500 hover:text-purple-700"
                           >
-                            <XMarkIcon className="w-3 h-3" />
+                            <X className="w-3 h-3" />
                           </button>
                         </span>
                       ))}
@@ -726,7 +726,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
           ) : (
             <>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <DocumentIcon className="w-5 h-5 mr-2 text-purple-500" />
+                <File className="w-5 h-5 mr-2 text-purple-500" />
                 Tool Details
               </h3>
 
@@ -786,7 +786,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                   {selectedToolData.tags && selectedToolData.tags.length > 0 && (
                     <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                       <h5 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
-                        <TagIcon className="w-4 h-4 mr-2 text-gray-500" />
+                        <Tag className="w-4 h-4 mr-2 text-gray-500" />
                         Tags
                       </h5>
                       <div className="flex flex-wrap gap-2">
@@ -824,7 +824,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
               ) : (
                 <div className="flex items-center justify-center h-32">
                   <div className="text-center">
-                    <WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <Wrench className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-500 dark:text-gray-400">
                       Select a tool to view details
                     </p>

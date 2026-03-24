@@ -3,20 +3,19 @@ import { useUAIP } from '@/contexts/UAIPContext';
 import { motion as _motion } from 'framer-motion';
 import { OperationStatus, OperationPriority } from '@uaip/types';
 import {
-  CogIcon,
-  PlayIcon,
-  PauseIcon,
-  StopIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  LightBulbIcon as _LightBulbIcon,
-  ChartBarIcon,
-  BoltIcon,
-  ArrowPathIcon,
-  EyeIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
+  Settings,
+  Play,
+  Pause,
+  Square,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  BarChart2,
+  Zap,
+  RefreshCw,
+  Eye,
+  AlertTriangle,
+} from 'lucide-react';
 
 interface OperationMetrics {
   total: number;

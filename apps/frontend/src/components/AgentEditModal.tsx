@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Agent, CreateAgentRequest, AgentSkill } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip-api';
+import { APIClient } from '../api/client';
 import { _llmAPI } from '../api/llm.api';
 import { useAgents } from '../contexts/AgentContext';
 import {
@@ -409,31 +410,13 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           setLoadingTools(true);
 
           // Get available MCP tools
-          const availableResponse = await fetch('/api/v1/agents/mcp-tools', {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (availableResponse.ok) {
-            const availableData = await availableResponse.json();
-            setMcpTools(availableData.data?.tools || []);
-          }
+          const availableData = await APIClient.get<{ tools?: unknown[] }>('/api/v1/agents/mcp-tools');
+          setMcpTools(availableData?.tools || []);
 
           // Get agent's assigned tools
-          const assignedResponse = await fetch(`/api/v1/agents/${agentId}/mcp-tools`, {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (assignedResponse.ok) {
-            const assignedData = await assignedResponse.json();
-            setAssignedTools(assignedData.data?.assignedMCPTools || []);
-            setToolSettings(assignedData.data?.mcpToolSettings || {});
-          }
+          const assignedData = await APIClient.get<{ assignedMCPTools?: unknown[]; mcpToolSettings?: unknown }>(`/api/v1/agents/${agentId}/mcp-tools`);
+          setAssignedTools(assignedData?.assignedMCPTools || []);
+          setToolSettings(assignedData?.mcpToolSettings || {});
         } catch (error) {
           console.error('Error loading MCP tools:', error);
         } finally {
@@ -448,31 +431,23 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleAssignTool = async (tool: unknown) => {
       try {
-        const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const data = await APIClient.post<{ assignedMCPTools?: unknown[] }>(
+          `/api/v1/agents/${agentId}/mcp-tools`,
+          {
             toolsToAssign: [
               {
-                toolId: tool.id,
-                toolName: tool.name,
-                serverName: tool.serverName,
+                toolId: (tool as Record<string, unknown>).id,
+                toolName: (tool as Record<string, unknown>).name,
+                serverName: (tool as Record<string, unknown>).serverName,
                 enabled: true,
                 priority: 1,
-                parameters: tool.parameters || {},
+                parameters: (tool as Record<string, unknown>).parameters || {},
               },
             ],
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setAssignedTools(data.data.assignedMCPTools);
-          setShowAddTool(false);
-        }
+          }
+        );
+        setAssignedTools(data?.assignedMCPTools || []);
+        setShowAddTool(false);
       } catch (error) {
         console.error('Error assigning tool:', error);
       }
@@ -480,17 +455,10 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleRemoveTool = async (toolId: string) => {
       try {
-        const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          setAssignedTools((prev) => prev.filter((t) => t.toolId !== toolId));
-        }
+        await APIClient.delete(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`);
+        setAssignedTools((prev) =>
+          (prev as Array<Record<string, unknown>>).filter((t) => t['toolId'] !== toolId)
+        );
       } catch (error) {
         console.error('Error removing tool:', error);
       }
@@ -498,20 +466,12 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleToggleTool = async (toolId: string, enabled: boolean) => {
       try {
-        const response = await fetch(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ enabled }),
-        });
-
-        if (response.ok) {
-          setAssignedTools((prev) =>
-            prev.map((t) => (t.toolId === toolId ? { ...t, enabled } : t))
-          );
-        }
+        await APIClient.put(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { enabled });
+        setAssignedTools((prev) =>
+          (prev as Array<Record<string, unknown>>).map((t) =>
+            t['toolId'] === toolId ? { ...t, enabled } : t
+          )
+        );
       } catch (error) {
         console.error('Error toggling tool:', error);
       }
@@ -519,19 +479,11 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleUpdateSettings = async (newSettings: unknown) => {
       try {
-        const response = await fetch(`/api/v1/agents/${agentId}/mcp-settings`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(newSettings),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setToolSettings(data.data.mcpToolSettings);
-        }
+        const data = await APIClient.put<{ mcpToolSettings?: unknown }>(
+          `/api/v1/agents/${agentId}/mcp-settings`,
+          newSettings
+        );
+        setToolSettings(data?.mcpToolSettings || {});
       } catch (error) {
         console.error('Error updating settings:', error);
       }

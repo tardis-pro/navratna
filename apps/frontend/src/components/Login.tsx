@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  EyeIcon,
-  EyeSlashIcon,
-  LockClosedIcon,
-  UserIcon,
-  LightBulbIcon,
-  SparklesIcon,
-} from '@heroicons/react/24/outline';
-import { Globe, MapPin } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, Lightbulb, Sparkles, Globe, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LocationService, LocationData } from '../services/LocationService';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
@@ -247,7 +239,7 @@ export const Login: React.FC = () => {
           {/* Header */}
           <div className="text-center">
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-6">
-              <SparklesIcon className="w-10 h-10 text-white" />
+              <Sparkles className="w-10 h-10 text-white" />
             </div>
             <h2 className="text-4xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 dark:from-white dark:via-blue-100 dark:to-indigo-100 bg-clip-text text-transparent">
               Welcome Back
@@ -260,7 +252,7 @@ export const Login: React.FC = () => {
           {/* Demo Credentials */}
           <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/60 shadow-xl">
             <div className="flex items-center space-x-2 mb-4">
-              <LightBulbIcon className="w-4 h-4 text-blue-500" />
+              <Lightbulb className="w-4 h-4 text-blue-500" />
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                 Quick Demo Login
               </h3>
@@ -349,7 +341,7 @@ export const Login: React.FC = () => {
               {/* Global Error */}
               {error && (
                 <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start space-x-3">
-                  <LightBulbIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <Lightbulb className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
                       Login Failed
@@ -369,7 +361,7 @@ export const Login: React.FC = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <UserIcon className="h-5 w-5 text-slate-400" />
+                    <User className="h-5 w-5 text-slate-400" />
                   </div>
                   <input
                     id="email"
@@ -402,7 +394,7 @@ export const Login: React.FC = () => {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <LockClosedIcon className="h-5 w-5 text-slate-400" />
+                    <Lock className="h-5 w-5 text-slate-400" />
                   </div>
                   <input
                     id="password"
@@ -425,9 +417,9 @@ export const Login: React.FC = () => {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeSlashIcon className="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
+                      <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
                     ) : (
-                      <EyeIcon className="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
+                      <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300" />
                     )}
                   </button>
                 </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
@@ -12,20 +12,22 @@ import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Desktop } from './components/DesktopUnified';
+import { isTelescopeEnabled } from './components/TelescopeSurface';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
 import QuestionForgeLanding from './pages/questionforge/QuestionForgeLanding';
 import QuestionForgeResults from './pages/questionforge/QuestionForgeResults';
-import './App.css';
-import './styles/agent-manager.css';
 
-// Create QueryClient instance
+const LazyTelescopeSurface = lazy(() =>
+  import('./components/TelescopeSurface').then((m) => ({ default: m.TelescopeSurface }))
+);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 3,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
     },
     mutations: {
@@ -33,6 +35,14 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const MainShell = isTelescopeEnabled()
+  ? () => (
+      <Suspense fallback={<Desktop />}>
+        <LazyTelescopeSurface blocks={[]} />
+      </Suspense>
+    )
+  : Desktop;
 
 function DesktopApp() {
   return (
@@ -64,8 +74,8 @@ function DesktopApp() {
                                   path="/projects/:id/workspace/session/:sessionId"
                                   element={<CodingSessionPage />}
                                 />
-                                <Route path="/" element={<Desktop />} />
-                                <Route path="*" element={<Desktop />} />
+                                <Route path="/" element={<MainShell />} />
+                                <Route path="*" element={<MainShell />} />
                               </Routes>
                             </BrowserRouter>
                           </ErrorBoundary>

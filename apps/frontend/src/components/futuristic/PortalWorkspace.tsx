@@ -2,21 +2,15 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from './Portal';
 import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
-import { _DiscussionLogPortal } from './portals/DiscussionLogPortal';
-import { _SettingsPortal } from './portals/SettingsPortal';
 import { GeneralSettingsPortal } from './portals/GeneralSettingsPortal';
 import { ChatPortal } from './portals/ChatPortal';
 import { ProviderSettingsPortal } from './portals/ProviderSettingsPortal';
 import { SystemConfigPortal } from './portals/SystemConfigPortal';
 import { AgentManagerPortal } from './portals/AgentManagerPortal';
 import { ToolsPanel } from './portals/ToolsPanel';
-import { _SecurityGateway } from './portals/SecurityGateway';
 import { SecurityPortal } from './portals/SecurityPortal';
-import { _CapabilityRegistry } from './portals/CapabilityRegistry';
-import { _EventStreamMonitor } from './portals/EventStreamMonitor';
 import { OperationsMonitor } from './portals/OperationsMonitor';
 import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
-import { _InsightsPanel } from './portals/InsightsPanel';
 import { KnowledgePortal } from './portals/KnowledgePortal';
 import { DashboardPortal } from './portals/DashboardPortal';
 import { ArtifactsPortal } from './portals/ArtifactsPortal';
@@ -35,14 +29,10 @@ import {
   Menu,
   X,
   Bot,
-  _Server,
   Database,
   Wrench,
   Shield,
   Radio,
-  _BarChart3,
-  _Lightbulb,
-  _Eye,
   BookOpen,
   MapPin,
   Sun,
@@ -50,18 +40,14 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
-  _Thermometer,
   Search,
   Store,
-  _Grid3X3,
-  _Layers,
   Home,
   Package,
   FileText,
   Globe,
 } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
-import { _PuzzlePieceIcon } from '@heroicons/react/24/outline';
 import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
 import { ToolManagementPortal } from './portals/ToolManagementPortal';
 

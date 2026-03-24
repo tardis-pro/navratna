@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - apps/packages/*
   - packages/*
   - backend/services/*
   - backend/shared/*
