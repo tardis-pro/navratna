@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { TypeOrmService, typeormService } from './typeormService.js';
+import { PgService, pgService } from './pgService.js';
 
 export class DatabaseError extends Error {
   public readonly code?: string;
@@ -22,12 +22,12 @@ export class DatabaseError extends Error {
 
 export class DatabaseService {
   private static instance: DatabaseService;
-  private typeormService: TypeOrmService;
+  private pgService: PgService;
   private isClosing: boolean = false;
   private isInitialized: boolean = false;
 
   private constructor() {
-    this.typeormService = typeormService;
+    this.pgService = pgService;
   }
 
   public static getInstance(): DatabaseService {
@@ -45,7 +45,7 @@ export class DatabaseService {
 
   public async initialize(): Promise<void> {
     try {
-      await this.typeormService.initialize();
+      await this.pgService.initialize();
       this.isInitialized = true;
       logger.info('Database connection initialized successfully');
     } catch (error) {
@@ -58,14 +58,14 @@ export class DatabaseService {
     logger.warn('registerEntities() is no-op in Drizzle-based implementation');
   }
 
-  public async getDataSource(): Promise<never> {
+  public async getPool(): Promise<import('pg').Pool | null> {
     await this.ensureInitialized();
-    return this.typeormService.getDataSource();
+    return this.pgService.getPool();
   }
 
   public async isHealthy(): Promise<boolean> {
     try {
-      return await this.typeormService.isHealthy();
+      return await this.pgService.isHealthy();
     } catch (error) {
       logger.error('Database health check failed:', error);
       return false;
@@ -79,14 +79,14 @@ export class DatabaseService {
   }> {
     try {
       const start = Date.now();
-      const isConnected = await this.typeormService.isHealthy();
+      const isConnected = await this.pgService.isHealthy();
       const responseTime = Date.now() - start;
 
       return {
         status: isConnected ? 'healthy' : 'unhealthy',
         responseTime,
         details: {
-          database: this.typeormService.getDatabase() || 'unknown',
+          database: this.pgService.getDatabase() || 'unknown',
           driver: 'pg',
         },
       };
@@ -107,7 +107,7 @@ export class DatabaseService {
     this.isClosing = true;
 
     try {
-      await this.typeormService.close();
+      await this.pgService.close();
       logger.info('Database disconnected successfully');
     } catch (error) {
       logger.error('Failed to disconnect database:', error);
@@ -119,13 +119,13 @@ export class DatabaseService {
   }
 
   public getEntityManager(): { query: (sql: string, params?: unknown[]) => Promise<unknown[]> } {
-    return this.typeormService.getEntityManager();
+    return this.pgService.getEntityManager();
   }
 
   public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
-      const result = await this.typeormService.getEntityManager().query(query, parameters);
+      const result = await this.pgService.getEntityManager().query(query, parameters);
       return result as T[];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

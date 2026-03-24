@@ -2,434 +2,286 @@
 # Replacement Specification — Navratna v3.0
 
 ## Document Control
-- **Version**: 1.0
-- **Date**: 2026-03-21
-- **Purpose**: Detail every technology swap, migration path, and rollback strategy
+- **Version**: 2.0
+- **Date**: 2026-03-24
+- **Purpose**: Detail every technology swap, current status, and remaining work
+- **Updated**: Reflects audit as of 2026-03-24; hard constraints added; fallback strategies removed
+
+---
+
+## Hard Constraints (Non-Negotiable)
+
+These constraints are locked. They apply retroactively to everything in this spec and everything written going forward. Confirmed by user 2026-03-24.
+
+1. **No Express. Anywhere.** Not in source, not in types, not re-exported from shared packages. Elysia is the HTTP framework. If it is not Elysia, delete it. This includes Express-shaped shims (`interface Request/Response/NextFunction`, `asyncHandler`, `errorHandler` with 4-arg signature, `ExpressRequest/Response/NextFunction` type aliases).
+
+2. **No TypeORM. Anywhere.** Not imported, not referenced, not named in class or variable names. Drizzle + raw `pg` Pool is the database layer. `TypeOrmService` must be renamed to `PgService`. File `typeormService.ts` must be renamed to `pgService.ts`. Test helpers must be rewritten. The word "typeorm" (case-insensitive) must not appear in any source file path, class name, variable name, or string literal.
+
+3. **No types or interfaces defined outside `apps/packages/`.** Types shared across more than one service or component go to `apps/packages/shared-types`. Types used only within one file may stay local but must not be exported. Dedicated `types/` files within services are the first to migrate. Exception: Drizzle schema inferred types (`$inferSelect`, `$inferInsert`) stay co-located with their schema file. Component-local `interface Props` inside `.tsx` files — keep local, do not export.
+
+4. **No fallbacks. No feature flags. No rollback strategies.** Single-owner system on one machine. Migrations go direct. Old code gets deleted, not preserved. Rollback = git revert.
+
+### Validation Commands (run after every step)
+
+```bash
+# Zero results = passing
+grep -ri "typeorm" --include="*.ts" --include="*.js" apps/ scripts/ | grep -v node_modules | grep -v dist/
+grep -r "from 'express'" --include="*.ts" --include="*.js" apps/ | grep -v node_modules | grep -v dist/
+grep -r "require('express')" --include="*.ts" --include="*.js" apps/ | grep -v node_modules | grep -v dist/
+grep -r "ExpressRequest\|ExpressResponse\|ExpressNextFunction" --include="*.ts" apps/ | grep -v node_modules | grep -v dist/
+```
+
+---
+
+## Current Status (2026-03-24 Audit)
+
+| # | What | Status | Blocking Issues |
+|---|------|--------|-----------------|
+| 1 | TypeORM → Drizzle | **70%** | 6 prod files throw at runtime; 5 typeorm imports remain in tests |
+| 2 | RabbitMQ → BullMQ | **5%** | amqplib still installed; EventBus untouched |
+| 3 | 7 → 2 Services | **55%** | discussion-orchestration not wired; old services still startable |
+| 4 | DesktopUnified → Telescope | **35%** | TelescopeSurface shell not complete |
+| 5 | Framer Basic → Advanced | **20%** | Phase 1 uses some; variants/physics not wired to microexpressions |
+| 6 | Code Splitting | **0%** | No React.lazy(), no Suspense, Vite untouched |
+| 7 | Auth Tokens → httpOnly cookies | **0%** | localStorage still used |
+| 8 | Express elimination | **95%** | capability-registry controllers still use Express shims |
+| 9 | Types → `@packages/` | **10%** | 300+ exported types scattered across services |
+
+---
 
 ## Replacement 1: TypeORM → Drizzle ORM
 
 ### Rationale
-TypeORM is the #1 performance bottleneck:
-- N+1 query problems in PersonaService (30,856 LoC) and DiscussionService
-- No query result caching at repository level
-- Heavy runtime overhead from decorators and metadata reflection
-- Poor tree-shaking increases bundle size
-- Drizzle: 0 runtime overhead, queries compile to SQL at build time, 10x faster benchmarks
+TypeORM is the #1 performance bottleneck: N+1 query problems, heavy decorator/metadata overhead, poor tree-shaking. Drizzle: 0 runtime overhead, queries compile to SQL at build time.
 
-### Migration Strategy
+### What Is Done
+- ✅ Drizzle installed in `shared/services` with full schema (`intelligence.schema.ts`, `control.schema.ts`)
+- ✅ All major repositories exist in `shared/services/src/database/repositories/`
+- ✅ `TypeOrmService` class rewritten to use raw `pg.Pool` (no actual TypeORM import)
+- ✅ `typeorm` removed from all `package.json` files
 
-**Approach**: Parallel implementation with feature flag
+### What Remains
 
-**Step 1: Schema Definition** (2-3 days)
-Convert TypeORM entities to Drizzle schema:
+**P1 — 6 production files call `getDataSource()`/`getRepository()` — THROW at runtime:**
 
-```typescript
-// BEFORE (TypeORM)
-@Entity()
-export class Agent {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+| File | Fix |
+|------|-----|
+| `security-gateway/src/services/apiKeyDecryptionHandler.ts` (lines 62–63) | Replace with `UserLLMProviderRepository` |
+| `security-gateway/src/http/tool-preferences.elysia.ts` (line 10) | Replace with `UserPreferencesRepository` |
+| `security-gateway/src/http/persona.elysia.ts` (lines 186–190) | Replace with `UserLLMProviderRepository` + Drizzle insert |
+| `security-gateway/src/http/providers.elysia.ts` (line 496) | Replace with `LLMProviderRepository` |
+| `discussion-orchestration/src/services/personaService.ts` (6 calls) | Replace with `PersonaRepository` from Drizzle repos |
+| `shared/services/src/BaseService.ts` (line 168) | Remove `getDataSource()` call in `initializeDatabase()` |
 
-  @Column()
-  name: string;
+**P2 — Remove 5 remaining `import { ... } from 'typeorm'`:**
 
-  @Column('jsonb')
-  config: AgentConfig;
+| File | Fix |
+|------|-----|
+| `security-gateway/src/__tests__/utils/testHelpers.ts` | Rewrite: replace `new DataSource(...)` with Drizzle test pool |
+| `security-gateway/src/__tests__/integration/oauth-flow.integration.test.ts` | Rewrite using Drizzle test pool |
+| `security-gateway/src/__tests__/integration/security-validation.integration.test.ts` | Rewrite using Drizzle test pool |
+| `shared/services/src/__tests__/helpers/testUtils.ts` | Replace `Repository<T>` / `DataSource` mocks |
+| `shared/services/src/database/seeders/data/viralAgents.d.ts` | Replace `DeepPartial<T>` with `Partial<T>` |
 
-  @ManyToOne(() => User)
-  owner: User;
-}
+**P3 — Rename TypeOrmService:**
+- `shared/infra/src/database/typeormService.ts` → rename class to `PgService`, file to `pgService.ts`
+- Update all imports in `database/index.ts`, `infra/src/index.ts`, `infrastructureFactory.ts`
+- Rename health-check key from `typeorm` to `postgres` in `infrastructureFactory.ts`
 
-// AFTER (Drizzle)
-export const agents = pgTable('agent_definitions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  config: jsonb('config').$type<AgentConfig>().notNull(),
-  ownerId: uuid('owner_id').references(() => users.id),
-});
-
-export type Agent = typeof agents.$inferSelect;
-export type NewAgent = typeof agents.$inferInsert;
-```
-
-**Step 2: Repository Migration** (1-2 weeks)
-Migrate service-by-service, starting with least-coupled:
-
-Migration order:
-1. Artifact Service (simplest, fewest relations)
-2. LLM Service (isolated config storage)
-3. Capability Registry (tool definitions)
-4. Agent Intelligence (complex but well-tested)
-5. Discussion Orchestration (WebSocket-critical, test heavily)
-6. Orchestration Pipeline (state management, most complex)
-7. Security Gateway (auth-critical, migrate last)
-
-**Step 3: Query Optimization** (3-5 days)
-Replace N+1 patterns with Drizzle's relational queries:
-
-```typescript
-// BEFORE (TypeORM N+1)
-const discussions = await repo.find();
-for (const d of discussions) {
-  d.participants = await participantRepo.find({ discussionId: d.id });
-}
-
-// AFTER (Drizzle single query)
-const discussions = await db.query.discussions.findMany({
-  with: {
-    participants: true,
-    messages: { limit: 50, orderBy: desc(messages.createdAt) }
-  }
-});
-```
-
-**Step 4: Add Missing Indexes** (1 day)
-```sql
-CREATE INDEX idx_agent_definitions_owner ON agent_definitions(owner_id);
-CREATE INDEX idx_discussions_agent ON discussions(agent_id);
-CREATE INDEX idx_messages_discussion ON messages(discussion_id);
-CREATE INDEX idx_operations_status ON operations(status);
-CREATE INDEX idx_knowledge_user ON knowledge_items(user_id);
-CREATE INDEX idx_knowledge_created ON knowledge_items(created_at);
-```
-
-### Rollback Strategy
-- Feature flag: `USE_DRIZZLE=true|false` in .env
-- TypeORM entities preserved (not deleted) during migration
-- Both ORMs can coexist reading same tables
-- Rollback = flip flag, restart service
+**P4 — Delete dead TypeORM script:**
+- `scripts/sop-builder.ts` uses `@Entity`, `@Column` decorators → delete or rewrite as Drizzle schema
 
 ### Validation
-- Run existing test suites against Drizzle implementation
-- Query performance benchmarks: every Drizzle query must be faster than TypeORM equivalent
-- Zero data loss verification: count rows before/after switch
+- `grep -r "from 'typeorm'" --include="*.ts" apps/ scripts/` → zero results
+- `grep -ri "typeorm" --include="*.ts" apps/ scripts/` → zero results
+- All 6 production files build clean (LSP diagnostics zero errors)
 
 ---
 
-## Replacement 2: RabbitMQ → BullMQ on Redis Streams
+## Replacement 2: RabbitMQ → BullMQ on Redis
 
 ### Rationale
+RabbitMQ consumes 512MB RAM for simple pub/sub that Redis already handles. BullMQ provides priority queues, retries, delayed jobs, cron scheduling. Redis is already running.
 
-RabbitMQ consumes 512MB RAM for simple pub/sub that Redis can handle. Redis is already running. BullMQ provides: priority queues, retries, delayed jobs, cron scheduling, rate limiting — all features needed for agent orchestration.
+### What Is Done
+- ✅ Nothing structural. The `EventBusService` public interface (publish/subscribe/schedule) is clean and can be preserved while the backend is replaced.
 
-### Current EventBus Architecture
+### What Remains
 
-```typescript
-// Current: backend/shared/infra/src/event-bus.ts
-class EventBus {
-  private connection: amqp.Connection;
-
-  async publish(exchange: string, routingKey: string, payload: object): Promise<void>;
-  async subscribe(queue: string, handler: (msg: object) => Promise<void>): Promise<void>;
-}
+**Step 1 — Install BullMQ:**
+```bash
+cd apps/backend && pnpm add bullmq
 ```
 
-### Target Architecture
+**Step 2 — Rewrite EventBusService** (`shared/infra/src/eventBus.ts`):
+
+Replace the entire `amqplib` implementation with BullMQ. Keep same public interface:
 
 ```typescript
-// New: backend/shared/infra/src/event-bus.ts
-import { Queue, Worker, QueueEvents } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
+import type { Redis } from 'ioredis';
 
-class EventBus {
-  private redis: Redis;
-  private queues: Map<string, Queue>;
-  private workers: Map<string, Worker>;
+export class EventBusService {
+  private queues = new Map<string, Queue>();
+  private workers = new Map<string, Worker>();
 
   async publish(
     topic: string,
     payload: object,
-    opts?: {
-      priority?: number; // 1-10, higher = more urgent
-      delay?: number; // ms delay before processing
-      attempts?: number; // retry count
-      backoff?: { type: 'exponential' | 'fixed'; delay: number };
-    }
+    opts?: { priority?: number; delay?: number; attempts?: number }
   ): Promise<void>;
 
   async subscribe(
     topic: string,
     handler: (payload: object) => Promise<void>,
-    opts?: {
-      concurrency?: number; // parallel processing
-      limiter?: { max: number; duration: number }; // rate limiting
-    }
+    opts?: { concurrency?: number }
   ): Promise<void>;
 
-  // NEW: Scheduled events (replaces cron jobs)
   async schedule(name: string, cron: string, payload: object): Promise<void>;
 }
 ```
 
-### Migration Steps
+**Step 3 — Remove amqplib from all package.json files:**
+- `security-gateway/package.json`
+- `shared/infra/package.json`
+- `shared/services/package.json`
 
-**Step 1: Install BullMQ** (1 hour)
+**Step 4 — Remove RabbitMQ from `docker-compose.yml`**
 
-```bash
-cd backend && pnpm add bullmq
-```
-
-**Step 2: Create BullMQ EventBus** (2-3 days)
-
-- New file: `backend/shared/infra/src/event-bus-bullmq.ts`
-- Same interface as current EventBus
-- Feature flag: `EVENT_BUS_BACKEND=rabbitmq|bullmq`
-
-**Step 3: Migrate Consumers** (3-5 days)
-Each service subscribes to events. Migrate one service at a time:
-
-1. Artifact Service (simplest consumer)
-2. LLM Service
-3. Agent Intelligence
-4. Discussion Orchestration
-5. Capability Registry
-6. Orchestration Pipeline
-7. Security Gateway
-
-**Step 4: Migrate Scheduled Jobs** (2-3 days)
-Convert 21 OpenClaw cron jobs to BullMQ repeatable jobs:
-
-```typescript
-// Karna morning hunt - 10AM IST daily
-await eventBus.schedule('karna-morning-hunt', '0 10 * * * Asia/Kolkata', {
-  agent: 'karna',
-  task: 'lead_hunt',
-  mode: 'morning',
-});
-```
-
-**Step 5: Remove RabbitMQ** (1 hour)
-
-- Remove `rabbitmq` from docker-compose.yml
-- Remove `amqplib` from package.json
-- Delete old EventBus implementation
-- Remove RabbitMQ config from .env
-
-### Rollback Strategy
-
-- Feature flag: `EVENT_BUS_BACKEND=rabbitmq` restores RabbitMQ
-- RabbitMQ container stays in compose (commented out) for 2 weeks
-- Both backends can process same events during transition
+**Step 5 — Remove `amqplib` config from `.env` / `sample.env`**
 
 ---
 
 ## Replacement 3: 7 Microservices → 2 Consolidated Services
 
 ### Rationale
-
-7 services × 512MB each = 3.5GB RAM just for backend. On modest consumer hardware (8-16GB total), this is unsustainable. Services that share data constantly (Agent Intelligence ↔ Discussion Orchestration ↔ LLM Service) add network latency for no benefit at single-user scale.
+7 services × 512MB = 3.5GB RAM on a single-owner machine. Services with constant shared data flow (Agent Intelligence ↔ Discussion Orchestration ↔ LLM) add network latency for zero benefit.
 
 ### Consolidation Map
 
-**Service A: NAVRATNA-CORE** (Port 3001)
+**NAVRATNA-CORE** (Port 3001): Agent Intelligence + Discussion Orchestration + Artifact Service + LLM Service
 
-```
-Merges:
-  - Agent Intelligence (3001) — agent CRUD, personas, knowledge
-  - Discussion Orchestration (3005) — WebSocket, turn management
-  - Artifact Service (3006) — artifact generation
-  - LLM Service (3007) — model routing, provider management
+**NAVRATNA-GATEWAY** (Port 3002): Security Gateway + Orchestration Pipeline + Capability Registry
 
-Why together: These services share constant data flow.
-Agent discussions use LLM, produce artifacts, need agent context.
-Co-locating them eliminates 80% of inter-service RabbitMQ traffic.
+### What Is Done
+- ✅ `navratna-core/src/index.ts` exists; imports routes from agent-intelligence, artifact-service, llm-service
+- ✅ `navratna-gateway/src/index.ts` exists; imports routes from security-gateway, orchestration-pipeline, capability-registry
+- ✅ Both use `BaseService` + Elysia; `enableWebSocket: true` set on core
 
-Entry point: backend/services/navratna-core/src/index.ts
-  - Mounts all route groups on single Elysia instance
-  - Shared database connections (1 pool instead of 4)
-  - Direct function calls instead of event bus for internal ops
-  - EventBus still used for cross-service communication to Gateway
-```
+### What Remains
 
-**Service B: NAVRATNA-GATEWAY** (Port 3002)
+**Gap 1 — discussion-orchestration WebSocket handlers not wired into navratna-core:**
 
-```
-Merges:
-  - Security Gateway (3004) — auth, RBAC, approval workflows
-  - Orchestration Pipeline (3002) — workflow execution, task management
-  - Capability Registry (3003) — tool registry, MCP, OpenShell integration
-
-Why together: These services are the control plane.
-Auth checks precede every orchestration. Tool execution needs auth context.
-Co-locating eliminates auth token round-trips.
-
-Entry point: backend/services/navratna-gateway/src/index.ts
-  - Mounts security routes first (auth middleware)
-  - Orchestration routes use security context directly
-  - Capability routes have inline auth validation
-  - EventBus for communication with Core service
-```
-
-### Migration Steps
-
-**Step 1: Create consolidated entry points** (2-3 days)
+The service is listed in `consolidates[]` but no handlers are imported. Add to `navratna-core/src/index.ts`:
 
 ```typescript
-// navratna-core/src/index.ts
-const app = new Elysia()
-  .use(agentIntelligenceRoutes)
-  .use(discussionOrchestrationRoutes)
-  .use(artifactRoutes)
-  .use(llmRoutes)
-  .listen(3001);
+import { registerDiscussionWebSocket } from '../../discussion-orchestration/src/websocket/discussionSocket.js';
+import { registerEnterpriseWebSocket } from '../../discussion-orchestration/src/websocket/enterpriseWebSocketHandler.js';
+import { registerUserChatSocket } from '../../discussion-orchestration/src/websocket/userChatHandler.js';
+
+// In setupRoutes():
+registerDiscussionWebSocket(this.app);
+registerEnterpriseWebSocket(this.app);
+registerUserChatSocket(this.app);
 ```
 
-**Step 2: Merge database connections** (1-2 days)
-
-- Single TypeORM/Drizzle connection pool per consolidated service
-- Single Redis connection per service
-- Single EventBus instance per service
-
-**Step 3: Replace inter-service calls with direct imports** (3-5 days)
-
-```typescript
-// BEFORE: Agent Intelligence calls LLM Service via RabbitMQ
-await eventBus.publish('llm.request', { model: 'claude-sonnet-4-6', prompt });
-
-// AFTER: Direct import (same process)
-import { llmService } from '../llm/service';
-const response = await llmService.complete({ model: 'claude-sonnet-4-6', prompt });
-```
-
-**Step 4: Update Docker Compose** (1 day)
-
+**Gap 2 — Update Docker Compose:**
 ```yaml
 services:
   navratna-core:
     build: { context: ., dockerfile: Dockerfile.base }
-    command: ['bun', 'run', 'backend/services/navratna-core/dist/index.js']
+    command: ['bun', 'run', 'apps/backend/services/navratna-core/dist/index.js']
     ports: ['3001:3001']
 
   navratna-gateway:
     build: { context: ., dockerfile: Dockerfile.base }
-    command: ['bun', 'run', 'backend/services/navratna-gateway/dist/index.js']
+    command: ['bun', 'run', 'apps/backend/services/navratna-gateway/dist/index.js']
     ports: ['3002:3002']
 ```
+Remove all 7 old service definitions.
 
-**Step 5: Update Nginx routing** (1 hour)
-
+**Gap 3 — Update Nginx routing:**
 ```nginx
-upstream navratna_core {
-    server navratna-core:3001;
-}
-upstream navratna_gateway {
-    server navratna-gateway:3002;
-}
+upstream navratna_core   { server navratna-core:3001; }
+upstream navratna_gateway { server navratna-gateway:3002; }
 
-# All agent/discussion/artifact/llm routes → core
-location /api/v1/agents { proxy_pass http://navratna_core; }
-location /api/v1/discussions { proxy_pass http://navratna_core; }
-location /api/v1/artifacts { proxy_pass http://navratna_core; }
-location /api/v1/llm { proxy_pass http://navratna_core; }
-
-# All security/orchestration/capability routes → gateway
-location /api/v1/auth { proxy_pass http://navratna_gateway; }
-location /api/v1/operations { proxy_pass http://navratna_gateway; }
-location /api/v1/tools { proxy_pass http://navratna_gateway; }
-location /api/v1/mcp { proxy_pass http://navratna_gateway; }
+location /api/v1/agents      { proxy_pass http://navratna_core; }
+location /api/v1/discussions  { proxy_pass http://navratna_core; }
+location /api/v1/artifacts   { proxy_pass http://navratna_core; }
+location /api/v1/llm         { proxy_pass http://navratna_core; }
+location /api/v1/auth        { proxy_pass http://navratna_gateway; }
+location /api/v1/operations  { proxy_pass http://navratna_gateway; }
+location /api/v1/tools       { proxy_pass http://navratna_gateway; }
+location /api/v1/mcp         { proxy_pass http://navratna_gateway; }
 ```
 
-### Rollback Strategy
-
-- Old service directories preserved (not deleted)
-- Docker compose profiles: `docker compose --profile=microservices up` restores 7-service mode
-- Nginx config has both upstream blocks (comment/uncomment to switch)
+**Gap 4 — Delete old service entry points** once navratna-core/gateway are verified running.
 
 ---
 
 ## Replacement 4: DesktopUnified → TelescopeSurface
 
 ### Rationale
+DesktopUnified implements a window-manager metaphor: drag, resize, minimize, maximize, Z-index layering, taskbar, app launcher. Telescope eliminates all of this. One surface, responds to intent.
 
-DesktopUnified (1,927 lines) implements a window-manager metaphor: drag, resize, minimize, maximize, Z-index layering, taskbar, app launcher. The Telescope vision eliminates all of this. There are no windows. There is no navigation. There is one surface that responds to intent.
+### What Is Done
+- ✅ Telescope Phase 1 components built: IntentField (606L), MaterializableBlock (702L), microexpression system (168L), relevance engine (383L)
+- ✅ TelescopeSurface component exists at `frontend/src/components/TelescopeSurface/`
 
-### What Transfers to Telescope
+### What Remains
+- Complete the TelescopeSurface shell to replace DesktopUnified as the application root
+- Wire all 27 portal components as MaterializableBlocks
+- Replace the DesktopUnified mount point in app root with TelescopeSurface directly
 
-| DesktopUnified Feature                | Telescope Equivalent                                    |
-| ------------------------------------- | ------------------------------------------------------- |
-| 27 portal components                  | Wrapped as MaterializableBlocks (portal code unchanged) |
-| Design tokens (colors, spacing, etc.) | Kept and extended with microexpression tokens           |
-| Weather widget data                   | Becomes ambient atmosphere in Telescope                 |
-| User preferences hook                 | Extended for Telescope preferences                      |
-| Auth/security context                 | Unchanged                                               |
+**What transfers:**
+- 27 portal components — wrapped as MaterializableBlocks (portal code unchanged)
+- Design tokens — kept and extended with microexpression tokens
+- Auth/security context — unchanged
 
-### What Dies
+**What gets deleted after TelescopeSurface is functional:**
+- `DesktopUnified.tsx` — all window drag/resize/minimize/maximize logic
+- Taskbar component, app launcher grid, Z-index layering system, desktop shortcuts, sticky notes, window state tracking
 
-- Window management (drag, resize, minimize, maximize)
-- Taskbar component
-- App launcher grid
-- Z-index layering system
-- Desktop shortcuts
-- Sticky notes system
-- Window state tracking
+No feature flag. No toggle. Swap the mount point, delete DesktopUnified.
 
-### Migration: Feature-Flagged Transition
-
-```typescript
-// In DesktopApp.tsx
-const TelescopeEnabled = () => {
-  const { enableTelescope } = useUserPreferences();
-
-  if (enableTelescope) {
-    return <TelescopeSurface />;
-  }
-  return <DesktopUnified />;  // Legacy fallback
-};
-```
-
-### TelescopeSurface Architecture
-
-See brainstorming session (88 ideas) and 04-TELESCOPE-SPEC.md for full specification.
+See `04-TELESCOPE-SPEC.md` for full specification.
 
 ---
 
 ## Replacement 5: Framer Motion (Basic → Advanced)
 
 ### Current State
-
-Framer Motion is used for basic fade/scale transitions only:
-
-```typescript
-// Current usage pattern (throughout codebase)
-<motion.div
-  initial={{ opacity: 0, scale: 0.95 }}
-  animate={{ opacity: 1, scale: 1 }}
-  exit={{ opacity: 0, scale: 0.95 }}
-/>
-```
+Framer Motion used for basic fade/scale transitions in Telescope Phase 1 components.
 
 ### Target State
+Full capabilities wired to the 7-state microexpression system:
+- **Layout animations** — `layoutId` for shared element transitions between microexpression states
+- **Physics springs** — `useSpring` for gravitational relevance positioning
+- **Gesture recognition** — drag/pan/hover with physics for MaterializableBlock
+- **Variants** — 7 microexpression states (`dormant`, `whisper`, `aware`, `active`, `crystallizing`, `crystallized`, `dissolving`) as Framer variant maps
+- **AnimatePresence** — crystallization/dissolution transitions
+- **useMotionValue** — continuous relevance-driven positioning
 
-Full Framer Motion capabilities for Telescope:
-
-- Layout animations (layoutId for shared element transitions)
-- Physics-based springs (useSpring for gravitational relevance)
-- Gesture recognition (drag, pan, hover with physics)
-- Variants system (7 microexpression states as Framer variants)
-- AnimatePresence for crystallization/dissolution
-- useMotionValue for continuous relevance-driven positioning
-
-### No Code Migration Needed
-
-This is an enhancement, not a replacement. Existing fade/scale animations continue to work. New Telescope components use advanced patterns.
+Additive — existing animations continue to work. No migration needed.
 
 ---
 
 ## Replacement 6: Code Splitting (None → Full)
 
 ### Current State
-
-Zero code splitting. All 27 portals (500KB+) loaded upfront. No React.lazy(), no Suspense boundaries, no route-based splitting.
+Zero code splitting. All 27 portals loaded upfront. No `React.lazy()`, no Suspense.
 
 ### Target State
 
 ```typescript
-// Lazy-loaded portal imports
-const AgentManagerPortal = lazy(() => import('./portals/AgentManagerPortal'));
-const DiscussionPortal = lazy(() => import('./portals/DiscussionPortal'));
-const KnowledgePortal = lazy(() => import('./portals/KnowledgePortal'));
-// ... all 27 portals
+// MaterializableBlock — lazy load portal on crystallization
+const portalMap: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
+  'agent-manager':  lazy(() => import('./portals/AgentManagerPortal')),
+  'discussion':     lazy(() => import('./portals/DiscussionPortal')),
+  'knowledge':      lazy(() => import('./portals/KnowledgePortal')),
+  // ... all 27 portals
+};
 
-// Suspense wrapper in MaterializableBlock
 const MaterializableBlock = ({ portalId, ...props }) => {
   const Portal = portalMap[portalId];
   return (
@@ -440,86 +292,140 @@ const MaterializableBlock = ({ portalId, ...props }) => {
 };
 ```
 
-### Vite Config Updates
-
+**Vite config** (`apps/frontend/vite.config.ts`):
 ```typescript
-// vite.config.ts
-export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-framer': ['framer-motion'],
-          'vendor-radix': ['@radix-ui/react-dialog', ...],
-          'vendor-socket': ['socket.io-client'],
-        }
+build: {
+  rollupOptions: {
+    output: {
+      manualChunks: {
+        'vendor-react':  ['react', 'react-dom'],
+        'vendor-framer': ['framer-motion'],
+        'vendor-radix':  ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+        'vendor-socket': ['socket.io-client'],
       }
     }
   }
-});
+}
 ```
 
-### Expected Impact
-
-- Initial bundle: 500KB+ → ~150KB (70% reduction)
-- Time to Interactive: ~3s → ~1s
-- Portal loads on-demand as MaterializableBlocks crystallize
+Expected impact: Initial bundle 500KB+ → ~150KB. TTI ~3s → ~1s.
 
 ---
 
 ## Replacement 7: Auth Token Storage
 
 ### Current State
-
-Auth tokens stored in localStorage (XSS vulnerable):
-
-```typescript
-// client.ts comment: "SECURITY TODO: Migrate token storage to httpOnly cookies"
-localStorage.setItem('auth_token', token);
-```
+Auth tokens in `localStorage` (XSS vulnerable). `// SECURITY TODO` comment has been in `client.ts` since initial implementation.
 
 ### Target State
-
-httpOnly cookies set by Security Gateway:
+`httpOnly` cookies set by Security Gateway. Frontend does zero token management.
 
 ```typescript
-// Security Gateway sets cookie on login
-res.cookie('auth_token', token, {
-  httpOnly: true, // JavaScript cannot read
-  secure: true, // HTTPS only
-  sameSite: 'strict', // CSRF protection
-  maxAge: 3600000, // 1 hour
+// security-gateway auth.elysia.ts — login handler (Elysia cookie API):
+ctx.cookie['auth_token'].set({
+  value: token,
+  httpOnly: true,
+  secure: true,
+  sameSite: 'strict',
+  maxAge: 3600,
   path: '/api',
 });
-
-// Frontend: no token management needed
-// Cookies sent automatically with every /api request
-// CSRF token still needed (double-submit cookie pattern)
 ```
 
-### Migration
+**Steps:**
+1. Update login and refresh in `security-gateway/src/http/auth.elysia.ts` to set cookie
+2. Remove `localStorage.setItem('auth_token', ...)` from `AuthContext`
+3. Remove `Authorization: Bearer ...` header injection from `api/client.ts`
+4. Keep CSRF token mechanism (double-submit pattern already implemented)
+5. Verify Nginx forwards cookies
 
-1. Update Security Gateway login/refresh endpoints to set cookies
-2. Update API client to stop sending Authorization header
-3. Remove localStorage token management from AuthContext
-4. Keep CSRF token mechanism (already implemented)
-5. Update Nginx to forward cookies
+---
+
+## Replacement 8: Express → Elysia (Completion)
+
+Express is not in any `package.json`. The following Express-shaped code remains and must be removed.
+
+### Delete immediately
+- `apps/backend/services/llm-service/src/test.js` — `require('express')` test server, dead code
+- `apps/backend/services/marketplace-service/src/index.refactored.ts` — stale file, superseded by `index.ts`
+
+### Rewrite capability-registry controllers as native Elysia
+These four files use local `interface Request/Response/NextFunction` shims and construct fake `req`/`res` objects to bridge Elysia into an Express-style controller layer. Delete the bridge and write direct Elysia handlers:
+
+- `capability-registry/src/controllers/capabilityController.ts` — rewrite as Elysia handler functions
+- `capability-registry/src/controllers/toolController.ts` — rewrite as Elysia handler functions
+- `capability-registry/src/routes/toolRoutes.ts` — delete bridge, use direct Elysia routes
+- `capability-registry/src/routes/capabilityRoutes.ts` — delete bridge, use direct Elysia routes
+
+### Clean up shared-utils
+`apps/packages/shared-utils/src/errors.ts` exports `ExpressRequest`, `ExpressResponse`, `ExpressNextFunction` type aliases and an `errorHandler` with Express 4-argument signature. Remove these. Replace `errorHandler` with Elysia-compatible `onError` hook function.
+
+### Update integration example
+`apps/backend/shared/middleware/src/integration-example.ts` shows Express-style `(req, res, next)` handler — update to Elysia context or delete.
+
+---
+
+## Replacement 9: Types → `apps/packages/` Only
+
+### Rule
+All exported types and interfaces used across more than one service or component live in `apps/packages/shared-types`. Types used only within one file may stay local but must not be exported. Drizzle schema inferred types (`$inferSelect`, `$inferInsert`) stay with their schema — they are exceptions.
+
+### What Exists in `apps/packages/shared-types`
+42 domain type files already cover virtually every domain: agent, artifact, audit, capability, discussion, event-bus, http, knowledge-graph, llm, marketplace, mcp, microexpression, models, operation, persona, project, security, telescope, tool, user, websocket, widget, and more.
+
+Most service-level type violations are **duplicating** types already in packages. The migration is: delete the duplicate, import from `@uaip/types`.
+
+### Priority Targets (dedicated type-only files — migrate first)
+
+| File | Destination |
+|------|-------------|
+| `artifact-service/src/interfaces/ArtifactTypes.ts` | Merge into `@uaip/types` artifact module |
+| `artifact-service/src/interfaces/ServiceTypes.ts` | Merge into `@uaip/types` artifact module |
+| `capability-registry/src/types/tool-definition.ts` | Merge into `@uaip/types` tool module |
+| `orchestration-pipeline/src/types/schemas.ts` (20 exported types) | Merge into `@uaip/types` operation module |
+| `orchestration-pipeline/src/sops/sop-types.ts` | Add to `@uaip/types` |
+| `discussion-orchestration/src/websocket/websocket.types.ts` | Merge into `@uaip/types` websocket module |
+| `security-gateway/src/http/types/elysia-context.ts` | Merge into `@uaip/types` http module |
+| `frontend/src/types/frontend-extensions.ts` | Merge into `@uaip/types` frontend-api module |
+| `frontend/src/types/persona.ts` | Merge into `@uaip/types` persona module |
+
+### Rule for component-local interfaces
+`interface Props { ... }` inside a `.tsx` component file — keep local, do not export. Already unexported = already fine.
+
+---
+
+## Execution Order
+
+These are sequential. Each unblocks the next.
+
+1. **[R1 P1]** Fix 6 runtime-throwing production files (replace getDataSource/getRepository with Drizzle repos)
+2. **[R1 P2]** Remove 5 remaining `import from 'typeorm'` in test files
+3. **[R1 P3]** Rename `TypeOrmService` → `PgService`
+4. **[R8]** Delete Express dead files → rewrite capability-registry controllers → clean shared-utils errors.ts
+5. **[R3]** Wire discussion-orchestration into navratna-core → update Docker Compose → update Nginx → delete old entry points
+6. **[R2]** Install BullMQ → rewrite EventBusService → remove amqplib → remove RabbitMQ from compose
+7. **[R7]** httpOnly cookies in auth.elysia.ts → update AuthContext → update api/client.ts
+8. **[R6]** Add React.lazy() to all 27 portals → update Vite config
+9. **[R9]** Migrate dedicated type files to @packages/ — ongoing alongside each step above
+10. **[R4]** Complete TelescopeSurface → wire portals → replace DesktopUnified → delete DesktopUnified
+11. **[R5]** Advanced Framer patterns — additive as Telescope is built
 
 ---
 
 ## Replacement Summary
 
-| #   | What        | From            | To               | Effort      | Risk                        |
-| --- | ----------- | --------------- | ---------------- | ----------- | --------------------------- |
-| 1   | ORM         | TypeORM         | Drizzle          | 2-3 weeks   | High (feature-flagged)      |
-| 2   | Message Bus | RabbitMQ        | BullMQ/Redis     | 1-2 weeks   | Medium (feature-flagged)    |
-| 3   | Services    | 7 microservices | 2 consolidated   | 2-3 weeks   | Medium (profile-switchable) |
-| 4   | UI Shell    | DesktopUnified  | TelescopeSurface | 4-6 weeks   | Medium (feature-flagged)    |
-| 5   | Animations  | Basic Framer    | Advanced Framer  | Incremental | Low (additive)              |
-| 6   | Bundle      | Monolithic      | Code-split       | 2-3 days    | Low                         |
-| 7   | Auth tokens | localStorage    | httpOnly cookies | 1 day       | Low                         |
+| # | What | From | To | Status | Note |
+|---|------|------|----|--------|------|
+| 1 | ORM | TypeORM | Drizzle | **70%** | Fix 6 runtime throws first |
+| 2 | Message Bus | RabbitMQ | BullMQ/Redis | **5%** | Not started |
+| 3 | Services | 7 microservices | 2 consolidated | **55%** | Wire discussion-orchestration |
+| 4 | UI Shell | DesktopUnified | TelescopeSurface | **35%** | Build shell, then delete old |
+| 5 | Animations | Basic Framer | Advanced Framer | **20%** | Additive |
+| 6 | Bundle | Monolithic | Code-split | **0%** | Not started |
+| 7 | Auth tokens | localStorage | httpOnly cookies | **0%** | Not started |
+| 8 | HTTP framework | Express remnants | Elysia | **95%** | capability-registry controllers |
+| 9 | Types | Scattered | `@packages/` only | **10%** | Ongoing |
 
-All replacements are feature-flagged or profile-switchable. No big-bang migrations. Every change can be rolled back.
+No feature flags. No rollback paths. No fallbacks. Migrate, verify, delete.
 
 ---

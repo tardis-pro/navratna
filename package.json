@@ -33,6 +33,7 @@
         "test:integration:cleanup": "./scripts/run-integration-tests.sh cleanup"
     },
     "devDependencies": {
+        "@types/node": "^25.5.0",
         "concurrently": "catalog:dev",
         "dependency-cruiser": "^17.3.9",
         "oxfmt": "catalog:",

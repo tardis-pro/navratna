@@ -1,5 +1,20 @@
 {
   "document_folding_ranges": "on",
   "document_symbols": "on",
-  "semantic_tokens": "full"
+  "semantic_tokens": "full",
+  "lsp": {
+    "oxlint": {
+      "initialization_options": {
+        "settings": [
+          {
+            "workspaceUri": "file:///home/pronit/workspace/tardis/bmad-navratna/navratna",
+            "options": {
+              "run": "onType",
+              "configPath": ".oxlintrc.json"
+            }
+          }
+        ]
+      }
+    }
+  }
 }
