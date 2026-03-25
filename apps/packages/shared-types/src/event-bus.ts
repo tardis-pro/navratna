@@ -23,7 +23,6 @@ export interface EventBusSubscriptionOptions {
 }
 
 export interface EventBusConfig {
-  url: string;
   serviceName: string;
   maxReconnectAttempts?: number;
   reconnectDelay?: number;

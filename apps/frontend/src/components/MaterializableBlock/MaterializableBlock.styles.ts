@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
-import type { Microexpression } from '@/types/microexpression';
-import { MICROEXPRESSION_COLORS } from '@/types/microexpression';
+import type { Microexpression } from '@uaip/types';
+import { MICROEXPRESSION_COLORS } from '@uaip/types';
 import type { BlockVisibility, MaterializableBlockType } from './MaterializableBlock.types';
 
 export const EXPRESSION_STYLES: Record<Microexpression, CSSProperties> = {
@@ -14,16 +14,13 @@ export const EXPRESSION_STYLES: Record<Microexpression, CSSProperties> = {
   working: {
     borderColor: MICROEXPRESSION_COLORS.working.border,
     boxShadow: `0 0 8px ${MICROEXPRESSION_COLORS.working.glow}`,
-    animation: 'materializable-pulse 2s ease-in-out infinite',
   },
   alarmed: {
     borderColor: MICROEXPRESSION_COLORS.alarmed.border,
     boxShadow: `0 0 12px ${MICROEXPRESSION_COLORS.alarmed.glow}`,
-    animation: 'materializable-alarm 0.5s ease-in-out infinite',
   },
   confused: {
     borderColor: MICROEXPRESSION_COLORS.confused.border,
-    animation: 'materializable-blink 1s ease-in-out infinite',
   },
   satisfied: {
     borderColor: MICROEXPRESSION_COLORS.satisfied.border,

@@ -26,7 +26,6 @@ export class APIClientError extends Error {
 
 class APIClientClass {
   private client: AxiosInstance;
-  private authToken: string | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -44,10 +43,6 @@ class APIClientClass {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       async (config) => {
-        if (this.authToken) {
-          config.headers['Authorization'] = `Bearer ${this.authToken}`;
-        }
-
         if (config.data instanceof FormData) {
           delete config.headers['Content-Type'];
         }
@@ -118,16 +113,12 @@ class APIClientClass {
     };
   }
 
-  public setAuthToken(token: string | null): void {
-    this.authToken = token;
-  }
+  public setAuthToken(_token: string | null): void {}
 
-  public clearAuthToken(): void {
-    this.authToken = null;
-  }
+  public clearAuthToken(): void {}
 
   public getAuthToken(): string | null {
-    return this.authToken;
+    return null;
   }
 
   private transformResponse<T>(responseData: unknown): T {

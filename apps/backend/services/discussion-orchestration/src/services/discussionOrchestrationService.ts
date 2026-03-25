@@ -11,7 +11,7 @@ import { logger } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
 import { DiscussionService } from './discussionService.js';
 import { TurnStrategyService } from './turnStrategyService.js';
-import type { IWebSocketHandler } from '../websocket/websocket.types.js';
+import type { IWebSocketHandler } from '@uaip/types';
 
 export interface DiscussionOrchestrationResult {
   success: boolean;

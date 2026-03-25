@@ -953,7 +953,7 @@ export interface CreateTaskRequest {
   projectId: string;
   priority?: string;
   type?: string;
-  assigneeType?: string;
+  assigneeType?: AssigneeType;
   assignedToUserId?: string;
   assignedToAgentId?: string;
   dueDate?: Date;
@@ -973,7 +973,7 @@ export interface UpdateTaskRequest {
   status?: string;
   priority?: string;
   type?: string;
-  assigneeType?: string;
+  assigneeType?: AssigneeType;
   assignedToUserId?: string;
   assignedToAgentId?: string;
   dueDate?: Date;
@@ -991,7 +991,7 @@ export interface TaskFilters {
   status?: string | string[];
   priority?: string | string[];
   type?: string | string[];
-  assigneeType?: string;
+  assigneeType?: AssigneeType;
   assignedToUserId?: string;
   assignedToAgentId?: string;
   createdBy?: string;
@@ -1008,7 +1008,7 @@ export interface TaskFilters {
 
 export interface TaskAssignmentRequest {
   taskId: string;
-  assigneeType: string;
+  assigneeType: AssigneeType;
   assignedToUserId?: string;
   assignedToAgentId?: string;
   assignedBy: string;
@@ -1165,4 +1165,143 @@ export interface StateUpdateOptions {
   completedAt?: Date;
   error?: string;
   result?: unknown;
+}
+
+export interface PipelineSecurityContext {
+  userId: string;
+  agentId: string;
+  permissions: string[];
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  requiresApproval: boolean;
+  approvalWorkflowId?: string;
+}
+
+export interface PipelineStepCondition {
+  expression: string;
+  variables: Record<string, unknown>;
+  defaultValue: boolean;
+}
+
+export interface PipelineStepConfiguration {
+  toolId?: string;
+  artifactTemplateId?: string;
+  apiEndpoint?: string;
+  transformFunction?: string;
+  conditionExpression?: string;
+  delayDuration?: number;
+  approvalRequirements?: {
+    requiredApprovers: string[];
+    minimumApprovals: number;
+    approvalTimeout: number;
+    escalationRules: Array<{
+      condition: string;
+      escalateToRoles: string[];
+      delayMinutes: number;
+    }>;
+  };
+  customConfig?: Record<string, unknown>;
+}
+
+export interface PipelineOperationContext {
+  conversationId: string;
+  sessionId: string;
+  userRequest: string;
+  environment: 'development' | 'staging' | 'production';
+  constraints: Record<string, unknown>;
+  securityContext: PipelineSecurityContext;
+  executionContext: {
+    resourceLimits: ResourceLimits & { maxConcurrency: number };
+    timeout: number;
+    retryPolicy: RetryPolicy;
+    priority: 'low' | 'normal' | 'high' | 'critical';
+    executionMode: 'synchronous' | 'asynchronous' | 'streaming';
+  };
+}
+
+export interface PipelineBusinessImpact {
+  category: string;
+  severity: 'low' | 'medium' | 'high';
+  affectedSystems: string[];
+  estimatedUsers: number;
+}
+
+export interface PipelineOperationMetadata {
+  version: string;
+  source: string;
+  tags: string[];
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  estimatedCost: number;
+  actualCost?: number;
+  businessImpact: PipelineBusinessImpact;
+}
+
+export interface PauseOperationRequest {
+  reason: string;
+  createCheckpoint: boolean;
+}
+
+export interface ResumeOperationRequest {
+  checkpointId?: string;
+  modifiedSteps: unknown[];
+}
+
+export interface CancelOperationRequest {
+  reason: string;
+  compensate: boolean;
+  force: boolean;
+}
+
+export type SOPType =
+  | 'project_sop'
+  | 'agent_soul'
+  | 'heartbeat'
+  | 'identity'
+  | 'tools'
+  | 'agents_config'
+  | 'user_context'
+  | 'bootstrap'
+  | 'process'
+  | 'memory'
+  | 'sop'
+  | 'context_document';
+
+export interface SOPDocument {
+  id: string;
+  agentId: string;
+  agentOperationalName: string | null;
+  type: SOPType;
+  title: string;
+  content: string;
+  frontmatter: Record<string, unknown>;
+  fileName: string;
+  parsedAt: Date;
+  version: string;
+}
+
+export interface TaskLifecycle {
+  states: string[];
+  transitions: Record<string, string[]>;
+  initialState: string;
+  terminalStates: string[];
+}
+
+export interface SOPWorkflowStep {
+  order: number;
+  name: string;
+  description: string;
+  agent?: string;
+  action: string;
+  output: string;
+  onSuccess?: string;
+  onFailure?: string;
+}
+
+export interface SOPWorkflow {
+  id: string;
+  agentId: string;
+  name: string;
+  description: string;
+  trigger: string[];
+  steps: SOPWorkflowStep[];
+  lifecycle: TaskLifecycle;
 }

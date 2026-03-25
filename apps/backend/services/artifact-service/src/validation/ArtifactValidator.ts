@@ -1,5 +1,5 @@
 import { ValidationResult, ArtifactType, ValidationError, ValidationWarning } from '@uaip/types';
-import { IArtifactValidator } from '../interfaces/ArtifactTypes.js';
+import { IArtifactValidator } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 // Internal validation issue type that can handle all severities

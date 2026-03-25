@@ -11,7 +11,7 @@ import {
   generateSecureConnectionId,
 } from './websocket-security-utils.js';
 import { RedisSessionManager } from './redis-session-manager.js';
-import type { WebSocketConnection, IWebSocketHandler } from './websocket.types.js';
+import type { WebSocketConnection, IWebSocketHandler } from '@uaip/types';
 
 export { WebSocketConnection };
 

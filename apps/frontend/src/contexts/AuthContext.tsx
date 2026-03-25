@@ -284,11 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const loginData = await uaipAPI.client.auth.login({ email, password });
 
       if (loginData && loginData.user) {
-        const { user, token } = loginData;
-
-        if (token) {
-          uaipAPI.client.setAuthToken(token);
-        }
+        const { user } = loginData;
 
         setState({
           user: {

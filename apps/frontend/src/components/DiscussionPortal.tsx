@@ -24,7 +24,7 @@ import { useDiscussion } from '@/contexts/DiscussionContext';
 import { useAgents } from '@/contexts/AgentContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
-import type { Message } from '@/types/agent';
+import type { FrontendMessage as Message } from '@uaip/types';
 import { cn } from '@/lib/utils';
 import uaipAPI from '@/utils/uaip-api';
 import { DiscussionHistory } from './DiscussionHistory';

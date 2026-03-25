@@ -43,7 +43,7 @@ export const createMockNext = () => jest.fn();
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';
 process.env.PORT = '3005';
-process.env.RABBITMQ_URL = 'amqp://localhost:5672';
+process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
 process.env.REDIS_URL = 'redis://localhost:6379';
 

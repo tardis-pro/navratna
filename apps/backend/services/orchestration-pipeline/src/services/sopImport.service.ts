@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import matter from 'gray-matter';
-import type { SOPDocument, SOPType, SOPWorkflow } from '../sops/sop-types.js';
+import type { SOPDocument, SOPType, SOPWorkflow } from '@uaip/types';
 
 const DEFAULT_BASE_PATH = '/Users/pronitdas/workspaces/bmad-navratna/openclaw-infra/markdowns';
 

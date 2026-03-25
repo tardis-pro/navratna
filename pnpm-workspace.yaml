@@ -1,9 +1,10 @@
 packages:
-  - apps/*
+  - apps/frontend
+  - apps/backend
   - apps/packages/*
+  - apps/shared/*
+  - apps/backend/services/*
   - packages/*
-  - backend/services/*
-  - backend/shared/*
 
 catalog:
   typescript: ^5.8.3
@@ -61,6 +62,7 @@ catalogs:
     '@hookform/resolvers': ^5.2.2
     axios: ^1.13.0
   backend:
+    bullmq: ^5.56.0
     drizzle-orm: ^0.44.2
     socket.io: ^4.8.3
     ioredis: ^5.8.2
@@ -94,8 +96,6 @@ catalogs:
     '@types/ws': 8.18.1
     baileys: ^6.7.18
     '@hapi/boom': ^10.0.1
-    amqplib: ^0.10.8
-    '@types/amqplib': ^0.10.7
     neo4j-driver: ^5.28.1
     multer: ^2.0.1
     '@types/multer': ^1.4.12

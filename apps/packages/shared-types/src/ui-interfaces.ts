@@ -234,3 +234,210 @@ export interface DataState<T> {
   lastUpdated?: Date;
   refetch?: () => Promise<void>;
 }
+
+// ============================================================================
+// Frontend document context types
+// ============================================================================
+
+export interface FrontendDocumentContext {
+  id: string;
+  title: string;
+  content: string;
+  type: 'policy' | 'technical' | 'general';
+  metadata: {
+    author?: string;
+    createdAt: Date;
+    lastModified: Date;
+    version?: string;
+  };
+  tags: string[];
+}
+
+export interface FrontendDocumentContextState {
+  documents: Record<string, FrontendDocumentContext>;
+  activeDocumentId: string | null;
+  isLoading: boolean;
+  error: string | null;
+  content?: string;
+}
+
+export interface FrontendDocumentContextValue extends FrontendDocumentContextState {
+  addDocument: (document: FrontendDocumentContext) => void;
+  removeDocument: (id: string) => void;
+  setActiveDocument: (id: string) => void;
+  updateDocument: (id: string, updates: Partial<FrontendDocumentContext>) => void;
+}
+
+// ============================================================================
+// Frontend extension types (migrated from frontend/src/types/frontend-extensions.ts)
+// ============================================================================
+import type { Agent, Discussion, MessageType, ToolCapableMessage, ToolPermissionSet, ToolUsageRecord, ToolExecution, ToolPreferences, ToolBudget, ToolCall, ToolResult, ToolDefinition, CapabilitySearchRequest, CapabilityRecommendation, Persona, PersonaAnalytics, PersonaRecommendation, LLMModel, ConversationContext, ContextAnalysis, ActionRecommendation, AgentAnalysisResult, ExecutionPlan, ArtifactGenerationRequest, ArtifactGenerationResponse, ArtifactGenerationTemplate, Artifact, Requirement } from './index.js';
+import type { OperationStatusResponse, ExecuteOperationRequest } from './operation.js';
+
+export type FrontendConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
+
+export interface FrontendMessage extends ToolCapableMessage {
+  id: string;
+  content: string;
+  sender: string;
+  timestamp: Date;
+  type: 'thought' | 'response' | 'question' | 'system' | 'tool-call' | 'tool-result';
+  threadRoot?: string;
+  threadDepth?: number;
+  replyTo?: string;
+  mentions?: string[];
+  importance?: number;
+  keywords?: string[];
+  isAgreement?: boolean;
+  isDisagreement?: boolean;
+  summary?: string;
+  conversationPattern?: FrontendConversationPattern;
+  triggeredPersonas?: string[];
+  sentiment?: { score: number; keywords: string[] };
+  logicalAnalysis?: { fallacies: Array<{ type: string; confidence: number; snippet: string }>; hasValidArgument: boolean };
+}
+
+export interface MessageSearchOptions {
+  participantId?: string;
+  messageType?: string[];
+  dateFrom?: Date;
+  dateTo?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+export interface FrontendDiscussionEvent {
+  type: 'turn_started' | 'turn_ended' | 'message_added' | 'participant_joined' | 'participant_left';
+  discussionId: string;
+  data: unknown;
+  timestamp: Date;
+}
+
+export interface PersonaSearchResponse {
+  personas: import('./persona.js').PersonaDisplay[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface DiscussionSearchResponse {
+  discussions: Discussion[];
+  totalCount: number;
+  searchTime: number;
+}
+
+export interface DiscussionParticipantCreate {
+  agentId: string;
+  role?: 'participant' | 'moderator' | 'observer' | 'facilitator';
+}
+
+export interface DiscussionMessageCreate {
+  content: string;
+  messageType?: MessageType;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FrontendAgentState extends Agent {
+  currentResponse: string | null;
+  conversationHistory: FrontendMessage[];
+  isThinking: boolean;
+  error: string | null;
+  modelId: string;
+  providerId?: string;
+  persona?: Persona;
+  availableTools: string[];
+  toolPermissions: ToolPermissionSet;
+  toolUsageHistory: ToolUsageRecord[];
+  currentToolExecution?: ToolExecution;
+  toolPreferences: ToolPreferences;
+  maxConcurrentTools: number;
+  toolBudget?: ToolBudget;
+  isUsingTool?: boolean;
+}
+
+export interface FrontendAgentProps {
+  id: string;
+  name: string;
+  personaId: string;
+  onResponse: (response: string) => void;
+  conversationHistory: FrontendMessage[];
+}
+
+export interface FrontendModelProvider {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  baseUrl: string;
+  defaultModel?: string;
+  status: string;
+  isActive: boolean;
+  priority: number;
+  totalTokensUsed: number;
+  totalRequests: number;
+  totalErrors: number;
+  lastUsedAt?: string;
+  healthCheckResult?: Record<string, unknown>;
+  hasApiKey: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FrontendModelInfo {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint: string;
+  apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+  provider: string;
+  isAvailable: boolean;
+}
+
+export interface FrontendAgentContextValue {
+  agents: Record<string, FrontendAgentState>;
+  addAgent: (agent: FrontendAgentState) => void;
+  addAgents: (agents: FrontendAgentState[]) => void;
+  removeAgent: (id: string) => void;
+  updateAgentState: (id: string, updates: Partial<FrontendAgentState>) => void;
+  addMessage: (agentId: string, message: FrontendMessage) => void;
+  removeMessage: (agentId: string, messageId: string) => void;
+  getAllMessages: () => FrontendMessage[];
+  executeToolCall: (agentId: string, toolCall: import('./tool.js').ToolCall) => Promise<import('./tool.js').ToolResult>;
+  approveToolExecution: (executionId: string, approverId: string) => Promise<boolean>;
+  getToolUsageHistory: (agentId: string) => import('./tool.js').ToolUsageRecord[];
+  updateToolPermissions: (agentId: string, permissions: Partial<import('./tool.js').ToolPermissionSet>) => void;
+  setAgentModel: (agentId: string, modelId: string, providerId: string) => void;
+  refreshAgents: () => Promise<void>;
+  modelState: {
+    providers: FrontendModelProvider[];
+    models: import('./llm.js').LLMModel[];
+    loadingProviders: boolean;
+    loadingModels: boolean;
+    providersError: string | null;
+    modelsError: string | null;
+  };
+  loadProviders: () => Promise<void>;
+  loadModels: () => Promise<void>;
+  refreshModelData: () => Promise<void>;
+  createProvider: (config: FrontendModelProvider) => Promise<boolean>;
+  updateProvider: (providerId: string, config: FrontendModelProvider) => Promise<boolean>;
+  testProvider: (providerId: string) => Promise<Record<string, unknown>>;
+  deleteProvider: (providerId: string) => Promise<boolean>;
+  getModelsForProvider: (providerId: string) => import('./llm.js').LLMModel[];
+  getRecommendedModels: (agentRole?: string) => import('./llm.js').LLMModel[];
+  activeFlows: string[];
+  flowResults: Map<string, Record<string, unknown>>;
+  flowErrors: Map<string, string>;
+  executeFlow: (service: string, flow: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  getFlowStatus: (flowId: string) => 'idle' | 'running' | 'completed' | 'error';
+  clearFlowResult: (flowId: string) => void;
+}
+
+export interface UIOperationExtensions {
+  displayName?: string;
+  icon?: string;
+  color?: string;
+  category?: string;
+  tags?: string[];
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}

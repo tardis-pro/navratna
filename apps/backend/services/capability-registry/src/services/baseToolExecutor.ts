@@ -7,7 +7,7 @@ import { OAuthCapabilityDiscovery } from './oauthCapabilityDiscovery.js';
 import { SlackAdapter } from '../adapters/slack-adapter.js';
 import { JiraAdapter } from '../adapters/jira-adapter.js';
 import { ConfluenceAdapter } from '../adapters/confluence-adapter.js';
-import type { ToolDefinition } from '../types/tool-definition.js';
+import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
 interface OAuthTokenInfo {
   accessToken: string;

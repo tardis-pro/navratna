@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getWebSocketURL } from '@/config/apiConfig';
-import { APIClient } from '@/api/client';
 import {
   ConversationWebSocketEventType,
   _ConversationIntelligenceEventType,
@@ -69,8 +68,6 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     if (!user) return;
     if (!agentId) return;
 
-    const token = APIClient.getAuthToken();
-
     const effectiveAgentId = agentId === 'global-user-llm' ? `user-${user.id}` : agentId;
     if (!effectiveAgentId) return;
 
@@ -80,7 +77,6 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
     }
 
     const socket = io(`${getWebSocketURL()}/conversation-intelligence`, {
-      ...(token ? { auth: { token } } : {}),
       withCredentials: true,
       query,
       transports: ['polling', 'websocket'],

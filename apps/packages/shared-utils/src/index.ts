@@ -26,7 +26,6 @@ export {
   InternalServerError,
   ExternalServiceError,
   SecurityError,
-  asyncHandler,
 } from './errors';
 
 // Widget system utilities

@@ -1,28 +1,8 @@
 import Redis from 'ioredis';
 import { logger } from '@uaip/utils';
-import type { WebSocketConnection, WebSocketSession, RateLimitData } from './websocket.types.js';
+import type { WebSocketConnection, WebSocketSession, RateLimitData } from '@uaip/types';
 
-export interface WebSocketSession {
-  connectionId: string;
-  userId: string;
-  discussionId: string;
-  participantId?: string;
-  securityLevel: number;
-  authenticated: boolean;
-  connectedAt: Date;
-  lastActivity: Date;
-  messageCount: number;
-  rateLimitReset: number;
-  ipAddress?: string;
-  userAgent?: string;
-}
-
-export interface RateLimitData {
-  messages: { count: number; resetTime: number };
-  typing: { count: number; resetTime: number };
-  reactions: { count: number; resetTime: number };
-  turns: { count: number; resetTime: number };
-}
+export type { WebSocketSession, RateLimitData };
 
 export class RedisSessionManager {
   private redis: Redis;

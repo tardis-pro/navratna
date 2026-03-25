@@ -257,12 +257,12 @@ export interface ChatIngestionJob {
  * Chat ingestion options
  */
 export interface ChatIngestionOptions {
-  extractKnowledge: boolean;
-  saveToGraph: boolean;
-  generateEmbeddings: boolean;
-  batchSize: number;
-  concurrency: number;
-  userId: string;
+  extractKnowledge?: boolean;
+  saveToGraph?: boolean;
+  generateEmbeddings?: boolean;
+  batchSize?: number;
+  concurrency?: number;
+  userId?: string;
 }
 
 /**

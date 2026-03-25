@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { Bot, Layers, FileCode, MessageSquare, ListTodo } from 'lucide-react';
 import type {
   MaterializableBlockData,
@@ -12,7 +12,8 @@ import {
   BLOCK_TYPE_COLORS,
   getExpressionColor,
 } from '@/components/MaterializableBlock/MaterializableBlock.styles';
-import { EXPRESSION_ICONS } from '@/components/MaterializableBlock';
+import { EXPRESSION_ICONS, MaterializableBlock } from '@/components/MaterializableBlock';
+import { renderPortalContent } from './portalRegistry';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -38,27 +39,6 @@ const BLOCK_TYPE_LABELS: Record<MaterializableBlockType, string> = {
   discussion: 'Discussion',
   task: 'Task',
 };
-
-// ---------------------------------------------------------------------------
-// Feature flag
-// ---------------------------------------------------------------------------
-
-export function isTelescopeEnabled(): boolean {
-  if (typeof window !== 'undefined') {
-    const localFlag = localStorage.getItem('telescope_enabled');
-    if (localFlag === 'true') return true;
-  }
-
-  try {
-    // Vite injects import.meta.env at build time
-    return (
-      (import.meta as unknown as Record<string, Record<string, string>>).env
-        ?.VITE_TELESCOPE_ENABLED === 'true'
-    );
-  } catch {
-    return false;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,6 +151,18 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
   const expressionColor = getExpressionColor(block.expression);
   const relevancePercent = Math.round(block.relevanceScore * 100);
 
+  const relevanceMotion = useMotionValue(block.relevanceScore);
+  const springRelevance = useSpring(relevanceMotion, { stiffness: 120, damping: 20 });
+  const relevanceOpacity = useTransform(
+    springRelevance,
+    [0, RELEVANCE_FADED_THRESHOLD, 1],
+    [0.3, 0.55, 1]
+  );
+
+  useEffect(() => {
+    relevanceMotion.set(block.relevanceScore);
+  }, [block.relevanceScore, relevanceMotion]);
+
   const handleClick = useCallback(() => {
     onClick?.(block.id);
   }, [onClick, block.id]);
@@ -188,12 +180,19 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
   return (
     <motion.div
       layout
+      layoutId={block.id}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{
-        opacity: block.visibility === 'faded' ? 0.5 : 1,
         scale: 1,
       }}
       exit={{ opacity: 0, scale: 0.95 }}
+      style={{
+        opacity: relevanceOpacity,
+        backgroundColor: typeColors.bg,
+        borderColor: typeColors.border,
+      }}
+      whileHover={{ scale: 1.02, borderColor: typeColors.accent }}
+      whileTap={{ scale: 0.97 }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
@@ -201,12 +200,8 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
       role="button"
       aria-label={`${BLOCK_TYPE_LABELS[block.type]} block: ${block.metadata?.title ?? block.id} — ${relevancePercent}% relevant`}
       className="relative flex flex-col gap-2 rounded-2xl border-2 p-4 cursor-pointer
-                 backdrop-blur-md transition-shadow duration-300
-                 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-      style={{
-        backgroundColor: typeColors.bg,
-        borderColor: typeColors.border,
-      }}
+                 backdrop-blur-md
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     >
       {/* Header row: icon + title + relevance */}
       <div className="flex items-center justify-between gap-2">
@@ -247,7 +242,7 @@ function TelescopeBlock({ block, onClick }: TelescopeBlockProps) {
           {block.expression}
         </span>
         <span className="opacity-40" style={{ color: typeColors.accent }}>
-          {EXPRESSION_ICONS[block.expression]}
+          {(EXPRESSION_ICONS as Record<string, React.ReactNode>)[block.expression]}
         </span>
       </div>
     </motion.div>
@@ -302,7 +297,7 @@ export function TelescopeSurface({
   return (
     <div
       className={[
-        'relative w-full min-h-[200px] p-6',
+        'relative w-full min-h-screen p-6',
         'grid gap-4 auto-rows-min',
         'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
         className,
@@ -313,9 +308,15 @@ export function TelescopeSurface({
       aria-label="Telescope Surface — ambient block view"
     >
       <AnimatePresence mode="popLayout">
-        {visibleBlocks.map((block) => (
-          <TelescopeBlock key={block.id} block={block} onClick={onBlockSelect} />
-        ))}
+        {visibleBlocks.map((block) =>
+          block.type === 'portal' ? (
+            <MaterializableBlock key={block.id} block={block}>
+              {renderPortalContent(block.id)}
+            </MaterializableBlock>
+          ) : (
+            <TelescopeBlock key={block.id} block={block} onClick={onBlockSelect} />
+          )
+        )}
       </AnimatePresence>
 
       {visibleBlocks.length === 0 && (

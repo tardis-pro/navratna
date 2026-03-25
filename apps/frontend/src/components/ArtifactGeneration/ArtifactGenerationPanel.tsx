@@ -30,13 +30,13 @@ import {
 } from 'lucide-react';
 
 import { artifactFactory } from '@/services/artifact/ArtifactFactory';
-import {
+import type {
   Artifact,
-  ConversationContext,
+  FrontendArtifactContext as ConversationContext,
   ArtifactType,
-  Participant,
-  GenerationResult,
-} from '@/types/artifact';
+  ArtifactParticipant as Participant,
+  ArtifactGenerationResult as GenerationResult,
+} from '@uaip/types';
 
 interface ArtifactGenerationPanelProps {
   conversationId: string;

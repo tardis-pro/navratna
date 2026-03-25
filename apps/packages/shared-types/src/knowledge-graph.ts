@@ -113,22 +113,42 @@ export interface KnowledgeIngestRequest {
 }
 
 export interface KnowledgeIngestResponse {
-    items: KnowledgeItem[];
-    processedCount: number;
+    items?: KnowledgeItem[];
+    processedCount?: number;
     errors?: string[];
+    conversationsFound?: number;
+    knowledgeExtracted?: number;
+    processingTime?: number;
+    success?: boolean;
 }
 
 // Context and Classification
+export interface ContextMessage {
+    sender: string;
+    content: string;
+    role?: string;
+    timestamp?: Date | string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface ContextDocument {
+    title?: string;
+    content?: string;
+    language?: string;
+    [key: string]: unknown;
+}
+
 export interface ContextRequest {
     userRequest?: string;
-    currentContext?: unknown;
-    discussionHistory?: unknown[];
+    currentContext?: ContextDocument;
+    discussionHistory?: ContextMessage[];
     userPreferences?: Record<string, unknown>;
-    conversationHistory?: unknown[];
+    conversationHistory?: ContextMessage[];
     agentCapabilities?: string[];
     relevantTags?: string[];
     timeRange?: DateRange;
     participantExpertise?: string[];
+    language?: string;
 }
 
 export interface KnowledgeClassification {
@@ -846,4 +866,38 @@ export interface BootstrapStatus {
     clusteringEnabled: boolean;
     totalReduction: number;
     finalKnowledgeItems: number;
+}
+
+// Qdrant vector store types
+export type MemoryCollectionType = 'episodic' | 'semantic';
+
+export interface CollectionOptions {
+    collection?: MemoryCollectionType;
+}
+
+export interface VectorSearchOptions {
+    limit: number;
+    threshold?: number;
+    filters?: Record<string, unknown>;
+}
+
+export interface VectorSearchResult {
+    id: string;
+    score: number;
+    payload: Record<string, unknown>;
+}
+
+// Knowledge ingestion types
+export interface IngestionOptions {
+    batchSize?: number;
+    overwrite?: boolean;
+    generateEmbeddings?: boolean;
+    skipDuplicates?: boolean;
+}
+
+export interface IngestionResult {
+    processed: number;
+    skipped: number;
+    errors: string[];
+    duration: number;
 }

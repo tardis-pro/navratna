@@ -1,4 +1,4 @@
-import { ITemplateManager, TemplateFilters } from '../interfaces/ArtifactTypes.js';
+import { ITemplateManager, ArtifactTemplateFilters } from '@uaip/types';
 import {
   ArtifactGenerationTemplate as ArtifactTemplate,
   ArtifactConversationContext as GenerationContext,
@@ -61,7 +61,7 @@ export class TemplateManager implements ITemplateManager {
     return result;
   }
 
-  listTemplates(filters?: TemplateFilters): ArtifactTemplate[] {
+  listTemplates(filters?: ArtifactTemplateFilters): ArtifactTemplate[] {
     let templates = Array.from(this.templates.values());
 
     if (filters) {

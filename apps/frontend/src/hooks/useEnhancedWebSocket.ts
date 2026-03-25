@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { logger } from '@/utils/browser-logger';
 import { getWebSocketURL } from '@/config/apiConfig';
-import { APIClient } from '@/api/client';
+
 
 interface WebSocketEvent {
   type: string;
@@ -55,13 +55,8 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  const getAuthToken = useCallback(() => {
-    return APIClient.getAuthToken();
-  }, []);
-
   // Socket.IO connection function
   const connectSocketIO = useCallback(async (): Promise<boolean> => {
-    const token = getAuthToken();
     const queueReconnect = () => {
       if (state.reconnectAttempts >= maxReconnectAttempts) {
         updateState({
@@ -99,19 +94,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       logger.info('[Socket.IO] Attempting connection', { url });
 
       const socket = io(url, {
-        ...(token
-          ? {
-              auth: { token },
-              query: {
-                token,
-              },
-              extraHeaders: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          : {}),
         query: {
-          ...(token ? { token } : {}),
           EIO: 4,
         },
         transports: ['polling', 'websocket'], // Start with polling, upgrade to websocket
@@ -224,7 +207,7 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
       });
       return false;
     }
-  }, [url, getAuthToken, maxReconnectAttempts, state.reconnectAttempts, updateState]);
+  }, [url, maxReconnectAttempts, state.reconnectAttempts, updateState]);
 
   // Main connect function
   const connect = useCallback(async () => {
@@ -283,22 +266,13 @@ export const useEnhancedWebSocket = (config: ConnectionConfig = {}) => {
     [state.isConnected]
   );
 
-  // Auto-connect on mount
   useEffect(() => {
-    const token = getAuthToken();
-    logger.info('[Enhanced WebSocket] Initializing with auth status:', {
-      hasToken: !!token,
-      tokenLength: token?.length,
-      url,
-    });
-
     connect();
 
-    // Cleanup on unmount
     return () => {
       disconnect();
     };
-  }, [connect, disconnect, getAuthToken, url]);
+  }, [connect, disconnect, url]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {

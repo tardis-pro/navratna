@@ -90,25 +90,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Message Queue
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    container_name: uaip-rabbitmq-dev
-    environment:
-      RABBITMQ_DEFAULT_USER: uaip_user
-      RABBITMQ_DEFAULT_PASS: uaip_dev_password
-    ports:
-      - '5672:5672' # AMQP
-      - '15672:15672' # Management UI
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - uaip-network
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 30s
-      timeout: 30s
-      retries: 3
+
 
   # Monitoring Stack (Optional for dev)
   prometheus:
@@ -156,7 +138,7 @@ volumes:
   neo4j_plugins:
   redis_data:
   qdrant_data:
-  rabbitmq_data:
+
   prometheus_data:
   grafana_data:
 

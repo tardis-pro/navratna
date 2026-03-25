@@ -3,8 +3,8 @@
   "references": [
     { "path": "../packages/shared-types" },
     { "path": "../packages/shared-utils" },
-    { "path": "./shared/config" },
-    { "path": "./shared/middleware" },
-    { "path": "./shared/services" }
+    { "path": "../shared/config" },
+    { "path": "../shared/middleware" },
+    { "path": "../shared/services" }
   ]
 }

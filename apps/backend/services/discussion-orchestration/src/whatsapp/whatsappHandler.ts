@@ -75,7 +75,7 @@ function buildInvalidSelectionMessage(max: number): string {
  *
  *   1. Baileys  → real WhatsApp connection (QR auth, messages)
  *   2. Socket.IO /whatsapp namespace  → admin UI (QR display, status, logs, bindings)
- *   3. RabbitMQ Event Bus  → agent-intelligence service (chat requests / responses)
+ *   3. BullMQ Event Bus  → agent-intelligence service (chat requests / responses)
  *
  * Message routing logic (per incoming message):
  *   a) If message is a re-select command (!agents etc.) → show selection menu

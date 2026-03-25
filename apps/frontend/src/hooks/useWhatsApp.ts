@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getWebSocketURL } from '@/config/apiConfig';
 import { logger } from '@/utils/browser-logger';
-import { APIClient } from '@/api/client';
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type WAConnectionState = 'disconnected' | 'connecting' | 'qr' | 'connected';
@@ -63,9 +61,7 @@ interface UseWhatsAppReturn {
 
 const MAX_MESSAGES = 100;
 
-function getAuthToken(): string | null {
-  return APIClient.getAuthToken();
-}
+
 
 export function useWhatsApp(): UseWhatsAppReturn {
   const [state, setState] = useState<WAConnectionState>('disconnected');
@@ -78,11 +74,9 @@ export function useWhatsApp(): UseWhatsAppReturn {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    const token = getAuthToken();
     const wsUrl = getWebSocketURL();
 
     const socket = io(`${wsUrl}/whatsapp`, {
-      ...(token ? { auth: { token } } : {}),
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 10,

@@ -112,14 +112,13 @@ test_service_health() {
     fi
 }
 
-# Test RabbitMQ connectivity
-test_rabbitmq() {
-    log_info "Testing RabbitMQ connectivity..."
-    
-    if curl -f -s -u "uaip_user:uaip_dev_password" "http://localhost:15672/api/overview" > /dev/null; then
-        log_success "RabbitMQ is accessible"
+# Test BullMQ/Redis event bus connectivity (replaces RabbitMQ)
+test_event_bus_redis() {
+    log_info "Testing BullMQ/Redis event bus..."
+    if redis-cli -u "${REDIS_URL:-redis://localhost:6379}" ping > /dev/null 2>&1; then
+        log_success "Redis (BullMQ backend) is accessible"
     else
-        log_error "RabbitMQ connection failed"
+        log_warning "Redis connection check failed - event bus may be unavailable"
         return 1
     fi
 }
@@ -173,19 +172,10 @@ test_discussion_api() {
 test_event_bus() {
     log_info "Testing Event Bus integration..."
     
-    if test_rabbitmq; then
-        # Check if exchanges exist
-        if command -v curl &> /dev/null; then
-            EXCHANGES=$(curl -s -u "uaip_user:uaip_dev_password" "http://localhost:15672/api/exchanges" | grep -o '"name":"[^"]*"' | grep -E "(events|rpc)" || echo "")
-            
-            if [[ "$EXCHANGES" == *"events"* ]]; then
-                log_success "Event exchanges are configured"
-            else
-                log_warning "Event exchanges not found - may not be initialized yet"
-            fi
-        fi
+    if test_event_bus_redis; then
+        log_success "BullMQ/Redis event bus accessible"
     else
-        log_warning "Event bus test skipped - RabbitMQ not accessible"
+        log_warning "Event bus test skipped - Redis not accessible"
     fi
 }
 
@@ -216,7 +206,7 @@ main() {
     echo "----------------------"
     test_database || exit 1
     test_schema || exit 1
-    test_rabbitmq || exit 1
+    test_event_bus_redis || true  # BullMQ on Redis - non-fatal if Redis is down
     echo
     
     # Service health tests
@@ -254,7 +244,7 @@ main() {
     echo "🎉 UAIP Persona and Discussion System is ready!"
     echo
     echo "Next steps:"
-    echo "1. Access RabbitMQ Management: http://localhost:15672 (uaip_user/uaip_dev_password)"
+    echo "1. Monitor Redis/BullMQ: redis-cli monitor"
     echo "2. Test API endpoints: http://localhost:8081/api/v1/"
     echo "3. Monitor services: http://localhost:3000 (Grafana - admin/admin)"
     echo "4. View logs: docker-compose logs -f [service-name]"

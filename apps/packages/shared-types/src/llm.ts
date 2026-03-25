@@ -589,6 +589,17 @@ export interface AgentResponseRequest {
     name: string;
     role: string;
     capabilities?: string[];
+    maxTokens?: number;
+    temperature?: number;
+    configuration?: { model?: string; [key: string]: unknown };
+    persona?: { description?: string; capabilities?: string[]; [key: string]: unknown };
+    modelId?: string;
+    apiType?: string;
+    userLLMProviderId?: string;
+    systemPrompt?: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+    version?: number;
   };
   messages: ChatMessage[];
   context?: DocumentContext;
@@ -736,7 +747,7 @@ export interface TokenBudget {
 }
 
 export interface ContextWindow {
-  recentMessages: ChatMessage[];
+  recentMessages: Array<Record<string, unknown>>;
   summarizedContext?: string;
   contextDocuments: DocumentContext[];
   estimatedTokens: number;

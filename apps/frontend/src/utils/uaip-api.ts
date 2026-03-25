@@ -107,19 +107,6 @@ export function getAPIClient() {
   return api;
 }
 
-const setAccessTokenCookie = (token?: string | null) => {
-  if (typeof document === 'undefined') return;
-
-  const secureFlag = window.location?.protocol === 'https:' ? '; secure' : '';
-
-  if (!token) {
-    document.cookie = `access_token=; path=/; max-age=0; samesite=strict${secureFlag}`;
-    return;
-  }
-
-  document.cookie = `access_token=${token}; path=/; samesite=strict${secureFlag}`;
-};
-
 // ============================================================================
 // WEBSOCKET CLIENT (REMOVED - Using useWebSocket hook instead)
 // ============================================================================
@@ -130,26 +117,16 @@ export const uaipAPI = {
     return {
       ...api,
 
-      getAuthToken: () => APIClient.getAuthToken(),
-      setAuthToken: (token: string | null) => {
-        APIClient.setAuthToken(token);
-      },
-      clearAuth: () => {
-        APIClient.clearAuthToken();
-        setAccessTokenCookie(null);
-      },
-      isAuthenticated: () => {
-        const token = APIClient.getAuthToken();
-        return !!token;
-      },
-      setAuthContext: (context: {
+      getAuthToken: () => null,
+      setAuthToken: (_token: string | null) => {},
+      clearAuth: () => {},
+      isAuthenticated: () => false,
+      setAuthContext: (_context: {
         token: string;
         refreshToken?: string;
         userId: string;
         rememberMe?: boolean;
-      }) => {
-        APIClient.setAuthToken(context.token);
-      },
+      }) => {},
       // Add health check endpoint
       health: async () => {
         try {
@@ -518,17 +495,14 @@ export const uaipAPI = {
       toolsExecuted?: Array<unknown>;
     }> {
       try {
-        const authToken = APIClient.getAuthToken();
-
-        // Make direct HTTP request to the agent chat endpoint with timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         const response = await fetch(`/api/v1/agents/${agentId}/chat`, {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             message: request.message,
@@ -1269,13 +1243,9 @@ export const uaipAPI = {
         const formData = new FormData();
         formData.append('mcpConfig', configFile);
 
-        const authToken = APIClient.getAuthToken();
-
         const response = await fetch('/api/v1/mcp/upload-config', {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
+          credentials: 'include',
           body: formData,
         });
 

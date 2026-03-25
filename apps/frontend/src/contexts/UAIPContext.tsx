@@ -22,19 +22,19 @@ import type {
   UIOperation,
   UICapability,
   UIApprovalWorkflow,
-  _AgentCapabilityMetrics,
-  _SecurityContext,
-  _OperationEvent,
-  SystemMetrics,
+  AgentCapabilityMetrics as _AgentCapabilityMetrics,
+  UISecurityContext as _SecurityContext,
+  UIOperationEvent as _OperationEvent,
+  UISystemMetrics as SystemMetrics,
   ToolIntegration,
   AIInsight,
-  _ConversationContext,
-  _CapabilityUsage,
-  _WebSocketEvent,
+  UIConversationContext as _ConversationContext,
+  CapabilityUsage as _CapabilityUsage,
+  UIWebSocketEvent as _WebSocketEvent,
   UIState,
   UIError,
   DataState,
-} from '@/types/ui-interfaces';
+} from '@uaip/types';
 
 // Event types for the UAIP system
 interface UAIPEvent {

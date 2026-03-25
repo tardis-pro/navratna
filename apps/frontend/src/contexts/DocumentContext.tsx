@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import type {
-  DocumentContext,
-  DocumentContextValue,
-  DocumentContextState,
-} from '../types/document';
+  FrontendDocumentContext,
+  FrontendFrontendDocumentContextValue,
+  FrontendFrontendDocumentContextState,
+} from '@uaip/types';
 import { useKnowledge } from './KnowledgeContext';
 import type { _KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
 
-const initialState: DocumentContextState = {
+const initialState: FrontendFrontendDocumentContextState = {
   documents: {},
   activeDocumentId: null,
   isLoading: false,
@@ -15,19 +15,19 @@ const initialState: DocumentContextState = {
 };
 
 type DocumentAction =
-  | { type: 'ADD_DOCUMENT'; payload: DocumentContext }
+  | { type: 'ADD_DOCUMENT'; payload: FrontendDocumentContext }
   | { type: 'REMOVE_DOCUMENT'; payload: string }
   | { type: 'SET_ACTIVE_DOCUMENT'; payload: string }
-  | { type: 'UPDATE_DOCUMENT'; payload: { id: string; updates: Partial<DocumentContext> } }
+  | { type: 'UPDATE_DOCUMENT'; payload: { id: string; updates: Partial<FrontendDocumentContext> } }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_CONTENT'; payload: string }
   | { type: 'LOAD_DOCUMENT'; payload: { id: string; content: string } };
 
 const documentReducer = (
-  state: DocumentContextState,
+  state: FrontendFrontendDocumentContextState,
   action: DocumentAction
-): DocumentContextState => {
+): FrontendFrontendDocumentContextState => {
   switch (action.type) {
     case 'ADD_DOCUMENT':
       return {
@@ -103,14 +103,14 @@ const documentReducer = (
   }
 };
 
-const DocumentContext = createContext<DocumentContextValue | null>(null);
+const FrontendDocumentContext = createContext<FrontendFrontendDocumentContextValue | null>(null);
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(documentReducer, initialState);
   const { uploadKnowledge } = useKnowledge();
 
   const addDocument = useCallback(
-    async (document: DocumentContext) => {
+    async (document: FrontendDocumentContext) => {
       dispatch({ type: 'ADD_DOCUMENT', payload: document });
 
       // Also add to knowledge graph if it has substantial content
@@ -147,7 +147,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [uploadKnowledge]
   );
 
-  const value: DocumentContextValue = useMemo(
+  const value: FrontendFrontendDocumentContextValue = useMemo(
     () => ({
       ...state,
       addDocument,
@@ -157,18 +157,18 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setActiveDocument: (id: string) => {
         dispatch({ type: 'SET_ACTIVE_DOCUMENT', payload: id });
       },
-      updateDocument: (id: string, updates: Partial<DocumentContext>) => {
+      updateDocument: (id: string, updates: Partial<FrontendDocumentContext>) => {
         dispatch({ type: 'UPDATE_DOCUMENT', payload: { id, updates } });
       },
     }),
     [state, addDocument]
   );
 
-  return <DocumentContext.Provider value={value}>{children}</DocumentContext.Provider>;
+  return <FrontendDocumentContext.Provider value={value}>{children}</FrontendDocumentContext.Provider>;
 };
 
 export const useDocument = () => {
-  const context = useContext(DocumentContext);
+  const context = useContext(FrontendDocumentContext);
   if (!context) {
     throw new Error('useDocument must be used within a DocumentProvider');
   }

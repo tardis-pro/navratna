@@ -18,7 +18,6 @@ async function getServices() {
     auditServiceSingleton = new AuditService();
     notificationServiceSingleton = new NotificationService();
     const eventBusService = new EventBusService(
-      { url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', serviceName: 'security-gateway' },
       logger
     );
     approvalWorkflowServiceSingleton = new ApprovalWorkflowService(

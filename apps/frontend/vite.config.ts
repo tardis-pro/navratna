@@ -52,6 +52,19 @@ export default defineConfig(({ _mode }) => {
       },
     },
     plugins: [react()].filter(Boolean),
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-framer': ['framer-motion'],
+            'vendor-radix': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+            'vendor-socket': ['socket.io-client'],
+            'vendor-query': ['@tanstack/react-query'],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

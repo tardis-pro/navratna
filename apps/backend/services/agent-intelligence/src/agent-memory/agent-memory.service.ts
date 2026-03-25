@@ -312,7 +312,7 @@ export class AgentMemoryService {
     agentId: string,
     context: {
       currentOperation?: string;
-      discussionHistory?: Record<string, unknown>[];
+      discussionHistory?: import('@uaip/types').ContextMessage[];
       relevantTags?: string[];
     }
   ): Promise<KnowledgeItem[]> {

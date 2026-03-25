@@ -375,3 +375,65 @@ export interface UserToolAccess {
   budgetLimit?: number;
   budgetUsed: number;
 }
+
+export interface EnterpriseToolOperation {
+  id: string;
+  name: string;
+  description: string;
+  requiredPermissions: string[];
+  inputSchema: unknown;
+  outputSchema: unknown;
+  securityLevel: number;
+  auditLevel: 'comprehensive' | 'standard' | 'minimal';
+}
+
+export interface EnterpriseToolAuth {
+  type: 'oauth2' | 'api_key' | 'basic' | 'jwt' | 'saml';
+  config: unknown;
+  scopes?: string[];
+  tokenEndpoint?: string;
+  refreshable?: boolean;
+}
+
+export interface EnterpriseRateLimitConfig {
+  requests: number;
+  window: number;
+  burstAllowance?: number;
+  perUser?: boolean;
+}
+
+export interface EnterpriseSandboxConfig {
+  enabled: boolean;
+  executionTimeout: number;
+  memoryLimit: number;
+  networkAccess: 'none' | 'restricted' | 'full';
+  allowedDomains?: string[];
+}
+
+export interface EnterpriseComplianceConfig {
+  dataClassification: 'public' | 'internal' | 'confidential' | 'restricted';
+  piiHandling: boolean;
+  encryptionRequired: boolean;
+  auditRetention: number;
+  gdprCompliant: boolean;
+  hipaaCompliant: boolean;
+}
+
+export interface EnterpriseToolDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: 'project_management' | 'documentation' | 'communication' | 'development' | 'analytics';
+  vendor: string;
+  version: string;
+  operations: EnterpriseToolOperation[];
+  authentication: EnterpriseToolAuth;
+  rateLimit?: EnterpriseRateLimitConfig;
+  sandboxing: EnterpriseSandboxConfig;
+  compliance: EnterpriseComplianceConfig;
+}
+
+export interface EnterpriseToolAdapter {
+  execute(operationId: string, parameters: unknown): Promise<unknown>;
+  setTokens(accessToken: string, refreshToken?: string, expiresAt?: string): void;
+}

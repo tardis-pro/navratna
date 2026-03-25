@@ -1,4 +1,3 @@
-import React, { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
@@ -11,17 +10,13 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Desktop } from './components/DesktopUnified';
-import { isTelescopeEnabled } from './components/TelescopeSurface';
+import { TelescopeSurface } from './components/TelescopeSurface';
+import { createInitialBlocks } from './components/TelescopeSurface/portalRegistry';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
 import QuestionForgeLanding from './pages/questionforge/QuestionForgeLanding';
 import QuestionForgeResults from './pages/questionforge/QuestionForgeResults';
-
-const LazyTelescopeSurface = lazy(() =>
-  import('./components/TelescopeSurface').then((m) => ({ default: m.TelescopeSurface }))
-);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,13 +31,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const MainShell = isTelescopeEnabled()
-  ? () => (
-      <Suspense fallback={<Desktop />}>
-        <LazyTelescopeSurface blocks={[]} />
-      </Suspense>
-    )
-  : Desktop;
+const initialBlocks = createInitialBlocks();
 
 function DesktopApp() {
   return (
@@ -74,8 +63,8 @@ function DesktopApp() {
                                   path="/projects/:id/workspace/session/:sessionId"
                                   element={<CodingSessionPage />}
                                 />
-                                <Route path="/" element={<MainShell />} />
-                                <Route path="*" element={<MainShell />} />
+                                <Route path="/" element={<TelescopeSurface blocks={initialBlocks} />} />
+                                <Route path="*" element={<TelescopeSurface blocks={initialBlocks} />} />
                               </Routes>
                             </BrowserRouter>
                           </ErrorBoundary>

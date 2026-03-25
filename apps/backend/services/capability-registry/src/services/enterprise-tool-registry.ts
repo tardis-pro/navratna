@@ -9,23 +9,22 @@ import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import type {
-  ToolDefinition,
-  ToolOperation,
-  ToolAuthentication,
-  RateLimitConfig,
-  SandboxConfig,
-  ComplianceConfig,
-} from '../types/tool-definition.js';
+  EnterpriseToolDefinition as ToolDefinition,
+  EnterpriseToolOperation as ToolOperation,
+  EnterpriseToolAuth as ToolAuthentication,
+  EnterpriseRateLimitConfig as RateLimitConfig,
+  EnterpriseSandboxConfig as SandboxConfig,
+  EnterpriseComplianceConfig as ComplianceConfig,
+} from '@uaip/types';
 
-// Re-export shared types for backwards compatibility
 export type {
-  ToolDefinition,
-  ToolOperation,
-  ToolAuthentication,
-  RateLimitConfig,
-  SandboxConfig,
-  ComplianceConfig,
-} from '../types/tool-definition.js';
+  EnterpriseToolDefinition as ToolDefinition,
+  EnterpriseToolOperation as ToolOperation,
+  EnterpriseToolAuth as ToolAuthentication,
+  EnterpriseRateLimitConfig as RateLimitConfig,
+  EnterpriseSandboxConfig as SandboxConfig,
+  EnterpriseComplianceConfig as ComplianceConfig,
+} from '@uaip/types';
 
 export class EnterpriseToolRegistry {
   private tools = new Map<string, ToolDefinition>();

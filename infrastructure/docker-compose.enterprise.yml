@@ -485,7 +485,7 @@ services:
       - '3004:3004'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/security-gateway:/app/backend/services/security-gateway
       - ./certificates/services/security-gateway:/app/ssl:ro
     depends_on:
@@ -528,7 +528,7 @@ services:
       - '3001:3001'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/agent-intelligence:/app/backend/services/agent-intelligence
     depends_on:
       - postgres-application
@@ -569,7 +569,7 @@ services:
       - '3002:3002'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/orchestration-pipeline:/app/backend/services/orchestration-pipeline
     depends_on:
       - postgres-application

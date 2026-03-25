@@ -337,3 +337,22 @@ export const PersonaSchemas = {
   PersonaAnalytics: PersonaAnalyticsSchema,
   PersonaTemplate: PersonaTemplateSchema,
 };
+
+export interface PersonaDisplay {
+  id: string;
+  name: string;
+  role: string;
+  description: string;
+  tags: string[];
+  expertise: string[];
+  status: string;
+  category: string;
+  background?: string;
+}
+
+export const PERSONA_CATEGORIES = [
+  'Development', 'Policy', 'Creative', 'Analysis', 'Business',
+  'Social', 'Technical', 'Management', 'Research', 'Design',
+] as const;
+
+export type PersonaCategory = (typeof PERSONA_CATEGORIES)[number];

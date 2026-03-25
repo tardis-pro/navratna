@@ -5,7 +5,7 @@ import { useAgents } from '../../../contexts/AgentContext';
 import { PersonaSelector } from '../../PersonaSelector';
 import { AgentEditModal } from '../../AgentEditModal';
 import { AgentState, createAgentStateFromBackend } from '../../../types/agent';
-import { Persona as _Persona, PersonaDisplay } from '../../../types/persona';
+import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip-api';
 import { APIClient } from '../../../api/client';
@@ -57,7 +57,7 @@ import {
   MessageSquare,
   Bookmark as _Bookmark,
 } from 'lucide-react';
-import { ModelOption } from '@/types/models';
+import type { ModelOption } from '@uaip/types/models';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ViewportSize {

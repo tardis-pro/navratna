@@ -1,19 +1,46 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from './Portal';
-import { DiscussionControlsPortal } from './portals/DiscussionControlsPortal';
-import { GeneralSettingsPortal } from './portals/GeneralSettingsPortal';
-import { ChatPortal } from './portals/ChatPortal';
-import { ProviderSettingsPortal } from './portals/ProviderSettingsPortal';
-import { SystemConfigPortal } from './portals/SystemConfigPortal';
-import { AgentManagerPortal } from './portals/AgentManagerPortal';
-import { ToolsPanel } from './portals/ToolsPanel';
-import { SecurityPortal } from './portals/SecurityPortal';
-import { OperationsMonitor } from './portals/OperationsMonitor';
-import { IntelligencePanelPortal } from './portals/IntelligencePanelPortal';
-import { KnowledgePortal } from './portals/KnowledgePortal';
-import { DashboardPortal } from './portals/DashboardPortal';
-import { ArtifactsPortal } from './portals/ArtifactsPortal';
+
+const DiscussionControlsPortal = lazy(() =>
+  import('./portals/DiscussionControlsPortal').then((m) => ({ default: m.DiscussionControlsPortal }))
+);
+const GeneralSettingsPortal = lazy(() =>
+  import('./portals/GeneralSettingsPortal').then((m) => ({ default: m.GeneralSettingsPortal }))
+);
+const ChatPortal = lazy(() =>
+  import('./portals/ChatPortal').then((m) => ({ default: m.ChatPortal }))
+);
+const ProviderSettingsPortal = lazy(() =>
+  import('./portals/ProviderSettingsPortal').then((m) => ({ default: m.ProviderSettingsPortal }))
+);
+const SystemConfigPortal = lazy(() =>
+  import('./portals/SystemConfigPortal').then((m) => ({ default: m.SystemConfigPortal }))
+);
+const AgentManagerPortal = lazy(() =>
+  import('./portals/AgentManagerPortal').then((m) => ({ default: m.AgentManagerPortal }))
+);
+const ToolsPanel = lazy(() =>
+  import('./portals/ToolsPanel').then((m) => ({ default: m.ToolsPanel }))
+);
+const SecurityPortal = lazy(() =>
+  import('./portals/SecurityPortal').then((m) => ({ default: m.SecurityPortal }))
+);
+const OperationsMonitor = lazy(() =>
+  import('./portals/OperationsMonitor').then((m) => ({ default: m.OperationsMonitor }))
+);
+const IntelligencePanelPortal = lazy(() =>
+  import('./portals/IntelligencePanelPortal').then((m) => ({ default: m.IntelligencePanelPortal }))
+);
+const KnowledgePortal = lazy(() =>
+  import('./portals/KnowledgePortal').then((m) => ({ default: m.KnowledgePortal }))
+);
+const DashboardPortal = lazy(() =>
+  import('./portals/DashboardPortal').then((m) => ({ default: m.DashboardPortal }))
+);
+const ArtifactsPortal = lazy(() =>
+  import('./portals/ArtifactsPortal').then((m) => ({ default: m.ArtifactsPortal }))
+);
 import {
   Plus,
   Layout,
@@ -48,8 +75,10 @@ import {
   Globe,
 } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip-api';
-import MarketplaceHubWidget from '@/widgets/MarketplaceHubWidget';
-import { ToolManagementPortal } from './portals/ToolManagementPortal';
+const MarketplaceHubWidget = lazy(() => import('@/widgets/MarketplaceHubWidget'));
+const ToolManagementPortal = lazy(() =>
+  import('./portals/ToolManagementPortal').then((m) => ({ default: m.ToolManagementPortal }))
+);
 
 interface PortalInstance {
   id: string;
@@ -1667,20 +1696,22 @@ export const PortalWorkspace: React.FC = () => {
                 onFocus={() => bringToFront(portal.id)}
                 viewport={viewport}
               >
-                <PortalComponent
-                  mode={
-                    portal.type === 'intelligence-hub'
-                      ? 'insights'
-                      : portal.type === 'monitoring-hub'
-                        ? 'monitor'
-                        : undefined
-                  }
-                  viewport={viewport}
-                  showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
-                  onThinkTokensToggle={
-                    portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined
-                  }
-                />
+                <Suspense fallback={<div className="animate-pulse bg-white/5 rounded h-full" />}>
+                  <PortalComponent
+                    mode={
+                      portal.type === 'intelligence-hub'
+                        ? 'insights'
+                        : portal.type === 'monitoring-hub'
+                          ? 'monitor'
+                          : undefined
+                    }
+                    viewport={viewport}
+                    showThinkTokens={portal.type === 'discussion-hub' ? showThinkTokens : undefined}
+                    onThinkTokensToggle={
+                      portal.type === 'discussion-hub' ? handleThinkTokensToggle : undefined
+                    }
+                  />
+                </Suspense>
               </Portal>
             );
           })}

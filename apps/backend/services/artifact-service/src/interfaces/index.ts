@@ -1,6 +1,14 @@
-// Main interfaces export file
-export * from './ArtifactTypes';
-export * from './ServiceTypes';
+export type {
+  IArtifactService,
+  IArtifactGenerator,
+  ITemplateManager,
+  IArtifactValidator,
+  ArtifactTemplateFilters,
+  ArtifactServiceHealth,
+  ArtifactGenerationMetrics,
+  ArtifactTemplateListResponse,
+  ArtifactValidationResponse,
+} from '@uaip/types';
 
 // Core interfaces for the artifact service
 import { ArtifactConversationContext, GenerationTrigger, ConversationSummary } from '@uaip/types';

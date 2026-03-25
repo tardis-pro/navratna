@@ -286,3 +286,107 @@ export interface AgentPreferences {
   documentationFormat?: string;
   complexity?: 'simple' | 'moderate' | 'complex';
 }
+
+// ============================================================================
+// Artifact Service Interfaces (migrated from artifact-service/interfaces/)
+// ============================================================================
+
+export interface ArtifactTemplateFilters {
+  type?: ArtifactType;
+  language?: string;
+  framework?: string;
+}
+
+export interface IArtifactService {
+  generateArtifact(request: ArtifactGenerationRequest): Promise<ArtifactGenerationResponse>;
+  listTemplates(type?: ArtifactType): Promise<ArtifactGenerationTemplate[]>;
+  getTemplate(id: string): Promise<ArtifactGenerationTemplate | null>;
+  validateArtifact(content: string, type: ArtifactType): Promise<ValidationResult>;
+}
+
+export interface IArtifactGenerator {
+  generate(context: ArtifactConversationContext): Promise<string>;
+  getSupportedTypes(): ArtifactType[];
+}
+
+export interface ITemplateManager {
+  selectTemplate(context: ArtifactConversationContext): ArtifactGenerationTemplate | null;
+  applyTemplate(template: ArtifactGenerationTemplate, context: ArtifactConversationContext): string;
+  listTemplates(filters?: ArtifactTemplateFilters): ArtifactGenerationTemplate[];
+  getTemplate(id: string): ArtifactGenerationTemplate | null;
+}
+
+export interface IArtifactValidator {
+  validate(content: string, type: ArtifactType): ValidationResult;
+}
+
+// Service health/metrics types (migrated from artifact-service/interfaces/ServiceTypes.ts)
+export interface ArtifactServiceHealth {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  service: string;
+  version: string;
+  generators: Record<string, boolean>;
+  templates: {
+    total: number;
+    byType: Record<string, number>;
+  };
+}
+
+export interface ArtifactGenerationMetrics {
+  totalGenerated: number;
+  successRate: number;
+  averageGenerationTime: number;
+  byType: Record<string, {
+    count: number;
+    successRate: number;
+    averageTime: number;
+  }>;
+}
+
+export interface ArtifactTemplateListResponse {
+  success: boolean;
+  templates: ArtifactGenerationTemplate[];
+  total: number;
+}
+
+export interface ArtifactValidationResponse {
+  success: boolean;
+  validation: ValidationResult;
+}
+
+// ============================================================================
+// Frontend artifact factory types
+// ============================================================================
+
+export interface ArtifactParticipant {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export interface ArtifactContextMessage {
+  id: string;
+  content: string;
+  sender: string;
+  timestamp: string;
+  type?: string;
+}
+
+export interface FrontendArtifactContext {
+  conversationId: string;
+  messages: ArtifactContextMessage[];
+  phase: string;
+  participants: ArtifactParticipant[];
+}
+
+export interface ArtifactGenerationResult {
+  success: boolean;
+  artifact?: Artifact;
+  error?: string;
+}
+
+export interface FrontendArtifactOptions {
+  type: string;
+  context: FrontendArtifactContext;
+}

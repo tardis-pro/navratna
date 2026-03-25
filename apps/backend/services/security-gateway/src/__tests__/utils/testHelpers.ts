@@ -38,7 +38,6 @@ export async function createTestApp(_pool?: Pool): Promise<AnyElysia> {
 
   const app = await createApp({
     redis: createMockRedis(),
-    rabbitmq: createMockRabbitMQ(),
   });
 
   return app;
@@ -147,60 +146,7 @@ export function createMockRedis() {
   };
 }
 
-/**
- * Create mock RabbitMQ client for testing
- */
-export function createMockRabbitMQ() {
-  const messageQueue = new Map<string, unknown[]>();
-  const subscribers = new Map<string, Function[]>();
 
-  return {
-    connect: jest.fn(async () => ({})),
-
-    publish: jest.fn(async (exchange: string, routingKey: string, message: unknown) => {
-      const key = `${exchange}.${routingKey}`;
-      if (!messageQueue.has(key)) {
-        messageQueue.set(key, []);
-      }
-      messageQueue.get(key)!.push(message);
-
-      // Notify subscribers
-      const subs = subscribers.get(key) || [];
-      subs.forEach((sub) => sub(message));
-
-      return true;
-    }),
-
-    subscribe: jest.fn(async (exchange: string, routingKey: string, callback: Function) => {
-      const key = `${exchange}.${routingKey}`;
-      if (!subscribers.has(key)) {
-        subscribers.set(key, []);
-      }
-      subscribers.get(key)!.push(callback);
-
-      // Send any queued messages
-      const messages = messageQueue.get(key) || [];
-      messages.forEach((msg) => callback(msg));
-      messageQueue.set(key, []); // Clear queue
-    }),
-
-    rpc: jest.fn(
-      async (exchange: string, routingKey: string, message: unknown, _timeout = 5000) => {
-        // Simulate RPC response
-        return {
-          success: true,
-          data: { echo: message },
-          timestamp: new Date().toISOString(),
-        };
-      }
-    ),
-
-    disconnect: jest.fn(async () => {
-      messageQueue.clear();
-      subscribers.clear();
-    }),
-  };
-}
 
 /**
  * Create test user entity

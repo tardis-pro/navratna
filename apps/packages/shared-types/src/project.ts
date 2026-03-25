@@ -167,9 +167,11 @@ export interface ProjectAutomation {
     type: 'notify' | 'reassign' | 'pause' | 'escalate' | 'archive';
     config: unknown;
   }>;
-  enabled: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  enabled?: boolean;
+  isActive?: boolean;
+  lastExecuted?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 // Project Management Types (moved from backend/shared/services)

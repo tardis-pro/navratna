@@ -254,11 +254,6 @@ export function registerAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
                 permissions: user.permissions || [],
                 lastLoginAt: user.lastLoginAt,
               },
-              tokens: {
-                accessToken: tokens.accessToken,
-                refreshToken: tokens.refreshToken,
-                expiresIn: config.jwt.accessTokenExpiry || '15m',
-              },
             },
             meta: { timestamp: new Date() },
           };
@@ -270,13 +265,12 @@ export function registerAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
       })
 
       // POST /refresh
-      .post('/refresh', async ({ body, set, cookie }) => {
-        const parsed = refreshTokenSchema.safeParse(body);
-        if (!parsed.success) {
-          set.status = 400;
-          return { error: 'Validation Error', details: parsed.error.flatten() };
+      .post('/refresh', async ({ set, cookie }) => {
+        const refreshToken = cookie['refresh_token']?.value as string | undefined;
+        if (!refreshToken) {
+          set.status = 401;
+          return { error: 'Unauthorized', message: 'No refresh token provided' };
         }
-        const { refreshToken } = parsed.data;
         try {
           // Verify refresh token signature (throws on invalid/expired)
           jwt.verify(refreshToken, config.jwt.refreshSecret);
@@ -296,9 +290,21 @@ export function registerAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
             email: tokenData.user.email,
             role: tokenData.user.role,
           });
+
+          // Revoke old token and issue new one (prevents session fixation)
+          await userService.revokeRefreshToken(refreshToken);
+          const refreshExpiry = new Date();
+          const refreshSeconds = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
+          refreshExpiry.setSeconds(refreshExpiry.getSeconds() + (refreshSeconds ?? 604800));
+          await userService.createRefreshToken(
+            tokenData.user.id,
+            tokens.refreshToken,
+            refreshExpiry,
+          );
+
           const cookieOptions = getAuthCookieOptions();
           const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
-          const refreshTokenMaxAge = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
+          const refreshTokenMaxAge = refreshSeconds;
 
           cookie['access_token'].set({
             value: tokens.accessToken,
@@ -312,11 +318,6 @@ export function registerAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
           });
           return {
             success: true,
-            data: {
-              accessToken: tokens.accessToken,
-              refreshToken: tokens.refreshToken,
-              expiresIn: config.jwt.accessTokenExpiry || '15m',
-            },
             meta: { timestamp: new Date() },
           };
         } catch {

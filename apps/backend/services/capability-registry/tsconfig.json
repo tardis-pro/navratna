@@ -26,9 +26,9 @@
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../../../packages/shared-utils" },
-    { "path": "../../shared/services" },
-    { "path": "../../shared/middleware" },
-    { "path": "../../shared/config" },
-    { "path": "../../shared/infra" }
+    { "path": "../../../shared/services" },
+    { "path": "../../../shared/middleware" },
+    { "path": "../../../shared/config" },
+    { "path": "../../../shared/infra" }
   ]
 }

@@ -1,18 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { _useAuth } from '../contexts/AuthContext';
-import { APIClient } from '../api/client';
-import {
+import type {
   EnhancedAgentState,
   Operation,
   Capability,
   ApprovalWorkflow,
-  SystemMetrics,
-  _OperationEvent,
+  UISystemMetrics as SystemMetrics,
+  UIOperationEvent as _OperationEvent,
   AIInsight,
   DataState,
   UIError,
-  WebSocketEvent,
-} from '../types/uaip-interfaces';
+  UIWebSocketEvent as WebSocketEvent,
+} from '@uaip/types';
 import { uaipAPI } from '../utils/uaip-api';
 import { getWebSocketURL } from '../config/apiConfig';
 
@@ -465,10 +464,8 @@ export function useWebSocket(url?: string) {
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(async () => {
-    const token = APIClient.getAuthToken();
-
     const baseUrl = url || getWebSocketURL().replace('/socket.io', '/ws');
-    const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+    const wsUrl = baseUrl;
 
     try {
       wsRef.current = new WebSocket(wsUrl);

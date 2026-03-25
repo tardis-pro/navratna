@@ -6,8 +6,8 @@
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@uaip/infra": ["../../shared/infra/src"],
-      "@uaip/infra/*": ["../../shared/infra/src/*"]
+      "@uaip/infra": ["../../../shared/infra/src"],
+      "@uaip/infra/*": ["../../../shared/infra/src/*"]
     },
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
@@ -15,10 +15,10 @@
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../../../packages/shared-utils" },
-    { "path": "../../shared/config" },
-    { "path": "../../shared/services" },
-    { "path": "../../shared/llm-service" },
-    { "path": "../../shared/middleware" },
-    { "path": "../../shared/infra" }
+    { "path": "../../../shared/config" },
+    { "path": "../../../shared/services" },
+    { "path": "../../../shared/llm-service" },
+    { "path": "../../../shared/middleware" },
+    { "path": "../../../shared/infra" }
   ]
 }

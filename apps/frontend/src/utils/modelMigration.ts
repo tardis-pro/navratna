@@ -1,5 +1,5 @@
 import { ModelOption, findModelsByName, extractModelName } from '@/components/ModelSelector';
-import { AgentState } from '@/types/agent';
+import type { FrontendAgentState as AgentState } from '@uaip/types';
 
 // Migration utility to update agents with legacy model IDs
 export const migrateAgentModelIds = (

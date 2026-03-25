@@ -103,52 +103,39 @@ services:
       timeout: 10s
       retries: 3
 
-  # Shared base service - build once, use everywhere
-  backend-base:
+  # Consolidated Backend Services (v3.0: 7 → 2)
+  navratna-core:
     build:
       context: .
-      dockerfile: infrastructure/Dockerfile.base
-    image: uaip-backend-base:latest
-    command: ['echo', 'Base image built successfully']
-
-  # Core Backend Services - Development with Hot Reloading
-  agent-intelligence:
-    image: uaip-backend-base:latest
-    container_name: uaip-agent-intelligence
+      dockerfile: Dockerfile
+    container_name: uaip-navratna-core
+    entrypoint: []
+    command: ['bun', 'run', 'apps/backend/services/navratna-core/src/index.ts']
     environment:
-      - SERVICE_NAME=agent-intelligence
-      - SERVICE_PORT=3001
-      - NODE_ENV=development
-      - PORT=3001
+      - NODE_ENV=${NODE_ENV:-development}
+      - NAVRATNA_CORE_PORT=3001
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - NEO4J_URL=bolt://neo4j:7687
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
-      - TYPEORM_SYNC=false
-      - TYPEORM_MIGRATIONS_RUN=true
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
       - QDRANT_URL=http://qdrant:6333
-      # Enterprise Configuration
+      - WEBSOCKET_ENABLED=true
+      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
+      - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
+      - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
       - ENTERPRISE_MODE=false
       - ZERO_TRUST_MODE=disabled
-      - SERVICE_ACCESS_MATRIX=standard
     ports:
       - '3001:3001'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/agent-intelligence:/app/backend/services/agent-intelligence
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/agent-intelligence/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
     depends_on:
       postgres:
         condition: service_started
@@ -166,292 +153,42 @@ services:
       timeout: 10s
       retries: 3
 
-  orchestration-pipeline:
-    image: uaip-backend-base:latest
-    container_name: uaip-orchestration
+  navratna-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uaip-navratna-gateway
+    entrypoint: []
+    command: ['bun', 'run', 'apps/backend/services/navratna-gateway/src/index.ts']
     environment:
-      - SERVICE_NAME=orchestration-pipeline
-      - SERVICE_PORT=3002
-      - NODE_ENV=development
-      - PORT=3002
+      - NODE_ENV=${NODE_ENV:-development}
+      - NAVRATNA_GATEWAY_PORT=3002
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - NEO4J_URL=bolt://neo4j:7687
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - MCP_SECRETS_KEY=${MCP_SECRETS_KEY}
+      - ENTERPRISE_MODE=false
+      - ZERO_TRUST_MODE=disabled
     ports:
       - '3002:3002'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/orchestration-pipeline:/app/backend/services/orchestration-pipeline
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/orchestration-pipeline/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
     depends_on:
       postgres:
         condition: service_started
-      neo4j:
-        condition: service_started
       redis:
+        condition: service_started
+      qdrant:
         condition: service_started
     networks:
       - uaip-network
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3002/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-
-  capability-registry:
-    image: uaip-backend-base:latest
-    container_name: uaip-capability-registry
-    environment:
-      - SERVICE_NAME=capability-registry
-      - SERVICE_PORT=3003
-      - NODE_ENV=development
-      - PORT=3003
-      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-      - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=${NEO4J_USER:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - QDRANT_URL=http://qdrant:6333
-      # Enterprise Configuration
-      - ENTERPRISE_MODE=false
-      - ZERO_TRUST_MODE=disabled
-      - SERVICE_ACCESS_MATRIX=standard
-      - MCP_SECRETS_KEY=${MCP_SECRETS_KEY}
-    ports:
-      - '3003:3003'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/capability-registry:/app/backend/services/capability-registry
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/capability-registry/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
-    depends_on:
-      postgres:
-        condition: service_started
-      neo4j:
-        condition: service_started
-      redis:
-        condition: service_started
-      qdrant:
-        condition: service_started
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3003/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-
-  discussion-orchestration:
-    image: uaip-backend-base:latest
-    container_name: uaip-discussion-orchestration
-    environment:
-      - SERVICE_NAME=discussion-orchestration
-      - SERVICE_PORT=3005
-      - NODE_ENV=development
-      - PORT=3005
-      - WEBSOCKET_ENABLED=true
-      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-      - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=${NEO4J_USER:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
-      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
-    ports:
-      - '3005:3005'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/discussion-orchestration:/app/backend/services/discussion-orchestration
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/discussion-orchestration/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
-    depends_on:
-      postgres:
-        condition: service_started
-      neo4j:
-        condition: service_started
-      redis:
-        condition: service_started
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3005/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-
-  security-gateway:
-    image: uaip-backend-base:latest
-    container_name: uaip-security-gateway
-    environment:
-      - SERVICE_NAME=security-gateway
-      - SERVICE_PORT=3004
-      - NODE_ENV=development
-      - PORT=3004
-      - TYPEORM_SYNC=true
-      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - QDRANT_URL=http://qdrant:6333
-      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
-      - OPENAI_API_URL=${OPENAI_API_URL}
-      # Neo4j Configuration
-      - NEO4J_URL=bolt://neo4j:7687
-      - NEO4J_USER=${NEO4J_USER:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
-    ports:
-      - '3004:3004'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/security-gateway:/app/backend/services/security-gateway
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/security-gateway/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
-    depends_on:
-      postgres:
-        condition: service_started
-      qdrant:
-        condition: service_started
-      redis:
-        condition: service_started
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3004/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-
-  artifact-service:
-    image: uaip-backend-base:latest
-    container_name: uaip-artifact-service
-    environment:
-      - SERVICE_NAME=artifact-service
-      - SERVICE_PORT=3006
-      - NODE_ENV=development
-      - PORT=3006
-      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_API_URL=${OPENAI_API_URL}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-    ports:
-      - '3006:3006'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/artifact-service:/app/backend/services/artifact-service
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/artifact-service/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
-    depends_on:
-      postgres:
-        condition: service_started
-      redis:
-        condition: service_started
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3006/health']
-      interval: 300s
-      timeout: 10s
-      retries: 3
-
-  llm-service:
-    image: uaip-backend-base:latest
-    container_name: uaip-llm-service
-    environment:
-      - SERVICE_NAME=llm-service
-      - SERVICE_PORT=3007
-      - NODE_ENV=development
-      - PORT=3007
-      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
-      - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
-      - OPENAI_API_URL=${OPENAI_API_URL}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
-    ports:
-      - '3007:3007'
-    volumes:
-      # Hot reloading - mount source code
-      - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
-      - ./backend/services/llm-service:/app/backend/services/llm-service
-      # Preserve node_modules from container
-      - /app/node_modules
-      - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
-      - /app/backend/services/llm-service/node_modules
-      - /app/packages/shared-types/node_modules
-      - /app/packages/shared-utils/node_modules
-    depends_on:
-      postgres:
-        condition: service_started
-      redis:
-        condition: service_started
-    networks:
-      - uaip-network
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3007/health']
       interval: 300s
       timeout: 10s
       retries: 3
@@ -467,7 +204,6 @@ services:
       - PORT=3010
       - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-uaip_user}:${RABBITMQ_PASSWORD:-uaip_password}@rabbitmq:5672
       - NEO4J_URL=bolt://neo4j:7687
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_neo4j_password}
@@ -477,14 +213,14 @@ services:
       - '3010:3010'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/questionforge:/app/backend/services/questionforge
       - /app/node_modules
       - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
+      - /app/shared/services/node_modules
+      - /app/shared/middleware/node_modules
+      - /app/shared/config/node_modules
+      - /app/shared/llm-service/node_modules
       - /app/backend/services/questionforge/node_modules
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
@@ -492,8 +228,6 @@ services:
       postgres:
         condition: service_started
       redis:
-        condition: service_started
-      rabbitmq:
         condition: service_started
     networks:
       - uaip-network
@@ -516,7 +250,6 @@ services:
       - VITE_API_TARGET=http://api-gateway:80
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - TYPEORM_SYNC=true
     ports:
       - '5173:5173'
     volumes:
@@ -543,13 +276,8 @@ services:
       - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
       - ./apps/frontend/dist:/var/www/html:ro
     depends_on:
-      - agent-intelligence
-      - orchestration-pipeline
-      - capability-registry
-      - discussion-orchestration
-      - security-gateway
-      - artifact-service
-      - llm-service
+      - navratna-core
+      - navratna-gateway
       - frontend
     networks:
       - uaip-network

@@ -391,8 +391,8 @@ export class AgentDiscussionService {
 
       // Get contextual knowledge for the chat
       // Filter out empty-content messages so TEI embedder never sees blank strings
-      const safeHistory = conversationHistory.filter(
-        (m: Record<string, unknown>) => m?.content && String(m.content).trim().length > 0
+      const safeHistory = (conversationHistory as unknown as import('@uaip/types').ContextMessage[]).filter(
+        (m) => m?.content && String(m.content).trim().length > 0
       );
       const contextualKnowledge: KnowledgeItem[] = this.knowledgeGraphService
         ? await this.knowledgeGraphService.getContextualKnowledge({

@@ -37,7 +37,6 @@ async function getSecurityServices() {
   if (!notificationServiceSingleton) notificationServiceSingleton = new NotificationService();
   if (!eventBusServiceSingleton)
     eventBusServiceSingleton = new EventBusService(
-      { url: process.env.RABBITMQ_URL || 'amqp://localhost:5672', serviceName: 'security-gateway' },
       logger
     );
   if (!approvalWorkflowServiceSingleton)

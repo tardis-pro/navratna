@@ -1,5 +1,4 @@
-import { DebateMessageData } from '@/types/debate';
-import { ModelOption } from '@/types/models';
+import type { DebateMessageData, ModelOption } from '@uaip/types/models';
 
 export interface DebateState {
   topic: string;

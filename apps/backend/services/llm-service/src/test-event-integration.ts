@@ -27,7 +27,6 @@ async function testLLMEventIntegration() {
 
   const eventBusService = EventBusService.getInstance(
     {
-      url: process.env.RABBITMQ_URL || 'amqp://uaip_user:uaip_password@localhost:5672',
       serviceName: 'llm-event-test',
     },
     logger

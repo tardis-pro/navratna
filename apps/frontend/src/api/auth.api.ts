@@ -30,17 +30,10 @@ export const authAPI = {
         permissions?: string[];
         lastLoginAt?: string;
       };
-      tokens: {
-        accessToken: string;
-        refreshToken: string;
-        expiresIn: string;
-      };
     }>(API_ROUTES.AUTH.LOGIN, credentials);
 
-    // Transform backend response to frontend expected format
     return {
-      token: response.tokens.accessToken,
-      refreshToken: response.tokens.refreshToken,
+      token: '',
       user: {
         id: response.user.id,
         email: response.user.email,
@@ -56,20 +49,9 @@ export const authAPI = {
     return APIClient.post(API_ROUTES.AUTH.LOGOUT, {});
   },
 
-  async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
-    const response = await APIClient.post<{
-      tokens: {
-        accessToken: string;
-        refreshToken: string;
-        expiresIn: string;
-      };
-    }>(API_ROUTES.AUTH.REFRESH, { refreshToken });
-
-    // Transform backend response to frontend expected format
-    return {
-      token: response.tokens.accessToken,
-      refreshToken: response.tokens.refreshToken,
-    };
+  async refreshToken(): Promise<RefreshTokenResponse> {
+    await APIClient.post(API_ROUTES.AUTH.REFRESH);
+    return { token: '' };
   },
 
   async resetPassword(request: ResetPasswordRequest): Promise<{ message: string }> {

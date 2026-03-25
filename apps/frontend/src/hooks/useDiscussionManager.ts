@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, _useRef } from 'react';
 import { uaipAPI, _generateUUID, TurnStrategy, DiscussionEvent } from '../utils/uaip-api';
-import { AgentState, Message } from '../types/agent';
-import { DocumentContext } from '../types/document';
+import type { FrontendAgentState as AgentState, FrontendMessage as Message } from '@uaip/types';
+import { FrontendDocumentContext } from '@uaip/types';
 import { useAuth } from '../contexts/AuthContext';
 import { useAgents } from '../contexts/AgentContext';
 
@@ -70,7 +70,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
     currentRound: 0,
     lastError: null,
   });
-  const [_document, setDocument] = useState<DocumentContext | null>(null);
+  const [_document, setDocument] = useState<FrontendDocumentContext | null>(null);
   const [moderatorId, setModeratorId] = useState<string | null>(null);
 
   const refreshDiscussion = useCallback(async () => {
@@ -440,7 +440,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
   );
 
   const setInitialDocument = useCallback((documentContent: string) => {
-    const documentContext: DocumentContext = {
+    const documentContext: FrontendDocumentContext = {
       id: 'initial-document',
       title: 'Discussion Topic',
       content: documentContent,

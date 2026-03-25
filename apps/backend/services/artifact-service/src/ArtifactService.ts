@@ -1,4 +1,4 @@
-import { IArtifactService } from './interfaces/ArtifactTypes.js';
+import { IArtifactService } from '@uaip/types';
 import type { ArtifactGenerator } from './interfaces/index.js';
 import {
   ArtifactGenerationRequest,

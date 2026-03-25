@@ -1,5 +1,5 @@
 import { SOPImportService } from '../services/sopImport.service.js';
-import type { SOPDocument, SOPType, SOPWorkflow, TaskLifecycle } from './sop-types.js';
+import type { SOPDocument, SOPType, SOPWorkflow, TaskLifecycle } from '@uaip/types';
 
 export interface AgentSOPRegistry {
   getSOP(agentId: string, type: Extract<SOPType, 'project_sop' | 'agent_soul'>): SOPDocument | null;

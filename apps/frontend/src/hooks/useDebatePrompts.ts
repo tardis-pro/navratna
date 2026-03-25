@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { DebateMessageData } from '@/types/debate';
+import type { DebateMessageData } from '@uaip/types/models';
 
 type Role = 'llama1' | 'llama2';
 

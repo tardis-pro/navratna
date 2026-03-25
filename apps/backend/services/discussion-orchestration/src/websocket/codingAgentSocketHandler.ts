@@ -6,7 +6,7 @@ import { logger } from '@uaip/utils';
 /**
  * CodingAgentSocketHandler
  *
- * Subscribes to `coding.agent.event` messages on RabbitMQ (published by
+ * Subscribes to `coding.agent.event` messages on BullMQ/Redis (published by
  * CodingAgentExecutor in capability-registry) and fans them out to connected
  * Socket.IO clients via the `/coding-agent` namespace.
  *

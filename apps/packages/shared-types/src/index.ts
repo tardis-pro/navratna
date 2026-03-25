@@ -78,3 +78,4 @@ export type * from './frontend-api.js';
 export * from './telescope';
 export * from './microexpression';
 export * from './ui-interfaces';
+export * from './pipeline-schemas';

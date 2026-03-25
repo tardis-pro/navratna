@@ -32,10 +32,9 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
   const socketRef = useRef<Socket | null>(null);
   const currentSessionRef = useRef<string | null>(null);
 
-  // Connect to streaming namespace
   useEffect(() => {
     const socket = io(`${baseUrl}/streaming`, {
-      auth: { token },
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
@@ -127,9 +126,9 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         // Call API to start stream
         const response = await fetch(`${baseUrl}/api/v1/llm/stream`, {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(request),
         });

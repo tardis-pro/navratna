@@ -1,8 +1,7 @@
-import { Message, AgentState } from '../types/agent';
-import { DocumentContext } from '../types/document';
+import type { FrontendMessage as Message, FrontendAgentState as AgentState, FrontendAgentContextValue as AgentContextValue } from '@uaip/types';
+import { FrontendDocumentContext } from '@uaip/types';
 import { _LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';
-import { AgentContextValue } from '../types/agent';
 
 export interface DiscussionContext {
   topic: string;
@@ -32,15 +31,15 @@ export interface IDiscussionManager {
   reset: () => void;
   addAgent: (agent: AgentState) => void;
   removeAgent: (agentId: string) => void;
-  updateDocument: (document: DocumentContext | null) => void;
+  updateDocument: (document: FrontendDocumentContext | null) => void;
   overrideTurn: (agentId: string) => void;
   detectAgreementDisagreement: () => { agrees: string[]; disagrees: string[] };
   createCheckpoint: () => string;
   restoreCheckpoint: (checkpointId: string) => boolean;
   summarizeDiscussion: () => Promise<string>;
-  addDocument: (document: DocumentContext) => void;
+  addDocument: (document: FrontendDocumentContext) => void;
   removeDocument: (documentId: string) => void;
-  getDocuments: () => DocumentContext[];
+  getDocuments: () => FrontendDocumentContext[];
 }
 
 interface TopicCluster {
@@ -57,19 +56,19 @@ export class DiscussionManager implements IDiscussionManager {
   private currentTurn: string | null;
   private moderatorId?: string;
   private state: DiscussionState;
-  private document: DocumentContext | null;
+  private document: FrontendDocumentContext | null;
   private updateCallback: (state: DiscussionState) => void;
   private responseCallback: (agentId: string, response: string) => void;
   private abortController: AbortController | null = null;
   private checkpoints: Map<string, DiscussionState> = new Map();
-  private documents: DocumentContext[] = [];
+  private documents: FrontendDocumentContext[] = [];
   private agentContext: AgentContextValue;
   private topicClusters: Map<string, TopicCluster> = new Map();
   private instanceId: string; // Track instance for debugging
 
   constructor(
     agents: Record<string, AgentState>,
-    document: DocumentContext | null,
+    document: FrontendDocumentContext | null,
     updateCallback: (state: DiscussionState) => void,
     responseCallback: (agentId: string, response: string) => void,
     agentContext: AgentContextValue
@@ -536,8 +535,8 @@ export class DiscussionManager implements IDiscussionManager {
   }
 
   public setInitialDocument(document: string): void {
-    // Create a proper DocumentContext object
-    const documentContext: DocumentContext = {
+    // Create a proper FrontendDocumentContext object
+    const documentContext: FrontendDocumentContext = {
       id: 'initial-document',
       title: 'Discussion Topic',
       content: document,
@@ -793,7 +792,7 @@ export class DiscussionManager implements IDiscussionManager {
     this.updateCallback(this.state);
   }
 
-  public updateDocument(document: DocumentContext | null): void {
+  public updateDocument(document: FrontendDocumentContext | null): void {
     this.document = document;
 
     // Update documents array
@@ -1026,7 +1025,7 @@ export class DiscussionManager implements IDiscussionManager {
    * Adds a document to the discussion
    * @param document The document to add
    */
-  public addDocument(document: DocumentContext): void {
+  public addDocument(document: FrontendDocumentContext): void {
     // Check if document already exists
     const existingIndex = this.documents.findIndex((doc) => doc.id === document.id);
     if (existingIndex >= 0) {
@@ -1060,7 +1059,7 @@ export class DiscussionManager implements IDiscussionManager {
    * Gets all documents in the discussion
    * @returns Array of document contexts
    */
-  public getDocuments(): DocumentContext[] {
+  public getDocuments(): FrontendDocumentContext[] {
     return [...this.documents];
   }
 

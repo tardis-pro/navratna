@@ -8,13 +8,13 @@ import React, {
   useRef,
   useEffect,
 } from 'react';
-import {
-  AgentState,
-  AgentContextValue,
-  Message,
-  ModelProvider,
-  createAgentStateFromBackend,
-} from '../types/agent';
+import type {
+  FrontendAgentState as AgentState,
+  FrontendAgentContextValue as AgentContextValue,
+  FrontendMessage as Message,
+  FrontendModelProvider as ModelProvider,
+} from '@uaip/types';
+import { createAgentStateFromShared as createAgentStateFromBackend } from '../types/frontend-extensions';
 import {
   ToolCall,
   ToolResult,
@@ -32,7 +32,7 @@ import {
 } from '@uaip/types';
 import uaipAPI from '@/utils/uaip-api';
 import { llmAPI } from '@/api/llm.api';
-import { PERSONA_CATEGORIES } from '@/types/persona';
+import { PERSONA_CATEGORIES } from '@uaip/types';
 
 // Agent Intelligence Flow - using backend API
 interface AgentIntelligenceFlow {

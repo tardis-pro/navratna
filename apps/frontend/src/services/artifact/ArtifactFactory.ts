@@ -1,5 +1,5 @@
-import type { Artifact } from '@/types/artifact';
-import type { ConversationContext } from '@/types/ui-interfaces';
+import type { Artifact } from '@uaip/types';
+import type { UIConversationContext as ConversationContext } from '@uaip/types';
 
 export interface ArtifactFactoryOptions {
   type: string;

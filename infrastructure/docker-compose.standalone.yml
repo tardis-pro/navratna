@@ -133,14 +133,14 @@ services:
       - '3001:3001'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/agent-intelligence:/app/backend/services/agent-intelligence
       - /app/node_modules
       - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
+      - /app/shared/services/node_modules
+      - /app/shared/middleware/node_modules
+      - /app/shared/config/node_modules
+      - /app/shared/llm-service/node_modules
       - /app/backend/services/agent-intelligence/node_modules
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
@@ -184,14 +184,14 @@ services:
       - '3002:3002'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/security-gateway:/app/backend/services/security-gateway
       - /app/node_modules
       - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
+      - /app/shared/services/node_modules
+      - /app/shared/middleware/node_modules
+      - /app/shared/config/node_modules
+      - /app/shared/llm-service/node_modules
       - /app/backend/services/security-gateway/node_modules
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules
@@ -229,14 +229,14 @@ services:
       - '3006:3006'
     volumes:
       - ./packages:/app/packages
-      - ./backend/shared:/app/backend/shared
+      - ./apps/shared:/app/shared
       - ./backend/services/artifact-service:/app/backend/services/artifact-service
       - /app/node_modules
       - /app/backend/node_modules
-      - /app/backend/shared/services/node_modules
-      - /app/backend/shared/middleware/node_modules
-      - /app/backend/shared/config/node_modules
-      - /app/backend/shared/llm-service/node_modules
+      - /app/shared/services/node_modules
+      - /app/shared/middleware/node_modules
+      - /app/shared/config/node_modules
+      - /app/shared/llm-service/node_modules
       - /app/backend/services/artifact-service/node_modules
       - /app/packages/shared-types/node_modules
       - /app/packages/shared-utils/node_modules

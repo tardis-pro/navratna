@@ -195,10 +195,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       try {
         // Load user's contacts
         const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
         });
 
         let userContacts: UserContact[] = [];
@@ -236,10 +234,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         // Update online status for user contacts
         try {
           const onlineResponse = await fetch('/api/v1/presence/online', {
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
           });
 
           if (onlineResponse.ok) {
@@ -266,10 +262,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         // If no user contacts, load some public users for demo
         if (userContacts.length === 0) {
           const publicResponse = await fetch('/api/v1/users/public?limit=10', {
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
           });
 
           if (publicResponse.ok) {
@@ -923,10 +917,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
     setIsLoadingUsers(true);
     try {
       const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (response.ok) {
@@ -960,10 +952,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
     try {
       const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           targetUserId: targetUserId,
           type: 'FRIEND',

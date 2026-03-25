@@ -192,7 +192,7 @@ export function registerLLMRoutes(
           return {
             success: true,
             data: result,
-            message: result.testSuccess
+            message: (result as Record<string, unknown>).testSuccess
               ? 'Event integration test passed'
               : 'Event integration test failed',
           };

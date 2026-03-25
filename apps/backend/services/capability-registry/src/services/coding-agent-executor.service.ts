@@ -151,7 +151,7 @@ export class CodingAgentExecutor extends EventEmitter {
         };
         this.emit('agent:event', agentEvent);
         this.emit(`session:${sessionId}:event`, agentEvent);
-        // Fan-out to RabbitMQ for Socket.IO relay in discussion-orchestration
+        // Fan-out via event bus for Socket.IO relay in discussion-orchestration
         this.eventBus
           ?.publish('coding.agent.event', agentEvent)
           .catch((err: unknown) => logger.warn('Failed to publish coding.agent.event', { err }));

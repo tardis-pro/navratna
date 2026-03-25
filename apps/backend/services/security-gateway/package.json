@@ -29,7 +29,6 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "elysia": "catalog:backend",
-    "amqplib": "catalog:backend",
     "axios": "^1.7.7",
     "base64url": "^3.0.1",
     "bcrypt": "catalog:backend",
@@ -51,7 +50,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
-    "@types/amqplib": "catalog:backend",
     "@types/bcrypt": "catalog:backend",
     "@types/compression": "catalog:backend",
     "@types/cors": "catalog:backend",
