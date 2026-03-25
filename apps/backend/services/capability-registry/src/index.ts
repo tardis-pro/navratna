@@ -96,7 +96,6 @@ class CapabilityRegistryService extends BaseService {
     this.toolExecutor = new ToolExecutor(this.postgresql, this.toolRegistry, this.baseExecutor);
 
     // ── Execution Plane DataSource ──────────────────────────────────────────
-    // Initialize the plane's own TypeORM connection BEFORE MCPClientService so
     // the repository is ready when autoStartServers() runs on startup.
     logger.info('Initializing MCP Repository...');
     const mcpRepository = new McpRepository();

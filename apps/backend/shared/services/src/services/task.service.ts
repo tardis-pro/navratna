@@ -66,7 +66,7 @@ export class TaskService {
   } | null = null;
 
   protected constructor() {
-    // Domain service - no direct TypeORM dependencies
+    // Domain service - no direct database dependencies
   }
 
   public static getInstance(): TaskService {

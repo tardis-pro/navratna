@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import request from 'supertest';
 import type { AnyElysia } from 'elysia';
-import { DataSource } from 'typeorm';
+import type { Pool } from 'pg';
 import { createTestApp, createTestDataSource, cleanupTestDb } from '../utils/testHelpers';
 import {
   Agent as AgentEntity,
@@ -14,7 +14,7 @@ import _crypto from 'crypto';
 
 describe('Security Validation Integration Tests', () => {
   let app: AnyElysia;
-  let dataSource: DataSource;
+  let dataSource: Pool;
   let testUser: UserEntity;
   let testAgent: AgentEntity;
   let securityPolicy: SecurityPolicyEntity;

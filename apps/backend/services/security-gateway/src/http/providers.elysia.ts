@@ -491,10 +491,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
             try {
               const { id } = providerIdParamsSchema.parse(params);
               const { ModelService } = await import('../services/modelService.js');
-              const dataSource = await (
-                await import('@uaip/shared-services')
-              ).DatabaseService.getInstance().getDataSource();
-              const modelService = new ModelService(dataSource);
+              const modelService = new ModelService();
               const repo = UserService.getInstance().getUserLLMProviderRepository();
               const provider = await repo.findById(id);
               if (!provider || provider.userId !== user!.id) {

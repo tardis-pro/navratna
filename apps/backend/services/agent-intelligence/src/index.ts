@@ -81,9 +81,7 @@ class AgentIntelligenceService extends BaseService {
       enableEnterpriseEventBus: true,
     });
 
-    // Register all entities. TypeORM requires all related entities to be in the same DataSource.
     // TODO: When per-plane databases are implemented, use plane-specific entity lists
-    //       (requires removing cross-plane TypeORM relations from entity classes first).
     this.registerEntities([]);
   }
 

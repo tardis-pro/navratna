@@ -1,19 +1,16 @@
-import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { logger } from '@uaip/utils';
 import { ApiKeyDecryptionRequest, ApiKeyDecryptionResponse } from '@uaip/llm-service';
-import { UserLLMProvider } from '@uaip/shared-services';
+import { UserService } from '@uaip/shared-services';
 
 /**
  * Handles API key decryption requests from LLM service
  */
 export class ApiKeyDecryptionHandler {
   private eventBusService: EventBusService;
-  private databaseService: DatabaseService;
 
-  constructor(eventBusService: EventBusService, databaseService: DatabaseService) {
+  constructor(eventBusService: EventBusService) {
     this.eventBusService = eventBusService;
-    this.databaseService = databaseService;
     this.setupEventHandlers();
   }
 
@@ -58,27 +55,20 @@ export class ApiKeyDecryptionHandler {
     };
 
     try {
-      // Find the provider by ID or name with encrypted API key
-      const dataSource = await this.databaseService.getDataSource();
-      const userLLMProviderRepo = dataSource.getRepository(UserLLMProvider);
+      const providerRepo = UserService.getInstance().getUserLLMProviderRepository();
 
-      let provider: UserLLMProvider | null = null;
+      let provider: Record<string, unknown> | null = null;
 
-      // Try to find by provider ID first
       if (request.providerId && request.providerId !== 'provider-id') {
-        provider = await userLLMProviderRepo.findOne({
-          where: { id: request.providerId },
-        });
+        provider = await providerRepo.findById(request.providerId);
       }
 
-      // If not found by ID, try to find by name and encrypted API key
       if (!provider) {
-        provider = await userLLMProviderRepo.findOne({
-          where: {
-            name: request.providerName,
-            apiKeyEncrypted: request.encryptedApiKey,
-          },
+        const rows = await providerRepo.findMany({
+          name: request.providerName,
+          api_key_encrypted: request.encryptedApiKey,
         });
+        provider = rows[0] ?? null;
       }
 
       if (!provider) {
@@ -88,8 +78,8 @@ export class ApiKeyDecryptionHandler {
           providerName: request.providerName,
         });
       } else {
-        // Use the provider's built-in decryption method
-        const decryptedKey = provider.getApiKey();
+        const decryptedKey =
+          typeof provider.api_key_encrypted === 'string' ? provider.api_key_encrypted : undefined;
 
         if (decryptedKey) {
           response.success = true;

@@ -176,7 +176,7 @@ export const UserPreferencesSchema = z.object({
 
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-// ===== ENTITY INTERFACES (for TypeORM/repositories) =====
+// ===== ENTITY INTERFACES (for repositories) =====
 
 export interface UserEntity {
   id: string;

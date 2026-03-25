@@ -211,7 +211,7 @@ export class EnterpriseDatabase extends DatabaseService {
       throw new Error(`No connection string available for PostgreSQL instance: ${instance}`);
     }
 
-    // For now, return the standard TypeORM connection
+    // For now, return the standard database connection
     // In a full implementation, this would create instance-specific connections
     return this.getEntityManager();
   }

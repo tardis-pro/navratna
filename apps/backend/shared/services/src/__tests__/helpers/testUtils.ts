@@ -1,10 +1,35 @@
 // Jest is globally available
-import { Repository, DataSource } from 'typeorm';
 import { DatabaseService } from '../../database/DatabaseService';
 import { EventBusService } from '../../eventBusService';
 
+interface MockRepository<T = unknown> {
+  find: jest.Mock;
+  findOne: jest.Mock;
+  findOneBy: jest.Mock;
+  findBy: jest.Mock;
+  save: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+  remove: jest.Mock;
+  count: jest.Mock;
+  createQueryBuilder: jest.Mock;
+  query: jest.Mock;
+  clear: jest.Mock;
+  insert: jest.Mock;
+  upsert: jest.Mock;
+  reload: jest.Mock;
+  _entity?: T;
+}
+
+interface MockPool {
+  query: jest.Mock;
+  connect: jest.Mock;
+  end: jest.Mock;
+}
+
 export namespace TestUtils {
-  export function createMockRepository<T>(): jest.Mocked<Repository<T>> {
+  export function createMockRepository<T>(): MockRepository<T> {
     return {
       find: jest.fn(),
       findOne: jest.fn(),
@@ -17,84 +42,24 @@ export namespace TestUtils {
       remove: jest.fn(),
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
-      manager: {} as unknown as EntityManager,
-      metadata: {} as unknown as EntityMetadata,
-      target: {} as unknown as EntityTarget<unknown>,
       query: jest.fn(),
       clear: jest.fn(),
-      increment: jest.fn(),
-      decrement: jest.fn(),
-      sum: jest.fn(),
-      average: jest.fn(),
-      minimum: jest.fn(),
-      maximum: jest.fn(),
-      findAndCount: jest.fn(),
-      findAndCountBy: jest.fn(),
-      findOneOrFail: jest.fn(),
-      findOneByOrFail: jest.fn(),
-      countBy: jest.fn(),
-      sumBy: jest.fn(),
-      averageBy: jest.fn(),
-      minimumBy: jest.fn(),
-      maximumBy: jest.fn(),
-      exist: jest.fn(),
-      existsBy: jest.fn(),
-      softDelete: jest.fn(),
-      softRemove: jest.fn(),
-      recover: jest.fn(),
-      restore: jest.fn(),
       insert: jest.fn(),
       upsert: jest.fn(),
-      preload: jest.fn(),
-      merge: jest.fn(),
-      getId: jest.fn(),
-      hasId: jest.fn(),
       reload: jest.fn(),
-    } as jest.Mocked<Repository<T>>;
+    };
   }
 
-  export function createMockDataSource(): jest.Mocked<DataSource> {
+  export function createMockPool(): MockPool {
     return {
-      initialize: jest.fn().mockResolvedValue(undefined),
-      destroy: jest.fn().mockResolvedValue(undefined),
-      isInitialized: true,
-      synchronize: jest.fn().mockResolvedValue(undefined),
-      dropDatabase: jest.fn().mockResolvedValue(undefined),
-      runMigrations: jest.fn().mockResolvedValue([]),
-      undoLastMigration: jest.fn().mockResolvedValue(undefined),
-      showMigrations: jest.fn().mockResolvedValue(false),
-      hasMetadata: jest.fn().mockReturnValue(true),
-      getRepository: jest.fn().mockImplementation(() => TestUtils.createMockRepository()),
-      getTreeRepository: jest.fn(),
-      getMongoRepository: jest.fn(),
-      createQueryBuilder: jest.fn(),
-      createQueryRunner: jest.fn(),
-      manager: {} as unknown as EntityManager,
-      options: {} as unknown as never,
-      logger: {} as unknown as never,
-      migrations: [],
-      subscribers: [],
-      entityMetadatas: [],
-      driver: {} as unknown as never,
-      relationLoader: {} as unknown as never,
-      relationIdLoader: {} as unknown as never,
-      entityMetadataValidator: {} as unknown as never,
-      queryResultCache: {} as unknown as never,
-      namingStrategy: {} as unknown as never,
-      metadataTableName: 'migrations',
-      migrationsTableName: 'migrations',
-      metadataColumnsCache: new Map(),
-      relationCountColumnsCache: new Map(),
-      relationIdColumnsCache: new Map(),
-      selectQueryBuilder: {} as unknown as never,
-      isConnected: true,
-      name: 'test',
-      sqljsManager: {} as unknown as never,
-      setOptions: jest.fn(),
-      connect: jest.fn().mockResolvedValue(undefined),
-      close: jest.fn().mockResolvedValue(undefined),
-      transaction: jest.fn().mockImplementation(async (fn) => await fn({})),
-    } as unknown as never;
+      query: jest.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+      connect: jest.fn().mockResolvedValue({ query: jest.fn(), release: jest.fn() }),
+      end: jest.fn().mockResolvedValue(undefined),
+    };
+  }
+
+  export function createMockDataSource(): MockPool {
+    return TestUtils.createMockPool();
   }
 
   export function createMockDatabaseService(): jest.Mocked<DatabaseService> {

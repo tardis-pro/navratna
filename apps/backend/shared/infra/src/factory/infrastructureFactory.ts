@@ -1,10 +1,4 @@
-/**
- * InfrastructureFactory - Centralized infrastructure initialization
- *
- * Manages TypeORM, Redis, Qdrant, and Neo4j initialization
- * Extracted from ServiceFactory.ts for clean separation
- */
-import { TypeOrmService } from '../database/typeormService';
+import { PgService } from '../database/pgService';
 import { RedisCacheService } from '../cache/redisCacheService';
 import { QdrantService } from './qdrantService';
 import { ToolGraphDatabase } from './toolGraphDatabase';
@@ -20,7 +14,7 @@ const logger = createLogger({
 export class InfrastructureFactory {
   private static instance: InfrastructureFactory;
 
-  private typeormService: TypeOrmService | null = null;
+  private pgService: PgService | null = null;
   private redisService: RedisCacheService | null = null;
   private qdrantService: QdrantService | null = null;
   private toolGraphDatabase: ToolGraphDatabase | null = null;
@@ -48,10 +42,8 @@ export class InfrastructureFactory {
     try {
       logger.info('Initializing infrastructure services...');
 
-      // Initialize TypeORM
-      await this.initializeTypeORM();
+      await this.initializePg();
 
-      // Initialize Redis (optional, with fallback)
       await this.initializeRedis();
 
       // Initialize Qdrant
@@ -70,14 +62,11 @@ export class InfrastructureFactory {
     }
   }
 
-  /**
-   * Initialize TypeORM database connection
-   */
-  private async initializeTypeORM(): Promise<void> {
-    logger.info('Initializing TypeORM...');
-    this.typeormService = TypeOrmService.getInstance();
-    await this.typeormService.initialize();
-    logger.info('TypeORM initialized successfully');
+  private async initializePg(): Promise<void> {
+    logger.info('Initializing Postgres...');
+    this.pgService = PgService.getInstance();
+    await this.pgService.initialize();
+    logger.info('Postgres initialized successfully');
   }
 
   /**
@@ -163,75 +152,56 @@ export class InfrastructureFactory {
     }
   }
 
-  /**
-   * Get TypeORM service
-   */
-  public getTypeORMService(): TypeOrmService {
-    if (!this.typeormService) {
-      throw new Error('TypeORM not initialized. Call initialize() first.');
+  public getPgService(): PgService {
+    if (!this.pgService) {
+      throw new Error('Postgres not initialized. Call initialize() first.');
     }
-    return this.typeormService;
+    return this.pgService;
   }
 
-  /**
-   * Get Redis cache service
-   */
   public getRedisService(): RedisCacheService | null {
     return this.redisService;
   }
 
-  /**
-   * Get Qdrant service
-   */
   public getQdrantService(): QdrantService | null {
     return this.qdrantService;
   }
 
-  /**
-   * Get ToolGraphDatabase
-   */
   public getToolGraphDatabase(): ToolGraphDatabase | null {
     return this.toolGraphDatabase;
   }
 
-  /**
-   * Check if infrastructure is healthy
-   */
   public async healthCheck(): Promise<{
-    typeorm: boolean;
+    postgres: boolean;
     redis: boolean;
     qdrant: boolean;
     neo4j: boolean;
   }> {
     const results = {
-      typeorm: false,
+      postgres: false,
       redis: false,
       qdrant: false,
       neo4j: false,
     };
 
-    // Check TypeORM
     try {
-      results.typeorm = (await this.typeormService?.isHealthy()) ?? false;
+      results.postgres = (await this.pgService?.isHealthy()) ?? false;
     } catch {
       // Already false
     }
 
-    // Check Redis
     try {
       results.redis = this.redisService?.isHealthy() ?? false;
     } catch {
       // Already false
     }
 
-    // Check Qdrant
     try {
       results.qdrant = (await this.qdrantService?.isHealthy()) ?? false;
     } catch {
       // Already false
     }
 
-    // Check Neo4j
     try {
       results.neo4j = this.toolGraphDatabase?.isHealthy() ?? false;
     } catch {
@@ -241,40 +211,31 @@ export class InfrastructureFactory {
     return results;
   }
 
-  /**
-   * Gracefully shutdown all infrastructure
-   */
   public async shutdown(): Promise<void> {
     logger.info('Shutting down infrastructure services...');
 
-    // Shutdown in reverse order of initialization
-
-    // Neo4j
     try {
       await this.toolGraphDatabase?.close();
     } catch (error) {
       logger.warn('Error closing Neo4j', { error });
     }
 
-    // Qdrant
     try {
       await this.qdrantService?.close();
     } catch (error) {
       logger.warn('Error closing Qdrant', { error });
     }
 
-    // Redis
     try {
       await this.redisService?.close();
     } catch (error) {
       logger.warn('Error closing Redis', { error });
     }
 
-    // TypeORM
     try {
-      await this.typeormService?.close();
+      await this.pgService?.close();
     } catch (error) {
-      logger.warn('Error closing TypeORM', { error });
+      logger.warn('Error closing Postgres', { error });
     }
 
     this.isInitialized = false;

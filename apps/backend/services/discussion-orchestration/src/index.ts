@@ -68,7 +68,7 @@ class DiscussionOrchestrationServer extends BaseService {
     });
     this.io.bind(this.bunEngine);
 
-    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    
     this.registerEntities(allEntities);
 
     // Validate enterprise database access

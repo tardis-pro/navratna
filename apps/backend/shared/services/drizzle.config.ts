@@ -2,7 +2,7 @@
  * Drizzle Kit CLI Configuration — Navratna v3.0
  *
  * Used for: drizzle-kit studio, drizzle-kit generate (future migrations)
- * NOTE: Do NOT run drizzle-kit push while USE_DRIZZLE=false — TypeORM manages the schema.
+ * NOTE: Do NOT run drizzle-kit push unless schema migrations have been applied.
  * Use this config to introspect existing schema or generate migration files
  * once the Drizzle migration is fully validated.
  */

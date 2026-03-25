@@ -282,7 +282,7 @@ export class AuditService {
   }
 
   /**
-   * Archive old audit logs using TypeORM
+   * Archive old audit logs
    */
   public async archiveOldLogs(): Promise<{ archived: number; deleted: number }> {
     try {

@@ -174,9 +174,9 @@ export class ToolExecutor {
         cost: execution.cost,
       });
 
-      // Record successful usage with enhanced TypeORM tracking
+      // Record successful usage
       await this.recordUsage(execution, true);
-      await this.recordToolUsageWithTypeORM(execution, true, executionTime);
+      await this.recordToolUsage(execution, true, executionTime);
       // Usage pattern tracking handled by knowledge graph service
 
       logger.info(`Tool execution completed: ${execution.id} (${executionTime}ms)`);
@@ -204,9 +204,9 @@ export class ToolExecutor {
         executionTimeMs: executionTime,
       });
 
-      // Record failed usage with enhanced TypeORM tracking
+      // Record failed usage
       await this.recordUsage(execution, false);
-      await this.recordToolUsageWithTypeORM(execution, false, executionTime);
+      await this.recordToolUsage(execution, false, executionTime);
       // Usage pattern tracking handled by knowledge graph service
 
       logger.error(`Tool execution failed: ${execution.id} (${executionTime}ms)`, error);
@@ -224,8 +224,8 @@ export class ToolExecutor {
     }
   }
 
-  // Enhanced TypeORM usage recording
-  private async recordToolUsageWithTypeORM(
+  // Usage recording
+  private async recordToolUsage(
     execution: ToolExecution,
     success: boolean,
     executionTime: number
@@ -245,7 +245,7 @@ export class ToolExecutor {
         }
       );
     } catch (error) {
-      logger.error(`Failed to record TypeORM tool usage:`, error);
+      logger.error(`Failed to record tool usage:`, error);
       // Don't throw - usage tracking shouldn't break execution
     }
   }

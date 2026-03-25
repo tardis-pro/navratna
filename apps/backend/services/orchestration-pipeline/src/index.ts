@@ -30,7 +30,7 @@ class OrchestrationPipelineService extends BaseService {
       port: parseInt(process.env.PORT || '3002', 10),
     });
 
-    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    
     this.registerEntities(allEntities);
   }
 

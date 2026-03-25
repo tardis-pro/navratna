@@ -12,7 +12,7 @@ global.console = {
 // Mock environment variables
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'error';
-process.env.TYPEORM_SYNC = 'false';
+process.env.DB_SEED = 'false';
 process.env.RABBITMQ_URL = 'amqp://localhost:5672';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.NEO4J_URI = 'bolt://localhost:7687';

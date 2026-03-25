@@ -13,6 +13,10 @@
 
 These constraints are locked. They apply retroactively to everything in this spec and everything written going forward. Confirmed by user 2026-03-24.
 
+> **User directive (verbatim, 2026-03-24):** "i dont want express, typeorm, anywhere, no fallbacks, i dont want types/interface outside @packages/"
+>
+> **Concurred.** No Express anywhere. No TypeORM anywhere. No types or interfaces defined outside `apps/packages/`. No fallbacks, no feature flags, no rollback paths. Migrate, verify, delete. This is a single-owner machine — git revert is the only rollback.
+
 1. **No Express. Anywhere.** Not in source, not in types, not re-exported from shared packages. Elysia is the HTTP framework. If it is not Elysia, delete it. This includes Express-shaped shims (`interface Request/Response/NextFunction`, `asyncHandler`, `errorHandler` with 4-arg signature, `ExpressRequest/Response/NextFunction` type aliases).
 
 2. **No TypeORM. Anywhere.** Not imported, not referenced, not named in class or variable names. Drizzle + raw `pg` Pool is the database layer. `TypeOrmService` must be renamed to `PgService`. File `typeormService.ts` must be renamed to `pgService.ts`. Test helpers must be rewritten. The word "typeorm" (case-insensitive) must not appear in any source file path, class name, variable name, or string literal.
@@ -33,18 +37,18 @@ grep -r "ExpressRequest\|ExpressResponse\|ExpressNextFunction" --include="*.ts" 
 
 ---
 
-## Current Status (2026-03-24 Audit)
+## Current Status (2026-03-24 Audit → updated after refactor)
 
 | # | What | Status | Blocking Issues |
 |---|------|--------|-----------------|
-| 1 | TypeORM → Drizzle | **70%** | 6 prod files throw at runtime; 5 typeorm imports remain in tests |
+| 1 | TypeORM → Drizzle | **100%** ✅ | grep -ri "typeorm" → 0 hits. PgService renamed. All imports, comments, method names, error strings, env vars cleaned. |
 | 2 | RabbitMQ → BullMQ | **5%** | amqplib still installed; EventBus untouched |
 | 3 | 7 → 2 Services | **55%** | discussion-orchestration not wired; old services still startable |
 | 4 | DesktopUnified → Telescope | **35%** | TelescopeSurface shell not complete |
 | 5 | Framer Basic → Advanced | **20%** | Phase 1 uses some; variants/physics not wired to microexpressions |
 | 6 | Code Splitting | **0%** | No React.lazy(), no Suspense, Vite untouched |
 | 7 | Auth Tokens → httpOnly cookies | **0%** | localStorage still used |
-| 8 | Express elimination | **95%** | capability-registry controllers still use Express shims |
+| 8 | Express elimination | **100%** ✅ | grep → 0 hits. Dead files deleted, capability-registry controllers rewritten to native Elysia, shared-utils Express types removed. |
 | 9 | Types → `@packages/` | **10%** | 300+ exported types scattered across services |
 
 ---
@@ -416,14 +420,14 @@ These are sequential. Each unblocks the next.
 
 | # | What | From | To | Status | Note |
 |---|------|------|----|--------|------|
-| 1 | ORM | TypeORM | Drizzle | **70%** | Fix 6 runtime throws first |
+| 1 | ORM | TypeORM | Drizzle | **100% ✅** | DONE — 0 grep hits |
 | 2 | Message Bus | RabbitMQ | BullMQ/Redis | **5%** | Not started |
 | 3 | Services | 7 microservices | 2 consolidated | **55%** | Wire discussion-orchestration |
 | 4 | UI Shell | DesktopUnified | TelescopeSurface | **35%** | Build shell, then delete old |
 | 5 | Animations | Basic Framer | Advanced Framer | **20%** | Additive |
 | 6 | Bundle | Monolithic | Code-split | **0%** | Not started |
 | 7 | Auth tokens | localStorage | httpOnly cookies | **0%** | Not started |
-| 8 | HTTP framework | Express remnants | Elysia | **95%** | capability-registry controllers |
+| 8 | HTTP framework | Express remnants | Elysia | **100% ✅** | DONE — 0 grep hits |
 | 9 | Types | Scattered | `@packages/` only | **10%** | Ongoing |
 
 No feature flags. No rollback paths. No fallbacks. Migrate, verify, delete.

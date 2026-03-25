@@ -2,14 +2,9 @@ import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { UserToolPreferencesService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
 
-let service: UserToolPreferencesService | null = null;
+const service = new UserToolPreferencesService();
 async function getService(): Promise<UserToolPreferencesService> {
-  if (!service) {
-    const dataSource = await DatabaseService.getInstance().getDataSource();
-    service = new UserToolPreferencesService(dataSource);
-  }
   return service;
 }
 

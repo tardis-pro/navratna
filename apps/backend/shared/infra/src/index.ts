@@ -15,4 +15,4 @@ export { RedisCacheService, redisCacheService } from './cache/index.js';
 
 // Database services
 export { DatabaseService, DatabaseError } from './database/databaseService.js';
-export { TypeOrmService, typeormService } from './database/typeormService.js';
+export { PgService, pgService } from './database/pgService.js';

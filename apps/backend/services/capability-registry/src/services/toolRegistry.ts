@@ -235,7 +235,7 @@ export class ToolRegistry {
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node update requested', { toolId: validatedId });
 
-      // Update TypeORM entity using ToolService
+      // Update tool via ToolService
       // Note: ToolService doesn't have updateTool method yet, using repository directly
       const toolRepo = this.toolService.getToolRepository();
 
@@ -274,7 +274,7 @@ export class ToolRegistry {
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node deletion requested', { toolId: validatedId });
 
-      // Remove TypeORM entity using ToolService
+      // Remove tool via ToolService
       const toolRepo = this.toolService.getToolRepository();
       await toolRepo.delete(validatedId);
 
@@ -627,7 +627,7 @@ export class ToolRegistry {
     }
   }
 
-  // Enhanced Analytics with TypeORM
+  // Enhanced Analytics
   async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetric[]> {
     try {
       // Get capability metrics through ToolService

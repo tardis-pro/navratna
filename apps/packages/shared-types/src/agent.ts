@@ -847,7 +847,7 @@ export interface CapabilityGap {
   workaround?: string;
 }
 
-// Agent entity interface (TypeORM)
+// Agent entity interface
 export interface AgentEntity {
   id: string;
   name: string;

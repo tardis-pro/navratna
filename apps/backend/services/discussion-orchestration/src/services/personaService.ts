@@ -61,8 +61,6 @@ export class PersonaService {
       // Validate the persona data
       const validation = await this.validatePersona(request);
 
-      const personaRepo = await this.databaseService.getRepository('personas');
-
       const personaData = {
         name: request.name,
         role: request.role,
@@ -96,7 +94,7 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
-      const savedEntity = await personaRepo.save(personaData);
+      const savedEntity = await this.databaseService.create('personas', personaData as unknown as Record<string, unknown>);
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -123,8 +121,7 @@ export class PersonaService {
         return cached;
       }
 
-      const personaRepo = await this.databaseService.getRepository('personas');
-      const entity = await personaRepo.findOne({ where: { id } });
+      const entity = await this.databaseService.findById('personas', id);
 
       if (!entity) {
         return null;
@@ -156,15 +153,14 @@ export class PersonaService {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
 
-      const personaRepo = await this.databaseService.getRepository('personas');
-      await personaRepo.update(id, {
+      await this.databaseService.update('personas', id, {
         ...updateData,
         validation,
         version: existingPersona.version + 1,
         updatedAt: new Date(),
-      });
+      } as Record<string, unknown>);
 
-      const updatedEntity = await personaRepo.findOne({ where: { id } });
+      const updatedEntity = await this.databaseService.findById('personas', id);
       if (!updatedEntity) {
         throw new Error(`Failed to update persona: ${id}`);
       }
@@ -206,8 +202,7 @@ export class PersonaService {
         return;
       }
 
-      const personaRepo = await this.databaseService.getRepository('personas');
-      await personaRepo.delete(id);
+      await this.databaseService.delete('personas', id);
 
       this.personaCache.delete(id);
 
@@ -236,17 +231,29 @@ export class PersonaService {
     hasMore: boolean;
   }> {
     try {
-      const personaRepo = await this.databaseService.getRepository('personas');
-      const queryBuilder = personaRepo.createQueryBuilder('persona');
+      const conditions: Record<string, unknown> = {};
+      if (filters.status && filters.status.length === 1) conditions.status = filters.status[0];
+      if (filters.visibility && filters.visibility.length === 1) conditions.visibility = filters.visibility[0];
+      if (filters.organizationId) conditions.organizationId = filters.organizationId;
+      if (filters.teamId) conditions.teamId = filters.teamId;
 
-      this.applySearchFilters(queryBuilder, filters);
+      const allEntities = await this.databaseService.findMany('personas', conditions, {
+        order: { createdAt: 'DESC' },
+      });
 
-      const total = await queryBuilder.getCount();
+      const filtered = (filters.query
+        ? allEntities.filter((e) => {
+            const q = filters.query!.toLowerCase();
+            const name = typeof e.name === 'string' ? e.name.toLowerCase() : '';
+            const desc = typeof e.description === 'string' ? e.description.toLowerCase() : '';
+            const role = typeof e.role === 'string' ? e.role.toLowerCase() : '';
+            return name.includes(q) || desc.includes(q) || role.includes(q);
+          })
+        : allEntities) as Record<string, unknown>[];
 
-      queryBuilder.orderBy('persona.createdAt', 'DESC').skip(offset).take(limit);
-
-      const entities: PersonaEntity[] = await queryBuilder.getMany();
-      const personas = entities.map((entity) => this.entityToPersona(entity));
+      const total = filtered.length;
+      const entities = filtered.slice(offset, offset + limit);
+      const personas = entities.map((entity) => this.entityToPersona(entity as unknown));
 
       return {
         personas,
@@ -458,17 +465,18 @@ export class PersonaService {
 
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
-      const personaRepo = await this.databaseService.getRepository('personas');
-      const queryBuilder = personaRepo.createQueryBuilder('persona');
+      const allEntities = await this.databaseService.findMany('personas', {}, {
+        order: { totalInteractions: 'DESC' },
+      });
 
-      if (category) {
-        queryBuilder.where('persona.tags LIKE :category', { category: `%${category}%` });
-      }
+      const entities = category
+        ? allEntities.filter((e) => {
+            const tags = e.tags;
+            return Array.isArray(tags) ? tags.includes(category) : typeof tags === 'string' && (tags as string).includes(category);
+          })
+        : allEntities;
 
-      queryBuilder.orderBy('persona.totalInteractions', 'DESC');
-      const entities: PersonaEntity[] = await queryBuilder.getMany();
-
-      return entities.map((entity: PersonaEntity) => ({
+      return entities.map((entity) => ({
         id: entity.id,
         name: entity.name,
         description: entity.description,
@@ -563,82 +571,6 @@ export class PersonaService {
     }
 
     return cached.persona;
-  }
-
-  private applySearchFilters(
-    queryBuilder: SelectQueryBuilder<PersonaEntity>,
-    filters: PersonaSearchFilters
-  ): void {
-    if (filters.query) {
-      queryBuilder.andWhere(
-        '(persona.name ILIKE :query OR persona.description ILIKE :query OR persona.role ILIKE :query)',
-        { query: `%${filters.query}%` }
-      );
-    }
-
-    if (filters.expertise && filters.expertise.length > 0) {
-      queryBuilder.andWhere(
-        'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.expertise) AS exp WHERE exp = ANY(:expertise))',
-        { expertise: filters.expertise }
-      );
-    }
-
-    if (filters.status && filters.status.length > 0) {
-      queryBuilder.andWhere('persona.status IN (:...status)', { status: filters.status });
-    }
-
-    if (filters.visibility && filters.visibility.length > 0) {
-      queryBuilder.andWhere('persona.visibility IN (:...visibility)', {
-        visibility: filters.visibility,
-      });
-    }
-
-    if (filters.createdBy && filters.createdBy.length > 0) {
-      queryBuilder.andWhere('persona.createdBy IN (:...createdBy)', {
-        createdBy: filters.createdBy,
-      });
-    }
-
-    if (filters.organizationId) {
-      queryBuilder.andWhere('persona.organizationId = :organizationId', {
-        organizationId: filters.organizationId,
-      });
-    }
-
-    if (filters.teamId) {
-      queryBuilder.andWhere('persona.teamId = :teamId', { teamId: filters.teamId });
-    }
-
-    if (filters.tags && filters.tags.length > 0) {
-      queryBuilder.andWhere(
-        'EXISTS (SELECT 1 FROM jsonb_array_elements_text(persona.tags) AS tag WHERE tag = ANY(:tags))',
-        { tags: filters.tags }
-      );
-    }
-
-    if (filters.minUsageCount !== undefined) {
-      queryBuilder.andWhere('persona.totalInteractions >= :minUsageCount', {
-        minUsageCount: filters.minUsageCount,
-      });
-    }
-
-    if (filters.minFeedbackScore !== undefined) {
-      queryBuilder.andWhere('persona.userSatisfaction >= :minFeedbackScore', {
-        minFeedbackScore: filters.minFeedbackScore,
-      });
-    }
-
-    if (filters.createdAfter) {
-      queryBuilder.andWhere('persona.createdAt >= :createdAfter', {
-        createdAfter: filters.createdAfter,
-      });
-    }
-
-    if (filters.createdBefore) {
-      queryBuilder.andWhere('persona.createdAt <= :createdBefore', {
-        createdBefore: filters.createdBefore,
-      });
-    }
   }
 
   private async getPersonaUsageCount(_personaId: string): Promise<number> {
@@ -743,7 +675,7 @@ export class PersonaService {
   /**
    * Convert PersonaEntity to Persona type
    */
-  private entityToPersona(entity: PersonaEntity): Persona {
+  private entityToPersona(entity: Record<string, unknown>): Persona {
     return {
       id: entity.id,
       name: entity.name,

@@ -712,7 +712,7 @@ export class ApprovalWorkflowService {
   }
 
   /**
-   * Database operations using TypeORM
+   * Database operations
    */
   private async getWorkflow(workflowId: string): Promise<ApprovalWorkflowType | null> {
     const workflowEntity = await this.securityService

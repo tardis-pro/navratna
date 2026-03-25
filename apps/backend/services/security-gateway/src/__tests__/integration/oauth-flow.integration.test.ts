@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 import request from 'supertest';
 import type { AnyElysia } from 'elysia';
-import { DataSource } from 'typeorm';
+import type { Pool } from 'pg';
 import { createTestApp, createTestDataSource, cleanupTestDb } from '../utils/testHelpers';
 import {
   OAuthProviderEntity,
@@ -14,7 +14,7 @@ import crypto from 'crypto';
 
 describe('OAuth Flow Integration Tests', () => {
   let app: AnyElysia;
-  let dataSource: DataSource;
+  let dataSource: Pool;
   let testUser: UserEntity;
   let testAgent: AgentEntity;
   let githubProvider: OAuthProviderEntity;

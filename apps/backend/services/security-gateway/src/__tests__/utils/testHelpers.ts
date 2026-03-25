@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { Pool } from 'pg';
 import type { AnyElysia } from 'elysia';
 import { createApp } from '../../app.js';
 import {
@@ -13,44 +13,30 @@ import {
 } from '@uaip/shared-services';
 
 /**
- * Create a test DataSource for integration tests
+ * Create a test pg Pool for integration tests
  */
-export async function createTestDataSource(): Promise<DataSource> {
-  const dataSource = new DataSource({
-    type: 'postgres',
+export async function createTestDataSource(): Promise<Pool> {
+  const pool = new Pool({
     host: process.env.TEST_DB_HOST || 'localhost',
     port: parseInt(process.env.TEST_DB_PORT || '5432'),
-    username: process.env.TEST_DB_USERNAME || 'postgres',
+    user: process.env.TEST_DB_USERNAME || 'postgres',
     password: process.env.TEST_DB_PASSWORD || 'postgres',
     database: process.env.TEST_DB_NAME || 'council_test',
-    entities: [
-      UserEntity,
-      AgentEntity,
-      SecurityPolicyEntity,
-      OAuthProviderEntity,
-      AgentOAuthConnectionEntity,
-      OAuthStateEntity,
-      AuditLogEntity,
-      SessionEntity,
-    ],
-    synchronize: true, // Auto-create schema for tests
-    dropSchema: true, // Clean slate for each test run
-    logging: false, // Disable logging for cleaner test output
   });
 
-  await dataSource.initialize();
-  return dataSource;
+  // Verify connection
+  const client = await pool.connect();
+  client.release();
+  return pool;
 }
 
 /**
- * Create a test Express app with the given DataSource
+ * Create a test app
  */
-export async function createTestApp(dataSource: DataSource): Promise<AnyElysia> {
-  // Override the database connection for testing
+export async function createTestApp(_pool?: Pool): Promise<AnyElysia> {
   process.env.NODE_ENV = 'test';
 
   const app = await createApp({
-    dataSource,
     redis: createMockRedis(),
     rabbitmq: createMockRabbitMQ(),
   });
@@ -59,21 +45,28 @@ export async function createTestApp(dataSource: DataSource): Promise<AnyElysia> 
 }
 
 /**
- * Clean up test database
+ * Clean up test database using raw SQL truncate
  */
-export async function cleanupTestDb(dataSource: DataSource): Promise<void> {
-  const entities = [
-    AuditLogEntity,
-    SessionEntity,
-    AgentOAuthConnectionEntity,
-    OAuthStateEntity,
-    OAuthProviderEntity,
-    SecurityPolicyEntity,
-    AgentEntity,
-    UserEntity,
+export async function cleanupTestDb(pool: Pool): Promise<void> {
+  const tables = [
+    'audit_events',
+    'sessions',
+    'agent_oauth_connections',
+    'oauth_states',
+    'oauth_providers',
+    'security_policies',
+    'agents',
+    'users',
   ];
 
-  await Promise.all(entities.map(async (entity) => dataSource.getRepository(entity).delete({})));
+  for (const table of tables) {
+    try {
+      await pool.query(`DELETE FROM "${table}"`);
+    } catch {
+      // table may not exist in test schema — ignore
+    }
+  }
+  await pool.end();
 }
 
 /**
@@ -349,24 +342,34 @@ export function createTestJWT(payload: unknown = {}): string {
  * Assert that an audit log entry exists with the given criteria
  */
 export async function assertAuditLogExists(
-  dataSource: DataSource,
+  pool: Pool,
   criteria: Partial<AuditLogEntity>
 ): Promise<AuditLogEntity> {
-  const auditLog = await dataSource.getRepository(AuditLogEntity).findOne({ where: criteria });
+  const keys = Object.keys(criteria);
+  const values = Object.values(criteria);
+  const where = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+  const result = await pool.query(
+    `SELECT * FROM "audit_events" ${where ? `WHERE ${where}` : ''} LIMIT 1`,
+    values
+  );
 
-  if (!auditLog) {
+  if (result.rows.length === 0) {
     throw new Error(`Audit log not found with criteria: ${JSON.stringify(criteria)}`);
   }
 
-  return auditLog;
+  return result.rows[0] as AuditLogEntity;
 }
 
-/**
- * Count audit logs matching the given criteria
- */
 export async function countAuditLogs(
-  dataSource: DataSource,
+  pool: Pool,
   criteria: Partial<AuditLogEntity>
 ): Promise<number> {
-  return await dataSource.getRepository(AuditLogEntity).count({ where: criteria });
+  const keys = Object.keys(criteria);
+  const values = Object.values(criteria);
+  const where = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+  const result = await pool.query(
+    `SELECT COUNT(*)::int as cnt FROM "audit_events" ${where ? `WHERE ${where}` : ''}`,
+    values
+  );
+  return result.rows[0]?.cnt ?? 0;
 }

@@ -28,9 +28,7 @@ class LLMServiceServer extends BaseService {
       enableEnterpriseEventBus: true,
     });
 
-    // Register all TypeORM entities — required for ModelSelectionOrchestrator to
     // resolve Agent, AgentLLMPreference, UserLLMPreference repos at runtime.
-    // Without this, TypeORM throws "No metadata for X was found" which silently
     // causes AgentSpecificStrategy and UserSpecificStrategy to fail, falling
     // through to ContextAwareStrategy which returns hardcoded Anthropic defaults.
     this.registerEntities(allEntities);

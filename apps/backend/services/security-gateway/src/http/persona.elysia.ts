@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
 import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
 
 const userService = UserService.getInstance();
 
@@ -153,48 +152,42 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
           set.status = 400;
           return { error: 'Invalid onboarding data', details: validation.error.errors };
         }
-        try {
-          const databaseService = DatabaseService.getInstance();
-          const repo = userService.getUserRepository();
-          const entity = await repo.findById(user!.id);
-          if (!entity) {
-            set.status = 404;
-            return { error: 'User not found' };
-          }
-          const { personaData, onboardingProgress } = validation.data;
-          entity.userPersona = personaData as unknown;
-          entity.onboardingProgress = {
-            ...onboardingProgress,
-            isCompleted: true,
-            completedAt: new Date(),
-            currentStep: onboardingProgress.currentStep || 0,
-            completedSteps: onboardingProgress.completedSteps || [],
-            responses: onboardingProgress.responses || {},
-          } as unknown;
-          entity.behavioralPatterns = {
-            sessionDuration: 0,
-            activeHours: [],
-            frequentlyUsedTools: [],
-            preferredAgents: [],
-            workflowPatterns: [],
-            interactionStyle: 'methodical',
-            feedbackPreference:
-              personaData.communicationPreference === 'brief' ? 'immediate' : 'summary',
-          } as unknown;
-          await repo.update(user!.id, entity);
           try {
-            const dataSource = await databaseService.getDataSource();
-            const userLLMProviderRepo = dataSource.getRepository('UserLLMProvider');
-            const count = await userLLMProviderRepo.count({ where: { userId: user!.id } });
-            if (count === 0)
-              await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(
-                dataSource,
-                user!.id,
-                (entity as unknown).role || 'user'
-              );
-          } catch (e) {
-            logger.error('Default providers creation failed', e);
-          }
+            const repo = userService.getUserRepository();
+            const entity = await repo.findById(user!.id);
+            if (!entity) {
+              set.status = 404;
+              return { error: 'User not found' };
+            }
+            const { personaData, onboardingProgress } = validation.data;
+            entity.userPersona = personaData as unknown;
+            entity.onboardingProgress = {
+              ...onboardingProgress,
+              isCompleted: true,
+              completedAt: new Date(),
+              currentStep: onboardingProgress.currentStep || 0,
+              completedSteps: onboardingProgress.completedSteps || [],
+              responses: onboardingProgress.responses || {},
+            } as unknown;
+            entity.behavioralPatterns = {
+              sessionDuration: 0,
+              activeHours: [],
+              frequentlyUsedTools: [],
+              preferredAgents: [],
+              workflowPatterns: [],
+              interactionStyle: 'methodical',
+              feedbackPreference:
+                personaData.communicationPreference === 'brief' ? 'immediate' : 'summary',
+            } as unknown;
+            await repo.update(user!.id, entity);
+            try {
+              const providerRepo = UserService.getInstance().getUserLLMProviderRepository();
+              const providers = await providerRepo.findAllProvidersByUser(user!.id);
+              if (providers.length === 0)
+                await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(user!.id);
+            } catch (e) {
+              logger.error('Default providers creation failed', e);
+            }
           return {
             id: entity.id,
             email: entity.email,

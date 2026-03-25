@@ -1,20 +1,5 @@
 import * as winston from 'winston';
 
-// Express-compatible types for middleware (avoiding direct express dependency)
-// These are compatible with Express but don't require it as a dependency
-export interface ExpressRequest {
-  id?: string;
-  [key: string]: unknown;
-}
-
-export interface ExpressResponse {
-  status(code: number): ExpressResponse;
-  json(body: unknown): ExpressResponse;
-  [key: string]: unknown;
-}
-
-export type ExpressNextFunction = (err?: unknown) => void;
-
 // Error details type - used for providing additional error context
 export type ErrorDetails = Record<string, unknown>;
 
@@ -263,15 +248,6 @@ export const createErrorResponse = (error: Error, requestId?: string) => {
   return { statusCode, response };
 };
 
-// Async handler wrapper to catch async errors
-export const asyncHandler = (
-  fn: (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => Promise<unknown>
-) => {
-  return (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
-
 // Create and log error helper
 export const logAndCreateError = (
   logger: winston.Logger,
@@ -372,19 +348,9 @@ export const transformDatabaseError = (error: DatabaseErrorLike): ApiError => {
   return new DatabaseError('Database operation failed', { error: error.message });
 };
 
-// Express error handler middleware
-export const errorHandler = (
-  error: Error,
-  req: ExpressRequest,
-  res: ExpressResponse,
-  _next: ExpressNextFunction
-) => {
-  // Log the error
-  console.error('Error:', error);
-
-  const { statusCode, response } = createErrorResponse(error, req.id);
-
-  res.status(statusCode).json(response);
+export const onElysiaError = ({ error, set }: { error: Error; set: { status: number } }) => {
+  set.status = error instanceof ApiError ? error.statusCode : 500;
+  return { error: error.message };
 };
 
 // Type guards

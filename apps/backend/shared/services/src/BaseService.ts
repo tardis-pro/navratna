@@ -164,8 +164,7 @@ export abstract class BaseService {
 
   protected async initializeDatabase(): Promise<void> {
     try {
-      // Ensure database connection is ready by fetching DataSource
-      await this.databaseService.getDataSource();
+      await this.databaseService.isHealthy();
       logger.info(`${this.config.name}: Database initialized`);
 
       // Initialize unified model selection facade

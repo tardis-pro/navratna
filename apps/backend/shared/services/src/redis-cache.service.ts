@@ -1,6 +1,6 @@
 /**
  * Standalone Redis Cache Service
- * Independent of TypeORM, can be used for general caching needs
+ * Independent caching service
  */
 
 import IORedis from 'ioredis';

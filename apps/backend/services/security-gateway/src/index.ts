@@ -47,7 +47,7 @@ class SecurityGatewayServer extends BaseService {
       enableEnterpriseEventBus: true,
     });
 
-    // Register all entities (TypeORM requires related entities to be in the same DataSource).
+    
     this.registerEntities(allEntities);
   }
 
@@ -71,11 +71,7 @@ class SecurityGatewayServer extends BaseService {
     const llmProviderManagementService = LLMProviderManagementService.getInstance();
     llmProviderManagementService.setEventBusService(this.eventBusService);
 
-    // Initialize API Key Decryption Handler
-    this.apiKeyDecryptionHandler = new ApiKeyDecryptionHandler(
-      this.eventBusService,
-      this.databaseService
-    );
+    this.apiKeyDecryptionHandler = new ApiKeyDecryptionHandler(this.eventBusService);
 
     // Initialize knowledge services (non-blocking)
     initializeServices()

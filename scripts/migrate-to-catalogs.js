@@ -42,8 +42,6 @@ const catalogMappings = {
   'express-validator': 'catalog:backend',
   'express-slow-down': 'catalog:backend',
   'socket.io': 'catalog:backend',
-  'typeorm': 'catalog:backend',
-  '@nestjs/typeorm': 'catalog:backend',
   '@types/node': 'catalog:backend',
   '@types/cors': 'catalog:backend',
   'dotenv': 'catalog:backend',

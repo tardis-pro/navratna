@@ -36,13 +36,12 @@ export class PgService {
         connectionTimeoutMillis: 5000,
       });
 
-      // Test connection
       const client = await this.pool.connect();
       client.release();
 
-      logger.info('Postgres service initialized successfully');
+      logger.info('PgService initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize Postgres service', {
+      logger.error('Failed to initialize PgService', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
@@ -53,13 +52,25 @@ export class PgService {
     if (this.pool) {
       await this.pool.end();
       this.pool = null;
-      logger.info('Postgres service closed');
+      logger.info('PgService closed');
     }
+  }
+
+  public getDataSource(): never {
+    throw new Error(
+      'getDataSource() is not supported. Use getEntityManager().query() for raw SQL operations.'
+    );
+  }
+
+  public getRepository(): never {
+    throw new Error(
+      'getRepository() is not supported. Use executeQuery() or getEntityManager().query() instead.'
+    );
   }
 
   public getEntityManager(): { query: (sql: string, params?: unknown[]) => Promise<unknown[]> } {
     if (!this.pool) {
-      throw new Error('Postgres service not initialized. Call initialize() first.');
+      throw new Error('PgService not initialized. Call initialize() first.');
     }
 
     return {
@@ -79,7 +90,7 @@ export class PgService {
     runInTransaction: (manager: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<T>
   ): Promise<T> {
     if (!this.pool) {
-      throw new Error('Postgres service not initialized. Call initialize() first.');
+      throw new Error('PgService not initialized. Call initialize() first.');
     }
 
     const client = await this.pool.connect();

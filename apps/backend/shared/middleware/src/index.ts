@@ -80,7 +80,7 @@ export type { APIKey, APIKeyContext } from './apiKeyAuth.js';
 // Re-export HTTP context types from shared types
 export * from './types.js';
 
-// Enhanced Validation Middleware for TypeORM Migration
+// Enhanced Validation Middleware
 export { AgentValidationMiddleware } from './agentValidationMiddleware.js';
 export { AgentTransformationService } from './agentTransformationService.js';
 

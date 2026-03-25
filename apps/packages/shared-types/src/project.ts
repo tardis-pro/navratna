@@ -89,7 +89,7 @@ export interface Project {
   updatedAt: Date;
 }
 
-// Project entity interface (TypeORM)
+// Project entity interface
 export interface ProjectEntity {
   id: string;
   name: string;

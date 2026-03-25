@@ -386,7 +386,7 @@ export class GraphSyncWorker {
   }
 
   /**
-   * Map TypeORM entity to IntegrationEvent interface
+   * Map entity to IntegrationEvent interface
    */
   private mapEntityToEvent(entity: IntegrationEventEntity): IntegrationEvent {
     return {

@@ -2,28 +2,19 @@
 // Provides comprehensive REST endpoints for tool management and execution
 // Part of capability-registry microservice
 
-// Generic request/response interfaces for framework-agnostic controllers
-interface Request {
-  query: Record<string, unknown>;
-  params: Record<string, unknown>;
-  body: unknown;
-  headers: Record<string, unknown>;
-  url?: string;
-  method?: string;
-  path?: string;
-}
-
-interface Response {
-  status: (code: number) => Response;
-  json: (data: unknown) => void;
-  send: (data?: unknown) => void;
-}
-
 import { ToolRegistry } from '../services/toolRegistry.js';
 import { ToolExecutor } from '../services/toolExecutor.js';
 import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
+
+interface ElysiaCtx {
+  query?: Record<string, unknown>;
+  params?: Record<string, unknown>;
+  body?: unknown;
+  headers?: Record<string, unknown>;
+  set: { status: number };
+}
 
 // Request validation schemas
 const RegisterToolSchema = z.object({
@@ -70,12 +61,9 @@ export class ToolController {
   // Tool Management Endpoints
 
   // GET /api/v1/tools
-  async getTools(req: Request, res: Response): Promise<void> {
+  async getTools({ query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      logger.info(
-        `getTools method called - URL: ${req.url}, Method: ${req.method}, Path: ${req.path}`
-      );
-      const { category, search, enabled, tags, securityLevel } = req.query;
+      const { category, search, enabled, tags, securityLevel } = query ?? {};
       logger.info(
         `Getting tools with category: ${category}, search: ${search}, enabled: ${enabled}, tags: ${tags}, securityLevel: ${securityLevel}`
       );
@@ -97,37 +85,38 @@ export class ToolController {
         tools = await this.toolRegistry.getTools(category as string, enabledFilter);
       }
 
-      res.json({
+      return {
         success: true,
         data: {
           tools,
           count: tools.length,
         },
-      });
+      };
     } catch (error) {
       logger.error('Failed to get tools:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve tools',
-        message: error.message,
-      });
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
   // GET /api/v1/tools/:id
-  async getTool(req: Request, res: Response): Promise<void> {
+  async getTool({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
       logger.info(
-        `getTool method called - URL: ${req.url}, Method: ${req.method}, Path: ${req.path}, Params: ${JSON.stringify(req.params)}`
+        `getTool called - Params: ${JSON.stringify(params ?? {})}`
       );
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
       if (!id) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Invalid tool identifier',
           message: 'Tool identifier is required',
-        });
-        return;
+        };
       }
 
       const uuidResult = z.string().uuid().safeParse(id);
@@ -136,170 +125,175 @@ export class ToolController {
         : await this.toolRegistry.lookup(id);
 
       if (!tool) {
-        res.status(404).json({
+        set.status = 404;
+        return {
           success: false,
           error: 'Tool not found',
           message: uuidResult.success
             ? `Tool with ID ${uuidResult.data} does not exist`
             : `Tool matching "${id}" does not exist`,
-        });
-        return;
+        };
       }
 
-      res.json({
+      return {
         success: true,
         data: { tool },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get tool ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to get tool ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve tool',
         message,
-      });
+      };
     }
   }
 
   // POST /api/v1/tools
-  async registerTool(req: Request, res: Response): Promise<void> {
+  async registerTool({ body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const validatedTool = RegisterToolSchema.parse(req.body);
+      const validatedTool = RegisterToolSchema.parse(body);
       const toolDefinition = this.transformToToolDefinition(validatedTool);
       await this.toolRegistry.registerTool(toolDefinition);
 
-      res.status(201).json({
+      set.status = 201;
+      return {
         success: true,
         message: 'Tool registered successfully',
         data: { toolId: validatedTool.id },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to register tool:', error);
 
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation error',
           details: error.errors,
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to register tool',
         message,
-      });
+      };
     }
   }
 
   // PUT /api/v1/tools/:id
-  async updateTool(req: Request, res: Response): Promise<void> {
+  async updateTool({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
 
       // Validate ID format
       const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
 
       if (!validationResult.success) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Invalid tool ID format',
           message: 'Tool ID must be a positive integer',
-        });
-        return;
+        };
       }
 
-      const updates = RegisterToolSchema.partial().parse(req.body);
+      const updates = RegisterToolSchema.partial().parse(body);
       const transformedUpdates = this.transformToPartialToolDefinition(updates);
 
       await this.toolRegistry.updateTool(validationResult.data, transformedUpdates);
 
-      res.json({
+      return {
         success: true,
         message: 'Tool updated successfully',
         data: { toolId: validationResult.data },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to update tool ${req.params.id}:`, error);
+      logger.error(`Failed to update tool ${(params ?? {}).id}:`, error);
 
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation error',
           details: error.errors,
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to update tool',
         message,
-      });
+      };
     }
   }
 
   // DELETE /api/v1/tools/:id
-  async unregisterTool(req: Request, res: Response): Promise<void> {
+  async unregisterTool({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
 
       // Validate ID format
       const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
 
       if (!validationResult.success) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Invalid tool ID format',
           message: 'Tool ID must be a positive integer',
-        });
-        return;
+        };
       }
 
       await this.toolRegistry.unregisterTool(validationResult.data);
 
-      res.json({
+      return {
         success: true,
         message: 'Tool unregistered successfully',
         data: { toolId: validationResult.data },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to unregister tool ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to unregister tool ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to unregister tool',
         message,
-      });
+      };
     }
   }
 
   // Tool Execution Endpoints
 
   // POST /api/v1/tools/:id/execute
-  async executeTool(req: Request, res: Response): Promise<void> {
+  async executeTool({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
 
       // Validate ID format
       const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
 
       if (!validationResult.success) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Invalid tool ID format',
           message: 'Tool ID must be a positive integer',
-        });
-        return;
+        };
       }
 
-      const validatedRequest = ExecuteToolSchema.parse(req.body);
+      const validatedRequest = ExecuteToolSchema.parse(body);
 
       const execution = await this.toolExecutor.executeTool(
         validationResult.data,
@@ -312,65 +306,67 @@ export class ToolController {
         }
       );
 
-      res.json({
+      return {
         success: true,
         data: { execution },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to execute tool ${req.params.id}:`, error);
+      logger.error(`Failed to execute tool ${(params ?? {}).id}:`, error);
 
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation error',
           details: error.errors,
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to execute tool',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/executions/:id
-  async getExecution(req: Request, res: Response): Promise<void> {
+  async getExecution({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
       const execution = await this.toolExecutor.getExecution(id);
 
       if (!execution) {
-        res.status(404).json({
+        set.status = 404;
+        return {
           success: false,
           error: 'Execution not found',
           message: `Execution with ID ${id} does not exist`,
-        });
-        return;
+        };
       }
 
-      res.json({
+      return {
         success: true,
         data: { execution },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get execution ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to get execution ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve execution',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/executions
-  async getExecutions(req: Request, res: Response): Promise<void> {
+  async getExecutions({ query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const { toolId, agentId, status, limit } = req.query;
+      const { toolId, agentId, status, limit } = query ?? {};
 
       const executions = await this.toolExecutor.getExecutions(
         toolId as string,
@@ -379,110 +375,113 @@ export class ToolController {
         limit ? parseInt(limit as string) : undefined
       );
 
-      res.json({
+      return {
         success: true,
         data: {
           executions,
           count: executions.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get executions:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve executions',
         message,
-      });
+      };
     }
   }
 
   // POST /api/v1/executions/:id/approve
-  async approveExecution(req: Request, res: Response): Promise<void> {
+  async approveExecution({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
-      const body =
-        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
-      const approvedBy = typeof body.approvedBy === 'string' ? body.approvedBy : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const bodyData =
+        body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+      const approvedBy = typeof bodyData.approvedBy === 'string' ? bodyData.approvedBy : '';
 
       if (!approvedBy) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Missing approvedBy field',
-        });
-        return;
+        };
       }
 
       const execution = await this.toolExecutor.approveExecution(id, approvedBy);
 
-      res.json({
+      return {
         success: true,
         message: 'Execution approved successfully',
         data: { execution },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to approve execution ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to approve execution ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to approve execution',
         message,
-      });
+      };
     }
   }
 
   // POST /api/v1/executions/:id/cancel
-  async cancelExecution(req: Request, res: Response): Promise<void> {
+  async cancelExecution({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
       const cancelled = await this.toolExecutor.cancelExecution(id);
 
       if (!cancelled) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Cannot cancel execution',
           message: 'Execution may not exist or is already completed',
-        });
-        return;
+        };
       }
 
-      res.json({
+      return {
         success: true,
         message: 'Execution cancelled successfully',
         data: { executionId: id },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to cancel execution ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to cancel execution ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to cancel execution',
         message,
-      });
+      };
     }
   }
 
   // Graph-Enhanced Features
 
   // GET /api/v1/tools/:id/related
-  async getRelatedTools(req: Request, res: Response): Promise<void> {
+  async getRelatedTools({ params, query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
 
       // Validate ID format
       const idSchema = z.string();
       const validationResult = idSchema.safeParse(id);
 
       if (!validationResult.success) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Invalid tool ID format',
           message: 'Tool ID must be a positive integer',
-        });
-        return;
+        };
       }
 
-      const { types, minStrength } = req.query;
+      const { types, minStrength } = query ?? {};
 
       const relationshipTypes = types ? (types as string).split(',') : undefined;
       const minStrengthValue = minStrength ? parseFloat(minStrength as string) : 0.5;
@@ -493,29 +492,30 @@ export class ToolController {
         minStrengthValue
       );
 
-      res.json({
+      return {
         success: true,
         data: {
           relatedTools,
           count: relatedTools.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get related tools for ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to get related tools for ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve related tools',
         message,
-      });
+      };
     }
   }
 
   // POST /api/v1/tools/:id/relationships
-  async addRelationship(req: Request, res: Response): Promise<void> {
+  async addRelationship({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
-      const validatedRelationship = AddRelationshipSchema.parse(req.body);
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const validatedRelationship = AddRelationshipSchema.parse(body);
 
       await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, {
         type: validatedRelationship.type,
@@ -524,7 +524,8 @@ export class ToolController {
         metadata: validatedRelationship.metadata,
       });
 
-      res.status(201).json({
+      set.status = 201;
+      return {
         success: true,
         message: 'Relationship added successfully',
         data: {
@@ -532,39 +533,40 @@ export class ToolController {
           toToolId: validatedRelationship.toToolId,
           type: validatedRelationship.type,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to add relationship for tool ${req.params.id}:`, error);
+      logger.error(`Failed to add relationship for tool ${(params ?? {}).id}:`, error);
 
       if (error instanceof z.ZodError) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Validation error',
           details: error.errors,
-        });
-        return;
+        };
       }
 
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to add relationship',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/tools/recommendations
-  async getRecommendations(req: Request, res: Response): Promise<void> {
+  async getRecommendations({ query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const { agentId, context, limit } = req.query;
+      const { agentId, context, limit } = query ?? {};
 
       if (!agentId) {
-        res.status(400).json({
+        set.status = 400;
+        return {
           success: false,
           error: 'Missing agentId parameter',
-        });
-        return;
+        };
       }
 
       const recommendations = await this.toolRegistry.getRecommendations(
@@ -573,29 +575,30 @@ export class ToolController {
         limit ? parseInt(limit as string) : 5
       );
 
-      res.json({
+      return {
         success: true,
         data: {
           recommendations,
           count: recommendations.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get recommendations:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve recommendations',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/tools/:id/similar
-  async getSimilarTools(req: Request, res: Response): Promise<void> {
+  async getSimilarTools({ params, query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
-      const { minSimilarity, limit } = req.query;
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const { minSimilarity, limit } = query ?? {};
 
       const similarTools = await this.toolRegistry.findSimilarTools(
         id,
@@ -603,54 +606,56 @@ export class ToolController {
         limit ? parseInt(limit as string) : 5
       );
 
-      res.json({
+      return {
         success: true,
         data: {
           similarTools,
           count: similarTools.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get similar tools for ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to get similar tools for ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve similar tools',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/tools/:id/dependencies
-  async getToolDependencies(req: Request, res: Response): Promise<void> {
+  async getToolDependencies({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof req.params.id === 'string' ? req.params.id : '';
+      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
       const dependencies = await this.toolRegistry.getToolDependencies(id);
 
-      res.json({
+      return {
         success: true,
         data: {
           dependencies,
           count: dependencies.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get dependencies for tool ${req.params.id}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to get dependencies for tool ${(params ?? {}).id}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve tool dependencies',
         message,
-      });
+      };
     }
   }
 
   // Analytics and Insights Endpoints
 
   // GET /api/v1/analytics/usage
-  async getUsageAnalytics(req: Request, res: Response): Promise<void> {
+  async getUsageAnalytics({ query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const { toolId, agentId, days } = req.query;
+      const { toolId, agentId, days } = query ?? {};
 
       const stats = await this.toolRegistry.getUsageStats(
         toolId as string,
@@ -658,120 +663,125 @@ export class ToolController {
         days ? parseInt(days as string) : 30
       );
 
-      res.json({
+      return {
         success: true,
         data: { stats },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get usage analytics:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve usage analytics',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/analytics/popular
-  async getPopularTools(req: Request, res: Response): Promise<void> {
+  async getPopularTools({ query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const { category, limit } = req.query;
+      const { category, limit } = query ?? {};
 
       const popularTools = await this.toolRegistry.getPopularTools(
         category as string,
         limit ? parseInt(limit as string) : 10
       );
 
-      res.json({
+      return {
         success: true,
         data: {
           popularTools,
           count: popularTools.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get popular tools:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve popular tools',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/analytics/agent/:agentId/preferences
-  async getAgentPreferences(req: Request, res: Response): Promise<void> {
+  async getAgentPreferences({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const agentId = typeof req.params.agentId === 'string' ? req.params.agentId : '';
+      const agentId = typeof (params ?? {}).agentId === 'string' ? (params ?? {}).agentId as string : '';
       const preferences = await this.toolRegistry.getAgentToolPreferences(agentId);
 
-      res.json({
+      return {
         success: true,
         data: {
           preferences,
           count: preferences.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get preferences for agent ${req.params.agentId}:`, error);
-      res.status(500).json({
+      logger.error(`Failed to get preferences for agent ${(params ?? {}).agentId}:`, error);
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve agent preferences',
         message,
-      });
+      };
     }
   }
 
   // Utility Endpoints
 
   // GET /api/v1/tools/categories
-  async getToolCategories(req: Request, res: Response): Promise<void> {
+  async getToolCategories({ set }: ElysiaCtx): Promise<unknown> {
     try {
       const categories = await this.toolRegistry.getToolCategories();
 
-      res.json({
+      return {
         success: true,
         data: {
           categories,
           count: categories.length,
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to get tool categories:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to retrieve tool categories',
         message,
-      });
+      };
     }
   }
 
   // POST /api/v1/tools/validate
-  async validateTool(req: Request, res: Response): Promise<void> {
+  async validateTool({ body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const validation = await this.toolRegistry.validateToolDefinition(req.body);
+      const validation = await this.toolRegistry.validateToolDefinition(body);
 
-      res.json({
+      return {
         success: true,
         data: validation,
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to validate tool:', error);
-      res.status(500).json({
+      set.status = 500;
+      return {
         success: false,
         error: 'Failed to validate tool',
         message,
-      });
+      };
     }
   }
 
   // GET /api/v1/health
-  async healthCheck(req: Request, res: Response): Promise<void> {
+  async healthCheck({ set }: ElysiaCtx): Promise<unknown> {
     try {
       const registryHealth = await this.toolRegistry.healthCheck();
       const executorHealth = await this.toolExecutor.healthCheck();
@@ -779,7 +789,8 @@ export class ToolController {
       const overallHealth =
         registryHealth.postgresql && registryHealth.neo4j && executorHealth.status === 'healthy';
 
-      res.status(overallHealth ? 200 : 503).json({
+      set.status = overallHealth ? 200 : 503;
+      return {
         success: overallHealth,
         data: {
           status: overallHealth ? 'healthy' : 'unhealthy',
@@ -789,15 +800,16 @@ export class ToolController {
           },
           timestamp: new Date().toISOString(),
         },
-      });
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Health check failed:', error);
-      res.status(503).json({
+      set.status = 503;
+      return {
         success: false,
         error: 'Health check failed',
         message,
-      });
+      };
     }
   }
 

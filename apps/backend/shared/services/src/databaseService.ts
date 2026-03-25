@@ -317,7 +317,7 @@ export class DatabaseService {
     await this.ensureInitialized();
 
     // Run database seeding and knowledge sync if enabled
-    if (process.env.TYPEORM_SYNC === 'true') {
+    if (process.env.DB_SEED === 'true') {
       await this.runDatabaseSeedingAndSync();
     }
   }
@@ -359,7 +359,7 @@ export class DatabaseService {
 
   public async getDataSource() {
     await this.ensureInitialized();
-    throw new Error('TypeORM DataSource has been removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
+    throw new Error('DataSource removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
   }
 
   public async isHealthy(): Promise<boolean> {
@@ -647,7 +647,7 @@ export class DatabaseService {
   }
 
   public get dataSource() {
-    throw new Error('TypeORM DataSource has been removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
+    throw new Error('DataSource removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
   }
 
   // Health check method

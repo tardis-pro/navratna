@@ -4,7 +4,7 @@ import { logger } from '@uaip/utils';
 
 /**
  * Service to transform frontend persona format to backend agent format
- * Addresses critical schema mismatch identified in TypeORM migration plan
+ * Addresses critical schema mismatch
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class AgentTransformationService {
