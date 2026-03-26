@@ -23,6 +23,7 @@ import {
   Minus,
 } from 'lucide-react';
 import { LeaderboardEntry, BattleType } from '@uaip/types';
+import { formatNumber } from './marketplace-utils';
 
 interface AgentLeaderboardProps {
   onAgentClick?: (agentId: string) => void;
@@ -178,11 +179,7 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
     return <Minus className="w-4 h-4 text-gray-400" />;
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  };
+
 
   const LeaderboardRow: React.FC<{ entry: LeaderboardEntry; detailed?: boolean }> = ({
     entry,

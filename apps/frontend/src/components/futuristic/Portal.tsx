@@ -161,7 +161,7 @@ export const Portal: React.FC<PortalProps> = ({
     onFocus?.();
   };
 
-  const _handleDragEnd = (event: unknown, info: unknown) => {
+  const handleDragEnd = (_event: unknown, info: unknown) => {
     setState((prev) => ({
       ...prev,
       isDragging: false,
@@ -177,18 +177,6 @@ export const Portal: React.FC<PortalProps> = ({
     setState((prev) => ({ ...prev, isDragging: true, isActive: true }));
     setIsDragFromHeader(true);
     onFocus?.();
-  };
-
-  const handleHeaderDragEnd = (event: unknown, info: unknown) => {
-    setState((prev) => ({
-      ...prev,
-      isDragging: false,
-      position: {
-        x: info.point.x - info.offset.x,
-        y: info.point.y - info.offset.y,
-      },
-    }));
-    setIsDragFromHeader(false);
   };
 
   const handleResizeStart = () => {
@@ -225,6 +213,92 @@ export const Portal: React.FC<PortalProps> = ({
       },
     }));
   };
+
+  const handleRightEdgeDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minWidth = 350;
+    const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+    setState((prev) => ({ ...prev, size: { ...prev.size, width: newWidth } }));
+  };
+
+  const handleBottomEdgeDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minHeight = 250;
+    const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
+    setState((prev) => ({ ...prev, size: { ...prev.size, height: newHeight } }));
+  };
+
+  const handleTopRightCornerDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minWidth = 350;
+    const minHeight = 250;
+    const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+    const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
+    setState((prev) => ({
+      ...prev,
+      size: { width: newWidth, height: newHeight },
+      position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y },
+    }));
+  };
+
+  const handleBottomLeftCornerDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minWidth = 350;
+    const minHeight = 250;
+    const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+    const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
+    setState((prev) => ({
+      ...prev,
+      size: { width: newWidth, height: newHeight },
+      position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x },
+    }));
+  };
+
+  const handleTopLeftCornerDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minWidth = 350;
+    const minHeight = 250;
+    const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+    const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
+    setState((prev) => ({
+      ...prev,
+      size: { width: newWidth, height: newHeight },
+      position: {
+        x: (prev.position?.x || 0) + info.delta.x,
+        y: (prev.position?.y || 0) + info.delta.y,
+      },
+    }));
+  };
+
+  const handleLeftEdgeDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minWidth = 350;
+    const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+    setState((prev) => ({
+      ...prev,
+      size: { ...prev.size, width: newWidth },
+      position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x },
+    }));
+  };
+
+  const handleTopEdgeDrag = (_event: unknown, info: unknown) => {
+    if (!info || !info.delta) return;
+    const minHeight = 250;
+    const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
+    setState((prev) => ({
+      ...prev,
+      size: { ...prev.size, height: newHeight },
+      position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y },
+    }));
+  };
+
+  const renderCornerHandleContent = (roundedClass: string) => (
+    <div className={`w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 ${roundedClass} border-2 border-white/40 shadow-md backdrop-blur-sm`} />
+  );
 
   const handleMaximize = () => {
     const padding = currentViewport.isMobile ? 10 : 50;
@@ -356,7 +430,7 @@ export const Portal: React.FC<PortalProps> = ({
             dragElastic={0}
             dragPropagation={true}
             onDragStart={handleHeaderDragStart}
-            onDragEnd={handleHeaderDragEnd}
+            onDragEnd={handleDragEnd}
             onDrag={(event, info) => {
               if (!info || !info.point || !info.offset) return;
               setState((prev) => ({
@@ -531,19 +605,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
-                  const newWidth = Math.max(
-                    minWidth,
-                    Math.min(maxWidth, (state.size?.width || 400) + info.delta.x)
-                  );
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, width: newWidth },
-                  }));
-                }}
+                onDrag={handleRightEdgeDrag}
                 className="absolute top-4 right-0 bottom-4 w-4 cursor-ew-resize z-10 group"
                 style={{ touchAction: 'none' }}
               >
@@ -558,19 +620,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minHeight = 250;
-                  const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
-                  const newHeight = Math.max(
-                    minHeight,
-                    Math.min(maxHeight, (state.size?.height || 300) + info.delta.y)
-                  );
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, height: newHeight },
-                  }));
-                }}
+                onDrag={handleBottomEdgeDrag}
                 className="absolute bottom-0 left-4 right-4 h-4 cursor-ns-resize z-10 group"
                 style={{ touchAction: 'none' }}
               >
@@ -586,27 +636,11 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const minHeight = 250;
-                  const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
-                  const newWidth = Math.max(
-                    minWidth,
-                    Math.min(maxWidth, (state.size?.width || 400) + info.delta.x)
-                  );
-                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
-
-                  setState((prev) => ({
-                    ...prev,
-                    size: { width: newWidth, height: newHeight },
-                    position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y },
-                  }));
-                }}
+                onDrag={handleTopRightCornerDrag}
                 className="absolute top-0 right-0 w-5 h-5 cursor-ne-resize z-15 group"
                 style={{ touchAction: 'none' }}
               >
-                <div className="w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 rounded-bl-lg border-2 border-white/40 shadow-md backdrop-blur-sm" />
+                {renderCornerHandleContent('rounded-bl-lg')}
               </motion.div>
 
               {/* Bottom-left corner */}
@@ -617,27 +651,11 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const minHeight = 250;
-                  const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
-                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
-                  const newHeight = Math.max(
-                    minHeight,
-                    Math.min(maxHeight, (state.size?.height || 300) + info.delta.y)
-                  );
-
-                  setState((prev) => ({
-                    ...prev,
-                    size: { width: newWidth, height: newHeight },
-                    position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x },
-                  }));
-                }}
+                onDrag={handleBottomLeftCornerDrag}
                 className="absolute bottom-0 left-0 w-5 h-5 cursor-sw-resize z-15 group"
                 style={{ touchAction: 'none' }}
               >
-                <div className="w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 rounded-tr-lg border-2 border-white/40 shadow-md backdrop-blur-sm" />
+                {renderCornerHandleContent('rounded-tr-lg')}
               </motion.div>
 
               {/* Top-left corner */}
@@ -648,26 +666,11 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const minHeight = 250;
-                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
-                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
-
-                  setState((prev) => ({
-                    ...prev,
-                    size: { width: newWidth, height: newHeight },
-                    position: {
-                      x: (prev.position?.x || 0) + info.delta.x,
-                      y: (prev.position?.y || 0) + info.delta.y,
-                    },
-                  }));
-                }}
+                onDrag={handleTopLeftCornerDrag}
                 className="absolute top-0 left-0 w-5 h-5 cursor-nw-resize z-15 group"
                 style={{ touchAction: 'none' }}
               >
-                <div className="w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 rounded-br-lg border-2 border-white/40 shadow-md backdrop-blur-sm" />
+                {renderCornerHandleContent('rounded-br-lg')}
               </motion.div>
 
               {/* Left edge resize handle */}
@@ -678,16 +681,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, width: newWidth },
-                    position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x },
-                  }));
-                }}
+                onDrag={handleLeftEdgeDrag}
                 className="absolute top-4 left-0 bottom-4 w-3 cursor-ew-resize z-10 group"
                 style={{ touchAction: 'none' }}
               >
@@ -702,16 +696,7 @@ export const Portal: React.FC<PortalProps> = ({
                 dragElastic={0}
                 onDragStart={handleResizeStart}
                 onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minHeight = 250;
-                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, height: newHeight },
-                    position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y },
-                  }));
-                }}
+                onDrag={handleTopEdgeDrag}
                 className="absolute top-0 left-4 right-4 h-3 cursor-ns-resize z-10 group"
                 style={{ touchAction: 'none' }}
               >

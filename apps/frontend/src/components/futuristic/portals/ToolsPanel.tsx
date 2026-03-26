@@ -25,14 +25,7 @@ import {
   Loader2,
   AlertCircle as _AlertCircle,
 } from 'lucide-react';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 
 interface ToolsPanelPortalProps {
   /** Optional additional class names for root container */
@@ -77,17 +70,7 @@ interface MCPServer {
 }
 
 export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewport }) => {
-  // Derive viewport information if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   const { agents, toolIntegrations, capabilities, refreshData, isWebSocketConnected } = useUAIP();
   const [tools, setTools] = useState<Tool[]>([]);

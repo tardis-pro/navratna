@@ -3,7 +3,6 @@ import {
   Upload,
   FileText,
   X,
-  Plus,
   Loader2,
   MessageSquare,
   Brain,
@@ -16,23 +15,15 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { knowledgeAPI } from '@/api/knowledge_api';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import type { KnowledgeType, _SourceType, KnowledgeIngestRequest } from '@uaip/types';
+import { useKnowledgeUpload } from '@/hooks/use_knowledge_upload';
+import { KnowledgeErrorAlert } from '@/components/KnowledgeErrorAlert';
+import { TextKnowledgeCard } from '@/components/TextKnowledgeCard';
 
 interface ChatKnowledgeUploaderProps {
   onUploadComplete?: () => void;
@@ -83,16 +74,11 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
   onUploadComplete,
   className,
 }) => {
-  const { uploadKnowledge, isUploading, _uploadProgress } = useKnowledge();
+  const { uploadKnowledge, isUploading } = useKnowledge();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout>();
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Local state
-  const [dragActive, setDragActive] = useState(false);
   const [chatFiles, setChatFiles] = useState<ChatFile[]>([]);
-  const [textInput, setTextInput] = useState('');
-  const [textTags, setTextTags] = useState('');
-  const [textType, setTextType] = useState<KnowledgeType>('FACTUAL');
   const [error, setError] = useState<string | null>(null);
   const [ingestionOptions, setIngestionOptions] = useState<ChatIngestionOptions>({
     extractWorkflows: true,
@@ -101,50 +87,17 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     detectLearning: true,
   });
 
-  // Detect platform from filename
   const detectPlatform = useCallback(
     (filename: string): 'claude' | 'gpt' | 'whatsapp' | 'generic' => {
       const lower = filename.toLowerCase();
-
       if (PLATFORM_PATTERNS.claude.test(lower)) return 'claude';
       if (PLATFORM_PATTERNS.gpt.test(lower)) return 'gpt';
       if (PLATFORM_PATTERNS.whatsapp.test(lower)) return 'whatsapp';
-
       return 'generic';
     },
     []
   );
 
-  // Handle drag events
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  }, []);
-
-  // Handle file drop
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    handleFiles(droppedFiles);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Handle file selection
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    handleFiles(selectedFiles);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Process files
   const handleFiles = useCallback(
     (newFiles: File[]) => {
       setError(null);
@@ -171,7 +124,10 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     [detectPlatform]
   );
 
-  // Poll job status
+  const { dragActive, handleDrag, handleDrop, handleFileSelect } = useKnowledgeUpload({
+    onFiles: handleFiles,
+  });
+
   const pollJobStatus = useCallback(async (jobId: string, fileId: string) => {
     try {
       const status = await knowledgeAPI.getChatJobStatus(jobId);
@@ -194,10 +150,10 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
         }
-        return false; // Stop polling
+        return false;
       }
 
-      return true; // Continue polling
+      return true;
     } catch (err) {
       console.error('Error polling job status:', err);
       setChatFiles((prev) =>
@@ -211,11 +167,10 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
             : file
         )
       );
-      return false; // Stop polling
+      return false;
     }
   }, []);
 
-  // Start polling for a job
   const startPolling = useCallback(
     (jobId: string, fileId: string) => {
       const poll = async () => {
@@ -227,13 +182,12 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
         }
       };
 
-      pollIntervalRef.current = setInterval(poll, 2000); // Poll every 2 seconds
-      poll(); // Initial poll
+      pollIntervalRef.current = setInterval(poll, 2000);
+      poll();
     },
     [pollJobStatus]
   );
 
-  // Upload chat file
   const uploadChatFile = useCallback(
     async (chatFile: ChatFile) => {
       try {
@@ -247,7 +201,6 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
           prev.map((f) => (f.id === chatFile.id ? { ...f, jobId: result.jobId } : f))
         );
 
-        // Start polling for job status
         startPolling(result.jobId, chatFile.id);
       } catch (err) {
         setChatFiles((prev) =>
@@ -266,7 +219,6 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     [ingestionOptions, startPolling]
   );
 
-  // Upload all chat files
   const handleChatFileUpload = useCallback(async () => {
     const pendingFiles = chatFiles.filter((f) => f.status === 'pending');
 
@@ -276,46 +228,10 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
     }
   }, [chatFiles, uploadChatFile]);
 
-  // Remove file
   const removeFile = useCallback((id: string) => {
     setChatFiles((prev) => prev.filter((file) => file.id !== id));
   }, []);
 
-  // Upload text knowledge (existing functionality)
-  const handleTextUpload = useCallback(async () => {
-    if (!textInput.trim()) return;
-
-    const tags = textTags
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-
-    const knowledgeItem: KnowledgeIngestRequest = {
-      content: textInput,
-      type: textType,
-      tags,
-      source: {
-        type: 'USER_INPUT',
-        identifier: `text-input-${Date.now()}`,
-        metadata: {
-          uploadedAt: new Date().toISOString(),
-          inputMethod: 'text',
-        },
-      },
-      confidence: 0.8,
-    };
-
-    try {
-      await uploadKnowledge([knowledgeItem]);
-      setTextInput('');
-      setTextTags('');
-      onUploadComplete?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload text');
-    }
-  }, [textInput, textTags, textType, uploadKnowledge, onUploadComplete]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (pollIntervalRef.current) {
@@ -352,22 +268,7 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Error Alert */}
-      {error && (
-        <Alert className="border-red-500/50 bg-red-500/10">
-          <AlertDescription className="text-red-300">
-            {error}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setError(null)}
-              className="ml-2 h-auto p-1"
-            >
-              ✕
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <KnowledgeErrorAlert error={error} onDismiss={() => setError(null)} />
 
       <Tabs defaultValue="chat" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -375,7 +276,6 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
           <TabsTrigger value="text">Text Knowledge</TabsTrigger>
         </TabsList>
 
-        {/* Chat Import Tab */}
         <TabsContent value="chat">
           <Card className="bg-black/20 border-blue-500/20">
             <CardHeader>
@@ -389,7 +289,6 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Processing Options */}
               <div className="space-y-3">
                 <h4 className="text-white font-medium">Processing Options</h4>
                 <div className="grid grid-cols-2 gap-4">
@@ -457,7 +356,6 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                 </div>
               </div>
 
-              {/* Drop Zone */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                   dragActive
@@ -499,7 +397,6 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                 />
               </div>
 
-              {/* Chat Files List */}
               {chatFiles.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -588,76 +485,13 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
           </Card>
         </TabsContent>
 
-        {/* Text Knowledge Tab */}
         <TabsContent value="text">
-          <Card className="bg-black/20 border-blue-500/20">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <FileText className="w-5 h-5 mr-2" />
-                Add Text Knowledge
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Enter your knowledge content here..."
-                rows={6}
-                className="bg-black/20 border-blue-500/30 text-white placeholder-gray-400"
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-2 block">
-                    Knowledge Type
-                  </label>
-                  <Select
-                    value={textType}
-                    onValueChange={(value: KnowledgeType) => setTextType(value)}
-                  >
-                    <SelectTrigger className="bg-black/20 border-blue-500/30">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FACTUAL">Factual Knowledge</SelectItem>
-                      <SelectItem value="PROCEDURAL">Procedural Knowledge</SelectItem>
-                      <SelectItem value="CONCEPTUAL">Conceptual Knowledge</SelectItem>
-                      <SelectItem value="EXPERIENTIAL">Experiential Knowledge</SelectItem>
-                      <SelectItem value="EPISODIC">Episodic Memory</SelectItem>
-                      <SelectItem value="SEMANTIC">Semantic Knowledge</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-300 mb-2 block">
-                    Tags (comma-separated)
-                  </label>
-                  <Input
-                    value={textTags}
-                    onChange={(e) => setTextTags(e.target.value)}
-                    placeholder="ai, research, notes"
-                    className="bg-black/20 border-blue-500/30 text-white placeholder-gray-400"
-                  />
-                </div>
-              </div>
-              <Button
-                onClick={handleTextUpload}
-                disabled={!textInput.trim() || isUploading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Knowledge
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+          <TextKnowledgeCard
+            uploadKnowledge={uploadKnowledge}
+            isUploading={isUploading}
+            onUploadComplete={onUploadComplete}
+            onError={setError}
+          />
         </TabsContent>
       </Tabs>
     </div>

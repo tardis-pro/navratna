@@ -42,6 +42,17 @@ interface SystemOperationsFlow {
   discoverServices: () => Promise<unknown>;
 }
 
+function parseUser(userData: { id?: string; email?: string; name?: string; role?: string }): User {
+  return {
+    id: userData.id ?? '',
+    email: userData.email ?? '',
+    firstName: userData.name?.split(' ')[0] || '',
+    lastName: userData.name?.split(' ').slice(1).join(' ') || '',
+    role: userData.role ?? '',
+    permissions: [],
+  };
+}
+
 interface AuthContextType extends AuthState {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
@@ -222,26 +233,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
       if (userData) {
-        setState({
-          user: {
-            id: userData.id,
-            email: userData.email,
-            firstName: userData.name?.split(' ')[0] || '',
-            lastName: userData.name?.split(' ').slice(1).join(' ') || '',
-            role: userData.role,
-            permissions: [],
-          },
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        });
+        setState({ user: parseUser(userData), isAuthenticated: true, isLoading: false, error: null });
       } else {
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
@@ -359,18 +353,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
       if (userData) {
-        setState((prev) => ({
-          ...prev,
-          user: {
-            id: userData.id,
-            email: userData.email,
-            firstName: userData.name?.split(' ')[0] || '',
-            lastName: userData.name?.split(' ').slice(1).join(' ') || '',
-            role: userData.role,
-            permissions: [], // Will be populated from role
-          },
-          error: null,
-        }));
+        setState((prev) => ({ ...prev, user: parseUser(userData), error: null }));
       } else {
         // If user refresh fails, it might mean the token is invalid
         console.warn('User refresh failed, clearing auth');

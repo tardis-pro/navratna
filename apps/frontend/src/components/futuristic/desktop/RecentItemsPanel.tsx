@@ -17,7 +17,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll_area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ActivityFeed } from './ActivityFeed';
+import {
+  ActivityFeed,
+  ActivityEvent,
+  ActivityStats,
+  TrendingItem,
+  RecentItem,
+  formatTimestamp,
+} from './ActivityFeed';
 
 interface ViewportSize {
   width: number;
@@ -25,49 +32,6 @@ interface ViewportSize {
   isMobile: boolean;
   isTablet: boolean;
   isDesktop: boolean;
-}
-
-interface RecentItem {
-  id: string;
-  title: string;
-  type: string;
-  timestamp: Date;
-  icon: React.ComponentType<unknown>;
-  description?: string;
-  isPinned?: boolean;
-  isFavorite?: boolean;
-}
-
-interface ActivityEvent {
-  id: string;
-  type:
-    | 'portal_open'
-    | 'portal_close'
-    | 'action_execute'
-    | 'search'
-    | 'file_access'
-    | 'user_interaction';
-  itemId: string;
-  timestamp: Date;
-  duration?: number;
-  metadata?: Record<string, unknown>;
-}
-
-interface ActivityStats {
-  totalEvents: number;
-  todayEvents: number;
-  weekEvents: number;
-  monthEvents: number;
-  mostUsedItems: RecentItem[];
-  averageSessionTime: number;
-}
-
-interface TrendingItem {
-  itemId: string;
-  item?: RecentItem;
-  recentCount: number;
-  previousCount: number;
-  growth: number;
 }
 
 interface RecentItemsPanelProps {
@@ -120,20 +84,6 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
   const availableTypes = Array.from(new Set(recentItems.map((item) => item.type)));
 
   // Format timestamp
-  const formatTimestamp = (timestamp: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return timestamp.toLocaleDateString();
-  };
-
   // Get type color
   const getTypeColor = (type: string) => {
     const colors: Record<string, string> = {

@@ -219,40 +219,29 @@ export const csrfService = CSRFService.getInstance();
 /**
  * Higher-order function to add CSRF protection to API calls
  */
+function injectCSRFHeaders(args: unknown[], headers: Record<string, string>): void {
+  const lastArg = args[args.length - 1] as Record<string, unknown> | undefined;
+  if (lastArg && typeof lastArg === 'object' && lastArg['headers']) {
+    Object.assign(lastArg['headers'], headers);
+  } else if (lastArg && typeof lastArg === 'object') {
+    lastArg['headers'] = { ...(lastArg['headers'] as object), ...headers };
+  } else {
+    args.push({ headers });
+  }
+}
+
 export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unknown>>(
   apiFunction: T
 ): T {
   return (async (...args: unknown[]) => {
     try {
-      const headers = await csrfService.getHeaders();
-
-      // If the last argument is an options object, merge headers
-      const lastArg = args[args.length - 1];
-      if (lastArg && typeof lastArg === 'object' && lastArg.headers) {
-        Object.assign(lastArg.headers, headers);
-      } else if (lastArg && typeof lastArg === 'object') {
-        lastArg.headers = { ...lastArg.headers, ...headers };
-      } else {
-        // Add options object with headers
-        args.push({ headers });
-      }
-
+      injectCSRFHeaders(args, await csrfService.getHeaders());
       return await apiFunction(...args);
     } catch (error) {
-      // If CSRF token error, try refreshing once
       if (error instanceof Error && error.message.includes('CSRF')) {
         try {
           await csrfService.refreshToken();
-          const headers = await csrfService.getHeaders();
-
-          // Retry with new token
-          const lastArg = args[args.length - 1];
-          if (lastArg && typeof lastArg === 'object' && lastArg.headers) {
-            Object.assign(lastArg.headers, headers);
-          } else if (lastArg && typeof lastArg === 'object') {
-            lastArg.headers = { ...lastArg.headers, ...headers };
-          }
-
+          injectCSRFHeaders(args, await csrfService.getHeaders());
           return await apiFunction(...args);
         } catch (retryError) {
           logger.error('[CSRF] Failed to retry with refreshed token:', retryError);

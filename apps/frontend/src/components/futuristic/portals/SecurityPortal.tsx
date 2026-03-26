@@ -273,6 +273,57 @@ const SecurityPortalContent: React.FC<{
     return `${days}d ago`;
   };
 
+  const TAB_ITEMS: Array<{
+    id: string;
+    label: string;
+    compactLabel: string;
+    icon: React.ComponentType<unknown>;
+  }> = [
+    { id: 'overview', label: 'Overview', compactLabel: 'Overview', icon: BarChart3 },
+    { id: 'threats', label: 'Threats', compactLabel: 'Threats', icon: ShieldAlert },
+    { id: 'monitoring', label: 'Monitoring', compactLabel: 'Monitor', icon: Activity },
+    { id: 'users', label: 'Users', compactLabel: 'Users', icon: Users },
+  ];
+
+  const renderTabNavigation = (compact: boolean) => (
+    <div className={compact ? 'mt-3' : 'mt-6'}>
+      <div className={`flex gap-1 bg-slate-800/30 ${compact ? 'rounded-lg' : 'rounded-xl'} p-1`}>
+        {TAB_ITEMS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <motion.button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as unknown)}
+              className={`${
+                compact
+                  ? 'flex items-center justify-center p-2'
+                  : 'flex items-center gap-2 px-4 py-2 font-medium'
+              } rounded-lg transition-all duration-200 ${
+                activeTab === tab.id
+                  ? 'bg-slate-700/50 text-white border border-slate-600/50'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              {...(compact ? { title: tab.compactLabel } : {})}
+            >
+              <Icon className={compact ? 'w-3 h-3' : 'w-4 h-4'} />
+              {!compact && (showReducedMetrics ? tab.label.slice(0, 4) : tab.label)}
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderEventTypeIcon = (type: string, sizeClass: string) => {
+    if (type === 'threat') return <ShieldAlert className={sizeClass} />;
+    if (type === 'access') return <Key className={sizeClass} />;
+    if (type === 'system') return <Server className={sizeClass} />;
+    if (type === 'audit') return <FileText className={sizeClass} />;
+    return null;
+  };
+
   return (
     <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
       {/* Enhanced Background Pattern */}
@@ -402,69 +453,7 @@ const SecurityPortalContent: React.FC<{
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          {!isCompactMode && (
-            <div className="mt-6">
-              <div className="flex gap-1 bg-slate-800/30 rounded-xl p-1">
-                {[
-                  { id: 'overview', label: 'Overview', icon: BarChart3 },
-                  { id: 'threats', label: 'Threats', icon: ShieldAlert },
-                  { id: 'monitoring', label: 'Monitoring', icon: Activity },
-                  { id: 'users', label: 'Users', icon: Users },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <motion.button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as unknown)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                        activeTab === tab.id
-                          ? 'bg-slate-700/50 text-white border border-slate-600/50'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
-                      }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Icon className="w-4 h-4" />
-                      {showReducedMetrics ? tab.label.slice(0, 4) : tab.label}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Compact Tab Navigation */}
-          {isCompactMode && (
-            <div className="mt-3">
-              <div className="flex gap-1 bg-slate-800/30 rounded-lg p-1">
-                {[
-                  { id: 'overview', label: 'Overview', icon: BarChart3 },
-                  { id: 'threats', label: 'Threats', icon: ShieldAlert },
-                  { id: 'monitoring', label: 'Monitor', icon: Activity },
-                  { id: 'users', label: 'Users', icon: Users },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <motion.button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as unknown)}
-                      className={`flex items-center justify-center p-2 rounded-lg transition-all duration-200 ${
-                        activeTab === tab.id
-                          ? 'bg-slate-700/50 text-white border border-slate-600/50'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
-                      }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      title={tab.label}
-                    >
-                      <Icon className="w-3 h-3" />
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {renderTabNavigation(isCompactMode)}
         </div>
       </motion.div>
 
@@ -577,18 +566,7 @@ const SecurityPortalContent: React.FC<{
                         <div
                           className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg flex items-center justify-center flex-shrink-0 ${getSeverityColor(event.severity)}`}
                         >
-                          {event.type === 'threat' && (
-                            <ShieldAlert className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                          )}
-                          {event.type === 'access' && (
-                            <Key className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                          )}
-                          {event.type === 'system' && (
-                            <Server className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                          )}
-                          {event.type === 'audit' && (
-                            <FileText className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                          )}
+                          {renderEventTypeIcon(event.type, isCompactMode ? 'w-3 h-3' : 'w-4 h-4')}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p

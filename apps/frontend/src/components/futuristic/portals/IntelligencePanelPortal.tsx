@@ -104,6 +104,24 @@ interface IntelligenceMetrics {
   contextualUnderstanding: number;
 }
 
+const AnalysisCard: React.FC<{
+  motionKey: string;
+  index: number;
+  hoverBorderClass: string;
+  children: React.ReactNode;
+}> = ({ motionKey, index, hoverBorderClass, children }) => (
+  <motion.div
+    key={motionKey}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: index * 0.2 }}
+    className={`bg-gradient-to-r from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 ${hoverBorderClass} transition-all duration-300`}
+    whileHover={{ scale: 1.02 }}
+  >
+    {children}
+  </motion.div>
+);
+
 export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = ({
   className,
   mode = 'analysis',
@@ -709,13 +727,11 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
 
           <div className="space-y-4">
             {contextAnalyses.map((analysis, index) => (
-              <motion.div
+              <AnalysisCard
                 key={`${analysis.conversationId}-${analysis.timestamp.toISOString()}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.2 }}
-                className="bg-gradient-to-r from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 hover:border-blue-500/50 transition-all duration-300"
-                whileHover={{ scale: 1.02 }}
+                motionKey={`${analysis.conversationId}-${analysis.timestamp.toISOString()}`}
+                index={index}
+                hoverBorderClass="hover:border-blue-500/50"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -771,7 +787,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     </span>
                   </span>
                 </div>
-              </motion.div>
+              </AnalysisCard>
             ))}
           </div>
         </motion.div>
@@ -793,13 +809,11 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
 
           <div className="space-y-4">
             {cognitiveInsights.map((insight, index) => (
-              <motion.div
+              <AnalysisCard
                 key={insight.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.2 }}
-                className="bg-gradient-to-r from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 hover:border-purple-500/50 transition-all duration-300"
-                whileHover={{ scale: 1.02 }}
+                motionKey={insight.id}
+                index={index}
+                hoverBorderClass="hover:border-purple-500/50"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start space-x-3">
@@ -848,7 +862,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     {insight.timestamp.toLocaleTimeString()}
                   </span>
                 </div>
-              </motion.div>
+              </AnalysisCard>
             ))}
           </div>
         </motion.div>

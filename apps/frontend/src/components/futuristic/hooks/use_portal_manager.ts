@@ -1,4 +1,4 @@
-import { useState, useCallback, _useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 type PortalType =
   | 'agent-hub'
@@ -47,6 +47,39 @@ interface PortalManagerState {
   nextZIndex: number;
 }
 
+function findNextActivePortal(
+  portals: Record<string, PortalState>,
+  excludeId: string
+): string | null {
+  const sorted = Object.values(portals)
+    .filter((p) => p.isOpen && !p.isMinimized && p.id !== excludeId)
+    .sort((a, b) => b.lastActive.getTime() - a.lastActive.getTime());
+  return sorted.length > 0 ? sorted[0].id : null;
+}
+
+function updatePortalState(
+  prevState: PortalManagerState,
+  portalId: string,
+  updates: Partial<PortalState>,
+  activate = false
+): PortalManagerState {
+  const portal = prevState.portals[portalId];
+  if (!portal) return prevState;
+  return {
+    ...prevState,
+    portals: {
+      ...prevState.portals,
+      [portalId]: {
+        ...portal,
+        lastActive: new Date(),
+        ...updates,
+        ...(activate ? { zIndex: prevState.nextZIndex } : {}),
+      },
+    },
+    ...(activate ? { activePortalId: portalId, nextZIndex: prevState.nextZIndex + 1 } : {}),
+  };
+}
+
 export const usePortalManager = () => {
   const [state, setState] = useState<PortalManagerState>({
     portals: {},
@@ -76,23 +109,7 @@ export const usePortalManager = () => {
         );
 
         if (existingPortal) {
-          // Bring existing portal to front and activate it
-          const updatedPortals = {
-            ...prevState.portals,
-            [existingPortal.id]: {
-              ...existingPortal,
-              isMinimized: false,
-              zIndex: prevState.nextZIndex,
-              lastActive: new Date(),
-            },
-          };
-
-          return {
-            ...prevState,
-            portals: updatedPortals,
-            activePortalId: existingPortal.id,
-            nextZIndex: prevState.nextZIndex + 1,
-          };
+          return updatePortalState(prevState, existingPortal.id, { isMinimized: false }, true);
         }
 
         // Create new portal
@@ -132,173 +149,56 @@ export const usePortalManager = () => {
     [generatePortalId]
   );
 
-  // Close a portal
   const closePortal = useCallback((portalId: string) => {
     setState((prevState) => {
       const { [portalId]: _removedPortal, ...remainingPortals } = prevState.portals;
-
-      // If closing the active portal, find the next most recently active portal
-      let newActivePortalId = prevState.activePortalId;
-      if (prevState.activePortalId === portalId) {
-        const sortedPortals = Object.values(remainingPortals)
-          .filter((portal) => portal.isOpen && !portal.isMinimized)
-          .sort((a, b) => b.lastActive.getTime() - a.lastActive.getTime());
-
-        newActivePortalId = sortedPortals.length > 0 ? sortedPortals[0].id : null;
-      }
-
-      return {
-        ...prevState,
-        portals: remainingPortals,
-        activePortalId: newActivePortalId,
-      };
+      const newActivePortalId =
+        prevState.activePortalId === portalId
+          ? findNextActivePortal(remainingPortals, portalId)
+          : prevState.activePortalId;
+      return { ...prevState, portals: remainingPortals, activePortalId: newActivePortalId };
     });
   }, []);
 
-  // Minimize a portal
   const minimizePortal = useCallback((portalId: string) => {
     setState((prevState) => {
-      const portal = prevState.portals[portalId];
-      if (!portal) return prevState;
-
-      const updatedPortals = {
-        ...prevState.portals,
-        [portalId]: {
-          ...portal,
-          isMinimized: true,
-          isMaximized: false,
-        },
-      };
-
-      // If minimizing the active portal, find the next active one
-      let newActivePortalId = prevState.activePortalId;
-      if (prevState.activePortalId === portalId) {
-        const sortedPortals = Object.values(updatedPortals)
-          .filter((p) => p.isOpen && !p.isMinimized)
-          .sort((a, b) => b.lastActive.getTime() - a.lastActive.getTime());
-
-        newActivePortalId = sortedPortals.length > 0 ? sortedPortals[0].id : null;
-      }
-
-      return {
-        ...prevState,
-        portals: updatedPortals,
-        activePortalId: newActivePortalId,
-      };
+      const patched = updatePortalState(prevState, portalId, { isMinimized: true, isMaximized: false });
+      const newActivePortalId =
+        prevState.activePortalId === portalId
+          ? findNextActivePortal(patched.portals, portalId)
+          : prevState.activePortalId;
+      return { ...patched, activePortalId: newActivePortalId };
     });
   }, []);
 
-  // Maximize a portal
   const maximizePortal = useCallback((portalId: string) => {
     setState((prevState) => {
       const portal = prevState.portals[portalId];
-      if (!portal) return prevState;
-
-      return {
-        ...prevState,
-        portals: {
-          ...prevState.portals,
-          [portalId]: {
-            ...portal,
-            isMaximized: !portal.isMaximized,
-            isMinimized: false,
-            zIndex: prevState.nextZIndex,
-            lastActive: new Date(),
-          },
-        },
-        activePortalId: portalId,
-        nextZIndex: prevState.nextZIndex + 1,
-      };
+      return updatePortalState(prevState, portalId, {
+        isMaximized: !portal?.isMaximized,
+        isMinimized: false,
+      }, true);
     });
   }, []);
 
-  // Restore a minimized portal
   const restorePortal = useCallback((portalId: string) => {
-    setState((prevState) => {
-      const portal = prevState.portals[portalId];
-      if (!portal) return prevState;
-
-      return {
-        ...prevState,
-        portals: {
-          ...prevState.portals,
-          [portalId]: {
-            ...portal,
-            isMinimized: false,
-            zIndex: prevState.nextZIndex,
-            lastActive: new Date(),
-          },
-        },
-        activePortalId: portalId,
-        nextZIndex: prevState.nextZIndex + 1,
-      };
-    });
+    setState((prevState) => updatePortalState(prevState, portalId, { isMinimized: false }, true));
   }, []);
 
-  // Bring portal to front
   const bringToFront = useCallback((portalId: string) => {
-    setState((prevState) => {
-      const portal = prevState.portals[portalId];
-      if (!portal) return prevState;
-
-      return {
-        ...prevState,
-        portals: {
-          ...prevState.portals,
-          [portalId]: {
-            ...portal,
-            zIndex: prevState.nextZIndex,
-            lastActive: new Date(),
-          },
-        },
-        activePortalId: portalId,
-        nextZIndex: prevState.nextZIndex + 1,
-      };
-    });
+    setState((prevState) => updatePortalState(prevState, portalId, {}, true));
   }, []);
 
-  // Update portal position
   const updatePortalPosition = useCallback(
     (portalId: string, position: { x: number; y: number }) => {
-      setState((prevState) => {
-        const portal = prevState.portals[portalId];
-        if (!portal) return prevState;
-
-        return {
-          ...prevState,
-          portals: {
-            ...prevState.portals,
-            [portalId]: {
-              ...portal,
-              position,
-              lastActive: new Date(),
-            },
-          },
-        };
-      });
+      setState((prevState) => updatePortalState(prevState, portalId, { position }));
     },
     []
   );
 
-  // Update portal size
   const updatePortalSize = useCallback(
     (portalId: string, size: { width: number; height: number }) => {
-      setState((prevState) => {
-        const portal = prevState.portals[portalId];
-        if (!portal) return prevState;
-
-        return {
-          ...prevState,
-          portals: {
-            ...prevState.portals,
-            [portalId]: {
-              ...portal,
-              size,
-              lastActive: new Date(),
-            },
-          },
-        };
-      });
+      setState((prevState) => updatePortalState(prevState, portalId, { size }));
     },
     []
   );

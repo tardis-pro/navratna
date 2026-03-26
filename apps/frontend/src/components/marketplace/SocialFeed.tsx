@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatNumber } from './marketplace-utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -153,11 +154,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
     return 'Just now';
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  };
+
 
   const handleLike = (postId: string) => {
     setPosts(

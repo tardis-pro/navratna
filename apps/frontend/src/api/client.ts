@@ -186,3 +186,9 @@ class APIClientClass {
 
 // Export singleton instance
 export const APIClient = new APIClientClass();
+
+export function createFileUpload(file: File): FormData {
+  const form = new FormData();
+  form.append('file', file);
+  return form;
+}

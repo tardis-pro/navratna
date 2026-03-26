@@ -34,14 +34,7 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize } from '@/hooks/use_viewport';
 
 interface ProjectManagementPortalProps {
   viewport?: ViewportSize;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatNumber } from './marketplace-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,11 +136,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
     }, 500);
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-  };
+
 
   const ItemCard: React.FC<{ item: MarketplaceItem; featured?: boolean }> = ({
     item,

@@ -104,6 +104,31 @@ const getKnowledgeItemType = (item: KnowledgeItem): string | null => {
   return typeof item.type === 'string' && item.type.length > 0 ? item.type : null;
 };
 
+const KnowledgeItemMeta: React.FC<{ item: KnowledgeItem }> = ({ item }) => (
+  <div className="flex-1 min-w-0">
+    <p className="text-white text-sm font-medium truncate mb-1">
+      {getContentTitle(item.content || '')}
+    </p>
+    <div className="flex items-center gap-2 flex-wrap">
+      {getKnowledgeItemType(item) && getKnowledgeItemType(item) !== 'document' ? (
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
+        >
+          {getKnowledgeItemType(item)}
+        </span>
+      ) : null}
+      <span className="text-xs text-gray-500">
+        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}
+      </span>
+      {(item.tags || []).slice(0, 3).map((tag) => (
+        <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
+          {tag}
+        </Badge>
+      ))}
+    </div>
+  </div>
+);
+
 export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) => {
   const {
     items,
@@ -140,7 +165,29 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
     fetchAllItems();
   }, [refreshStats, fetchAllItems]);
 
-  // Handle search
+  const renderDeleteExamineActions = (item: KnowledgeItem) => (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => deleteKnowledge(item.id)}
+        className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
+        title="Delete"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => { setSelectedItemForAtomic(item); setActiveTab('atomic'); }}
+        className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
+        title="Examine"
+      >
+        <Eye className="w-4 h-4" />
+      </Button>
+    </>
+  );
+
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
 
@@ -224,31 +271,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                       key={item.id}
                       className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate mb-1">
-                          {getContentTitle(item.content || '')}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {getKnowledgeItemType(item) &&
-                          getKnowledgeItemType(item) !== 'document' ? (
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
-                            >
-                              {getKnowledgeItemType(item)}
-                            </span>
-                          ) : null}
-                          <span className="text-xs text-gray-500">
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'No date'}
-                          </span>
-                          {(item.tags || []).slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                      <KnowledgeItemMeta item={item} />
                       <div className="flex items-center space-x-1 ml-3">
                         <Button
                           size="sm"
@@ -305,27 +328,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                         >
                           <Edit3 className="w-4 h-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteKnowledge(item.id)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedItemForAtomic(item);
-                            setActiveTab('atomic');
-                          }}
-                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
-                          title="Examine"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        {renderDeleteExamineActions(item)}
                       </div>
                     </div>
                   ))}
@@ -343,53 +346,9 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                       key={item.id}
                       className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate mb-1">
-                          {getContentTitle(item.content || '')}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {getKnowledgeItemType(item) &&
-                          getKnowledgeItemType(item) !== 'document' ? (
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
-                            >
-                              {getKnowledgeItemType(item)}
-                            </span>
-                          ) : null}
-                          <span className="text-xs text-gray-500">
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'No date'}
-                          </span>
-                          {(item.tags || []).slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                      <KnowledgeItemMeta item={item} />
                       <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteKnowledge(item.id)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedItemForAtomic(item);
-                            setActiveTab('atomic');
-                          }}
-                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
-                          title="Examine"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                        {renderDeleteExamineActions(item)}
                       </div>
                     </div>
                   ))}

@@ -15,31 +15,28 @@ export type {
   TaskProgressUpdate,
 };
 
-// API Functions
-export const tasksApi = {
-  // Get tasks for a project
-  async getProjectTasks(projectId: string, filters?: TaskFilters) {
-    const params = new URLSearchParams();
-
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            params.append(key, value.join(','));
-          } else if (value instanceof Date) {
-            params.append(key, value.toISOString());
-          } else {
-            params.append(key, String(value));
-          }
+function buildFilterParams(filters?: TaskFilters): string {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        if (Array.isArray(value)) {
+          params.append(key, value.join(','));
+        } else if (value instanceof Date) {
+          params.append(key, value.toISOString());
+        } else {
+          params.append(key, String(value));
         }
-      });
-    }
+      }
+    });
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
 
-    const queryString = params.toString();
-    const url = `/projects/${projectId}/tasks${queryString ? `?${queryString}` : ''}`;
-
-    const response = await APIClient.get(url);
-    return response;
+export const tasksApi = {
+  async getProjectTasks(projectId: string, filters?: TaskFilters) {
+    return APIClient.get(`/projects/${projectId}/tasks${buildFilterParams(filters)}`);
   },
 
   // Get a specific task
@@ -90,54 +87,12 @@ export const tasksApi = {
     return response;
   },
 
-  // Get tasks assigned to a user
   async getUserTasks(userId: string, filters?: TaskFilters) {
-    const params = new URLSearchParams();
-
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            params.append(key, value.join(','));
-          } else if (value instanceof Date) {
-            params.append(key, value.toISOString());
-          } else {
-            params.append(key, String(value));
-          }
-        }
-      });
-    }
-
-    const queryString = params.toString();
-    const url = `/users/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
-
-    const response = await APIClient.get(url);
-    return response;
+    return APIClient.get(`/users/${userId}/tasks${buildFilterParams(filters)}`);
   },
 
-  // Get tasks assigned to an agent
   async getAgentTasks(agentId: string, filters?: TaskFilters) {
-    const params = new URLSearchParams();
-
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          if (Array.isArray(value)) {
-            params.append(key, value.join(','));
-          } else if (value instanceof Date) {
-            params.append(key, value.toISOString());
-          } else {
-            params.append(key, String(value));
-          }
-        }
-      });
-    }
-
-    const queryString = params.toString();
-    const url = `/agents/${agentId}/tasks${queryString ? `?${queryString}` : ''}`;
-
-    const response = await APIClient.get(url);
-    return response;
+    return APIClient.get(`/agents/${agentId}/tasks${buildFilterParams(filters)}`);
   },
 };
 

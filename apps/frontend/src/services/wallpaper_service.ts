@@ -417,31 +417,21 @@ class WallpaperService {
     }
   }
 
-  nextImage(): void {
+  private stepImage(direction: 1 | -1): void {
     if (!this.currentTheme) return;
-
-    if (this.preferences.randomOrder) {
-      this.currentImageIndex = Math.floor(Math.random() * this.currentTheme.images.length);
-    } else {
-      this.currentImageIndex = (this.currentImageIndex + 1) % this.currentTheme.images.length;
-    }
-
+    const len = this.currentTheme.images.length;
+    this.currentImageIndex = this.preferences.randomOrder
+      ? Math.floor(Math.random() * len)
+      : (this.currentImageIndex + len + direction) % len;
     this.notifyListeners();
   }
 
+  nextImage(): void {
+    this.stepImage(1);
+  }
+
   previousImage(): void {
-    if (!this.currentTheme) return;
-
-    if (this.preferences.randomOrder) {
-      this.currentImageIndex = Math.floor(Math.random() * this.currentTheme.images.length);
-    } else {
-      this.currentImageIndex =
-        this.currentImageIndex === 0
-          ? this.currentTheme.images.length - 1
-          : this.currentImageIndex - 1;
-    }
-
-    this.notifyListeners();
+    this.stepImage(-1);
   }
 
   getPreferences(): WallpaperPreferences {

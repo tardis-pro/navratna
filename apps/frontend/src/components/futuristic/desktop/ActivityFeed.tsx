@@ -17,7 +17,7 @@ import { _Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll_area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface ActivityEvent {
+export interface ActivityEvent {
   id: string;
   type:
     | 'portal_open'
@@ -32,7 +32,7 @@ interface ActivityEvent {
   metadata?: Record<string, unknown>;
 }
 
-interface RecentItem {
+export interface RecentItem {
   id: string;
   title: string;
   type: string;
@@ -46,7 +46,7 @@ interface RecentItem {
   category?: 'portal' | 'action' | 'file' | 'search';
 }
 
-interface ActivityStats {
+export interface ActivityStats {
   totalEvents: number;
   todayEvents: number;
   weekEvents: number;
@@ -55,7 +55,7 @@ interface ActivityStats {
   averageSessionTime: number;
 }
 
-interface TrendingItem {
+export interface TrendingItem {
   itemId: string;
   item?: RecentItem;
   recentCount: number;
@@ -72,6 +72,20 @@ interface ActivityFeedProps {
   className?: string;
 }
 
+export const formatTimestamp = (timestamp: Date): string => {
+  const now = new Date();
+  const diff = now.getTime() - timestamp.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return timestamp.toLocaleDateString();
+};
+
 export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   activityEvents,
   recentItems,
@@ -83,7 +97,6 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
   const [selectedTimeRange, setSelectedTimeRange] = useState<'today' | 'week' | 'month'>('today');
   const [selectedEventType, setSelectedEventType] = useState<string>('all');
 
-  // Filter events based on selected criteria
   const filteredEvents = useMemo(() => {
     const now = new Date();
     let startDate: Date;
@@ -107,19 +120,6 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
       .filter((event) => selectedEventType === 'all' || event.type === selectedEventType)
       .slice(0, 50); // Limit to 50 most recent events
   }, [activityEvents, selectedTimeRange, selectedEventType]);
-
-  // Format timestamp for display
-  const formatTimestamp = (timestamp: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return timestamp.toLocaleDateString();
-  };
 
   // Get event type color
   const getEventTypeColor = (type: string) => {

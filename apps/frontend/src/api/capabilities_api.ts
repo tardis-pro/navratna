@@ -3,7 +3,7 @@
  * Handles capability discovery, registration, and recommendations
  */
 
-import { APIClient } from './client';
+import { APIClient, createFileUpload } from './client';
 import { API_ROUTES } from '@/config/api_config';
 import type {
   Capability,
@@ -142,13 +142,7 @@ export const capabilitiesAPI = {
     return response;
   },
 
-  async import(file: File): Promise<{
-    imported: number;
-    updated: number;
-    errors?: string[];
-  }> {
-    const formData = new FormData();
-    formData.append('file', file);
-    return APIClient.post(`${API_ROUTES.CAPABILITIES.REGISTER}/import`, formData);
+  async import(file: File): Promise<{ imported: number; updated: number; errors?: string[] }> {
+    return APIClient.post(`${API_ROUTES.CAPABILITIES.REGISTER}/import`, createFileUpload(file));
   },
 };

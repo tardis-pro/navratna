@@ -14,8 +14,13 @@ import {
   Zap,
   RefreshCw,
   Eye,
-  AlertTriangle,
 } from 'lucide-react';
+import {
+  PortalConnectionBadge,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+} from './portal-shared-components';
 
 interface OperationMetrics {
   total: number;
@@ -135,44 +140,31 @@ export const OperationsMonitor: React.FC = () => {
 
   const selectedOp = operations.data.find((op) => op.id === selectedOperation);
 
-  // Show error state
+  const refreshIcon = <RefreshCw className="w-4 h-4" />;
+
   if (operations.error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load operations</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {operations.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <PortalErrorState
+          message="Failed to load operations"
+          detail={operations.error.message}
+          onRetry={refreshData}
+        />
       </div>
     );
   }
 
-  // Show loading state
   if (operations.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <RefreshCw className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading operations...</p>
-          </div>
-        </div>
+        <PortalLoadingState
+          message="Loading operations..."
+          icon={<RefreshCw className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />}
+        />
       </div>
     );
   }
 
-  // Show empty state
   if (operations.data.length === 0) {
     return (
       <div className="space-y-6">
@@ -183,40 +175,23 @@ export const OperationsMonitor: React.FC = () => {
             Operations Monitor
           </h2>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <button
-              onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title="Refresh operations"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
+            <PortalConnectionBadge
+              isConnected={isWebSocketConnected}
+              onRefresh={refreshData}
+              refreshTitle="Refresh operations"
+              refreshIcon={refreshIcon}
+            />
           </div>
         </div>
 
         {/* Empty State */}
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <Settings className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No operations to monitor</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              Operations will appear here when agents start working
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
+        <PortalEmptyState
+          icon={<Settings className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          message="No operations to monitor"
+          subMessage="Operations will appear here when agents start working"
+          onRefresh={refreshData}
+          refreshLabel="Refresh"
+        />
       </div>
     );
   }
@@ -230,21 +205,12 @@ export const OperationsMonitor: React.FC = () => {
           Operations Monitor
         </h2>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh operations"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <PortalConnectionBadge
+            isConnected={isWebSocketConnected}
+            onRefresh={refreshData}
+            refreshTitle="Refresh operations"
+            refreshIcon={refreshIcon}
+          />
           {operations.lastUpdated && (
             <span className="text-xs text-gray-400">
               Updated: {operations.lastUpdated.toLocaleTimeString()}

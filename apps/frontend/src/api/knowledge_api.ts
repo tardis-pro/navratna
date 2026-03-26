@@ -3,7 +3,7 @@
  * Handles knowledge management, search, and relations
  */
 
-import { APIClient } from './client';
+import { APIClient, createFileUpload } from './client';
 import { API_ROUTES } from '@/config/api_config';
 import type {
   KnowledgeItem,
@@ -262,14 +262,8 @@ export const knowledgeAPI = {
     return response;
   },
 
-  async import(file: File): Promise<{
-    imported: number;
-    updated: number;
-    errors?: string[];
-  }> {
-    const formData = new FormData();
-    formData.append('file', file);
-    return APIClient.post(API_ROUTES.KNOWLEDGE.IMPORT, formData);
+  async import(file: File): Promise<{ imported: number; updated: number; errors?: string[] }> {
+    return APIClient.post(API_ROUTES.KNOWLEDGE.IMPORT, createFileUpload(file));
   },
 
   async reindex(): Promise<{

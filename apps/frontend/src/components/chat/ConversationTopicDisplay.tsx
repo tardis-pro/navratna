@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EditIcon, CheckIcon, XIcon, HashIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ConversationWebSocketEventType } from '@uaip/types';
+import { createConversationIntelligenceSocket } from './conversation-socket-utils';
 
 interface ConversationTopicDisplayProps {
   conversationId: string;
@@ -36,23 +37,14 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
   useEffect(() => {
     if (!user?.token) return;
 
-    const newSocket = io('/conversation_intelligence', {
-      auth: { token: user.token },
-      query: { agentId, conversationId },
-    });
+    const newSocket = createConversationIntelligenceSocket(user.token, agentId, conversationId);
 
-    newSocket.on('connected', (_data) => {});
-
-    newSocket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data) => {
+    newSocket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data: { topicName: string; confidence: number }) => {
       setTopic(data.topicName);
       setConfidence(data.confidence);
       if (onTopicChange) {
         onTopicChange(data.topicName);
       }
-    });
-
-    newSocket.on('error', (error) => {
-      console.error('Conversation intelligence error:', error);
     });
 
     setSocket(newSocket);

@@ -5,41 +5,9 @@ import { TaskAssignment } from './TaskAssignment';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-
-// Design System Tokens - matching DesktopUnified
-const DESIGN_TOKENS = {
-  colors: {
-    primary: 'from-blue-400 to-cyan-400',
-    surface: 'bg-slate-900/90',
-    surfaceHover: 'hover:bg-slate-700/50',
-    border: 'border-slate-700/50',
-    text: 'text-white',
-    textSecondary: 'text-slate-300',
-    textMuted: 'text-slate-400',
-  },
-  spacing: {
-    xs: 'gap-2',
-    sm: 'gap-3',
-    md: 'gap-4',
-    lg: 'gap-6',
-  },
-  radius: {
-    sm: 'rounded-lg',
-    md: 'rounded-xl',
-    lg: 'rounded-2xl',
-  },
-  padding: {
-    sm: 'p-1',
-    md: 'p-2',
-    lg: 'p-4',
-  },
-  backdrop: 'backdrop-blur-xl',
-  transition: 'transition-all duration-200',
-  shadow: 'shadow-xl',
-};
+import { DESIGN_TOKENS } from './TaskDesignTokens';
+import { Button } from './TaskButton';
+import { TaskCreateForm } from './TaskCreateForm';
 
 import {
   tasksApi,
@@ -72,41 +40,6 @@ import { toast } from 'sonner';
 interface ProjectTaskManagerProps {
   projectId: string;
 }
-
-const Button: React.FC<{
-  children: React.ReactNode;
-  onClick?: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-}> = ({ children, onClick, variant = 'ghost', size = 'md', className = '' }) => {
-  const variants = {
-    primary: `bg-gradient-to-r ${DESIGN_TOKENS.colors.primary} text-white hover:scale-105`,
-    secondary: `${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.text}`,
-    ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
-    danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
-    outline: `${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.text}`,
-  };
-
-  const sizes = {
-    sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
-    md: `${DESIGN_TOKENS.padding.md} text-sm`,
-    lg: `${DESIGN_TOKENS.padding.lg} text-base`,
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        ${variants[variant]} ${sizes[size]} ${DESIGN_TOKENS.radius.md} 
-        ${DESIGN_TOKENS.transition} flex items-center ${DESIGN_TOKENS.spacing.sm}
-        ${className}
-      `}
-    >
-      {children}
-    </button>
-  );
-};
 
 export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectId }) => {
   const queryClient = useQueryClient();
@@ -288,43 +221,6 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   );
 
   const QuickCreateTask: React.FC = () => {
-    const [formData, setFormData] = useState({
-      title: '',
-      description: '',
-      priority: 'medium',
-      type: 'feature',
-      dueDate: '',
-      estimatedHours: '',
-      tags: '',
-    });
-
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-
-      try {
-        await handleTaskCreate({
-          ...formData,
-          projectId,
-          dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
-          estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
-          tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : undefined,
-        });
-
-        setFormData({
-          title: '',
-          description: '',
-          priority: 'medium',
-          type: 'feature',
-          dueDate: '',
-          estimatedHours: '',
-          tags: '',
-        });
-        setShowQuickCreateTask(false);
-      } catch (error) {
-        console.error('Failed to create task:', error);
-      }
-    };
-
     if (!showQuickCreateTask) return null;
 
     return (
@@ -358,100 +254,22 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             </div>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} space-y-3 sm:space-y-4`}
+          <TaskCreateForm
+            projectId={projectId}
+            onSubmit={async (data) => {
+              try {
+                await handleTaskCreate(data);
+              } catch (error) {
+                console.error('Failed to create task:', error);
+                throw error;
+              }
+            }}
+            onClose={() => setShowQuickCreateTask(false)}
+            formClassName={`p-3 sm:p-4 lg:${DESIGN_TOKENS.padding.lg} space-y-3 sm:space-y-4`}
+            fieldClassName={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
+            selectContentClassName={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+            gridClassName="grid grid-cols-1 sm:grid-cols-2 gap-3"
           >
-            <div className="grid grid-cols-1 gap-4">
-              <Input
-                placeholder="Task title"
-                value={formData.title}
-                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                required
-                className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-              />
-
-              <Textarea
-                placeholder="Description (optional)"
-                value={formData.description}
-                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                rows={3}
-                className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value }))}
-                >
-                  <SelectTrigger
-                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-                  >
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent
-                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
-                  >
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={formData.type}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
-                >
-                  <SelectTrigger
-                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-                  >
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent
-                    className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
-                  >
-                    <SelectItem value="feature">Feature</SelectItem>
-                    <SelectItem value="bug">Bug</SelectItem>
-                    <SelectItem value="enhancement">Enhancement</SelectItem>
-                    <SelectItem value="research">Research</SelectItem>
-                    <SelectItem value="documentation">Documentation</SelectItem>
-                    <SelectItem value="testing">Testing</SelectItem>
-                    <SelectItem value="deployment">Deployment</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  type="date"
-                  placeholder="Due date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
-                  className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-                />
-                <Input
-                  type="number"
-                  placeholder="Estimated hours"
-                  value={formData.estimatedHours}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, estimatedHours: e.target.value }))
-                  }
-                  min="0"
-                  step="0.5"
-                  className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-                />
-              </div>
-
-              <Input
-                placeholder="Tags (comma-separated)"
-                value={formData.tags}
-                onChange={(e) => setFormData((prev) => ({ ...prev, tags: e.target.value }))}
-                className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.border} border ${DESIGN_TOKENS.colors.text}`}
-              />
-            </div>
-
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 gap-3">
               <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted} hidden sm:block`}>
                 Press <kbd className="bg-slate-700 px-1 rounded">Alt+T</kbd> to quickly create tasks
@@ -469,7 +287,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
                 </Button>
               </div>
             </div>
-          </form>
+          </TaskCreateForm>
         </div>
       </>
     );

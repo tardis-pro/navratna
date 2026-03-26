@@ -19,3 +19,9 @@ export { useDebatePrompts } from './use_debate_prompts';
 // Microexpression state hook
 export { useMicroexpression } from './use_microexpression';
 export { useAgentMicroexpression } from './use_agent_microexpression';
+
+// Viewport utilities
+export { useViewport, getDefaultViewport } from './use_viewport';
+export type { ViewportSize } from './use_viewport';
+
+export { useKnowledgeUpload } from './use_knowledge_upload';

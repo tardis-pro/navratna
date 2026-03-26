@@ -44,6 +44,26 @@ interface DesktopHeaderProps {
   theme?: DesktopTheme;
 }
 
+const DropdownPanel: React.FC<{ show: boolean; width: string; children: React.ReactNode }> = ({
+  show,
+  width,
+  children,
+}) => (
+  <AnimatePresence>
+    {show && (
+      <motion.div
+        className={`absolute right-0 top-12 ${width} bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50`}
+        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+      >
+        {children}
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   viewport,
   onToggleRecentPanel,
@@ -189,16 +209,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             )}
           </Button>
 
-          {/* Notifications Dropdown */}
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div
-                className="absolute right-0 top-12 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50"
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
+          <DropdownPanel show={showNotifications} width="w-80">
                 <div className="p-4 border-b border-slate-700">
                   <h3 className="text-white font-semibold">Notifications</h3>
                   <p className="text-slate-400 text-sm">{unreadCount} unread</p>
@@ -236,9 +247,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     View All Notifications
                   </Button>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </DropdownPanel>
         </div>
 
         {/* User Profile */}
@@ -255,16 +264,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             {!viewport.isMobile && <span className="text-sm">Admin</span>}
           </Button>
 
-          {/* User Menu Dropdown */}
-          <AnimatePresence>
-            {showUserMenu && (
-              <motion.div
-                className="absolute right-0 top-12 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50"
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-              >
+          <DropdownPanel show={showUserMenu} width="w-48">
                 <div className="p-3 border-b border-slate-700">
                   <p className="text-white font-medium">Administrator</p>
                   <p className="text-slate-400 text-sm">admin@tardis.digital</p>
@@ -285,9 +285,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <span>Sign Out</span>
                   </button>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </DropdownPanel>
         </div>
 
         {/* Recent Panel Toggle (Desktop/Tablet) */}

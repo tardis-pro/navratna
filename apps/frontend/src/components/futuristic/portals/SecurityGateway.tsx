@@ -13,35 +13,7 @@ import {
   RefreshCw,
   AlertTriangle,
 } from 'lucide-react';
-
-interface SecurityMetrics {
-  totalApprovals: number;
-  pendingApprovals: number;
-  approved: number;
-  rejected: number;
-  averageApprovalTime: number;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
-}
-
-interface AuditEntry {
-  id: string;
-  timestamp: Date;
-  userId: string;
-  action: string;
-  resource: string;
-  result: 'success' | 'failure' | 'denied';
-  details: string;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
-}
-
-// Portal sizing interface shared across futuristic portals
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 
 interface SecurityGatewayPortalProps {
   className?: string;
@@ -61,17 +33,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
   const [actionsInProgress, setActionsInProgress] = useState<Set<string>>(new Set());
 
-  // Determine viewport characteristics if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   // Calculate metrics from real approval data
   const metrics: SecurityMetrics = React.useMemo(() => {

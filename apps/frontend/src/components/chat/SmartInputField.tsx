@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { createConversationIntelligenceSocket } from './conversation-socket-utils';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,28 +50,18 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const { user } = useAuth();
   const debouncedValue = useDebounce(inputValue, 300);
 
-  // Initialize WebSocket connection
   useEffect(() => {
     if (!user?.token) return;
 
-    const newSocket = io('/conversation_intelligence', {
-      auth: { token: user.token },
-      query: { agentId, conversationId },
-    });
+    const newSocket = createConversationIntelligenceSocket(user.token, agentId, conversationId);
 
-    newSocket.on('connected', (_data) => {});
-
-    newSocket.on(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, (data) => {
+    newSocket.on(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, (data: { suggestions: AutocompleteSuggestion[] }) => {
       setSuggestions(data.suggestions);
       setShowSuggestions(data.suggestions.length > 0);
     });
 
-    newSocket.on(ConversationWebSocketEventType.INTENT_DETECTED, (data) => {
+    newSocket.on(ConversationWebSocketEventType.INTENT_DETECTED, (data: { intent: unknown }) => {
       setDetectedIntent(data.intent);
-    });
-
-    newSocket.on('error', (error) => {
-      console.error('Conversation intelligence error:', error);
     });
 
     setSocket(newSocket);

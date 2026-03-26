@@ -10,18 +10,15 @@ import {
   WrenchScrewdriverIcon,
   DocumentIcon,
   TagIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
-
-// Shared viewport type
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalConnectionBadge,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+  PortalSearchFilter,
+} from './portal-shared-components';
 
 interface CapabilityRegistryPortalProps {
   className?: string;
@@ -37,7 +34,6 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
 
-  // Determine viewport if not provided
   const defaultViewport: ViewportSize = {
     width: typeof window !== 'undefined' ? window.innerWidth : 1024,
     height: typeof window !== 'undefined' ? window.innerHeight : 768,
@@ -49,7 +45,6 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   const currentViewport = viewport || defaultViewport;
 
-  // Extract categories from real capabilities data
   const categories: string[] = [
     'all',
     ...(Array.from(
@@ -95,62 +90,36 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   const selectedCapabilityData = capabilities.data.find((cap) => cap.id === selectedCapability);
 
-  // Show error state
   if (capabilities.error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load capabilities</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {capabilities.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <PortalErrorState
+          message="Failed to load capabilities"
+          detail={capabilities.error.message}
+          onRetry={refreshData}
+        />
       </div>
     );
   }
 
-  // Show loading state
   if (capabilities.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading capabilities...</p>
-          </div>
-        </div>
+        <PortalLoadingState message="Loading capabilities..." />
       </div>
     );
   }
 
-  // Show empty state
   if (capabilities.data.length === 0) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <PuzzlePieceIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No capabilities available</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              Capabilities will appear here when agents register them
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
+        <PortalEmptyState
+          icon={<PuzzlePieceIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          message="No capabilities available"
+          subMessage="Capabilities will appear here when agents register them"
+          onRefresh={refreshData}
+          refreshLabel="Refresh"
+        />
       </div>
     );
   }
@@ -168,21 +137,11 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
           Capability Registry
         </h2>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh capabilities"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
+          <PortalConnectionBadge
+            isConnected={isWebSocketConnected}
+            onRefresh={refreshData}
+            refreshTitle="Refresh capabilities"
+          />
           {capabilities.lastUpdated && (
             <span className="text-xs text-gray-400">
               Updated: {capabilities.lastUpdated.toLocaleTimeString()}
@@ -191,30 +150,17 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
+      <PortalSearchFilter
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search capabilities..."
+        searchIcon={
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search capabilities..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          {categories.map((categoryStr) => (
-            <option key={categoryStr} value={categoryStr}>
-              {categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
+        }
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Capabilities List */}

@@ -5,21 +5,18 @@ import {
   LightBulbIcon,
   ArrowTrendingUpIcon,
   ChartBarIcon,
-  ArrowPathIcon,
   ExclamationTriangleIcon,
   EyeIcon,
   CheckCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-
-// Shared viewport interface
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalConnectionBadge,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+} from './portal-shared-components';
 
 interface InsightsPanelPortalProps {
   className?: string;
@@ -168,21 +165,11 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
   if (insights.error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load insights</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {insights.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <PortalErrorState
+          message="Failed to load insights"
+          detail={insights.error.message}
+          onRetry={refreshData}
+        />
       </div>
     );
   }
@@ -191,12 +178,7 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
   if (insights.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading insights...</p>
-          </div>
-        </div>
+        <PortalLoadingState message="Loading insights..." />
       </div>
     );
   }
@@ -212,33 +194,19 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
             AI Insights Panel
           </h2>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <button
-              onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title="Refresh insights"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-            </button>
+            <PortalConnectionBadge
+              isConnected={isWebSocketConnected}
+              onRefresh={refreshData}
+              refreshTitle="Refresh insights"
+            />
           </div>
         </div>
 
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <LightBulbIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No insights available yet</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Insights will appear as the system learns and analyzes patterns
-            </p>
-          </div>
-        </div>
+        <PortalEmptyState
+          icon={<LightBulbIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          message="No insights available yet"
+          subMessage="Insights will appear as the system learns and analyzes patterns"
+        />
       </div>
     );
   }
@@ -256,21 +224,12 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
           AI Insights Panel
         </h2>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'} ({insightStats.total})
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh insights"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
+          <PortalConnectionBadge
+            isConnected={isWebSocketConnected}
+            onRefresh={refreshData}
+            refreshTitle="Refresh insights"
+            label={` (${insightStats.total})`}
+          />
           {insights.lastUpdated && (
             <span className="text-xs text-gray-400">
               Updated: {insights.lastUpdated.toLocaleTimeString()}
