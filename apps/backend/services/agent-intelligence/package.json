@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc && tsc-alias",
-    "dev": "nodemon --exec tsx src/index.ts",
+    "dev": "bun --hot src/index.ts",
     "clean": "rimraf dist",
     "lint": "oxlint src",
     "lint:fix": "oxlint --fix src",
