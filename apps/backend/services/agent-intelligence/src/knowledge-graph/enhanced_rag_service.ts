@@ -1,5 +1,5 @@
 import { TEIEmbeddingService, TEIHealthStatus } from './tei_embedding_service.js';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 
 interface _VectorSearchResult {
   id: string;

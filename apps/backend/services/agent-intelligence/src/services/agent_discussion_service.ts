@@ -19,13 +19,13 @@ import { DiscussionService, LLMRequestTracker, ThoughtParserService } from '@uai
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { KnowledgeGraphService } from '@uaip/shared-services';
-import { AgentMemoryService } from '@/agent-memory/agent_memory_service';
-import { QmdSearchService } from '@/knowledge-graph/qmd_search_service.js';
-import { MacrodataMemoryService } from '@/agent-memory/macrodata_memory_service.js';
+import { AgentMemoryService } from '../agent-memory/agent_memory_service.js';
+import { QmdSearchService } from '../knowledge-graph/qmd_search_service.js';
+import { MacrodataMemoryService } from '../agent-memory/macrodata_memory_service.js';
 import { ThoughtChain, THOUGHT_SYSTEM_PROMPT } from '@uaip/types';
 import { LLMService, UserLLMService, LLMRequest } from '@uaip/llm-service';
-import { QdrantService } from '@/knowledge-graph/qdrant_service.js';
-import { EmbeddingService } from '@/knowledge-graph/embedding_service.js';
+import { QdrantService } from '../knowledge-graph/qdrant_service.js';
+import { EmbeddingService } from '../knowledge-graph/embedding_service.js';
 
 type UnknownRecord = Record<string, unknown>;
 

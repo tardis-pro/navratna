@@ -1,4 +1,4 @@
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 import { KnowledgeItemEntity } from '@uaip/shared-services';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service.js';

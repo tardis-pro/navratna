@@ -11,20 +11,7 @@ export default defineConfig(({ mode: _mode }) => {
     server: {
       host: '::',
       port: 5173,
-      allowedHosts: [
-        'localhost',
-        '127.0.0.1',
-        'api-gateway',
-        'uaip-api-gateway',
-        'council-frontend',
-        'frontend',
-        '.local',
-        '.vercel.app',
-        '.netlify.app',
-        '.ngrok-free.app',
-        '3440-2402-e280-3e2c-76e-7917-4452-f5bb-a42d.ngrok-free.app',
-        'all',
-      ],
+      allowedHosts: true,
       origin: 'http://localhost:5173',
       proxy: {
         '/api': {
@@ -53,9 +40,9 @@ export default defineConfig(({ mode: _mode }) => {
     },
     plugins: [react()].filter(Boolean),
     build: {
-      rollupOptions: {
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
+          manualChunks: (id) => {
             if (id.includes('react-dom') || (id.includes('react') && !id.includes('@tanstack')))
               return 'vendor-react';
             if (id.includes('framer-motion')) return 'vendor-framer';

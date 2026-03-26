@@ -13,9 +13,9 @@ import {
   type KnowledgeCluster,
   type QdrantPoint,
   type ClusteringResult,
-} from '@/knowledge-graph/knowledge_clustering_service';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
-import { SmartEmbeddingService } from '@/knowledge-graph/smart_embedding_service';
+} from '../knowledge-graph/knowledge_clustering_service.js';
+import { QdrantService } from '../knowledge-graph/qdrant_service.js';
+import { SmartEmbeddingService } from '../knowledge-graph/smart_embedding_service.js';
 import { relevance, type RelevanceInput, type RelevanceResult } from './relevance.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────

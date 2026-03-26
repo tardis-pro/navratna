@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { logger } from '@uaip/utils';
 import { MarketplaceService } from '../services/marketplace_service.js';
-import { DatabaseService } from '@uaip/infra/database';
+import { DatabaseService } from '@uaip/shared-services';
 import type {
   MarketplaceItemType,
   MarketplaceCategory,

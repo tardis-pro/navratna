@@ -12,7 +12,7 @@ import {
   SourceType,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 import { KnowledgeRepository, VectorSearchResult } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding_service.js';
 import { ContentClassifier } from './content_classifier_service.js';

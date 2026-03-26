@@ -1,7 +1,6 @@
 import { KnowledgeType, SourceType } from '@uaip/types';
-import {} from '@uaip/shared-services';
 import { KnowledgeRepository } from '@uaip/shared-services';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 import { ToolGraphDatabase } from '@uaip/shared-services';
 import { SmartEmbeddingService } from './smart_embedding_service.js';
 import { KnowledgeClusteringService, KnowledgeCluster } from './knowledge_clustering_service.js';

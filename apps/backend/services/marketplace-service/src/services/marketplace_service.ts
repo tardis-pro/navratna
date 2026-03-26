@@ -1,4 +1,4 @@
-import { DatabaseService } from '@uaip/infra/database';
+import { DatabaseService } from '@uaip/shared-services';
 import { getControlPool } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { MarketplaceSearchFilters, MarketplaceItemStatus } from '@uaip/types';

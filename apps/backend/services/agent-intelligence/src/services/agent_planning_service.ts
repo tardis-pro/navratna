@@ -17,7 +17,7 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { AgentIntelligenceStore } from './agent_intelligence_store.js';
-import { KnowledgeGraphService } from '@/knowledge-graph/knowledge_graph_service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
 
 export interface AgentPlanningConfig {
   databaseService: DatabaseService;

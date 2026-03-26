@@ -9,8 +9,8 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { AgentIntelligenceStore } from './agent_intelligence_store.js';
-import { KnowledgeGraphService } from '@/knowledge-graph/knowledge_graph_service';
-import { AgentMemoryService } from '@/agent-memory/agent_memory_service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
+import { AgentMemoryService } from '../agent-memory/agent_memory_service.js';
 
 export interface AgentMetricsConfig {
   databaseService: DatabaseService;

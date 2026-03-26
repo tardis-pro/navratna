@@ -1,5 +1,5 @@
 import { logger } from '@uaip/utils';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { KnowledgeSyncService } from './knowledge_sync_service.js';
 import { EmbeddingService } from './embedding_service.js';

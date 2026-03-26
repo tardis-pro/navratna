@@ -9,7 +9,7 @@ import {
 } from './chat_knowledge_extractor_service.js';
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeIngestRequest, SourceType } from '@uaip/types';
-import { KnowledgeIngestionPort } from '@uaip/shared-services';
+import type { KnowledgeIngestionPort } from '@uaip/shared-services';
 
 export interface FileData {
   id: string;

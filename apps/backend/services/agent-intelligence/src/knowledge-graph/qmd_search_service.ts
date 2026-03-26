@@ -12,7 +12,7 @@
 
 import { logger } from '@uaip/utils';
 import type { QueryExecutor } from '../agent-memory/macrodata_memory_service.js';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 import { EmbeddingService } from './embedding_service.js';
 
 export interface QmdSearchResult {

@@ -2,7 +2,7 @@ import { KnowledgeSyncService } from './knowledge_sync_service.js';
 import { SimplifiedSyncService, SimplifiedSyncResult } from './simplified_sync_service.js';
 import { KnowledgeItem } from '@uaip/types';
 import { KnowledgeRepository } from '@uaip/shared-services';
-import { QdrantService } from '@/knowledge-graph/qdrant_service';
+import { QdrantService } from './qdrant_service.js';
 import { ToolGraphDatabase } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding_service.js';
 import { SmartEmbeddingService } from './smart_embedding_service.js';
@@ -16,7 +16,6 @@ import { ChatParserService } from './chat_parser_service.js';
 import { ChatKnowledgeExtractorService } from './chat_knowledge_extractor_service.js';
 import { BatchProcessorService } from './batch_processor_service.js';
 import { KnowledgeGraphService } from './knowledge_graph_service.js';
-import {} from '@uaip/infra/database';
 import { logger } from '@uaip/utils';
 
 export interface BootstrapConfig {

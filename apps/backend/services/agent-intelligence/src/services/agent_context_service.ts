@@ -12,9 +12,8 @@ import {
   KnowledgeItem,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import {} from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { KnowledgeGraphService } from '@/knowledge-graph/knowledge_graph_service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
 import { LLMService } from '@uaip/llm-service';
 
 interface LLMContextAnalysis {
