@@ -173,12 +173,13 @@ import { Agent } from '../../../shared/types/src/agent';
 
 ## TESTING
 
-- **Framework**: Jest + ts-jest (backend), Vitest (frontend)
-- **Coverage thresholds**: middleware 80%, security-gateway/discussion-orchestration 70%, orchestration-pipeline 75%
+- **Framework**: **Vitest** (backend + frontend). One legacy `jest.config.js` in security-gateway exists but is inactive — `vitest.config.ts` is the active runner everywhere.
+- **Coverage thresholds**: middleware 80%, security-gateway/discussion-orchestration 70%, orchestration-pipeline 75%; capability-registry and shared-services have no thresholds
 - **File convention**: `src/__tests__/unit/*.test.ts`, `src/__tests__/integration/*.test.ts`
-- **Shared test utilities**: `apps/shared/services/src/__tests__/helpers/testUtils.ts` (TestUtils) and `mocks/serviceMocks.ts` (ServiceMockFactory, 12 mock factories)
-- **Setup files**: every service has `src/__tests__/setup.ts` — `beforeEach(() => jest.clearAllMocks())`, sets `process.env.NODE_ENV = 'test'`, suppresses SIGTERM handlers
-- **Integration tests**: require Docker — run `docker-compose -f infrastructure/docker-compose.test.yml up -d` first; uses offset ports (postgres→5433, redis→6380, rabbitmq→5673)
+- **Shared test utilities**: `apps/shared/services/src/__tests__/helpers/testUtils.ts` (TestUtils: mock repos, pool, DB, eventBus, logger, UUID helpers) and `mocks/serviceMocks.ts` (ServiceMockFactory, 12 mock factories)
+- **Setup files**: `src/__tests__/setup.ts` — `afterEach(() => vi.clearAllMocks())`, sets `NODE_ENV=test`, suppresses SIGTERM handlers; security-gateway setup also adds `toBeOneOf()` custom matcher + `createMockRequest/Response/Next`
+- **No tests**: navratna-core, navratna-gateway, questionforge, artifact-service, llm-service have no `vitest.config.ts`; basebench-meta uses `tsx --test` (Node.js built-in runner)
+- **Integration tests**: require Docker — run `docker-compose -f infrastructure/docker-compose.test.yml up -d` first; offset ports postgres→5433, redis→6380; rabbitmq:5673 in compose file is stale (RabbitMQ removed from prod)
 - **Per-service test run**: `pnpm --filter @uaip/<name> test`
 
 ## SECURITY

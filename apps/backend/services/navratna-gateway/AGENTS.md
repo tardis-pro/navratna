@@ -15,24 +15,34 @@ src/
 └── index.ts     # NavratnaGatewayService extends BaseService — mounts all routes
 ```
 
-Routes imported from sibling service `src/` directories:
+Routes imported from sibling service `src/` directories.
 
-- All `security-gateway/src/http/*.elysia.ts` handlers
-- `orchestration-pipeline/src/routes/taskRoutes.ts`
-- `orchestration-pipeline/src/routes/projectRoutes.ts`
-- `capability-registry/src/routes/toolRoutes.ts`
-- `capability-registry/src/routes/mcpRoutes.ts`
-- `capability-registry/src/routes/healthRoutes.ts`
+### Imported from security-gateway (`src/http/*.elysia.ts`)
+`auth`, `users`, `approval`, `audit`, `security`, `providers`, `oauth`, `persona`, `knowledge`, `contacts`
+
+**NOT imported** (exist in legacy service but absent from navratna-gateway):
+- `projects.elysia.ts` — project routes are NOT exposed via navratna-gateway
+- `tool-preferences.elysia.ts` — tool preferences NOT exposed
+
+### Imported from orchestration-pipeline
+- `taskRoutes.ts` + `projectRoutes.ts`
+
+### Imported from capability-registry
+- `capabilityRoutes.ts`, `mcpRoutes.ts`, `healthRoutes.ts`
+
+**NOT imported** (exist in capability-registry):
+- `toolRoutes.ts` — tool CRUD/execute/search/recommendations NOT exposed
+- `workspaceRoutes.ts` — workspace/coding-agent NOT exposed
 
 ## WHAT IT EXPOSES
 
-All endpoints from:
+- All auth/users/approvals/audit/security/providers/oauth/persona/knowledge/contacts routes from security-gateway
+- Task and project management from orchestration-pipeline
+- Capability management and MCP routes from capability-registry
+- `GET /health`
+- `GET /api/v1/auth/validate` — nginx `auth_request` endpoint + Socket.IO auth fallback for navratna-core
 
-- [security-gateway endpoints](../security-gateway/AGENTS.md)
-- [orchestration-pipeline endpoints](../orchestration-pipeline/AGENTS.md)
-- [capability-registry endpoints](../capability-registry/AGENTS.md)
-
-Plus: `POST /api/v1/auth/validate` — used by `navratna-core` for Socket.IO auth
+**Not exposed** (requires legacy services): tool CRUD/execution, workspace, projects.elysia routes, tool-preferences
 
 ## COMMANDS
 
@@ -44,5 +54,9 @@ pnpm --filter @uaip/navratna-gateway build
 ## NOTES
 
 - `enableEnterpriseEventBus: true`
-- When adding new security/auth/tool/workflow features, modify the **legacy service** — navratna-gateway picks up changes via direct source imports
+- `setupEventSubscriptions()` is **empty** — navratna-gateway does NOT subscribe to `security.auth.validate` or any event bus topics. The legacy security-gateway's event-bus-based auth subscription is not present. navratna-core's Socket.IO auth always falls back to HTTP (`GET http://navratna-gateway:3002/api/v1/auth/validate`).
+- `dev` script uses `nodemon --exec tsx`, not `bun --hot`.
+- When adding new **auth/security/orchestration** features, modify the **legacy service** route files — navratna-gateway picks up via direct source import.
+- Known stubs (return empty data): `GET /api/v1/users/persona/recommendations`, `GET /api/v1/users/persona/compatible-agents`, `GET /api/v1/users/persona/optimized-workspace`, `POST /api/v1/users/persona/track-interaction`
+- Known 501s: `POST /api/v1/oauth/agent/github/:id` with `get_repo` operation; `POST /api/v1/oauth/agent/gmail/:id` with `get_message` operation
 - Pre-existing TS errors likely until `pnpm build:shared` runs

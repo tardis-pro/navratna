@@ -12,35 +12,50 @@ Single-process replacement for 4 legacy services. All agent intelligence, real-t
 
 ```
 src/
-└── index.ts     # NavratnaCoreService extends BaseService — mounts all routes + Socket.IO
+└── index.ts     # NavratnaCoreService extends BaseService — mounts routes + Socket.IO (486 lines)
 ```
 
-Minimal own source. Routes are imported from:
+Minimal own source. Routes imported from legacy service `src/` directories (not full coverage — see gaps below).
 
-- `../agent-intelligence/src/routes/agent.routes.ts`
-- `../agent-intelligence/src/routes/constellation.routes.ts`
-- `../artifact-service/src/routes/artifactRoutes.ts`
-- `../artifact-service/src/routes/shortLinkRoutes.ts`
-- `../llm-service/src/routes/llm.routes.ts`
-- `../llm-service/src/routes/user-llm.routes.ts`
+### Imported routes
+| Import | Source | Exposes |
+|--------|--------|---------|
+| `registerAgentRoutes` | `agent-intelligence/src/routes/agent.routes.ts` | **ONE route only**: `POST /api/v1/agents/relevance` |
+| `registerConstellationRoutes` | `agent-intelligence/src/routes/constellation.routes.ts` | `POST /api/v1/knowledge/constellations` |
+| `registerArtifactRoutes` | `artifact-service/src/routes/artifactRoutes.ts` | 8 routes under `/api/v1/artifacts` |
+| `registerShortLinkRoutes` | `artifact-service/src/routes/shortLinkRoutes.ts` | 7 routes under `/api/v1/links` + `/s/:shortCode` |
+| `registerLLMRoutes` | `llm-service/src/routes/llm.routes.ts` | 17 routes under `/api/v1/llm` |
+| `registerUserLLMRoutes` | `llm-service/src/routes/user-llm.routes.ts` | 13 routes under `/api/v1/user/llm` |
 
-Socket.IO handler from discussion-orchestration patterns.
+### ⚠️ CRITICAL GAP
+Full agent CRUD (`/api/v1/agents`), chat (`/api/v1/agents/:id/chat`), memory management, persona CRUD, and discussion endpoints are **inline** in `agent-intelligence/src/index.ts` — they are NOT in the extracted route files. These endpoints are **not accessible via navratna-core**; they require the legacy `agent-intelligence` service to be running.
+
+### Socket.IO handlers (from discussion-orchestration)
+Imported: `UserChatHandler`, `ConversationIntelligenceHandler`, `TaskNotificationHandler`, `StreamingHandler`, `CodingAgentSocketHandler`, `DebateHandler`, `WhatsAppHandler`, `setupWebSocketHandlers`. Each wrapped in `try/catch` — silent degradation on failure.
+
+**Engine**: `@socket.io/bun-engine`, path `/socket.io/`, pingInterval 25s, pingTimeout 60s
+
+| Namespace | Handler |
+|-----------|---------|
+| `/` (default) | `setupWebSocketHandlers` — full discussion lifecycle: join/leave rooms, messages, typing, turns, reactions |
+| `/conversation-intelligence` | `ConversationIntelligenceHandler` |
+| `/streaming` | `StreamingHandler` |
+| `/coding-agent` | `CodingAgentSocketHandler` |
 
 ## WHAT IT EXPOSES
 
-All endpoints from:
-
-- [agent-intelligence endpoints](../agent-intelligence/AGENTS.md)
-- [artifact-service endpoints](../artifact-service/AGENTS.md)
-- [llm-service endpoints](../llm-service/AGENTS.md)
-- Socket.IO namespaces: `/`, `/streaming`, `/conversation-intelligence`, `/coding-agent`
+- `POST /api/v1/agents/relevance` — relevance scoring
+- `POST /api/v1/knowledge/constellations` — multi-agent constellation coordination
+- All artifact, short-link, LLM, and user-LLM routes (see service AGENTS.md files)
+- `GET /health`
+- Socket.IO namespaces (4)
 
 ## AUTH
 
-Validates tokens against `navratna-gateway` (not legacy `security-gateway`):
-
-- `POST http://navratna-gateway:3002/api/v1/auth/validate`
-- Correlation-ID pattern for Socket.IO auth (same as discussion-orchestration)
+Socket.IO auth (correlation-ID pattern):
+1. Extract token from `socket.handshake.auth.token` / `Authorization: Bearer` / `query.token`
+2. Publish `security.auth.validate` with UUID correlation ID → await `security.auth.response` (5s timeout)
+3. HTTP fallback: `GET http://navratna-gateway:3002/api/v1/auth/validate` (then `http://localhost:3002`)
 
 ## COMMANDS
 
@@ -52,6 +67,9 @@ pnpm --filter @uaip/navratna-core build
 ## NOTES
 
 - Pre-existing TypeScript errors in `src/index.ts` — packages not yet built in dev. Run `pnpm build:shared` first.
-- v3.0 consolidation is in-progress — `navratna-core` is the development target, not legacy services
+- `dev` script uses `nodemon --exec tsx`, not `bun --hot` — hot reload is slower than expected.
 - `enableEnterpriseEventBus: true` — compliance mode BullMQ queue (RabbitMQ removed)
-- When adding new agent/discussion/artifact features, add to the **legacy service first** so navratna-core picks them up via direct import
+- When adding new **artifact/llm** features: add to the legacy service's route files — navratna-core picks them up via import.
+- When adding new **agent/discussion** features: add to the legacy `agent-intelligence` or `discussion-orchestration` service. Note that the full agent CRUD is inline in `agent-intelligence/src/index.ts` and is NOT yet extracted to route files — v3.0 consolidation for agents is incomplete.
+- `setupEventSubscriptions()` subscribes to `discussion.agent.message` and `security.auth.response` — these are the only event bus subscriptions.
+- Redis session manager uses DB index 2 (`REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD` env vars).

@@ -7,7 +7,7 @@ React 19 + Vite + Tailwind 4 SPA. Ambient Telescope surface with portal-based na
 ```
 src/
 ├── main.tsx                    # Mounts <DesktopApp /> into #root
-├── DesktopApp.tsx              # Root: all 9 providers + BrowserRouter + Routes
+├── DesktopApp.tsx              # Root: all 10 providers + BrowserRouter + Routes
 ├── api/                        # Domain-specific API modules (22 files)
 │   ├── client.ts               # Axios singleton with CSRF + auth error handling
 │   └── *.api.ts                # One file per domain (agents, discussions, knowledge, etc.)
@@ -26,7 +26,7 @@ src/
 ├── hooks/                      # 20 custom hooks (useApiCall, useDataFetch, useStreamingChat...)
 ├── pages/                      # Index, NotFound, workspace/*, questionforge/*
 ├── services/                   # CSRFService, ChatPersistenceService, WallpaperService
-├── types/                      # Frontend-local types + uaip-interfaces.ts
+├── types/                      # frontend-extensions.ts only — real types from @uaip/types
 └── utils/
     ├── uaip-api.ts             # High-level API facade (prefer over api/* directly)
     └── api.ts                  # Re-exports uaip-api
@@ -137,3 +137,19 @@ pnpm --filter @council/frontend test     # per-package
 - Hardcoding API URLs — use `buildAPIURL()` from `config/apiConfig.ts`
 - Adding shadcn-style components to `futuristic/portals/` — portals are app-specific, not UI primitives
 - Feature work in `marketplace-service` portal — marketplace is scheduled for removal in v3.0
+- Instantiating Socket.IO (`io()`) directly in components — use `useEnhancedWebSocket` or `useStreamingChat`
+- Importing from `utils/api.ts` — it's deprecated; use `uaipAPI` from `utils/uaip-api.ts`
+- Editing `tailwind.config.ts` — it is an **empty directory**; all Tailwind 4 config lives in `globals.css` `@theme {}` blocks
+- Using `ChatPersistenceService` — fully deprecated; delegate to `discussionsAPI` directly
+
+## KNOWN GOTCHAS
+
+- `SecurityContext` — uses **mock data only**, not wired to `securityAPI`
+- `OnboardingContext` — hardcoded to always show onboarding (line 45: `return true`); real API check commented out
+- `DiscussionControlsPortal`, `DiscussionLogPortal`, `GeneralSettingsPortal` — **stubs** (14–16 lines each), placeholder only
+- `ToolsIntegrationsPortal` — **deprecated** redirect shim to `UnifiedToolPortal`; remove from registry
+- `src/types/frontend-extensions.ts` — only file in `types/`; provides re-exports + `createAgentStateFromShared()` factory
+- Two portal systems coexist: `TelescopeSurface` (ambient grid, primary UX) and `PortalWorkspace` (floating windows, legacy alternative)
+- `tsconfig.app.json` has `strict: false` but `noImplicitAny: true` — contradictory; `strictNullChecks` is globally off
+- `src/components/ui/` contains committed build artifacts: `base-widget.js`, `base-widget.d.ts.*`
+- `use-toast.ts` duplicated: `src/hooks/use-toast.ts` AND `src/components/ui/use-toast.ts` — use `hooks/` version
