@@ -41,5 +41,6 @@
       "require": "./dist/api/index.js",
       "types": "./dist/api/index.d.ts"
     }
-  }
+  },
+  "sideEffects": false
 }

@@ -57,7 +57,7 @@ export default defineConfig(({ mode: _mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
-      conditions: ['@uaip/source'],
+      conditions: [],
     },
     test: {
       globals: true,

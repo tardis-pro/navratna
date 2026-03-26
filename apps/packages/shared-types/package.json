@@ -40,5 +40,6 @@
       "require": "./dist/*.js",
       "types": "./dist/*.d.ts"
     }
-  }
+  },
+  "sideEffects": false
 }
