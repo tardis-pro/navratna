@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
-import type { ProjectStatus, ProjectMemberRole, ProjectType } from '@uaip/types';
+import type { ProjectStatus, ProjectMemberRole, ProjectType } from '@uaip/contracts/api';
 import type {
   Project,
   ProjectCreate,
@@ -13,7 +13,7 @@ import type {
   ProjectMember,
   ProjectFile,
   ProjectListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   Project,

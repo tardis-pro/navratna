@@ -35,6 +35,11 @@
       "import": "./dist/events.js",
       "require": "./dist/events.js",
       "types": "./dist/events.d.ts"
+    },
+    "./api": {
+      "import": "./dist/api/index.js",
+      "require": "./dist/api/index.js",
+      "types": "./dist/api/index.d.ts"
     }
   }
 }

@@ -16,7 +16,7 @@ import type {
   InterviewSession,
   InterviewAnswer,
   InterviewResult,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   ForgeRequest,

@@ -13,7 +13,7 @@ import type {
   LLMGenerateResponse,
   LLMContextAnalysis,
   UserLLMProvider,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   LLMModel,

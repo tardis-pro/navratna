@@ -11,13 +11,13 @@ import type {
   PersonaValidation,
   PersonaRecommendation,
   PersonaTemplate,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 import type {
   PersonaCreate,
   PersonaUpdate,
   PersonaSearchRequest,
   PersonaListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type { PersonaCreate, PersonaUpdate, PersonaSearchRequest, PersonaListOptions };
 

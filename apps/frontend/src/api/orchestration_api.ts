@@ -12,7 +12,7 @@ import type {
   OperationPriority,
   ExecuteOperationRequest,
   OperationStatusResponse,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 import type {
   WorkflowDefinition,
   WorkflowStep,
@@ -20,7 +20,7 @@ import type {
   WorkflowExecution,
   WorkflowStepExecution,
   OperationListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   WorkflowDefinition,

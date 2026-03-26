@@ -5,14 +5,14 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
-import type { AuditEventType } from '@uaip/types';
+import type { AuditEventType } from '@uaip/contracts/api';
 import type {
   AuditEvent,
   AuditStats,
   ComplianceReport,
   AuditLogOptions,
   AuditExportOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type { AuditEvent, AuditStats, ComplianceReport, AuditLogOptions, AuditExportOptions };
 

@@ -5,7 +5,7 @@ import type {
   UpdateTaskRequest,
   TaskAssignmentRequest,
   TaskProgressUpdate,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   TaskFilters,

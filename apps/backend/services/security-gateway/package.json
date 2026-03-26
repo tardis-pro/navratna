@@ -83,7 +83,7 @@
   "license": "MIT",
   "nx": {
     "tags": [
-      "backend-service"
+      "legacy-service"
     ]
   }
 }

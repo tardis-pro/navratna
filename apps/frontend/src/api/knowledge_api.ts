@@ -13,7 +13,7 @@ import type {
   KnowledgeRelation,
   KnowledgeStats,
   KnowledgeGraph,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   KnowledgeItem,

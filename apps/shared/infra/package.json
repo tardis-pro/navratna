@@ -41,6 +41,11 @@
       "require": "./dist/eventBus.js",
       "types": "./dist/eventBus.d.ts"
     },
+    "./event_bus": {
+      "import": "./dist/eventBus.js",
+      "require": "./dist/eventBus.js",
+      "types": "./dist/eventBus.d.ts"
+    },
     "./database": {
       "import": "./dist/database/index.js",
       "require": "./dist/database/index.js",

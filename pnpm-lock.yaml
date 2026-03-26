@@ -1392,6 +1392,9 @@ importers:
       '@types/json-schema':
         specifier: ^7.0.15
         version: 7.0.15
+      '@uaip/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
       '@uaip/types':
         specifier: workspace:*
         version: link:../packages/shared-types

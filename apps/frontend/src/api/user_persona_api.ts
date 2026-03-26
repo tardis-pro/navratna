@@ -7,7 +7,7 @@ import type {
   UserPersonaResponse,
   PersonaRecommendations,
   PersonaInsights,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   UserPersonaData,

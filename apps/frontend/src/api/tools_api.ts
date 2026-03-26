@@ -16,7 +16,7 @@ import type {
   ToolRelation,
   ToolAnalytics,
   ToolListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   Tool,

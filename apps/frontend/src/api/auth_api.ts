@@ -15,7 +15,7 @@ import type {
   ChangePasswordRequest,
   RegisterRequest,
   RegisterResponse,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export const authAPI = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {

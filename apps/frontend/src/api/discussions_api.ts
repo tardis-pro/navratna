@@ -17,7 +17,7 @@ import type {
   MessageRequest,
   TurnRequest,
   DiscussionListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type DiscussionCreate = CreateDiscussionRequest;
 

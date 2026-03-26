@@ -11,7 +11,7 @@ import type {
   CapabilityStatus,
   CapabilitySearchRequest,
   CapabilityRecommendation,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 import type {
   CapabilityCreate,
   CapabilityUpdate,
@@ -19,7 +19,7 @@ import type {
   CapabilityDependency,
   CapabilityValidation,
   CapabilityListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   CapabilityCreate,

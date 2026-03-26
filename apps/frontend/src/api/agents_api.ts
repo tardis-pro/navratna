@@ -13,7 +13,7 @@ import type {
   AgentStatus,
   AgentAnalysisResult,
   ExecutionPlan,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 import type {
   AgentHealthCheck,
   AgentListOptions,
@@ -23,7 +23,7 @@ import type {
   AgentParticipationRequest,
   AgentChatRequest,
   AgentChatResponse,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   AgentHealthCheck,

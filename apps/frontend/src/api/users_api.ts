@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
-import type { UserRole, UserLLMPreference } from '@uaip/types';
+import type { UserRole, UserLLMPreference } from '@uaip/contracts/api';
 import type {
   User,
   UserCreate,
@@ -14,7 +14,7 @@ import type {
   UserStats,
   PasswordResetRequest,
   BulkUserAction,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   User,

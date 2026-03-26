@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { _API_ROUTES } from '@/config/api_config';
-import type { MCPServer, MCPTool, MCPStatus, MCPConfig, MCPUploadResult } from '@uaip/types';
+import type { MCPServer, MCPTool, MCPStatus, MCPConfig, MCPUploadResult } from '@uaip/contracts/api';
 
 export type { MCPServer, MCPTool, MCPStatus, MCPConfig, MCPUploadResult };
 

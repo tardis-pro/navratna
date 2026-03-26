@@ -12,7 +12,7 @@ import type {
   ConversationAnalysisRequest,
   HybridPersonaRequest,
   ContextualResponseRequest,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   ConversationEnhancementRequest,

@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
-import type { RiskLevel } from '@uaip/types';
+import type { RiskLevel } from '@uaip/contracts/api';
 import type {
   ApprovalWorkflow,
   ApprovalDecision,
@@ -13,7 +13,7 @@ import type {
   ApprovalDecisionRequest,
   ApprovalStats,
   ApprovalListOptions,
-} from '@uaip/types';
+} from '@uaip/contracts/api';
 
 export type {
   ApprovalWorkflow,
