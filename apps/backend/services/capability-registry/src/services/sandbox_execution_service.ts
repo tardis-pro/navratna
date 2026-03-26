@@ -1,4 +1,4 @@
-import { EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { exec } from 'child_process';

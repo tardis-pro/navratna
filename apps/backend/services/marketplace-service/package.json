@@ -42,5 +42,10 @@
     "tsx": "catalog:backend",
     "typescript": "catalog:",
     "vitest": "catalog:dev"
+  },
+  "nx": {
+    "tags": [
+      "backend-service"
+    ]
   }
 }

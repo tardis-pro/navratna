@@ -1,5 +1,5 @@
 import { DatabaseService } from '@uaip/infra/database';
-import { EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra';
 import { redisCacheService } from '@uaip/infra/cache';
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';

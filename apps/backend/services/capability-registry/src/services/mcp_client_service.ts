@@ -8,7 +8,7 @@ import { logger } from '@uaip/utils';
 import { ToolCategory } from '@uaip/types';
 import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import { EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra';
 import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcp_secrets.js';
 import { McpRepository } from '../database/index.js';
 

@@ -3,13 +3,14 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    "noImplicitAny": false,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "src/**/*.js"],
   "references": [
     { "path": "../../../packages/shared-types" },
     { "path": "../../../packages/shared-utils" },

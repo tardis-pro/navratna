@@ -3,7 +3,7 @@
 // Part of capability-registry microservice
 
 import { logger } from '@uaip/utils';
-import { EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra';
 
 interface OAuthCapability {
   action: string;

@@ -36,5 +36,10 @@
     "microservice"
   ],
   "author": "UAIP Team",
-  "license": "MIT"
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "backend-service"
+    ]
+  }
 }

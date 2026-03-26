@@ -11,7 +11,7 @@ import {
   SecurityLevel,
 } from '@uaip/types';
 import { ToolRecommendation, ToolService } from '@uaip/shared-services';
-import { EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 

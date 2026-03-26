@@ -9,7 +9,8 @@ import { logger } from '@uaip/utils';
 import { getControlDb, eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
 import { mcpServers, mcpToolCalls } from '@uaip/shared-services/drizzle/control';
 import type { ControlDB } from '@uaip/shared-services';
-import type { MCPServer } from '@uaip/shared-services/drizzle/control';
+
+type MCPServer = typeof mcpServers.$inferSelect;
 
 // ── Domain error ────────────────────────────────────────────────────────────
 

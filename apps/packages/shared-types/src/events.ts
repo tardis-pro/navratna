@@ -1,7 +1,11 @@
 import { IDSchema } from './common.js';
 import { z } from 'zod';
 import type { ActionRecommendation } from './agent.js';
-import { randomUUID } from 'crypto';
+const randomUUID = (): string =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
 // Event types
 export enum EventType {
   AGENT_ANALYSIS_REQUESTED = 'agent.analysis.requested',

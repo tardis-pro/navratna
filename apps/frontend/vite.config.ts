@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react-swc';
+import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ _mode }) => {
+export default defineConfig(({ mode: _mode }) => {
   // Use environment variable for API target, fallback to localhost for local dev
   const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8081';
 

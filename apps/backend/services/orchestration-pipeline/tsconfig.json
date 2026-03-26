@@ -28,6 +28,7 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "src/**/*.js"],
   "references": [
     {
       "path": "../../../shared/infra"

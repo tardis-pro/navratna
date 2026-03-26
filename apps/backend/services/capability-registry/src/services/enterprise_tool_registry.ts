@@ -7,7 +7,7 @@
 import { logger } from '@uaip/utils';
 import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import { EventBusService } from '@uaip/infra/event_bus';
+import { EventBusService } from '@uaip/infra';
 import type {
   EnterpriseToolDefinition as ToolDefinition,
   EnterpriseToolOperation as ToolOperation,
