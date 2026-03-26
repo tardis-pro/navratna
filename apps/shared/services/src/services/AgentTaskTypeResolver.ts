@@ -52,7 +52,9 @@ export class AgentTaskTypeResolver {
         return roleBasedTaskType;
       }
 
-      const capabilityBasedTaskType = this.mapCapabilitiesToTaskType((agent.capabilities || []) as string[]);
+      const capabilityBasedTaskType = this.mapCapabilitiesToTaskType(
+        (agent.capabilities || []) as string[]
+      );
       if (capabilityBasedTaskType) {
         logger.info('Task type determined from agent capabilities', {
           agentId: agent.id,

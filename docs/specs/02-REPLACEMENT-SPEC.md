@@ -17,7 +17,7 @@ These constraints are locked. They apply retroactively to everything in this spe
 >
 > **Concurred. No exceptions.** No Express anywhere. No TypeORM anywhere. No types or interfaces defined outside `apps/packages/`. No fallbacks, no feature flags, no rollback paths. Migrate, verify, delete. This is a single-owner machine — git revert is the only rollback.
 >
-> **2026-03-25 reconfirmation:** Constraints verified active across all remaining work (R2–R9). R1 (TypeORM) and R8 (Express) verified 100% complete via grep — zero hits. All remaining replacements execute under these same constraints.  No new type/interface files may be created in service directories. No amqplib/RabbitMQ fallbacks. Auth goes straight to httpOnly cookies — no compatibility layer. Code splitting goes straight to React.lazy() — no lazy-load flag.
+> **2026-03-25 reconfirmation:** Constraints verified active across all remaining work (R2–R9). R1 (TypeORM) and R8 (Express) verified 100% complete via grep — zero hits. All remaining replacements execute under these same constraints. No new type/interface files may be created in service directories. No amqplib/RabbitMQ fallbacks. Auth goes straight to httpOnly cookies — no compatibility layer. Code splitting goes straight to React.lazy() — no lazy-load flag.
 
 1. **No Express. Anywhere.** Not in source, not in types, not re-exported from shared packages. Elysia is the HTTP framework. If it is not Elysia, delete it. This includes Express-shaped shims (`interface Request/Response/NextFunction`, `asyncHandler`, `errorHandler` with 4-arg signature, `ExpressRequest/Response/NextFunction` type aliases).
 
@@ -41,23 +41,24 @@ grep -r "ExpressRequest\|ExpressResponse\|ExpressNextFunction" --include="*.ts" 
 
 ## Current Status (2026-03-25 — Audit v2.2)
 
-| # | What | Status | Notes |
-|---|------|--------|-------|
-| 1 | TypeORM → Drizzle | **100%** ✅ | `grep typeorm` → 0 source hits. Stale TYPEORM env vars removed from docker-compose.yml. |
-| 2 | RabbitMQ → BullMQ | **100%** ✅ | `grep amqplib` → 0 hits. BullMQ+ioredis wired. Stale RABBITMQ_URL env vars removed from docker-compose.yml. |
-| 3 | 7 → 2 Services | **100%** ✅ | navratna-core/gateway live; WS wired; docker/nginx updated. 7 legacy service index.ts entry points deleted. |
-| 4 | DesktopUnified → Telescope | **100%** ✅ | DesktopUnified.tsx deleted. All portals wired as lazy MaterializableBlocks in portalRegistry.tsx. DesktopWorkspace.tsx deleted (was unused). |
-| 5 | Framer Basic → Advanced | **100%** ✅ | 7-state MICROEXPRESSION_VARIANTS wired in MaterializableBlock. layoutId + useMotionValue + gestures in TelescopeSurface. |
-| 6 | Code Splitting | **100%** ✅ | All portals lazy-loaded in portalRegistry.tsx. Vite manualChunks configured. Suspense fallback implemented. |
-| 7 | Auth Tokens → httpOnly cookies | **100%** ✅ | auth.elysia.ts sets httpOnly access_token + refresh_token cookies. api/client.ts uses withCredentials:true, no localStorage. |
-| 8 | Express elimination | **100%** ✅ | `grep express` → 0 source hits. |
-| 9 | Types → `@packages/` | **100%** ✅ | All service type files deleted. orchestration-pipeline Zod schemas moved to @uaip/types pipeline-schemas.ts. frontend/src/types/ reduced to frontend-extensions.ts only. |
+| #   | What                           | Status      | Notes                                                                                                                                                                    |
+| --- | ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | TypeORM → Drizzle              | **100%** ✅ | `grep typeorm` → 0 source hits. Stale TYPEORM env vars removed from docker-compose.yml.                                                                                  |
+| 2   | RabbitMQ → BullMQ              | **100%** ✅ | `grep amqplib` → 0 hits. BullMQ+ioredis wired. Stale RABBITMQ_URL env vars removed from docker-compose.yml.                                                              |
+| 3   | 7 → 2 Services                 | **100%** ✅ | navratna-core/gateway live; WS wired; docker/nginx updated. 7 legacy service index.ts entry points deleted.                                                              |
+| 4   | DesktopUnified → Telescope     | **100%** ✅ | DesktopUnified.tsx deleted. All portals wired as lazy MaterializableBlocks in portalRegistry.tsx. DesktopWorkspace.tsx deleted (was unused).                             |
+| 5   | Framer Basic → Advanced        | **100%** ✅ | 7-state MICROEXPRESSION_VARIANTS wired in MaterializableBlock. layoutId + useMotionValue + gestures in TelescopeSurface.                                                 |
+| 6   | Code Splitting                 | **100%** ✅ | All portals lazy-loaded in portalRegistry.tsx. Vite manualChunks configured. Suspense fallback implemented.                                                              |
+| 7   | Auth Tokens → httpOnly cookies | **100%** ✅ | auth.elysia.ts sets httpOnly access_token + refresh_token cookies. api/client.ts uses withCredentials:true, no localStorage.                                             |
+| 8   | Express elimination            | **100%** ✅ | `grep express` → 0 source hits.                                                                                                                                          |
+| 9   | Types → `@packages/`           | **100%** ✅ | All service type files deleted. orchestration-pipeline Zod schemas moved to @uaip/types pipeline-schemas.ts. frontend/src/types/ reduced to frontend-extensions.ts only. |
 
 ---
 
 ## Replacement 1: TypeORM → Drizzle ORM
 
 ### Rationale
+
 TypeORM is the #1 performance bottleneck: N+1 query problems, heavy decorator/metadata overhead, poor tree-shaking. Drizzle: 0 runtime overhead, queries compile to SQL at build time.
 
 ### Verified Complete
@@ -78,6 +79,7 @@ TypeORM is the #1 performance bottleneck: N+1 query problems, heavy decorator/me
 ✅ Stale TYPEORM env vars removed from docker-compose.yml (2026-03-25).
 
 ### Validation
+
 - `grep -r "from 'typeorm'" --include="*.ts" apps/ scripts/` → zero results ✅
 - `grep -ri "typeorm" --include="*.ts" apps/ scripts/` → zero results ✅
 
@@ -86,6 +88,7 @@ TypeORM is the #1 performance bottleneck: N+1 query problems, heavy decorator/me
 ## Replacement 2: RabbitMQ → BullMQ on Redis
 
 ### Rationale
+
 RabbitMQ consumes 512MB RAM for simple pub/sub that Redis already handles. BullMQ provides priority queues, retries, delayed jobs, cron scheduling. Redis is already running.
 
 ### Verified Complete
@@ -111,7 +114,11 @@ export class EventBusService {
   private subscribers: Map<string, EventBusHandler[]> = new Map();
 
   async publish(topic: string, payload: UAIPEvent, opts?: EventBusPublishContext): Promise<void>;
-  async subscribe(topic: string, handler: EventBusHandler, opts?: EventBusSubscriptionOptions): Promise<void>;
+  async subscribe(
+    topic: string,
+    handler: EventBusHandler,
+    opts?: EventBusSubscriptionOptions
+  ): Promise<void>;
   async close(): Promise<void>;
 }
 ```
@@ -125,6 +132,7 @@ export class EventBusService {
 ## Replacement 3: 7 Microservices → 2 Consolidated Services
 
 ### Rationale
+
 7 services × 512MB = 3.5GB RAM on a single-owner machine. Services with constant shared data flow (Agent Intelligence ↔ Discussion Orchestration ↔ LLM) add network latency for zero benefit.
 
 ### Consolidation Map
@@ -151,6 +159,7 @@ export class EventBusService {
 ## Replacement 4: DesktopUnified → TelescopeSurface
 
 ### Rationale
+
 DesktopUnified implements a window-manager metaphor: drag, resize, minimize, maximize, Z-index layering, taskbar, app launcher. Telescope eliminates all of this. One surface, responds to intent.
 
 ### Verified Complete
@@ -163,6 +172,7 @@ DesktopUnified implements a window-manager metaphor: drag, resize, minimize, max
 - ✅ No feature flag; direct mount
 
 **What was deleted:**
+
 - `DesktopUnified.tsx` — all window drag/resize/minimize/maximize logic
 - Taskbar component, app launcher grid, Z-index layering, desktop shortcuts, sticky notes, window state tracking
 
@@ -246,31 +256,35 @@ Expected impact: Initial bundle 500KB+ → ~150KB. TTI ~3s → ~1s.
 ## Replacement 9: Types → `apps/packages/` Only
 
 ### Rule
+
 All exported types and interfaces used across more than one service or component live in `apps/packages/shared-types`. Types used only within one file may stay local but must not be exported. Drizzle schema inferred types (`$inferSelect`, `$inferInsert`) stay with their schema — they are exceptions.
 
 ### What Exists in `apps/packages/shared-types`
+
 50+ domain type files covering: agent, api, artifact, audit, basebench, battle, capability, common, config, contextTriggers, conversation-intelligence, critique, database, debate, discussion, event-bus, events, frontend-api, frontend-auth, http, knowledge-graph, llm, marketplace, mcp, microexpression, models, operation, persona, personaAdvanced, personaConstants, personaDefaults, personaUtils, project, questionforge, security, service-auth, social, streaming, system, telescope, thought, tool, tools, ui-interfaces, user, websocket, widget, workspace.
 
 ### Verified Complete
 
-| File | Status |
-|------|--------|
-| `artifact-service/src/interfaces/ArtifactTypes.ts` | ✅ Deleted — types in `@uaip/types` artifact module |
-| `artifact-service/src/interfaces/ServiceTypes.ts` | ✅ Deleted — types in `@uaip/types` artifact module |
-| `capability-registry/src/types/tool-definition.ts` | ✅ Deleted — types in `@uaip/types` tool module |
-| `orchestration-pipeline/src/sops/sop-types.ts` | ✅ Deleted — types added to `@uaip/types` |
+| File                                                        | Status                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `artifact-service/src/interfaces/ArtifactTypes.ts`          | ✅ Deleted — types in `@uaip/types` artifact module           |
+| `artifact-service/src/interfaces/ServiceTypes.ts`           | ✅ Deleted — types in `@uaip/types` artifact module           |
+| `capability-registry/src/types/tool-definition.ts`          | ✅ Deleted — types in `@uaip/types` tool module               |
+| `orchestration-pipeline/src/sops/sop-types.ts`              | ✅ Deleted — types added to `@uaip/types`                     |
 | `discussion-orchestration/src/websocket/websocket.types.ts` | ✅ Deleted — types merged into `@uaip/types` websocket module |
-| `security-gateway/src/http/types/elysia-context.ts` | ✅ Deleted — types merged into `@uaip/types` http module |
-| `frontend/src/types/frontend-extensions.ts` | ✅ Now a re-export shim only — no local type definitions |
-| `frontend/src/types/persona.ts` | ✅ Merged into `@uaip/types` persona module |
+| `security-gateway/src/http/types/elysia-context.ts`         | ✅ Deleted — types merged into `@uaip/types` http module      |
+| `frontend/src/types/frontend-extensions.ts`                 | ✅ Now a re-export shim only — no local type definitions      |
+| `frontend/src/types/persona.ts`                             | ✅ Merged into `@uaip/types` persona module                   |
 
 ### What Remains
 
 ✅ All type migrations complete (2026-03-25):
+
 - `orchestration-pipeline/src/types/schemas.ts` → moved to `apps/packages/shared-types/src/pipeline-schemas.ts`; exported from `@uaip/types` index
 - `frontend/src/types/` — 8 re-export shims deleted; only `frontend-extensions.ts` (utility functions) retained
 
 ### Rule for component-local interfaces
+
 `interface Props { ... }` inside a `.tsx` component file — keep local, do not export. Already unexported = already fine.
 
 ---
@@ -279,32 +293,32 @@ All exported types and interfaces used across more than one service or component
 
 **All work complete as of 2026-03-25.** ✅
 
-| Item | Description | Completed |
-|------|-------------|-----------|
-| A1 | Remove stale TYPEORM_SYNC / TYPEORM_MIGRATIONS_RUN from docker-compose.yml | ✅ 2026-03-25 |
-| A2 | Remove stale RABBITMQ_URL from docker-compose.yml | ✅ 2026-03-25 |
-| A3 | Delete 7 legacy service index.ts entry points | ✅ 2026-03-25 |
-| A4 | Audit frontend/src/types/ — delete re-export shims | ✅ 2026-03-25 |
-| A5 | Delete DesktopWorkspace.tsx (not mounted in app root) | ✅ 2026-03-25 |
-| B1 | Move Zod schemas from orchestration-pipeline/src/types/schemas.ts to @uaip/types | ✅ 2026-03-25 |
-| C1 | Wire 7-state microexpression system to Framer Motion variants in MaterializableBlock | ✅ 2026-03-25 |
-| C2 | Add layoutId, useMotionValue, gesture recognition to TelescopeSurface | ✅ 2026-03-25 |
+| Item | Description                                                                          | Completed     |
+| ---- | ------------------------------------------------------------------------------------ | ------------- |
+| A1   | Remove stale TYPEORM_SYNC / TYPEORM_MIGRATIONS_RUN from docker-compose.yml           | ✅ 2026-03-25 |
+| A2   | Remove stale RABBITMQ_URL from docker-compose.yml                                    | ✅ 2026-03-25 |
+| A3   | Delete 7 legacy service index.ts entry points                                        | ✅ 2026-03-25 |
+| A4   | Audit frontend/src/types/ — delete re-export shims                                   | ✅ 2026-03-25 |
+| A5   | Delete DesktopWorkspace.tsx (not mounted in app root)                                | ✅ 2026-03-25 |
+| B1   | Move Zod schemas from orchestration-pipeline/src/types/schemas.ts to @uaip/types     | ✅ 2026-03-25 |
+| C1   | Wire 7-state microexpression system to Framer Motion variants in MaterializableBlock | ✅ 2026-03-25 |
+| C2   | Add layoutId, useMotionValue, gesture recognition to TelescopeSurface                | ✅ 2026-03-25 |
 
 ---
 
 ## Replacement Summary
 
-| # | What | From | To | Status | Remaining |
-|---|------|------|----|--------|-----------|
-| 1 | ORM | TypeORM | Drizzle | **100% ✅** | — |
-| 2 | Message Bus | RabbitMQ | BullMQ/Redis | **100% ✅** | — |
-| 3 | Services | 7 microservices | 2 consolidated | **100% ✅** | — |
-| 4 | UI Shell | DesktopUnified | TelescopeSurface | **100% ✅** | — |
-| 5 | Animations | Basic Framer | Advanced Framer | **100% ✅** | — |
-| 6 | Bundle | Monolithic | Code-split | **100% ✅** | — |
-| 7 | Auth tokens | localStorage | httpOnly cookies | **100% ✅** | — |
-| 8 | HTTP framework | Express remnants | Elysia | **100% ✅** | — |
-| 9 | Types | Scattered | `@packages/` only | **100% ✅** | — |
+| #   | What           | From             | To                | Status      | Remaining |
+| --- | -------------- | ---------------- | ----------------- | ----------- | --------- |
+| 1   | ORM            | TypeORM          | Drizzle           | **100% ✅** | —         |
+| 2   | Message Bus    | RabbitMQ         | BullMQ/Redis      | **100% ✅** | —         |
+| 3   | Services       | 7 microservices  | 2 consolidated    | **100% ✅** | —         |
+| 4   | UI Shell       | DesktopUnified   | TelescopeSurface  | **100% ✅** | —         |
+| 5   | Animations     | Basic Framer     | Advanced Framer   | **100% ✅** | —         |
+| 6   | Bundle         | Monolithic       | Code-split        | **100% ✅** | —         |
+| 7   | Auth tokens    | localStorage     | httpOnly cookies  | **100% ✅** | —         |
+| 8   | HTTP framework | Express remnants | Elysia            | **100% ✅** | —         |
+| 9   | Types          | Scattered        | `@packages/` only | **100% ✅** | —         |
 
 No feature flags. No rollback paths. No fallbacks. Migrate, verify, delete.
 

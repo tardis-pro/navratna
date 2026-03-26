@@ -16,7 +16,15 @@ import type {
   BulkUserAction,
 } from '@uaip/types';
 
-export type { User, UserCreate, UserUpdate, UserListOptions, UserStats, PasswordResetRequest, BulkUserAction };
+export type {
+  User,
+  UserCreate,
+  UserUpdate,
+  UserListOptions,
+  UserStats,
+  PasswordResetRequest,
+  BulkUserAction,
+};
 
 export const usersAPI = {
   async list(options?: UserListOptions): Promise<User[]> {

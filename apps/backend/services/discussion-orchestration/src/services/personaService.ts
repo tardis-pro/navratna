@@ -17,8 +17,6 @@ import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 
-
-
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
   eventBusService: EventBusService;
@@ -94,7 +92,10 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
-      const savedEntity = await this.databaseService.create('personas', personaData as unknown as Record<string, unknown>);
+      const savedEntity = await this.databaseService.create(
+        'personas',
+        personaData as unknown as Record<string, unknown>
+      );
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -233,7 +234,8 @@ export class PersonaService {
     try {
       const conditions: Record<string, unknown> = {};
       if (filters.status && filters.status.length === 1) conditions.status = filters.status[0];
-      if (filters.visibility && filters.visibility.length === 1) conditions.visibility = filters.visibility[0];
+      if (filters.visibility && filters.visibility.length === 1)
+        conditions.visibility = filters.visibility[0];
       if (filters.organizationId) conditions.organizationId = filters.organizationId;
       if (filters.teamId) conditions.teamId = filters.teamId;
 
@@ -241,15 +243,17 @@ export class PersonaService {
         order: { createdAt: 'DESC' },
       });
 
-      const filtered = (filters.query
-        ? allEntities.filter((e) => {
-            const q = filters.query!.toLowerCase();
-            const name = typeof e.name === 'string' ? e.name.toLowerCase() : '';
-            const desc = typeof e.description === 'string' ? e.description.toLowerCase() : '';
-            const role = typeof e.role === 'string' ? e.role.toLowerCase() : '';
-            return name.includes(q) || desc.includes(q) || role.includes(q);
-          })
-        : allEntities) as Record<string, unknown>[];
+      const filtered = (
+        filters.query
+          ? allEntities.filter((e) => {
+              const q = filters.query!.toLowerCase();
+              const name = typeof e.name === 'string' ? e.name.toLowerCase() : '';
+              const desc = typeof e.description === 'string' ? e.description.toLowerCase() : '';
+              const role = typeof e.role === 'string' ? e.role.toLowerCase() : '';
+              return name.includes(q) || desc.includes(q) || role.includes(q);
+            })
+          : allEntities
+      ) as Record<string, unknown>[];
 
       const total = filtered.length;
       const entities = filtered.slice(offset, offset + limit);
@@ -465,14 +469,20 @@ export class PersonaService {
 
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
-      const allEntities = await this.databaseService.findMany('personas', {}, {
-        order: { totalInteractions: 'DESC' },
-      });
+      const allEntities = await this.databaseService.findMany(
+        'personas',
+        {},
+        {
+          order: { totalInteractions: 'DESC' },
+        }
+      );
 
       const entities = category
         ? allEntities.filter((e) => {
             const tags = e.tags;
-            return Array.isArray(tags) ? tags.includes(category) : typeof tags === 'string' && (tags as string).includes(category);
+            return Array.isArray(tags)
+              ? tags.includes(category)
+              : typeof tags === 'string' && (tags as string).includes(category);
           })
         : allEntities;
 

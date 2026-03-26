@@ -201,16 +201,9 @@ export type {
 export { CapabilityGapRadarService } from './cognitive/capabilityGapRadar.service';
 export type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
 export { ConfidenceGatedExecutionService } from './cognitive/confidenceGatedExecution.service';
-export type {
-  ExecutionGate,
-  ConfidenceProfile,
-} from '@uaip/types';
+export type { ExecutionGate, ConfidenceProfile } from '@uaip/types';
 export { ExplanationDAGService } from './cognitive/explanationDAG.service';
-export type {
-  ReasoningNode,
-  ReasoningEdge,
-  ExplanationDAG,
-} from '@uaip/types';
+export type { ReasoningNode, ReasoningEdge, ExplanationDAG } from '@uaip/types';
 
 // =============================================================================
 // ENTITIES

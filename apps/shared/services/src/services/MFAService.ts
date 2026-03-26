@@ -2,7 +2,6 @@ import { BaseDomainService } from './BaseDomainService';
 import { MFAMethod } from '@uaip/types';
 import { getControlPool } from '../database/drizzle/clients/index';
 
-
 export class MFAService extends BaseDomainService {
   protected constructor() {
     super();
@@ -33,7 +32,7 @@ export class MFAService extends BaseDomainService {
 
   public async verifyMFAChallenge(userId: string, code: string): Promise<boolean> {
     const pool = getControlPool();
-    
+
     // Find the challenge
     const challengeResult = await pool.query(
       `SELECT * FROM mfa_challenges
@@ -52,20 +51,19 @@ export class MFAService extends BaseDomainService {
     }
 
     // Mark as verified
-    await pool.query(
-      `UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`,
-      [new Date(), challenge.id]
-    );
+    await pool.query(`UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`, [
+      new Date(),
+      challenge.id,
+    ]);
 
     return true;
   }
 
   public async findMFAChallenge(challengeId: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM mfa_challenges WHERE id = $1 LIMIT 1`,
-      [challengeId]
-    );
+    const result = await pool.query(`SELECT * FROM mfa_challenges WHERE id = $1 LIMIT 1`, [
+      challengeId,
+    ]);
     return result.rows[0] ?? null;
   }
 
@@ -80,19 +78,13 @@ export class MFAService extends BaseDomainService {
 
   public async invalidateMFAChallenge(challengeId: string): Promise<boolean> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `DELETE FROM mfa_challenges WHERE id = $1`,
-      [challengeId]
-    );
+    const result = await pool.query(`DELETE FROM mfa_challenges WHERE id = $1`, [challengeId]);
     return (result.rowCount ?? 0) > 0;
   }
 
   public async cleanupExpiredChallenges(): Promise<void> {
     const pool = getControlPool();
-    await pool.query(
-      `DELETE FROM mfa_challenges WHERE expires_at < $1`,
-      [new Date()]
-    );
+    await pool.query(`DELETE FROM mfa_challenges WHERE expires_at < $1`, [new Date()]);
   }
 
   public async incrementAttempts(challengeId: string): Promise<boolean> {
@@ -111,10 +103,10 @@ export class MFAService extends BaseDomainService {
     }
 
     const pool = getControlPool();
-    const result = await pool.query(
-      `UPDATE mfa_challenges SET attempts = $1 WHERE id = $2`,
-      [newAttempts, challengeId]
-    );
+    const result = await pool.query(`UPDATE mfa_challenges SET attempts = $1 WHERE id = $2`, [
+      newAttempts,
+      challengeId,
+    ]);
 
     return (result.rowCount ?? 0) > 0;
   }
@@ -148,7 +140,7 @@ export class MFAService extends BaseDomainService {
 
   public async verifyMFAChallengeBySession(sessionId: string, code: string): Promise<boolean> {
     const pool = getControlPool();
-    
+
     // Find the challenge
     const challengeResult = await pool.query(
       `SELECT * FROM mfa_challenges
@@ -167,10 +159,10 @@ export class MFAService extends BaseDomainService {
     }
 
     // Mark as verified
-    await pool.query(
-      `UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`,
-      [new Date(), challenge.id]
-    );
+    await pool.query(`UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`, [
+      new Date(),
+      challenge.id,
+    ]);
 
     return true;
   }

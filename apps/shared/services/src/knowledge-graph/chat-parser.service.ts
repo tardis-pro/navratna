@@ -1,10 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
-import type {
-  ParsedMessage,
-  ParsedConversation,
-  ChatParsingResult,
-} from '@uaip/types';
+import type { ParsedMessage, ParsedConversation, ChatParsingResult } from '@uaip/types';
 
 export type { ParsedMessage, ParsedConversation, ChatParsingResult } from '@uaip/types';
 

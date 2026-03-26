@@ -1,22 +1,19 @@
 {
-    "extends": "../../../tsconfig.json",
-    "compilerOptions": {
-        "paths": {
-            "@/*": ["./src/*"],
-            "*": ["./src/*"]
-        },
-        "outDir": "./dist",
-        "rootDir": "./src",
-        "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "*": ["./src/*"]
     },
-    "include": ["src/**/*"],
-    "exclude": [
-      "node_modules",
-      "dist"
-    ],
-    "references": [
-      {
-        "path": "../shared-types"
-      }
-    ]
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    {
+      "path": "../shared-types"
+    }
+  ]
 }

@@ -31,5 +31,5 @@ export default mergeConfig(
         '@uaip/llm-service': path.resolve(import.meta.dirname, '../../../shared/llm-service/src'),
       },
     },
-  }),
+  })
 );

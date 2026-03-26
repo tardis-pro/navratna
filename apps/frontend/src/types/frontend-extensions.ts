@@ -19,7 +19,10 @@ import type { Agent, Persona } from '@uaip/types';
 import type { FrontendAgentState } from '@uaip/types';
 import { AgentRole, LLMProviderType, SecurityLevel } from '@uaip/types';
 
-export const createAgentStateFromShared = (sharedAgent: Agent, persona?: Persona): FrontendAgentState => {
+export const createAgentStateFromShared = (
+  sharedAgent: Agent,
+  persona?: Persona
+): FrontendAgentState => {
   return {
     ...sharedAgent,
     role: sharedAgent.role || AgentRole.ASSISTANT,

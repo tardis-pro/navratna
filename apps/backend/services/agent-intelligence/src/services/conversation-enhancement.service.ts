@@ -849,7 +849,7 @@ export class ConversationEnhancementService extends EventEmitter {
     for (const agentId of agentIds) {
       try {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
+        const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
         if (agent) {
           const sharedAgent = this.toSharedAgent(agent);
           if (sharedAgent) {
@@ -933,7 +933,10 @@ const agent = await this.databaseService.findById<AgentEntity>('agents', agentId
                 participant.userId
               );
               if (user && (user.firstName || user.email)) {
-                participantMap.set(participant.id, `${user.firstName} ${user.lastName}`.trim() || user.email);
+                participantMap.set(
+                  participant.id,
+                  `${user.firstName} ${user.lastName}`.trim() || user.email
+                );
                 continue;
               }
             }

@@ -1,4 +1,9 @@
-import { getControlDb, getIntelligenceDb, getControlPool, getIntelligencePool } from '../drizzle/clients/index';
+import {
+  getControlDb,
+  getIntelligenceDb,
+  getControlPool,
+  getIntelligencePool,
+} from '../drizzle/clients/index';
 import { sql } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -9,10 +14,15 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
   protected abstract get plane(): 'intelligence' | 'control';
 
   protected get db(): NodePgDatabase<Record<string, unknown>> {
-    return (this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb()) as NodePgDatabase<Record<string, unknown>>;
+    return (this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb()) as NodePgDatabase<
+      Record<string, unknown>
+    >;
   }
 
-  protected async rawQuery<R = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<R[]> {
+  protected async rawQuery<R = Record<string, unknown>>(
+    query: string,
+    params: unknown[] = []
+  ): Promise<R[]> {
     const pool = this.plane === 'intelligence' ? getIntelligencePool() : getControlPool();
     const result = await pool.query<R>(query, params);
     return result.rows;
@@ -20,15 +30,24 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
 
   async findById(id: string): Promise<T | null> {
     try {
-      const rows = await this.rawQuery<T>(`SELECT * FROM "${this.tableName}" WHERE id = $1 LIMIT 1`, [id]);
+      const rows = await this.rawQuery<T>(
+        `SELECT * FROM "${this.tableName}" WHERE id = $1 LIMIT 1`,
+        [id]
+      );
       return rows[0] ?? null;
     } catch (error) {
-      logger.error(`BaseRepository.findById failed for ${this.tableName}`, { id, error: (error as Error).message });
+      logger.error(`BaseRepository.findById failed for ${this.tableName}`, {
+        id,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
 
-  async findMany(conditions: Record<string, unknown> = {}, options: FindManyOptions = {}): Promise<T[]> {
+  async findMany(
+    conditions: Record<string, unknown> = {},
+    options: FindManyOptions = {}
+  ): Promise<T[]> {
     try {
       const keys = Object.keys(conditions);
       const whereClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
@@ -36,14 +55,19 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       let query = `SELECT * FROM "${this.tableName}"`;
       if (whereClauses) query += ` WHERE ${whereClauses}`;
       if (options.orderBy) {
-        const orderClauses = Object.entries(options.orderBy).map(([col, dir]) => `"${col}" ${dir}`).join(', ');
+        const orderClauses = Object.entries(options.orderBy)
+          .map(([col, dir]) => `"${col}" ${dir}`)
+          .join(', ');
         query += ` ORDER BY ${orderClauses}`;
       }
       if (options.limit) query += ` LIMIT ${options.limit}`;
       if (options.offset) query += ` OFFSET ${options.offset}`;
       return this.rawQuery<T>(query, values);
     } catch (error) {
-      logger.error(`BaseRepository.findMany failed for ${this.tableName}`, { conditions, error: (error as Error).message });
+      logger.error(`BaseRepository.findMany failed for ${this.tableName}`, {
+        conditions,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -51,7 +75,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
   async create(data: Record<string, unknown>): Promise<T> {
     try {
       const keys = Object.keys(data);
-      const cols = keys.map(k => `"${k}"`).join(', ');
+      const cols = keys.map((k) => `"${k}"`).join(', ');
       const params = keys.map((_, i) => `$${i + 1}`).join(', ');
       const rows = await this.rawQuery<T>(
         `INSERT INTO "${this.tableName}" (${cols}) VALUES (${params}) RETURNING *`,
@@ -59,7 +83,9 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       );
       return rows[0];
     } catch (error) {
-      logger.error(`BaseRepository.create failed for ${this.tableName}`, { error: (error as Error).message });
+      logger.error(`BaseRepository.create failed for ${this.tableName}`, {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -74,17 +100,25 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       );
       return rows[0] ?? null;
     } catch (error) {
-      logger.error(`BaseRepository.update failed for ${this.tableName}`, { id, error: (error as Error).message });
+      logger.error(`BaseRepository.update failed for ${this.tableName}`, {
+        id,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
 
   async delete(id: string): Promise<boolean> {
     try {
-      const result = await this.db.execute(sql`DELETE FROM ${sql.identifier(this.tableName)} WHERE id = ${id}`);
+      const result = await this.db.execute(
+        sql`DELETE FROM ${sql.identifier(this.tableName)} WHERE id = ${id}`
+      );
       return ((result as { rowCount?: number }).rowCount ?? 0) > 0;
     } catch (error) {
-      logger.error(`BaseRepository.delete failed for ${this.tableName}`, { id, error: (error as Error).message });
+      logger.error(`BaseRepository.delete failed for ${this.tableName}`, {
+        id,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -99,7 +133,10 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       const rows = await this.rawQuery<{ cnt: number }>(query, values);
       return rows[0]?.cnt ?? 0;
     } catch (error) {
-      logger.error(`BaseRepository.count failed for ${this.tableName}`, { conditions, error: (error as Error).message });
+      logger.error(`BaseRepository.count failed for ${this.tableName}`, {
+        conditions,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -123,7 +160,10 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     return results;
   }
 
-  async bulkInsert(records: Record<string, unknown>[], options?: { onConflict?: 'ignore' | 'update' }): Promise<number> {
+  async bulkInsert(
+    records: Record<string, unknown>[],
+    options?: { onConflict?: 'ignore' | 'update' }
+  ): Promise<number> {
     if (records.length === 0) return 0;
     for (const record of records) {
       try {

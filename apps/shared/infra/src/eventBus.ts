@@ -367,7 +367,13 @@ export class EventBusService {
           data?: T;
         };
         if (responseData.error) {
-          reject(new ApiError(500, responseData.error.message || 'RPC error', responseData.error.code || 'RPC_ERROR'));
+          reject(
+            new ApiError(
+              500,
+              responseData.error.message || 'RPC error',
+              responseData.error.code || 'RPC_ERROR'
+            )
+          );
         } else {
           resolve(responseData.data as T);
         }

@@ -1,7 +1,14 @@
 import { QdrantService } from '../qdrant.service';
 import { knowledgeItems } from '../database/drizzle/schemas/intelligence.schema';
 import { getIntelligenceDb } from '../database/drizzle/clients/index';
-import { KnowledgeType, SourceType, KnowledgeCluster, QdrantPoint, ClusteringResult, SourceMetadata } from '@uaip/types';
+import {
+  KnowledgeType,
+  SourceType,
+  KnowledgeCluster,
+  QdrantPoint,
+  ClusteringResult,
+  SourceMetadata,
+} from '@uaip/types';
 import { SmartEmbeddingService } from './smart-embedding.service';
 
 type QdrantServiceWithConnection = {

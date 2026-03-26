@@ -547,7 +547,7 @@ export class KnowledgeBootstrapService {
 
       // Detect conflicts across all knowledge
       const conflicts = await this.reconciliationService.detectConflicts(
-        await this.knowledgeRepository.findRecentItems(200) as unknown as KnowledgeItem[],
+        (await this.knowledgeRepository.findRecentItems(200)) as unknown as KnowledgeItem[],
         {
           similarityThreshold: 0.85,
           maxConflictsPerBatch: 50,
@@ -594,11 +594,15 @@ export class KnowledgeBootstrapService {
           if (items.length >= 10) {
             // Minimum items for meaningful taxonomy
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-            const result = await this.taxonomyGenerator.generateTaxonomy(items as unknown as KnowledgeItem[], domain, {
-              maxCategories: 15,
-              minCategorySize: 2,
-              autoClassify: true,
-            });
+            const result = await this.taxonomyGenerator.generateTaxonomy(
+              items as unknown as KnowledgeItem[],
+              domain,
+              {
+                maxCategories: 15,
+                minCategorySize: 2,
+                autoClassify: true,
+              }
+            );
 
             logger.info(
               `Taxonomy generated for ${domain}: ${result.taxonomy.metadata.totalCategories} categories, ${result.taxonomy.metadata.coverage.toFixed(1)}% coverage`

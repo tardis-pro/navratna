@@ -25,13 +25,15 @@ interface RouteApp {
 
 export function registerToolRoutes(app: unknown, toolController?: ToolController) {
   const routeApp = app as RouteApp;
-  const controller = toolController ?? (() => {
-    const db = DatabaseService.getInstance();
-    const registry = new ToolRegistry();
-    const base = new BaseToolExecutor();
-    const exec = new ToolExecutor(db, registry, base);
-    return new ToolController(registry, exec);
-  })();
+  const controller =
+    toolController ??
+    (() => {
+      const db = DatabaseService.getInstance();
+      const registry = new ToolRegistry();
+      const base = new BaseToolExecutor();
+      const exec = new ToolExecutor(db, registry, base);
+      return new ToolController(registry, exec);
+    })();
 
   routeApp.group('/api/v1/tools', (g: RouteGroup) =>
     g

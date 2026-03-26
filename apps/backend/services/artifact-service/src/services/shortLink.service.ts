@@ -117,7 +117,9 @@ export class ShortLinkService {
         password: hashedPassword,
         tags: options.tags ?? [],
         artifactId: options.artifactId,
-        projectFileId: options.projectFileId ? options.projectFileId as unknown as string : undefined,
+        projectFileId: options.projectFileId
+          ? (options.projectFileId as unknown as string)
+          : undefined,
         accessRestrictions: { maxClicks: options.maxClicks },
         analytics: { totalClicks: 0, uniqueClicks: 0 },
         trackClicks: true,

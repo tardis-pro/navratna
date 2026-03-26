@@ -25,14 +25,14 @@ src/
 
 ## ENDPOINTS
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET/POST | `/api/v1/operations` | List/create operations |
-| GET | `/api/v1/operations/:id/status` | Operation state |
-| POST | `/api/v1/operations/:id/pause|resume|cancel` | Operation lifecycle |
-| GET/POST/PUT/DELETE | `/api/v1/tasks` | Task management |
-| PUT | `/api/v1/tasks/:id/assign` | Assign task to agent/user |
-| GET/POST/PUT/DELETE | `/api/v1/projects` | Project CRUD |
+| Method              | Path                            | Purpose                   |
+| ------------------- | ------------------------------- | ------------------------- | ------- | ------------------- |
+| GET/POST            | `/api/v1/operations`            | List/create operations    |
+| GET                 | `/api/v1/operations/:id/status` | Operation state           |
+| POST                | `/api/v1/operations/:id/pause   | resume                    | cancel` | Operation lifecycle |
+| GET/POST/PUT/DELETE | `/api/v1/tasks`                 | Task management           |
+| PUT                 | `/api/v1/tasks/:id/assign`      | Assign task to agent/user |
+| GET/POST/PUT/DELETE | `/api/v1/projects`              | Project CRUD              |
 
 ## CORE PATTERN: Saga/Compensation
 
@@ -42,6 +42,7 @@ Operation → Steps → Execute (each step)
 ```
 
 `OrchestrationEngine` coordinates:
+
 - `StateManagerService` — operation/step state persistence
 - `ResourceManagerService` — resource allocation and locking
 - `StepExecutorService` — individual step execution (tool calls, LLM, etc.)

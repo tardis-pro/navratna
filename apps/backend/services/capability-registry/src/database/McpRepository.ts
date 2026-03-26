@@ -120,11 +120,7 @@ export class McpRepository {
   }
 
   async getToolCall(id: string) {
-    const [row] = await this.db
-      .select()
-      .from(mcpToolCalls)
-      .where(eq(mcpToolCalls.id, id))
-      .limit(1);
+    const [row] = await this.db.select().from(mcpToolCalls).where(eq(mcpToolCalls.id, id)).limit(1);
     return row ?? null;
   }
 
@@ -132,11 +128,7 @@ export class McpRepository {
     return this.updateToolCall(id, { status: 'running', startTime: new Date() });
   }
 
-  async completeToolCall(
-    id: string,
-    result: unknown,
-    executionTimeMs?: number
-  ) {
+  async completeToolCall(id: string, result: unknown, executionTimeMs?: number) {
     return this.updateToolCall(id, {
       status: 'completed',
       result,
@@ -145,12 +137,7 @@ export class McpRepository {
     });
   }
 
-  async failToolCall(
-    id: string,
-    error: string,
-    errorCode?: string,
-    errorCategory?: string
-  ) {
+  async failToolCall(id: string, error: string, errorCode?: string, errorCategory?: string) {
     return this.updateToolCall(id, {
       status: 'failed',
       error,
@@ -210,15 +197,15 @@ export class McpRepository {
 
   async getToolCallStats(serverId?: string) {
     const baseCondition = serverId ? eq(mcpToolCalls.serverId, serverId) : undefined;
-    const rows = await this.db
-      .select()
-      .from(mcpToolCalls)
-      .where(baseCondition);
+    const rows = await this.db.select().from(mcpToolCalls).where(baseCondition);
 
     const completed = rows.filter((r) => r.status === 'completed');
     const avgExecTime =
       completed.length > 0
-        ? completed.reduce((s, r) => s + ((r as unknown as { executionTimeMs?: number }).executionTimeMs ?? 0), 0) / completed.length
+        ? completed.reduce(
+            (s, r) => s + ((r as unknown as { executionTimeMs?: number }).executionTimeMs ?? 0),
+            0
+          ) / completed.length
         : 0;
 
     return {
@@ -281,11 +268,7 @@ export class McpRepository {
   }
 
   async getServer(id: string): Promise<MCPServer | null> {
-    const [row] = await this.db
-      .select()
-      .from(mcpServers)
-      .where(eq(mcpServers.id, id))
-      .limit(1);
+    const [row] = await this.db.select().from(mcpServers).where(eq(mcpServers.id, id)).limit(1);
     return row ?? null;
   }
 
@@ -307,10 +290,7 @@ export class McpRepository {
 
   async getAllServers(): Promise<MCPServer[]> {
     try {
-      return this.db
-        .select()
-        .from(mcpServers)
-        .orderBy(mcpServers.name);
+      return this.db.select().from(mcpServers).orderBy(mcpServers.name);
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to get all MCP servers', {
         cause: this.getErrorMessage(err),

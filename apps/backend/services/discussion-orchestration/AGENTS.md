@@ -30,41 +30,42 @@ src/
 
 ## SOCKET.IO NAMESPACES
 
-| Namespace | Purpose |
-|-----------|---------|
-| `/` (default) | Discussions — join/leave rooms, send messages, presence |
-| `/streaming` | LLM token streaming — session-based subscriptions |
-| `/conversation-intelligence` | Conversation analysis and enhancement |
-| `/coding-agent` | Workspace/coding agent sessions |
+| Namespace                    | Purpose                                                 |
+| ---------------------------- | ------------------------------------------------------- |
+| `/` (default)                | Discussions — join/leave rooms, send messages, presence |
+| `/streaming`                 | LLM token streaming — session-based subscriptions       |
+| `/conversation-intelligence` | Conversation analysis and enhancement                   |
+| `/coding-agent`              | Workspace/coding agent sessions                         |
 
 All Socket.IO uses `@socket.io/bun-engine` for native Bun WebSocket.
 
 ## REST ENDPOINTS (minimal)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/v1/info` | Service info |
-| POST | `/api/v1/discussions/:id/turns/request` | Turn request |
-| GET | `/api/v1/users/online` | Online presence |
-| GET | `/api/v1/users/:id/status` | User status |
-| POST | `/api/v1/discussions/:id/huddle` | Create specialist huddle |
-| POST | `/api/v1/discussions/:id/huddles/:id/resolve` | Resolve huddle |
-| GET | `/api/v1/whatsapp/status` | WhatsApp connection state |
-| GET | `/api/v1/debug/*` | Race conditions, memory, pending requests |
+| Method | Path                                          | Purpose                                   |
+| ------ | --------------------------------------------- | ----------------------------------------- |
+| GET    | `/api/v1/info`                                | Service info                              |
+| POST   | `/api/v1/discussions/:id/turns/request`       | Turn request                              |
+| GET    | `/api/v1/users/online`                        | Online presence                           |
+| GET    | `/api/v1/users/:id/status`                    | User status                               |
+| POST   | `/api/v1/discussions/:id/huddle`              | Create specialist huddle                  |
+| POST   | `/api/v1/discussions/:id/huddles/:id/resolve` | Resolve huddle                            |
+| GET    | `/api/v1/whatsapp/status`                     | WhatsApp connection state                 |
+| GET    | `/api/v1/debug/*`                             | Race conditions, memory, pending requests |
 
 ## EVENT BUS
 
-| Topic | Direction | Handler |
-|-------|-----------|---------|
-| `discussion.agent.message` | subscribe | Route agent message into active Socket.IO discussion |
-| `security.auth.response` | subscribe | Correlation-ID auth validation response |
-| `orchestration.control` | publish | Control messages |
-| `service.registry.register` | publish | Service registration on boot |
-| `service.registry.deregister` | publish | Service deregistration on shutdown |
+| Topic                         | Direction | Handler                                              |
+| ----------------------------- | --------- | ---------------------------------------------------- |
+| `discussion.agent.message`    | subscribe | Route agent message into active Socket.IO discussion |
+| `security.auth.response`      | subscribe | Correlation-ID auth validation response              |
+| `orchestration.control`       | publish   | Control messages                                     |
+| `service.registry.register`   | publish   | Service registration on boot                         |
+| `service.registry.deregister` | publish   | Service deregistration on shutdown                   |
 
 ## AUTH PATTERN (correlation-ID)
 
 Socket.IO auth cannot use standard HTTP middleware. Pattern:
+
 1. Socket auth handshake extracts token
 2. Publishes `security.auth.validate` with UUID correlation ID
 3. Registers one-time response handler in `Map<correlationId, resolve/reject>`

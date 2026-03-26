@@ -147,14 +147,18 @@ export class KnowledgeGraphService {
           if (collectionInfo.result?.points_count === 0) {
             // No embeddings available, fall back to repository search
             console.warn('Vector collection is empty, falling back to repository search');
-            filteredResults = await this.repository.findByScope(scope || {}) as unknown as KnowledgeItem[];
+            filteredResults = (await this.repository.findByScope(
+              scope || {}
+            )) as unknown as KnowledgeItem[];
           } else {
             vectorResults = await this.vectorDb.search(queryEmbedding, {
               limit: options?.limit || 20,
               threshold: options?.similarityThreshold || 0.7,
               filters: vectorFilters,
             });
-            filteredResults = await this.repository.applyFilters({ limit: options?.limit || 20 }) as unknown as KnowledgeItem[];
+            filteredResults = (await this.repository.applyFilters({
+              limit: options?.limit || 20,
+            })) as unknown as KnowledgeItem[];
           }
         } catch (vectorError) {
           // If vector search fails, fall back to repository search
@@ -162,11 +166,15 @@ export class KnowledgeGraphService {
             'Vector search failed, falling back to repository search:',
             vectorError.message
           );
-          filteredResults = await this.repository.findByScope(scope || {}) as unknown as KnowledgeItem[];
+          filteredResults = (await this.repository.findByScope(
+            scope || {}
+          )) as unknown as KnowledgeItem[];
         }
       } else {
         // When no query is provided, get all items with scope filtering
-        filteredResults = await this.repository.findByScope(scope || {}) as unknown as KnowledgeItem[];
+        filteredResults = (await this.repository.findByScope(
+          scope || {}
+        )) as unknown as KnowledgeItem[];
       }
 
       // Build vector filters including scope
@@ -231,7 +239,9 @@ export class KnowledgeGraphService {
         await this.vectorDb.store(knowledgeItem.id, embeddings);
         // Detect and create relationships
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const relationships = await this.relationshipDetector.detectRelationships(knowledgeItem as unknown as KnowledgeItem);
+        const relationships = await this.relationshipDetector.detectRelationships(
+          knowledgeItem as unknown as KnowledgeItem
+        );
         if (relationships.length > 0) {
           // Add scope to relationships
           const scopedRelationships = relationships.map((rel) => ({
@@ -313,7 +323,10 @@ export class KnowledgeGraphService {
    * Bulk knowledge update - used for maintaining knowledge quality
    */
   async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
-    const updatedItem = await this.repository.update(itemId, updates as unknown as Parameters<typeof this.repository.update>[1]);
+    const updatedItem = await this.repository.update(
+      itemId,
+      updates as unknown as Parameters<typeof this.repository.update>[1]
+    );
 
     // Re-generate embeddings if content changed
     if (updates.content) {
@@ -441,7 +454,8 @@ export class KnowledgeGraphService {
       return;
     }
 
-    const currentConfidence = typeof item.confidence === 'string' ? parseFloat(item.confidence) : item.confidence;
+    const currentConfidence =
+      typeof item.confidence === 'string' ? parseFloat(item.confidence) : item.confidence;
     const updatedConfidence = Math.max(0, Math.min(1, currentConfidence + adjustment));
     await this.repository.update(itemId, {
       confidence: updatedConfidence,
@@ -591,9 +605,14 @@ export class KnowledgeGraphService {
   async extractConcepts(domain?: string, options?: { minConfidence?: number; maxItems?: number }) {
     let items: KnowledgeItem[];
     if (domain) {
-      items = await this.repository.findByDomain(domain, options?.maxItems) as unknown as KnowledgeItem[];
+      items = (await this.repository.findByDomain(
+        domain,
+        options?.maxItems
+      )) as unknown as KnowledgeItem[];
     } else {
-      const allItems = await this.repository.findRecentItems(options?.maxItems || 100) as unknown as KnowledgeItem[];
+      const allItems = (await this.repository.findRecentItems(
+        options?.maxItems || 100
+      )) as unknown as KnowledgeItem[];
       items = options?.minConfidence
         ? allItems.filter((item) => item.confidence >= options.minConfidence!)
         : allItems;
@@ -864,7 +883,9 @@ export class KnowledgeGraphService {
     try {
       const items = (domain
         ? await this.repository.findByDomain(domain)
-        : await this.repository.findRecentItems(options?.maxPairs || 100)) as unknown as KnowledgeItem[];
+        : await this.repository.findRecentItems(
+            options?.maxPairs || 100
+          )) as unknown as KnowledgeItem[];
 
       return await this.qaGenerator.generateFromKnowledge(items, options);
     } catch (error) {

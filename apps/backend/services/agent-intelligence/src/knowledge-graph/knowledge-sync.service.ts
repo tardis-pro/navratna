@@ -1,6 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import type { KnowledgeItemEntity, KnowledgeRelationshipEntity, UserEntity } from '@uaip/shared-services';
+import type {
+  KnowledgeItemEntity,
+  KnowledgeRelationshipEntity,
+  UserEntity,
+} from '@uaip/shared-services';
 import { KnowledgeRepository, getControlPool } from '@uaip/shared-services';
 import { QdrantService } from '@/knowledge-graph/qdrant.service';
 import { ToolGraphDatabase } from '@uaip/shared-services';
@@ -49,7 +53,9 @@ export class KnowledgeSyncService {
     try {
       // Get knowledge item and user data
       const knowledgeItem = await this.knowledgeRepository.findById(knowledgeItemId);
-      const userRows = await getControlPool().query(`SELECT * FROM "users" WHERE id = $1 LIMIT 1`, [userId]);
+      const userRows = await getControlPool().query(`SELECT * FROM "users" WHERE id = $1 LIMIT 1`, [
+        userId,
+      ]);
       const user = userRows.rows[0] as UserEntity | undefined;
 
       if (!knowledgeItem || !user) {

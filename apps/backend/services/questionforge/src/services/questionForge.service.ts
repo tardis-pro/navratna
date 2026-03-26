@@ -99,7 +99,9 @@ export class QuestionForgeService {
 
       // Step 3: Extract and deduplicate questions from debate results
       logger.info('Step 3: Extracting and deduplicating questions', { projectBriefId });
-      const rawQuestions = this.extractQuestionsFromDebate(debateResult as unknown as Record<string, unknown>);
+      const rawQuestions = this.extractQuestionsFromDebate(
+        debateResult as unknown as Record<string, unknown>
+      );
       const deduplicatedQuestions = this.deduplicateQuestions(rawQuestions);
 
       logger.info('Questions extracted', {
@@ -110,7 +112,8 @@ export class QuestionForgeService {
 
       // Step 4: Rank questions
       logger.info('Step 4: Ranking questions', { projectBriefId });
-      const assumptions: Assumption[] = (debateResult as unknown as { assumptions?: Assumption[] }).assumptions ?? [];
+      const assumptions: Assumption[] =
+        (debateResult as unknown as { assumptions?: Assumption[] }).assumptions ?? [];
       const contradictions: Contradiction[] = debateResult.contradictions ?? [];
       const scores = this.questionRanker.rankQuestions(
         deduplicatedQuestions,
@@ -213,7 +216,9 @@ export class QuestionForgeService {
       throw new Error(`Forge result not found: ${forgeResultId}`);
     }
 
-    const script = (forgeResult.interviewScripts as Record<string, unknown>)[stakeholderRole] as (typeof forgeResult.interviewScripts)[string] | undefined;
+    const script = (forgeResult.interviewScripts as Record<string, unknown>)[stakeholderRole] as
+      | (typeof forgeResult.interviewScripts)[string]
+      | undefined;
     if (!script) {
       throw new Error(`No interview script found for stakeholder role: ${stakeholderRole}`);
     }
@@ -283,9 +288,11 @@ export class QuestionForgeService {
           projectBriefId: (debateResult.projectBriefId as string | undefined) ?? '',
           stakeholderId: stakeholderId as string | undefined,
           stakeholderName: stakeholderName as string | undefined,
-          category: (q.category as QuestionCategory | undefined) ?? QuestionCategory.ASSUMPTION_REVEAL,
+          category:
+            (q.category as QuestionCategory | undefined) ?? QuestionCategory.ASSUMPTION_REVEAL,
           text: typeof q === 'string' ? q : ((q.text ?? q.question ?? '') as string),
-          intent: (q.intent as string | undefined) ?? 'Discover hidden assumptions and stakeholder needs',
+          intent:
+            (q.intent as string | undefined) ?? 'Discover hidden assumptions and stakeholder needs',
           priority: (q.priority as number | undefined) ?? 5,
           phase: (q.phase as QuestionPhase | undefined) ?? QuestionPhase.DISCOVERY,
           tags: (q.tags as string[] | undefined) ?? [],

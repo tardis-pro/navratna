@@ -14,21 +14,37 @@ export class UserToolPreferencesService {
       [userId]
     );
 
-    return result.rows.map((row: Record<string, unknown>): UserToolAccess => ({
-      toolId: row.user_id as string,
-      toolName: (row.tool_name as string) || '',
-      toolDescription: (row.tool_description as string) || '',
-      parameterDefaults: (((row.preferences as Record<string, unknown>) || {}).parameterDefaults as Record<string, unknown>) || {},
-      customConfig: (((row.preferences as Record<string, unknown>) || {}).customConfig as Record<string, unknown>) || {},
-      isFavorite: false,
-      isEnabled: true,
-      autoApprove: false,
-      usageCount: 0,
-      lastUsedAt: undefined,
-      rateLimits: (((row.preferences as Record<string, unknown>) || {}).rateLimits as Record<string, number>) || {},
-      budgetLimit: (((row.preferences as Record<string, unknown>) || {}).budgetLimit as number | undefined),
-      budgetUsed: 0,
-    }));
+    return result.rows.map(
+      (row: Record<string, unknown>): UserToolAccess => ({
+        toolId: row.user_id as string,
+        toolName: (row.tool_name as string) || '',
+        toolDescription: (row.tool_description as string) || '',
+        parameterDefaults:
+          (((row.preferences as Record<string, unknown>) || {}).parameterDefaults as Record<
+            string,
+            unknown
+          >) || {},
+        customConfig:
+          (((row.preferences as Record<string, unknown>) || {}).customConfig as Record<
+            string,
+            unknown
+          >) || {},
+        isFavorite: false,
+        isEnabled: true,
+        autoApprove: false,
+        usageCount: 0,
+        lastUsedAt: undefined,
+        rateLimits:
+          (((row.preferences as Record<string, unknown>) || {}).rateLimits as Record<
+            string,
+            number
+          >) || {},
+        budgetLimit: ((row.preferences as Record<string, unknown>) || {}).budgetLimit as
+          | number
+          | undefined,
+        budgetUsed: 0,
+      })
+    );
   }
 
   async getAvailableToolsForUser(userId: string): Promise<Record<string, unknown>[]> {
@@ -90,7 +106,10 @@ export class UserToolPreferencesService {
     return result.rows[0];
   }
 
-  async getUserToolPreferences(userId: string, _toolId: string): Promise<Record<string, unknown> | null> {
+  async getUserToolPreferences(
+    userId: string,
+    _toolId: string
+  ): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
     const result = await pool.query(
       `SELECT * FROM user_tool_preferences WHERE user_id = $1 LIMIT 1`,
@@ -107,10 +126,10 @@ export class UserToolPreferencesService {
     );
 
     if (result.rows.length === 0) {
-      await pool.query(
-        `INSERT INTO user_tool_preferences (user_id, preferences) VALUES ($1, $2)`,
-        [userId, JSON.stringify({ usageCount: 1, lastUsedToolId: toolId })]
-      );
+      await pool.query(`INSERT INTO user_tool_preferences (user_id, preferences) VALUES ($1, $2)`, [
+        userId,
+        JSON.stringify({ usageCount: 1, lastUsedToolId: toolId }),
+      ]);
     }
   }
 
@@ -164,10 +183,9 @@ export class UserToolPreferencesService {
     mostUsedTool?: string;
   }> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM user_tool_preferences WHERE user_id = $1`,
-      [userId]
-    );
+    const result = await pool.query(`SELECT * FROM user_tool_preferences WHERE user_id = $1`, [
+      userId,
+    ]);
 
     const preferences = result.rows as Array<Record<string, unknown>>;
     const stats = {

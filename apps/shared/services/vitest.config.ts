@@ -8,10 +8,7 @@ export default mergeConfig(
     test: {
       name: '@uaip/shared-services',
       setupFiles: ['./src/__tests__/setup.ts'],
-      include: [
-        'src/**/__tests__/**/*.test.ts',
-        'src/**/*.test.ts',
-      ],
+      include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
       coverage: {
         include: ['src/**/*.ts'],
       },
@@ -27,5 +24,5 @@ export default mergeConfig(
         '@uaip/llm-service': path.resolve(import.meta.dirname, '../llm-service/src'),
       },
     },
-  }),
+  })
 );

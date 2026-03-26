@@ -2,8 +2,12 @@ import { BaseRepository } from '../base/BaseRepository';
 import { logger } from '@uaip/utils';
 
 export class SecurityPolicyRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'security_policies'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'security_policies';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async findEnabled(): Promise<Record<string, unknown>[]> {
     return this.findMany({ is_enabled: true });
@@ -15,8 +19,12 @@ export class SecurityPolicyRepository extends BaseRepository<Record<string, unkn
 }
 
 export class ApprovalWorkflowRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'approval_workflows'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'approval_workflows';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async findByOperationId(operationId: string): Promise<Record<string, unknown> | null> {
     const rows = await this.findMany({ operation_id: operationId });
@@ -39,14 +47,22 @@ export class ApprovalWorkflowRepository extends BaseRepository<Record<string, un
     return this.findById(operationId);
   }
 
-  async updateOperationState(operationId: string, state: Record<string, unknown>, updates: Record<string, unknown>): Promise<void> {
+  async updateOperationState(
+    operationId: string,
+    state: Record<string, unknown>,
+    updates: Record<string, unknown>
+  ): Promise<void> {
     await this.update(operationId, { ...state, ...updates });
   }
 }
 
 export class ApprovalDecisionRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'approval_decisions'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'approval_decisions';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async findByWorkflowId(workflowId: string): Promise<Record<string, unknown>[]> {
     return this.findMany({ workflow_id: workflowId });

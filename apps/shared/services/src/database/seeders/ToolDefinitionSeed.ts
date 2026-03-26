@@ -14,7 +14,10 @@ export class ToolDefinitionSeed extends BaseSeed {
     const seedData = await this.getSeedData();
 
     for (const tool of seedData) {
-      await this.db.insert(toolDefinitions).values(tool as any).onConflictDoNothing();
+      await this.db
+        .insert(toolDefinitions)
+        .values(tool as any)
+        .onConflictDoNothing();
     }
 
     return await this.db.select().from(toolDefinitions);

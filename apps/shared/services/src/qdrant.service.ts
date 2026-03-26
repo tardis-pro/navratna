@@ -1,5 +1,15 @@
-import type { VectorSearchResult, MemoryCollectionType, CollectionOptions, VectorSearchOptions } from '@uaip/types';
-export type { VectorSearchResult, MemoryCollectionType, CollectionOptions, VectorSearchOptions } from '@uaip/types';
+import type {
+  VectorSearchResult,
+  MemoryCollectionType,
+  CollectionOptions,
+  VectorSearchOptions,
+} from '@uaip/types';
+export type {
+  VectorSearchResult,
+  MemoryCollectionType,
+  CollectionOptions,
+  VectorSearchOptions,
+} from '@uaip/types';
 
 export class QdrantService {
   private qdrantUrl: string;
@@ -123,7 +133,7 @@ export class QdrantService {
         throw new Error(`Qdrant search failed: ${response.statusText} - ${errorText}`);
       }
 
-      const data = await response.json() as Record<string, unknown>;
+      const data = (await response.json()) as Record<string, unknown>;
       return (data.result as unknown[]).map((item: unknown) => {
         const point = item as { id: string; score: number; payload: Record<string, unknown> };
         return { id: point.id, score: point.score, payload: point.payload };
@@ -509,7 +519,7 @@ export class QdrantService {
         throw new Error(`Qdrant get points failed: ${response.statusText}`);
       }
 
-      const data = await response.json() as Record<string, unknown>;
+      const data = (await response.json()) as Record<string, unknown>;
       return (data.result as unknown[]).map((item: unknown) => {
         const point = item as { id: string; vector: number[]; payload: Record<string, unknown> };
         return { id: point.id, vector: point.vector, payload: point.payload };
@@ -582,7 +592,7 @@ export class QdrantService {
         throw new Error(`Qdrant get failed: ${response.statusText}`);
       }
 
-      const data = await response.json() as Record<string, unknown>;
+      const data = (await response.json()) as Record<string, unknown>;
       const result = data.result as Record<string, unknown>;
       const payload = result.payload as Record<string, unknown>;
       return {

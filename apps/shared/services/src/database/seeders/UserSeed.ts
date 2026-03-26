@@ -17,7 +17,7 @@ interface SeedUser {
 export class UserSeed {
   private db = getControlDb();
 
-  async seed(): Promise<typeof users.$inferSelect[]> {
+  async seed(): Promise<(typeof users.$inferSelect)[]> {
     const seedData = await this.getSeedData();
 
     for (const user of seedData) {

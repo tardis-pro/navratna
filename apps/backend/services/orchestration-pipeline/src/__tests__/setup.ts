@@ -44,9 +44,11 @@ const mockDate = new Date('2023-01-01T00:00:00Z');
 vi.spyOn(Date, 'now').mockReturnValue(mockDate.getTime());
 
 const originalOn = process.on.bind(process);
-vi.spyOn(process, 'on').mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
-  if (event === 'SIGTERM' || event === 'SIGINT') {
-    return process;
+vi.spyOn(process, 'on').mockImplementation(
+  (event: string, listener: (...args: unknown[]) => void) => {
+    if (event === 'SIGTERM' || event === 'SIGINT') {
+      return process;
+    }
+    return originalOn(event as NodeJS.Signals, listener as (...args: unknown[]) => void);
   }
-  return originalOn(event as NodeJS.Signals, listener as (...args: unknown[]) => void);
-});
+);

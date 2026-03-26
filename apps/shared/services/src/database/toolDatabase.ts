@@ -13,8 +13,6 @@ import {
 } from '@uaip/types';
 import { DatabaseService } from '../databaseService';
 
-
-
 export class ToolDatabase {
   private databaseService: DatabaseService;
 
@@ -267,9 +265,15 @@ export class ToolDatabase {
       description: entity.description as string,
       version: entity.version as string,
       category: (entity.category as ToolCategory) || ToolCategory.API,
-      parameters: (entity.parameters as Record<string, unknown>) || { type: 'object', properties: {} },
-      returnType: (entity.returnType as Record<string, unknown>) || { type: 'object', properties: {} },
-      securityLevel: (entity.security_level as string) as ToolDefinition['securityLevel'],
+      parameters: (entity.parameters as Record<string, unknown>) || {
+        type: 'object',
+        properties: {},
+      },
+      returnType: (entity.returnType as Record<string, unknown>) || {
+        type: 'object',
+        properties: {},
+      },
+      securityLevel: entity.security_level as string as ToolDefinition['securityLevel'],
       requiresApproval: (entity.requires_approval as boolean) || false,
       isEnabled: (entity.is_enabled as boolean) ?? true,
       executionTimeEstimate: entity.execution_time_estimate as number | undefined,

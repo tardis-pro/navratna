@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { KnowledgeType, SourceType } from '@uaip/types';
-import type { KnowledgeItem as KnowledgeItemEntity, KnowledgeRelationship as KnowledgeRelationshipEntity } from '../database/drizzle/schemas/intelligence.schema';
+import type {
+  KnowledgeItem as KnowledgeItemEntity,
+  KnowledgeRelationship as KnowledgeRelationshipEntity,
+} from '../database/drizzle/schemas/intelligence.schema';
 import type { User as UserEntity } from '../database/drizzle/schemas/control.schema';
 import { KnowledgeRepository } from '../database/repositories/knowledge.repository';
 import { QdrantService } from '../qdrant.service';

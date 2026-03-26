@@ -271,10 +271,44 @@ export interface FrontendDocumentContextValue extends FrontendDocumentContextSta
 // ============================================================================
 // Frontend extension types (migrated from frontend/src/types/frontend-extensions.ts)
 // ============================================================================
-import type { Agent, Discussion, MessageType, ToolCapableMessage, ToolPermissionSet, ToolUsageRecord, ToolExecution, ToolPreferences, ToolBudget, ToolCall, ToolResult, ToolDefinition, CapabilitySearchRequest, CapabilityRecommendation, Persona, PersonaAnalytics, PersonaRecommendation, LLMModel, ConversationContext, ContextAnalysis, ActionRecommendation, AgentAnalysisResult, ExecutionPlan, ArtifactGenerationRequest, ArtifactGenerationResponse, ArtifactGenerationTemplate, Artifact, Requirement } from './index.js';
+import type {
+  Agent,
+  Discussion,
+  MessageType,
+  ToolCapableMessage,
+  ToolPermissionSet,
+  ToolUsageRecord,
+  ToolExecution,
+  ToolPreferences,
+  ToolBudget,
+  ToolCall,
+  ToolResult,
+  ToolDefinition,
+  CapabilitySearchRequest,
+  CapabilityRecommendation,
+  Persona,
+  PersonaAnalytics,
+  PersonaRecommendation,
+  LLMModel,
+  ConversationContext,
+  ContextAnalysis,
+  ActionRecommendation,
+  AgentAnalysisResult,
+  ExecutionPlan,
+  ArtifactGenerationRequest,
+  ArtifactGenerationResponse,
+  ArtifactGenerationTemplate,
+  Artifact,
+  Requirement,
+} from './index.js';
 import type { OperationStatusResponse, ExecuteOperationRequest } from './operation.js';
 
-export type FrontendConversationPattern = 'interruption' | 'build-on' | 'clarification' | 'concern' | 'expertise';
+export type FrontendConversationPattern =
+  | 'interruption'
+  | 'build-on'
+  | 'clarification'
+  | 'concern'
+  | 'expertise';
 
 export interface FrontendMessage extends ToolCapableMessage {
   id: string;
@@ -294,7 +328,10 @@ export interface FrontendMessage extends ToolCapableMessage {
   conversationPattern?: FrontendConversationPattern;
   triggeredPersonas?: string[];
   sentiment?: { score: number; keywords: string[] };
-  logicalAnalysis?: { fallacies: Array<{ type: string; confidence: number; snippet: string }>; hasValidArgument: boolean };
+  logicalAnalysis?: {
+    fallacies: Array<{ type: string; confidence: number; snippet: string }>;
+    hasValidArgument: boolean;
+  };
 }
 
 export interface MessageSearchOptions {
@@ -402,10 +439,16 @@ export interface FrontendAgentContextValue {
   addMessage: (agentId: string, message: FrontendMessage) => void;
   removeMessage: (agentId: string, messageId: string) => void;
   getAllMessages: () => FrontendMessage[];
-  executeToolCall: (agentId: string, toolCall: import('./tool.js').ToolCall) => Promise<import('./tool.js').ToolResult>;
+  executeToolCall: (
+    agentId: string,
+    toolCall: import('./tool.js').ToolCall
+  ) => Promise<import('./tool.js').ToolResult>;
   approveToolExecution: (executionId: string, approverId: string) => Promise<boolean>;
   getToolUsageHistory: (agentId: string) => import('./tool.js').ToolUsageRecord[];
-  updateToolPermissions: (agentId: string, permissions: Partial<import('./tool.js').ToolPermissionSet>) => void;
+  updateToolPermissions: (
+    agentId: string,
+    permissions: Partial<import('./tool.js').ToolPermissionSet>
+  ) => void;
   setAgentModel: (agentId: string, modelId: string, providerId: string) => void;
   refreshAgents: () => Promise<void>;
   modelState: {
@@ -428,7 +471,11 @@ export interface FrontendAgentContextValue {
   activeFlows: string[];
   flowResults: Map<string, Record<string, unknown>>;
   flowErrors: Map<string, string>;
-  executeFlow: (service: string, flow: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  executeFlow: (
+    service: string,
+    flow: string,
+    params?: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   getFlowStatus: (flowId: string) => 'idle' | 'running' | 'completed' | 'error';
   clearFlowResult: (flowId: string) => void;
 }

@@ -1,4 +1,10 @@
-import { Capability, SecurityLevel, ToolCategory, ToolDefinition, CapabilityResolver } from '@uaip/types';
+import {
+  Capability,
+  SecurityLevel,
+  ToolCategory,
+  ToolDefinition,
+  CapabilityResolver,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { CapabilityDiscoveryService } from '../../capabilityDiscoveryService';
 import { DatabaseService } from '../../databaseService';

@@ -88,10 +88,9 @@ export class OutboxPublisher {
   async markEventFailed(eventId: string, error: string): Promise<void> {
     const pool = getControlPool();
 
-    const eventResult = await pool.query(
-      `SELECT * FROM "integration_events" WHERE id = $1`,
-      [eventId]
-    );
+    const eventResult = await pool.query(`SELECT * FROM "integration_events" WHERE id = $1`, [
+      eventId,
+    ]);
 
     if (eventResult.rows.length === 0) {
       throw new Error(`Integration event not found: ${eventId}`);

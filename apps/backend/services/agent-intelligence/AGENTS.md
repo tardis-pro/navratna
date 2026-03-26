@@ -31,46 +31,50 @@ src/
 
 All inline in `src/index.ts` (Elysia) + registered route files:
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET/POST/PUT/DELETE | `/api/v1/agents` | Agent CRUD |
-| POST | `/api/v1/agents/:id/chat` | LLM chat with memory + persona |
-| POST | `/api/v1/agents/:id/approvals/:approvalId` | Resolve human-in-the-loop approval |
-| DELETE/PATCH | `/api/v1/agents/:id/memory/semantic/:conceptId` | Prune/downvote semantic memory |
-| GET/POST/PUT/DELETE | `/api/v1/personas` | Persona CRUD + template search |
-| GET/POST/PUT | `/api/v1/discussions` | Discussion CRUD |
-| POST | `/api/v1/discussions/:id/start|end` | Discussion lifecycle |
-| POST | `/api/v1/discussions/:id/messages` | Add message to discussion |
-| POST | `/test/sync` | Manual Neo4j/Qdrant sync trigger |
-| GET | `/api/v1/debug/conversation-enhancement` | Memory/leak diagnostics |
+| Method              | Path                                            | Purpose                            |
+| ------------------- | ----------------------------------------------- | ---------------------------------- | -------------------- |
+| GET/POST/PUT/DELETE | `/api/v1/agents`                                | Agent CRUD                         |
+| POST                | `/api/v1/agents/:id/chat`                       | LLM chat with memory + persona     |
+| POST                | `/api/v1/agents/:id/approvals/:approvalId`      | Resolve human-in-the-loop approval |
+| DELETE/PATCH        | `/api/v1/agents/:id/memory/semantic/:conceptId` | Prune/downvote semantic memory     |
+| GET/POST/PUT/DELETE | `/api/v1/personas`                              | Persona CRUD + template search     |
+| GET/POST/PUT        | `/api/v1/discussions`                           | Discussion CRUD                    |
+| POST                | `/api/v1/discussions/:id/start                  | end`                               | Discussion lifecycle |
+| POST                | `/api/v1/discussions/:id/messages`              | Add message to discussion          |
+| POST                | `/test/sync`                                    | Manual Neo4j/Qdrant sync trigger   |
+| GET                 | `/api/v1/debug/conversation-enhancement`        | Memory/leak diagnostics            |
 
 ## EVENT BUS
 
-| Topic | Direction | Handler |
-|-------|-----------|---------|
-| `agent.chat.request` | subscribe | Process chat, emit `agent.chat.response` |
+| Topic                              | Direction | Handler                                            |
+| ---------------------------------- | --------- | -------------------------------------------------- |
+| `agent.chat.request`               | subscribe | Process chat, emit `agent.chat.response`           |
 | `conversation.enhancement.request` | subscribe | Select best agent, emit `discussion.agent.message` |
-| `agent.chat.response` | publish | LLM response back to requester |
-| `discussion.agent.message` | publish | Agent message into active discussion |
+| `agent.chat.response`              | publish   | LLM response back to requester                     |
+| `discussion.agent.message`         | publish   | Agent message into active discussion               |
 
 ## KEY PATTERNS
 
 **Memory system** (3 tiers):
+
 - Working memory — current conversation context (in-process)
 - Episodic memory — `EpisodicMemoryManager` writes to Neo4j
 - Semantic memory — `SemanticMemoryManager` writes to Qdrant (1024-dim vectors)
 - `MemoryConsolidator` runs on interval to promote episodic → semantic
 
 **Human-in-the-loop**:
+
 - `pendingApprovals: Map<string, PendingApproval>` tracks gates
 - Agents pause execution until `POST /approvals/:id` resolves/rejects
 - Timeout auto-rejects after configurable duration
 
 **Decision engine** (imported from `@uaip/shared-services` source):
+
 ```typescript
 import { DecisionEngine } from '../../../../shared/services/src/agent/agent-intelligence/decision-engine.js';
 import { AgentStateMachine } from '../../../../shared/services/src/agent-state/agent-state-machine.js';
 ```
+
 Note: direct path imports (not npm) — this is intentional in the legacy service.
 
 **Specialist huddle**: conversation-enhancement auto-creates multi-agent discussions when response confidence is low.

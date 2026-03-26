@@ -23,10 +23,7 @@ export class _LLMService {
     }
   }
 
-  async streamGenerate(
-    messages: LLMMessage[],
-    onChunk: (chunk: string) => void
-  ): Promise<void> {
+  async streamGenerate(messages: LLMMessage[], onChunk: (chunk: string) => void): Promise<void> {
     try {
       const response = await llmAPI.userLLM.generate({
         messages: messages.map((m) => ({

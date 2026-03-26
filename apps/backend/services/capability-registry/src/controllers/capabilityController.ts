@@ -99,7 +99,7 @@ export class CapabilityController {
   };
 
   public getCapability = async ({ params, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
     if (!id) {
       set.status = 400;
@@ -156,7 +156,7 @@ export class CapabilityController {
   };
 
   public executeCapability = async ({ params, body, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
     if (!id) {
       set.status = 400;
@@ -191,9 +191,8 @@ export class CapabilityController {
   };
 
   public updateCapability = async ({ params, body, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
-    const updateData =
-      body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const updateData = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 
     if (!id) {
       set.status = 400;
@@ -222,7 +221,7 @@ export class CapabilityController {
   };
 
   public deleteCapability = async ({ params, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
     if (!id) {
       set.status = 400;
@@ -286,7 +285,7 @@ export class CapabilityController {
   };
 
   public getCapabilityDependencies = async ({ params, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
     if (!id) {
       set.status = 400;
@@ -312,7 +311,7 @@ export class CapabilityController {
   };
 
   public validateCapability = async ({ params, body, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
     if (!id) {
       set.status = 400;

@@ -17,7 +17,13 @@ import {
 import { KnowledgeIngestionPort } from './knowledge-ingestion.port';
 import { v4 as uuidv4 } from 'uuid';
 
-export type { FileData, ProcessingOptions, BatchJob, ProcessingResult, BatchResult } from '@uaip/types';
+export type {
+  FileData,
+  ProcessingOptions,
+  BatchJob,
+  ProcessingResult,
+  BatchResult,
+} from '@uaip/types';
 
 type ExtractedKnowledgeBundle = {
   extractedKnowledge: ExtractedKnowledge[];

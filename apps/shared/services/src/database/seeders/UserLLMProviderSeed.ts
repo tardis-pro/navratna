@@ -9,7 +9,7 @@ export class UserLLMProviderSeed extends BaseSeed {
 
   constructor(userIds: string[]) {
     super('UserLLMProviders');
-    this.users = userIds.map(id => ({ id, role: 'user' }));
+    this.users = userIds.map((id) => ({ id, role: 'user' }));
   }
 
   async seed(): Promise<any[]> {
@@ -18,7 +18,10 @@ export class UserLLMProviderSeed extends BaseSeed {
     const seedData = await this.getSeedData();
 
     for (const provider of seedData) {
-      await this.db.insert(userLLMProviders).values(provider as any).onConflictDoNothing();
+      await this.db
+        .insert(userLLMProviders)
+        .values(provider as any)
+        .onConflictDoNothing();
     }
 
     logger.info(`   ${this.entityName} seeding completed`);
@@ -65,7 +68,11 @@ export class UserLLMProviderSeed extends BaseSeed {
           retries: 2,
           rateLimit: 5,
           headers: { 'User-Agent': 'UAIP-Client/1.0', 'Content-Type': 'application/json' },
-          customEndpoints: { models: '/v1/models', chat: '/v1/chat/completions', completions: '/v1/completions' },
+          customEndpoints: {
+            models: '/v1/models',
+            chat: '/v1/chat/completions',
+            completions: '/v1/completions',
+          },
         },
       },
     ];

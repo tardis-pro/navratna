@@ -395,7 +395,7 @@ export class GraphSyncWorker {
       entityId: entity.entityId as string,
       action: entity.action as IntegrationEvent['action'],
       payload: entity.payload as IntegrationEvent['payload'],
-      timestamp: entity.timestamp as Date ?? new Date(),
+      timestamp: (entity.timestamp as Date) ?? new Date(),
       processed: entity.processed as boolean,
       retries: entity.retries as number,
       lastError: entity.lastError as string,

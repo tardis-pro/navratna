@@ -9,7 +9,15 @@ import type {
   PersonaInsights,
 } from '@uaip/types';
 
-export type { UserPersonaData, OnboardingProgress, BehavioralPatterns, UserPersonaUpdate, UserPersonaResponse, PersonaRecommendations, PersonaInsights };
+export type {
+  UserPersonaData,
+  OnboardingProgress,
+  BehavioralPatterns,
+  UserPersonaUpdate,
+  UserPersonaResponse,
+  PersonaRecommendations,
+  PersonaInsights,
+};
 
 class UserPersonaAPI {
   // Get current user's persona data

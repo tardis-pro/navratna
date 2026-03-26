@@ -93,7 +93,9 @@ export class TEIEmbeddingService {
 
       // TEI returns array of embeddings, we want the first one for single input
       const dataArr = data as unknown[];
-      return (Array.isArray(dataArr) && Array.isArray(dataArr[0]) ? dataArr[0] : dataArr) as number[];
+      return (
+        Array.isArray(dataArr) && Array.isArray(dataArr[0]) ? dataArr[0] : dataArr
+      ) as number[];
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
       const wrappedError = new Error(`Failed to generate embedding: ${error.message}`);
@@ -181,7 +183,7 @@ export class TEIEmbeddingService {
         throw new Error(`TEI reranking error: ${response.status} ${response.statusText}`);
       }
 
-      const results = await response.json() as RerankResult[];
+      const results = (await response.json()) as RerankResult[];
 
       // Sort by score descending and optionally limit results
       results.sort((a, b) => b.score - a.score);

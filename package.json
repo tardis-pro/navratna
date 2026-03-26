@@ -16,6 +16,7 @@
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
     "graph": "nx graph",
+    "watch": "nx watch --all -- nx run \\$NX_PROJECT_NAME:build",
     "affected:build": "nx affected -t build",
     "clean": "nx run-many -t clean && find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
     "lint:fix": "oxlint --fix .",

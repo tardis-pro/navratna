@@ -80,4 +80,11 @@ export * from './microexpression';
 export * from './ui-interfaces';
 export * from './pipeline-schemas';
 // QuestionForge product types - NEW (non-duplicate exports only)
-export type { CouncilDebateConfig, CouncilAgentAnalysis, Round2Challenge, PackGenerationInput, QuestionScore, RankingConfig } from './questionforge';
+export type {
+  CouncilDebateConfig,
+  CouncilAgentAnalysis,
+  Round2Challenge,
+  PackGenerationInput,
+  QuestionScore,
+  RankingConfig,
+} from './questionforge';

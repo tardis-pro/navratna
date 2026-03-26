@@ -337,11 +337,14 @@ export interface ArtifactGenerationMetrics {
   totalGenerated: number;
   successRate: number;
   averageGenerationTime: number;
-  byType: Record<string, {
-    count: number;
-    successRate: number;
-    averageTime: number;
-  }>;
+  byType: Record<
+    string,
+    {
+      count: number;
+      successRate: number;
+      averageTime: number;
+    }
+  >;
 }
 
 export interface ArtifactTemplateListResponse {

@@ -135,7 +135,7 @@ export abstract class BaseProvider {
         }
 
         // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        const data = await response.json() as Record<string, unknown>;
+        const data = (await response.json()) as Record<string, unknown>;
         logger.info(`${this.name} API request successful`, {
           attempt,
           status: response.status,
@@ -204,7 +204,7 @@ export abstract class BaseProvider {
         }
 
         // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        const data = await response.json() as Record<string, unknown>;
+        const data = (await response.json()) as Record<string, unknown>;
         logger.info(`${this.name} GET request successful`, {
           attempt,
           status: response.status,

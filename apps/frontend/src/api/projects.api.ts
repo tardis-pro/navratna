@@ -15,7 +15,14 @@ import type {
   ProjectListOptions,
 } from '@uaip/types';
 
-export type { Project, ProjectCreate, ProjectUpdate, ProjectMember, ProjectFile, ProjectListOptions };
+export type {
+  Project,
+  ProjectCreate,
+  ProjectUpdate,
+  ProjectMember,
+  ProjectFile,
+  ProjectListOptions,
+};
 
 export const projectsAPI = {
   async list(options?: ProjectListOptions): Promise<Project[]> {

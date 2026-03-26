@@ -6,7 +6,10 @@ import { logger } from '@uaip/utils';
 import type { SecurityLevel } from '@uaip/types';
 import type { User, RefreshToken } from '../drizzle/schemas/control.schema';
 import type { passwordResetTokens as PasswordResetTokensTable } from '../drizzle/schemas/control.schema';
-type PasswordResetToken = Omit<typeof PasswordResetTokensTable.$inferSelect, 'userId' | 'token' | 'expiresAt' | 'createdAt' | 'updatedAt'> & {
+type PasswordResetToken = Omit<
+  typeof PasswordResetTokensTable.$inferSelect,
+  'userId' | 'token' | 'expiresAt' | 'createdAt' | 'updatedAt'
+> & {
   userId: string;
   token: string;
   expiresAt: Date;
@@ -62,10 +65,7 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
   /**
    * Update user with partial data
    */
-  public async updateUser(
-    userId: string,
-    updates: Partial<User>
-  ): Promise<User | null> {
+  public async updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
     const db = getControlDb();
     await db
       .update(users)
@@ -393,8 +393,13 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
       `;
 
       const [roleResults, directResults] = await Promise.all([
-        pool.query<{ role_name: string; permission_type: string; operations: unknown }>(rolePermissionsQuery, [userId]),
-        pool.query<{ permission_type: string; operations: unknown }>(directPermissionsQuery, [userId]),
+        pool.query<{ role_name: string; permission_type: string; operations: unknown }>(
+          rolePermissionsQuery,
+          [userId]
+        ),
+        pool.query<{ permission_type: string; operations: unknown }>(directPermissionsQuery, [
+          userId,
+        ]),
       ]);
 
       return {
@@ -522,7 +527,9 @@ export class RefreshTokenRepository extends BaseRepository<Record<string, unknow
   /**
    * Get refresh token with user data
    */
-  public async getRefreshTokenWithUser(token: string): Promise<(RefreshToken & { user?: User }) | null> {
+  public async getRefreshTokenWithUser(
+    token: string
+  ): Promise<(RefreshToken & { user?: User }) | null> {
     const db = getControlDb();
     const result = await db
       .select()
@@ -574,10 +581,8 @@ export class RefreshTokenRepository extends BaseRepository<Record<string, unknow
    */
   public async cleanupExpiredRefreshTokens(): Promise<number> {
     const db = getControlDb();
-    const result = await db
-      .delete(refreshTokens)
-      .where(lt(refreshTokens.expiresAt, new Date()));
-    return (result.rowCount ?? 0);
+    const result = await db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date()));
+    return result.rowCount ?? 0;
   }
 }
 
@@ -652,7 +657,7 @@ export class PasswordResetTokenRepository extends BaseRepository<Record<string, 
     const result = await db
       .delete(passwordResetTokens)
       .where(lt(passwordResetTokens.expiresAt, new Date()));
-    return (result.rowCount ?? 0);
+    return result.rowCount ?? 0;
   }
 
   /**

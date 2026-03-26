@@ -82,8 +82,14 @@ export class DiscussionRepository {
 
       let dataQuery = `SELECT * FROM "discussions" ${where} ORDER BY created_at DESC`;
       const dataParams = [...params];
-      if (filters.limit) { dataQuery += ` LIMIT $${p++}`; dataParams.push(filters.limit); }
-      if (filters.offset) { dataQuery += ` OFFSET $${p++}`; dataParams.push(filters.offset); }
+      if (filters.limit) {
+        dataQuery += ` LIMIT $${p++}`;
+        dataParams.push(filters.limit);
+      }
+      if (filters.offset) {
+        dataQuery += ` OFFSET $${p++}`;
+        dataParams.push(filters.offset);
+      }
 
       const dataResult = await pool.query<Discussion>(dataQuery, dataParams);
       const discussions = dataResult.rows;

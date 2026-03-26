@@ -10,7 +10,9 @@ type MarketplaceInstallation = Record<string, unknown>;
 export class MarketplaceService {
   constructor(private databaseService: DatabaseService) {}
 
-  private get pool() { return getControlPool(); }
+  private get pool() {
+    return getControlPool();
+  }
 
   async searchItems(filters: MarketplaceSearchFilters = {}) {
     try {
@@ -32,10 +34,18 @@ export class MarketplaceService {
 
       const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
       let query = `SELECT * FROM "marketplace_items" ${where} ORDER BY created_at DESC`;
-      if (filters.limit) { query += ` LIMIT $${p++}`; params.push(filters.limit); }
-      if (filters.offset) { query += ` OFFSET $${p++}`; params.push(filters.offset); }
+      if (filters.limit) {
+        query += ` LIMIT $${p++}`;
+        params.push(filters.limit);
+      }
+      if (filters.offset) {
+        query += ` OFFSET $${p++}`;
+        params.push(filters.offset);
+      }
 
-      const result = await this.pool.query<MarketplaceItem>(query, params).catch(() => ({ rows: [] as MarketplaceItem[] }));
+      const result = await this.pool
+        .query<MarketplaceItem>(query, params)
+        .catch(() => ({ rows: [] as MarketplaceItem[] }));
       return result.rows;
     } catch (error) {
       logger.error('Error searching marketplace items', { error, filters });
@@ -76,26 +86,48 @@ export class MarketplaceService {
     }
   }
 
-  async rateItem(itemId: string, userId: string, rating: number, review?: string): Promise<MarketplaceRating> {
+  async rateItem(
+    itemId: string,
+    userId: string,
+    rating: number,
+    review?: string
+  ): Promise<MarketplaceRating> {
     try {
       const existing = await this.pool.query<MarketplaceRating>(
         `SELECT * FROM "marketplace_ratings" WHERE item_id = $1 AND user_id = $2 LIMIT 1`,
         [itemId, userId]
       );
       if (existing.rows[0]) {
-        return await this.databaseService.update('marketplace_ratings', existing.rows[0].id as string, { rating, review, updatedAt: new Date() }) as MarketplaceRating;
+        return (await this.databaseService.update(
+          'marketplace_ratings',
+          existing.rows[0].id as string,
+          { rating, review, updatedAt: new Date() }
+        )) as MarketplaceRating;
       }
-      return await this.databaseService.create('marketplace_ratings', { itemId, userId, rating, review });
+      return await this.databaseService.create('marketplace_ratings', {
+        itemId,
+        userId,
+        rating,
+        review,
+      });
     } catch (error) {
       logger.error('Error rating marketplace item', { error, itemId, userId });
       throw error;
     }
   }
 
-  async installItem(itemId: string, agentId: string, userId: string): Promise<MarketplaceInstallation> {
+  async installItem(
+    itemId: string,
+    agentId: string,
+    userId: string
+  ): Promise<MarketplaceInstallation> {
     try {
       return await this.databaseService.create('marketplace_installations', {
-        itemId, agentId, userId, installedAt: new Date(), status: 'active',
+        itemId,
+        agentId,
+        userId,
+        installedAt: new Date(),
+        status: 'active',
       });
     } catch (error) {
       logger.error('Error installing marketplace item', { error, itemId });

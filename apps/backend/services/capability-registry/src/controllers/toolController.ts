@@ -106,10 +106,8 @@ export class ToolController {
   // GET /api/v1/tools/:id
   async getTool({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      logger.info(
-        `getTool called - Params: ${JSON.stringify(params ?? {})}`
-      );
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      logger.info(`getTool called - Params: ${JSON.stringify(params ?? {})}`);
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
       if (!id) {
         set.status = 400;
         return {
@@ -189,7 +187,7 @@ export class ToolController {
   // PUT /api/v1/tools/:id
   async updateTool({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -239,7 +237,7 @@ export class ToolController {
   // DELETE /api/v1/tools/:id
   async unregisterTool({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -278,7 +276,7 @@ export class ToolController {
   // POST /api/v1/tools/:id/execute
   async executeTool({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -335,7 +333,7 @@ export class ToolController {
   // GET /api/v1/executions/:id
   async getExecution({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
       const execution = await this.toolExecutor.getExecution(id);
 
       if (!execution) {
@@ -397,9 +395,8 @@ export class ToolController {
   // POST /api/v1/executions/:id/approve
   async approveExecution({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
-      const bodyData =
-        body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const bodyData = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
       const approvedBy = typeof bodyData.approvedBy === 'string' ? bodyData.approvedBy : '';
 
       if (!approvedBy) {
@@ -432,7 +429,7 @@ export class ToolController {
   // POST /api/v1/executions/:id/cancel
   async cancelExecution({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
       const cancelled = await this.toolExecutor.cancelExecution(id);
 
       if (!cancelled) {
@@ -466,7 +463,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/related
   async getRelatedTools({ params, query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
       // Validate ID format
       const idSchema = z.string();
@@ -514,7 +511,7 @@ export class ToolController {
   // POST /api/v1/tools/:id/relationships
   async addRelationship({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
       const validatedRelationship = AddRelationshipSchema.parse(body);
 
       await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, {
@@ -600,7 +597,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/similar
   async getSimilarTools({ params, query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
       const { minSimilarity, limit } = query ?? {};
 
       const similarTools = await this.toolRegistry.findSimilarTools(
@@ -631,7 +628,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/dependencies
   async getToolDependencies({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? (params ?? {}).id as string : '';
+      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
       const dependencies = await this.toolRegistry.getToolDependencies(id);
 
       return {
@@ -714,7 +711,8 @@ export class ToolController {
   // GET /api/v1/analytics/agent/:agentId/preferences
   async getAgentPreferences({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const agentId = typeof (params ?? {}).agentId === 'string' ? (params ?? {}).agentId as string : '';
+      const agentId =
+        typeof (params ?? {}).agentId === 'string' ? ((params ?? {}).agentId as string) : '';
       const preferences = await this.toolRegistry.getAgentToolPreferences(agentId);
 
       return {

@@ -1,5 +1,3 @@
-
-
 /**
  * Abstract base class for domain services.
  * Provides singleton management and lazy repository initialization,

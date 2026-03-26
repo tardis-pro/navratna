@@ -1,4 +1,3 @@
-
 import { SecurityGatewayService } from '../../services/securityGatewayService.js';
 import {
   createMockDatabaseService,

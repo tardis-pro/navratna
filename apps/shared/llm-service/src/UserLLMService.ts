@@ -96,7 +96,7 @@ export class UserLLMService {
   ): Promise<UserLLMProvider> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const providerRecord = await repository.create({
+      const providerRecord = (await repository.create({
         user_id: userId,
         name: data.name,
         type: data.type,
@@ -106,7 +106,7 @@ export class UserLLMService {
         is_default: false,
         is_active: true,
         configuration: data.configuration,
-      }) as unknown as UserLLMProvider;
+      })) as unknown as UserLLMProvider;
 
       // Clear cache for this user
       this.clearUserCache(userId);
@@ -659,12 +659,14 @@ export class UserLLMService {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
       if (preferredType) {
-        const filtered = providers.filter(p => (p.type as string) === preferredType);
+        const filtered = providers.filter((p) => (p.type as string) === preferredType);
         if (filtered.length > 0) {
           return filtered[0] as unknown as UserLLMProvider;
         }
       }
-      const defaultProvider = providers.find(p => (p as Record<string, unknown>).is_default === true);
+      const defaultProvider = providers.find(
+        (p) => (p as Record<string, unknown>).is_default === true
+      );
       return (defaultProvider || providers[0]) as unknown as UserLLMProvider;
     } catch (error) {
       logger.error('Error getting best user provider', { userId, preferredType, error });

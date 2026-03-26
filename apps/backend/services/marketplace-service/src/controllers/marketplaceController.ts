@@ -13,13 +13,13 @@ export class MarketplaceController {
         query: query.q as string,
         type: query.type
           ? Array.isArray(query.type)
-            ? (query.type as string[]) as any
-            : [query.type as string] as any
+            ? (query.type as string[] as any)
+            : ([query.type as string] as any)
           : undefined,
         category: query.category
           ? Array.isArray(query.category)
-            ? (query.category as string[]) as any
-            : [query.category as string] as any
+            ? (query.category as string[] as any)
+            : ([query.category as string] as any)
           : undefined,
         tags: query.tags
           ? Array.isArray(query.tags)
@@ -33,13 +33,11 @@ export class MarketplaceController {
           : undefined,
         pricing: query.pricing
           ? Array.isArray(query.pricing)
-            ? (query.pricing as string[]) as any
-            : [query.pricing as string] as any
+            ? (query.pricing as string[] as any)
+            : ([query.pricing as string] as any)
           : undefined,
         minRating: query.minRating ? parseFloat(query.minRating as string) : undefined,
-        minDownloads: query.minDownloads
-          ? parseInt(query.minDownloads as string)
-          : undefined,
+        minDownloads: query.minDownloads ? parseInt(query.minDownloads as string) : undefined,
         featured: query.featured ? query.featured === 'true' : undefined,
         trending: query.trending ? query.trending === 'true' : undefined,
         verified: query.verified ? query.verified === 'true' : undefined,
@@ -134,7 +132,11 @@ export class MarketplaceController {
   };
 
   // Create new marketplace item
-  createItem = async ({ body, set, user }: Context & { user?: { id: string; firstName?: string; lastName?: string } }) => {
+  createItem = async ({
+    body,
+    set,
+    user,
+  }: Context & { user?: { id: string; firstName?: string; lastName?: string } }) => {
     try {
       const userId = user?.id;
       if (!userId) {

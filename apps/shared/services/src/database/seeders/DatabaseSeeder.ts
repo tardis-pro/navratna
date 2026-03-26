@@ -102,7 +102,7 @@ export class DatabaseSeeder {
 
   private async seedUserLLMProviders(): Promise<void> {
     const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const userSeed = new UserLLMProviderSeed(allUsers.map(u => u.id));
+    const userSeed = new UserLLMProviderSeed(allUsers.map((u) => u.id));
     await userSeed.seed();
   }
 
@@ -113,21 +113,27 @@ export class DatabaseSeeder {
 
   private async seedPersonas(): Promise<void> {
     const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const personaSeed = new PersonaSeed(allUsers.map(u => u.id));
+    const personaSeed = new PersonaSeed(allUsers.map((u) => u.id));
     await personaSeed.seed();
   }
 
   private async seedAgents(): Promise<void> {
     const allUsers = await this.controlDb.select({ id: users.id }).from(users);
     const allPersonas = await this.intelligenceDb.select({ id: personas.id }).from(personas);
-    const agentSeed = new AgentSeed(allUsers.map(u => u.id), allPersonas.map(p => p.id));
+    const agentSeed = new AgentSeed(
+      allUsers.map((u) => u.id),
+      allPersonas.map((p) => p.id)
+    );
     await agentSeed.seed();
   }
 
   private async seedLLMPreferences(): Promise<void> {
     const allUsers = await this.controlDb.select({ id: users.id }).from(users);
     const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
-    const llmPreferencesSeed = new LLMPreferencesSeed(allUsers.map(u => u.id), allAgents.map(a => a.id));
+    const llmPreferencesSeed = new LLMPreferencesSeed(
+      allUsers.map((u) => u.id),
+      allAgents.map((a) => a.id)
+    );
     await llmPreferencesSeed.seed();
   }
 
@@ -139,7 +145,10 @@ export class DatabaseSeeder {
   private async seedProjects(): Promise<void> {
     const allUsers = await this.controlDb.select({ id: users.id }).from(users);
     const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
-    const projectSeed = new ProjectSeed(allUsers.map(u => u.id), allAgents.map(a => a.id));
+    const projectSeed = new ProjectSeed(
+      allUsers.map((u) => u.id),
+      allAgents.map((a) => a.id)
+    );
     await projectSeed.seed();
   }
 }

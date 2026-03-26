@@ -4,7 +4,9 @@ import { discussions, discussionParticipants } from '../drizzle/schemas/intellig
 import { eq, and, or, ilike, inArray, desc } from 'drizzle-orm';
 
 export class DiscussionRepository {
-  private get db() { return getIntelligenceDb(); }
+  private get db() {
+    return getIntelligenceDb();
+  }
 
   async searchDiscussions(filters: {
     textQuery?: string;
@@ -17,12 +19,19 @@ export class DiscussionRepository {
     createdBefore?: Date;
     limit?: number;
     offset?: number;
-  }): Promise<{ discussions: typeof discussions.$inferSelect[]; total: number }> {
+  }): Promise<{ discussions: (typeof discussions.$inferSelect)[]; total: number }> {
     try {
-      const allDiscussions = await this.db.select().from(discussions).orderBy(desc(discussions.createdAt)).limit(filters.limit ?? 50).offset(filters.offset ?? 0);
+      const allDiscussions = await this.db
+        .select()
+        .from(discussions)
+        .orderBy(desc(discussions.createdAt))
+        .limit(filters.limit ?? 50)
+        .offset(filters.offset ?? 0);
       return { discussions: allDiscussions, total: allDiscussions.length };
     } catch (error) {
-      logger.error('DiscussionRepository.searchDiscussions failed', { error: (error as Error).message });
+      logger.error('DiscussionRepository.searchDiscussions failed', {
+        error: (error as Error).message,
+      });
       throw error;
     }
   }
@@ -32,7 +41,11 @@ export class DiscussionRepository {
     return row ?? null;
   }
 
-  async findByCreator(userId: string): Promise<typeof discussions.$inferSelect[]> {
-    return this.db.select().from(discussions).where(eq(discussions.createdBy, userId as unknown as string)).orderBy(desc(discussions.createdAt));
+  async findByCreator(userId: string): Promise<(typeof discussions.$inferSelect)[]> {
+    return this.db
+      .select()
+      .from(discussions)
+      .where(eq(discussions.createdBy, userId as unknown as string))
+      .orderBy(desc(discussions.createdAt));
   }
 }

@@ -56,7 +56,8 @@ export default defineConfig(({ _mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('react-dom') || (id.includes('react') && !id.includes('@tanstack'))) return 'vendor-react';
+            if (id.includes('react-dom') || (id.includes('react') && !id.includes('@tanstack')))
+              return 'vendor-react';
             if (id.includes('framer-motion')) return 'vendor-framer';
             if (id.includes('@radix-ui')) return 'vendor-radix';
             if (id.includes('socket.io-client')) return 'vendor-socket';

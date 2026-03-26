@@ -19,7 +19,6 @@ import {
 import { Persona as _Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/DiscussionRepository';
 
-
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/eventBus';
 import { PersonaService } from './personaService';
@@ -131,7 +130,10 @@ export class DiscussionService {
         updatedAt: new Date(),
       };
 
-      const discussion = await this.databaseService.create<Record<string, unknown>>('discussions', discussionData);
+      const discussion = await this.databaseService.create<Record<string, unknown>>(
+        'discussions',
+        discussionData
+      );
       const discussionId = discussion.id as string;
 
       if (request.createdBy) {
@@ -187,7 +189,10 @@ export class DiscussionService {
       }
 
       // Fetch from database with relations
-      const discussion = await this.databaseService.findById<Record<string, unknown>>('discussions', id);
+      const discussion = await this.databaseService.findById<Record<string, unknown>>(
+        'discussions',
+        id
+      );
       if (discussion && discussion.status === DiscussionStatus.ACTIVE) {
         this.activeDiscussions.set(id, discussion);
       }
@@ -223,7 +228,10 @@ export class DiscussionService {
       });
 
       // Fetch the updated discussion with all relations (especially participants)
-      const discussion = await this.databaseService.findById<Record<string, unknown>>('discussions', id);
+      const discussion = await this.databaseService.findById<Record<string, unknown>>(
+        'discussions',
+        id
+      );
 
       if (!discussion) {
         throw new Error(`Failed to update discussion: ${id}`);

@@ -12,7 +12,12 @@ import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { EntityMatcherService } from './entityMatcher.service';
 
-export type { DataSource, DiscoveredEntity, EntityRelationship, OntologyProposal } from './process-archaeology.types';
+export type {
+  DataSource,
+  DiscoveredEntity,
+  EntityRelationship,
+  OntologyProposal,
+} from './process-archaeology.types';
 
 import type {
   DataSource,

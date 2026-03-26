@@ -1,9 +1,5 @@
 // Original TelescopeSurface (generic block surface)
-export {
-  TelescopeSurface,
-  TelescopeBlock,
-  useTelescopeSurface,
-} from './TelescopeSurface';
+export { TelescopeSurface, TelescopeBlock, useTelescopeSurface } from './TelescopeSurface';
 
 export type {
   TelescopeSurfaceProps,

@@ -31,26 +31,28 @@ src/
 
 ## ENDPOINTS
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET/POST/PUT/DELETE | `/api/v1/tools` | Tool CRUD |
-| POST | `/api/v1/tools/:id/execute` | Execute tool in sandbox |
-| GET | `/api/v1/tools/search` | Full-text + tag search |
-| GET | `/api/v1/tools/recommendations` | Neo4j graph-based recommendations |
-| GET/POST | `/api/v1/mcp` | MCP server management |
-| GET | `/api/v1/mcp/tools` | Tool discovery via MCP |
-| GET/POST | `/api/v1/capabilities` | Capability CRUD |
-| GET/POST | `/api/v1/workspace` | Workspace/coding agent execution |
-| GET | `/health` | Detailed: DB + Neo4j + MCP + OAuth + cache + sandbox |
+| Method              | Path                            | Purpose                                              |
+| ------------------- | ------------------------------- | ---------------------------------------------------- |
+| GET/POST/PUT/DELETE | `/api/v1/tools`                 | Tool CRUD                                            |
+| POST                | `/api/v1/tools/:id/execute`     | Execute tool in sandbox                              |
+| GET                 | `/api/v1/tools/search`          | Full-text + tag search                               |
+| GET                 | `/api/v1/tools/recommendations` | Neo4j graph-based recommendations                    |
+| GET/POST            | `/api/v1/mcp`                   | MCP server management                                |
+| GET                 | `/api/v1/mcp/tools`             | Tool discovery via MCP                               |
+| GET/POST            | `/api/v1/capabilities`          | Capability CRUD                                      |
+| GET/POST            | `/api/v1/workspace`             | Workspace/coding agent execution                     |
+| GET                 | `/health`                       | Detailed: DB + Neo4j + MCP + OAuth + cache + sandbox |
 
 ## KEY PATTERNS
 
 **MCP protocol** — `mcpClientService.ts` (2200+ lines):
+
 - Auto-starts configured MCP servers on boot
 - Tool discovery, invocation, streaming
 - `sanitizeServerState()` strips `httpHeaders` (live API keys) before sending to clients — **NEVER** expose `httpHeaders` to clients
 
 **Triple-store sync** — `IntegrationService` runs every 5 seconds:
+
 ```
 PostgreSQL ↔ Neo4j ↔ Qdrant (UUID-consistent sync)
 ```

@@ -365,7 +365,10 @@ export class ToolExecutor {
     if (toolId) filters.toolId = toolId;
     if (agentId) filters.agentId = agentId;
     if (status) filters.status = status;
-    const records = await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
+    const records = await this.toolService.findExecutionsByTool(
+      filters.toolId || '',
+      filters.limit
+    );
     return records as unknown as ToolExecution[];
   }
 
@@ -379,7 +382,10 @@ export class ToolExecutor {
       status: ToolExecutionStatus.RUNNING,
     };
     if (agentId) filters.agentId = agentId;
-    const records = await this.toolService.findExecutionsByTool(filters.toolId || '', filters.limit);
+    const records = await this.toolService.findExecutionsByTool(
+      filters.toolId || '',
+      filters.limit
+    );
     return records as unknown as ToolExecution[];
   }
 

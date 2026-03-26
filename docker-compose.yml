@@ -13,471 +13,442 @@
 # =============================================================================
 
 services:
-    # Database Services
-    postgres:
-        image: postgres:18-alpine
-        container_name: uaip-postgres
-        environment:
-            POSTGRES_DB: ${POSTGRES_DB:-uaip}
-            POSTGRES_USER: ${POSTGRES_USER:-uaip_user}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uaip_password}
-            POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-uaip,uaip_test}
-        ports:
-            - "5432:5432"
-        volumes:
-            - postgres_data:/var/lib/postgresql
-            # PostgreSQL initialization files (executed in alphabetical order)
-        networks:
-            - uaip-network
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U uaip_user -d uaip"]
-            interval: 300s
-            timeout: 10s
-            retries: 5
+  # Database Services
+  postgres:
+    image: postgres:18-alpine
+    container_name: uaip-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-uaip}
+      POSTGRES_USER: ${POSTGRES_USER:-uaip_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uaip_password}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-uaip,uaip_test}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      # PostgreSQL initialization files (executed in alphabetical order)
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U uaip_user -d uaip']
+      interval: 300s
+      timeout: 10s
+      retries: 5
 
-    neo4j:
-        image: neo4j:2025.04.0-community-bullseye
-        container_name: uaip-neo4j
-        environment:
-            NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
-            NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-            NEO4J_apoc_export_file_enabled: "true"
-            NEO4J_apoc_import_file_enabled: "true"
-            NEO4J_apoc_import_file_use__neo4j__config: "true"
-            NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
-            NEO4J_dbms_memory_heap_initial__size: 512m
-            NEO4J_dbms_memory_heap_max__size: 1G
-        ports:
-            - "7474:7474" # HTTP
-            - "7687:7687" # Bolt
-        volumes:
-            - neo4j_data:/data
-            - neo4j_logs:/logs
-            - neo4j_import:/var/lib/neo4j/import
-            - neo4j_plugins:/plugins
-            # Neo4j initialization files (executed in alphabetical order)
-            - ./database/neo4j/init:/docker-entrypoint-initdb.d
-        networks:
-            - uaip-network
-        healthcheck:
-            test:
-                [
-                    "CMD",
-                    "cypher-shell",
-                    "-u",
-                    "neo4j",
-                    "-p",
-                    "uaip_dev_password",
-                    "RETURN 1",
-                ]
-            interval: 300s
-            timeout: 10s
-            retries: 5
+  neo4j:
+    image: neo4j:2025.04.0-community-bullseye
+    container_name: uaip-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_apoc_export_file_enabled: 'true'
+      NEO4J_apoc_import_file_enabled: 'true'
+      NEO4J_apoc_import_file_use__neo4j__config: 'true'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - '7474:7474' # HTTP
+      - '7687:7687' # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+      # Neo4j initialization files (executed in alphabetical order)
+      - ./database/neo4j/init:/docker-entrypoint-initdb.d
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'cypher-shell', '-u', 'neo4j', '-p', 'uaip_dev_password', 'RETURN 1']
+      interval: 300s
+      timeout: 10s
+      retries: 5
 
-    redis:
-        image: redis:8-alpine
-        container_name: uaip-redis
-        ports:
-            - "6379:6379"
-        volumes:
-            - redis_data:/data
-        networks:
-            - uaip-network
-        command: redis-server --protected-mode yes --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD:-uaip_redis_password}
-        environment:
-            - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
-        healthcheck:
-            test:
-                [
-                    "CMD",
-                    "redis-cli",
-                    "-a",
-                    "${REDIS_PASSWORD:-uaip_redis_password}",
-                    "ping",
-                ]
-            interval: 10s
-            timeout: 5s
-            retries: 3
+  redis:
+    image: redis:8-alpine
+    container_name: uaip-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - uaip-network
+    command: redis-server --protected-mode yes --bind 0.0.0.0 --requirepass ${REDIS_PASSWORD:-uaip_redis_password}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-uaip_redis_password}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-    # Embedding Engine (Qdrant for vector storage)
-    qdrant:
-        image: qdrant/qdrant:v1.14.1
-        container_name: uaip-qdrant
-        ports:
-            - "6333:6333" # HTTP API
-            - "6334:6334" # gRPC API
-        volumes:
-            - qdrant_data:/qdrant/storage
-        environment:
-            QDRANT__SERVICE__HTTP_PORT: 6333
-            QDRANT__SERVICE__GRPC_PORT: 6334
-        networks:
-            - uaip-network
-        healthcheck:
-            test: ["CMD-SHELL", "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+  # Embedding Engine (Qdrant for vector storage)
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    container_name: uaip-qdrant
+    ports:
+      - '6333:6333' # HTTP API
+      - '6334:6334' # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD-SHELL', "timeout 5s bash -c '</dev/tcp/localhost/6333'"]
+      interval: 300s
+      timeout: 10s
+      retries: 3
 
-    # Consolidated Backend Services (v3.0: 7 → 2)
-    navratna-core:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        container_name: uaip-navratna-core
-        entrypoint: []
-        command:
-            ["bun", "run", "apps/backend/services/navratna-core/src/index.ts"]
-        environment:
-            - NODE_ENV=${NODE_ENV:-development}
-            - NAVRATNA_CORE_PORT=3001
-            - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-            - NEO4J_URL=bolt://neo4j:7687
-            - NEO4J_USER=${NEO4J_USER:-neo4j}
-            - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
-            - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-            - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
-            - QDRANT_URL=http://qdrant:6333
-            - WEBSOCKET_ENABLED=true
-            - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
-            - OPENAI_API_KEY=${OPENAI_API_KEY}
-            - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
-            - OPENAI_API_URL=${OPENAI_API_URL}
-            - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-            - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
-            - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
-            - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
-            - ENTERPRISE_MODE=false
-            - ZERO_TRUST_MODE=disabled
-        ports:
-            - "3001:3001"
-        depends_on:
-            postgres:
-                condition: service_started
-            neo4j:
-                condition: service_started
-            redis:
-                condition: service_started
-            qdrant:
-                condition: service_started
-        networks:
-            - uaip-network
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+  # Consolidated Backend Services (v3.0: 7 → 2)
+  navratna-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uaip-navratna-core
+    entrypoint: []
+    command: ['bun', 'run', 'apps/backend/services/navratna-core/src/index.ts']
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - NAVRATNA_CORE_PORT=3001
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-uaip_redis_password}
+      - QDRANT_URL=http://qdrant:6333
+      - WEBSOCKET_ENABLED=true
+      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
+      - LLM_STUDIO_URL=${LLM_STUDIO_URL:-http://localhost:1234}
+      - LLM_PROVIDER_ENCRYPTION_KEY=${LLM_PROVIDER_ENCRYPTION_KEY:-default-key-change-in-production}
+      - ENTERPRISE_MODE=false
+      - ZERO_TRUST_MODE=disabled
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_started
+      neo4j:
+        condition: service_started
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
+      interval: 300s
+      timeout: 10s
+      retries: 3
 
-    navratna-gateway:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        container_name: uaip-navratna-gateway
-        entrypoint: []
-        command:
-            [
-                "bun",
-                "run",
-                "apps/backend/services/navratna-gateway/src/index.ts",
-            ]
-        environment:
-            - NODE_ENV=${NODE_ENV:-development}
-            - NAVRATNA_GATEWAY_PORT=3002
-            - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-            - NEO4J_URL=bolt://neo4j:7687
-            - NEO4J_USER=${NEO4J_USER:-neo4j}
-            - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
-            - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-            - QDRANT_URL=http://qdrant:6333
-            - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
-            - OPENAI_API_KEY=${OPENAI_API_KEY}
-            - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
-            - OPENAI_API_URL=${OPENAI_API_URL}
-            - MCP_SECRETS_KEY=${MCP_SECRETS_KEY}
-            - ENTERPRISE_MODE=false
-            - ZERO_TRUST_MODE=disabled
-        ports:
-            - "3002:3002"
-        depends_on:
-            postgres:
-                condition: service_started
-            redis:
-                condition: service_started
-            qdrant:
-                condition: service_started
-        networks:
-            - uaip-network
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+  navratna-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uaip-navratna-gateway
+    entrypoint: []
+    command: ['bun', 'run', 'apps/backend/services/navratna-gateway/src/index.ts']
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - NAVRATNA_GATEWAY_PORT=3002
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_dev_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - QDRANT_URL=http://qdrant:6333
+      - JWT_SECRET=${JWT_SECRET:-uaip_dev_jwt_secret_key_change_in_production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CUSTOM_OPENAI_API_KEY=${CUSTOM_OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - MCP_SECRETS_KEY=${MCP_SECRETS_KEY}
+      - ENTERPRISE_MODE=false
+      - ZERO_TRUST_MODE=disabled
+    ports:
+      - '3002:3002'
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3002/health']
+      interval: 300s
+      timeout: 10s
+      retries: 3
 
-    # QuestionForge - Stakeholder Discovery Council
-    questionforge:
-        image: uaip-backend-base:latest
-        container_name: uaip-questionforge
-        environment:
-            - SERVICE_NAME=questionforge
-            - SERVICE_PORT=3010
-            - NODE_ENV=development
-            - PORT=3010
-            - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
-            - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
-            - NEO4J_URL=bolt://neo4j:7687
-            - NEO4J_USER=${NEO4J_USER:-neo4j}
-            - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_neo4j_password}
-            - QDRANT_URL=http://qdrant:6333
-            - JWT_SECRET=${JWT_SECRET:-uaip-development-jwt-secret-key-2024}
-        ports:
-            - "3010:3010"
-        volumes:
-            - ./packages:/app/packages
-            - ./apps/shared:/app/shared
-            - ./backend/services/questionforge:/app/backend/services/questionforge
-            - /app/node_modules
-            - /app/backend/node_modules
-            - /app/shared/services/node_modules
-            - /app/shared/middleware/node_modules
-            - /app/shared/config/node_modules
-            - /app/shared/llm-service/node_modules
-            - /app/backend/services/questionforge/node_modules
-            - /app/packages/shared-types/node_modules
-            - /app/packages/shared-utils/node_modules
-        depends_on:
-            postgres:
-                condition: service_started
-            redis:
-                condition: service_started
-        networks:
-            - uaip-network
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+  # QuestionForge - Stakeholder Discovery Council
+  questionforge:
+    image: uaip-backend-base:latest
+    container_name: uaip-questionforge
+    environment:
+      - SERVICE_NAME=questionforge
+      - SERVICE_PORT=3010
+      - NODE_ENV=development
+      - PORT=3010
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-uaip_neo4j_password}
+      - QDRANT_URL=http://qdrant:6333
+      - JWT_SECRET=${JWT_SECRET:-uaip-development-jwt-secret-key-2024}
+    ports:
+      - '3010:3010'
+    volumes:
+      - ./packages:/app/packages
+      - ./apps/shared:/app/shared
+      - ./backend/services/questionforge:/app/backend/services/questionforge
+      - /app/node_modules
+      - /app/backend/node_modules
+      - /app/shared/services/node_modules
+      - /app/shared/middleware/node_modules
+      - /app/shared/config/node_modules
+      - /app/shared/llm-service/node_modules
+      - /app/backend/services/questionforge/node_modules
+      - /app/packages/shared-types/node_modules
+      - /app/packages/shared-utils/node_modules
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3010/health']
+      interval: 300s
+      timeout: 10s
+      retries: 3
 
-    # Frontend Service with Hot Reloading
-    frontend:
-        build:
-            context: .
-            dockerfile: apps/frontend/Dockerfile
-            target: development
-        container_name: council-frontend
-        environment:
-            - NODE_ENV=development
-            - VITE_API_URL=http://192.168.29.70:8081
-            - VITE_API_TARGET=http://api-gateway:80
-            - CHOKIDAR_USEPOLLING=true
-            - WATCHPACK_POLLING=true
-        ports:
-            - "5173:5173"
-        volumes:
-            # Hot reloading - mount source code
-            - ./apps/frontend/src:/app/apps/frontend/src
-            - ./apps/frontend/public:/app/apps/frontend/public
-            - ./apps/frontend/index.html:/app/apps/frontend/index.html
-            - ./apps/frontend/vite.config.ts:/app/apps/frontend/vite.config.ts
-            - ./apps/frontend/tailwind.config.ts:/app/apps/frontend/tailwind.config.ts
-            - ./apps/frontend/postcss.config.js:/app/apps/frontend/postcss.config.js
-            - ./packages:/app/packages
-            - /app/node_modules
-            - /app/apps/frontend/node_modules
-        networks:
-            - uaip-network
+  # Frontend Service with Hot Reloading
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      target: development
+    container_name: council-frontend
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://192.168.29.70:8081
+      - VITE_API_TARGET=http://api-gateway:80
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    ports:
+      - '5173:5173'
+    volumes:
+      # Hot reloading - mount source code
+      - ./apps/frontend/src:/app/apps/frontend/src
+      - ./apps/frontend/public:/app/apps/frontend/public
+      - ./apps/frontend/index.html:/app/apps/frontend/index.html
+      - ./apps/frontend/vite.config.ts:/app/apps/frontend/vite.config.ts
+      - ./apps/frontend/tailwind.config.ts:/app/apps/frontend/tailwind.config.ts
+      - ./apps/frontend/postcss.config.js:/app/apps/frontend/postcss.config.js
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+    networks:
+      - uaip-network
 
-    # API Gateway (Nginx as reverse proxy) with Frontend static files
-    api-gateway:
-        image: nginx:alpine
-        container_name: uaip-api-gateway
-        ports:
-            - "8081:80"
-        volumes:
-            - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
-            - ./apps/frontend/dist:/var/www/html:ro
-        depends_on:
-            - navratna-core
-            - navratna-gateway
-            - frontend
-        networks:
-            - uaip-network
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost/health"]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+  # API Gateway (Nginx as reverse proxy) with Frontend static files
+  api-gateway:
+    image: nginx:alpine
+    container_name: uaip-api-gateway
+    ports:
+      - '8081:80'
+    volumes:
+      - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
+      - ./apps/frontend/dist:/var/www/html:ro
+    depends_on:
+      - navratna-core
+      - navratna-gateway
+      - frontend
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost/health']
+      interval: 300s
+      timeout: 10s
+      retries: 3
 
-    # Monitoring Stack
-    prometheus:
-        image: prom/prometheus:latest
-        container_name: uaip-prometheus
-        ports:
-            - "9090:9090"
-        volumes:
-            - ./monitoring:/etc/prometheus/config
-            - prometheus_data:/prometheus
-        networks:
-            - uaip-network
-        command:
-            - "--config.file=/etc/prometheus/config/prometheus.yml"
-            - "--storage.tsdb.path=/prometheus"
-            - "--web.console.libraries=/etc/prometheus/console_libraries"
-            - "--web.console.templates=/etc/prometheus/consoles"
-            - "--web.enable-lifecycle"
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: uaip-prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./monitoring:/etc/prometheus/config
+      - prometheus_data:/prometheus
+    networks:
+      - uaip-network
+    command:
+      - '--config.file=/etc/prometheus/config/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
 
-    loki:
-        image: grafana/loki:2.9.8
-        container_name: uaip-loki
-        ports:
-            - "3100:3100"
-        volumes:
-            - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml
-            - loki_data:/loki
-        command:
-            - "--config.file=/etc/loki/loki-config.yml"
-        networks:
-            - uaip-network
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: uaip-loki
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml
+      - loki_data:/loki
+    command:
+      - '--config.file=/etc/loki/loki-config.yml'
+    networks:
+      - uaip-network
 
-    promtail:
-        image: grafana/promtail:3.0.0
-        container_name: uaip-promtail
-        environment:
-            - DOCKER_API_VERSION=1.44
-        volumes:
-            - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
-            - /var/lib/docker/containers:/var/lib/docker/containers:ro
-            - /var/run/docker.sock:/var/run/docker.sock
-        command:
-            - "--config.file=/etc/promtail/promtail-config.yml"
-        networks:
-            - uaip-network
-        depends_on:
-            - loki
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: uaip-promtail
+    environment:
+      - DOCKER_API_VERSION=1.44
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - '--config.file=/etc/promtail/promtail-config.yml'
+    networks:
+      - uaip-network
+    depends_on:
+      - loki
 
-    # Infrastructure Exporters
-    postgres-exporter:
-        image: prometheuscommunity/postgres-exporter:latest
-        container_name: uaip-postgres-exporter
-        environment:
-            DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable"
-        ports:
-            - "9187:9187"
-        networks:
-            - uaip-network
-        depends_on:
-            postgres:
-                condition: service_started
-        restart: unless-stopped
+  # Infrastructure Exporters
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: uaip-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: 'postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}?sslmode=disable'
+    ports:
+      - '9187:9187'
+    networks:
+      - uaip-network
+    depends_on:
+      postgres:
+        condition: service_started
+    restart: unless-stopped
 
-    redis-exporter:
-        image: oliver006/redis_exporter:latest
-        container_name: uaip-redis-exporter
-        environment:
-            REDIS_ADDR: "redis:6379"
-            REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
-        ports:
-            - "9121:9121"
-        networks:
-            - uaip-network
-        depends_on:
-            redis:
-                condition: service_started
-        restart: unless-stopped
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: uaip-redis-exporter
+    environment:
+      REDIS_ADDR: 'redis:6379'
+      REDIS_PASSWORD: '${REDIS_PASSWORD:-uaip_redis_password}'
+    ports:
+      - '9121:9121'
+    networks:
+      - uaip-network
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
 
-    node-exporter:
-        image: prom/node-exporter:latest
-        container_name: uaip-node-exporter
-        ports:
-            - "9100:9100"
-        volumes:
-            - /proc:/host/proc:ro
-            - /sys:/host/sys:ro
-        networks:
-            - uaip-network
-        command:
-            - "--path.procfs=/host/proc"
-            - "--path.sysfs=/host/sys"
-            - "--web.listen-address=:9100"
-            # Exclude problematic mount points for WSL2
-            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp|wsl|snap)($$|/)"
-            - "--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs|9p|drvfs)$$"
-            # Disable collectors that don't work well in WSL2/containers
-            - "--no-collector.netstat"
-            - "--no-collector.softnet"
-            - "--no-collector.arp"
-            - "--no-collector.bcache"
-            - "--no-collector.bonding"
-            - "--no-collector.ipvs"
-            - "--no-collector.infiniband"
-            - "--no-collector.powersupplyclass"
-            - "--no-collector.rapl"
-            - "--no-collector.thermal_zone"
-            - "--no-collector.xfs"
-            - "--no-collector.zfs"
-            - "--no-collector.hwmon"
-            - "--no-collector.ntp"
-            - "--no-collector.wifi"
-            - "--no-collector.fibrechannel"
-            - "--no-collector.nvme"
-            - "--no-collector.tapestats"
-        restart: unless-stopped
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: uaip-node-exporter
+    ports:
+      - '9100:9100'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    networks:
+      - uaip-network
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--web.listen-address=:9100'
+      # Exclude problematic mount points for WSL2
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp|wsl|snap)($$|/)'
+      - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs|9p|drvfs)$$'
+      # Disable collectors that don't work well in WSL2/containers
+      - '--no-collector.netstat'
+      - '--no-collector.softnet'
+      - '--no-collector.arp'
+      - '--no-collector.bcache'
+      - '--no-collector.bonding'
+      - '--no-collector.ipvs'
+      - '--no-collector.infiniband'
+      - '--no-collector.powersupplyclass'
+      - '--no-collector.rapl'
+      - '--no-collector.thermal_zone'
+      - '--no-collector.xfs'
+      - '--no-collector.zfs'
+      - '--no-collector.hwmon'
+      - '--no-collector.ntp'
+      - '--no-collector.wifi'
+      - '--no-collector.fibrechannel'
+      - '--no-collector.nvme'
+      - '--no-collector.tapestats'
+    restart: unless-stopped
 
-    nginx-exporter:
-        image: nginx/nginx-prometheus-exporter:latest
-        container_name: uaip-nginx-exporter
-        ports:
-            - "9113:9113"
-        networks:
-            - uaip-network
-        depends_on:
-            api-gateway:
-                condition: service_started
-        command:
-            - "-nginx.scrape-uri=http://api-gateway:80/nginx_status"
-        restart: unless-stopped
-        healthcheck:
-            test:
-                [
-                    "CMD",
-                    "wget",
-                    "-q",
-                    "--spider",
-                    "http://localhost:9113/metrics",
-                ]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: uaip-nginx-exporter
+    ports:
+      - '9113:9113'
+    networks:
+      - uaip-network
+    depends_on:
+      api-gateway:
+        condition: service_started
+    command:
+      - '-nginx.scrape-uri=http://api-gateway:80/nginx_status'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:9113/metrics']
+      interval: 300s
+      timeout: 10s
+      retries: 3
 
-    grafana:
-        image: grafana/grafana:latest
-        container_name: uaip-grafana
-        ports:
-            - "3000:3000"
-        volumes:
-            - grafana_data:/var/lib/grafana
-            - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-        environment:
-            - GF_SECURITY_ADMIN_PASSWORD=admin
-        networks:
-            - uaip-network
-        depends_on:
-            - prometheus
-            - loki
+  grafana:
+    image: grafana/grafana:latest
+    container_name: uaip-grafana
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - uaip-network
+    depends_on:
+      - prometheus
+      - loki
 
 volumes:
-    postgres_data:
-    neo4j_data:
-    neo4j_logs:
-    neo4j_import:
-    neo4j_plugins:
-    redis_data:
-    qdrant_data:
-    prometheus_data:
-    grafana_data:
-    loki_data:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:
+  redis_data:
+  qdrant_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
 
 networks:
-    uaip-network:
-        driver: bridge
+  uaip-network:
+    driver: bridge

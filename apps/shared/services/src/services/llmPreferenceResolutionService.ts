@@ -112,7 +112,14 @@ export class LLMPreferenceResolutionService {
     // Step 1: Check for agent-specific preference
     const agentPreference = await this.getAgentPreference(agentId, taskType);
     if (agentPreference && (agentPreference as { isActive: boolean }).isActive) {
-      const pref = agentPreference as { preferredProvider: LLMProviderType; preferredModel: string; fallbackModel?: string; getEffectiveSettings: Function; reasoning?: string; getPerformanceScore: Function };
+      const pref = agentPreference as {
+        preferredProvider: LLMProviderType;
+        preferredModel: string;
+        fallbackModel?: string;
+        getEffectiveSettings: Function;
+        reasoning?: string;
+        getPerformanceScore: Function;
+      };
       return {
         provider: pref.preferredProvider,
         model: pref.preferredModel,
@@ -131,7 +138,10 @@ export class LLMPreferenceResolutionService {
     });
 
     if ((agent as { createdBy?: string })?.createdBy) {
-      const userPreference = await this.getUserPreference((agent as { createdBy: string }).createdBy, taskType);
+      const userPreference = await this.getUserPreference(
+        (agent as { createdBy: string }).createdBy,
+        taskType
+      );
       if (userPreference && (userPreference as { isActive: boolean }).isActive) {
         return {
           provider: (userPreference as { preferredProvider: LLMProviderType }).preferredProvider,
@@ -140,7 +150,10 @@ export class LLMPreferenceResolutionService {
           settings: (userPreference as { getEffectiveSettings: Function }).getEffectiveSettings(),
           source: 'user',
           reasoning: `User preference: ${(userPreference as { description?: string }).description || 'User-defined default'}`,
-          confidence: this.calculateConfidence((userPreference as { getPerformanceScore: Function }).getPerformanceScore(), 'user'),
+          confidence: this.calculateConfidence(
+            (userPreference as { getPerformanceScore: Function }).getPerformanceScore(),
+            'user'
+          ),
         };
       }
     }
@@ -167,7 +180,14 @@ export class LLMPreferenceResolutionService {
     // Check for user-specific preference
     const userPreference = await this.getUserPreference(userId, taskType);
     if (userPreference && (userPreference as { isActive: boolean }).isActive) {
-      const pref = userPreference as { preferredProvider: LLMProviderType; preferredModel: string; fallbackModel?: string; getEffectiveSettings: Function; description?: string; getPerformanceScore: Function };
+      const pref = userPreference as {
+        preferredProvider: LLMProviderType;
+        preferredModel: string;
+        fallbackModel?: string;
+        getEffectiveSettings: Function;
+        description?: string;
+        getPerformanceScore: Function;
+      };
       return {
         provider: pref.preferredProvider,
         model: pref.preferredModel,
@@ -228,14 +248,21 @@ export class LLMPreferenceResolutionService {
     success: boolean,
     quality?: number
   ): Promise<void> {
-    const agentPrefRepo = this.agentLLMPreferenceRepository as { findOne: Function; save: Function };
+    const agentPrefRepo = this.agentLLMPreferenceRepository as {
+      findOne: Function;
+      save: Function;
+    };
     const userPrefRepo = this.userLLMPreferenceRepository as { findOne: Function; save: Function };
     const agentRepo = this.agentRepository as { findOne: Function };
 
     // Update agent-specific stats if preference exists
     const agentPreference = await this.getAgentPreference(agentId, taskType);
     if (agentPreference) {
-      (agentPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success, quality);
+      (agentPreference as { updateUsageStats: Function }).updateUsageStats(
+        responseTime,
+        success,
+        quality
+      );
       await agentPrefRepo.save(agentPreference);
     }
 
@@ -246,7 +273,10 @@ export class LLMPreferenceResolutionService {
     });
 
     if ((agent as { createdBy?: string })?.createdBy) {
-      const userPreference = await this.getUserPreference((agent as { createdBy: string }).createdBy, taskType);
+      const userPreference = await this.getUserPreference(
+        (agent as { createdBy: string }).createdBy,
+        taskType
+      );
       if (userPreference) {
         (userPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success);
         await userPrefRepo.save(userPreference);
@@ -264,10 +294,7 @@ export class LLMPreferenceResolutionService {
     });
   }
 
-  private async getUserPreference(
-    userId: string,
-    taskType: LLMTaskType
-  ): Promise<unknown | null> {
+  private async getUserPreference(userId: string, taskType: LLMTaskType): Promise<unknown | null> {
     const repo = this.userLLMPreferenceRepository as { findOne: Function };
     return repo.findOne({
       where: { userId, taskType, isActive: true },

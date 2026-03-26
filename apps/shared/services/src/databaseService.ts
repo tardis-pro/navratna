@@ -4,10 +4,28 @@ import { getControlPool, getIntelligencePool } from './database/drizzle/clients/
 type EntityTarget<T> = (new () => T) | string;
 type ObjectLiteral = Record<string, unknown>;
 type Repository<T extends ObjectLiteral> = DrizzleRepository<T>;
-type FindManyOptions<T = ObjectLiteral> = { where?: Partial<T>; order?: Partial<Record<keyof T, 'ASC' | 'DESC'>>; take?: number; skip?: number };
+type FindManyOptions<T = ObjectLiteral> = {
+  where?: Partial<T>;
+  order?: Partial<Record<keyof T, 'ASC' | 'DESC'>>;
+  take?: number;
+  skip?: number;
+};
 type FindOptionsWhere<T = ObjectLiteral> = Partial<T>;
 
-const INTELLIGENCE_TABLES = new Set(['agents','personas','discussions','discussion_participants','discussion_messages','artifacts','artifact_reviews','artifact_deployments','knowledge_items','knowledge_relationships','llm_providers','llm_models']);
+const INTELLIGENCE_TABLES = new Set([
+  'agents',
+  'personas',
+  'discussions',
+  'discussion_participants',
+  'discussion_messages',
+  'artifacts',
+  'artifact_reviews',
+  'artifact_deployments',
+  'knowledge_items',
+  'knowledge_relationships',
+  'llm_providers',
+  'llm_models',
+]);
 
 class DrizzleRepository<T extends ObjectLiteral> {
   constructor(private readonly table: string) {}
@@ -26,13 +44,20 @@ class DrizzleRepository<T extends ObjectLiteral> {
     return result.rows[0] ?? null;
   }
 
-  async find(opts?: { where?: Partial<T>; order?: Partial<Record<string, string>>; take?: number; skip?: number }): Promise<T[]> {
+  async find(opts?: {
+    where?: Partial<T>;
+    order?: Partial<Record<string, string>>;
+    take?: number;
+    skip?: number;
+  }): Promise<T[]> {
     const keys = Object.keys(opts?.where ?? {});
     const vals: unknown[] = Object.values(opts?.where ?? {});
     let q = `SELECT * FROM "${this.table}"`;
     if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
     if (opts?.order) {
-      const clauses = Object.entries(opts.order).map(([c, d]) => `"${c}" ${d}`).join(', ');
+      const clauses = Object.entries(opts.order)
+        .map(([c, d]) => `"${c}" ${d}`)
+        .join(', ');
       q += ` ORDER BY ${clauses}`;
     }
     if (opts?.take) q += ` LIMIT ${opts.take}`;
@@ -53,17 +78,23 @@ class DrizzleRepository<T extends ObjectLiteral> {
   async save(entity: Partial<T>): Promise<T> {
     const rec = entity as Record<string, unknown>;
     if (rec.id) {
-      const keys = Object.keys(rec).filter(k => k !== 'id');
+      const keys = Object.keys(rec).filter((k) => k !== 'id');
       const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-      const vals: unknown[] = [rec.id, ...keys.map(k => rec[k])];
-      const result = await this.pool.query<T>(`UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1 RETURNING *`, vals);
+      const vals: unknown[] = [rec.id, ...keys.map((k) => rec[k])];
+      const result = await this.pool.query<T>(
+        `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+        vals
+      );
       return result.rows[0];
     }
     const keys = Object.keys(rec);
-    const cols = keys.map(k => `"${k}"`).join(', ');
+    const cols = keys.map((k) => `"${k}"`).join(', ');
     const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
-    const vals = keys.map(k => rec[k]);
-    const result = await this.pool.query<T>(`INSERT INTO "${this.table}" (${cols}) VALUES (${placeholders}) RETURNING *`, vals);
+    const vals = keys.map((k) => rec[k]);
+    const result = await this.pool.query<T>(
+      `INSERT INTO "${this.table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
+      vals
+    );
     return result.rows[0];
   }
 
@@ -71,8 +102,11 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const keys = Object.keys(data as Record<string, unknown>);
     if (keys.length === 0) return;
     const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-    const vals: unknown[] = [id, ...keys.map(k => (data as Record<string, unknown>)[k])];
-    await this.pool.query(`UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1`, vals);
+    const vals: unknown[] = [id, ...keys.map((k) => (data as Record<string, unknown>)[k])];
+    await this.pool.query(
+      `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1`,
+      vals
+    );
   }
 
   async delete(id: string): Promise<void> {
@@ -92,7 +126,10 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
   private offsetVal?: number;
   private selects: string[] = ['*'];
 
-  constructor(private readonly table: string, private readonly pool: import('pg').Pool) {}
+  constructor(
+    private readonly table: string,
+    private readonly pool: import('pg').Pool
+  ) {}
 
   where(condition: string, params?: Record<string, unknown>): this {
     this.conditions = [this.substituteParams(condition, params)];
@@ -102,11 +139,26 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     this.conditions.push(this.substituteParams(condition, params));
     return this;
   }
-  orderBy(col: string, dir: string): this { this.orderClauses.push(`"${col.replace(/^[^.]+\./, '')}" ${dir}`); return this; }
-  skip(n: number): this { this.offsetVal = n; return this; }
-  take(n: number): this { this.limitVal = n; return this; }
-  select(cols: string[]): this { this.selects = cols; return this; }
-  addSelect(expr: string, alias?: string): this { this.selects.push(alias ? `${expr} AS ${alias}` : expr); return this; }
+  orderBy(col: string, dir: string): this {
+    this.orderClauses.push(`"${col.replace(/^[^.]+\./, '')}" ${dir}`);
+    return this;
+  }
+  skip(n: number): this {
+    this.offsetVal = n;
+    return this;
+  }
+  take(n: number): this {
+    this.limitVal = n;
+    return this;
+  }
+  select(cols: string[]): this {
+    this.selects = cols;
+    return this;
+  }
+  addSelect(expr: string, alias?: string): this {
+    this.selects.push(alias ? `${expr} AS ${alias}` : expr);
+    return this;
+  }
 
   private substituteParams(cond: string, params?: Record<string, unknown>): string {
     if (!params) return cond;
@@ -116,7 +168,10 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
       if (Array.isArray(val)) {
         const placeholders = val.map((_v, i) => `$${idx + i}`);
         this.params.push(...val);
-        result = result.replace(new RegExp(`:${key}\\b|\\.\\.\\.${key}\\b|\\(:${key}\\)|\\(\\.\\.\\.${key}\\)`, 'g'), `(${placeholders.join(',')})`);
+        result = result.replace(
+          new RegExp(`:${key}\\b|\\.\\.\\.${key}\\b|\\(:${key}\\)|\\(\\.\\.\\.${key}\\)`, 'g'),
+          `(${placeholders.join(',')})`
+        );
       } else {
         this.params.push(val);
         result = result.replace(new RegExp(`:${key}\\b`, 'g'), `$${idx}`);
@@ -177,7 +232,6 @@ import { KnowledgeRepository } from './database/repositories/knowledge.repositor
 import { QdrantService } from './qdrant.service';
 import { ToolGraphDatabase } from './database/toolGraphDatabase';
 import { SmartEmbeddingService } from './knowledge-graph/smart-embedding.service';
-
 
 // Database error handling
 export class DatabaseError extends Error {
@@ -359,7 +413,9 @@ export class DatabaseService {
 
   public async getDataSource() {
     await this.ensureInitialized();
-    throw new Error('DataSource removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
+    throw new Error(
+      'DataSource removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().'
+    );
   }
 
   public async isHealthy(): Promise<boolean> {
@@ -639,15 +695,15 @@ export class DatabaseService {
   }
 
   // Legacy compatibility methods
-  public async getRepository<T extends ObjectLiteral>(
-    entityName: string
-  ): Promise<Repository<T>> {
+  public async getRepository<T extends ObjectLiteral>(entityName: string): Promise<Repository<T>> {
     await this.ensureInitialized();
     return new DrizzleRepository(entityName);
   }
 
   public get dataSource() {
-    throw new Error('DataSource removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().');
+    throw new Error(
+      'DataSource removed. Use Drizzle pools directly via getControlPool() or getIntelligencePool().'
+    );
   }
 
   // Health check method
@@ -692,18 +748,20 @@ export class DatabaseService {
 
       if (records.length === 1) {
         const keys = Object.keys(records[0]);
-        const cols = keys.map(k => `"${k}"`).join(', ');
+        const cols = keys.map((k) => `"${k}"`).join(', ');
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        const vals = keys.map(k => (records[0] as Record<string, unknown>)[k]);
+        const vals = keys.map((k) => (records[0] as Record<string, unknown>)[k]);
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`, vals);
       } else {
         const keys = Object.keys(records[0]);
-        const cols = keys.map(k => `"${k}"`).join(', ');
-        const valuesClauses = records.map((rec, idx) => {
-          const placeholders = keys.map((_, i) => `$${idx * keys.length + i + 1}`).join(', ');
-          return `(${placeholders})`;
-        }).join(', ');
-        const vals = records.flatMap(rec => keys.map(k => (rec as Record<string, unknown>)[k]));
+        const cols = keys.map((k) => `"${k}"`).join(', ');
+        const valuesClauses = records
+          .map((rec, idx) => {
+            const placeholders = keys.map((_, i) => `$${idx * keys.length + i + 1}`).join(', ');
+            return `(${placeholders})`;
+          })
+          .join(', ');
+        const vals = records.flatMap((rec) => keys.map((k) => (rec as Record<string, unknown>)[k]));
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES ${valuesClauses}`, vals);
       }
 
@@ -887,10 +945,7 @@ export class DatabaseService {
   }
 
   // Generic CRUD methods for backward compatibility
-  public async create<T extends ObjectLiteral>(
-    tableName: string,
-    data: Partial<T>
-  ): Promise<T> {
+  public async create<T extends ObjectLiteral>(tableName: string, data: Partial<T>): Promise<T> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     return await repository.save(data);
@@ -917,10 +972,7 @@ export class DatabaseService {
     return await repository.findOne({ where: { id } as unknown as Partial<T> });
   }
 
-  public async delete<T extends ObjectLiteral>(
-    tableName: string,
-    id: string
-  ): Promise<boolean> {
+  public async delete<T extends ObjectLiteral>(tableName: string, id: string): Promise<boolean> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     await repository.delete(id);

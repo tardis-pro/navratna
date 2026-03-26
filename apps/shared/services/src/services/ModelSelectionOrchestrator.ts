@@ -138,7 +138,9 @@ export class AgentSpecificStrategy implements ModelSelectionStrategy {
       throw new Error('Agent ID required for AgentSpecificStrategy');
     }
 
-    const agentPreference = await (context.agentLLMPreferenceRepository as { findOne: Function }).findOne({
+    const agentPreference = await (
+      context.agentLLMPreferenceRepository as { findOne: Function }
+    ).findOne({
       where: { agentId: request.agentId, taskType: request.taskType, isActive: true },
     });
 
@@ -196,7 +198,9 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
       throw new Error('User ID required for UserSpecificStrategy');
     }
 
-    const userPreference = await (context.userLLMPreferenceRepository as { findOne: Function }).findOne({
+    const userPreference = await (
+      context.userLLMPreferenceRepository as { findOne: Function }
+    ).findOne({
       where: { userId, taskType: request.taskType, isActive: true },
     });
 
@@ -267,15 +271,19 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
     context: ModelSelectionContext
   ) {
     const repo = context.agentLLMPreferenceRepository as { find: Function };
-    const preferences = await repo.find({
+    const preferences = (await repo.find({
       where: { agentId, taskType },
-    }) as Array<{ getPerformanceScore: Function; preferredProvider: LLMProviderType; preferredModel: string }>;
+    })) as Array<{
+      getPerformanceScore: Function;
+      preferredProvider: LLMProviderType;
+      preferredModel: string;
+    }>;
 
     if (preferences.length === 0) return null;
 
     const bestPreference = preferences.reduce((best, current) =>
       current.getPerformanceScore() > best.getPerformanceScore() ? current : best
-    ) as typeof preferences[0];
+    ) as (typeof preferences)[0];
 
     return {
       provider: bestPreference.preferredProvider,
@@ -517,8 +525,14 @@ export class ModelSelectionOrchestrator {
     quality?: number
   ): Promise<void> {
     try {
-      const agentPrefRepo = this.context.agentLLMPreferenceRepository as { findOne: Function; save: Function };
-      const userPrefRepo = this.context.userLLMPreferenceRepository as { findOne: Function; save: Function };
+      const agentPrefRepo = this.context.agentLLMPreferenceRepository as {
+        findOne: Function;
+        save: Function;
+      };
+      const userPrefRepo = this.context.userLLMPreferenceRepository as {
+        findOne: Function;
+        save: Function;
+      };
 
       // Update agent-specific stats if applicable
       if (request.agentId && result.source === 'agent') {
@@ -527,7 +541,11 @@ export class ModelSelectionOrchestrator {
         });
 
         if (agentPreference) {
-          (agentPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success, quality);
+          (agentPreference as { updateUsageStats: Function }).updateUsageStats(
+            responseTime,
+            success,
+            quality
+          );
           await agentPrefRepo.save(agentPreference);
         }
       }
@@ -539,7 +557,10 @@ export class ModelSelectionOrchestrator {
         });
 
         if (userPreference) {
-          (userPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success);
+          (userPreference as { updateUsageStats: Function }).updateUsageStats(
+            responseTime,
+            success
+          );
           await userPrefRepo.save(userPreference);
         }
       }

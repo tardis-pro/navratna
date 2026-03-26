@@ -36,26 +36,26 @@ src/
 
 All routes declared in `DesktopApp.tsx`. The app is primarily single-surface — navigation happens inside `TelescopeSurface` via portal switching, not URL changes.
 
-| Path | Component |
-|------|-----------|
-| `/` | `TelescopeSurface` (default) |
-| `/questionforge` | `QuestionForgeLanding` |
-| `/questionforge/results` | `QuestionForgeResults` |
-| `/projects/:id/workspace` | `WorkspacePage` |
-| `/projects/:id/workspace/session/:sessionId` | `CodingSessionPage` |
+| Path                                         | Component                    |
+| -------------------------------------------- | ---------------------------- |
+| `/`                                          | `TelescopeSurface` (default) |
+| `/questionforge`                             | `QuestionForgeLanding`       |
+| `/questionforge/results`                     | `QuestionForgeResults`       |
+| `/projects/:id/workspace`                    | `WorkspacePage`              |
+| `/projects/:id/workspace/session/:sessionId` | `CodingSessionPage`          |
 
 ## WHERE TO LOOK
 
-| Task | Location |
-|------|----------|
-| Add new portal | `futuristic/portals/MyPortal.tsx` → add to `portalRegistry.tsx` `PORTAL_COMPONENTS` + `createInitialBlocks()` |
-| Add new API domain | `api/myfeature.api.ts` → export from `api/index.ts` → add to `utils/uaip-api.ts` |
-| Add new context | `contexts/MyContext.tsx` → wrap in `DesktopApp.tsx` provider tree |
-| Add new page/route | `pages/MyPage.tsx` → add `<Route>` in `DesktopApp.tsx` |
-| Add new hook | `hooks/useMyHook.ts` → export from `hooks/index.ts` |
-| Global styles | `globals.css` (Tailwind directives), `App.css` (animations, z-index vars, glass) |
-| UI components | `components/ui/` — shadcn/ui only; install with `npx shadcn@latest add <component>` |
-| API base URL / proxy | `config/apiConfig.ts` (`API_ROUTES`, `buildAPIURL()`); Vite proxy in `vite.config.ts` |
+| Task                 | Location                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Add new portal       | `futuristic/portals/MyPortal.tsx` → add to `portalRegistry.tsx` `PORTAL_COMPONENTS` + `createInitialBlocks()` |
+| Add new API domain   | `api/myfeature.api.ts` → export from `api/index.ts` → add to `utils/uaip-api.ts`                              |
+| Add new context      | `contexts/MyContext.tsx` → wrap in `DesktopApp.tsx` provider tree                                             |
+| Add new page/route   | `pages/MyPage.tsx` → add `<Route>` in `DesktopApp.tsx`                                                        |
+| Add new hook         | `hooks/useMyHook.ts` → export from `hooks/index.ts`                                                           |
+| Global styles        | `globals.css` (Tailwind directives), `App.css` (animations, z-index vars, glass)                              |
+| UI components        | `components/ui/` — shadcn/ui only; install with `npx shadcn@latest add <component>`                           |
+| API base URL / proxy | `config/apiConfig.ts` (`API_ROUTES`, `buildAPIURL()`); Vite proxy in `vite.config.ts`                         |
 
 ## STATE MANAGEMENT
 

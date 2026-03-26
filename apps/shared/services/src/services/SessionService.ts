@@ -26,7 +26,7 @@ export class SessionService extends BaseDomainService {
         new Date(Date.now() + 86400000),
         new Date(),
         AuthenticationMethod.PASSWORD,
-        metadata ? JSON.stringify(metadata) : null
+        metadata ? JSON.stringify(metadata) : null,
       ]
     );
     return result.rows[0];
@@ -34,19 +34,15 @@ export class SessionService extends BaseDomainService {
 
   public async findSession(sessionToken: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM sessions WHERE session_token = $1 LIMIT 1`,
-      [sessionToken]
-    );
+    const result = await pool.query(`SELECT * FROM sessions WHERE session_token = $1 LIMIT 1`, [
+      sessionToken,
+    ]);
     return result.rows[0] ?? null;
   }
 
   public async findSessionById(id: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM sessions WHERE id = $1 LIMIT 1`,
-      [id]
-    );
+    const result = await pool.query(`SELECT * FROM sessions WHERE id = $1 LIMIT 1`, [id]);
     return result.rows[0] ?? null;
   }
 
@@ -60,7 +56,7 @@ export class SessionService extends BaseDomainService {
       return this.findSessionById(id);
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map(k => data[k])];
+    const values = [id, ...keys.map((k) => data[k])];
     const result = await pool.query(
       `UPDATE sessions SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values
@@ -70,10 +66,9 @@ export class SessionService extends BaseDomainService {
 
   public async invalidateSession(sessionToken: string): Promise<boolean> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `DELETE FROM sessions WHERE session_token = $1`,
-      [sessionToken]
-    );
+    const result = await pool.query(`DELETE FROM sessions WHERE session_token = $1`, [
+      sessionToken,
+    ]);
     return (result.rowCount ?? 0) > 0;
   }
 

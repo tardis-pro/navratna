@@ -1,4 +1,9 @@
-import { AgentRole, AgentPersona, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
+import {
+  AgentRole,
+  AgentPersona,
+  AgentIntelligenceConfig,
+  AgentSecurityContext,
+} from '@uaip/types';
 
 interface ViralAgentData {
   name: string;
@@ -29,10 +34,7 @@ interface ViralAgentData {
   maxConcurrentTools: number;
 }
 
-export function getViralAgentsData(
-  userIds: string[],
-  _personaIds: string[]
-): ViralAgentData[] {
+export function getViralAgentsData(userIds: string[], _personaIds: string[]): ViralAgentData[] {
   return [
     {
       name: 'ViralGPT Champion',
@@ -41,8 +43,16 @@ export function getViralAgentsData(
       legacyPersona: {
         name: 'ViralGPT Champion',
         description: 'The ultimate viral content creation machine',
-        capabilities: ['viral-content', 'social-media', 'engagement-optimization', 'trend-analysis'],
-        constraints: { max_content_length: '2048', platforms: ['tiktok', 'instagram', 'twitter', 'youtube'] },
+        capabilities: [
+          'viral-content',
+          'social-media',
+          'engagement-optimization',
+          'trend-analysis',
+        ],
+        constraints: {
+          max_content_length: '2048',
+          platforms: ['tiktok', 'instagram', 'twitter', 'youtube'],
+        },
         preferences: { style: 'viral-hooks', engagement_focus: 'maximum' },
       } as AgentPersona,
       intelligenceConfig: {
@@ -108,7 +118,12 @@ export function getViralAgentsData(
       isActive: true,
       createdBy: userIds[0] || '00000000-0000-0000-0000-000000000000',
       lastActiveAt: new Date(),
-      capabilities: ['legacy-modernization', 'architecture-design', 'code-transformation', 'migration-planning'],
+      capabilities: [
+        'legacy-modernization',
+        'architecture-design',
+        'code-transformation',
+        'migration-planning',
+      ],
       capabilityScores: { 'legacy-modernization': 0.98, 'architecture-design': 0.93 },
       performanceMetrics: { averageResponseTime: 4.2, successRate: 0.93, userSatisfaction: 0.97 },
       securityLevel: 'high',

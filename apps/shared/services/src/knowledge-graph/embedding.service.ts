@@ -31,7 +31,7 @@ export class EmbeddingService {
         throw new Error(`OpenAI API error: ${response.statusText}`);
       }
 
-      const data = await response.json() as { data: Array<{ embedding: number[] }> };
+      const data = (await response.json()) as { data: Array<{ embedding: number[] }> };
       return data.data[0].embedding;
     } catch (error) {
       console.error('Embedding generation error:', error);
@@ -80,7 +80,7 @@ export class EmbeddingService {
         throw new Error(`OpenAI API error: ${response.statusText}`);
       }
 
-      const data = await response.json() as { data: Array<{ embedding: number[] }> };
+      const data = (await response.json()) as { data: Array<{ embedding: number[] }> };
       return data.data.map((item: { embedding: number[] }) => item.embedding);
     } catch (error) {
       console.error('Batch embedding generation error:', error);

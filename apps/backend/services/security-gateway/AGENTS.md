@@ -40,23 +40,23 @@ src/
 
 ## ENDPOINTS
 
-| Handler | Key Routes |
-|---------|-----------|
-| `auth.elysia.ts` | `POST /login`, `/register`, `/logout`, `/validate`, `/refresh`, `/mfa/setup`, `/mfa/verify` |
-| `users.elysia.ts` | `GET/POST/PUT/DELETE /users`, `PUT /users/:id/password` |
-| `approval.elysia.ts` | `GET/POST /approvals`, `PUT /approvals/:id/approve|reject` |
-| `audit.elysia.ts` | `GET /audit-logs` (filterable) |
-| `oauth.elysia.ts` | `GET /oauth/:provider/auth`, `GET /oauth/:provider/callback` |
-| `providers.elysia.ts` | `GET/POST/PUT/DELETE /llm-providers` |
-| `knowledge.elysia.ts` | `GET/POST/PUT/DELETE /knowledge`, `GET /knowledge/search` |
+| Handler               | Key Routes                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------- | ------- |
+| `auth.elysia.ts`      | `POST /login`, `/register`, `/logout`, `/validate`, `/refresh`, `/mfa/setup`, `/mfa/verify` |
+| `users.elysia.ts`     | `GET/POST/PUT/DELETE /users`, `PUT /users/:id/password`                                     |
+| `approval.elysia.ts`  | `GET/POST /approvals`, `PUT /approvals/:id/approve                                          | reject` |
+| `audit.elysia.ts`     | `GET /audit-logs` (filterable)                                                              |
+| `oauth.elysia.ts`     | `GET /oauth/:provider/auth`, `GET /oauth/:provider/callback`                                |
+| `providers.elysia.ts` | `GET/POST/PUT/DELETE /llm-providers`                                                        |
+| `knowledge.elysia.ts` | `GET/POST/PUT/DELETE /knowledge`, `GET /knowledge/search`                                   |
 
 ## EVENT BUS
 
-| Topic | Direction | Handler |
-|-------|-----------|---------|
-| `security.auth.validate` | subscribe | Validate JWT → publish `security.auth.response` |
-| `security.enterprise.audit.log` | subscribe | Write compliance audit records |
-| `security.auth.response` | publish | Correlation-ID-based response to auth requests |
+| Topic                           | Direction | Handler                                         |
+| ------------------------------- | --------- | ----------------------------------------------- |
+| `security.auth.validate`        | subscribe | Validate JWT → publish `security.auth.response` |
+| `security.enterprise.audit.log` | subscribe | Write compliance audit records                  |
+| `security.auth.response`        | publish   | Correlation-ID-based response to auth requests  |
 
 ## AUTH PATTERN (Elysia)
 

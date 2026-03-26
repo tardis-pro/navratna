@@ -4,13 +4,13 @@ Raw infrastructure clients. The lowest layer — all other packages import from 
 
 ## EXPORTS
 
-| Module | Export | Purpose |
-|--------|--------|---------|
-| `./database` | `DatabaseService`, `DatabaseError` | Drizzle PG connection + query builder |
-| `./database` | `PgService`, `pgService` | Raw `pg` Pool (use for low-level queries) |
-| `./cache` | `RedisCacheService`, `redisCacheService` | ioredis wrapper with typed get/set/del |
-| `./eventBus` (via index) | `EventBusService` | BullMQ on Redis — publish/subscribe event bus |
-| `./factory` | Factory utilities | Connection factory helpers |
+| Module                   | Export                                   | Purpose                                       |
+| ------------------------ | ---------------------------------------- | --------------------------------------------- |
+| `./database`             | `DatabaseService`, `DatabaseError`       | Drizzle PG connection + query builder         |
+| `./database`             | `PgService`, `pgService`                 | Raw `pg` Pool (use for low-level queries)     |
+| `./cache`                | `RedisCacheService`, `redisCacheService` | ioredis wrapper with typed get/set/del        |
+| `./eventBus` (via index) | `EventBusService`                        | BullMQ on Redis — publish/subscribe event bus |
+| `./factory`              | Factory utilities                        | Connection factory helpers                    |
 
 ## USAGE
 
@@ -21,6 +21,7 @@ import { EventBusService, RedisCacheService } from '@uaip/shared-services';
 ```
 
 **EventBusService** (BullMQ on Redis):
+
 ```typescript
 const bus = EventBusService.getInstance();
 await bus.publish('topic.name', { payload });
@@ -28,6 +29,7 @@ bus.subscribe('topic.name', async (data) => { ... });
 ```
 
 **DatabaseService** (Drizzle):
+
 ```typescript
 import { DatabaseService } from '@uaip/infra';
 const db = DatabaseService.getInstance();
@@ -35,6 +37,7 @@ const db = DatabaseService.getInstance();
 ```
 
 **PgService** (raw pg pool — use for bulk ops, migrations, analytics):
+
 ```typescript
 import { pgService } from '@uaip/infra';
 const result = await pgService.query('SELECT ...', [params]);

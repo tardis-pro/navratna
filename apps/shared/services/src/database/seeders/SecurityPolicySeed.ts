@@ -13,7 +13,10 @@ export class SecurityPolicySeed extends BaseSeed {
     const seedData = await this.getSeedData();
 
     for (const policy of seedData) {
-      await this.db.insert(securityPolicies).values(policy as any).onConflictDoNothing();
+      await this.db
+        .insert(securityPolicies)
+        .values(policy as any)
+        .onConflictDoNothing();
     }
 
     return await this.db.select().from(securityPolicies);

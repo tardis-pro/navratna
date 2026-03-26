@@ -93,7 +93,10 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
-      const savedEntity = await this.databaseService.create('personas', personaData) as Record<string, unknown>;
+      const savedEntity = (await this.databaseService.create('personas', personaData)) as Record<
+        string,
+        unknown
+      >;
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -120,7 +123,10 @@ export class PersonaService {
         return cached;
       }
 
-      const entity = await this.databaseService.findById('personas', id) as Record<string, unknown> | null;
+      const entity = (await this.databaseService.findById('personas', id)) as Record<
+        string,
+        unknown
+      > | null;
 
       if (!entity) {
         return null;
@@ -152,12 +158,12 @@ export class PersonaService {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
 
-      const updatedEntity = await this.databaseService.update('personas', id, {
+      const updatedEntity = (await this.databaseService.update('personas', id, {
         ...updateData,
         validation,
         version: existingPersona.version + 1,
         updatedAt: new Date(),
-      }) as Record<string, unknown> | null;
+      })) as Record<string, unknown> | null;
 
       if (!updatedEntity) {
         throw new Error(`Failed to update persona: ${id}`);
@@ -233,13 +239,18 @@ export class PersonaService {
 
       // Get total count
       const countQuery = `SELECT COUNT(*)::int as cnt FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''}`;
-      const countResult = await this.databaseService.executeQuery(countQuery, params) as Array<{ cnt: number }>;
+      const countResult = (await this.databaseService.executeQuery(countQuery, params)) as Array<{
+        cnt: number;
+      }>;
       const total = countResult[0]?.cnt ?? 0;
 
       // Get paginated results
       const dataQuery = `SELECT * FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''} ORDER BY ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       const dataParams = [...params, limit, offset];
-      const entities = await this.databaseService.executeQuery(dataQuery, dataParams) as Record<string, unknown>[];
+      const entities = (await this.databaseService.executeQuery(dataQuery, dataParams)) as Record<
+        string,
+        unknown
+      >[];
       const personas = entities.map((entity) => this.entityToPersona(entity));
 
       return {
@@ -462,7 +473,10 @@ export class PersonaService {
 
       query += ` ORDER BY totalInteractions DESC`;
 
-      const entities = await this.databaseService.executeQuery(query, params) as Record<string, unknown>[];
+      const entities = (await this.databaseService.executeQuery(query, params)) as Record<
+        string,
+        unknown
+      >[];
 
       return entities.map((entity) => ({
         id: entity.id as string,
@@ -752,12 +766,12 @@ export class PersonaService {
    * Convert entity record to Persona type
    */
   private entityToPersona(entity: Record<string, unknown>): Persona {
-    const expertise = entity.expertise as string[] || [];
-    const traits = entity.traits as string[] || [];
-    const tags = entity.tags as string[] || [];
-    const capabilities = entity.capabilities as string[] || [];
-    const restrictions = entity.restrictions as Record<string, unknown> || {};
-    const configuration = entity.configuration as Record<string, unknown> || {};
+    const expertise = (entity.expertise as string[]) || [];
+    const traits = (entity.traits as string[]) || [];
+    const tags = (entity.tags as string[]) || [];
+    const capabilities = (entity.capabilities as string[]) || [];
+    const restrictions = (entity.restrictions as Record<string, unknown>) || {};
+    const configuration = (entity.configuration as Record<string, unknown>) || {};
     const validation = entity.validation as PersonaValidation | undefined;
     const usageStats = entity.usageStats as PersonaUsageStats | undefined;
 

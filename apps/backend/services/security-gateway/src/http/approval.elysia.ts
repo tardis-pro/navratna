@@ -17,9 +17,7 @@ async function getServices() {
   if (!approvalWorkflowServiceSingleton) {
     auditServiceSingleton = new AuditService();
     notificationServiceSingleton = new NotificationService();
-    const eventBusService = new EventBusService(
-      logger
-    );
+    const eventBusService = new EventBusService(logger);
     approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       eventBusService,
       notificationServiceSingleton,

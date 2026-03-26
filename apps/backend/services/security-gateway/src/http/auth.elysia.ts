@@ -299,7 +299,7 @@ export function registerAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
           await userService.createRefreshToken(
             tokenData.user.id,
             tokens.refreshToken,
-            refreshExpiry,
+            refreshExpiry
           );
 
           const cookieOptions = getAuthCookieOptions();

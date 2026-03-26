@@ -549,12 +549,9 @@ export class LLMService {
         }
 
         try {
-          logger.info(
-            `Fetching models from database provider: ${providerName} (${providerType})`,
-            {
-              baseUrl: providerBaseUrl,
-            }
-          );
+          logger.info(`Fetching models from database provider: ${providerName} (${providerType})`, {
+            baseUrl: providerBaseUrl,
+          });
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
           const models = await provider.getAvailableModels();
           logger.info(`Provider ${providerName} returned ${models.length} models`);
@@ -1023,10 +1020,7 @@ export class LLMService {
     return { cleanContent, toolCalls };
   }
 
-  private parseContextAnalysis(
-    content: string,
-    request: ContextRequest
-  ): Record<string, unknown> {
+  private parseContextAnalysis(content: string, request: ContextRequest): Record<string, unknown> {
     // Try to parse JSON from the response, fallback to basic analysis
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1047,7 +1041,9 @@ export class LLMService {
       context: {
         messageCount: request.conversationHistory.length,
         participants: Array.from(new Set(request.conversationHistory.map((m) => m.sender))),
-        topics: this.extractTopics(request.conversationHistory as unknown as import('@uaip/types').Message[]),
+        topics: this.extractTopics(
+          request.conversationHistory as unknown as import('@uaip/types').Message[]
+        ),
         sentiment: 'neutral',
         complexity: request.conversationHistory.length > 10 ? 'high' : 'low',
       },

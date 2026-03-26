@@ -127,7 +127,11 @@ export function registerQuestionForgeRoutes(
             };
           }
 
-          const result = await interviewService.recordAnswer(params.sessionId as string, questionId as string, answer as string);
+          const result = await interviewService.recordAnswer(
+            params.sessionId as string,
+            questionId as string,
+            answer as string
+          );
           return { success: true, data: result };
         } catch (error) {
           logger.error('Failed to record interview answer', { error });
@@ -146,7 +150,10 @@ export function registerQuestionForgeRoutes(
           if (!question) {
             return { success: true, data: null as null, message: 'No more questions' as string };
           }
-          const resp: { success: boolean; data: Question } = { success: true, data: question as Question };
+          const resp: { success: boolean; data: Question } = {
+            success: true,
+            data: question as Question,
+          };
           return resp;
         } catch (error) {
           logger.error('Failed to get next question', { error });

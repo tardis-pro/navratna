@@ -143,14 +143,20 @@ export class DatabaseService {
     if (typeof tableOrEntity === 'function') {
       const raw = (tableOrEntity as { name: string }).name
         .replace(/Entity$/, '')
-        .replace(/([A-Z])/g, (_m: string, c: string, i: number) => (i > 0 ? '_' : '') + c.toLowerCase())
+        .replace(
+          /([A-Z])/g,
+          (_m: string, c: string, i: number) => (i > 0 ? '_' : '') + c.toLowerCase()
+        )
         .replace(/^_/, '');
       return raw.endsWith('s') ? raw : raw + 's';
     }
     return String(tableOrEntity);
   }
 
-  async create<T = Record<string, unknown>>(tableOrEntity: unknown, data: Record<string, unknown>): Promise<T> {
+  async create<T = Record<string, unknown>>(
+    tableOrEntity: unknown,
+    data: Record<string, unknown>
+  ): Promise<T> {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
     const keys = Object.keys(data);
@@ -159,7 +165,7 @@ export class DatabaseService {
       const rows = await this.executeQuery<T>(`INSERT INTO "${table}" DEFAULT VALUES RETURNING *`);
       return rows[0];
     }
-    const cols = keys.map(k => `"${k}"`).join(', ');
+    const cols = keys.map((k) => `"${k}"`).join(', ');
     const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
     const rows = await this.executeQuery<T>(
       `INSERT INTO "${table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
@@ -168,14 +174,21 @@ export class DatabaseService {
     return rows[0];
   }
 
-  async findById<T = Record<string, unknown>>(tableOrEntity: unknown, id: string): Promise<T | null> {
+  async findById<T = Record<string, unknown>>(
+    tableOrEntity: unknown,
+    id: string
+  ): Promise<T | null> {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
     const rows = await this.executeQuery<T>(`SELECT * FROM "${table}" WHERE id = $1 LIMIT 1`, [id]);
     return rows[0] ?? null;
   }
 
-  async update<T = Record<string, unknown>>(tableOrEntity: unknown, id: string, data: Record<string, unknown>): Promise<T | null> {
+  async update<T = Record<string, unknown>>(
+    tableOrEntity: unknown,
+    id: string,
+    data: Record<string, unknown>
+  ): Promise<T | null> {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
     const keys = Object.keys(data);
@@ -205,7 +218,9 @@ export class DatabaseService {
       values.push(...Object.values(conditions));
     }
     if (options.order) {
-      const orderClauses = Object.entries(options.order).map(([col, dir]) => `"${col}" ${dir}`).join(', ');
+      const orderClauses = Object.entries(options.order)
+        .map(([col, dir]) => `"${col}" ${dir}`)
+        .join(', ');
       query += ` ORDER BY ${orderClauses}`;
     }
     if (options.take) query += ` LIMIT ${options.take}`;

@@ -351,8 +351,16 @@ export interface PersonaDisplay {
 }
 
 export const PERSONA_CATEGORIES = [
-  'Development', 'Policy', 'Creative', 'Analysis', 'Business',
-  'Social', 'Technical', 'Management', 'Research', 'Design',
+  'Development',
+  'Policy',
+  'Creative',
+  'Analysis',
+  'Business',
+  'Social',
+  'Technical',
+  'Management',
+  'Research',
+  'Design',
 ] as const;
 
 export type PersonaCategory = (typeof PERSONA_CATEGORIES)[number];

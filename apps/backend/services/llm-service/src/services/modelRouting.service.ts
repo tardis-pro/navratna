@@ -1,10 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type {
-  ModelConfig,
-  ProviderChain,
-  AgentModelConfig,
-  ModelRoutingConfig,
-} from '@uaip/types';
+import type { ModelConfig, ProviderChain, AgentModelConfig, ModelRoutingConfig } from '@uaip/types';
 
 export { ModelConfig, ProviderChain, AgentModelConfig, ModelRoutingConfig };
 

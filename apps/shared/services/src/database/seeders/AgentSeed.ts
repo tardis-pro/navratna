@@ -1,7 +1,12 @@
 import { getIntelligenceDb } from '../drizzle/clients/index';
 import { agents } from '../../database/drizzle/schemas/intelligence.schema';
 import { BaseSeed } from './BaseSeed';
-import { AgentRole, AgentPersona, AgentIntelligenceConfig, AgentSecurityContext } from '@uaip/types';
+import {
+  AgentRole,
+  AgentPersona,
+  AgentIntelligenceConfig,
+  AgentSecurityContext,
+} from '@uaip/types';
 
 export class AgentSeed extends BaseSeed {
   private db = getIntelligenceDb();
@@ -10,15 +15,18 @@ export class AgentSeed extends BaseSeed {
 
   constructor(userIds: string[], personaIds: string[]) {
     super('Agents');
-    this.users = userIds.map(id => ({ id }));
-    this.personas = personaIds.map(id => ({ id }));
+    this.users = userIds.map((id) => ({ id }));
+    this.personas = personaIds.map((id) => ({ id }));
   }
 
   async seed(): Promise<any[]> {
     const seedData = await this.getSeedData();
 
     for (const agent of seedData) {
-      await this.db.insert(agents).values(agent as any).onConflictDoNothing();
+      await this.db
+        .insert(agents)
+        .values(agent as any)
+        .onConflictDoNothing();
     }
 
     return await this.db.select().from(agents);
@@ -26,22 +34,22 @@ export class AgentSeed extends BaseSeed {
 
   private getPersonaIdByRole(agentRole: string): string {
     const roleMapping: Record<string, string> = {
-      'Pro': 'data-scientist',
-      'Taniye': 'tech-lead',
-      'Prashis': 'software-engineer',
-      'Keegan': 'software-engineer',
-      'Josh': 'software-engineer',
-      'Pankaj': 'software-engineer',
-      'Maya': 'creative-director',
-      'Zara': 'psychologist',
-      'Viktor': 'philosopher',
-      'Luna': 'entrepreneur',
-      'Kai': 'social-media-manager',
-      'Aria': 'qa-engineer',
-      'Neo': 'software-architect',
-      'Sage': 'code-reviewer',
-      'Phoenix': 'devops-engineer',
-      'Echo': 'ux-designer',
+      Pro: 'data-scientist',
+      Taniye: 'tech-lead',
+      Prashis: 'software-engineer',
+      Keegan: 'software-engineer',
+      Josh: 'software-engineer',
+      Pankaj: 'software-engineer',
+      Maya: 'creative-director',
+      Zara: 'psychologist',
+      Viktor: 'philosopher',
+      Luna: 'entrepreneur',
+      Kai: 'social-media-manager',
+      Aria: 'qa-engineer',
+      Neo: 'software-architect',
+      Sage: 'code-reviewer',
+      Phoenix: 'devops-engineer',
+      Echo: 'ux-designer',
     };
     return roleMapping[agentRole] || this.personas[0]?.id || '00000000-0000-0000-0000-000000000000';
   }
@@ -52,9 +60,27 @@ export class AgentSeed extends BaseSeed {
         name: 'Pro',
         role: AgentRole.ANALYZER,
         personaId: this.getPersonaIdByRole('Pro'),
-        legacyPersona: { name: 'Pro', description: 'Advanced data analysis agent', capabilities: ['data-analysis', 'visualization'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'advanced', contextWindowSize: 8000, decisionThreshold: 0.8, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'high', allowedCapabilities: ['data-analysis'], restrictedDomains: [], approvalRequired: true, auditLevel: 'comprehensive' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Pro',
+          description: 'Advanced data analysis agent',
+          capabilities: ['data-analysis', 'visualization'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'advanced',
+          contextWindowSize: 8000,
+          decisionThreshold: 0.8,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'high',
+          allowedCapabilities: ['data-analysis'],
+          restrictedDomains: [],
+          approvalRequired: true,
+          auditLevel: 'comprehensive',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -80,13 +106,36 @@ export class AgentSeed extends BaseSeed {
         name: 'Taniye',
         role: AgentRole.ORCHESTRATOR,
         personaId: this.getPersonaIdByRole('Taniye'),
-        legacyPersona: { name: 'Taniye', description: 'Workflow orchestration agent', capabilities: ['workflow-management', 'task-orchestration'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'intermediate', contextWindowSize: 6000, decisionThreshold: 0.85, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'high', allowedCapabilities: ['workflow-management'], restrictedDomains: [], approvalRequired: true, auditLevel: 'comprehensive' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Taniye',
+          description: 'Workflow orchestration agent',
+          capabilities: ['workflow-management', 'task-orchestration'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'intermediate',
+          contextWindowSize: 6000,
+          decisionThreshold: 0.85,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'high',
+          allowedCapabilities: ['workflow-management'],
+          restrictedDomains: [],
+          approvalRequired: true,
+          auditLevel: 'comprehensive',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
-        capabilities: ['workflow-management', 'task-orchestration', 'process-automation', 'scheduling'],
+        capabilities: [
+          'workflow-management',
+          'task-orchestration',
+          'process-automation',
+          'scheduling',
+        ],
         capabilityScores: { 'workflow-management': 0.93, 'task-orchestration': 0.91 },
         performanceMetrics: { averageResponseTime: 1.8, successRate: 0.96, userSatisfaction: 0.92 },
         securityLevel: 'high',
@@ -108,9 +157,27 @@ export class AgentSeed extends BaseSeed {
         name: 'Prashis',
         role: AgentRole.EXECUTOR,
         personaId: this.getPersonaIdByRole('Prashis'),
-        legacyPersona: { name: 'Prashis', description: 'Full-stack engineer', capabilities: ['full-stack-development', 'api-design'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'intermediate', contextWindowSize: 6000, decisionThreshold: 0.75, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'medium', allowedCapabilities: ['full-stack-development'], restrictedDomains: [], approvalRequired: false, auditLevel: 'standard' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Prashis',
+          description: 'Full-stack engineer',
+          capabilities: ['full-stack-development', 'api-design'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'intermediate',
+          contextWindowSize: 6000,
+          decisionThreshold: 0.75,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'medium',
+          allowedCapabilities: ['full-stack-development'],
+          restrictedDomains: [],
+          approvalRequired: false,
+          auditLevel: 'standard',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -136,13 +203,36 @@ export class AgentSeed extends BaseSeed {
         name: 'Keegan',
         role: AgentRole.EXECUTOR,
         personaId: this.getPersonaIdByRole('Keegan'),
-        legacyPersona: { name: 'Keegan', description: 'Backend systems expert', capabilities: ['backend-development', 'system-architecture'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'advanced', contextWindowSize: 7000, decisionThreshold: 0.8, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'high', allowedCapabilities: ['backend-development'], restrictedDomains: [], approvalRequired: true, auditLevel: 'comprehensive' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Keegan',
+          description: 'Backend systems expert',
+          capabilities: ['backend-development', 'system-architecture'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'advanced',
+          contextWindowSize: 7000,
+          decisionThreshold: 0.8,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'high',
+          allowedCapabilities: ['backend-development'],
+          restrictedDomains: [],
+          approvalRequired: true,
+          auditLevel: 'comprehensive',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
-        capabilities: ['backend-development', 'system-architecture', 'performance-tuning', 'security'],
+        capabilities: [
+          'backend-development',
+          'system-architecture',
+          'performance-tuning',
+          'security',
+        ],
         capabilityScores: { 'backend-development': 0.92, 'system-architecture': 0.89 },
         performanceMetrics: { averageResponseTime: 1.9, successRate: 0.93, userSatisfaction: 0.9 },
         securityLevel: 'high',
@@ -164,13 +254,36 @@ export class AgentSeed extends BaseSeed {
         name: 'Josh',
         role: AgentRole.EXECUTOR,
         personaId: this.getPersonaIdByRole('Josh'),
-        legacyPersona: { name: 'Josh', description: 'Frontend specialist', capabilities: ['frontend-development', 'ui-ux-design'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'intermediate', contextWindowSize: 5500, decisionThreshold: 0.72, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'medium', allowedCapabilities: ['frontend-development'], restrictedDomains: [], approvalRequired: false, auditLevel: 'standard' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Josh',
+          description: 'Frontend specialist',
+          capabilities: ['frontend-development', 'ui-ux-design'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'intermediate',
+          contextWindowSize: 5500,
+          decisionThreshold: 0.72,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'medium',
+          allowedCapabilities: ['frontend-development'],
+          restrictedDomains: [],
+          approvalRequired: false,
+          auditLevel: 'standard',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
-        capabilities: ['frontend-development', 'ui-ux-design', 'responsive-design', 'accessibility'],
+        capabilities: [
+          'frontend-development',
+          'ui-ux-design',
+          'responsive-design',
+          'accessibility',
+        ],
         capabilityScores: { 'frontend-development': 0.9, 'ui-ux-design': 0.86 },
         performanceMetrics: { averageResponseTime: 2.1, successRate: 0.89, userSatisfaction: 0.91 },
         securityLevel: 'medium',
@@ -192,9 +305,27 @@ export class AgentSeed extends BaseSeed {
         name: 'Pankaj',
         role: AgentRole.EXECUTOR,
         personaId: this.getPersonaIdByRole('Pankaj'),
-        legacyPersona: { name: 'Pankaj', description: 'DevOps engineer', capabilities: ['devops', 'infrastructure-automation'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'advanced', contextWindowSize: 6500, decisionThreshold: 0.85, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'high', allowedCapabilities: ['devops'], restrictedDomains: [], approvalRequired: true, auditLevel: 'comprehensive' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Pankaj',
+          description: 'DevOps engineer',
+          capabilities: ['devops', 'infrastructure-automation'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'advanced',
+          contextWindowSize: 6500,
+          decisionThreshold: 0.85,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'high',
+          allowedCapabilities: ['devops'],
+          restrictedDomains: [],
+          approvalRequired: true,
+          auditLevel: 'comprehensive',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -220,9 +351,27 @@ export class AgentSeed extends BaseSeed {
         name: 'Maya',
         role: AgentRole.ADVISOR,
         personaId: this.getPersonaIdByRole('Maya'),
-        legacyPersona: { name: 'Maya', description: 'Creative director', capabilities: ['creative-direction', 'brand-strategy'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'advanced', contextWindowSize: 7500, decisionThreshold: 0.7, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'medium', allowedCapabilities: ['creative-direction'], restrictedDomains: [], approvalRequired: false, auditLevel: 'standard' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Maya',
+          description: 'Creative director',
+          capabilities: ['creative-direction', 'brand-strategy'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'advanced',
+          contextWindowSize: 7500,
+          decisionThreshold: 0.7,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'medium',
+          allowedCapabilities: ['creative-direction'],
+          restrictedDomains: [],
+          approvalRequired: false,
+          auditLevel: 'standard',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -248,13 +397,36 @@ export class AgentSeed extends BaseSeed {
         name: 'Zara',
         role: AgentRole.ADVISOR,
         personaId: this.getPersonaIdByRole('Zara'),
-        legacyPersona: { name: 'Zara', description: 'Behavioral psychologist', capabilities: ['behavioral-analysis', 'user-psychology'], constraints: {}, preferences: {} } as AgentPersona,
-        intelligenceConfig: { analysisDepth: 'advanced', contextWindowSize: 8500, decisionThreshold: 0.75, learningEnabled: true, collaborationMode: 'collaborative' } as AgentIntelligenceConfig,
-        securityContext: { securityLevel: 'high', allowedCapabilities: ['behavioral-analysis'], restrictedDomains: ['personal-data'], approvalRequired: true, auditLevel: 'comprehensive' } as AgentSecurityContext,
+        legacyPersona: {
+          name: 'Zara',
+          description: 'Behavioral psychologist',
+          capabilities: ['behavioral-analysis', 'user-psychology'],
+          constraints: {},
+          preferences: {},
+        } as AgentPersona,
+        intelligenceConfig: {
+          analysisDepth: 'advanced',
+          contextWindowSize: 8500,
+          decisionThreshold: 0.75,
+          learningEnabled: true,
+          collaborationMode: 'collaborative',
+        } as AgentIntelligenceConfig,
+        securityContext: {
+          securityLevel: 'high',
+          allowedCapabilities: ['behavioral-analysis'],
+          restrictedDomains: ['personal-data'],
+          approvalRequired: true,
+          auditLevel: 'comprehensive',
+        } as AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
-        capabilities: ['behavioral-analysis', 'user-psychology', 'team-dynamics', 'empathy-mapping'],
+        capabilities: [
+          'behavioral-analysis',
+          'user-psychology',
+          'team-dynamics',
+          'empathy-mapping',
+        ],
         capabilityScores: { 'behavioral-analysis': 0.93, 'user-psychology': 0.96 },
         performanceMetrics: { averageResponseTime: 3.8, successRate: 0.92, userSatisfaction: 0.96 },
         securityLevel: 'high',

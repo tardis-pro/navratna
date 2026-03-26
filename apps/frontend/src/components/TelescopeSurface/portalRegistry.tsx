@@ -33,9 +33,7 @@ const ProviderSettingsPortal = lazy(() =>
     default: m.ProviderSettingsPortal,
   }))
 );
-const ToolsIntegrationsPortal = lazy(
-  () => import('../futuristic/portals/ToolsIntegrationsPortal')
-);
+const ToolsIntegrationsPortal = lazy(() => import('../futuristic/portals/ToolsIntegrationsPortal'));
 const ToolManagementPortal = lazy(() =>
   import('../futuristic/portals/ToolManagementPortal').then((m) => ({
     default: m.ToolManagementPortal,

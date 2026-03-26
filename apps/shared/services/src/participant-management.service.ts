@@ -303,7 +303,7 @@ export class ParticipantManagementService {
       }
       if (messageData.lastMessageAt !== undefined) {
         updateData.metadata = {
-          ...(participant.metadata as Record<string, unknown> || {}),
+          ...((participant.metadata as Record<string, unknown>) || {}),
           lastMessageAt: messageData.lastMessageAt,
           contributionScore: messageData.contributionScore,
           engagementLevel: messageData.engagementLevel,
@@ -421,15 +421,11 @@ export class ParticipantManagementService {
         return;
       }
 
-      await this.databaseService.update<DiscussionParticipant>(
-        PARTICIPANTS_TABLE,
-        participant.id,
-        {
-          isActive: false,
-          leftAt: new Date(),
-          updatedAt: new Date(),
-        }
-      );
+      await this.databaseService.update<DiscussionParticipant>(PARTICIPANTS_TABLE, participant.id, {
+        isActive: false,
+        leftAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       logger.info('Removed participant from discussion', { participantId });
     } catch (error) {

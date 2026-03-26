@@ -1,5 +1,13 @@
 import type { DocumentContext } from '../interfaces.js';
-type Message = { content?: string; sender?: string; role?: string; id?: string; timestamp?: Date | string; metadata?: Record<string, unknown>; [key: string]: unknown };
+type Message = {
+  content?: string;
+  sender?: string;
+  role?: string;
+  id?: string;
+  timestamp?: Date | string;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+};
 import type { TokenBudget, ContextWindow, ContextConfig } from '@uaip/types';
 
 export { TokenBudget, ContextWindow, ContextConfig };

@@ -299,7 +299,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       // Vector search succeeded — hydrate from Postgres
       if (results.length > 0) {
-        return this.repository.applyFilters(context.scope as Record<string, unknown> || {});
+        return this.repository.applyFilters((context.scope as Record<string, unknown>) || {});
       }
 
       // Qdrant empty or returned nothing — fall back to Postgres scope/text search
@@ -691,7 +691,10 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
   /**
    * Ingest a single chat file and extract knowledge
    */
-  async ingestChatFile(file: FileData, options: ChatIngestionOptions = {}): Promise<KnowledgeIngestResponse> {
+  async ingestChatFile(
+    file: FileData,
+    options: ChatIngestionOptions = {}
+  ): Promise<KnowledgeIngestResponse> {
     const startTime = Date.now();
     const result: KnowledgeIngestResponse = {
       conversationsFound: 0,

@@ -6,7 +6,11 @@ import {
   agentActivity,
   agentLearningRecords,
   operations,
-  eq, and, gte, lte, desc,
+  eq,
+  and,
+  gte,
+  lte,
+  desc,
 } from '@uaip/shared-services';
 import { OperationPriority, OperationStatus, OperationType } from '@uaip/types';
 
@@ -117,7 +121,10 @@ export class AgentIntelligenceStore {
     }
   }
 
-  async storeAgentCapabilities(agentId: string, capabilities: AgentCapabilitiesData): Promise<void> {
+  async storeAgentCapabilities(
+    agentId: string,
+    capabilities: AgentCapabilitiesData
+  ): Promise<void> {
     logger.debug('Storing agent capabilities', { agentId });
     try {
       const db = getIntelligenceDb();
@@ -137,7 +144,10 @@ export class AgentIntelligenceStore {
         })
         .where(eq(agents.id, agentId));
     } catch (error) {
-      logger.warn('Failed to store agent capabilities', { agentId, error: (error as Error).message });
+      logger.warn('Failed to store agent capabilities', {
+        agentId,
+        error: (error as Error).message,
+      });
     }
   }
 
@@ -160,7 +170,10 @@ export class AgentIntelligenceStore {
     }
   }
 
-  async getAgentActivities(agentId: string, timeRange?: TimeRangeData): Promise<AgentActivityRow[]> {
+  async getAgentActivities(
+    agentId: string,
+    timeRange?: TimeRangeData
+  ): Promise<AgentActivityRow[]> {
     logger.debug('Getting agent activities', { agentId, timeRange });
     try {
       const db = getIntelligenceDb();
@@ -206,7 +219,10 @@ export class AgentIntelligenceStore {
     }
   }
 
-  async getLearningRecords(agentId: string, timeRange?: TimeRangeData): Promise<AgentLearningRow[]> {
+  async getLearningRecords(
+    agentId: string,
+    timeRange?: TimeRangeData
+  ): Promise<AgentLearningRow[]> {
     logger.debug('Getting learning records', { agentId, timeRange });
     try {
       const db = getIntelligenceDb();

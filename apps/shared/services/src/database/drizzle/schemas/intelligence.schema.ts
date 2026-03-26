@@ -107,7 +107,10 @@ export const personas = pgTable(
     dominantExpertise: varchar('dominant_expertise', { length: 255 }),
     personalityBlend: jsonb('personality_blend').$type<Record<string, number>>(),
     conversationalStyle: jsonb('conversational_style').$type<ConversationalStyle>(),
-    status: text('status').$type<PersonaStatus>().notNull().default('draft' as PersonaStatus),
+    status: text('status')
+      .$type<PersonaStatus>()
+      .notNull()
+      .default('draft' as PersonaStatus),
     visibility: text('visibility')
       .$type<PersonaVisibility>()
       .notNull()
@@ -184,10 +187,7 @@ export const agents = pgTable(
     performanceMetrics: jsonb('performance_metrics').$type<Record<string, unknown>>(),
     securityLevel: text('security_level').notNull().default('medium'),
     complianceTags: jsonb('compliance_tags').$type<string[]>().notNull().default([]),
-    auditTrail: jsonb('audit_trail')
-      .$type<Record<string, unknown>[]>()
-      .notNull()
-      .default([]),
+    auditTrail: jsonb('audit_trail').$type<Record<string, unknown>[]>().notNull().default([]),
     configuration: jsonb('configuration').$type<Record<string, unknown>>(),
     preferences: jsonb('preferences').$type<Record<string, unknown>>(),
     tags: jsonb('tags').$type<string[]>().notNull().default([]),
@@ -292,7 +292,10 @@ export const knowledgeItems = pgTable(
   {
     ...base,
     content: text('content').notNull(),
-    type: text('type').$type<KnowledgeType>().notNull().default('factual' as KnowledgeType),
+    type: text('type')
+      .$type<KnowledgeType>()
+      .notNull()
+      .default('factual' as KnowledgeType),
     sourceType: text('source_type').$type<SourceType>().notNull(),
     sourceIdentifier: varchar('source_identifier', { length: 255 }).notNull(),
     sourceUrl: text('source_url'),
@@ -343,7 +346,10 @@ export const discussions = pgTable('discussions', {
   state: jsonb('state').$type<DiscussionState>(),
   settings: jsonb('settings').$type<DiscussionSettings>().notNull(),
   turnStrategy: jsonb('turn_strategy').$type<TurnStrategyConfig>().notNull(),
-  status: text('status').$type<DiscussionStatus>().notNull().default('draft' as DiscussionStatus),
+  status: text('status')
+    .$type<DiscussionStatus>()
+    .notNull()
+    .default('draft' as DiscussionStatus),
   visibility: text('visibility')
     .$type<DiscussionVisibility>()
     .notNull()
@@ -537,7 +543,10 @@ export const artifactReviews = pgTable('artifact_reviews', {
   escalatedAt: timestamp('escalated_at'),
   escalationReason: text('escalation_reason'),
   checklistItems: jsonb('checklist_items').$type<Record<string, unknown>[]>().notNull().default([]),
-  complianceChecks: jsonb('compliance_checks').$type<Record<string, unknown>[]>().notNull().default([]),
+  complianceChecks: jsonb('compliance_checks')
+    .$type<Record<string, unknown>[]>()
+    .notNull()
+    .default([]),
   securityScanPassed: boolean('security_scan_passed'),
   automatedTestsPassed: boolean('automated_tests_passed'),
   tags: jsonb('tags').$type<string[]>().notNull().default([]),
@@ -567,7 +576,10 @@ export const llmProviders = pgTable(
     ...base,
     name: varchar('name', { length: 255 }).notNull().unique(),
     description: varchar('description', { length: 500 }),
-    type: text('type').$type<LLMProviderType>().notNull().default('custom' as LLMProviderType),
+    type: text('type')
+      .$type<LLMProviderType>()
+      .notNull()
+      .default('custom' as LLMProviderType),
     baseUrl: varchar('base_url', { length: 500 }).notNull(),
     apiKeyEncrypted: text('api_key_encrypted'),
     defaultModel: varchar('default_model', { length: 255 }),

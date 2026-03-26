@@ -61,8 +61,6 @@ interface UseWhatsAppReturn {
 
 const MAX_MESSAGES = 100;
 
-
-
 export function useWhatsApp(): UseWhatsAppReturn {
   const [state, setState] = useState<WAConnectionState>('disconnected');
   const [qrString, setQrString] = useState<string | null>(null);

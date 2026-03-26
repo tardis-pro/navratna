@@ -4,12 +4,12 @@ Shared utilities: structured logger (Winston), error types, widget registry. Sma
 
 ## EXPORTS
 
-| Export | Purpose |
-|--------|---------|
-| `logger` | Winston logger — use this everywhere, never `console.log/debug/info` |
-| `createLogger(opts)` | Factory for named child loggers per service |
-| `AppError`, `ValidationError`, `NotFoundError` | Typed error classes |
-| `widgetRegistry` | Widget registration utilities |
+| Export                                         | Purpose                                                              |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| `logger`                                       | Winston logger — use this everywhere, never `console.log/debug/info` |
+| `createLogger(opts)`                           | Factory for named child loggers per service                          |
+| `AppError`, `ValidationError`, `NotFoundError` | Typed error classes                                                  |
+| `widgetRegistry`                               | Widget registration utilities                                        |
 
 ## LOGGER USAGE
 

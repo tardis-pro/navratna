@@ -111,9 +111,18 @@ export class AgentService extends BaseDomainService {
       return null;
     }
 
-    const updatedAgent = await this.getAgentRepository().update(id, data as Record<string, unknown>);
+    const updatedAgent = await this.getAgentRepository().update(
+      id,
+      data as Record<string, unknown>
+    );
 
-    if (updatedAgent && this.hasModelConfigChanged(originalAgent as unknown as Agent, updatedAgent as unknown as Agent)) {
+    if (
+      updatedAgent &&
+      this.hasModelConfigChanged(
+        originalAgent as unknown as Agent,
+        updatedAgent as unknown as Agent
+      )
+    ) {
       try {
         await this.publishAgentConfigChangeEvent(updatedAgent as unknown as Agent);
       } catch (error) {
@@ -168,7 +177,10 @@ export class AgentService extends BaseDomainService {
   }
 
   public async updateAgentStatus(id: string, status: AgentStatus): Promise<boolean> {
-    const result = await this.getAgentRepository().update(id, { status } as Record<string, unknown>);
+    const result = await this.getAgentRepository().update(id, { status } as Record<
+      string,
+      unknown
+    >);
     return result !== null;
   }
 
@@ -208,7 +220,9 @@ export class AgentService extends BaseDomainService {
     const agentCapabilities = (agent.capabilities || []) as string[];
     if (!agentCapabilities.includes(capabilityId)) {
       agentCapabilities.push(capabilityId);
-      await this.getAgentRepository().update(agent.id, { capabilities: agentCapabilities } as Record<string, unknown>);
+      await this.getAgentRepository().update(agent.id, {
+        capabilities: agentCapabilities,
+      } as Record<string, unknown>);
     }
   }
 
@@ -218,7 +232,10 @@ export class AgentService extends BaseDomainService {
 
     const agentCapabilities = (agent.capabilities || []) as string[];
     const filtered = agentCapabilities.filter((cap) => cap !== capabilityId);
-    await this.getAgentRepository().update(agent.id, { capabilities: filtered } as Record<string, unknown>);
+    await this.getAgentRepository().update(agent.id, { capabilities: filtered } as Record<
+      string,
+      unknown
+    >);
   }
 
   public async createBulkAgents(agents: Array<Partial<Agent>>): Promise<Agent[]> {

@@ -1,8 +1,21 @@
 import { DatabaseService } from './databaseService';
 import { EventBusService } from './eventBusService';
 import { logger } from '@uaip/utils';
-import { ProjectEntity, ProjectStatus, ProjectVisibility, ProjectMemberEntity, ProjectRole, MemberStatus, ProjectType } from '@uaip/types';
-import type { CreateProjectData, CreateTaskData, ProjectAnalytics, ProjectMetrics } from '@uaip/types';
+import {
+  ProjectEntity,
+  ProjectStatus,
+  ProjectVisibility,
+  ProjectMemberEntity,
+  ProjectRole,
+  MemberStatus,
+  ProjectType,
+} from '@uaip/types';
+import type {
+  CreateProjectData,
+  CreateTaskData,
+  ProjectAnalytics,
+  ProjectMetrics,
+} from '@uaip/types';
 
 interface IRepository<T = any> {
   findOne(opts: { where?: any }): Promise<T | null>;
@@ -327,7 +340,9 @@ export class ProjectManagementService {
       const [projects, totalProjects] = await qb.getManyAndCount();
 
       const activeProjects = projects.filter((p: any) => p.status === ProjectStatus.ACTIVE).length;
-      const completedProjects = projects.filter((p: any) => p.status === ProjectStatus.COMPLETED).length;
+      const completedProjects = projects.filter(
+        (p: any) => p.status === ProjectStatus.COMPLETED
+      ).length;
 
       return {
         totalProjects,

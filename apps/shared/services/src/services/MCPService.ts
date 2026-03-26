@@ -30,16 +30,21 @@ export class MCPService {
         request.securityLevel || 'medium',
         request.approvalRequired || false,
         request.timeoutSeconds || 30,
-        request.metadata ? JSON.stringify(request.metadata) : null
+        request.metadata ? JSON.stringify(request.metadata) : null,
       ]
     );
 
     const toolCall = result.rows[0];
-    logger.info(`Created MCP tool call: ${toolCall.id} for ${request.serverId}:${request.toolName}`);
+    logger.info(
+      `Created MCP tool call: ${toolCall.id} for ${request.serverId}:${request.toolName}`
+    );
     return toolCall;
   }
 
-  async updateToolCall(id: string, updates: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async updateToolCall(
+    id: string,
+    updates: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const pool = getControlPool();
     const keys = Object.keys(updates);
     if (keys.length === 0) {
@@ -50,7 +55,7 @@ export class MCPService {
       return result.rows[0];
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map(k => updates[k])];
+    const values = [id, ...keys.map((k) => updates[k])];
     const result = await pool.query(
       `UPDATE mcp_tool_calls SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values
@@ -102,7 +107,10 @@ export class MCPService {
     });
   }
 
-  async getToolCallsByServer(serverId: string, limit: number = 100): Promise<Record<string, unknown>[]> {
+  async getToolCallsByServer(
+    serverId: string,
+    limit: number = 100
+  ): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
     const result = await pool.query(
       `SELECT * FROM mcp_tool_calls WHERE server_id = $1 ORDER BY created_at DESC LIMIT $2`,
@@ -111,7 +119,10 @@ export class MCPService {
     return result.rows;
   }
 
-  async getToolCallsByAgent(agentId: string, limit: number = 100): Promise<Record<string, unknown>[]> {
+  async getToolCallsByAgent(
+    agentId: string,
+    limit: number = 100
+  ): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
     const result = await pool.query(
       `SELECT * FROM mcp_tool_calls WHERE agent_id = $1 ORDER BY created_at DESC LIMIT $2`,
@@ -120,7 +131,9 @@ export class MCPService {
     return result.rows;
   }
 
-  async getToolCallsByStatus(status: 'pending' | 'running' | 'completed' | 'failed'): Promise<Record<string, unknown>[]> {
+  async getToolCallsByStatus(
+    status: 'pending' | 'running' | 'completed' | 'failed'
+  ): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
     const result = await pool.query(
       `SELECT * FROM mcp_tool_calls WHERE status = $1 ORDER BY created_at DESC`,
@@ -161,13 +174,16 @@ export class MCPService {
     };
 
     const completedWithTimes = rows.filter(
-      (r: { status: string; execution_time_ms: number | null }) => r.status === 'completed' && r.execution_time_ms
+      (r: { status: string; execution_time_ms: number | null }) =>
+        r.status === 'completed' && r.execution_time_ms
     );
 
     if (completedWithTimes.length > 0) {
-      stats.averageExecutionTime = completedWithTimes.reduce(
-        (sum: number, r: { execution_time_ms: number }) => sum + r.execution_time_ms, 0
-      ) / completedWithTimes.length;
+      stats.averageExecutionTime =
+        completedWithTimes.reduce(
+          (sum: number, r: { execution_time_ms: number }) => sum + r.execution_time_ms,
+          0
+        ) / completedWithTimes.length;
     }
 
     if (stats.total > 0) {
@@ -197,7 +213,7 @@ export class MCPService {
         serverData.version || '1.0.0',
         serverData.securityLevel || 'medium',
         'stopped',
-        serverData.capabilities ? JSON.stringify(serverData.capabilities) : null
+        serverData.capabilities ? JSON.stringify(serverData.capabilities) : null,
       ]
     );
 
@@ -205,7 +221,10 @@ export class MCPService {
     return result.rows[0];
   }
 
-  async updateServer(id: string, updates: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async updateServer(
+    id: string,
+    updates: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const pool = getControlPool();
     const keys = Object.keys(updates);
     if (keys.length === 0) {
@@ -216,7 +235,7 @@ export class MCPService {
       return result.rows[0];
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map(k => updates[k])];
+    const values = [id, ...keys.map((k) => updates[k])];
     const result = await pool.query(
       `UPDATE mcp_servers SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values
@@ -255,8 +274,8 @@ export class MCPService {
     const toolCall = await this.getToolCall(id);
     if (!toolCall) return null;
 
-    const maxRetries = (toolCall.metadata as Record<string, unknown>)?.maxRetries as number || 3;
-    const retryCount = (toolCall.metadata as Record<string, unknown>)?.retryCount as number || 0;
+    const maxRetries = ((toolCall.metadata as Record<string, unknown>)?.maxRetries as number) || 3;
+    const retryCount = ((toolCall.metadata as Record<string, unknown>)?.retryCount as number) || 0;
 
     if (retryCount >= maxRetries) {
       logger.warn(`Max retries exceeded for tool call: ${id}`);
@@ -265,11 +284,18 @@ export class MCPService {
 
     return await this.updateToolCall(id, {
       status: 'pending',
-      metadata: JSON.stringify({ ...(toolCall.metadata as Record<string, unknown>), retryCount: retryCount + 1 }),
+      metadata: JSON.stringify({
+        ...(toolCall.metadata as Record<string, unknown>),
+        retryCount: retryCount + 1,
+      }),
     });
   }
 
-  async cancelToolCall(id: string, reason?: string, cancelledBy?: string): Promise<Record<string, unknown>> {
+  async cancelToolCall(
+    id: string,
+    reason?: string,
+    cancelledBy?: string
+  ): Promise<Record<string, unknown>> {
     return await this.updateToolCall(id, {
       status: 'failed',
       cancelled_at: new Date().toISOString(),
@@ -284,10 +310,9 @@ export class MCPService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-    const result = await pool.query(
-      `DELETE FROM mcp_tool_calls WHERE created_at < $1`,
-      [cutoffDate]
-    );
+    const result = await pool.query(`DELETE FROM mcp_tool_calls WHERE created_at < $1`, [
+      cutoffDate,
+    ]);
 
     const deletedCount = result.rowCount ?? 0;
     logger.info(`Cleaned up ${deletedCount} old MCP tool calls older than ${daysToKeep} days`);

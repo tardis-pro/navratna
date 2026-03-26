@@ -1,4 +1,8 @@
-import type { FrontendMessage as Message, FrontendAgentState as AgentState, FrontendAgentContextValue as AgentContextValue } from '@uaip/types';
+import type {
+  FrontendMessage as Message,
+  FrontendAgentState as AgentState,
+  FrontendAgentContextValue as AgentContextValue,
+} from '@uaip/types';
 import { FrontendDocumentContext } from '@uaip/types';
 import { _LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';

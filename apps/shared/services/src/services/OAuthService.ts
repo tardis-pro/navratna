@@ -39,7 +39,7 @@ export class OAuthService extends BaseDomainService {
         data.userInfoUrl || null,
         JSON.stringify(data.scope),
         data.isEnabled ?? true,
-        JSON.stringify({ redirectUri: data.redirectUri, revokeUrl: data.revokeUrl })
+        JSON.stringify({ redirectUri: data.redirectUri, revokeUrl: data.revokeUrl }),
       ]
     );
     return result.rows[0];
@@ -47,10 +47,7 @@ export class OAuthService extends BaseDomainService {
 
   public async findOAuthProvider(id: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM oauth_providers WHERE id = $1 LIMIT 1`,
-      [id]
-    );
+    const result = await pool.query(`SELECT * FROM oauth_providers WHERE id = $1 LIMIT 1`, [id]);
     return result.rows[0] ?? null;
   }
 
@@ -67,9 +64,7 @@ export class OAuthService extends BaseDomainService {
 
   public async findEnabledOAuthProviders(): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM oauth_providers WHERE is_enabled = true`
-    );
+    const result = await pool.query(`SELECT * FROM oauth_providers WHERE is_enabled = true`);
     return result.rows;
   }
 
@@ -98,7 +93,7 @@ export class OAuthService extends BaseDomainService {
           codeVerifier: data.codeVerifier,
           nonce: data.nonce,
         }),
-        expiresAt
+        expiresAt,
       ]
     );
     return result.rows[0];
@@ -106,10 +101,7 @@ export class OAuthService extends BaseDomainService {
 
   public async findOAuthState(state: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM oauth_states WHERE state = $1 LIMIT 1`,
-      [state]
-    );
+    const result = await pool.query(`SELECT * FROM oauth_states WHERE state = $1 LIMIT 1`, [state]);
     return result.rows[0] ?? null;
   }
 
@@ -153,7 +145,7 @@ export class OAuthService extends BaseDomainService {
         data.tokenExpiresAt || null,
         JSON.stringify(data.scope),
         JSON.stringify({ capabilities: data.capabilities, providerType: data.providerType }),
-        new Date()
+        new Date(),
       ]
     );
     return result.rows[0];
@@ -161,10 +153,9 @@ export class OAuthService extends BaseDomainService {
 
   public async findAgentOAuthConnections(agentId: string): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM agent_oauth_connections WHERE agent_id = $1`,
-      [agentId]
-    );
+    const result = await pool.query(`SELECT * FROM agent_oauth_connections WHERE agent_id = $1`, [
+      agentId,
+    ]);
     return result.rows;
   }
 
@@ -191,26 +182,30 @@ export class OAuthService extends BaseDomainService {
     const pool = getControlPool();
     const result = await pool.query(
       `UPDATE agent_oauth_connections SET access_token_encrypted = $1, refresh_token_encrypted = COALESCE($2, refresh_token_encrypted), expires_at = COALESCE($3, expires_at), last_used_at = $4 WHERE id = $5`,
-      [data.accessToken, data.refreshToken || null, data.tokenExpiresAt || null, new Date(), connectionId]
+      [
+        data.accessToken,
+        data.refreshToken || null,
+        data.tokenExpiresAt || null,
+        new Date(),
+        connectionId,
+      ]
     );
     return (result.rowCount ?? 0) > 0;
   }
 
   public async deactivateOAuthConnection(connectionId: string): Promise<boolean> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `DELETE FROM agent_oauth_connections WHERE id = $1`,
-      [connectionId]
-    );
+    const result = await pool.query(`DELETE FROM agent_oauth_connections WHERE id = $1`, [
+      connectionId,
+    ]);
     return (result.rowCount ?? 0) > 0;
   }
 
   public async isOAuthConnectionValid(connectionId: string): Promise<boolean> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM agent_oauth_connections WHERE id = $1 LIMIT 1`,
-      [connectionId]
-    );
+    const result = await pool.query(`SELECT * FROM agent_oauth_connections WHERE id = $1 LIMIT 1`, [
+      connectionId,
+    ]);
 
     if (result.rows.length === 0) {
       return false;

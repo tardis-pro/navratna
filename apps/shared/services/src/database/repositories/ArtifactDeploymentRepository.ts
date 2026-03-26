@@ -3,7 +3,10 @@ import { logger } from '@uaip/utils';
 import { getIntelligenceDb } from '../drizzle/clients/index';
 
 export class ArtifactDeploymentRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'artifact_deployments'; }
-  get plane(): 'intelligence' { return 'intelligence'; }
+  get tableName() {
+    return 'artifact_deployments';
+  }
+  get plane(): 'intelligence' {
+    return 'intelligence';
+  }
 }
-

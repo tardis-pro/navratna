@@ -87,7 +87,9 @@ export class PgService {
   }
 
   public async transaction<T>(
-    runInTransaction: (manager: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }) => Promise<T>
+    runInTransaction: (manager: {
+      query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+    }) => Promise<T>
   ): Promise<T> {
     if (!this.pool) {
       throw new Error('PgService not initialized. Call initialize() first.');

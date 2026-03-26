@@ -67,8 +67,7 @@ export abstract class BaseService {
     }
   }
 
-  protected registerEntities(_entities: unknown[]): void {
-  }
+  protected registerEntities(_entities: unknown[]): void {}
 
   protected setupBaseMiddleware(): void {
     this.app = metricsMiddleware(this.app);

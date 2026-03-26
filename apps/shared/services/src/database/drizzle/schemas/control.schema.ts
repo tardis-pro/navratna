@@ -66,7 +66,10 @@ export const users = pgTable(
     lastName: varchar('last_name', { length: 255 }),
     department: varchar('department', { length: 100 }),
     role: varchar('role', { length: 50 }).notNull(),
-    userType: text('user_type').$type<UserType>().notNull().default('human' as UserType),
+    userType: text('user_type')
+      .$type<UserType>()
+      .notNull()
+      .default('human' as UserType),
     passwordHash: varchar('password_hash', { length: 255 }).notNull(),
     securityClearance: text('security_clearance')
       .$type<SecurityLevel>()
@@ -133,8 +136,14 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     sessionToken: varchar('session_token', { length: 255 }).notNull().unique(),
     refreshToken: text('refresh_token'),
-    status: text('status').$type<SessionStatus>().notNull().default('active' as SessionStatus),
-    userType: text('user_type').$type<UserType>().notNull().default('human' as UserType),
+    status: text('status')
+      .$type<SessionStatus>()
+      .notNull()
+      .default('active' as SessionStatus),
+    userType: text('user_type')
+      .$type<UserType>()
+      .notNull()
+      .default('human' as UserType),
     ipAddress: varchar('ip_address', { length: 45 }),
     userAgent: text('user_agent'),
     deviceInfo: json('device_info').$type<{
@@ -575,7 +584,10 @@ export const mcpServers = pgTable(
     version: varchar('version', { length: 50 }).notNull(),
     requiresApproval: boolean('requires_approval').notNull().default(false),
     securityLevel: text('security_level').$type<SecurityLevel>().notNull(),
-    status: text('status').$type<MCPServerStatus>().notNull().default('stopped' as MCPServerStatus),
+    status: text('status')
+      .$type<MCPServerStatus>()
+      .notNull()
+      .default('stopped' as MCPServerStatus),
     pid: integer('pid'),
     startTime: timestamp('start_time'),
     lastHealthCheck: timestamp('last_health_check'),

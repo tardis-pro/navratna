@@ -214,7 +214,10 @@ export class AgentCoreService {
 
       // Save to database
       const db = getIntelligenceDb();
-      const [savedAgent] = await db.insert(agents).values(agent as unknown as typeof agents.$inferInsert).returning();
+      const [savedAgent] = await db
+        .insert(agents)
+        .values(agent as unknown as typeof agents.$inferInsert)
+        .returning();
 
       // Publish agent created event
       await this.publishAgentEvent('agent.event.created', {
@@ -308,7 +311,8 @@ export class AgentCoreService {
       if (filters?.createdBy) allConditions.push(eq(agents.createdBy, filters.createdBy));
 
       const baseQuery = db.select().from(agents);
-      const filteredQuery = allConditions.length > 0 ? baseQuery.where(and(...allConditions)) : baseQuery;
+      const filteredQuery =
+        allConditions.length > 0 ? baseQuery.where(and(...allConditions)) : baseQuery;
       const offsetQuery = filters?.offset ? filteredQuery.offset(filters.offset) : filteredQuery;
       const limitedQuery = filters?.limit ? offsetQuery.limit(filters.limit) : offsetQuery;
 
@@ -352,7 +356,10 @@ export class AgentCoreService {
 
       // Update in database
       const dbUpdate = getIntelligenceDb();
-      await dbUpdate.update(agents).set(updatePayload as unknown as typeof agents.$inferInsert).where(eq(agents.id, agentId));
+      await dbUpdate
+        .update(agents)
+        .set(updatePayload as unknown as typeof agents.$inferInsert)
+        .where(eq(agents.id, agentId));
 
       // Get updated agent
       const updatedAgent = await this.getAgent(agentId);
@@ -396,15 +403,18 @@ export class AgentCoreService {
 
       // Soft delete by updating status
       const dbDelete = getIntelligenceDb();
-      await dbDelete.update(agents).set({
-        status: AgentStatus.DELETED,
-        deletedAt: new Date(),
-        deletedBy,
-        metadata: {
-          ...agent.metadata,
-          deletedFrom: this.serviceName,
-        },
-      } as unknown as typeof agents.$inferInsert).where(eq(agents.id, agentId));
+      await dbDelete
+        .update(agents)
+        .set({
+          status: AgentStatus.DELETED,
+          deletedAt: new Date(),
+          deletedBy,
+          metadata: {
+            ...agent.metadata,
+            deletedFrom: this.serviceName,
+          },
+        } as unknown as typeof agents.$inferInsert)
+        .where(eq(agents.id, agentId));
 
       // Publish agent deleted event
       await this.publishAgentEvent('agent.event.deleted', {

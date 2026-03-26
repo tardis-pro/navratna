@@ -3,8 +3,12 @@ import { logger } from '@uaip/utils';
 import { getControlDb } from '../drizzle/clients/index';
 
 export class CapabilityRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'capabilities'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'capabilities';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async searchCapabilities(filters: {
     query?: string;
@@ -15,23 +19,23 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
     const conditions: Record<string, unknown> = {};
     if (filters.type) conditions.type = filters.type;
     if (filters.securityLevel) conditions.security_level = filters.securityLevel;
-    
+
     let results = await this.findMany(conditions);
-    
+
     // Filter by query text (name or description contains query)
     if (filters.query) {
       const q = filters.query.toLowerCase();
-      results = results.filter(r => {
-        const name = (r.name as string || '').toLowerCase();
-        const description = (r.description as string || '').toLowerCase();
+      results = results.filter((r) => {
+        const name = ((r.name as string) || '').toLowerCase();
+        const description = ((r.description as string) || '').toLowerCase();
         return name.includes(q) || description.includes(q);
       });
     }
-    
+
     if (filters.limit) {
       results = results.slice(0, filters.limit);
     }
-    
+
     return results;
   }
 
@@ -62,8 +66,8 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
   async getCapabilityDependents(capabilityId: string): Promise<Record<string, unknown>[]> {
     // Find capabilities that have this capabilityId in their dependencies
     const all = await this.findMany({});
-    return all.filter(r => {
-      const deps = r.dependencies as string[] || [];
+    return all.filter((r) => {
+      const deps = (r.dependencies as string[]) || [];
       return deps.includes(capabilityId);
     });
   }
@@ -79,34 +83,34 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
     offset?: number;
   }): Promise<{ capabilities: Record<string, unknown>[]; totalCount: number }> {
     let results = await this.findMany({});
-    
+
     // Filter by types
     if (params.types && params.types.length > 0) {
-      results = results.filter(r => params.types!.includes(r.type as string));
+      results = results.filter((r) => params.types!.includes(r.type as string));
     }
-    
+
     // Filter by query text
     if (params.query) {
       const q = params.query.toLowerCase();
-      results = results.filter(r => {
-        const name = (r.name as string || '').toLowerCase();
-        const description = (r.description as string || '').toLowerCase();
+      results = results.filter((r) => {
+        const name = ((r.name as string) || '').toLowerCase();
+        const description = ((r.description as string) || '').toLowerCase();
         return name.includes(q) || description.includes(q);
       });
     }
-    
+
     // Filter by security level
     if (params.securityLevel) {
-      results = results.filter(r => r.security_level === params.securityLevel);
+      results = results.filter((r) => r.security_level === params.securityLevel);
     }
-    
+
     // Filter experimental if not included
     if (!params.includeExperimental) {
-      results = results.filter(r => r.status !== 'experimental');
+      results = results.filter((r) => r.status !== 'experimental');
     }
-    
+
     const totalCount = results.length;
-    
+
     // Apply offset and limit
     if (params.offset) {
       results = results.slice(params.offset);
@@ -114,8 +118,7 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
     if (params.limit) {
       results = results.slice(0, params.limit);
     }
-    
+
     return { capabilities: results, totalCount };
   }
 }
-

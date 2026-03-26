@@ -8,7 +8,10 @@ export class DefaultUserLLMProviderSeed {
     try {
       const providers = this.getDefaultProvidersForUser(userId);
       for (const provider of providers) {
-        await db.insert(userLLMProviders).values(provider as any).onConflictDoNothing();
+        await db
+          .insert(userLLMProviders)
+          .values(provider as any)
+          .onConflictDoNothing();
       }
       logger.info(`Created default LLM providers for user: ${userId}`);
     } catch (error) {

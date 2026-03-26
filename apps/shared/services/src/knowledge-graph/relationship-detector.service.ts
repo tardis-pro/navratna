@@ -13,7 +13,10 @@ function toKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
     content: row.content,
     type: row.type,
     tags: row.tags ?? [],
-    confidence: typeof row.confidence === 'number' ? row.confidence : parseFloat(String(row.confidence)) || 0.8,
+    confidence:
+      typeof row.confidence === 'number'
+        ? row.confidence
+        : parseFloat(String(row.confidence)) || 0.8,
     accessLevel: row.accessLevel,
     sourceIdentifier: row.sourceIdentifier,
     sourceType: row.sourceType,
@@ -335,7 +338,8 @@ export class RelationshipDetector {
       const relationships = await this.knowledgeRepository.getRelationships(itemId);
       return relationships
         .filter((rel) => {
-          const strength = typeof rel.strength === 'number' ? rel.strength : parseFloat(String(rel.strength)) || 0;
+          const strength =
+            typeof rel.strength === 'number' ? rel.strength : parseFloat(String(rel.strength)) || 0;
           return strength >= threshold;
         })
         .map((rel) => ({

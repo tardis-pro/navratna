@@ -41,7 +41,11 @@ export class RelationshipDetector {
         );
 
         // Detect relationship type and confidence
-        const relationshipInfo = this.analyzeRelationship(newItem, existingItem as unknown as KnowledgeItem, similarity);
+        const relationshipInfo = this.analyzeRelationship(
+          newItem,
+          existingItem as unknown as KnowledgeItem,
+          similarity
+        );
 
         if (relationshipInfo) {
           relationships.push({

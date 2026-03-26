@@ -30,12 +30,7 @@
     "../llm-service/src/**/*",
     "../discussion-orchestration/src/**/*"
   ],
-  "exclude": [
-    "src/**/*.test.ts",
-    "src/__tests__/**/*",
-    "../**/__tests__/**/*",
-    "../**/*.test.ts"
-  ],
+  "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "../**/__tests__/**/*", "../**/*.test.ts"],
   "references": [
     {
       "path": "../discussion-orchestration"

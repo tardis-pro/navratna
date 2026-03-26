@@ -36,7 +36,7 @@ export class ProjectService extends BaseDomainService {
         data.ownerId,
         data.type || null,
         JSON.stringify(settings),
-        data.metadata ? JSON.stringify(data.metadata) : null
+        data.metadata ? JSON.stringify(data.metadata) : null,
       ]
     );
 
@@ -92,7 +92,7 @@ export class ProjectService extends BaseDomainService {
       return this.findProjectById(id);
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map(k => data[k])];
+    const values = [id, ...keys.map((k) => data[k])];
     const result = await pool.query(
       `UPDATE projects SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values
@@ -155,11 +155,7 @@ export class ProjectService extends BaseDomainService {
     return (result.rowCount ?? 0) > 0;
   }
 
-  public async updateMemberRole(
-    projectId: string,
-    userId: string,
-    role: string
-  ): Promise<boolean> {
+  public async updateMemberRole(projectId: string, userId: string, role: string): Promise<boolean> {
     const pool = getControlPool();
     const result = await pool.query(
       `UPDATE project_members SET role = $1 WHERE project_id = $2 AND user_id = $3`,
@@ -202,7 +198,7 @@ export class ProjectService extends BaseDomainService {
         data.mimeType || null,
         data.size || 0,
         data.uploadedById,
-        data.metadata ? JSON.stringify(data.metadata) : null
+        data.metadata ? JSON.stringify(data.metadata) : null,
       ]
     );
     return result.rows[0];
@@ -226,7 +222,7 @@ export class ProjectService extends BaseDomainService {
       return result.rows[0] ?? null;
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map(k => data[k as keyof typeof data])];
+    const values = [id, ...keys.map((k) => data[k as keyof typeof data])];
     const result = await pool.query(
       `UPDATE project_files SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values

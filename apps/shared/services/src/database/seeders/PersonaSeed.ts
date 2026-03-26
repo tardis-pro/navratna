@@ -1,7 +1,12 @@
 import { getIntelligenceDb } from '../drizzle/clients/index';
 import { personas } from '../../database/drizzle/schemas/intelligence.schema';
 import { BaseSeed } from './BaseSeed';
-import { getAllPersonasFlatWrapper, type Persona, type PersonaStatus, type PersonaVisibility } from '@uaip/types';
+import {
+  getAllPersonasFlatWrapper,
+  type Persona,
+  type PersonaStatus,
+  type PersonaVisibility,
+} from '@uaip/types';
 import type { InferInsertModel } from 'drizzle-orm';
 
 type PersonaInsert = InferInsertModel<typeof personas>;
@@ -12,14 +17,17 @@ export class PersonaSeed extends BaseSeed {
 
   constructor(userIds: string[]) {
     super('Personas');
-    this.users = userIds.map(id => ({ id }));
+    this.users = userIds.map((id) => ({ id }));
   }
 
   async seed(): Promise<PersonaInsert[]> {
     const seedData = await this.getSeedData();
 
     for (const persona of seedData) {
-      await this.db.insert(personas).values(persona as any).onConflictDoNothing();
+      await this.db
+        .insert(personas)
+        .values(persona as any)
+        .onConflictDoNothing();
     }
 
     return await this.db.select().from(personas);
@@ -40,7 +48,8 @@ export class PersonaSeed extends BaseSeed {
         conversationalStyle: persona.conversationalStyle,
         status: (persona.status || 'draft') as PersonaStatus,
         visibility: (persona.visibility || 'private') as PersonaVisibility,
-        createdBy: this.users[index % this.users.length]?.id || '00000000-0000-0000-0000-000000000000',
+        createdBy:
+          this.users[index % this.users.length]?.id || '00000000-0000-0000-0000-000000000000',
         organizationId: persona.organizationId || null,
         teamId: persona.teamId || null,
         version: persona.version || 1,

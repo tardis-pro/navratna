@@ -1,554 +1,554 @@
 {
-    "configVersion": "1.6",
-    "$schema": "https://github.com/jayu/rev-dep/blob/master/config-schema/1.6.schema.json?raw=true",
-    "rules": [
+  "configVersion": "1.6",
+  "$schema": "https://github.com/jayu/rev-dep/blob/master/config-schema/1.6.schema.json?raw=true",
+  "rules": [
+    {
+      "path": ".",
+      "moduleBoundaries": [
         {
-            "path": ".",
-            "moduleBoundaries": [
-                {
-                    "name": "packages",
-                    "pattern": "apps/packages/**/*",
-                    "allow": ["apps/packages/**/*"],
-                },
-            ],
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
+          "name": "packages",
+          "pattern": "apps/packages/**/*",
+          "allow": ["apps/packages/**/*"],
         },
-        {
-            "path": "apps/frontend",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/agent-intelligence",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/artifact-service",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/basebench-meta",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/capability-registry",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/discussion-orchestration",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/llm-service",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/marketplace-service",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/orchestration-pipeline",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "backend/services/questionforge",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/services/security-gateway",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/shared/config",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/shared/infra",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/shared/llm-service",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/shared/middleware",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/backend/shared/services",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/packages/contracts",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/packages/shared-types",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-        {
-            "path": "apps/packages/shared-utils",
-            "circularImportsDetection": {
-                "enabled": true,
-                "ignoreTypeImports": false,
-            },
-            "orphanFilesDetection": {
-                "enabled": false,
-            },
-            "unusedNodeModulesDetection": {
-                "enabled": false,
-            },
-            "missingNodeModulesDetection": {
-                "enabled": false,
-            },
-            "unusedExportsDetection": {
-                "enabled": false,
-            },
-            "unresolvedImportsDetection": {
-                "enabled": true,
-            },
-            "devDepsUsageOnProdDetection": {
-                "enabled": false,
-            },
-            "restrictedImportsDetection": {
-                "enabled": false,
-            },
-        },
-    ],
+      ],
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/frontend",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/agent-intelligence",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/artifact-service",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/basebench-meta",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/capability-registry",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/discussion-orchestration",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/llm-service",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/marketplace-service",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/orchestration-pipeline",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "backend/services/questionforge",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/services/security-gateway",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/shared/config",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/shared/infra",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/shared/llm-service",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/shared/middleware",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/backend/shared/services",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/packages/contracts",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/packages/shared-types",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+    {
+      "path": "apps/packages/shared-utils",
+      "circularImportsDetection": {
+        "enabled": true,
+        "ignoreTypeImports": false,
+      },
+      "orphanFilesDetection": {
+        "enabled": false,
+      },
+      "unusedNodeModulesDetection": {
+        "enabled": false,
+      },
+      "missingNodeModulesDetection": {
+        "enabled": false,
+      },
+      "unusedExportsDetection": {
+        "enabled": false,
+      },
+      "unresolvedImportsDetection": {
+        "enabled": true,
+      },
+      "devDepsUsageOnProdDetection": {
+        "enabled": false,
+      },
+      "restrictedImportsDetection": {
+        "enabled": false,
+      },
+    },
+  ],
 }

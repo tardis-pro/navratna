@@ -8,17 +8,17 @@ async function seedUserLLMProviders() {
   try {
     await initializePlanes();
     const controlDb = getControlDb();
-    
+
     const allUsers = await controlDb.select({ id: users.id }).from(users);
-    
+
     if (allUsers.length === 0) {
       console.warn('No users found in database. Please run user seeding first.');
       return;
     }
 
-    const userLLMProviderSeed = new UserLLMProviderSeed(allUsers.map(u => u.id));
+    const userLLMProviderSeed = new UserLLMProviderSeed(allUsers.map((u) => u.id));
     await userLLMProviderSeed.seed();
-    
+
     console.log('UserLLMProvider seeding completed');
   } catch (error) {
     console.error('UserLLMProvider seeding failed:', error);

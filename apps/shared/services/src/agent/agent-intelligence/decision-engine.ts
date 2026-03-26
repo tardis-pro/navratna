@@ -1,4 +1,11 @@
-import { ActionRecommendation, AgentAnalysis, ToolDefinition, SecurityLevel, DecisionResult, CapabilityResolver } from '@uaip/types';
+import {
+  ActionRecommendation,
+  AgentAnalysis,
+  ToolDefinition,
+  SecurityLevel,
+  DecisionResult,
+  CapabilityResolver,
+} from '@uaip/types';
 import { ToolRegistryCapabilityResolver } from './capability-resolver';
 import { AgentStateMachine } from '../../agent-state/agent-state-machine';
 import { AgentEventBus } from '../../observability/agent-event-bus';

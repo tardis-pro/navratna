@@ -63,8 +63,14 @@ function DesktopApp() {
                                   path="/projects/:id/workspace/session/:sessionId"
                                   element={<CodingSessionPage />}
                                 />
-                                <Route path="/" element={<TelescopeSurface blocks={initialBlocks} />} />
-                                <Route path="*" element={<TelescopeSurface blocks={initialBlocks} />} />
+                                <Route
+                                  path="/"
+                                  element={<TelescopeSurface blocks={initialBlocks} />}
+                                />
+                                <Route
+                                  path="*"
+                                  element={<TelescopeSurface blocks={initialBlocks} />}
+                                />
                               </Routes>
                             </BrowserRouter>
                           </ErrorBoundary>

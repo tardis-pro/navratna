@@ -2,7 +2,12 @@ import { Elysia, t } from 'elysia';
 import { logger } from '@uaip/utils';
 import { MarketplaceService } from '../services/marketplaceService.js';
 import { DatabaseService } from '@uaip/infra/database';
-import type { MarketplaceItemType, MarketplaceCategory, PricingModel, MarketplaceSearchFilters } from '@uaip/types';
+import type {
+  MarketplaceItemType,
+  MarketplaceCategory,
+  PricingModel,
+  MarketplaceSearchFilters,
+} from '@uaip/types';
 
 let marketplaceService: MarketplaceService | null = null;
 
@@ -49,11 +54,17 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
         const service = await getMarketplaceService();
         const filters: MarketplaceSearchFilters = {
           query: query.q as string | undefined,
-          type: (query.type ? [query.type as string] : undefined) as MarketplaceItemType[] | undefined,
-          category: (query.category ? [query.category as string] : undefined) as MarketplaceCategory[] | undefined,
+          type: (query.type ? [query.type as string] : undefined) as
+            | MarketplaceItemType[]
+            | undefined,
+          category: (query.category ? [query.category as string] : undefined) as
+            | MarketplaceCategory[]
+            | undefined,
           tags: (query.tags ? [query.tags as string] : undefined) as string[] | undefined,
           author: (query.author ? [query.author as string] : undefined) as string[] | undefined,
-          pricing: (query.pricing ? [query.pricing as string] : undefined) as PricingModel[] | undefined,
+          pricing: (query.pricing ? [query.pricing as string] : undefined) as
+            | PricingModel[]
+            | undefined,
           minRating: query.minRating ? parseFloat(query.minRating as string) : undefined,
           minDownloads: query.minDownloads ? parseInt(query.minDownloads as string) : undefined,
           featured: query.featured ? query.featured === 'true' : undefined,

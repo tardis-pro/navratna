@@ -3,8 +3,12 @@ import { logger } from '@uaip/utils';
 import { getControlDb } from '../drizzle/clients/index';
 
 export class UserContactRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'user_contacts'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'user_contacts';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 }
 
 export const ContactStatus = { ACTIVE: 'active', INACTIVE: 'inactive', BLOCKED: 'blocked' };

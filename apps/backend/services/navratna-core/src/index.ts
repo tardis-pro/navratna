@@ -85,7 +85,11 @@ class NavratnaCoreService extends BaseService {
       databaseService: this.databaseService,
       eventBusService: this.eventBusService,
       cacheConfig: {
-        redis: getDatabaseConnectionString('discussion-orchestration', 'redis', 'redis-application'),
+        redis: getDatabaseConnectionString(
+          'discussion-orchestration',
+          'redis',
+          'redis-application'
+        ),
         ttl: 300,
         securityLevel: 3,
       },
@@ -134,7 +138,12 @@ class NavratnaCoreService extends BaseService {
     this.app.get('/health', () => ({
       status: 'ok',
       service: 'navratna-core',
-      consolidates: ['agent-intelligence', 'discussion-orchestration', 'artifact-service', 'llm-service'],
+      consolidates: [
+        'agent-intelligence',
+        'discussion-orchestration',
+        'artifact-service',
+        'llm-service',
+      ],
     }));
 
     logger.info('navratna-core routes configured');
@@ -306,10 +315,7 @@ class NavratnaCoreService extends BaseService {
       }
 
       try {
-        this.codingAgentSocketHandler = new CodingAgentSocketHandler(
-          this.io,
-          this.eventBusService
-        );
+        this.codingAgentSocketHandler = new CodingAgentSocketHandler(this.io, this.eventBusService);
       } catch (error) {
         logger.error('Failed to initialize CodingAgentSocketHandler:', error);
       }

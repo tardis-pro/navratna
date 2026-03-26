@@ -164,7 +164,9 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [state, addDocument]
   );
 
-  return <FrontendDocumentContext.Provider value={value}>{children}</FrontendDocumentContext.Provider>;
+  return (
+    <FrontendDocumentContext.Provider value={value}>{children}</FrontendDocumentContext.Provider>
+  );
 };
 
 export const useDocument = () => {

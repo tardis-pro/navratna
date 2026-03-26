@@ -3,7 +3,6 @@ import { io, Socket } from 'socket.io-client';
 import { logger } from '@/utils/browser-logger';
 import { getWebSocketURL } from '@/config/apiConfig';
 
-
 interface WebSocketEvent {
   type: string;
   payload: unknown;

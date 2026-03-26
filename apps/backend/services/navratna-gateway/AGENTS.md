@@ -16,6 +16,7 @@ src/
 ```
 
 Routes imported from sibling service `src/` directories:
+
 - All `security-gateway/src/http/*.elysia.ts` handlers
 - `orchestration-pipeline/src/routes/taskRoutes.ts`
 - `orchestration-pipeline/src/routes/projectRoutes.ts`
@@ -26,6 +27,7 @@ Routes imported from sibling service `src/` directories:
 ## WHAT IT EXPOSES
 
 All endpoints from:
+
 - [security-gateway endpoints](../security-gateway/AGENTS.md)
 - [orchestration-pipeline endpoints](../orchestration-pipeline/AGENTS.md)
 - [capability-registry endpoints](../capability-registry/AGENTS.md)

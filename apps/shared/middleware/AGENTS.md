@@ -4,31 +4,32 @@ Auth middleware, JWT validation, rate limiting, CSRF protection, metrics, reques
 
 ## EXPORTS
 
-| Export | Purpose |
-|--------|---------|
-| `JWTValidator` | Static class — validates tokens; throws FATAL if default secret in prod |
-| `attachAuth` | Elysia middleware — direct JWT validation (no nginx) |
-| `attachNginxAuth` | Elysia middleware — trusts nginx-forwarded `X-User-*` headers |
-| `requireNginxAuth` | Guard — throws 401 if no nginx auth headers |
-| `withRequiredAuth` | Elysia group helper — requires auth on all routes in group |
-| `withOptionalAuth` | Elysia group helper — auth optional |
-| `validateJWTToken` | Raw token validation function |
-| `generateAuthTokens` | Access + refresh token pair generation |
-| `rateLimiter` | Express-compatible rate limiter |
-| `createRateLimiter` | Factory for custom rate limiter configs |
-| `errorHandler` | Standard error response formatter |
-| `requestLogger` | Winston request/response logger |
-| `metricsMiddleware` | Prometheus metrics collection |
-| `metricsEndpoint` | `/metrics` endpoint handler |
-| `csrfProtection` | CSRF token validation |
-| `apiKeyAuth` | API key authentication |
-| `agentMiddleware` | Agent-specific request validation |
-| `agentValidationMiddleware` | Agent payload validation |
-| `agentTransformationService` | Request transformation for agents |
+| Export                       | Purpose                                                                 |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `JWTValidator`               | Static class — validates tokens; throws FATAL if default secret in prod |
+| `attachAuth`                 | Elysia middleware — direct JWT validation (no nginx)                    |
+| `attachNginxAuth`            | Elysia middleware — trusts nginx-forwarded `X-User-*` headers           |
+| `requireNginxAuth`           | Guard — throws 401 if no nginx auth headers                             |
+| `withRequiredAuth`           | Elysia group helper — requires auth on all routes in group              |
+| `withOptionalAuth`           | Elysia group helper — auth optional                                     |
+| `validateJWTToken`           | Raw token validation function                                           |
+| `generateAuthTokens`         | Access + refresh token pair generation                                  |
+| `rateLimiter`                | Express-compatible rate limiter                                         |
+| `createRateLimiter`          | Factory for custom rate limiter configs                                 |
+| `errorHandler`               | Standard error response formatter                                       |
+| `requestLogger`              | Winston request/response logger                                         |
+| `metricsMiddleware`          | Prometheus metrics collection                                           |
+| `metricsEndpoint`            | `/metrics` endpoint handler                                             |
+| `csrfProtection`             | CSRF token validation                                                   |
+| `apiKeyAuth`                 | API key authentication                                                  |
+| `agentMiddleware`            | Agent-specific request validation                                       |
+| `agentValidationMiddleware`  | Agent payload validation                                                |
+| `agentTransformationService` | Request transformation for agents                                       |
 
 ## AUTH PATTERNS
 
 **Services behind nginx** (most services):
+
 ```typescript
 import { attachNginxAuth, requireNginxAuth } from '@uaip/middleware';
 // nginx forwards X-User-ID, X-User-Email, X-User-Role after auth_request validation
@@ -39,17 +40,17 @@ const user = requireNginxAuth(context); // returns UserContext or throws 401
 ```
 
 **Direct JWT** (security-gateway itself, for login/register endpoints):
+
 ```typescript
 import { attachAuth, validateJWTToken } from '@uaip/middleware';
 this.app.use(attachAuth);
 ```
 
 **Elysia group-level auth**:
+
 ```typescript
 import { withRequiredAuth } from '@uaip/middleware';
-this.app.group('/api/v1/protected', (app) =>
-  withRequiredAuth(app).get('/resource', handler)
-);
+this.app.group('/api/v1/protected', (app) => withRequiredAuth(app).get('/resource', handler));
 // @ts-expect-error — Elysia middleware injects user but TS can't infer through groups
 ```
 

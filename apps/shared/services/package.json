@@ -32,7 +32,7 @@
         "drizzle-orm": "catalog:backend",
         "@uaip/infra": "workspace:*",
         "@uaip/middleware": "workspace:*",
-        "@uaip/types": "workspace:*",
+      "@uaip/types": "workspace:*",
         "@uaip/utils": "workspace:*",
         "bcryptjs": "^3.0.3",
         "compression": "catalog:backend",

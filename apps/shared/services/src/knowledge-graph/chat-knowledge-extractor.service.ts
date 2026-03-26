@@ -15,7 +15,15 @@ import type {
 import { ContentClassifier } from './content-classifier.service';
 import { EmbeddingService } from './embedding.service';
 
-export type { ChatConversationContext, ExtractedKnowledge, QAPair, DecisionPoint, ExpertiseArea, LearningMoment, KnowledgeExtractionResult } from '@uaip/types';
+export type {
+  ChatConversationContext,
+  ExtractedKnowledge,
+  QAPair,
+  DecisionPoint,
+  ExpertiseArea,
+  LearningMoment,
+  KnowledgeExtractionResult,
+} from '@uaip/types';
 
 export class ChatKnowledgeExtractorService {
   private readonly factPatterns = [

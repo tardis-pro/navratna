@@ -717,7 +717,9 @@ export interface DecisionResult {
 
 export interface CapabilityResolver {
   lookup(toolName: string): Promise<ToolDefinition | null>;
-  validateCapabilities(requiredCapabilities: string[]): Promise<{ valid: boolean; missing: string[] }>;
+  validateCapabilities(
+    requiredCapabilities: string[]
+  ): Promise<{ valid: boolean; missing: string[] }>;
   getAvailableCapabilities(): Promise<string[]>;
 }
 

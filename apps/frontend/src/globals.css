@@ -21,16 +21,16 @@
      Old: xs=8.8px sm=10.8px base=12px
      New: xs=12px  sm=13px   base=14px (readable default)
   ────────────────────────────────────────────────────── */
-  --font-size-xs: 0.75rem;    /* 12px */
-  --font-size-sm: 0.8125rem;  /* 13px */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.8125rem; /* 13px */
   --font-size-base: 0.875rem; /* 14px */
-  --font-size-lg: 1rem;       /* 16px */
-  --font-size-xl: 1.125rem;   /* 18px */
-  --font-size-2xl: 1.25rem;   /* 20px */
-  --font-size-3xl: 1.5rem;    /* 24px */
-  --font-size-4xl: 2.25rem;   /* 36px */
-  --font-size-5xl: 3rem;      /* 48px */
-  --font-size-6xl: 3.75rem;   /* 60px */
+  --font-size-lg: 1rem; /* 16px */
+  --font-size-xl: 1.125rem; /* 18px */
+  --font-size-2xl: 1.25rem; /* 20px */
+  --font-size-3xl: 1.5rem; /* 24px */
+  --font-size-4xl: 2.25rem; /* 36px */
+  --font-size-5xl: 3rem; /* 48px */
+  --font-size-6xl: 3.75rem; /* 60px */
 
   /* ── Light Mode Colors ──────────────────────────────── */
   --color-background: oklch(100% 0 0);
@@ -148,7 +148,9 @@
 @layer base {
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 
   h1,
@@ -160,13 +162,25 @@
     @apply font-semibold tracking-tight;
   }
 
-  h1 { @apply text-4xl lg:text-5xl; }
-  h2 { @apply text-3xl lg:text-4xl; }
-  h3 { @apply text-2xl lg:text-3xl; }
-  h4 { @apply text-xl lg:text-2xl; }
+  h1 {
+    @apply text-4xl lg:text-5xl;
+  }
+  h2 {
+    @apply text-3xl lg:text-4xl;
+  }
+  h3 {
+    @apply text-2xl lg:text-3xl;
+  }
+  h4 {
+    @apply text-xl lg:text-2xl;
+  }
 
-  p { @apply leading-7; }
-  small { @apply text-sm font-medium leading-none; }
+  p {
+    @apply leading-7;
+  }
+  small {
+    @apply text-sm font-medium leading-none;
+  }
 }
 
 /* ============================================================
@@ -186,65 +200,129 @@ html {
    KEYFRAMES — defined once, referenced by @theme --animate-*
 ============================================================ */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-24px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(24px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes bounceIn {
-  0%   { opacity: 0; transform: scale(0.3); }
-  50%  { opacity: 1; transform: scale(1.05); }
-  70%  { transform: scale(0.95); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 4px color-mix(in oklch, var(--color-primary) 40%, transparent); }
-  50%       { box-shadow: 0 0 16px color-mix(in oklch, var(--color-primary) 70%, transparent); }
+  0%,
+  100% {
+    box-shadow: 0 0 4px color-mix(in oklch, var(--color-primary) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 16px color-mix(in oklch, var(--color-primary) 70%, transparent);
+  }
 }
 
 @keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 @keyframes accordion-down {
-  from { height: 0; }
-  to   { height: var(--radix-accordion-content-height); }
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
 }
 
 @keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to   { height: 0; }
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
 }
 
 /* ── Microexpression keyframes (used by Microexpression component) ── */
 @keyframes microexpression-pulse {
-  0%, 100% { transform: scale(1);    opacity: 1; }
-  50%       { transform: scale(1.08); opacity: 0.85; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
 }
 
 @keyframes microexpression-alarm {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     box-shadow: 0 0 8px oklch(55% 0.22 25 / 0.5);
   }
@@ -255,9 +333,19 @@ html {
 }
 
 @keyframes microexpression-confused {
-  0%, 100% { opacity: 1;   transform: translateY(0); }
-  25%       { opacity: 0.6; transform: translateY(-1px); }
-  75%       { opacity: 0.6; transform: translateY(1px); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 0.6;
+    transform: translateY(-1px);
+  }
+  75% {
+    opacity: 0.6;
+    transform: translateY(1px);
+  }
 }
 
 /* ============================================================
@@ -265,38 +353,60 @@ html {
    Used via CSS vars in style props or the utility classes below.
 ============================================================ */
 :root {
-  --z-wallpaper:     -1;
-  --z-desktop:        1;
-  --z-weather:       20;
-  --z-notes:         30;
-  --z-shortcuts:     40;
-  --z-taskbar:       50;
+  --z-wallpaper: -1;
+  --z-desktop: 1;
+  --z-weather: 20;
+  --z-notes: 30;
+  --z-shortcuts: 40;
+  --z-taskbar: 50;
   --z-menu-backdrop: 55;
-  --z-menu:          60;
+  --z-menu: 60;
   --z-modal-backdrop: 90;
-  --z-modal:         100;
-  --z-windows:       1000;
+  --z-modal: 100;
+  --z-windows: 1000;
   --z-active-window: 1100;
 }
 
 /* Classes used in DesktopUnified.tsx */
-.z-notes         { z-index: var(--z-notes); }
-.z-weather       { z-index: var(--z-weather); }
-.z-shortcuts     { z-index: var(--z-shortcuts); }
-.z-taskbar       { z-index: var(--z-taskbar); }
-.z-windows       { z-index: var(--z-windows); }
-.z-active-window { z-index: var(--z-active-window); }
+.z-notes {
+  z-index: var(--z-notes);
+}
+.z-weather {
+  z-index: var(--z-weather);
+}
+.z-shortcuts {
+  z-index: var(--z-shortcuts);
+}
+.z-taskbar {
+  z-index: var(--z-taskbar);
+}
+.z-windows {
+  z-index: var(--z-windows);
+}
+.z-active-window {
+  z-index: var(--z-active-window);
+}
 
 /* Radix dialog/popover override — keeps modals above portals */
-[data-radix-dialog-overlay]  { z-index: var(--z-modal-backdrop) !important; }
-[data-radix-dialog-content]  { z-index: var(--z-modal) !important; }
+[data-radix-dialog-overlay] {
+  z-index: var(--z-modal-backdrop) !important;
+}
+[data-radix-dialog-content] {
+  z-index: var(--z-modal) !important;
+}
 
 /* ============================================================
    SCROLLBARS
 ============================================================ */
-::-webkit-scrollbar         { width: 6px; height: 6px; }
-::-webkit-scrollbar-track   { background: transparent; border-radius: 6px; }
-::-webkit-scrollbar-thumb   {
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--color-muted-foreground) 30%, transparent);
   border-radius: 6px;
   transition: background 0.2s ease;
@@ -304,25 +414,27 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklch, var(--color-muted-foreground) 50%, transparent);
 }
-::-webkit-scrollbar-corner  { background: transparent; }
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
 * {
   scrollbar-width: thin;
-  scrollbar-color:
-    color-mix(in oklch, var(--color-muted-foreground) 30%, transparent)
-    transparent;
+  scrollbar-color: color-mix(in oklch, var(--color-muted-foreground) 30%, transparent) transparent;
 }
 
 /* Component-scoped scrollbar utility (used in DiscussionPortal, AgentManagerPortal) */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color:
-    color-mix(in oklch, var(--color-primary) 30%, transparent)
-    transparent;
+  scrollbar-color: color-mix(in oklch, var(--color-primary) 30%, transparent) transparent;
 }
 
-.custom-scrollbar::-webkit-scrollbar       { width: 5px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--color-primary) 30%, transparent);
   border-radius: 4px;
@@ -394,19 +506,27 @@ html {
    ULTRAWIDE GRID SUPPORT
 ============================================================ */
 @media (min-width: 1920px) {
-  .grid-cols-16 { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+  .grid-cols-16 {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 2560px) {
-  .grid-cols-20 { grid-template-columns: repeat(20, minmax(0, 1fr)); }
+  .grid-cols-20 {
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 3440px) {
-  .grid-cols-24 { grid-template-columns: repeat(24, minmax(0, 1fr)); }
+  .grid-cols-24 {
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 3840px) {
-  .grid-cols-28 { grid-template-columns: repeat(28, minmax(0, 1fr)); }
+  .grid-cols-28 {
+    grid-template-columns: repeat(28, minmax(0, 1fr));
+  }
 }
 
 /* ============================================================

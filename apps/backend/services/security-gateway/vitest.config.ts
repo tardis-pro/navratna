@@ -9,10 +9,7 @@ export default mergeConfig(
       name: '@uaip/security-gateway',
       setupFiles: ['./src/__tests__/setup.ts'],
       testTimeout: 10_000,
-      include: [
-        'src/__tests__/**/*.test.ts',
-        'src/__tests__/**/*.spec.ts',
-      ],
+      include: ['src/__tests__/**/*.test.ts', 'src/__tests__/**/*.spec.ts'],
       coverage: {
         include: ['src/**/*.ts'],
         thresholds: {
@@ -36,5 +33,5 @@ export default mergeConfig(
         '@uaip/llm-service': path.resolve(import.meta.dirname, '../../../shared/llm-service/src'),
       },
     },
-  }),
+  })
 );

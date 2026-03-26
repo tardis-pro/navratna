@@ -262,9 +262,13 @@ export class ModelSyncService {
     const cPool = getControlPool();
     const [totalRes, availRes, totalProv, activeProv] = await Promise.all([
       iPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "llm_models"`),
-      iPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "llm_models" WHERE "is_enabled" = true`),
+      iPool.query<{ cnt: number }>(
+        `SELECT COUNT(*)::int AS cnt FROM "llm_models" WHERE "is_enabled" = true`
+      ),
       cPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "user_llm_providers"`),
-      cPool.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM "user_llm_providers" WHERE "is_active" = true`),
+      cPool.query<{ cnt: number }>(
+        `SELECT COUNT(*)::int AS cnt FROM "user_llm_providers" WHERE "is_active" = true`
+      ),
     ]);
     const totalModels = totalRes.rows[0]?.cnt ?? 0;
     const availableModels = availRes.rows[0]?.cnt ?? 0;

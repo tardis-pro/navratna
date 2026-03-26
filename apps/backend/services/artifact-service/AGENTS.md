@@ -32,28 +32,29 @@ src/
 
 ## ENDPOINTS
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/api/v1/artifacts/analyze` | Analyze conversation for artifact opportunities |
-| POST | `/api/v1/artifacts/generate` | Generate artifact from conversation context |
-| GET | `/api/v1/artifacts/types` | List available generators with capabilities |
-| POST | `/api/v1/artifacts/validate` | Validate artifact quality and security |
-| GET | `/api/v1/artifacts/status` | Service health + generator metrics |
-| GET/POST | `/api/v1/shortlinks` | Short URL + QR code for sharing |
+| Method   | Path                         | Purpose                                         |
+| -------- | ---------------------------- | ----------------------------------------------- |
+| POST     | `/api/v1/artifacts/analyze`  | Analyze conversation for artifact opportunities |
+| POST     | `/api/v1/artifacts/generate` | Generate artifact from conversation context     |
+| GET      | `/api/v1/artifacts/types`    | List available generators with capabilities     |
+| POST     | `/api/v1/artifacts/validate` | Validate artifact quality and security          |
+| GET      | `/api/v1/artifacts/status`   | Service health + generator metrics              |
+| GET/POST | `/api/v1/shortlinks`         | Short URL + QR code for sharing                 |
 
 ## EVENT BUS
 
-| Topic | Direction | Handler |
-|-------|-----------|---------|
-| `discussion.completed` | subscribe | Auto-generate artifact from discussion, publish result |
-| `artifact.generated` | publish | Successful generation with artifact data |
-| `artifact.generation.failed` | publish | Generation failure with error details |
+| Topic                        | Direction | Handler                                                |
+| ---------------------------- | --------- | ------------------------------------------------------ |
+| `discussion.completed`       | subscribe | Auto-generate artifact from discussion, publish result |
+| `artifact.generated`         | publish   | Successful generation with artifact data               |
+| `artifact.generation.failed` | publish   | Generation failure with error details                  |
 
 Auto-generation flow: `discussion.completed` event → `ConversationAnalyzer` extracts context → `ArtifactFactory` selects appropriate generator → `SecurityManager` scans output → `artifact.generated` published.
 
 ## DRIZZLE ORM
 
 All services use Drizzle ORM (TypeORM removed). Schema files in `@uaip/shared-services/src/database/drizzle/schemas/`:
+
 - `control.schema.ts` — operational tables
 - `intelligence.schema.ts` — knowledge/agent tables
 

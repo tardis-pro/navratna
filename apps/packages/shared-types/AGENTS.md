@@ -35,17 +35,17 @@ import { Agent } from '@uaip/types/agent'; // ❌ use root import
 
 ## KEY ENUMS (most referenced)
 
-| Enum | Values |
-|------|--------|
-| `SecurityLevel` | `LOW \| MEDIUM \| HIGH \| CRITICAL` |
-| `AgentStatus` | `idle \| thinking \| executing \| waiting \| error` |
-| `AgentRole` | persona role enums |
+| Enum               | Values                                                 |
+| ------------------ | ------------------------------------------------------ |
+| `SecurityLevel`    | `LOW \| MEDIUM \| HIGH \| CRITICAL`                    |
+| `AgentStatus`      | `idle \| thinking \| executing \| waiting \| error`    |
+| `AgentRole`        | persona role enums                                     |
 | `DiscussionStatus` | `pending \| active \| paused \| completed \| archived` |
-| `MessageType` | message classification enum |
-| `LLMTaskType` | `ANALYSIS \| GENERATION \| EVALUATION \| ...` |
-| `ToolCategory` | tool categorization |
-| `AuditEventType` | audit log event classifications |
-| `PersonaStatus` | `active \| inactive \| DEPRECATED` |
+| `MessageType`      | message classification enum                            |
+| `LLMTaskType`      | `ANALYSIS \| GENERATION \| EVALUATION \| ...`          |
+| `ToolCategory`     | tool categorization                                    |
+| `AuditEventType`   | audit log event classifications                        |
+| `PersonaStatus`    | `active \| inactive \| DEPRECATED`                     |
 
 ## KNOWN ISSUE
 

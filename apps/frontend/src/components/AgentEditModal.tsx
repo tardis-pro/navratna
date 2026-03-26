@@ -410,11 +410,16 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           setLoadingTools(true);
 
           // Get available MCP tools
-          const availableData = await APIClient.get<{ tools?: unknown[] }>('/api/v1/agents/mcp-tools');
+          const availableData = await APIClient.get<{ tools?: unknown[] }>(
+            '/api/v1/agents/mcp-tools'
+          );
           setMcpTools(availableData?.tools || []);
 
           // Get agent's assigned tools
-          const assignedData = await APIClient.get<{ assignedMCPTools?: unknown[]; mcpToolSettings?: unknown }>(`/api/v1/agents/${agentId}/mcp-tools`);
+          const assignedData = await APIClient.get<{
+            assignedMCPTools?: unknown[];
+            mcpToolSettings?: unknown;
+          }>(`/api/v1/agents/${agentId}/mcp-tools`);
           setAssignedTools(assignedData?.assignedMCPTools || []);
           setToolSettings(assignedData?.mcpToolSettings || {});
         } catch (error) {

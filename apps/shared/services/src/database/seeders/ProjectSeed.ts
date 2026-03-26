@@ -8,14 +8,17 @@ export class ProjectSeed extends BaseSeed {
 
   constructor(userIds: string[], _agentIds: string[]) {
     super('Projects');
-    this.users = userIds.map(id => ({ id }));
+    this.users = userIds.map((id) => ({ id }));
   }
 
   async seed(): Promise<any[]> {
     const seedData = await this.getSeedData();
 
     for (const project of seedData) {
-      await this.db.insert(projects).values(project as any).onConflictDoNothing();
+      await this.db
+        .insert(projects)
+        .values(project as any)
+        .onConflictDoNothing();
     }
 
     return await this.db.select().from(projects);
@@ -25,7 +28,8 @@ export class ProjectSeed extends BaseSeed {
     return [
       {
         name: 'E-commerce Platform Redesign',
-        description: 'Complete overhaul of the existing e-commerce platform with modern architecture and improved UX',
+        description:
+          'Complete overhaul of the existing e-commerce platform with modern architecture and improved UX',
         status: 'active',
         type: 'software_development',
         ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
@@ -41,7 +45,8 @@ export class ProjectSeed extends BaseSeed {
       },
       {
         name: 'Mobile Banking App',
-        description: 'Development of a secure mobile banking application with biometric authentication',
+        description:
+          'Development of a secure mobile banking application with biometric authentication',
         status: 'active',
         type: 'mobile_development',
         ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
@@ -89,7 +94,8 @@ export class ProjectSeed extends BaseSeed {
       },
       {
         name: 'Brand Identity Refresh',
-        description: 'Complete brand identity overhaul including logo, color palette, and brand guidelines',
+        description:
+          'Complete brand identity overhaul including logo, color palette, and brand guidelines',
         status: 'active',
         type: 'design',
         ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
@@ -105,7 +111,8 @@ export class ProjectSeed extends BaseSeed {
       },
       {
         name: 'Social Media Campaign',
-        description: 'Multi-platform social media campaign for product launch with viral content strategy',
+        description:
+          'Multi-platform social media campaign for product launch with viral content strategy',
         status: 'active',
         type: 'content_creation',
         ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
@@ -121,7 +128,8 @@ export class ProjectSeed extends BaseSeed {
       },
       {
         name: 'AI Ethics Policy Research',
-        description: 'Comprehensive research on AI ethics policies and their implementation in enterprise environments',
+        description:
+          'Comprehensive research on AI ethics policies and their implementation in enterprise environments',
         status: 'active',
         type: 'policy_analysis',
         ownerId: this.users[1]?.id || '00000000-0000-0000-0000-000000000000',
@@ -137,7 +145,8 @@ export class ProjectSeed extends BaseSeed {
       },
       {
         name: 'Customer Behavior Analytics',
-        description: 'Deep dive analysis of customer behavior patterns using ML and statistical methods',
+        description:
+          'Deep dive analysis of customer behavior patterns using ML and statistical methods',
         status: 'active',
         type: 'data_analysis',
         ownerId: this.users[1]?.id || '00000000-0000-0000-0000-000000000000',
@@ -169,7 +178,8 @@ export class ProjectSeed extends BaseSeed {
       },
       {
         name: 'Architecture Review Board',
-        description: 'Weekly architecture review sessions for system design decisions and technical debt',
+        description:
+          'Weekly architecture review sessions for system design decisions and technical debt',
         status: 'active',
         type: 'review',
         ownerId: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',

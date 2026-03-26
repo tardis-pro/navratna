@@ -11,7 +11,13 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
       if (typeof cached === 'string') return JSON.parse(cached);
     } catch {}
     const result = await this.findMany({ is_active: true });
-    try { await redisCacheService.set(cacheKey, JSON.stringify(result), this.CACHE_TTL.GLOBAL_PROVIDERS); } catch {}
+    try {
+      await redisCacheService.set(
+        cacheKey,
+        JSON.stringify(result),
+        this.CACHE_TTL.GLOBAL_PROVIDERS
+      );
+    } catch {}
     return result;
   }
 
@@ -19,25 +25,35 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
     const pattern = 'llm_provider:*';
     const keys = await redisCacheService.keys(pattern);
     for (const key of keys) {
-      try { await redisCacheService.del(key); } catch {}
+      try {
+        await redisCacheService.del(key);
+      } catch {}
     }
-    try { await redisCacheService.del('llm_providers:active:global'); } catch {}
+    try {
+      await redisCacheService.del('llm_providers:active:global');
+    } catch {}
   }
 
   async invalidateProviderSpecificCache(_key: string): Promise<void> {
     const pattern = 'llm_provider:*';
     const keys = await redisCacheService.keys(pattern);
     for (const key of keys) {
-      try { await redisCacheService.del(key); } catch {}
+      try {
+        await redisCacheService.del(key);
+      } catch {}
     }
   }
 
   async invalidateGlobalProviderCache(): Promise<void> {
-    try { await redisCacheService.del('llm_providers:active:global'); } catch {}
+    try {
+      await redisCacheService.del('llm_providers:active:global');
+    } catch {}
     const pattern = 'llm_provider:*';
     const keys = await redisCacheService.keys(pattern);
     for (const key of keys) {
-      try { await redisCacheService.del(key); } catch {}
+      try {
+        await redisCacheService.del(key);
+      } catch {}
     }
   }
 

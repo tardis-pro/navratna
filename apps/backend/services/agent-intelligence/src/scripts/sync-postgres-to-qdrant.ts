@@ -70,8 +70,12 @@ let failed = 0;
 
 for (let i = 0; i < rows.length; i += BATCH) {
   const batch = rows.slice(i, i + BATCH);
-  const texts: string[] = batch.map((r: { id: string; content: string }) => r.content.replace(/\r\n/g, '\n').slice(0, 2000).trim());
-  const validBatch = batch.filter((_: { id: string; content: string }, idx: number) => texts[idx].length > 0);
+  const texts: string[] = batch.map((r: { id: string; content: string }) =>
+    r.content.replace(/\r\n/g, '\n').slice(0, 2000).trim()
+  );
+  const validBatch = batch.filter(
+    (_: { id: string; content: string }, idx: number) => texts[idx].length > 0
+  );
   const validTexts: string[] = texts.filter((t: string) => t.length > 0);
   if (validTexts.length === 0) continue;
 

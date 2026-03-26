@@ -24,13 +24,13 @@ cd uaip
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
-# Set up databases
-docker-compose up -d
+# Set up databases (Postgres, Neo4j, Redis, Qdrant)
+docker-compose up -d postgres neo4j redis qdrant
 
-# Run development server
-npm run dev
+# Run development server (NX orchestrates all services)
+pnpm dev
 ```
 
 ### Branch Naming Convention

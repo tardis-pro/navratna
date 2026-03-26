@@ -45,16 +45,16 @@ src/
 
 ## WHERE TO LOOK
 
-| Task | Location |
-|------|----------|
-| Add new entity | `src/entities/` + matching repository in `src/database/repositories/` |
-| Add new domain service | `src/services/` → export from `src/index.ts` |
-| Extend BaseService | `src/BaseService.ts` — add optional init hooks |
-| New DI registration | `src/ServiceFactory.ts` `getInstance()` + `getXxxService()` |
-| Knowledge graph sync | `src/knowledge-graph/` |
-| Agent memory | `src/agent-memory/` |
-| Model selection | `src/services/ModelSelectionOrchestrator.ts` |
-| Event bus access | Import `EventBusService` from `@uaip/infra`; re-exported here |
+| Task                   | Location                                                              |
+| ---------------------- | --------------------------------------------------------------------- |
+| Add new entity         | `src/entities/` + matching repository in `src/database/repositories/` |
+| Add new domain service | `src/services/` → export from `src/index.ts`                          |
+| Extend BaseService     | `src/BaseService.ts` — add optional init hooks                        |
+| New DI registration    | `src/ServiceFactory.ts` `getInstance()` + `getXxxService()`           |
+| Knowledge graph sync   | `src/knowledge-graph/`                                                |
+| Agent memory           | `src/agent-memory/`                                                   |
+| Model selection        | `src/services/ModelSelectionOrchestrator.ts`                          |
+| Event bus access       | Import `EventBusService` from `@uaip/infra`; re-exported here         |
 
 ## BASESERVICE PATTERN
 
@@ -67,9 +67,9 @@ class MyService extends BaseService {
       name: 'my-service',
       port: 3001,
       version: '1.0.0',
-      enableWebSocket: false,   // Socket.IO
-      enableNeo4j: false,       // Neo4j driver
-      enableEnterpriseEventBus: false,  // RabbitMQ compliance mode
+      enableWebSocket: false, // Socket.IO
+      enableNeo4j: false, // Neo4j driver
+      enableEnterpriseEventBus: false, // RabbitMQ compliance mode
     });
   }
 
@@ -95,6 +95,7 @@ const agentService = factory.getAgentService();
 ## KNOWN TECHNICAL DEBT (do not re-implement)
 
 These are intentional TODO placeholders — stubs pending future migration:
+
 - `databaseService.ts` — delegated methods to domain services; 10+ stub methods
 - `widgetService.ts` — storage/retrieval stubs returning empty
 - `toolRegistry.ts` — knowledge-graph recommendation methods returning `[]`

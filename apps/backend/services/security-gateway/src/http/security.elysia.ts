@@ -35,10 +35,7 @@ async function getServices() {
 async function getSecurityServices() {
   const { securityService, auditService, domainAuditService } = await getServices();
   if (!notificationServiceSingleton) notificationServiceSingleton = new NotificationService();
-  if (!eventBusServiceSingleton)
-    eventBusServiceSingleton = new EventBusService(
-      logger
-    );
+  if (!eventBusServiceSingleton) eventBusServiceSingleton = new EventBusService(logger);
   if (!approvalWorkflowServiceSingleton)
     approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       eventBusServiceSingleton,

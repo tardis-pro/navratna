@@ -2,8 +2,12 @@ import { BaseRepository } from '../base/BaseRepository';
 import { getControlPool } from '../drizzle/clients/index';
 
 export class ToolRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'tool_definitions'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'tool_definitions';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async createTool(data: {
     name: string;
@@ -29,14 +33,21 @@ export class ToolRepository extends BaseRepository<Record<string, unknown>> {
         data.category,
         data.securityLevel || 'medium',
         data.version || '1.0.0',
-        JSON.stringify({ inputSchema: data.inputSchema, outputSchema: data.outputSchema, configuration: data.configuration }),
-        data.isEnabled ?? true
+        JSON.stringify({
+          inputSchema: data.inputSchema,
+          outputSchema: data.outputSchema,
+          configuration: data.configuration,
+        }),
+        data.isEnabled ?? true,
       ]
     );
     return result.rows[0];
   }
 
-  async getTools(filters: { enabled?: boolean; category?: string }): Promise<Record<string, unknown>[]> {
+  async getTools(filters: {
+    enabled?: boolean;
+    category?: string;
+  }): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
     let query = 'SELECT * FROM tool_definitions WHERE 1=1';
     const params: unknown[] = [];
@@ -57,8 +68,12 @@ export class ToolRepository extends BaseRepository<Record<string, unknown>> {
 }
 
 export class ToolExecutionRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'tool_executions'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'tool_executions';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async createToolExecution(data: {
     toolId: string;
@@ -82,7 +97,11 @@ export class ToolExecutionRepository extends BaseRepository<Record<string, unkno
         data.userId || null,
         JSON.stringify(data.parameters || {}),
         data.status || 'pending',
-        JSON.stringify({ approvalRequired: data.approvalRequired, retryCount: data.retryCount, maxRetries: data.maxRetries })
+        JSON.stringify({
+          approvalRequired: data.approvalRequired,
+          retryCount: data.retryCount,
+          maxRetries: data.maxRetries,
+        }),
       ]
     );
     return result.rows[0];
@@ -90,14 +109,15 @@ export class ToolExecutionRepository extends BaseRepository<Record<string, unkno
 
   async getToolExecution(id: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM tool_executions WHERE id = $1 LIMIT 1`,
-      [id]
-    );
+    const result = await pool.query(`SELECT * FROM tool_executions WHERE id = $1 LIMIT 1`, [id]);
     return result.rows[0] ?? null;
   }
 
-  async getToolExecutions(filters: { toolId?: string; agentId?: string; limit?: number }): Promise<Record<string, unknown>[]> {
+  async getToolExecutions(filters: {
+    toolId?: string;
+    agentId?: string;
+    limit?: number;
+  }): Promise<Record<string, unknown>[]> {
     const pool = getControlPool();
     let query = 'SELECT * FROM tool_executions WHERE 1=1';
     const params: unknown[] = [];
@@ -123,8 +143,12 @@ export class ToolExecutionRepository extends BaseRepository<Record<string, unkno
 }
 
 export class ToolUsageRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'tool_usage_records'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'tool_usage_records';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
   async recordToolUsage(data: {
     toolId: string;
@@ -146,7 +170,7 @@ export class ToolUsageRepository extends BaseRepository<Record<string, unknown>>
         data.executionTimeMs || 0,
         data.success ?? true,
         JSON.stringify({ error: data.error }),
-        data.usedAt || new Date()
+        data.usedAt || new Date(),
       ]
     );
     return result.rows[0];
@@ -158,10 +182,17 @@ export class ToolUsageRepository extends BaseRepository<Record<string, unknown>>
 }
 
 export class ToolAssignmentRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() { return 'tool_assignments'; }
-  get plane(): 'control' { return 'control'; }
+  get tableName() {
+    return 'tool_assignments';
+  }
+  get plane(): 'control' {
+    return 'control';
+  }
 
-  async findByAgentAndTool(agentId: string, toolId: string): Promise<Record<string, unknown> | null> {
+  async findByAgentAndTool(
+    agentId: string,
+    toolId: string
+  ): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
     const result = await pool.query(
       `SELECT * FROM tool_assignments WHERE agent_id = $1 AND tool_id = $2 LIMIT 1`,

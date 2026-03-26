@@ -146,8 +146,6 @@ export function createMockRedis() {
   };
 }
 
-
-
 /**
  * Create test user entity
  */

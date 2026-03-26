@@ -23,5 +23,5 @@ export default mergeConfig(
         '@uaip/shared-services': path.resolve(import.meta.dirname, '../../../shared/services/src'),
       },
     },
-  }),
+  })
 );

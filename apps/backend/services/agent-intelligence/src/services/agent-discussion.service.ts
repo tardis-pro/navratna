@@ -144,7 +144,8 @@ export class AgentDiscussionService {
     await this.setupLLMEventSubscriptions();
 
     try {
-      const { getIntelligencePool, getKnowledgeGraphService } = await import('@uaip/shared-services');
+      const { getIntelligencePool, getKnowledgeGraphService } =
+        await import('@uaip/shared-services');
       const pool = getIntelligencePool();
       const pgQueryExecutor = {
         query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
@@ -391,9 +392,9 @@ export class AgentDiscussionService {
 
       // Get contextual knowledge for the chat
       // Filter out empty-content messages so TEI embedder never sees blank strings
-      const safeHistory = (conversationHistory as unknown as import('@uaip/types').ContextMessage[]).filter(
-        (m) => m?.content && String(m.content).trim().length > 0
-      );
+      const safeHistory = (
+        conversationHistory as unknown as import('@uaip/types').ContextMessage[]
+      ).filter((m) => m?.content && String(m.content).trim().length > 0);
       const contextualKnowledge: KnowledgeItem[] = this.knowledgeGraphService
         ? await this.knowledgeGraphService.getContextualKnowledge({
             conversationHistory: safeHistory,

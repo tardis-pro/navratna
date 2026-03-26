@@ -68,10 +68,9 @@ export class ToolService extends BaseDomainService {
 
   public async findToolByName(name: string): Promise<Record<string, unknown> | null> {
     const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM tool_definitions WHERE name = $1 LIMIT 1`,
-      [name]
-    );
+    const result = await pool.query(`SELECT * FROM tool_definitions WHERE name = $1 LIMIT 1`, [
+      name,
+    ]);
     return result.rows[0] ?? null;
   }
 
@@ -159,7 +158,10 @@ export class ToolService extends BaseDomainService {
       updates.duration = data.duration;
     }
 
-    if (data.status === ToolExecutionStatus.COMPLETED || data.status === ToolExecutionStatus.FAILED) {
+    if (
+      data.status === ToolExecutionStatus.COMPLETED ||
+      data.status === ToolExecutionStatus.FAILED
+    ) {
       updates.end_time = new Date();
     }
 
@@ -172,7 +174,10 @@ export class ToolService extends BaseDomainService {
     return await executionRepo.getToolExecution(id);
   }
 
-  public async findExecutionsByTool(toolId: string, limit?: number): Promise<Record<string, unknown>[]> {
+  public async findExecutionsByTool(
+    toolId: string,
+    limit?: number
+  ): Promise<Record<string, unknown>[]> {
     const executionRepo = this.getToolExecutionRepository();
     return await executionRepo.getToolExecutions({
       toolId,
@@ -180,7 +185,10 @@ export class ToolService extends BaseDomainService {
     });
   }
 
-  public async findExecutionsByAgent(agentId: string, limit?: number): Promise<Record<string, unknown>[]> {
+  public async findExecutionsByAgent(
+    agentId: string,
+    limit?: number
+  ): Promise<Record<string, unknown>[]> {
     const executionRepo = this.getToolExecutionRepository();
     return await executionRepo.getToolExecutions({
       agentId,
@@ -237,11 +245,14 @@ export class ToolService extends BaseDomainService {
         `UPDATE tool_assignments SET is_enabled = $1, configuration = $2 WHERE id = $3`,
         [
           permissions.canExecute ?? true,
-          JSON.stringify({ canRead: permissions.canRead ?? true, customConfig: permissions.customConfig }),
-          existing.id
+          JSON.stringify({
+            canRead: permissions.canRead ?? true,
+            customConfig: permissions.customConfig,
+          }),
+          existing.id,
         ]
       );
-      return await assignmentRepo.findByAgentAndTool(agentId, toolId) as Record<string, unknown>;
+      return (await assignmentRepo.findByAgentAndTool(agentId, toolId)) as Record<string, unknown>;
     }
 
     const result = await pool.query(
@@ -251,7 +262,10 @@ export class ToolService extends BaseDomainService {
         toolId,
         agentId,
         permissions.canExecute ?? true,
-        JSON.stringify({ canRead: permissions.canRead ?? true, customConfig: permissions.customConfig })
+        JSON.stringify({
+          canRead: permissions.canRead ?? true,
+          customConfig: permissions.customConfig,
+        }),
       ]
     );
     return result.rows[0];
@@ -271,7 +285,9 @@ export class ToolService extends BaseDomainService {
     return await assignmentRepo.findByAgent(agentId);
   }
 
-  public async createBulkTools(tools: Array<Record<string, unknown>>): Promise<Record<string, unknown>[]> {
+  public async createBulkTools(
+    tools: Array<Record<string, unknown>>
+  ): Promise<Record<string, unknown>[]> {
     const toolRepo = this.getToolRepository();
     const results: Record<string, unknown>[] = [];
     for (const tool of tools) {
@@ -291,9 +307,13 @@ export class ToolService extends BaseDomainService {
     return count;
   }
 
-  public async createToolExecution(execution: Partial<Record<string, unknown>>): Promise<Record<string, unknown>> {
+  public async createToolExecution(
+    execution: Partial<Record<string, unknown>>
+  ): Promise<Record<string, unknown>> {
     const executionRepo = this.getToolExecutionRepository();
-    return await executionRepo.createToolExecution(execution as Parameters<typeof executionRepo.createToolExecution>[0]);
+    return await executionRepo.createToolExecution(
+      execution as Parameters<typeof executionRepo.createToolExecution>[0]
+    );
   }
 
   public async getToolExecution(executionId: string): Promise<Record<string, unknown> | null> {

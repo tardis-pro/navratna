@@ -26,5 +26,5 @@ export default mergeConfig(
         '@uaip/utils': path.resolve(import.meta.dirname, '../../packages/shared-utils/src'),
       },
     },
-  }),
+  })
 );

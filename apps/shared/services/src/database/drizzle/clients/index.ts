@@ -133,7 +133,8 @@ export async function initializePlanes(): Promise<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getIntelligenceDb(): IntelligenceDB {
-  if (!_intelligenceDb) throw new Error('Intelligence plane not initialized. Call initializePlanes().');
+  if (!_intelligenceDb)
+    throw new Error('Intelligence plane not initialized. Call initializePlanes().');
   return _intelligenceDb;
 }
 
@@ -253,4 +254,29 @@ export function getControlPool(): pg.Pool {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export { intelligenceSchema, controlSchema };
-export { eq, ne, gt, gte, lt, lte, and, or, not, isNull, isNotNull, inArray, notInArray, like, ilike, between, desc, asc, sql, count, sum, avg, max, min } from 'drizzle-orm';
+export {
+  eq,
+  ne,
+  gt,
+  gte,
+  lt,
+  lte,
+  and,
+  or,
+  not,
+  isNull,
+  isNotNull,
+  inArray,
+  notInArray,
+  like,
+  ilike,
+  between,
+  desc,
+  asc,
+  sql,
+  count,
+  sum,
+  avg,
+  max,
+  min,
+} from 'drizzle-orm';

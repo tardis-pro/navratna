@@ -16,6 +16,7 @@ src/
 ```
 
 Minimal own source. Routes are imported from:
+
 - `../agent-intelligence/src/routes/agent.routes.ts`
 - `../agent-intelligence/src/routes/constellation.routes.ts`
 - `../artifact-service/src/routes/artifactRoutes.ts`
@@ -28,6 +29,7 @@ Socket.IO handler from discussion-orchestration patterns.
 ## WHAT IT EXPOSES
 
 All endpoints from:
+
 - [agent-intelligence endpoints](../agent-intelligence/AGENTS.md)
 - [artifact-service endpoints](../artifact-service/AGENTS.md)
 - [llm-service endpoints](../llm-service/AGENTS.md)
@@ -36,6 +38,7 @@ All endpoints from:
 ## AUTH
 
 Validates tokens against `navratna-gateway` (not legacy `security-gateway`):
+
 - `POST http://navratna-gateway:3002/api/v1/auth/validate`
 - Correlation-ID pattern for Socket.IO auth (same as discussion-orchestration)
 

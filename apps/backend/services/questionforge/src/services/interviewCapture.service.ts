@@ -8,7 +8,14 @@
 
 import { randomUUID } from 'crypto';
 import { logger } from '@uaip/utils';
-import type { Question, Assumption, Contradiction, InterviewSession, InterviewAnswer, InterviewResult } from '@uaip/types';
+import type {
+  Question,
+  Assumption,
+  Contradiction,
+  InterviewSession,
+  InterviewAnswer,
+  InterviewResult,
+} from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
 
 // --- Service ---

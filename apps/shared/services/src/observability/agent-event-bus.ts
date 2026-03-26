@@ -1,6 +1,17 @@
 import { EventEmitter } from 'events';
 import { logger } from '@uaip/utils';
-import { AgentOperationalState, ActionRecommendation, WorkflowStep, AgentEvent, StateChangedEvent, DecisionMadeEvent, MemorySavedEvent, WorkflowStepEvent, ToolExecutionEvent, PerformanceMetricEvent } from '@uaip/types';
+import {
+  AgentOperationalState,
+  ActionRecommendation,
+  WorkflowStep,
+  AgentEvent,
+  StateChangedEvent,
+  DecisionMadeEvent,
+  MemorySavedEvent,
+  WorkflowStepEvent,
+  ToolExecutionEvent,
+  PerformanceMetricEvent,
+} from '@uaip/types';
 
 export class AgentEventBus extends EventEmitter {
   private eventHistory: AgentEvent[] = [];

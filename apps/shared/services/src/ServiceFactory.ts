@@ -1,4 +1,9 @@
-import { initializeDatabase, closeDatabase, checkDatabaseHealth, DatabaseService } from './database/index';
+import {
+  initializeDatabase,
+  closeDatabase,
+  checkDatabaseHealth,
+  DatabaseService,
+} from './database/index';
 import { QdrantService } from './qdrant.service';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
@@ -61,7 +66,6 @@ export class ServiceFactory {
 
       await initializeDatabase();
       this.serviceInstances.set('database', DatabaseService.getInstance());
-
 
       // Initialize standalone Redis cache service
       try {
@@ -389,7 +393,10 @@ export class ServiceFactory {
     try {
       const dbHealth = await checkDatabaseHealth();
       databaseHealth = {
-        status: dbHealth.intelligence === 'healthy' && dbHealth.control === 'healthy' ? 'healthy' : 'unhealthy',
+        status:
+          dbHealth.intelligence === 'healthy' && dbHealth.control === 'healthy'
+            ? 'healthy'
+            : 'unhealthy',
         details: {
           connected: dbHealth.intelligence === 'healthy' && dbHealth.control === 'healthy',
           driver: 'drizzle',

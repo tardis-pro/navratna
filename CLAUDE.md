@@ -10,44 +10,50 @@ Council of Nycea is a **Unified Agent Intelligence Platform (UAIP)** - a product
 
 - You use puppeteer on 5173 always
 - Its running in docker compose is hotreloading
-- You are in pnpm workspace, always think global, extend configs, no private local thing unless explicitly required or deemed necessary
+- You are in an **NX monorepo** with pnpm workspaces — always think global, extend configs, no private local thing unless explicitly required or deemed necessary. NX handles task orchestration and dep-graph build ordering.
 - IMPORTANT: ALWAYS SEARCH FOR RELEVANT CODE FOR THE THING YOU ARE DOING, DONT DUPLICATE, USE SHARED INTERFACES. ALWAYS
 
 ## Common Development Commands
 
 ### Start Development Environment
 
-```bash
-# Full system (takes ~2 minutes to start)
-pnpm run dev
+> All `pnpm dev*` scripts delegate to NX. You can use either form.
 
-# Infrastructure only (databases, message queue)
+```bash
+# Full system — NX runs all services in parallel with dep resolution
+pnpm dev                                     # = pnpm dev:frontend + pnpm dev:backend via NX
+
+# Infrastructure only (databases)
 ./dev-start.sh --services infrastructure --daemon
 
 # Backend services only
-pnpm run dev:backend
+pnpm dev:backend                             # → nx run-many -t dev --projects=tag:backend-service
 
 # Frontend only
-pnpm run dev:frontend
+pnpm dev:frontend                            # → nx run @council/frontend:dev
 
-# Minimal development (core services only)
-cd backend && pnpm run dev:minimal
+# Single service (NX direct — fastest for focused work)
+nx run @uaip/navratna-core:dev               # port 3001
+nx run @uaip/navratna-gateway:dev            # port 3002
+pnpm --filter @uaip/<service-name> dev       # pnpm alias form
 ```
 
 ### Build Commands
 
+> NX resolves dependency order automatically — no manual sequencing needed.
+
 ```bash
-# Build everything (shared packages, backend, frontend)
-pnpm run build
+# Build everything (NX walks the full dep graph)
+pnpm build                   # → nx run-many -t build
 
-# Build shared packages first (required before backend)
-pnpm run build:shared
+# Build shared packages (types → utils → contracts → infra → middleware → …)
+pnpm build:shared
 
-# Build backend services
-pnpm run build:backend
+# Build backend services (NX ensures shared packages build first)
+pnpm build:backend
 
 # Build frontend
-pnpm run build:frontend
+pnpm build:frontend
 ```
 
 ### Testing
@@ -96,7 +102,7 @@ pnpm lint:watch
 
 ### Monorepo Structure
 
-This is a **TypeScript monorepo** managed with pnpm workspaces:
+This is a **TypeScript monorepo** managed with **NX + pnpm workspaces** (`nx.json` + `pnpm-workspace.yaml`):
 
 ```
 council-of-nycea/
@@ -186,9 +192,9 @@ import { logger } from '../../../shared/utils/src/logger';
 
 ## Build Dependencies
 
-**Build ** - Just build it will building the entire set:
+NX handles the entire build graph automatically via `dependsOn: ["^build"]` in `nx.json`. Run `pnpm build` (or `nx run-many -t build`) and NX will sequence shared packages → backend services → frontend in the correct order.
 
-1. `pnpm build` - Build packages/shared-types, packages/shared-utils, backend/shared/\*
+To visualise the dep graph: `nx graph`
 
 ## Key Technologies
 
@@ -200,7 +206,7 @@ import { logger } from '../../../shared/utils/src/logger';
 - **Real-time**: WebSocket for agent discussions and live updates
 - **Validation**: Zod schemas for runtime validation
 - **Testing**: Jest with TypeScript support, comprehensive mocking system
-- **Package Manager**: pnpm with workspace support
+- **Package Manager**: pnpm with workspace support, orchestrated by NX
 
 ## Development Workflow
 
@@ -212,7 +218,7 @@ import { logger } from '../../../shared/utils/src/logger';
    - API Documentation: http://localhost:8081/docs
    - Health checks: http://localhost:8081/health
 
-For focused development, use minimal services: `cd backend && pnpm run dev:minimal`
+For focused development, start only the services you need: `nx run @uaip/navratna-core:dev` and `nx run @uaip/navratna-gateway:dev`
 
 ### Additional Useful Commands
 
@@ -419,7 +425,7 @@ GET /api/v1/knowledge/expertise/:participant → Expertise analysis
 - **Port conflicts**: Check ports 3000-3005, 5432, 6379, 6333, 7474, 8081
 - **Database connection**: Ensure infrastructure started and ready (~30-60 seconds)
 - **Memory issues**: System requires minimum 8GB RAM (16GB recommended)
-- **Build failures**: Always build shared packages first with `npm run build:shared`
+- **Build failures**: Run `pnpm build:shared` then `pnpm build:backend`. NX caches outputs — if you hit stale cache issues, `nx reset` clears it.
 - **Import errors**: Check monorepo import patterns, verify path mappings in tsconfig.json
 - **Test failures**: Middleware tests expect proper mock setup; check Jest configuration and workspace imports
 

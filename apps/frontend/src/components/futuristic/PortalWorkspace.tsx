@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Portal } from './Portal';
 
 const DiscussionControlsPortal = lazy(() =>
-  import('./portals/DiscussionControlsPortal').then((m) => ({ default: m.DiscussionControlsPortal }))
+  import('./portals/DiscussionControlsPortal').then((m) => ({
+    default: m.DiscussionControlsPortal,
+  }))
 );
 const GeneralSettingsPortal = lazy(() =>
   import('./portals/GeneralSettingsPortal').then((m) => ({ default: m.GeneralSettingsPortal }))

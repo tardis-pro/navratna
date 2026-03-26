@@ -3,6 +3,7 @@
 **Project**: Sovereign Cognitive Shell / Unified Agent Intelligence Platform (UAIP)
 **Version**: 3.1 | Backend 90% complete | v3.0 consolidation in progress (7 services → 2)
 **Stack**: TypeScript + Bun + Elysia (backend), React 19 + Vite + Tailwind 4 (frontend)
+**Build System**: NX (task orchestration, dep graph, caching) + pnpm workspaces
 
 ## OVERVIEW
 
@@ -27,7 +28,7 @@ navratna/
 │       ├── llm-service/           # @uaip/llm-service — LLM provider abstraction
 │       └── config/                # @uaip/config — env/config loading
 ├── api-gateway/nginx.conf         # nginx reverse proxy → port 8081
-├── docker-compose.yml             # Full stack: postgres:16, neo4j, redis:8, qdrant, rabbitmq
+├── docker-compose.yml             # Full stack: postgres, neo4j, redis, qdrant + full observability (prometheus, grafana, loki)
 ├── infrastructure/                # docker-compose.test.yml + multi-machine topologies
 ├── database/                      # Init scripts, migrations, seed data
 ├── deploy/                        # cloudflare/ (Worker + Pages), fly/ (Fly.io)
@@ -37,52 +38,61 @@ navratna/
 
 ## WHERE TO LOOK
 
-| Task | Location |
-|------|----------|
-| Add new API endpoint | `apps/backend/services/<name>/src/http/*.elysia.ts` (or `src/routes/`) |
-| Add new UI page/portal | `apps/frontend/src/components/futuristic/portals/` + `portalRegistry.tsx` |
-| Shared TypeScript types | `apps/packages/shared-types/src/` |
-| Shared backend services | `apps/shared/services/src/` |
-| Auth middleware | `apps/shared/middleware/src/authMiddleware.ts` or `JWTValidator.ts` |
-| LLM provider logic | `apps/shared/llm-service/src/` |
-| DB entities/schema | `apps/shared/services/src/entities/` and `src/database/drizzle/schemas/` |
-| Event bus subscriptions | Each service `src/index.ts` — look for `eventBusService.subscribe(...)` |
-| nginx routing rules | `api-gateway/nginx.conf` |
-| Env vars reference | `sample.env` |
+| Task                    | Location                                                                  |
+| ----------------------- | ------------------------------------------------------------------------- |
+| Add new API endpoint    | `apps/backend/services/<name>/src/http/*.elysia.ts` (or `src/routes/`)    |
+| Add new UI page/portal  | `apps/frontend/src/components/futuristic/portals/` + `portalRegistry.tsx` |
+| Shared TypeScript types | `apps/packages/shared-types/src/`                                         |
+| Shared backend services | `apps/shared/services/src/`                                               |
+| Auth middleware         | `apps/shared/middleware/src/authMiddleware.ts` or `JWTValidator.ts`       |
+| LLM provider logic      | `apps/shared/llm-service/src/`                                            |
+| DB entities/schema      | `apps/shared/services/src/entities/` and `src/database/drizzle/schemas/`  |
+| Event bus subscriptions | Each service `src/index.ts` — look for `eventBusService.subscribe(...)`   |
+| nginx routing rules     | `api-gateway/nginx.conf`                                                  |
+| Env vars reference      | `sample.env`                                                              |
 
 ## SERVICE MAP
 
-| Service | npm pkg | Port | Status | Purpose |
-|---------|---------|------|--------|---------|
-| **navratna-core** | `@uaip/navratna-core` | 3001 | ⚡ v3 active | Consolidates: agent-intelligence + discussion-orchestration + artifact-service + llm-service |
-| **navratna-gateway** | `@uaip/navratna-gateway` | 3002 | ⚡ v3 active | Consolidates: security-gateway + orchestration-pipeline + capability-registry |
-| agent-intelligence | `@uaip/agent-intelligence` | 3001 | 🔄 legacy | Agents, personas, memory, LLM chat, discussions |
-| security-gateway | `@uaip/security-gateway` | 3004 | 🔄 legacy | Auth, JWT, MFA, OAuth (Jira/GitHub/Slack/Confluence), approvals |
-| capability-registry | `@uaip/capability-registry` | 3003 | 🔄 legacy | Tool registry, MCP protocol, sandbox execution, Neo4j sync |
-| orchestration-pipeline | `@uaip/orchestration-pipeline` | 3002 | 🔄 legacy | Workflow engine, tasks, projects, saga compensation |
-| discussion-orchestration | `@uaip/discussion-orchestration` | 3005 | 🔄 legacy | Socket.IO discussions, turn strategies, WhatsApp |
-| artifact-service | `@uaip/artifact-service` | 3006 | 🔄 legacy | AI-powered code/PRD/doc generation, Drizzle ORM |
-| llm-service | `@uaip/llm-service-api` | 3007 | 🔄 legacy | LLM provider routing, model catalog bootstrap |
-| marketplace-service | `@uaip/marketplace-service` | 3008 | ⚠️ removal | Agent/persona marketplace |
-| questionforge | `@uaip/questionforge` | 3010 | 🆕 product | Stakeholder discovery council |
-| basebench-meta | `@uaip/basebench-meta` | 3009 | 🆕 product | Metacognitive reliability benchmark |
+| Service                  | npm pkg                          | Port | Status       | Purpose                                                                                      |
+| ------------------------ | -------------------------------- | ---- | ------------ | -------------------------------------------------------------------------------------------- |
+| **navratna-core**        | `@uaip/navratna-core`            | 3001 | ⚡ v3 active | Consolidates: agent-intelligence + discussion-orchestration + artifact-service + llm-service |
+| **navratna-gateway**     | `@uaip/navratna-gateway`         | 3002 | ⚡ v3 active | Consolidates: security-gateway + orchestration-pipeline + capability-registry                |
+| agent-intelligence       | `@uaip/agent-intelligence`       | 3001 | 🔄 legacy    | Agents, personas, memory, LLM chat, discussions                                              |
+| security-gateway         | `@uaip/security-gateway`         | 3004 | 🔄 legacy    | Auth, JWT, MFA, OAuth (Jira/GitHub/Slack/Confluence), approvals                              |
+| capability-registry      | `@uaip/capability-registry`      | 3003 | 🔄 legacy    | Tool registry, MCP protocol, sandbox execution, Neo4j sync                                   |
+| orchestration-pipeline   | `@uaip/orchestration-pipeline`   | 3002 | 🔄 legacy    | Workflow engine, tasks, projects, saga compensation                                          |
+| discussion-orchestration | `@uaip/discussion-orchestration` | 3005 | 🔄 legacy    | Socket.IO discussions, turn strategies, WhatsApp                                             |
+| artifact-service         | `@uaip/artifact-service`         | 3006 | 🔄 legacy    | AI-powered code/PRD/doc generation, Drizzle ORM                                              |
+| llm-service              | `@uaip/llm-service-api`          | 3007 | 🔄 legacy    | LLM provider routing, model catalog bootstrap                                                |
+| marketplace-service      | `@uaip/marketplace-service`      | 3008 | ⚠️ removal   | Agent/persona marketplace                                                                    |
+| questionforge            | `@uaip/questionforge`            | 3010 | 🆕 product   | Stakeholder discovery council                                                                |
+| basebench-meta           | `@uaip/basebench-meta`           | 3009 | 🆕 product   | Metacognitive reliability benchmark                                                          |
 
 ## COMMANDS
+
+> **Orchestrator**: NX handles all task execution, dependency ordering, and caching. pnpm scripts are thin aliases that delegate to `nx run` / `nx run-many`. You can use either.
 
 ```bash
 # Install
 pnpm install
 
 # Dev (hot-reload, full stack)
-pnpm dev                       # frontend + backend concurrently
-pnpm dev:frontend              # frontend only (port 5173)
-pnpm dev:backend               # all backend services
+pnpm dev                                              # all services via NX (pnpm dev:frontend + pnpm dev:backend)
+pnpm dev:frontend                                     # → nx run @council/frontend:dev (port 5173)
+pnpm dev:backend                                      # → nx run-many -t dev --projects=tag:backend-service
 
-# Build — ORDER MATTERS: shared types first
-pnpm build                     # full: shared-types → shared-utils → backend → frontend
-pnpm build:shared              # @uaip/types + @uaip/utils + @uaip/contracts
-pnpm build:backend             # backend services only
-pnpm build:frontend            # frontend only
+# Dev — single service (NX direct)
+nx run @uaip/navratna-core:dev                        # port 3001 (bun --hot)
+nx run @uaip/navratna-gateway:dev                     # port 3002 (bun --hot)
+nx run @uaip/questionforge:dev                        # port 3010 (bun --hot)
+nx run @uaip/basebench-meta:dev                       # port 3009 (bun --hot)
+pnpm --filter @uaip/<service-name> dev                # equivalent pnpm form
+
+# Build — NX resolves dependency order automatically
+pnpm build                                            # → nx run-many -t build (full dep graph)
+pnpm build:shared                                     # shared packages only (types → utils → contracts → infra → …)
+pnpm build:backend                                    # backend services (shared packages built first by NX)
+pnpm build:frontend                                   # → nx run @council/frontend:build
 
 # Lint & format
 pnpm lint                      # oxlint (NOT ESLint)
@@ -90,13 +100,19 @@ pnpm lint:fix                  # auto-fix
 pnpm format                    # oxfmt (NOT Prettier)
 
 # Test
-pnpm test                      # workspace-wide Jest
+pnpm test                      # → nx run-many -t test
 pnpm test:integration          # full integration suite (requires Docker)
 pnpm test:artifacts            # artifact-service demo scripts
+pnpm --filter @uaip/<name> test   # per-service
+
+# NX utilities
+nx graph                       # visualise dependency graph in browser
+nx show projects               # list all project names
+nx affected -t test            # run tests only for changed projects (CI)
 
 # Infrastructure
-docker-compose up -d                                      # full stack (postgres, neo4j, redis, qdrant, rabbitmq)
-docker-compose -f infrastructure/docker-compose.test.yml up -d  # test infra (offset ports)
+docker-compose up -d                                                     # full stack (postgres, neo4j, redis, qdrant)
+docker-compose -f infrastructure/docker-compose.test.yml up -d           # test infra (offset ports)
 
 # Access
 # Frontend dev:   http://localhost:5173
@@ -108,6 +124,7 @@ docker-compose -f infrastructure/docker-compose.test.yml up -d  # test infra (of
 ## CONVENTIONS
 
 **Import aliases** — always use workspace imports, never relative paths across packages:
+
 ```typescript
 // ✅ Correct
 import { Agent } from '@uaip/types';
@@ -135,6 +152,7 @@ import { Agent } from '../../../shared/types/src/agent';
 **Unused vars** — prefix with `_` to suppress the oxlint error: `const _unused = ...`
 
 **Lint suppression** — always include a reason comment on the same line:
+
 ```typescript
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Elysia app types are dynamic
 // oxlint-disable-next-line exhaustive-deps -- loadHistory is memoized, safe to omit
@@ -181,7 +199,7 @@ import { Agent } from '../../../shared/types/src/agent';
 
 ## NOTES
 
-- **Build order is mandatory**: `@uaip/types` and `@uaip/utils` must build before any backend service. Run `pnpm build:shared` first when in doubt.
+- **Build order**: NX resolves this automatically via `dependsOn: ["^build"]` in `nx.json`. You never need to manually sequence builds. `pnpm build` (or `nx run-many -t build`) handles the full dep graph. `pnpm build:shared` is available if you want to pre-warm shared packages before starting dev servers.
 - **`@ts-expect-error` in Elysia routes** — intentional pattern where middleware injects user context TypeScript can't infer through nested Elysia groups; always add a reason comment.
 - **`marketplace-service`** is scheduled for removal in v3.0 — avoid adding features to it.
 - **v3.0 consolidation**: `navratna-core` and `navratna-gateway` import route handlers directly from sibling service `src/` directories — this is intentional for zero-copy consolidation.

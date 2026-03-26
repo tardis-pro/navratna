@@ -27,7 +27,10 @@ export class LLMPreferencesSeed extends BaseSeed {
     for (const userId of this.userIds) {
       const prefs = this.createUserTaskPreferences(userId);
       for (const pref of prefs) {
-        await this.controlDb.insert(userLLMPreferences).values(pref as any).onConflictDoNothing();
+        await this.controlDb
+          .insert(userLLMPreferences)
+          .values(pref as any)
+          .onConflictDoNothing();
       }
     }
   }
@@ -36,7 +39,10 @@ export class LLMPreferencesSeed extends BaseSeed {
     for (const agentId of this.agentIds) {
       const prefs = this.createAgentTaskPreferences(agentId);
       for (const pref of prefs) {
-        await this.intelligenceDb.insert(agentLLMPreferences).values(pref as any).onConflictDoNothing();
+        await this.intelligenceDb
+          .insert(agentLLMPreferences)
+          .values(pref as any)
+          .onConflictDoNothing();
       }
     }
   }
@@ -74,16 +80,36 @@ export class LLMPreferencesSeed extends BaseSeed {
   private getTaskConfigurations(): Record<string, any> {
     return {
       [LLMTaskType.CODE_GENERATION]: {
-        settings: { temperature: 0.1, maxTokens: 4000, topP: 0.9, systemPrompt: 'You are an expert software engineer.' },
+        settings: {
+          temperature: 0.1,
+          maxTokens: 4000,
+          topP: 0.9,
+          systemPrompt: 'You are an expert software engineer.',
+        },
       },
       [LLMTaskType.REASONING]: {
-        settings: { temperature: 0.2, maxTokens: 3000, topP: 0.9, systemPrompt: 'Think step by step.' },
+        settings: {
+          temperature: 0.2,
+          maxTokens: 3000,
+          topP: 0.9,
+          systemPrompt: 'Think step by step.',
+        },
       },
       [LLMTaskType.TOOL_CALLING]: {
-        settings: { temperature: 0.1, maxTokens: 2000, topP: 0.9, systemPrompt: 'Execute tool calls accurately.' },
+        settings: {
+          temperature: 0.1,
+          maxTokens: 2000,
+          topP: 0.9,
+          systemPrompt: 'Execute tool calls accurately.',
+        },
       },
       [LLMTaskType.SUMMARIZATION]: {
-        settings: { temperature: 0.3, maxTokens: 1000, topP: 0.9, systemPrompt: 'Provide concise summaries.' },
+        settings: {
+          temperature: 0.3,
+          maxTokens: 1000,
+          topP: 0.9,
+          systemPrompt: 'Provide concise summaries.',
+        },
       },
       [LLMTaskType.CREATIVE_WRITING]: {
         settings: { temperature: 0.8, maxTokens: 2000, topP: 0.95, systemPrompt: 'Be creative.' },

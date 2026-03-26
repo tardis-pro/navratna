@@ -24,7 +24,8 @@ vi.mock('../websocket/redis-session-manager.js', () => ({
     createSession: vi.fn().mockResolvedValue(undefined),
     removeSession: vi.fn().mockResolvedValue(undefined),
     cleanupExpiredSessions: vi.fn().mockResolvedValue(undefined),
-    getSessionStats: vi.fn()
+    getSessionStats: vi
+      .fn()
       .mockResolvedValue({ totalSessions: 0, activeUsers: 0, activeDiscussions: 0 }),
     destroy: vi.fn().mockResolvedValue(undefined),
   })),

@@ -4,14 +4,14 @@ LLM provider abstraction layer. Supports OpenAI, Anthropic, Ollama. Handles prov
 
 ## EXPORTS
 
-| Export | Purpose |
-|--------|---------|
-| `LLMService` | Core provider abstraction — generates responses, lists models |
-| `UserLLMService` | Per-user LLM preference service (CRUD + generation) |
-| `ModelBootstrapService` | Syncs provider models to DB on startup |
-| `ApiKeyDecryptionService` | Decrypts stored encrypted provider API keys |
-| `StreamingService` | Token streaming utilities |
-| Provider implementations | OpenAI, Anthropic, Ollama adapters |
+| Export                    | Purpose                                                       |
+| ------------------------- | ------------------------------------------------------------- |
+| `LLMService`              | Core provider abstraction — generates responses, lists models |
+| `UserLLMService`          | Per-user LLM preference service (CRUD + generation)           |
+| `ModelBootstrapService`   | Syncs provider models to DB on startup                        |
+| `ApiKeyDecryptionService` | Decrypts stored encrypted provider API keys                   |
+| `StreamingService`        | Token streaming utilities                                     |
+| Provider implementations  | OpenAI, Anthropic, Ollama adapters                            |
 
 ## STRUCTURE
 
@@ -45,6 +45,7 @@ const response = await userLLM.generateAgentResponse(userId, agentId, messages);
 ## MODEL SELECTION
 
 `ModelSelectionOrchestrator` (in `@uaip/shared-services`) applies a 5-strategy waterfall:
+
 1. `AgentSpecificStrategy` — agent's configured model
 2. `UserSpecificStrategy` — user's provider preference
 3. `PerformanceOptimizedStrategy` — latency/cost-optimized choice
@@ -54,6 +55,7 @@ const response = await userLLM.generateAgentResponse(userId, agentId, messages);
 ## EVENT BUS TOPICS
 
 Services communicate with `llm-service` via BullMQ:
+
 - `llm.user.request` → `UserLLMService.generateAgentResponse`
 - `llm.global.request` → `LLMService.generateAgentResponse`
 - `llm.generate.request` → artifact generation with structured prompts
