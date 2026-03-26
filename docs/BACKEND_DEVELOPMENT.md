@@ -20,8 +20,9 @@ This document provides comprehensive guidance for running, testing, and securing
 ### Prerequisites
 
 - Docker & Docker Compose
-- Node.js 18+
-- pnpm 9+
+- Bun ≥ 1.1 (runtime)
+- pnpm ≥ 10 (package manager)
+- NX CLI (optional: `pnpm add -g nx`)
 - 8GB RAM minimum (16GB recommended)
 
 ### Starting the Backend
@@ -34,8 +35,8 @@ cd navratna
 # Install dependencies
 pnpm install
 
-# Start Docker infrastructure
-docker-compose up -d postgres redis rabbitmq neo4j qdrant minio
+# Start Docker infrastructure (RabbitMQ and minio are no longer in the stack)
+docker-compose up -d postgres redis neo4j qdrant
 
 # Start backend services (with proper environment)
 export RABBITMQ_URL="amqp://uaip_user:uaip_password@localhost:5672"
@@ -49,15 +50,21 @@ chmod +x scripts/start-backend.sh
 
 ### Service Endpoints
 
-| Service                  | Port | Health Check                   |
-| ------------------------ | ---- | ------------------------------ |
-| Agent Intelligence       | 3001 | `http://localhost:3001/health` |
-| Orchestration Pipeline   | 3002 | `http://localhost:3002/health` |
-| Capability Registry      | 3003 | `http://localhost:3003/health` |
-| Security Gateway         | 3004 | `http://localhost:3004/health` |
-| Discussion Orchestration | 3005 | `http://localhost:3005/health` |
-| Artifact Service         | 3006 | `http://localhost:3006/health` |
-| LLM Service              | 3007 | `http://localhost:3007/health` |
+| Service                  | Port | Health Check                   | Status      |
+| ------------------------ | ---- | ------------------------------ | ----------- |
+| **navratna-core**        | 3001 | `http://localhost:3001/health` | ⚡ v3 active |
+| **navratna-gateway**     | 3002 | `http://localhost:3002/health` | ⚡ v3 active |
+| **questionforge**        | 3010 | `http://localhost:3010/health` | 🆕 product  |
+| **basebench-meta**       | 3009 | `http://localhost:3009/health` | 🆕 product  |
+| agent-intelligence       | 3001 | `http://localhost:3001/health` | 🔄 legacy   |
+| orchestration-pipeline   | 3002 | `http://localhost:3002/health` | 🔄 legacy   |
+| capability-registry      | 3003 | `http://localhost:3003/health` | 🔄 legacy   |
+| security-gateway         | 3004 | `http://localhost:3004/health` | 🔄 legacy   |
+| discussion-orchestration | 3005 | `http://localhost:3005/health` | 🔄 legacy   |
+| artifact-service         | 3006 | `http://localhost:3006/health` | 🔄 legacy   |
+| llm-service              | 3007 | `http://localhost:3007/health` | 🔄 legacy   |
+
+> v3.0 consolidation: `navratna-core` replaces agent-intelligence + discussion-orchestration + artifact-service + llm-service. `navratna-gateway` replaces security-gateway + orchestration-pipeline + capability-registry. Run the v3 services for active development.
 
 ---
 
@@ -150,18 +157,23 @@ ANTHROPIC_API_KEY=...
 
 ### Starting Services
 
-```bash
-# All services
-pnpm run dev:backend
+> **NX is the orchestrator** — all `pnpm dev*` scripts delegate to `nx run` / `nx run-many`. Use either form.
 
-# Individual services
-cd backend && pnpm run dev:agent       # 3001
-pnpm run dev:orch-pipe    # 3002
-pnpm run dev:cap          # 3003
-pnpm run dev:sec          # 3004
-pnpm run dev:disc-orch    # 3005
-pnpm run dev:art-ser      # 3006
-pnpm run dev:llm-ser      # 3007
+```bash
+# All v3 active services (recommended)
+pnpm dev:backend                          # → nx run-many -t dev --projects=tag:backend-service
+
+# v3 consolidated services (primary targets)
+nx run @uaip/navratna-core:dev            # port 3001 — consolidates agent-intelligence, discussion-orchestration, artifact-service, llm-service
+nx run @uaip/navratna-gateway:dev         # port 3002 — consolidates security-gateway, orchestration-pipeline, capability-registry
+
+# Product services
+nx run @uaip/questionforge:dev            # port 3010
+nx run @uaip/basebench-meta:dev           # port 3009
+
+# pnpm --filter alias (equivalent)
+pnpm --filter @uaip/navratna-core dev
+pnpm --filter @uaip/navratna-gateway dev
 ```
 
 ### Health Checks
@@ -219,12 +231,12 @@ pnpm test:integration:oauth
 pnpm test:integration:security
 pnpm test:integration:coverage
 
-# Service-specific tests
-cd backend/services/security-gateway
-pnpm test                    # All tests
-pnpm test:unit              # Unit tests only
-pnpm test:integration       # Integration tests
-pnpm test:coverage          # With coverage
+# Service-specific tests (via NX or pnpm --filter)
+nx run @uaip/security-gateway:test
+pnpm --filter @uaip/security-gateway test         # All tests
+pnpm --filter @uaip/security-gateway test:unit    # Unit tests only
+pnpm --filter @uaip/security-gateway test:integration
+pnpm --filter @uaip/security-gateway test:coverage
 ```
 
 ### Test Setup
@@ -473,11 +485,10 @@ docker-compose up -d postgres
 **Solution:**
 
 ```bash
-# Clean and rebuild
-cd backend
-pnpm run clean
-pnpm run build-shared
-pnpm run build-services
+# Clean NX cache and rebuild from scratch
+nx reset
+pnpm build:shared      # shared packages (NX handles dep ordering)
+pnpm build:backend     # backend services
 ```
 
 #### 4. Module Resolution Issues

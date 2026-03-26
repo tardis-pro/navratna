@@ -45,17 +45,17 @@ pnpm dev
 
 ### Code Style
 
-The project uses ESLint and Prettier for code formatting:
+The project uses **oxlint** (not ESLint) and **oxfmt** (not Prettier). Configs: `.oxlintrc.json` / `.oxfmtrc.json`.
 
 ```bash
 # Check code style
-npm run lint
+pnpm lint
 
 # Fix code style issues
-npm run lint:fix
+pnpm lint:fix
 
 # Format code
-npm run format
+pnpm format
 ```
 
 ### TypeScript Guidelines

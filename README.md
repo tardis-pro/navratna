@@ -48,7 +48,7 @@ Three convergent products:
 | Neo4j      | 7474/7687 | Graph relationships, knowledge graph, recommendations |
 | Qdrant     | 6333      | Vector embeddings, semantic search (1024-dim)         |
 | Redis      | 6379      | Cache, sessions, pub/sub, recency scoring             |
-| RabbitMQ   | 5672      | Event-driven messaging (DLX, correlation IDs, RPC)    |
+| BullMQ/Redis | (via 6379) | Event bus — BullMQ queues on Redis (RabbitMQ removed) |
 
 ### Frontend
 
@@ -101,16 +101,16 @@ React 19 + Vite + Tailwind 4 + shadcn/ui (50 components) + Framer Motion
 ## Quick Start
 
 ```bash
-# Clone and install (pnpm workspaces)
+# Clone and install (NX monorepo + pnpm workspaces)
 git clone <repository-url>
 cd navratna
 pnpm install
 
-# Start full stack (hot-reloading)
-pnpm run dev
+# Start full stack (NX orchestrates all services with hot-reload)
+pnpm dev
 
-# Or start infrastructure only
-./dev-start.sh --services infrastructure --daemon
+# Or start infrastructure only (databases + observability)
+docker-compose up -d postgres neo4j redis qdrant
 
 # Access
 # Frontend: http://localhost:5173

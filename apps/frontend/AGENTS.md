@@ -121,11 +121,12 @@ Always use these instead of raw `try/catch` + `useState`:
 ## COMMANDS
 
 ```bash
-pnpm dev:frontend              # Vite dev server → http://localhost:5173
-pnpm build:frontend            # Production build → dist/
-pnpm lint                      # oxlint
-pnpm test                      # Vitest (from apps/frontend/)
-pnpm --filter @council/frontend test   # per-package
+pnpm dev:frontend                        # → nx run @council/frontend:dev (Vite HMR → http://localhost:5173)
+nx run @council/frontend:dev             # NX direct form (equivalent)
+pnpm build:frontend                      # → nx run @council/frontend:build → dist/
+pnpm lint                                # oxlint
+pnpm test                                # Vitest (from apps/frontend/)
+pnpm --filter @council/frontend test     # per-package
 ```
 
 ## ANTI-PATTERNS
