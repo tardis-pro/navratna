@@ -16,7 +16,7 @@ import {
   Code,
   Box,
 } from 'lucide-react';
-import { uaipAPI } from '@/utils/uaip-api';
+import { uaipAPI } from '@/utils/uaip_api';
 
 // Shared viewport type
 interface ViewportSize {

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
-import { userPersonaAPI } from '../api/user-persona.api';
+import { userPersonaAPI } from '../api/user_persona_api';
 
 interface OnboardingState {
   isFirstTime: boolean;

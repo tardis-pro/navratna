@@ -9,7 +9,7 @@ import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
 
 const createAgentStateFromBackend = (data: unknown): AgentState => data as AgentState;
 import { useDiscussion } from '../../../contexts/DiscussionContext';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 import { APIClient } from '../../../api/client';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
 import {
@@ -60,7 +60,7 @@ import {
   Bookmark as _Bookmark,
 } from 'lucide-react';
 import type { ModelOption } from '@uaip/types/models';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use_toast';
 
 interface ViewportSize {
   width: number;

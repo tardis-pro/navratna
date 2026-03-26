@@ -8,11 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { _RadioGroup, _RadioGroupItem } from '@/components/ui/radio-group';
+import { _RadioGroup, _RadioGroupItem } from '@/components/ui/radio_group';
 import { Label } from '@/components/ui/label';
 import { _Brain, _Sparkles, _Zap, Cpu, Server, LucideIcon, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { _getModelServiceConfig, ServiceConfig } from '@/config/modelConfig';
+import { _getModelServiceConfig, ServiceConfig } from '@/config/model_config';
 
 export interface ModelOption {
   id: string;

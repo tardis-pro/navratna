@@ -4,8 +4,8 @@
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { csrfService } from '@/services/CSRFService';
-import { buildAPIURL } from '@/config/apiConfig';
+import { csrfService } from '@/services/c_s_r_f_service';
+import { buildAPIURL } from '@/config/api_config';
 import type { APIError } from '@uaip/types';
 
 export type { APIError };

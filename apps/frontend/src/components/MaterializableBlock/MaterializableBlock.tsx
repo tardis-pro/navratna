@@ -18,7 +18,7 @@ import type {
   BlockVisibility,
   WithMaterializableBlockConfig,
   MaterializableBlockContextValue,
-} from './MaterializableBlock.types';
+} from './materializable_block_types';
 import {
   getBlockBaseStyle,
   getExpressionColor,
@@ -28,7 +28,7 @@ import {
   SCORE_BADGE_STYLES,
   KEYFRAME_ANIMATIONS,
   cn,
-} from './MaterializableBlock.styles';
+} from './materializable_block_styles';
 
 const MICROEXPRESSION_VARIANTS: Variants = {
   initial: { opacity: 0, scale: 0.9, y: 10, filter: 'brightness(1)' },

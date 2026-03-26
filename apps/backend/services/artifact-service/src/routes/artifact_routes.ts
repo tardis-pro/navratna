@@ -1,0 +1,274 @@
+import { ArtifactService } from '../artifact_service.js';
+import { ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
+import { logger } from '@uaip/utils';
+import { DatabaseService } from '@uaip/shared-services';
+
+export function registerArtifactRoutes(
+  app: { group: (path: string, cb: (g: unknown) => unknown) => unknown },
+  artifactService: ArtifactService
+) {
+  return (app as { group: Function }).group(
+    '/api/v1/artifacts',
+    (g: { get: Function; post: Function }) =>
+      g
+        // List all artifacts
+        .get(
+          '/',
+          async ({ query, set }: { query: Record<string, string>; set: { status: number } }) => {
+            try {
+              const databaseService = DatabaseService.getInstance();
+              const artifactRepo = databaseService.getArtifactRepository();
+
+              const type = query.type as string | undefined;
+              const projectId = query.projectId as string | undefined;
+              const limit = query.limit ? parseInt(query.limit) : 50;
+              const offset = query.offset ? parseInt(query.offset) : 0;
+
+              let artifacts;
+              if (type) {
+                artifacts = await artifactRepo.findByType(type);
+              } else if (projectId) {
+                artifacts = await artifactRepo.findByProject(projectId);
+              } else {
+                artifacts = await artifactRepo.findMany({});
+              }
+
+              // Apply pagination
+              const paginatedArtifacts = artifacts.slice(offset, offset + limit);
+
+              return {
+                success: true,
+                data: paginatedArtifacts,
+                total: artifacts.length,
+                limit,
+                offset,
+              };
+            } catch (error) {
+              logger.error('Failed to list artifacts', { error });
+              set.status = 500;
+              return {
+                success: false,
+                error: { code: 'INTERNAL_ERROR', message: 'Failed to list artifacts' },
+              };
+            }
+          }
+        )
+
+        // Get artifact by ID
+        .get(
+          '/:id',
+          async ({ params, set }: { params: Record<string, string>; set: { status: number } }) => {
+            try {
+              const { id } = params;
+              const databaseService = DatabaseService.getInstance();
+              const artifactRepo = databaseService.getArtifactRepository();
+
+              const artifact = await artifactRepo.findById(id);
+              if (!artifact) {
+                set.status = 404;
+                return {
+                  success: false,
+                  error: { code: 'NOT_FOUND', message: 'Artifact not found' },
+                };
+              }
+              return { success: true, data: artifact };
+            } catch (error) {
+              logger.error('Failed to get artifact', {
+                error,
+                id: (params as Record<string, string>).id,
+              });
+              set.status = 500;
+              return {
+                success: false,
+                error: { code: 'INTERNAL_ERROR', message: 'Failed to get artifact' },
+              };
+            }
+          }
+        )
+
+        .post(
+          '/generate',
+          async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+            try {
+              const request: ArtifactGenerationRequest = body as ArtifactGenerationRequest;
+
+              if (!request?.type || !request?.context) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Missing required fields: type and context',
+                  },
+                };
+              }
+
+              const valid: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
+              if (!valid.includes(request.type)) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_TYPE',
+                    message: `Invalid type. Supported: ${valid.join(', ')}`,
+                  },
+                };
+              }
+
+              const ctx = request.context as Record<string, unknown>;
+              if (!ctx?.agent || !ctx?.persona || !ctx?.discussion) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_CONTEXT',
+                    message: 'Context must include agent, persona, discussion',
+                  },
+                };
+              }
+
+              logger.info('Artifact generation request received', {
+                type: request.type,
+                agent: (ctx.agent as Record<string, unknown>)?.id,
+                persona: (ctx.persona as Record<string, unknown>)?.role,
+              });
+
+              const response = await artifactService.generateArtifact(request);
+              set.status = response.success ? 200 : 400;
+              return response;
+            } catch (error) {
+              logger.error('Artifact generation error:', error);
+              set.status = 500;
+              return {
+                success: false,
+                error: {
+                  code: 'INTERNAL_ERROR',
+                  message: 'Internal server error during artifact generation',
+                },
+              };
+            }
+          }
+        )
+
+        .get(
+          '/templates',
+          async ({ query, set }: { query: Record<string, string>; set: { status: number } }) => {
+            try {
+              const { type, language, framework } = query;
+              const templates = await artifactService.listTemplates(
+                type as ArtifactType | undefined
+              );
+
+              let filtered = templates;
+              if (language)
+                filtered = filtered.filter(
+                  (t) => !t.language || t.language.toLowerCase() === String(language).toLowerCase()
+                );
+              if (framework)
+                filtered = filtered.filter(
+                  (t) =>
+                    !t.framework || t.framework.toLowerCase() === String(framework).toLowerCase()
+                );
+
+              return { success: true, templates: filtered, total: filtered.length };
+            } catch (error) {
+              logger.error('Template listing error:', error);
+              set.status = 500;
+              return {
+                success: false,
+                error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve templates' },
+              };
+            }
+          }
+        )
+
+        .get(
+          '/templates/:id',
+          async ({ params, set }: { params: Record<string, string>; set: { status: number } }) => {
+            try {
+              const { id } = params;
+              const template = await artifactService.getTemplate(id);
+              if (!template) {
+                set.status = 404;
+                return {
+                  success: false,
+                  error: { code: 'NOT_FOUND', message: 'Template not found' },
+                };
+              }
+              return { success: true, template };
+            } catch (error) {
+              logger.error('Template retrieval error:', error);
+              set.status = 500;
+              return {
+                success: false,
+                error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve template' },
+              };
+            }
+          }
+        )
+
+        .post(
+          '/validate',
+          async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+            try {
+              const { content, type } = body as Record<string, unknown>;
+              if (!content || !type) {
+                set.status = 400;
+                return {
+                  success: false,
+                  error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Missing required fields: content and type',
+                  },
+                };
+              }
+              const validation = await artifactService.validateArtifact(
+                content as string,
+                type as string
+              );
+              return { success: true, validation };
+            } catch (error) {
+              logger.error('Validation error:', error);
+              set.status = 500;
+              return {
+                success: false,
+                error: { code: 'INTERNAL_ERROR', message: 'Failed to validate artifact' },
+              };
+            }
+          }
+        )
+
+        .get('/health', () => {
+          const health = artifactService.getServiceHealth();
+          return {
+            success: true,
+            health: {
+              status: health.status,
+              timestamp: new Date().toISOString(),
+              service: 'artifact-service',
+              version: '1.0.0',
+              generators: health.generators,
+              templates: health.templates,
+            },
+          };
+        })
+
+        .get('/types', () => {
+          const supported: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
+          return {
+            success: true,
+            types: supported.map((type) => ({ type, description: getTypeDescription(type) })),
+          };
+        })
+  );
+}
+
+function getTypeDescription(type: ArtifactType): string {
+  const descriptions = {
+    code: 'Generate code implementations based on requirements and context',
+    test: 'Generate test suites and test cases for validation',
+    documentation: 'Generate technical documentation and guides',
+    prd: 'Generate Product Requirements Documents for planning',
+  } as Record<string, string>;
+  return descriptions[type] || 'Unknown artifact type';
+}

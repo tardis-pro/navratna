@@ -3,4 +3,4 @@
  *
  * Exports all infrastructure initialization services
  */
-export { InfrastructureFactory, infrastructureFactory } from './infrastructureFactory.js';
+export { InfrastructureFactory, infrastructureFactory } from './infrastructure_factory.js';

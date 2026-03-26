@@ -102,9 +102,28 @@ These are intentional TODO placeholders — stubs pending future migration:
 
 Do not fill these stubs without coordinating with the domain service migration plan.
 
+## TWO-PLANE DATABASE ACCESS
+
+```typescript
+import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-services';
+
+const db = getIntelligenceDb();   // agents, personas, discussions, knowledge, artifacts
+const cdb = getControlDb();       // users, auth, tools, operations, projects
+
+// Before cross-plane writes (no DB-level FKs):
+await CrossPlaneGuard.verify(pool, 'operations', agentId, 'Agent');
+```
+
+Schema files (all schema changes go here):
+- `src/database/drizzle/schemas/intelligence.schema.ts` — PC-A (navratna-core domain)
+- `src/database/drizzle/schemas/control.schema.ts` — PC-B (navratna-gateway domain)
+
+Migrations: `pnpm --filter @uaip/shared-services drizzle:generate` → `src/database/drizzle/migrations/`
+
 ## CONVENTIONS
 
-- **ORM**: Drizzle (not TypeORM). Schema in `src/database/drizzle/schemas/`. Use `drizzleService.getDb()` for queries.
+- **ORM**: Drizzle (not TypeORM). Schema in `src/database/drizzle/schemas/`. Use `drizzleService.getDb()` or the typed plane getters.
+- **`src/entities/`**: Legacy re-export shims — do NOT add TypeORM decorators. Actual types live in `@uaip/types`.
 - **Event bus**: BullMQ on Redis only — `EventBusService` from `@uaip/infra`
 - All exports are named (no default exports)
 - Domain services injected via `ServiceFactory`, not imported directly
@@ -113,8 +132,14 @@ Do not fill these stubs without coordinating with the domain service migration p
 ## COMMANDS
 
 ```bash
-pnpm --filter @uaip/shared-services build    # compile
-pnpm --filter @uaip/shared-services test     # Jest (ESM preset)
+pnpm --filter @uaip/shared-services build          # compile
+pnpm --filter @uaip/shared-services test           # Vitest (globals: true, pool: forks)
+pnpm --filter @uaip/shared-services test:unit      # unit only
+pnpm --filter @uaip/shared-services test:coverage  # with v8 coverage
+pnpm --filter @uaip/shared-services drizzle:generate  # generate migration files
+pnpm --filter @uaip/shared-services seed           # seed dev database
 ```
 
 **Build order**: this package depends on `@uaip/types`, `@uaip/utils`, `@uaip/infra`, `@uaip/config`. Always `pnpm build:shared` before backend services.
+
+**Test setup**: `src/__tests__/setup.ts` silences console, sets DB env vars, `afterEach: vi.clearAllMocks()`. Test helpers in `src/__tests__/helpers/testUtils.ts` (`TestUtils.createMockRepository<T>()` etc.) and `src/__tests__/mocks/serviceMocks.ts` (`ServiceMockFactory`).

@@ -26,7 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
 import type { FrontendMessage as Message } from '@uaip/types';
 import { cn } from '@/lib/utils';
-import uaipAPI from '@/utils/uaip-api';
+import uaipAPI from '@/utils/uaip_api';
 import { DiscussionHistory } from './DiscussionHistory';
 import { ApprovalRequest } from './ApprovalRequest';
 import {

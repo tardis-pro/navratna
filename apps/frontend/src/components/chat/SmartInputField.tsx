@@ -11,7 +11,7 @@ import {
   HelpCircleIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useDebounce } from '@/hooks/use_debounce';
 import { AutocompleteSuggestion, ConversationWebSocketEventType } from '@uaip/types';
 
 interface SmartInputFieldProps {
@@ -53,7 +53,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   useEffect(() => {
     if (!user?.token) return;
 
-    const newSocket = io('/conversation-intelligence', {
+    const newSocket = io('/conversation_intelligence', {
       auth: { token: user.token },
       query: { agentId, conversationId },
     });

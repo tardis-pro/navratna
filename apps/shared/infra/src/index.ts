@@ -1,6 +1,6 @@
 // Infrastructure services re-export
 // Core infrastructure from @uaip/infra
-export { EventBusService } from './eventBus.js';
+export { EventBusService } from './event_bus.js';
 export type {
   EventBusMessage,
   EventBusHandler,
@@ -14,5 +14,5 @@ export type {
 export { RedisCacheService, redisCacheService } from './cache/index.js';
 
 // Database services
-export { DatabaseService, DatabaseError } from './database/databaseService.js';
-export { PgService, pgService } from './database/pgService.js';
+export { DatabaseService, DatabaseError } from './database/database_service.js';
+export { PgService, pgService } from './database/pg_service.js';

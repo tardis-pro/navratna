@@ -1,4 +1,4 @@
-import { llmAPI } from '@/api/llm.api';
+import { llmAPI } from '@/api/llm_api';
 
 export interface LLMMessage {
   role: 'user' | 'assistant' | 'system';

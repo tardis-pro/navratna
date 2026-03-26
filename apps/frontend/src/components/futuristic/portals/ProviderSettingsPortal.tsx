@@ -17,8 +17,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { LLMTaskType, LLMProviderType, UserLLMPreference } from '@uaip/types';
-import { uaipAPI as _uaipAPI } from '../../../utils/uaip-api';
-import { usersAPI } from '../../../api/users.api';
+import { uaipAPI as _uaipAPI } from '../../../utils/uaip_api';
+import { usersAPI } from '../../../api/users_api';
 
 interface ViewportSize {
   width: number;

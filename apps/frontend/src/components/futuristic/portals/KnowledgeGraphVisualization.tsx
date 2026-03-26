@@ -21,8 +21,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Filter, RefreshCw, Info, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_CONFIG as _API_CONFIG } from '@/config/apiConfig';
-import { uaipAPI } from '@/utils/uaip-api';
+import { API_CONFIG as _API_CONFIG } from '@/config/api_config';
+import { uaipAPI } from '@/utils/uaip_api';
 
 import '@xyflow/react/dist/style.css';
 

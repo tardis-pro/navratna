@@ -4,11 +4,11 @@ import { useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, ChevronDown, ChevronRight, Tag } from 'lucide-react';
 import type { ConstellationHealth, ConstellationItem } from '@uaip/types';
-import type { BlockVisibility } from '@/components/MaterializableBlock/MaterializableBlock.types';
+import type { BlockVisibility } from '@/components/MaterializableBlock/materializable_block_types';
 import { MicroexpressionIndicator } from '@/components/Microexpression/Microexpression';
-import { useKnowledgeMicroexpression } from '@/hooks/useKnowledgeMicroexpression';
+import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpression';
 import { cn } from '@/lib/utils';
-import type { ConstellationBlockData } from './TelescopeSurface.types';
+import type { ConstellationBlockData } from './telescope_surface_types';
 
 export interface ConstellationNodeProps {
   block: ConstellationBlockData;

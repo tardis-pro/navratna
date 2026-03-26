@@ -9,8 +9,8 @@ import React, {
 } from 'react';
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
-import { useEnhancedWebSocket } from '@/hooks/useEnhancedWebSocket';
-import uaipAPI from '@/utils/uaip-api';
+import { useEnhancedWebSocket } from '@/hooks/use_enhanced_web_socket';
+import uaipAPI from '@/utils/uaip_api';
 
 // Import shared types
 import {
@@ -24,7 +24,7 @@ import {
 } from '@uaip/types';
 
 // Import frontend-specific message type
-import { Message } from '@/types/frontend-extensions';
+import { Message } from '@/types/frontend_extensions';
 
 interface DiscussionProviderProps {
   topic?: string;

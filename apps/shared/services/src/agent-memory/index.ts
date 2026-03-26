@@ -1,10 +1,10 @@
 // Main service
-export { AgentMemoryService } from './agent-memory.service';
+export { AgentMemoryService } from './agent_memory_service';
 
 // Memory managers
-export { WorkingMemoryManager } from './working-memory.manager';
-export { EpisodicMemoryManager } from './episodic-memory.manager';
-export { SemanticMemoryManager } from './semantic-memory.manager';
-export { MemoryConsolidator } from './memory-consolidator.service';
+export { WorkingMemoryManager } from './working_memory_manager';
+export { EpisodicMemoryManager } from './episodic_memory_manager';
+export { SemanticMemoryManager } from './semantic_memory_manager';
+export { MemoryConsolidator } from './memory_consolidator_service';
 
 // Module

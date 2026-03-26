@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAgents } from '../../../contexts/AgentContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 import { DiscussionTrigger } from '../../DiscussionTrigger';
-import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
-import { discussionsAPI } from '../../../api/discussions.api';
+import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
+import { discussionsAPI } from '../../../api/discussions_api';
 import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
-import { useConversationIntelligence } from '../../../hooks/useConversationIntelligence';
+import { useConversationIntelligence } from '../../../hooks/use_conversation_intelligence';
 import {
   MessageSquare,
   Bot,

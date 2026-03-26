@@ -20,8 +20,8 @@ import {
   _ChevronRight,
   Info,
 } from 'lucide-react';
-import { useWallpaper } from '../hooks/useWallpaper';
-import { LocationData } from '../services/LocationService';
+import { useWallpaper } from '../hooks/use_wallpaper';
+import { LocationData } from '../services/location_service';
 
 interface WallpaperCustomizationPanelProps {
   useMapWallpaper: boolean;

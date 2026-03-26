@@ -4,7 +4,7 @@ export {
   GraphSyncResult,
   GraphSyncBatch,
   GraphSyncStatus,
-} from './IntegrationEvent';
-export { OutboxPublisher } from './OutboxPublisher';
-export { GraphSyncWorker } from './GraphSyncWorker';
-export { IntegrationService } from './IntegrationService';
+} from './integration_event';
+export { OutboxPublisher } from './outbox_publisher';
+export { GraphSyncWorker } from './graph_sync_worker';
+export { IntegrationService } from './integration_service';

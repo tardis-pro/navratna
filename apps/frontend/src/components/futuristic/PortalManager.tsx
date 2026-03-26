@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Portal, PortalProps } from './Portal';
 import { CommandPalette } from './CommandPalette';
 import { Plus, _Layout, Zap, Database, _MessageSquare, BarChart3 } from 'lucide-react';
-import type { PortalConfig } from './portal.types';
+import type { PortalConfig } from './portal_types';
 
 interface PortalInstance extends PortalConfig {
   id: string;

@@ -19,6 +19,7 @@
     "watch": "nx watch --all -- nx run \\$NX_PROJECT_NAME:build",
     "affected:build": "nx affected -t build",
     "clean": "nx run-many -t clean && find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
+    "lint:filenames": "node scripts/lint-filenames.mjs",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",

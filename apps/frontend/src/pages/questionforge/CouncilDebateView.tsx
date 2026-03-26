@@ -17,7 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import type { CouncilDebateResult, AgentAnalysis } from '@/api/questionforge.api';
+import type { CouncilDebateResult, AgentAnalysis } from '@/api/questionforge_api';
 
 interface CouncilDebateViewProps {
   debateResult: CouncilDebateResult;

@@ -30,7 +30,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { knowledgeAPI } from '@/api/knowledge.api';
+import { knowledgeAPI } from '@/api/knowledge_api';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeType, _SourceType, KnowledgeIngestRequest } from '@uaip/types';
 

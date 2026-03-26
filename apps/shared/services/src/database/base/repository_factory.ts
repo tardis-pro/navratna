@@ -1,0 +1,108 @@
+import {
+  UserRepository,
+  RefreshTokenRepository,
+  PasswordResetTokenRepository,
+} from '../repositories/user_repository';
+import { AgentRepository } from '../repositories/agent_repository';
+import { AuditRepository } from '../repositories/audit_repository';
+import {
+  ToolRepository,
+  ToolExecutionRepository,
+  ToolUsageRepository,
+} from '../repositories/tool_repository';
+import {
+  OperationRepository,
+  OperationStateRepository,
+  OperationCheckpointRepository,
+  StepResultRepository,
+} from '../repositories/operation_repository';
+import {
+  SecurityPolicyRepository,
+  ApprovalWorkflowRepository,
+  ApprovalDecisionRepository,
+} from '../repositories/security_repository';
+import { DiscussionRepository } from '../repositories/discussion_repository';
+import { LLMProviderRepository } from '../repositories/l_l_m_provider_repository';
+import { UserLLMProviderRepository } from '../repositories/user_l_l_m_provider_repository';
+import { KnowledgeRepository } from '../repositories/knowledge_repository';
+
+export class RepositoryFactory {
+  private static instance: RepositoryFactory;
+  private cache = new Map<string, unknown>();
+
+  private constructor() {}
+
+  static getInstance(): RepositoryFactory {
+    if (!RepositoryFactory.instance) RepositoryFactory.instance = new RepositoryFactory();
+    return RepositoryFactory.instance;
+  }
+
+  private get<T>(key: string, factory: () => T): T {
+    if (!this.cache.has(key)) this.cache.set(key, factory());
+    return this.cache.get(key) as T;
+  }
+
+  getUserRepository(): UserRepository {
+    return this.get('user', () => new UserRepository());
+  }
+  getRefreshTokenRepository(): RefreshTokenRepository {
+    return this.get('refreshToken', () => new RefreshTokenRepository());
+  }
+  getPasswordResetTokenRepository(): PasswordResetTokenRepository {
+    return this.get('passwordResetToken', () => new PasswordResetTokenRepository());
+  }
+  getAgentRepository(): AgentRepository {
+    return this.get('agent', () => new AgentRepository());
+  }
+  getAuditRepository(): AuditRepository {
+    return this.get('audit', () => new AuditRepository());
+  }
+  getToolRepository(): ToolRepository {
+    return this.get('tool', () => new ToolRepository());
+  }
+  getToolExecutionRepository(): ToolExecutionRepository {
+    return this.get('toolExecution', () => new ToolExecutionRepository());
+  }
+  getToolUsageRepository(): ToolUsageRepository {
+    return this.get('toolUsage', () => new ToolUsageRepository());
+  }
+  getOperationRepository(): OperationRepository {
+    return this.get('operation', () => new OperationRepository());
+  }
+  getOperationStateRepository(): OperationStateRepository {
+    return this.get('operationState', () => new OperationStateRepository());
+  }
+  getOperationCheckpointRepository(): OperationCheckpointRepository {
+    return this.get('operationCheckpoint', () => new OperationCheckpointRepository());
+  }
+  getStepResultRepository(): StepResultRepository {
+    return this.get('stepResult', () => new StepResultRepository());
+  }
+  getSecurityPolicyRepository(): SecurityPolicyRepository {
+    return this.get('securityPolicy', () => new SecurityPolicyRepository());
+  }
+  getApprovalWorkflowRepository(): ApprovalWorkflowRepository {
+    return this.get('approvalWorkflow', () => new ApprovalWorkflowRepository());
+  }
+  getApprovalDecisionRepository(): ApprovalDecisionRepository {
+    return this.get('approvalDecision', () => new ApprovalDecisionRepository());
+  }
+  getDiscussionRepository(): DiscussionRepository {
+    return this.get('discussion', () => new DiscussionRepository());
+  }
+  getLLMProviderRepository(): LLMProviderRepository {
+    return this.get('llmProvider', () => new LLMProviderRepository());
+  }
+  getUserLLMProviderRepository(): UserLLMProviderRepository {
+    return this.get('userLLMProvider', () => new UserLLMProviderRepository());
+  }
+  getKnowledgeRepository(): KnowledgeRepository {
+    return this.get('knowledge', () => new KnowledgeRepository());
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+}
+
+export const repositoryFactory = RepositoryFactory.getInstance();

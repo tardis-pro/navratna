@@ -18,7 +18,7 @@ import {
   BarChart2,
   Link,
 } from 'lucide-react';
-import { uaipAPI } from '@/utils/uaip-api';
+import { uaipAPI } from '@/utils/uaip_api';
 import MCPConfigUpload from '@/components/MCPConfigUpload';
 
 interface Agent {

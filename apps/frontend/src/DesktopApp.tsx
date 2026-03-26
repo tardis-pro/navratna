@@ -11,7 +11,7 @@ import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { TelescopeSurface } from './components/TelescopeSurface';
-import { createInitialBlocks } from './components/TelescopeSurface/portalRegistry';
+import { createInitialBlocks } from './components/TelescopeSurface/portal_registry';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';

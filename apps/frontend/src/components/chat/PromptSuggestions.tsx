@@ -44,7 +44,7 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
   useEffect(() => {
     if (!user?.token) return;
 
-    const newSocket = io('/conversation-intelligence', {
+    const newSocket = io('/conversation_intelligence', {
       auth: { token: user.token },
       query: { agentId },
     });

@@ -7,10 +7,10 @@ import { WhisperLine } from '@/components/AmbientIntelligence';
 import { AttentionBudget } from '@/components/AttentionBudget';
 import { CrystallizationEffect } from '@/components/PredictiveIntent';
 import { ConstellationNode } from './ConstellationNode';
-import { useConstellations } from './useConstellations';
-import { useForceLayout } from './useForceLayout';
-import type { ForceNode } from './useForceLayout';
-import type { BlockVisibility } from '@/components/MaterializableBlock/MaterializableBlock.types';
+import { useConstellations } from './use_constellations';
+import { useForceLayout } from './use_force_layout';
+import type { ForceNode } from './use_force_layout';
+import type { BlockVisibility } from '@/components/MaterializableBlock/materializable_block_types';
 import type { AttentionItem } from '@/components/AttentionBudget';
 import { cn } from '@/lib/utils';
 

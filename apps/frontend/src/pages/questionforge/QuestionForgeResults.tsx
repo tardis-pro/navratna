@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, FileText, MessageSquare, Swords } from 'lucide-react';
 
-import { questionforgeAPI } from '@/api/questionforge.api';
-import type { ForgeResult, InterviewSession, Question } from '@/api/questionforge.api';
+import { questionforgeAPI } from '@/api/questionforge_api';
+import type { ForgeResult, InterviewSession, Question } from '@/api/questionforge_api';
 
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

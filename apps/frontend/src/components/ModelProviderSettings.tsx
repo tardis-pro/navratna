@@ -18,7 +18,7 @@ import {
   Activity,
   Zap,
 } from 'lucide-react';
-import { uaipAPI } from '../utils/uaip-api';
+import { uaipAPI } from '../utils/uaip_api';
 
 interface ModelProvider {
   id: string;

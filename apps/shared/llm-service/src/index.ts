@@ -1,10 +1,10 @@
-import { LLMService } from './LLMService.js';
+import { LLMService } from './l_l_m_service.js';
 
 // Main exports for the LLM service package
-export { LLMService, llmService } from './LLMService.js';
-export { UserLLMService } from './UserLLMService.js';
-export { ModelBootstrapService } from './services/ModelBootstrapService.js';
-export { ApiKeyDecryptionService } from './services/ApiKeyDecryptionService.js';
+export { LLMService, llmService } from './l_l_m_service.js';
+export { UserLLMService } from './user_l_l_m_service.js';
+export { ModelBootstrapService } from './services/model_bootstrap_service.js';
+export { ApiKeyDecryptionService } from './services/api_key_decryption_service.js';
 
 // Interface exports
 export type {
@@ -27,11 +27,11 @@ export type {
 } from './interfaces.js';
 
 // Provider exports
-export { BaseProvider } from './providers/BaseProvider.js';
-export { OllamaProvider } from './providers/OllamaProvider.js';
-export { LLMStudioProvider } from './providers/LLMStudioProvider.js';
-export { OpenAIProvider } from './providers/OpenAIProvider.js';
-export { TanStackProvider } from './providers/TanStackProvider.js';
+export { BaseProvider } from './providers/base_provider.js';
+export { OllamaProvider } from './providers/ollama_provider.js';
+export { LLMStudioProvider } from './providers/l_l_m_studio_provider.js';
+export { OpenAIProvider } from './providers/open_a_i_provider.js';
+export { TanStackProvider } from './providers/tan_stack_provider.js';
 
 // Streaming exports
-export { StreamingService } from './StreamingService.js';
+export { StreamingService } from './streaming_service.js';

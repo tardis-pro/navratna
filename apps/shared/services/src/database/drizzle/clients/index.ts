@@ -31,8 +31,8 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { createLogger } from '@uaip/utils';
-import * as intelligenceSchema from '../schemas/intelligence.schema';
-import * as controlSchema from '../schemas/control.schema';
+import * as intelligenceSchema from '../schemas/intelligence_schema';
+import * as controlSchema from '../schemas/control_schema';
 
 const logger = createLogger({
   serviceName: 'drizzle-clients',

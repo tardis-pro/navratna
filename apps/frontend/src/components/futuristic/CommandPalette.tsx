@@ -10,7 +10,7 @@ import {
   Settings,
   Sparkles,
 } from 'lucide-react';
-import type { PortalConfig } from './portal.types';
+import type { PortalConfig } from './portal_types';
 
 interface CommandPaletteProps {
   isOpen: boolean;

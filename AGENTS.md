@@ -189,11 +189,28 @@ import { Agent } from '../../../shared/types/src/agent';
 - CORS managed entirely at nginx level — do not add CORS headers in individual services
 - Env vars from `.env` (derived from `sample.env`) — never commit secrets
 
+## DATABASE SCHEMA
+
+**Two-plane Drizzle ORM schema** (no TypeORM — `src/entities/` files are legacy shims):
+
+| Plane | File | Owned by | Tables |
+| ----- | ---- | -------- | ------ |
+| **Intelligence** (PC-A) | `intelligence.schema.ts` | navratna-core | agents, personas, discussions, messages, knowledge_items, artifacts, llm_providers, llm_models, short_links |
+| **Control** (PC-B) | `control.schema.ts` | navratna-gateway | users, sessions, tokens, mfa, oauth, tools, mcp_servers, operations, tasks, projects, security_policies, audit_events |
+
+**Cross-plane constraint**: No DB-level FKs between planes. Use `CrossPlaneGuard.verify(pool, table, id, entityName)` before any cross-plane write.
+
+```typescript
+import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-services';
+// Schema changes → apps/shared/services/src/database/drizzle/schemas/{intelligence,control}.schema.ts
+// Migrations: pnpm --filter @uaip/shared-services drizzle:generate  (no migration files exist yet)
+```
+
 ## INFRASTRUCTURE
 
-- **PostgreSQL** 5432 — primary database (Drizzle ORM, 57+ tables)
+- **PostgreSQL** 5432 — primary database (Drizzle ORM, two-plane schema above)
 - **Neo4j** 7474/7687 — graph relationships, recommendations, knowledge graph
-- **Qdrant** 6333 — vector embeddings for semantic search (1024-dim)
+- **Qdrant** 6333 — vector embeddings (1024-dim default; TEI mode: 768-dim)
 - **Redis** 6379 — cache, sessions, pub/sub, BullMQ event bus
 - **nginx** 8081 — API gateway, auth validation, rate limiting, CORS
 
@@ -203,6 +220,8 @@ import { Agent } from '../../../shared/types/src/agent';
 - **`@ts-expect-error` in Elysia routes** — intentional pattern where middleware injects user context TypeScript can't infer through nested Elysia groups; always add a reason comment.
 - **`marketplace-service`** is scheduled for removal in v3.0 — avoid adding features to it.
 - **v3.0 consolidation**: `navratna-core` and `navratna-gateway` import route handlers directly from sibling service `src/` directories — this is intentional for zero-copy consolidation.
-- **ORM**: Drizzle (not TypeORM). Schema in `apps/shared/services/src/database/drizzle/schemas/`.
-- **Event bus**: BullMQ on Redis only — RabbitMQ has been removed.
+- **ORM**: Drizzle (not TypeORM). `src/entities/` files are thin re-export shims — never add TypeORM decorators there.
+- **Event bus**: BullMQ on Redis only — RabbitMQ has been removed. `run-integration-tests.sh` script is stale (still references rabbitmq port 5673).
+- **CI workflows are stale** — reference old `backend/` path (pre-NX). Tests don't run in CI currently.
+- **`navratna-core` and `navratna-gateway` have zero tests** — no `vitest.config.ts` exists yet.
 - **Default credentials** (dev only): `admin` / `admin` at `http://localhost:5173`.

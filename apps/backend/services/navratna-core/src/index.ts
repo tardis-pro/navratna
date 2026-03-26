@@ -5,25 +5,25 @@ import { LLMService, UserLLMService, ModelBootstrapService } from '@uaip/llm-ser
 import { logger } from '@uaip/utils';
 import type { EventBusMessage } from '@uaip/types';
 
-import { registerAgentRoutes } from '../../agent-intelligence/src/routes/agent.routes.js';
-import { registerConstellationRoutes } from '../../agent-intelligence/src/routes/constellation.routes.js';
-import { ArtifactService } from '../../artifact-service/src/ArtifactService.js';
-import { registerArtifactRoutes } from '../../artifact-service/src/routes/artifactRoutes.js';
-import { registerShortLinkRoutes } from '../../artifact-service/src/routes/shortLinkRoutes.js';
-import { registerLLMRoutes } from '../../llm-service/src/routes/llm.routes.js';
-import { registerUserLLMRoutes } from '../../llm-service/src/routes/user-llm.routes.js';
+import { registerAgentRoutes } from '../../agent-intelligence/src/routes/agent_routes.js';
+import { registerConstellationRoutes } from '../../agent-intelligence/src/routes/constellation_routes.js';
+import { ArtifactService } from '../../artifact-service/src/artifact_service.js';
+import { registerArtifactRoutes } from '../../artifact-service/src/routes/artifact_routes.js';
+import { registerShortLinkRoutes } from '../../artifact-service/src/routes/short_link_routes.js';
+import { registerLLMRoutes } from '../../llm-service/src/routes/llm_routes.js';
+import { registerUserLLMRoutes } from '../../llm-service/src/routes/user_llm_routes.js';
 
-import { DiscussionOrchestrationService } from '../../discussion-orchestration/src/services/discussionOrchestrationService.js';
-import { DiscussionService } from '../../discussion-orchestration/src/services/discussionService.js';
-import { PersonaService } from '../../discussion-orchestration/src/services/personaService.js';
-import { UserChatHandler } from '../../discussion-orchestration/src/websocket/userChatHandler.js';
-import { ConversationIntelligenceHandler } from '../../discussion-orchestration/src/websocket/conversationIntelligenceHandler.js';
-import { TaskNotificationHandler } from '../../discussion-orchestration/src/websocket/taskNotificationHandler.js';
-import { StreamingHandler } from '../../discussion-orchestration/src/websocket/streamingHandler.js';
-import { CodingAgentSocketHandler } from '../../discussion-orchestration/src/websocket/codingAgentSocketHandler.js';
-import { setupWebSocketHandlers } from '../../discussion-orchestration/src/websocket/discussionSocket.js';
-import { DebateHandler } from '../../discussion-orchestration/src/handlers/debateHandler.js';
-import { WhatsAppHandler } from '../../discussion-orchestration/src/whatsapp/whatsappHandler.js';
+import { DiscussionOrchestrationService } from '../../discussion-orchestration/src/services/discussion_orchestration_service.js';
+import { DiscussionService } from '../../discussion-orchestration/src/services/discussion_service.js';
+import { PersonaService } from '../../discussion-orchestration/src/services/persona_service.js';
+import { UserChatHandler } from '../../discussion-orchestration/src/websocket/user_chat_handler.js';
+import { ConversationIntelligenceHandler } from '../../discussion-orchestration/src/websocket/conversation_intelligence_handler.js';
+import { TaskNotificationHandler } from '../../discussion-orchestration/src/websocket/task_notification_handler.js';
+import { StreamingHandler } from '../../discussion-orchestration/src/websocket/streaming_handler.js';
+import { CodingAgentSocketHandler } from '../../discussion-orchestration/src/websocket/coding_agent_socket_handler.js';
+import { setupWebSocketHandlers } from '../../discussion-orchestration/src/websocket/discussion_socket.js';
+import { DebateHandler } from '../../discussion-orchestration/src/handlers/debate_handler.js';
+import { WhatsAppHandler } from '../../discussion-orchestration/src/whatsapp/whatsapp_handler.js';
 
 class NavratnaCoreService extends BaseService {
   private artifactService!: ArtifactService;

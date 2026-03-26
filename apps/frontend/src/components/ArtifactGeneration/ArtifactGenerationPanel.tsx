@@ -29,7 +29,7 @@ import {
   Eye,
 } from 'lucide-react';
 
-import { artifactFactory } from '@/services/artifact/ArtifactFactory';
+import { artifactFactory } from '@/services/artifact/artifact_factory';
 import type {
   Artifact,
   FrontendArtifactContext as ConversationContext,

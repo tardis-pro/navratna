@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { PersonaDisplay } from '../types/frontend-extensions';
-import { uaipAPI } from '@/utils/uaip-api';
+import { PersonaDisplay } from '../types/frontend_extensions';
+import { uaipAPI } from '@/utils/uaip_api';
 import {
   Users,
   Sparkles,

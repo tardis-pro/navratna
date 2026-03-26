@@ -1,2 +1,2 @@
-export { ContextManager, getContextManager } from './ContextManager.js';
-export type { TokenBudget, ContextWindow, ContextConfig } from './ContextManager.js';
+export { ContextManager, getContextManager } from './context_manager.js';
+export type { TokenBudget, ContextWindow, ContextConfig } from './context_manager.js';

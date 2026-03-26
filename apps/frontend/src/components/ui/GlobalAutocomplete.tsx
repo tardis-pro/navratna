@@ -14,8 +14,8 @@ import {
   Loader2Icon,
   XIcon,
 } from 'lucide-react';
-import { useConversationIntelligence } from '@/hooks/useConversationIntelligence';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useConversationIntelligence } from '@/hooks/use_conversation_intelligence';
+import { useDebounce } from '@/hooks/use_debounce';
 import { AutocompleteSuggestion } from '@uaip/types';
 
 interface GlobalAutocompleteProps {

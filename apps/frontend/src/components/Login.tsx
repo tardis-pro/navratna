@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff, Lock, User, Lightbulb, Sparkles, Globe, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { LocationService, LocationData } from '../services/LocationService';
+import { LocationService, LocationData } from '../services/location_service';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
 
 interface LoginFormData {

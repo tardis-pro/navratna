@@ -1,5 +1,5 @@
 import { initializePlanes } from '../drizzle/clients/index';
-import { DatabaseSeeder } from './DatabaseSeeder';
+import { DatabaseSeeder } from './database_seeder';
 
 export async function seedDatabase(): Promise<void> {
   try {
@@ -12,14 +12,14 @@ export async function seedDatabase(): Promise<void> {
   }
 }
 
-export { DatabaseSeeder } from './DatabaseSeeder';
-export { BaseSeed } from './BaseSeed';
-export { UserSeed } from './UserSeed';
-export { UserLLMProviderSeed } from './UserLLMProviderSeed';
-export { LLMPreferencesSeed } from './LLMPreferencesSeed';
-export { SecurityPolicySeed } from './SecurityPolicySeed';
-export { PersonaSeed } from './PersonaSeed';
-export { AgentSeed } from './AgentSeed';
-export { ToolDefinitionSeed } from './ToolDefinitionSeed';
-export { ProjectSeed } from './ProjectSeed';
-export { DefaultUserLLMProviderSeed } from './DefaultUserLLMProviderSeed';
+export { DatabaseSeeder } from './database_seeder';
+export { BaseSeed } from './base_seed';
+export { UserSeed } from './user_seed';
+export { UserLLMProviderSeed } from './user_l_l_m_provider_seed';
+export { LLMPreferencesSeed } from './l_l_m_preferences_seed';
+export { SecurityPolicySeed } from './security_policy_seed';
+export { PersonaSeed } from './persona_seed';
+export { AgentSeed } from './agent_seed';
+export { ToolDefinitionSeed } from './tool_definition_seed';
+export { ProjectSeed } from './project_seed';
+export { DefaultUserLLMProviderSeed } from './default_user_l_l_m_provider_seed';

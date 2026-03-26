@@ -12,8 +12,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-import { questionforgeAPI } from '@/api/questionforge.api';
-import type { InterviewSession, InterviewAnswer, Question } from '@/api/questionforge.api';
+import { questionforgeAPI } from '@/api/questionforge_api';
+import type { InterviewSession, InterviewAnswer, Question } from '@/api/questionforge_api';
 
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Agent, CreateAgentRequest, AgentSkill } from '@uaip/types';
-import { uaipAPI } from '../utils/uaip-api';
+import { uaipAPI } from '../utils/uaip_api';
 import { APIClient } from '../api/client';
-import { _llmAPI } from '../api/llm.api';
+import { _llmAPI } from '../api/llm_api';
 import { useAgents } from '../contexts/AgentContext';
 import {
   X,

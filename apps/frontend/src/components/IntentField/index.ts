@@ -9,5 +9,5 @@ export type {
   IntentSearchResult,
   INTENT_ICONS,
   INTENT_TYPE_LABELS,
-} from './IntentField.types';
-export { useIntentDetection } from './useIntentDetection';
+} from './intent_field_types';
+export { useIntentDetection } from './use_intent_detection';

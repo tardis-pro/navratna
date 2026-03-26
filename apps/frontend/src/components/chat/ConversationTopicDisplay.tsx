@@ -36,7 +36,7 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
   useEffect(() => {
     if (!user?.token) return;
 
-    const newSocket = io('/conversation-intelligence', {
+    const newSocket = io('/conversation_intelligence', {
       auth: { token: user.token },
       query: { agentId, conversationId },
     });

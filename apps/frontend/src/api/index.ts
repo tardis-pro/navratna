@@ -7,43 +7,43 @@
 export { APIClient, APIClientError, type APIError } from './client';
 
 // Domain APIs
-export * from './auth.api';
-export * from './agents.api';
-export * from './tools.api';
-export * from './discussions.api';
-export * from './projects.api';
-export * from './users.api';
-export * from './security.api';
-export * from './audit.api';
-export * from './approvals.api';
-export * from './personas.api';
-export * from './capabilities.api';
-export * from './orchestration.api';
-export * from './knowledge.api';
-export * from './constellation.api';
-export * from './llm.api';
-export * from './mcp.api';
-export * from './tasks.api';
-export * from './conversationEnhancement.api';
-export * from './user-persona.api';
+export * from './auth_api';
+export * from './agents_api';
+export * from './tools_api';
+export * from './discussions_api';
+export * from './projects_api';
+export * from './users_api';
+export * from './security_api';
+export * from './audit_api';
+export * from './approvals_api';
+export * from './personas_api';
+export * from './capabilities_api';
+export * from './orchestration_api';
+export * from './knowledge_api';
+export * from './constellation_api';
+export * from './llm_api';
+export * from './mcp_api';
+export * from './tasks_api';
+export * from './conversation_enhancement_api';
+export * from './user_persona_api';
 
 // Convenience namespace exports
-import { authAPI } from './auth.api';
-import { agentsAPI } from './agents.api';
-import { toolsAPI } from './tools.api';
-import { discussionsAPI } from './discussions.api';
-import { projectsAPI } from './projects.api';
-import { usersAPI } from './users.api';
-import { securityAPI } from './security.api';
-import { auditAPI } from './audit.api';
-import { approvalsAPI } from './approvals.api';
-import { personasAPI } from './personas.api';
-import { capabilitiesAPI } from './capabilities.api';
-import { orchestrationAPI } from './orchestration.api';
-import { knowledgeAPI } from './knowledge.api';
-import { constellationAPI } from './constellation.api';
-import { llmAPI } from './llm.api';
-import { mcpAPI } from './mcp.api';
+import { authAPI } from './auth_api';
+import { agentsAPI } from './agents_api';
+import { toolsAPI } from './tools_api';
+import { discussionsAPI } from './discussions_api';
+import { projectsAPI } from './projects_api';
+import { usersAPI } from './users_api';
+import { securityAPI } from './security_api';
+import { auditAPI } from './audit_api';
+import { approvalsAPI } from './approvals_api';
+import { personasAPI } from './personas_api';
+import { capabilitiesAPI } from './capabilities_api';
+import { orchestrationAPI } from './orchestration_api';
+import { knowledgeAPI } from './knowledge_api';
+import { constellationAPI } from './constellation_api';
+import { llmAPI } from './llm_api';
+import { mcpAPI } from './mcp_api';
 
 export const api = {
   auth: authAPI,

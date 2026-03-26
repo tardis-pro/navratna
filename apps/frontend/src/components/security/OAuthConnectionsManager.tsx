@@ -7,7 +7,7 @@ import { _Switch } from '@/components/ui/switch';
 import { _Tabs, _TabsContent, _TabsList, _TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use_toast';
 import {
   Github,
   Mail,

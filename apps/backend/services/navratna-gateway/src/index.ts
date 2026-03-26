@@ -1,22 +1,22 @@
 import { BaseService, TaskService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 
-import { registerAuthRoutes } from '../../security-gateway/src/http/auth.elysia.js';
-import { registerUserRoutes } from '../../security-gateway/src/http/users.elysia.js';
-import { registerApprovalRoutes } from '../../security-gateway/src/http/approval.elysia.js';
-import { registerAuditRoutes } from '../../security-gateway/src/http/audit.elysia.js';
-import { registerSecurityRoutes } from '../../security-gateway/src/http/security.elysia.js';
-import { registerProviderRoutes } from '../../security-gateway/src/http/providers.elysia.js';
-import { registerOAuthRoutes } from '../../security-gateway/src/http/oauth.elysia.js';
-import { registerPersonaRoutes } from '../../security-gateway/src/http/persona.elysia.js';
-import { registerKnowledgeRoutes } from '../../security-gateway/src/http/knowledge.elysia.js';
-import { registerContactRoutes } from '../../security-gateway/src/http/contacts.elysia.js';
-import { registerProjectRoutes } from '../../orchestration-pipeline/src/routes/projectRoutes.js';
-import { registerTaskRoutes } from '../../orchestration-pipeline/src/routes/taskRoutes.js';
-import { TaskController } from '../../orchestration-pipeline/src/controllers/taskController.js';
-import { registerCapabilityRoutes } from '../../capability-registry/src/routes/capabilityRoutes.js';
-import { registerMCPRoutes } from '../../capability-registry/src/routes/mcpRoutes.js';
-import { registerHealthRoutes } from '../../capability-registry/src/routes/healthRoutes.js';
+import { registerAuthRoutes } from '../../security-gateway/src/http/auth_elysia.js';
+import { registerUserRoutes } from '../../security-gateway/src/http/users_elysia.js';
+import { registerApprovalRoutes } from '../../security-gateway/src/http/approval_elysia.js';
+import { registerAuditRoutes } from '../../security-gateway/src/http/audit_elysia.js';
+import { registerSecurityRoutes } from '../../security-gateway/src/http/security_elysia.js';
+import { registerProviderRoutes } from '../../security-gateway/src/http/providers_elysia.js';
+import { registerOAuthRoutes } from '../../security-gateway/src/http/oauth_elysia.js';
+import { registerPersonaRoutes } from '../../security-gateway/src/http/persona_elysia.js';
+import { registerKnowledgeRoutes } from '../../security-gateway/src/http/knowledge_elysia.js';
+import { registerContactRoutes } from '../../security-gateway/src/http/contacts_elysia.js';
+import { registerProjectRoutes } from '../../orchestration-pipeline/src/routes/project_routes.js';
+import { registerTaskRoutes } from '../../orchestration-pipeline/src/routes/task_routes.js';
+import { TaskController } from '../../orchestration-pipeline/src/controllers/task_controller.js';
+import { registerCapabilityRoutes } from '../../capability-registry/src/routes/capability_routes.js';
+import { registerMCPRoutes } from '../../capability-registry/src/routes/mcp_routes.js';
+import { registerHealthRoutes } from '../../capability-registry/src/routes/health_routes.js';
 
 class NavratnaGatewayService extends BaseService {
   private taskService!: TaskService;

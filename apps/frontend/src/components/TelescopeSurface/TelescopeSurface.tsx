@@ -7,13 +7,13 @@ import type {
   MaterializableBlockData,
   MaterializableBlockType,
   BlockVisibility,
-} from '@/components/MaterializableBlock/MaterializableBlock.types';
+} from '@/components/MaterializableBlock/materializable_block_types';
 import {
   BLOCK_TYPE_COLORS,
   getExpressionColor,
-} from '@/components/MaterializableBlock/MaterializableBlock.styles';
+} from '@/components/MaterializableBlock/materializable_block_styles';
 import { EXPRESSION_ICONS, MaterializableBlock } from '@/components/MaterializableBlock';
-import { renderPortalContent } from './portalRegistry';
+import { renderPortalContent } from './portal_registry';
 
 // ---------------------------------------------------------------------------
 // Constants

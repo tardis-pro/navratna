@@ -47,7 +47,7 @@ import {
   SelectValue as _SelectValue,
 } from '@/components/ui/select';
 import { Separator as _Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll_area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeItem, KnowledgeIngestRequest as _KnowledgeIngestRequest } from '@uaip/types';
 import { KnowledgeType, SourceType } from '@uaip/types';

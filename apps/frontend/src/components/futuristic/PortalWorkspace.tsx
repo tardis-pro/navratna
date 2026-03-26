@@ -76,7 +76,7 @@ import {
   FileText,
   Globe,
 } from 'lucide-react';
-import { uaipAPI } from '@/utils/uaip-api';
+import { uaipAPI } from '@/utils/uaip_api';
 const MarketplaceHubWidget = lazy(() => import('@/widgets/MarketplaceHubWidget'));
 const ToolManagementPortal = lazy(() =>
   import('./portals/ToolManagementPortal').then((m) => ({ default: m.ToolManagementPortal }))

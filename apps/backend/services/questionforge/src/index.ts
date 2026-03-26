@@ -3,9 +3,9 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ForgeRequest } from '@uaip/types';
 
-import { QuestionForgeService } from './services/questionForge.service.js';
-import { InterviewCaptureService } from './services/interviewCapture.service.js';
-import { registerQuestionForgeRoutes } from './routes/questionforgeRoutes.js';
+import { QuestionForgeService } from './services/question_forge_service.js';
+import { InterviewCaptureService } from './services/interview_capture_service.js';
+import { registerQuestionForgeRoutes } from './routes/questionforge_routes.js';
 
 class QuestionForgeApp extends BaseService {
   private forgeService: QuestionForgeService;

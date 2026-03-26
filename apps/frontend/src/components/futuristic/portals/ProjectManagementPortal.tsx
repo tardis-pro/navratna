@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
-import { projectsAPI, type Project as _APIProject } from '../../../api/projects.api';
+import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
 
 interface ViewportSize {
   width: number;

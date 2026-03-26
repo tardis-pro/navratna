@@ -1,2 +1,2 @@
 // Shared Conversation Utilities
-export { ConversationUtils } from './conversationUtils';
+export { ConversationUtils } from './conversation_utils';

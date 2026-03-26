@@ -32,7 +32,7 @@ import {
 import { LightBulbIcon } from '@heroicons/react/24/outline';
 import { useAgents } from '../../../contexts/AgentContext';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 
 interface IntelligencePanelPortalProps {
   className?: string;

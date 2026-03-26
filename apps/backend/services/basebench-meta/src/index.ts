@@ -3,8 +3,8 @@ import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 
-import { registerBaseBenchRoutes } from './routes/basebenchRoutes.js';
-import { BaseBenchMetaService } from './services/basebenchMeta.service.js';
+import { registerBaseBenchRoutes } from './routes/basebench_routes.js';
+import { BaseBenchMetaService } from './services/basebench_meta_service.js';
 
 class BaseBenchMetaApp extends BaseService {
   private readonly baseBenchService: BaseBenchMetaService;

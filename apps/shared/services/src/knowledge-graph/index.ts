@@ -1,44 +1,44 @@
 // Main service
-export { KnowledgeGraphService } from './knowledge-graph.service';
+export { KnowledgeGraphService } from './knowledge_graph_service';
 
 // Sync services
-export { KnowledgeSyncService } from './knowledge-sync.service';
-export { KnowledgeBootstrapService } from './bootstrap.service';
+export { KnowledgeSyncService } from './knowledge_sync_service';
+export { KnowledgeBootstrapService } from './bootstrap_service';
 
 // Supporting services
-export { QdrantService } from '../qdrant.service';
-export { KnowledgeRepository } from '../database/repositories/knowledge.repository';
-export { EmbeddingService } from './embedding.service';
-export { TEIEmbeddingService } from './tei-embedding.service';
-export { SmartEmbeddingService } from './smart-embedding.service';
-export { EnhancedRAGService } from './enhanced-rag.service';
-export { ContentClassifier } from './content-classifier.service';
-export { RelationshipDetector } from './relationship-detector.service';
+export { QdrantService } from '../qdrant_service';
+export { KnowledgeRepository } from '../database/repositories/knowledge_repository';
+export { EmbeddingService } from './embedding_service';
+export { TEIEmbeddingService } from './tei_embedding_service';
+export { SmartEmbeddingService } from './smart_embedding_service';
+export { EnhancedRAGService } from './enhanced_rag_service';
+export { ContentClassifier } from './content_classifier_service';
+export { RelationshipDetector } from './relationship_detector_service';
 
 // Ontology services
-export { ConceptExtractorService } from './concept-extractor.service';
-export { OntologyBuilderService } from './ontology-builder.service';
-export { TaxonomyGeneratorService } from './taxonomy-generator.service';
-export { ReconciliationService } from './reconciliation.service';
+export { ConceptExtractorService } from './concept_extractor_service';
+export { OntologyBuilderService } from './ontology_builder_service';
+export { TaxonomyGeneratorService } from './taxonomy_generator_service';
+export { ReconciliationService } from './reconciliation_service';
 
 // Health and diagnostics
-export { QdrantHealthService } from './qdrant-health.service';
+export { QdrantHealthService } from './qdrant_health_service';
 
 // Chat ingestion services
-export { ChatParserService } from './chat-parser.service';
-export { ChatKnowledgeExtractorService } from './chat-knowledge-extractor.service';
-export { BatchProcessorService } from './batch-processor.service';
-export { KnowledgeIngestionPort } from './knowledge-ingestion.port';
+export { ChatParserService } from './chat_parser_service';
+export { ChatKnowledgeExtractorService } from './chat_knowledge_extractor_service';
+export { BatchProcessorService } from './batch_processor_service';
+export { KnowledgeIngestionPort } from './knowledge_ingestion_port';
 export {
   ChatIngestionMiddleware,
   createChatIngestionMiddleware,
-} from './chat-ingestion.middleware';
+} from './chat_ingestion_middleware';
 
 // Phase 2: Knowledge Enhancement services
-export { QAGeneratorService } from './qa-generator.service';
-export { WorkflowExtractorService } from './workflow-extractor.service';
-export { ExpertiseAnalyzerService } from './expertise-analyzer.service';
-export { LearningDetectorService } from './learning-detector.service';
+export { QAGeneratorService } from './qa_generator_service';
+export { WorkflowExtractorService } from './workflow_extractor_service';
+export { ExpertiseAnalyzerService } from './expertise_analyzer_service';
+export { LearningDetectorService } from './learning_detector_service';
 
 // Production Hardening services
 export {
@@ -50,7 +50,7 @@ export {
   MetricsCollector,
   SecurityValidator,
   productionHardening,
-} from './production-hardening.service';
+} from './production_hardening_service';
 
 // Entities
 

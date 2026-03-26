@@ -39,18 +39,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAgents } from '../../../contexts/AgentContext';
-import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
+import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 import {
   chatPersistenceService,
   ChatSession as _ChatSession,
   PersistentChatMessage as _PersistentChatMessage,
-} from '../../../services/ChatPersistenceService';
+} from '../../../services/chat_persistence_service';
 import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions as _PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay as _ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';

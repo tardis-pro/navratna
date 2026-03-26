@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
-import uaipAPI from '@/utils/uaip-api';
+import uaipAPI from '@/utils/uaip_api';
 
 // Import shared types
 import type {

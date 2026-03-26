@@ -1,4 +1,4 @@
-import { KnowledgeType, SourceType } from './knowledge-graph';
+import { KnowledgeType, SourceType } from './knowledge_graph';
 
 // ─── Constellation Types ─────────────────────────────────────────────
 

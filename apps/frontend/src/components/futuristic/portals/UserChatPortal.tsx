@@ -25,8 +25,8 @@ import {
   Loader,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
+import { uaipAPI } from '../../../utils/uaip_api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';

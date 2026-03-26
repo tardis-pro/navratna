@@ -19,8 +19,8 @@ export {
   diagnoseJWTSignatureError,
   testJWTToken,
   validateJWTToken,
-} from './authMiddleware.js';
-export type { UserContext, AuthedContext, OptionalAuthContext } from './authMiddleware.js';
+} from './auth_middleware.js';
+export type { UserContext, AuthedContext, OptionalAuthContext } from './auth_middleware.js';
 
 // Request validation middleware exports
 export {
@@ -33,13 +33,13 @@ export {
   requireContentType,
   validateRequestSize,
   createCustomValidator,
-} from './validateRequest.js';
+} from './validate_request.js';
 
 // Error handling middleware exports
-export { errorHandler, AppError, buildErrorResponse } from './errorHandler.js';
+export { errorHandler, AppError, buildErrorResponse } from './error_handler.js';
 
 // Rate limiting middleware exports
-export { rateLimiter, createRateLimiter } from './rateLimiter.js';
+export { rateLimiter, createRateLimiter } from './rate_limiter.js';
 
 // Metrics middleware exports
 export {
@@ -55,7 +55,7 @@ export {
 export type { ErrorContext } from '@uaip/types';
 
 // Request logging middleware exports
-export { requestLogger, defaultRequestLogger } from './requestLogger.js';
+export { requestLogger, defaultRequestLogger } from './request_logger.js';
 export type { RequestLoggerOptions } from '@uaip/types';
 
 // CSRF protection middleware exports
@@ -64,7 +64,7 @@ export {
   csrfProtection,
   csrfMiddleware,
   csrfTokenEndpoint,
-} from './csrfProtection.js';
+} from './csrf_protection.js';
 
 // API Key authentication middleware exports
 export {
@@ -74,15 +74,15 @@ export {
   requireReadPermission,
   requireWritePermission,
   requireExecutePermission,
-} from './apiKeyAuth.js';
+} from './api_key_auth.js';
 export type { APIKey, APIKeyContext } from '@uaip/types';
 
 // Re-export HTTP context types from shared types
 export * from './types.js';
 
 // Enhanced Validation Middleware
-export { AgentValidationMiddleware } from './agentValidationMiddleware.js';
-export { AgentTransformationService } from './agentTransformationService.js';
+export { AgentValidationMiddleware } from './agent_validation_middleware.js';
+export { AgentTransformationService } from './agent_transformation_service.js';
 
 // Agent middleware exports
 export {
@@ -97,14 +97,14 @@ export {
   requireAgentStatus,
   executeAgentTool,
   agentOperationChain,
-} from './agentMiddleware.js';
-export type { AgentContext, AgentExecution } from './agentMiddleware.js';
+} from './agent_middleware.js';
+export type { AgentContext, AgentExecution } from './agent_middleware.js';
 
 // JWT validator exports
-export { JWTValidator } from './JWTValidator.js';
+export { JWTValidator } from './j_w_t_validator.js';
 
 // Token generation exports
-export { generateAuthTokens } from './tokenGenerator.js';
+export { generateAuthTokens } from './token_generator.js';
 export type { TokenPayload } from '@uaip/types';
 
 // Error logger exports
@@ -119,7 +119,7 @@ export {
   ExternalServiceError,
   withErrorTracking,
   withSyncErrorTracking,
-} from './errorLogger.js';
+} from './error_logger.js';
 export type { StructuredErrorLogger } from '@uaip/types';
 
 // Response formatting utilities
@@ -128,8 +128,8 @@ export {
   errorResponse,
   paginatedResponse,
   CommonErrors,
-} from './responseFormatter.js';
-export type { ApiResponse } from './responseFormatter.js';
+} from './response_formatter.js';
+export type { ApiResponse } from './response_formatter.js';
 
 // Elysia TypeBox schema helpers — re-exported so services don't need a direct elysia dep
 export { t } from 'elysia';

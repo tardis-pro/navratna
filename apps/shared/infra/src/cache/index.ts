@@ -4,4 +4,4 @@ export {
   initializeRedisCache,
   getRedisClient,
   isRedisCacheHealthy,
-} from './redisCacheService.js';
+} from './redis_cache_service.js';

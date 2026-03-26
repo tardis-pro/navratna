@@ -1,4 +1,4 @@
-import type { Question, QuestionPhase, Contradiction, Assumption } from './knowledge-graph.js';
+import type { Question, QuestionPhase, Contradiction, Assumption } from './knowledge_graph.js';
 
 export interface InterviewSession {
   id: string;

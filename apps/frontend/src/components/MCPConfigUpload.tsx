@@ -2,7 +2,7 @@
 // Allows users to upload .mcp.json files through the UI with validation and real-time feedback
 
 import React, { useState, useCallback, useRef } from 'react';
-import { uaipAPI } from '@/utils/uaip-api';
+import { uaipAPI } from '@/utils/uaip_api';
 import {
   Upload,
   FileText,

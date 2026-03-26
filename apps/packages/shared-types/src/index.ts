@@ -6,8 +6,8 @@ export * from './security.js';
 export * from './api';
 export * from './database';
 export * from './events';
-export * from './event-bus.js';
-export * from './service-auth.js';
+export * from './event_bus.js';
+export * from './service_auth.js';
 // New exports for persona and discussion management
 export * from './persona';
 export * from './discussion';
@@ -17,9 +17,9 @@ export * from './tool';
 // MCP types - NEW
 export * from './mcp';
 // Knowledge Graph types - NEW
-export * from './knowledge-graph';
-export * from './personaDefaults';
-export * from './personaUtils';
+export * from './knowledge_graph';
+export * from './persona_defaults';
+export * from './persona_utils';
 // Export personaAdvanced types (type-only to avoid runtime re-exports)
 export type {
   HybridPersona,
@@ -36,7 +36,7 @@ export type {
   PersonaCategory,
   ContributionScore,
   ExpertiseDomain as PersonaExpertiseDomain,
-} from './personaAdvanced.js';
+} from './persona_advanced.js';
 // Audit and LLM types - NEW
 export * from './audit.js';
 export * from './llm';
@@ -57,13 +57,13 @@ export * from './social';
 // Widget system types - NEW
 export * from './widget';
 // Conversation Intelligence types - NEW
-export * from './conversation-intelligence';
+export * from './conversation_intelligence';
 // Project types - NEW
 export * from './project';
 // HTTP context types for Elysia - NEW
 export * from './http';
 // Context triggers export
-export { contextualTriggers } from './contextTriggers';
+export { contextualTriggers } from './context_triggers';
 // Streaming types - NEW
 export * from './streaming';
 // Thought types - NEW
@@ -74,11 +74,11 @@ export * from './critique';
 export * from './debate';
 export * from './workspace.js';
 export * from './basebench';
-export type * from './frontend-api.js';
+export type * from './frontend_api.js';
 export * from './telescope';
 export * from './microexpression';
-export * from './ui-interfaces';
-export * from './pipeline-schemas';
+export * from './ui_interfaces';
+export * from './pipeline_schemas';
 // QuestionForge product types - NEW (non-duplicate exports only)
 export type {
   CouncilDebateConfig,

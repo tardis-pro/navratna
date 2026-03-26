@@ -49,9 +49,9 @@ import {
   UpdateTaskRequest,
   TaskAssignmentRequest,
   TaskFilters,
-} from '../api/tasks.api';
-import { projectsAPI } from '../api/projects.api';
-import { agentsAPI } from '../api/agents.api';
+} from '../api/tasks_api';
+import { projectsAPI } from '../api/projects_api';
+import { agentsAPI } from '../api/agents_api';
 import {
   BarChart3,
   Users,

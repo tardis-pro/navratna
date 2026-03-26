@@ -29,8 +29,8 @@ export {
 } from './errors';
 
 // Widget system utilities
-export { WidgetRegistry, globalWidgetRegistry } from './widget-registry';
+export { WidgetRegistry, globalWidgetRegistry } from './widget_registry';
 
-export type { UserContext, WidgetRegistryOptions } from './widget-registry';
+export type { UserContext, WidgetRegistryOptions } from './widget_registry';
 
 // Agent transformation utilities

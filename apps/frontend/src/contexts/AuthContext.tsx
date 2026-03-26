@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { uaipAPI } from '../utils/uaip-api';
+import { uaipAPI } from '../utils/uaip_api';
 
 export interface User {
   id: string;

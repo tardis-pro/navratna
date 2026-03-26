@@ -14,7 +14,7 @@ import type {
   FrontendMessage as Message,
   FrontendModelProvider as ModelProvider,
 } from '@uaip/types';
-import { createAgentStateFromShared as createAgentStateFromBackend } from '../types/frontend-extensions';
+import { createAgentStateFromShared as createAgentStateFromBackend } from '../types/frontend_extensions';
 import {
   ToolCall,
   ToolResult,
@@ -30,8 +30,8 @@ import {
   SecurityLevel,
   ToolExecutionStatus,
 } from '@uaip/types';
-import uaipAPI from '@/utils/uaip-api';
-import { llmAPI } from '@/api/llm.api';
+import uaipAPI from '@/utils/uaip_api';
+import { llmAPI } from '@/api/llm_api';
 import { PERSONA_CATEGORIES } from '@uaip/types';
 
 // Agent Intelligence Flow - using backend API
