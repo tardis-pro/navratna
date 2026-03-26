@@ -21,7 +21,6 @@
     "noFallthroughCasesInSwitch": false,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@uaip/types": ["../packages/shared-types/src"],

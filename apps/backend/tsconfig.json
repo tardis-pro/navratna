@@ -1,43 +1,48 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "baseUrl": ".",
-    // "moduleSuffixes": [".js"],            // << added
-    "paths": {
-      "@uaip/types": ["../packages/shared-types/dist"],
-      "@uaip/types/*": ["../packages/shared-types/dist/*"],
-      "@uaip/utils": ["../packages/shared-utils/dist"],
-      "@uaip/utils/*": ["../packages/shared-utils/dist/*"],
-      "@uaip/config": ["../shared/config/src"],
-      "@uaip/shared-services": ["../shared/services/src"],
-      "@uaip/middleware": ["../shared/middleware/src"],
-      "@uaip/llm-service": ["../shared/llm-service/src"],
-      "@uaip/agent-intelligence": ["services/agent-intelligence/src"],
-      "@uaip/artifact-service": ["services/artifact-service/src"],
-      "@uaip/capability-registry": ["services/capability-registry/src"],
-      "@uaip/orchestration-pipeline": ["services/orchestration-pipeline/src"],
-      "@uaip/security-gateway": ["services/security-gateway/src"],
-      "@uaip/discussion-orchestration": ["services/discussion-orchestration/src"],
-      "@uaip/infra": ["../shared/infra/src"]
-    },
-    /* safety + DX */
-    "strict": false,
-    "noImplicitAny": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    /* build params */
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true,
-    "incremental": true
-    // no outDir / rootDir here – keep those per-package
-  }
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        // "moduleSuffixes": [".js"],            // << added
+        "paths": {
+            "@uaip/types": ["../packages/shared-types/dist"],
+            "@uaip/types/*": ["../packages/shared-types/dist/*"],
+            "@uaip/contracts": ["../packages/contracts/dist"],
+            "@uaip/contracts/*": ["../packages/contracts/dist/*"],
+            "@uaip/utils": ["../packages/shared-utils/dist"],
+            "@uaip/utils/*": ["../packages/shared-utils/dist/*"],
+            "@uaip/config": ["../shared/config/src"],
+            "@uaip/infra": ["../shared/infra/src"],
+            "@uaip/shared-services": ["../shared/services/src"]
+            // "@uaip/middleware": ["../shared/middleware/src"],
+            // "@uaip/llm-service": ["../shared/llm-service/src"],
+            // "@uaip/agent-intelligence": ["services/agent-intelligence/src"],
+            // "@uaip/artifact-service": ["services/artifact-service/src"],
+            // "@uaip/capability-registry": ["services/capability-registry/src"],
+            // "@uaip/orchestration-pipeline": [
+            //     "services/orchestration-pipeline/src"
+            // ],
+            // "@uaip/security-gateway": ["services/security-gateway/src"],
+            // "@uaip/discussion-orchestration": [
+            //     "services/discussion-orchestration/src"
+            // ]
+        },
+        /* safety + DX */
+        "strict": false,
+        "noImplicitAny": true,
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        /* build params */
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "composite": true,
+        "incremental": true
+        // no outDir / rootDir here – keep those per-package
+    }
 }

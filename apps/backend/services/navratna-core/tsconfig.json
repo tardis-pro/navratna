@@ -21,7 +21,8 @@
       "@uaip/infra": ["../../../shared/infra/src"],
       "@uaip/infra/*": ["../../../shared/infra/src/*"]
     },
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    "rootDir": "../../.."
   },
   "include": [
     "src/**/*",

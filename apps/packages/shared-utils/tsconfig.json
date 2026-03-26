@@ -14,7 +14,6 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "strict": false,
-        "baseUrl": ".",
         "paths": {
             "@uaip/types": ["../shared-types/src"],
             "@uaip/types/*": ["../shared-types/src/*"]

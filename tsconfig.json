@@ -2,15 +2,17 @@
     "files": [],
     "references": [
         { "path": "./apps/frontend" },
+        { "path": "./apps/packages/contracts" },
         { "path": "./apps/packages/shared-types" },
         { "path": "./apps/packages/shared-utils" },
         { "path": "./apps/backend" }
     ],
     "compilerOptions": {
-        "baseUrl": ".",
         "paths": {
             "@uaip/types": ["./apps/packages/shared-types/src"],
             "@uaip/types/*": ["./apps/packages/shared-types/src/*"],
+            "@uaip/contracts": ["./apps/packages/contracts/src"],
+            "@uaip/contracts/*": ["./apps/packages/contracts/src/*"],
             "@uaip/utils": ["./apps/packages/shared-utils/src"],
             "@uaip/utils/*": ["./apps/packages/shared-utils/src/*"]
         },
