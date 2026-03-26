@@ -6,44 +6,44 @@ Shared utilities: structured logger (Winston), typed error hierarchy, widget reg
 
 ### Logger (from `loggers.ts`)
 
-| Export | Purpose |
-|--------|---------|
-| `logger` | Default singleton Winston logger — use everywhere |
-| `createLogger(config)` | Factory for named service loggers |
-| `logError(logger, err, ctx)` | Structured error logging helper |
-| `logSecurityEvent(logger, event)` | Security audit log helper |
-| `logAudit(logger, entry)` | Audit trail helper |
-| `logMetric(logger, metric)` | Performance metric helper |
-| `logRequest(logger, req)` | HTTP request logging |
-| `logPerformance(logger, data)` | Timing/perf logging |
-| `createLoggerStream(logger)` | Morgan-compatible write stream |
-| `createLogContext(reqId?, userId?, op?)` | Build structured log context object |
-| `logWithContext(logger, level, msg, ctx)` | Log with pre-built context |
+| Export                                    | Purpose                                           |
+| ----------------------------------------- | ------------------------------------------------- |
+| `logger`                                  | Default singleton Winston logger — use everywhere |
+| `createLogger(config)`                    | Factory for named service loggers                 |
+| `logError(logger, err, ctx)`              | Structured error logging helper                   |
+| `logSecurityEvent(logger, event)`         | Security audit log helper                         |
+| `logAudit(logger, entry)`                 | Audit trail helper                                |
+| `logMetric(logger, metric)`               | Performance metric helper                         |
+| `logRequest(logger, req)`                 | HTTP request logging                              |
+| `logPerformance(logger, data)`            | Timing/perf logging                               |
+| `createLoggerStream(logger)`              | Morgan-compatible write stream                    |
+| `createLogContext(reqId?, userId?, op?)`  | Build structured log context object               |
+| `logWithContext(logger, level, msg, ctx)` | Log with pre-built context                        |
 
 ### Error Classes (from `errors.ts`)
 
 All extend `ApiError` which carries `statusCode`, `code`, `details`, and `isOperational`.
 
-| Export | Status | Code |
-|--------|--------|------|
-| `ApiError` | base | `API_ERROR` |
-| `ValidationError` | 400 | `VALIDATION_ERROR` |
-| `AuthenticationError` | 401 | `AUTHENTICATION_ERROR` |
-| `AuthorizationError` | 403 | `AUTHORIZATION_ERROR` |
-| `NotFoundError` | 404 | `NOT_FOUND` |
-| `ConflictError` | 409 | `CONFLICT` |
-| `RateLimitError` | 429 | `RATE_LIMIT_EXCEEDED` |
-| `InternalServerError` | 500 | `INTERNAL_SERVER_ERROR` |
-| `DatabaseError` | 500 | `DATABASE_ERROR` |
-| `ExternalServiceError` | 502 | `EXTERNAL_SERVICE_ERROR` |
-| `SecurityError` | 403 | `SECURITY_ERROR` |
+| Export                 | Status | Code                     |
+| ---------------------- | ------ | ------------------------ |
+| `ApiError`             | base   | `API_ERROR`              |
+| `ValidationError`      | 400    | `VALIDATION_ERROR`       |
+| `AuthenticationError`  | 401    | `AUTHENTICATION_ERROR`   |
+| `AuthorizationError`   | 403    | `AUTHORIZATION_ERROR`    |
+| `NotFoundError`        | 404    | `NOT_FOUND`              |
+| `ConflictError`        | 409    | `CONFLICT`               |
+| `RateLimitError`       | 429    | `RATE_LIMIT_EXCEEDED`    |
+| `InternalServerError`  | 500    | `INTERNAL_SERVER_ERROR`  |
+| `DatabaseError`        | 500    | `DATABASE_ERROR`         |
+| `ExternalServiceError` | 502    | `EXTERNAL_SERVICE_ERROR` |
+| `SecurityError`        | 403    | `SECURITY_ERROR`         |
 
 ### Widget Registry (from `widget-registry.ts`)
 
-| Export | Purpose |
-|--------|---------|
-| `WidgetRegistry` | Class — widget registration and lookup |
-| `globalWidgetRegistry` | Pre-created singleton instance |
+| Export                 | Purpose                                |
+| ---------------------- | -------------------------------------- |
+| `WidgetRegistry`       | Class — widget registration and lookup |
+| `globalWidgetRegistry` | Pre-created singleton instance         |
 
 ## USAGE
 

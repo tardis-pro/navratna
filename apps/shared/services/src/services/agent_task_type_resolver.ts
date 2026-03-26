@@ -3,8 +3,6 @@ import { DatabaseService } from '../database_service';
 import { logger } from '@uaip/utils';
 import type { Agent } from '../database/drizzle/schemas/intelligence_schema';
 
-type AgentLLMPreference = Record<string, unknown>;
-
 export interface TaskTypeContext {
   userIntent?: string;
   conversationHistory?: unknown[];

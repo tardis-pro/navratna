@@ -4,7 +4,6 @@ import { logger } from '@uaip/utils';
 import { config } from '../config/index.js';
 import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js';
 import { DiscussionEvent } from '@uaip/types';
-import { z } from 'zod';
 import {
   authenticateConnection,
   isValidUUID,

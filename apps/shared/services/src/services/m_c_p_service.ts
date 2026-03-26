@@ -1,6 +1,6 @@
 import { getControlPool } from '../database/drizzle/clients/index';
 import { logger } from '@uaip/utils';
-import type { MCPJobRequest, MCPJobResult } from '@uaip/types';
+import type { MCPJobRequest } from '@uaip/types';
 
 export class MCPService {
   private static instance: MCPService;

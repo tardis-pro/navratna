@@ -6,10 +6,7 @@ import {
   Agent as AgentEntity,
   SecurityPolicy as SecurityPolicyEntity,
   OAuthProviderEntity,
-  AgentOAuthConnectionEntity,
-  OAuthStateEntity,
   AuditEvent as AuditLogEntity,
-  SessionEntity,
 } from '@uaip/shared-services';
 
 /**
@@ -58,13 +55,7 @@ export async function cleanupTestDb(pool: Pool): Promise<void> {
     'users',
   ];
 
-  for (const table of tables) {
-    try {
-      await pool.query(`DELETE FROM "${table}"`);
-    } catch {
-      // table may not exist in test schema — ignore
-    }
-  }
+  await Promise.allSettled(tables.map((table) => pool.query(`DELETE FROM "${table}"`)));
   await pool.end();
 }
 

@@ -26,8 +26,6 @@ interface IRepository<T = any> {
   createQueryBuilder(alias?: string): any;
 }
 
-type AnyRepository = IRepository<any>;
-
 // ---------------------------------------------------------------------------
 // Slug generation — 8-char alphanumeric, e.g. "A3FX9K2B"
 // ---------------------------------------------------------------------------

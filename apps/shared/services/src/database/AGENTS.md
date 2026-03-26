@@ -31,39 +31,39 @@ import { RepositoryFactory } from '@uaip/shared-services';
 const agentRepo = RepositoryFactory.getRepository(AgentEntity);
 ```
 
-| Repository | Entity | Key Methods |
-|-----------|--------|-------------|
-| `AgentRepository` | Agent | findByStatus, findWithPersona, findActive |
-| `UserRepository` | User | findByEmail, findWithPreferences |
-| `DiscussionRepository` | Discussion | findActive, findByParticipant |
-| `ArtifactRepository` | Artifact | findByType, findByDiscussion |
-| `ToolRepository` | Tool | findByCategory, search, findEnabled |
-| `OperationRepository` | Operation | findByStatus, findPending |
-| `KnowledgeRepository` | KnowledgeItem | findByType, semanticSearch |
-| `AuditRepository` | AuditLog | findByUser, findByEvent |
-| `CapabilityRepository` | Capability | findByType, findAvailable |
-| `SecurityRepository` | SecurityPolicy | findByLevel |
-| `LLMProviderRepository` | LLMProvider | findActive, findDefault |
-| `CachedLLMProviderRepository` | LLMProvider | Redis-cached wrapper |
-| `UserLLMPreferenceRepository` | UserLLMPreference | findByUser, findByProvider |
-| `UserLLMProviderRepository` | UserLLMProvider | findByUser |
-| `CachedUserLLMProviderRepository` | UserLLMProvider | Redis-cached wrapper |
-| `OAuthRepository` | OAuthToken | findByProvider, findByUser |
-| `AgentLLMPreferenceRepository` | AgentLLMPreference | findByAgent |
-| `ArtifactDeploymentRepository` | ArtifactDeployment | findByArtifact |
-| `UserContactRepository` | UserContact | findByUser |
-| `UserMessageRepository` | UserMessage | findByDiscussion |
-| `UserPreferencesRepository` | UserPreferences | findByUser |
-| `UserPresenceRepository` | UserPresence | findOnline |
+| Repository                        | Entity             | Key Methods                               |
+| --------------------------------- | ------------------ | ----------------------------------------- |
+| `AgentRepository`                 | Agent              | findByStatus, findWithPersona, findActive |
+| `UserRepository`                  | User               | findByEmail, findWithPreferences          |
+| `DiscussionRepository`            | Discussion         | findActive, findByParticipant             |
+| `ArtifactRepository`              | Artifact           | findByType, findByDiscussion              |
+| `ToolRepository`                  | Tool               | findByCategory, search, findEnabled       |
+| `OperationRepository`             | Operation          | findByStatus, findPending                 |
+| `KnowledgeRepository`             | KnowledgeItem      | findByType, semanticSearch                |
+| `AuditRepository`                 | AuditLog           | findByUser, findByEvent                   |
+| `CapabilityRepository`            | Capability         | findByType, findAvailable                 |
+| `SecurityRepository`              | SecurityPolicy     | findByLevel                               |
+| `LLMProviderRepository`           | LLMProvider        | findActive, findDefault                   |
+| `CachedLLMProviderRepository`     | LLMProvider        | Redis-cached wrapper                      |
+| `UserLLMPreferenceRepository`     | UserLLMPreference  | findByUser, findByProvider                |
+| `UserLLMProviderRepository`       | UserLLMProvider    | findByUser                                |
+| `CachedUserLLMProviderRepository` | UserLLMProvider    | Redis-cached wrapper                      |
+| `OAuthRepository`                 | OAuthToken         | findByProvider, findByUser                |
+| `AgentLLMPreferenceRepository`    | AgentLLMPreference | findByAgent                               |
+| `ArtifactDeploymentRepository`    | ArtifactDeployment | findByArtifact                            |
+| `UserContactRepository`           | UserContact        | findByUser                                |
+| `UserMessageRepository`           | UserMessage        | findByDiscussion                          |
+| `UserPreferencesRepository`       | UserPreferences    | findByUser                                |
+| `UserPresenceRepository`          | UserPresence       | findOnline                                |
 
 ## DRIZZLE TWO-PLANE SCHEMA
 
 No DB-level FKs between planes. Use `CrossPlaneGuard` before any cross-plane write.
 
-| Plane | File | Tables |
-|-------|------|--------|
-| **Intelligence (PC-A)** | `intelligence_schema.ts` | agents, personas, discussions, messages, knowledge_items, artifacts, llm_providers, llm_models, short_links |
-| **Control (PC-B)** | `control_schema.ts` | users, sessions, tokens, mfa_configs, oauth_tokens, tools, mcp_servers, operations, tasks, projects, security_policies, audit_events |
+| Plane                   | File                     | Tables                                                                                                                               |
+| ----------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Intelligence (PC-A)** | `intelligence_schema.ts` | agents, personas, discussions, messages, knowledge_items, artifacts, llm_providers, llm_models, short_links                          |
+| **Control (PC-B)**      | `control_schema.ts`      | users, sessions, tokens, mfa_configs, oauth_tokens, tools, mcp_servers, operations, tasks, projects, security_policies, audit_events |
 
 ```typescript
 import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-services';
@@ -80,18 +80,19 @@ await CrossPlaneGuard.verify(pool, 'agents', agentId, 'Agent');
 
 All seed files extend `BaseSeed` and are idempotent (UUID-check before insert):
 
-| Seeder | Seeds |
-|--------|-------|
-| `user_seed.ts` | Default admin user (`admin/admin` in dev) |
-| `persona_seed.ts` | Default persona templates |
-| `agent_seed.ts` | Default agents |
-| `tool_definition_seed.ts` | Built-in tool definitions |
-| `security_policy_seed.ts` | Default RBAC policies |
-| `project_seed.ts` | Default project |
-| `l_l_m_preferences_seed.ts` | Default LLM routing config |
-| `user_l_l_m_provider_seed.ts` | Default LLM provider per user |
+| Seeder                        | Seeds                                     |
+| ----------------------------- | ----------------------------------------- |
+| `user_seed.ts`                | Default admin user (`admin/admin` in dev) |
+| `persona_seed.ts`             | Default persona templates                 |
+| `agent_seed.ts`               | Default agents                            |
+| `tool_definition_seed.ts`     | Built-in tool definitions                 |
+| `security_policy_seed.ts`     | Default RBAC policies                     |
+| `project_seed.ts`             | Default project                           |
+| `l_l_m_preferences_seed.ts`   | Default LLM routing config                |
+| `user_l_l_m_provider_seed.ts` | Default LLM provider per user             |
 
 Run all seeders:
+
 ```bash
 pnpm --filter @uaip/shared-services run seed   # if script exists
 # or: node -e "require('./src/database/seedDatabase').seedDatabase()"

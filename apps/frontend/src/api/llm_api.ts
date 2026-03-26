@@ -5,7 +5,6 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
-import { ModelProvider } from '@/types';
 import type {
   LLMModel,
   LLMProvider,

@@ -24,14 +24,14 @@ src/
 
 All routes in `src/routes/questionforgeRoutes.ts`:
 
-| Method | Path                                     | Purpose                                    |
-| ------ | ---------------------------------------- | ------------------------------------------ |
-| POST   | `/api/v1/questionforge/generate`         | Generate question pack from topic/context  |
-| POST   | `/api/v1/questionforge/sessions`         | Start a new stakeholder interview session  |
-| GET    | `/api/v1/questionforge/sessions/:id`     | Get session state + captured answers       |
-| POST   | `/api/v1/questionforge/sessions/:id/answer` | Submit answer to a question             |
-| POST   | `/api/v1/questionforge/sessions/:id/debate` | Trigger debate-style follow-up flow     |
-| GET    | `/api/v1/questionforge/sessions/:id/insights` | Get synthesized insights              |
+| Method | Path                                          | Purpose                                   |
+| ------ | --------------------------------------------- | ----------------------------------------- |
+| POST   | `/api/v1/questionforge/generate`              | Generate question pack from topic/context |
+| POST   | `/api/v1/questionforge/sessions`              | Start a new stakeholder interview session |
+| GET    | `/api/v1/questionforge/sessions/:id`          | Get session state + captured answers      |
+| POST   | `/api/v1/questionforge/sessions/:id/answer`   | Submit answer to a question               |
+| POST   | `/api/v1/questionforge/sessions/:id/debate`   | Trigger debate-style follow-up flow       |
+| GET    | `/api/v1/questionforge/sessions/:id/insights` | Get synthesized insights                  |
 
 ## KEY PATTERNS
 

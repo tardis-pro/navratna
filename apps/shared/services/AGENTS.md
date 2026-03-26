@@ -107,14 +107,15 @@ Do not fill these stubs without coordinating with the domain service migration p
 ```typescript
 import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-services';
 
-const db = getIntelligenceDb();   // agents, personas, discussions, knowledge, artifacts
-const cdb = getControlDb();       // users, auth, tools, operations, projects
+const db = getIntelligenceDb(); // agents, personas, discussions, knowledge, artifacts
+const cdb = getControlDb(); // users, auth, tools, operations, projects
 
 // Before cross-plane writes (no DB-level FKs):
 await CrossPlaneGuard.verify(pool, 'operations', agentId, 'Agent');
 ```
 
 Schema files (all schema changes go here):
+
 - `src/database/drizzle/schemas/intelligence.schema.ts` — PC-A (navratna-core domain)
 - `src/database/drizzle/schemas/control.schema.ts` — PC-B (navratna-gateway domain)
 

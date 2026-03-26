@@ -7,7 +7,6 @@ import {
   ApprovalWorkflow as ApprovalWorkflowType,
   ApprovalDecision,
   ApprovalStatus,
-  SecurityLevel,
   AuditEventType,
   ApprovalWorkflowConfig,
   ApprovalRequest,

@@ -1,7 +1,7 @@
 {
   "name": "@uaip/navratna-core",
   "version": "3.0.0",
-  "description": "Navratna Core \u2014 consolidated service (agent-intelligence + discussion-orchestration + artifact-service + llm-service)",
+  "description": "Navratna Core — consolidated service (agent-intelligence + discussion-orchestration + artifact-service + llm-service)",
   "main": "./dist/index.js",
   "type": "module",
   "scripts": {

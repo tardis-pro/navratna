@@ -767,7 +767,7 @@ export class PersonaService {
    */
   private entityToPersona(entity: Record<string, unknown>): Persona {
     const expertise = (entity.expertise as string[]) || [];
-    const traits = (entity.traits as string[]) || [];
+    const _traits = (entity.traits as string[]) || [];
     const tags = (entity.tags as string[]) || [];
     const capabilities = (entity.capabilities as string[]) || [];
     const restrictions = (entity.restrictions as Record<string, unknown>) || {};

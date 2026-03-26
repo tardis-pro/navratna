@@ -42,12 +42,12 @@ Three convergent products:
 
 ### Infrastructure
 
-| Component  | Port      | Purpose                                               |
-| ---------- | --------- | ----------------------------------------------------- |
-| PostgreSQL | 5432      | Primary database (57 entities, 17 migrations)         |
-| Neo4j      | 7474/7687 | Graph relationships, knowledge graph, recommendations |
-| Qdrant     | 6333      | Vector embeddings, semantic search (1024-dim)         |
-| Redis      | 6379      | Cache, sessions, pub/sub, recency scoring             |
+| Component    | Port       | Purpose                                               |
+| ------------ | ---------- | ----------------------------------------------------- |
+| PostgreSQL   | 5432       | Primary database (57 entities, 17 migrations)         |
+| Neo4j        | 7474/7687  | Graph relationships, knowledge graph, recommendations |
+| Qdrant       | 6333       | Vector embeddings, semantic search (1024-dim)         |
+| Redis        | 6379       | Cache, sessions, pub/sub, recency scoring             |
 | BullMQ/Redis | (via 6379) | Event bus — BullMQ queues on Redis (RabbitMQ removed) |
 
 ### Frontend

@@ -18,19 +18,24 @@ src/
 Routes imported from sibling service `src/` directories.
 
 ### Imported from security-gateway (`src/http/*.elysia.ts`)
+
 `auth`, `users`, `approval`, `audit`, `security`, `providers`, `oauth`, `persona`, `knowledge`, `contacts`
 
 **NOT imported** (exist in legacy service but absent from navratna-gateway):
+
 - `projects.elysia.ts` — project routes are NOT exposed via navratna-gateway
 - `tool-preferences.elysia.ts` — tool preferences NOT exposed
 
 ### Imported from orchestration-pipeline
+
 - `taskRoutes.ts` + `projectRoutes.ts`
 
 ### Imported from capability-registry
+
 - `capabilityRoutes.ts`, `mcpRoutes.ts`, `healthRoutes.ts`
 
 **NOT imported** (exist in capability-registry):
+
 - `toolRoutes.ts` — tool CRUD/execute/search/recommendations NOT exposed
 - `workspaceRoutes.ts` — workspace/coding-agent NOT exposed
 

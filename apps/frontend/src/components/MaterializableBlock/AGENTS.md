@@ -4,12 +4,12 @@
 
 ## FILES
 
-| File | Role |
-|------|------|
-| `MaterializableBlock.tsx` | Component + `withMaterializableBlock()` HOC + `useMaterializableBlocks()` context hook + `autoArrangeBlocks()` utility |
-| `materializable_block_types.ts` | All types: `MaterializableBlockData`, `BlockVisibility`, `BlockPosition`, `BlockDimensions`, `AutoArrangeConfig`, `MaterializableBlockContextValue`, `WithMaterializableBlockConfig` |
-| `materializable_block_styles.ts` | OKLCH color maps, `VISIBILITY_STYLES`, `BLOCK_TYPE_COLORS`, `MICROEXPRESSION_COLORS`, keyframe strings, `getBlockBaseStyle()` |
-| `index.ts` | Barrel export |
+| File                             | Role                                                                                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MaterializableBlock.tsx`        | Component + `withMaterializableBlock()` HOC + `useMaterializableBlocks()` context hook + `autoArrangeBlocks()` utility                                                               |
+| `materializable_block_types.ts`  | All types: `MaterializableBlockData`, `BlockVisibility`, `BlockPosition`, `BlockDimensions`, `AutoArrangeConfig`, `MaterializableBlockContextValue`, `WithMaterializableBlockConfig` |
+| `materializable_block_styles.ts` | OKLCH color maps, `VISIBILITY_STYLES`, `BLOCK_TYPE_COLORS`, `MICROEXPRESSION_COLORS`, keyframe strings, `getBlockBaseStyle()`                                                        |
+| `index.ts`                       | Barrel export                                                                                                                                                                        |
 
 ## CORE TYPES
 
@@ -17,26 +17,26 @@
 interface MaterializableBlockData {
   id: string;
   type: 'agent' | 'portal' | 'artifact' | 'discussion' | 'task';
-  expression: Microexpression;          // drives animation variant
-  relevanceScore: number;               // 0–1, drives visibility tier
+  expression: Microexpression; // drives animation variant
+  relevanceScore: number; // 0–1, drives visibility tier
   visibility: 'visible' | 'faded' | 'hidden';
   position: { x: number; y: number; z: number };
   dimensions: { width: number; height: number };
-  metadata?: Record<string, unknown>;   // { title: string } for portals
+  metadata?: Record<string, unknown>; // { title: string } for portals
 }
 ```
 
 ## THE 7 MICROEXPRESSION STATES
 
-| State | Icon | Animation | When to Use |
-|-------|------|-----------|-------------|
-| `calm` | `Minus` | Static | Default idle state |
-| `attentive` | `Eye` | scale 1.005, brightness 1.03 | Awaiting input, listening |
-| `working` | `Activity` | Opacity pulses 1→0.72 (2s loop) | Processing / loading |
-| `alarmed` | `AlertTriangle` | Scale pulses 1→1.018 (0.5s), brightness 1.08 | Error, urgent attention needed |
-| `confused` | `HelpCircle` | Opacity flickers 1→0.55 (1s loop) | Unclear state, partial data |
-| `satisfied` | `CheckCircle` | Static, brightness 1.06 | Success, completed |
-| `strained` | `Zap` | Static, scale 0.997, brightness 0.85 | Resource-constrained, overloaded |
+| State       | Icon            | Animation                                    | When to Use                      |
+| ----------- | --------------- | -------------------------------------------- | -------------------------------- |
+| `calm`      | `Minus`         | Static                                       | Default idle state               |
+| `attentive` | `Eye`           | scale 1.005, brightness 1.03                 | Awaiting input, listening        |
+| `working`   | `Activity`      | Opacity pulses 1→0.72 (2s loop)              | Processing / loading             |
+| `alarmed`   | `AlertTriangle` | Scale pulses 1→1.018 (0.5s), brightness 1.08 | Error, urgent attention needed   |
+| `confused`  | `HelpCircle`    | Opacity flickers 1→0.55 (1s loop)            | Unclear state, partial data      |
+| `satisfied` | `CheckCircle`   | Static, brightness 1.06                      | Success, completed               |
+| `strained`  | `Zap`           | Static, scale 0.997, brightness 0.85         | Resource-constrained, overloaded |
 
 Expression drives both the Framer Motion `animate` variant on the block frame AND the OKLCH border color/glow via `MICROEXPRESSION_COLORS` from `@uaip/types`.
 
@@ -46,11 +46,11 @@ Expression drives both the Framer Motion `animate` variant on the block frame AN
 
 ```typescript
 interface AutoArrangeConfig {
-  gridCols: number;   // default 3
+  gridCols: number; // default 3
   blockWidth: number; // default 400
-  blockHeight: number;// default 500
-  gap: number;        // default 24
-  padding: number;    // default 24
+  blockHeight: number; // default 500
+  gap: number; // default 24
+  padding: number; // default 24
 }
 ```
 

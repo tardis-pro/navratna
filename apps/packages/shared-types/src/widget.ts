@@ -23,6 +23,13 @@ export enum WidgetCategory {
   SYSTEM = 'system',
   CUSTOM = 'custom',
 }
+export interface WidgetServiceOptions {
+  enableRBAC: boolean;
+  auditEnabled: boolean;
+  defaultPermissions: WidgetPermission[];
+  maxWidgetsPerUser: number;
+  allowDynamicRegistration: boolean;
+}
 
 // Widget Status
 export enum WidgetStatus {

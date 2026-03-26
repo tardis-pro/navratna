@@ -81,6 +81,7 @@ for (let i = 0; i < rows.length; i += BATCH) {
 
   let embeddings: number[][];
   try {
+    // oxlint-disable-next-line no-await-in-loop -- sequential batch processing required for per-batch error isolation
     embeddings = await teiEmbed(validTexts);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -100,6 +101,7 @@ for (let i = 0; i < rows.length; i += BATCH) {
   }));
 
   try {
+    // oxlint-disable-next-line no-await-in-loop -- sequential batch processing required for per-batch error isolation
     await qdrantUpsert(points);
     synced += validBatch.length;
   } catch (err: unknown) {

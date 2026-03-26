@@ -1,5 +1,4 @@
 import { BaseRepository } from '../base/base_repository';
-import { logger } from '@uaip/utils';
 
 export class SecurityPolicyRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {

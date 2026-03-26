@@ -1,6 +1,6 @@
 import { DatabaseService } from '../../database_service';
 
-const createMockRepository = () => ({
+const _createMockRepository = () => ({
   find: vi.fn().mockResolvedValue([]),
   findOne: vi.fn().mockResolvedValue(null),
   save: vi.fn().mockResolvedValue({}),

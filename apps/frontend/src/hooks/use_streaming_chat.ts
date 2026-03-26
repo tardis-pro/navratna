@@ -150,7 +150,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         throw error;
       }
     },
-    [baseUrl, token]
+    [baseUrl]
   );
 
   // Cancel streaming

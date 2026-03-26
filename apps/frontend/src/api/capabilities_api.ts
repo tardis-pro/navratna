@@ -7,8 +7,6 @@ import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
 import type {
   Capability,
-  CapabilityType,
-  CapabilityStatus,
   CapabilitySearchRequest,
   CapabilityRecommendation,
 } from '@uaip/contracts/api';

@@ -4,11 +4,11 @@ Three shared packages consumed by all backend services and the frontend. **Build
 
 ## PACKAGES
 
-| Package | npm name | Purpose |
-|---------|----------|---------|
-| `shared-types/` | `@uaip/types` | All TypeScript types, enums, interfaces — single source of truth |
-| `shared-utils/` | `@uaip/utils` | Logger (Winston), typed error classes, widget registry |
-| `contracts/` | `@uaip/contracts` | Cross-service interface contracts (tool exec, orchestration, events) |
+| Package         | npm name          | Purpose                                                              |
+| --------------- | ----------------- | -------------------------------------------------------------------- |
+| `shared-types/` | `@uaip/types`     | All TypeScript types, enums, interfaces — single source of truth     |
+| `shared-utils/` | `@uaip/utils`     | Logger (Winston), typed error classes, widget registry               |
+| `contracts/`    | `@uaip/contracts` | Cross-service interface contracts (tool exec, orchestration, events) |
 
 ## BUILD ORDER
 
@@ -36,13 +36,13 @@ import { Agent } from '../../shared-types/src/agent';
 
 ## WHERE TO ADD THINGS
 
-| What | Where |
-|------|-------|
-| New domain type / enum | `shared-types/src/<domain>.ts` + re-export in `index.ts` |
-| New error class | `shared-utils/src/errors.ts` + add to `index.ts` export list |
-| New utility function | `shared-utils/src/` + export from `index.ts` |
-| New event bus contract | `contracts/src/events.ts` |
-| New service interface | `contracts/src/tool.ts` or `contracts/src/orchestration.ts` |
+| What                   | Where                                                        |
+| ---------------------- | ------------------------------------------------------------ |
+| New domain type / enum | `shared-types/src/<domain>.ts` + re-export in `index.ts`     |
+| New error class        | `shared-utils/src/errors.ts` + add to `index.ts` export list |
+| New utility function   | `shared-utils/src/` + export from `index.ts`                 |
+| New event bus contract | `contracts/src/events.ts`                                    |
+| New service interface  | `contracts/src/tool.ts` or `contracts/src/orchestration.ts`  |
 
 ## ANTI-PATTERNS
 

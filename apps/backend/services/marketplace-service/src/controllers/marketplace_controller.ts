@@ -64,9 +64,8 @@ export class MarketplaceController {
   };
 
   // Get trending items
-  getTrending = async ({ query, set }: Context) => {
+  getTrending = async ({ query: _query, set }: Context) => {
     try {
-      const limit = query.limit ? parseInt(query.limit as string) : 20;
       const items = await this.marketplaceService.getFeaturedItems();
 
       return {
@@ -84,9 +83,8 @@ export class MarketplaceController {
   };
 
   // Get featured items
-  getFeatured = async ({ query, set }: Context) => {
+  getFeatured = async ({ query: _query, set }: Context) => {
     try {
-      const limit = query.limit ? parseInt(query.limit as string) : 10;
       const items = await this.marketplaceService.getFeaturedItems();
 
       return {

@@ -88,7 +88,8 @@ describe('E2E Approval Flow: LLM→plan→approval→execution', () => {
   let ToolExecutionCoordinator: unknown;
 
   beforeAll(async () => {
-const module = await import('../services/tool_execution_coordinator_service.ts');
+    const module = await import('../services/tool_execution_coordinator_service.ts');
+    ToolExecutionCoordinator = (module as Record<string, unknown>).ToolExecutionCoordinator;
   await import('../services/danger_tool_list.ts');
   await import('../services/danger_tool_list.ts');
   await import('../services/danger_tool_list.ts');
@@ -98,7 +99,6 @@ const module = await import('../services/tool_execution_coordinator_service.ts')
       expect(toolRequiresApproval('http.get')).toBe(false);
       expect(toolRequiresApproval('math.add')).toBe(false);
     });
-  });
 
   describe('ToolExecutionCoordinator.checkAndEnforceApproval', () => {
     it('should block execution when approval is required but not granted (file.write)', async () => {

@@ -95,10 +95,9 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
   )
   .get(
     '/trending',
-    async ({ query, set }) => {
+    async ({ query: _query, set }) => {
       try {
         const service = await getMarketplaceService();
-        const limit = query.limit || 20;
         const items = await service.getFeaturedItems();
 
         return {
@@ -122,10 +121,9 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
   )
   .get(
     '/featured',
-    async ({ query, set }) => {
+    async ({ query: _query, set }) => {
       try {
         const service = await getMarketplaceService();
-        const limit = query.limit || 10;
         const items = await service.getFeaturedItems();
 
         return {

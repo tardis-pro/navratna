@@ -8,51 +8,51 @@ Environment configuration loader. Single source of truth for all runtime config 
 import { config } from '@uaip/config';
 
 // Database
-const pg = config.database.postgres;      // host, port, user, password, database, ssl
-const neo4j = config.database.neo4j;      // uri, user, password
-const qdrant = config.database.qdrant;    // url, collectionName
+const pg = config.database.postgres; // host, port, user, password, database, ssl
+const neo4j = config.database.neo4j; // uri, user, password
+const qdrant = config.database.qdrant; // url, collectionName
 
 // Redis
-const redis = config.redis;               // host, port, password, db
+const redis = config.redis; // host, port, password, db
 
 // JWT
-const jwt = config.jwt;                   // secret, expiresIn, refreshExpiresIn
+const jwt = config.jwt; // secret, expiresIn, refreshExpiresIn
 
 // App
-const app = config.app;                   // port, environment, apiVersion, corsOrigins
+const app = config.app; // port, environment, apiVersion, corsOrigins
 
 // LLM
-const llm = config.services.llm;         // apiUrl, models
+const llm = config.services.llm; // apiUrl, models
 
 // Services
-config.services.agentIntelligence        // url for inter-service calls
-config.services.securityGateway
-config.services.capabilityRegistry
+config.services.agentIntelligence; // url for inter-service calls
+config.services.securityGateway;
+config.services.capabilityRegistry;
 // ... (one entry per microservice)
 ```
 
 ## EXPORTED INTERFACES
 
-| Interface | Key Fields |
-|-----------|-----------|
-| `Config` | Top-level — all sub-configs combined |
-| `DatabaseConfig` | postgres, neo4j, qdrant sub-objects |
-| `RedisConfig` | host, port, password, db, retry settings |
-| `JwtConfig` | secret, expiresIn, refreshExpiresIn, issuer |
-| `AppConfig` | port, environment, apiVersion, corsOrigins, rateLimitWindowMs |
-| `ServicesConfig` | URL for each microservice (used for inter-service HTTP calls) |
-| `LoggingConfig` | level, enableDetailedLogging, serviceName, environment |
-| `ExecutionConfig` | operationTimeoutMax, maxConcurrentOperations, maxRetryAttempts |
-| `RateLimitConfig` | windowMs, max, skipSuccessfulRequests |
-| `MonitoringConfig` | enabled, prometheusPort, healthCheckInterval |
-| `SecurityConfig` | bcryptRounds, maxLoginAttempts, sessionTimeout |
-| `CorsConfig` | origin, credentials, allowedHeaders |
-| `EmailConfig` | smtp settings (optional, dev-only) |
-| `FrontendConfig` | url (for CORS allowlist) |
-| `NotificationsConfig` | websocket settings |
-| `OrchestrationConfig` | stepTimeout, compensationTimeout |
-| `StateConfig` | compressionEnabled, checkpointRetentionDays |
-| `TimeoutConfig` | database, api, external (ms values) |
+| Interface             | Key Fields                                                     |
+| --------------------- | -------------------------------------------------------------- |
+| `Config`              | Top-level — all sub-configs combined                           |
+| `DatabaseConfig`      | postgres, neo4j, qdrant sub-objects                            |
+| `RedisConfig`         | host, port, password, db, retry settings                       |
+| `JwtConfig`           | secret, expiresIn, refreshExpiresIn, issuer                    |
+| `AppConfig`           | port, environment, apiVersion, corsOrigins, rateLimitWindowMs  |
+| `ServicesConfig`      | URL for each microservice (used for inter-service HTTP calls)  |
+| `LoggingConfig`       | level, enableDetailedLogging, serviceName, environment         |
+| `ExecutionConfig`     | operationTimeoutMax, maxConcurrentOperations, maxRetryAttempts |
+| `RateLimitConfig`     | windowMs, max, skipSuccessfulRequests                          |
+| `MonitoringConfig`    | enabled, prometheusPort, healthCheckInterval                   |
+| `SecurityConfig`      | bcryptRounds, maxLoginAttempts, sessionTimeout                 |
+| `CorsConfig`          | origin, credentials, allowedHeaders                            |
+| `EmailConfig`         | smtp settings (optional, dev-only)                             |
+| `FrontendConfig`      | url (for CORS allowlist)                                       |
+| `NotificationsConfig` | websocket settings                                             |
+| `OrchestrationConfig` | stepTimeout, compensationTimeout                               |
+| `StateConfig`         | compressionEnabled, checkpointRetentionDays                    |
+| `TimeoutConfig`       | database, api, external (ms values)                            |
 
 ## STRUCTURE
 

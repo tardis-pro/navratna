@@ -1,16 +1,8 @@
 import { logger } from '@uaip/utils';
 import { getControlPool, getIntelligencePool } from './database/drizzle/clients/index';
 
-type EntityTarget<T> = (new () => T) | string;
 type ObjectLiteral = Record<string, unknown>;
 type Repository<T extends ObjectLiteral> = DrizzleRepository<T>;
-type FindManyOptions<T = ObjectLiteral> = {
-  where?: Partial<T>;
-  order?: Partial<Record<keyof T, 'ASC' | 'DESC'>>;
-  take?: number;
-  skip?: number;
-};
-type FindOptionsWhere<T = ObjectLiteral> = Partial<T>;
 
 const INTELLIGENCE_TABLES = new Set([
   'agents',

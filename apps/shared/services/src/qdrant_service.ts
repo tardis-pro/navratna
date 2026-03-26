@@ -4,12 +4,6 @@ import type {
   CollectionOptions,
   VectorSearchOptions,
 } from '@uaip/types';
-export type {
-  VectorSearchResult,
-  MemoryCollectionType,
-  CollectionOptions,
-  VectorSearchOptions,
-} from '@uaip/types';
 
 export class QdrantService {
   private qdrantUrl: string;

@@ -22,13 +22,13 @@ src/
 
 All routes in `src/routes/basebenchRoutes.ts`:
 
-| Method | Path                                  | Purpose                                       |
-| ------ | ------------------------------------- | --------------------------------------------- |
-| POST   | `/api/v1/basebench/evaluate`          | Run benchmark evaluation on an agent response |
-| POST   | `/api/v1/basebench/run`               | Run full benchmark suite against an agent     |
-| GET    | `/api/v1/basebench/results/:agentId`  | Get historical benchmark results              |
-| GET    | `/api/v1/basebench/leaderboard`       | Ranked agent leaderboard by benchmark score   |
-| GET    | `/api/v1/basebench/rubrics`           | List available evaluation rubrics             |
+| Method | Path                                 | Purpose                                       |
+| ------ | ------------------------------------ | --------------------------------------------- |
+| POST   | `/api/v1/basebench/evaluate`         | Run benchmark evaluation on an agent response |
+| POST   | `/api/v1/basebench/run`              | Run full benchmark suite against an agent     |
+| GET    | `/api/v1/basebench/results/:agentId` | Get historical benchmark results              |
+| GET    | `/api/v1/basebench/leaderboard`      | Ranked agent leaderboard by benchmark score   |
+| GET    | `/api/v1/basebench/rubrics`          | List available evaluation rubrics             |
 
 ## SCORING MODEL
 
@@ -43,6 +43,7 @@ All routes in `src/routes/basebenchRoutes.ts`:
 ## FIXTURES
 
 `src/fixtures/` contains benchmark prompts and ground-truth rubrics. To add new evaluation scenarios:
+
 1. Add prompt in `fixtures/prompts/`
 2. Add rubric in `fixtures/rubrics/`
 3. Register in `basebenchMeta.service.ts` `BENCHMARK_SCENARIOS` map

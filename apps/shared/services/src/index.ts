@@ -69,7 +69,7 @@ export type {
 export { ConversationUtils } from './conversation/index';
 
 // Vector Search Services
-export { QdrantService, VectorSearchResult } from './qdrant_service';
+export { QdrantService } from './qdrant_service';
 
 // LLM Request Tracking Service
 export { LLMRequestTracker } from './llm_request_tracker_service';
@@ -127,7 +127,7 @@ export { DiscussionService } from './discussion_service';
 export { ParticipantManagementService } from './participant_management_service';
 
 // Widget Services
-export { WidgetService, WidgetServiceOptions } from './widget_service';
+export { WidgetService } from './widget_service';
 
 // =============================================================================
 // WORKFLOW AND STATE MANAGEMENT

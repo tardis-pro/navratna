@@ -4,16 +4,16 @@
 
 ## FILES
 
-| File | Role |
-|------|------|
-| `TelescopeSurface.tsx` | Main component + `useTelescopeSurface` hook; owns sorting, visibility derivation, 30s auto-refresh, portal dispatch |
-| `portal_registry.tsx` | **Portal hub**: `PORTAL_COMPONENTS` map (21 lazy components) + `createInitialBlocks()` + `renderPortalContent()` |
-| `telescope_surface_types.ts` | `ConstellationBlockData`, `ConstellationBlockMetadata` — typed metadata for knowledge-surface blocks |
-| `TelescopeKnowledgeSurface.tsx` | Alternate constellation/knowledge-graph surface variant |
-| `ConstellationNode.tsx` | Individual node renderer for the knowledge constellation layout |
-| `use_constellations.ts` | Fetches + manages constellation block data from `@uaip/types` |
-| `use_force_layout.ts` | D3-style force simulation for positioning constellation nodes |
-| `index.ts` | Barrel: exports both surfaces, hooks, types |
+| File                            | Role                                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `TelescopeSurface.tsx`          | Main component + `useTelescopeSurface` hook; owns sorting, visibility derivation, 30s auto-refresh, portal dispatch |
+| `portal_registry.tsx`           | **Portal hub**: `PORTAL_COMPONENTS` map (21 lazy components) + `createInitialBlocks()` + `renderPortalContent()`    |
+| `telescope_surface_types.ts`    | `ConstellationBlockData`, `ConstellationBlockMetadata` — typed metadata for knowledge-surface blocks                |
+| `TelescopeKnowledgeSurface.tsx` | Alternate constellation/knowledge-graph surface variant                                                             |
+| `ConstellationNode.tsx`         | Individual node renderer for the knowledge constellation layout                                                     |
+| `use_constellations.ts`         | Fetches + manages constellation block data from `@uaip/types`                                                       |
+| `use_force_layout.ts`           | D3-style force simulation for positioning constellation nodes                                                       |
+| `index.ts`                      | Barrel: exports both surfaces, hooks, types                                                                         |
 
 ## PORTAL REGISTRY — HOW IT WORKS
 
@@ -34,6 +34,7 @@ DEFAULT_MAX_VISIBLE_BLOCKS = 4     // attention budget cap
 ```
 
 `deriveVisibility(score, index, maxVisible)`:
+
 1. `index >= maxVisible` → `hidden` (position cap, regardless of score)
 2. `score < 0.2` → `hidden`
 3. `score < 0.5` → `faded`
@@ -43,13 +44,13 @@ Sorting is by descending `relevanceScore` first — rank 5+ is hidden even with 
 
 ## INITIAL BLOCK SCORES (createInitialBlocks)
 
-| Score | Portals |
-|-------|---------|
-| **0.9** | chat, agent-manager, dashboard |
-| **0.8** | discussion, discussion-log, discussion-controls, user-chat, consolidated-user-chat |
-| **0.75** | knowledge, artifacts, project-management, intelligence-panel |
-| **0.6** | settings, security, provider-settings, tools-integrations, tool-management, unified-tool, general-settings |
-| **0.4** | system-config, mini-browser |
+| Score    | Portals                                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------------------------- |
+| **0.9**  | chat, agent-manager, dashboard                                                                             |
+| **0.8**  | discussion, discussion-log, discussion-controls, user-chat, consolidated-user-chat                         |
+| **0.75** | knowledge, artifacts, project-management, intelligence-panel                                               |
+| **0.6**  | settings, security, provider-settings, tools-integrations, tool-management, unified-tool, general-settings |
+| **0.4**  | system-config, mini-browser                                                                                |
 
 All start at 400×500 px, 3-col grid, 24px gap/padding via `autoArrangeBlocks()`.
 

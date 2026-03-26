@@ -26,24 +26,25 @@ apps/backend/
 
 ## SERVICE MAP
 
-| Service                  | Port | Status       | AGENTS.md                                           |
-| ------------------------ | ---- | ------------ | --------------------------------------------------- |
-| **navratna-core**        | 3001 | ⚡ v3 active | [→](services/navratna-core/AGENTS.md)              |
-| **navratna-gateway**     | 3002 | ⚡ v3 active | [→](services/navratna-gateway/AGENTS.md)           |
-| agent-intelligence       | 3001 | 🔄 legacy    | [→](services/agent-intelligence/AGENTS.md)         |
-| security-gateway         | 3004 | 🔄 legacy    | [→](services/security-gateway/AGENTS.md)           |
-| capability-registry      | 3003 | 🔄 legacy    | [→](services/capability-registry/AGENTS.md)        |
-| orchestration-pipeline   | 3002 | 🔄 legacy    | [→](services/orchestration-pipeline/AGENTS.md)     |
-| discussion-orchestration | 3005 | 🔄 legacy    | [→](services/discussion-orchestration/AGENTS.md)   |
-| artifact-service         | 3006 | 🔄 legacy    | [→](services/artifact-service/AGENTS.md)           |
-| llm-service              | 3007 | 🔄 legacy    | [→](services/llm-service/AGENTS.md)                |
-| marketplace-service      | 3008 | ⚠️ removal   | (skip — do not add features)                        |
-| questionforge            | 3010 | 🆕 product   | [→](services/questionforge/AGENTS.md)              |
-| basebench-meta           | 3009 | 🆕 product   | [→](services/basebench-meta/AGENTS.md)             |
+| Service                  | Port | Status       | AGENTS.md                                        |
+| ------------------------ | ---- | ------------ | ------------------------------------------------ |
+| **navratna-core**        | 3001 | ⚡ v3 active | [→](services/navratna-core/AGENTS.md)            |
+| **navratna-gateway**     | 3002 | ⚡ v3 active | [→](services/navratna-gateway/AGENTS.md)         |
+| agent-intelligence       | 3001 | 🔄 legacy    | [→](services/agent-intelligence/AGENTS.md)       |
+| security-gateway         | 3004 | 🔄 legacy    | [→](services/security-gateway/AGENTS.md)         |
+| capability-registry      | 3003 | 🔄 legacy    | [→](services/capability-registry/AGENTS.md)      |
+| orchestration-pipeline   | 3002 | 🔄 legacy    | [→](services/orchestration-pipeline/AGENTS.md)   |
+| discussion-orchestration | 3005 | 🔄 legacy    | [→](services/discussion-orchestration/AGENTS.md) |
+| artifact-service         | 3006 | 🔄 legacy    | [→](services/artifact-service/AGENTS.md)         |
+| llm-service              | 3007 | 🔄 legacy    | [→](services/llm-service/AGENTS.md)              |
+| marketplace-service      | 3008 | ⚠️ removal   | (skip — do not add features)                     |
+| questionforge            | 3010 | 🆕 product   | [→](services/questionforge/AGENTS.md)            |
+| basebench-meta           | 3009 | 🆕 product   | [→](services/basebench-meta/AGENTS.md)           |
 
 ## TOOLING
 
 **Local infra** (no Docker for code, only infra deps):
+
 ```bash
 docker-compose -f apps/backend/docker-compose.infrastructure.yml up -d
 # postgres:5432, neo4j:7474/7687, redis:6379, qdrant:6333
@@ -57,12 +58,12 @@ docker-compose -f apps/backend/docker-compose.infrastructure.yml up -d
 
 ## WHERE TO ADD THINGS
 
-| What | Where |
-|------|-------|
-| New microservice | `services/<name>/` extending this tsconfig |
-| New API endpoint (v3) | Add to legacy service first, navratna-core/gateway picks it up |
-| API test collection entry | `UAIP_Backend_API_Collection.postman_collection.json` |
-| Shared backend script | Root `scripts/` (not here) |
+| What                      | Where                                                          |
+| ------------------------- | -------------------------------------------------------------- |
+| New microservice          | `services/<name>/` extending this tsconfig                     |
+| New API endpoint (v3)     | Add to legacy service first, navratna-core/gateway picks it up |
+| API test collection entry | `UAIP_Backend_API_Collection.postman_collection.json`          |
+| Shared backend script     | Root `scripts/` (not here)                                     |
 
 ## NOTES
 

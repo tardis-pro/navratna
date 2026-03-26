@@ -9,7 +9,6 @@ import type {
   Operation,
   OperationStatus,
   OperationType,
-  OperationPriority,
   ExecuteOperationRequest,
   OperationStatusResponse,
 } from '@uaip/contracts/api';

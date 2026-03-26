@@ -4,11 +4,11 @@
 
 ## CANONICAL TRIO — always prefer these over raw try/catch + useState
 
-| Hook | Signature | Use When |
-|------|-----------|---------|
-| `useApiCall<T>` | `{data, loading, error, execute, reset}` | User-triggered: button clicks, form submits |
-| `useDataFetch<T>` | `{data, loading, error, refetch}` | Mount-time data loading; has request-ID race-condition guard |
-| `useAsyncEffect` | `(effect, deps)` | Async `useEffect` with mounted guard + cleanup support |
+| Hook              | Signature                                | Use When                                                     |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| `useApiCall<T>`   | `{data, loading, error, execute, reset}` | User-triggered: button clicks, form submits                  |
+| `useDataFetch<T>` | `{data, loading, error, refetch}`        | Mount-time data loading; has request-ID race-condition guard |
+| `useAsyncEffect`  | `(effect, deps)`                         | Async `useEffect` with mounted guard + cleanup support       |
 
 ```tsx
 // imperative
@@ -28,10 +28,10 @@ useAsyncEffect(async () => {
 
 ## REAL-TIME / WEBSOCKET
 
-| Hook | Use |
-|------|-----|
+| Hook                   | Use                                                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `useEnhancedWebSocket` | **The only sanctioned Socket.IO hook.** Exponential backoff, auth tracking (`authenticated/unauthenticated/pending`). Returns `{isConnected, socket, sendMessage, authStatus}`. |
-| `useStreamingChat` | LLM token streaming via `/streaming` Socket.IO namespace. Returns `{isStreaming, content, tokenCount, startStream, cancelStream}`. |
+| `useStreamingChat`     | LLM token streaming via `/streaming` Socket.IO namespace. Returns `{isStreaming, content, tokenCount, startStream, cancelStream}`.                                              |
 
 ## DISCUSSION
 
@@ -39,29 +39,29 @@ useAsyncEffect(async () => {
 
 ## VISUAL / MICROEXPRESSION
 
-| Hook | Purpose |
-|------|---------|
-| `useMicroexpression` | Base 7-state machine: `express()`, `flash()`, `reset()`, `autoTransition`. States: `calm/attentive/working/strained/satisfied/alarmed/confused` |
-| `useAgentMicroexpression` | Agent-specific variant — driven by window `AGENT_ACTIVITY_EVENT` + `error`/`unhandledrejection` events |
-| `useKnowledgeMicroexpression` | Pure `useMemo` — maps `ConstellationHealth` + `relevanceScore` → microexpression state; no side effects |
+| Hook                          | Purpose                                                                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useMicroexpression`          | Base 7-state machine: `express()`, `flash()`, `reset()`, `autoTransition`. States: `calm/attentive/working/strained/satisfied/alarmed/confused` |
+| `useAgentMicroexpression`     | Agent-specific variant — driven by window `AGENT_ACTIVITY_EVENT` + `error`/`unhandledrejection` events                                          |
+| `useKnowledgeMicroexpression` | Pure `useMemo` — maps `ConstellationHealth` + `relevanceScore` → microexpression state; no side effects                                         |
 
 ## UTILITY
 
-| Hook | Purpose |
-|------|---------|
-| `useDebounce<T>` | Standard debounce |
-| `useIsMobile` | Responsive breakpoint detection |
+| Hook                 | Purpose                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| `useDebounce<T>`     | Standard debounce                                                                                     |
+| `useIsMobile`        | Responsive breakpoint detection                                                                       |
 | `useToast` / `toast` | shadcn/ui notifications — canonical import is `hooks/use-toast.ts` (NOT `components/ui/use-toast.ts`) |
-| `useWallpaper` | `WallpaperService` singleton wrapper: slideshow, theme, image cycling |
-| `useFocusManager` | DOM-level focus/hover registry + preview positioning |
+| `useWallpaper`       | `WallpaperService` singleton wrapper: slideshow, theme, image cycling                                 |
+| `useFocusManager`    | DOM-level focus/hover registry + preview positioning                                                  |
 
 ## AI / CONVERSATION
 
-| Hook | Purpose |
-|------|---------|
-| `useConversationEnhancement` | Wraps `conversationEnhancementAPI` for React usage |
+| Hook                          | Purpose                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `useConversationEnhancement`  | Wraps `conversationEnhancementAPI` for React usage                                                           |
 | `useConversationIntelligence` | Socket.IO to `/conversation-intelligence`: intent detection, topic generation, autocomplete (300ms debounce) |
-| `useDebatePrompts` | Pure prompt-building for 4 debate phases — no API calls |
+| `useDebatePrompts`            | Pure prompt-building for 4 debate phases — no API calls                                                      |
 
 ## KNOWN ISSUES
 

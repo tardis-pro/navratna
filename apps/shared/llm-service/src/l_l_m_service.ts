@@ -6,7 +6,6 @@ import {
   ArtifactRequest,
   ArtifactResponse,
   ContextRequest,
-  ContextAnalysis,
   Message,
   AvailableTool,
 } from './interfaces.js';

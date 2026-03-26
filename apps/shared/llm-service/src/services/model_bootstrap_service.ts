@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { LLMService } from '../l_l_m_service.js';
 import { UserLLMService } from '../user_l_l_m_service.js';
-import { DatabaseService, RedisCacheService, UserService } from '@uaip/shared-services';
+import { RedisCacheService, UserService } from '@uaip/shared-services';
 import { ModelSyncService } from './model_sync_service.js';
 
 interface BootstrapStatus {

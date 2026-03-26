@@ -19,18 +19,6 @@ interface Capability {
   updatedAt: Date;
 }
 
-interface AgentLLMPreference {
-  id: string;
-  agentId: string;
-  modelId?: string;
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
-  preferences?: Record<string, unknown>;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export class AgentService extends BaseDomainService {
   protected constructor() {
     super();

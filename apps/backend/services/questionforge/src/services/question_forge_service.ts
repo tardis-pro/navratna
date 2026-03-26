@@ -7,7 +7,7 @@ import {
   Assumption,
   Contradiction,
 } from '@uaip/types';
-import type { ForgeRequest, ForgeResult, InterviewSession, CouncilDebateResult } from '@uaip/types';
+import type { ForgeRequest, ForgeResult, InterviewSession } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 

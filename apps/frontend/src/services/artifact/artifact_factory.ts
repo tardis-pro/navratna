@@ -7,13 +7,13 @@ export interface ArtifactFactoryOptions {
 }
 
 export const artifactFactory = {
-  async createArtifact(options: ArtifactFactoryOptions): Promise<Artifact> {
+  async createArtifact(_options: ArtifactFactoryOptions): Promise<Artifact> {
     throw new Error('artifactFactory.createArtifact not yet implemented');
   },
 
   async generateArtifact(
-    type: string,
-    context: ConversationContext
+    _type: string,
+    _context: ConversationContext
   ): Promise<{ success: boolean; artifact?: Artifact }> {
     throw new Error('artifactFactory.generateArtifact not yet implemented');
   },

@@ -50,19 +50,19 @@ chmod +x scripts/start-backend.sh
 
 ### Service Endpoints
 
-| Service                  | Port | Health Check                   | Status      |
-| ------------------------ | ---- | ------------------------------ | ----------- |
+| Service                  | Port | Health Check                   | Status       |
+| ------------------------ | ---- | ------------------------------ | ------------ |
 | **navratna-core**        | 3001 | `http://localhost:3001/health` | ⚡ v3 active |
 | **navratna-gateway**     | 3002 | `http://localhost:3002/health` | ⚡ v3 active |
-| **questionforge**        | 3010 | `http://localhost:3010/health` | 🆕 product  |
-| **basebench-meta**       | 3009 | `http://localhost:3009/health` | 🆕 product  |
-| agent-intelligence       | 3001 | `http://localhost:3001/health` | 🔄 legacy   |
-| orchestration-pipeline   | 3002 | `http://localhost:3002/health` | 🔄 legacy   |
-| capability-registry      | 3003 | `http://localhost:3003/health` | 🔄 legacy   |
-| security-gateway         | 3004 | `http://localhost:3004/health` | 🔄 legacy   |
-| discussion-orchestration | 3005 | `http://localhost:3005/health` | 🔄 legacy   |
-| artifact-service         | 3006 | `http://localhost:3006/health` | 🔄 legacy   |
-| llm-service              | 3007 | `http://localhost:3007/health` | 🔄 legacy   |
+| **questionforge**        | 3010 | `http://localhost:3010/health` | 🆕 product   |
+| **basebench-meta**       | 3009 | `http://localhost:3009/health` | 🆕 product   |
+| agent-intelligence       | 3001 | `http://localhost:3001/health` | 🔄 legacy    |
+| orchestration-pipeline   | 3002 | `http://localhost:3002/health` | 🔄 legacy    |
+| capability-registry      | 3003 | `http://localhost:3003/health` | 🔄 legacy    |
+| security-gateway         | 3004 | `http://localhost:3004/health` | 🔄 legacy    |
+| discussion-orchestration | 3005 | `http://localhost:3005/health` | 🔄 legacy    |
+| artifact-service         | 3006 | `http://localhost:3006/health` | 🔄 legacy    |
+| llm-service              | 3007 | `http://localhost:3007/health` | 🔄 legacy    |
 
 > v3.0 consolidation: `navratna-core` replaces agent-intelligence + discussion-orchestration + artifact-service + llm-service. `navratna-gateway` replaces security-gateway + orchestration-pipeline + capability-registry. Run the v3 services for active development.
 

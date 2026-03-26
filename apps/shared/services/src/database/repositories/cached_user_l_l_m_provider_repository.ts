@@ -1,6 +1,5 @@
 import { UserLLMProviderRepository } from './user_l_l_m_provider_repository';
 import { redisCacheService } from '../../redis_cache_service';
-import { logger } from '@uaip/utils';
 
 export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   private readonly CACHE_TTL = { ACTIVE_PROVIDERS: 300, PROVIDER_BY_ID: 600, USER_PROVIDERS: 300 };

@@ -1,4 +1,9 @@
-export type { UserRole, LoginResponse, ChangePasswordRequest, ResetPasswordRequest } from '@uaip/types';
+export type {
+  UserRole,
+  LoginResponse,
+  ChangePasswordRequest,
+  ResetPasswordRequest,
+} from '@uaip/types';
 
 export interface LoginCredentials {
   email: string;

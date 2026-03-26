@@ -483,8 +483,8 @@ export class AgentCoreService {
   private async handleListQuery(event: ListQueryEvent): Promise<void> {
     const { requestId, filters } = event;
     try {
-      const agents = await this.getAgents(filters);
-      await this.respondToRequest(requestId, { success: true, data: agents });
+      const agentList = await this.getAgents(filters);
+      await this.respondToRequest(requestId, { success: true, data: agentList });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.respondToRequest(requestId, { success: false, error: errorMessage });

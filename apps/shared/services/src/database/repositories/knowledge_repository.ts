@@ -1,7 +1,6 @@
 import { getIntelligenceDb, getIntelligencePool } from '../drizzle/clients/index';
 import { knowledgeItems, knowledgeRelationships } from '../drizzle/schemas/intelligence_schema';
-import { eq, and, ilike, inArray, desc, sql, gte } from 'drizzle-orm';
-import { logger } from '@uaip/utils';
+import { eq, and, inArray, desc, sql, gte } from 'drizzle-orm';
 
 export type KnowledgeRow = typeof knowledgeItems.$inferSelect;
 export type RelationshipRow = typeof knowledgeRelationships.$inferSelect;

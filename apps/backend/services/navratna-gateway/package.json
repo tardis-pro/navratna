@@ -1,7 +1,7 @@
 {
   "name": "@uaip/navratna-gateway",
   "version": "3.0.0",
-  "description": "Navratna Gateway \u2014 consolidated service (security-gateway + orchestration-pipeline + capability-registry)",
+  "description": "Navratna Gateway — consolidated service (security-gateway + orchestration-pipeline + capability-registry)",
   "main": "./dist/index.js",
   "type": "module",
   "scripts": {

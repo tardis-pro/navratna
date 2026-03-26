@@ -71,7 +71,6 @@ interface ExecutionPlanData {
   metadata?: Record<string, unknown>;
 }
 
-type AgentRow = typeof agents.$inferSelect;
 type AgentActivityRow = typeof agentActivity.$inferSelect;
 type AgentLearningRow = typeof agentLearningRecords.$inferSelect;
 type OperationRow = typeof operations.$inferSelect;

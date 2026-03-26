@@ -10,10 +10,11 @@ import {
   KnowledgeScope,
   KnowledgeType,
   SourceType,
+  VectorSearchResult,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService } from './qdrant_service.js';
-import { KnowledgeRepository, VectorSearchResult } from '@uaip/shared-services';
+import { KnowledgeRepository } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
 import { RelationshipDetector } from './relationship_detector_service.js';
@@ -277,7 +278,7 @@ export class KnowledgeGraphService {
       // Generate context embedding from discussion history and preferences
       const contextEmbedding = await this.embeddings.generateContextEmbedding(context);
 
-      const results = await this.vectorDb.search(contextEmbedding, {
+      const _results = await this.vectorDb.search(contextEmbedding, {
         limit: 10,
         threshold: 0.6,
         filters: {
@@ -566,7 +567,7 @@ export class KnowledgeGraphService {
 
   private async enhanceWithRelationships(
     items: KnowledgeItem[],
-    scope?: KnowledgeScope
+    _scope?: KnowledgeScope
   ): Promise<KnowledgeItem[]> {
     const enhanced = [];
 

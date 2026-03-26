@@ -4,24 +4,24 @@ Reference docs for implemented features. For architecture/service map, see root 
 
 ## Documents in this directory
 
-| File | Description |
-| ---- | ----------- |
-| (add feature docs here as markdown files) | |
+| File                                      | Description |
+| ----------------------------------------- | ----------- |
+| (add feature docs here as markdown files) |             |
 
 ## Feature Areas
 
-| Feature                   | Primary Service                        | Status   |
-| ------------------------- | -------------------------------------- | -------- |
-| Agent chat + memory       | agent-intelligence / navratna-core     | ✅ Active |
-| Real-time discussions     | discussion-orchestration / navratna-core | ✅ Active |
-| Artifact generation       | artifact-service / navratna-core       | ✅ Active |
-| Auth + MFA + OAuth        | security-gateway / navratna-gateway    | ✅ Active |
-| Tool registry + MCP       | capability-registry / navratna-gateway | ✅ Active |
-| Workflow orchestration    | orchestration-pipeline / navratna-gateway | ✅ Active |
-| Knowledge graph sync      | shared-services/knowledge-graph        | ✅ Active |
-| Stakeholder discovery     | questionforge (port 3010)              | 🆕 Active |
-| Metacognitive benchmark   | basebench-meta (port 3009)             | 🆕 Active |
-| Agent marketplace         | marketplace-service                    | ⚠️ Removal |
+| Feature                 | Primary Service                           | Status     |
+| ----------------------- | ----------------------------------------- | ---------- |
+| Agent chat + memory     | agent-intelligence / navratna-core        | ✅ Active  |
+| Real-time discussions   | discussion-orchestration / navratna-core  | ✅ Active  |
+| Artifact generation     | artifact-service / navratna-core          | ✅ Active  |
+| Auth + MFA + OAuth      | security-gateway / navratna-gateway       | ✅ Active  |
+| Tool registry + MCP     | capability-registry / navratna-gateway    | ✅ Active  |
+| Workflow orchestration  | orchestration-pipeline / navratna-gateway | ✅ Active  |
+| Knowledge graph sync    | shared-services/knowledge-graph           | ✅ Active  |
+| Stakeholder discovery   | questionforge (port 3010)                 | 🆕 Active  |
+| Metacognitive benchmark | basebench-meta (port 3009)                | 🆕 Active  |
+| Agent marketplace       | marketplace-service                       | ⚠️ Removal |
 
 ## Key Architectural Patterns
 
@@ -30,6 +30,7 @@ Reference docs for implemented features. For architecture/service map, see root 
 **Specialist huddle**: When `conversation-enhancement.service.ts` detects low response confidence, it auto-creates a multi-agent discussion to improve quality.
 
 **3-tier agent memory**:
+
 - Working memory — in-process context window
 - Episodic memory — Neo4j via `EpisodicMemoryManager`
 - Semantic memory — Qdrant via `SemanticMemoryManager` (1024-dim vectors)

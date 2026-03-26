@@ -1,6 +1,4 @@
 import { BaseRepository } from '../base/base_repository';
-import { logger } from '@uaip/utils';
-import { getControlDb } from '../drizzle/clients/index';
 
 export class OperationRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {
@@ -64,7 +62,7 @@ export class OperationStateRepository extends BaseRepository<Record<string, unkn
   ): Promise<void> {
     await this.update(operationId, { ...state, ...updates });
   }
-  async deleteOldOperationStates(cutoffDate: Date): Promise<number> {
+  async deleteOldOperationStates(_cutoffDate: Date): Promise<number> {
     return 0;
   }
   async getStateStatistics(): Promise<{

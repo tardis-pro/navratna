@@ -1,11 +1,8 @@
 import {
   TaskEntity,
   TaskStatus,
-  TaskPriority,
   TaskType,
   AssigneeType,
-  TaskSettings,
-  TaskMetrics,
   TaskActivityEntry,
   CreateTaskRequest,
   UpdateTaskRequest,

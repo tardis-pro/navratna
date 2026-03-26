@@ -87,7 +87,9 @@ import { ServiceDatabaseConfig } from '@uaip/types/config'; // only for orphan f
 ## CRITICAL PATTERNS
 
 ### Zod-First Type Definition
+
 All domain types use Zod schemas — the schema IS the source of truth:
+
 ```typescript
 // ✅ Correct pattern
 export const AgentSchema = BaseEntitySchema.extend({ ... });
@@ -98,7 +100,9 @@ export interface Agent { ... }
 ```
 
 ### UAIPEvent Generic Envelope
+
 All cross-service events extend this:
+
 ```typescript
 import { UAIPEvent } from '@uaip/types';
 // events.ts pattern:
@@ -108,23 +112,25 @@ export interface MyEvent extends UAIPEvent<MyPayload> {
 ```
 
 ### Elysia Context Hierarchy (http.ts)
+
 ```
 ElysiaBaseContext → AuthContext → RequiredAuthContext → FullAuthenticatedContext → FullAgentContext
 ```
+
 Use these in Elysia route handlers — never use `any` for context.
 
 ## KEY ENUMS
 
-| Enum               | Values |
-| ------------------ | ------ |
-| `SecurityLevel`    | `LOW \| MEDIUM \| HIGH \| CRITICAL` |
-| `AgentStatus`      | `idle \| thinking \| executing \| waiting \| error` |
-| `DiscussionStatus` | `pending \| active \| paused \| completed \| archived` |
-| `LLMTaskType`      | `ANALYSIS \| GENERATION \| EVALUATION \| ...` |
+| Enum               | Values                                                        |
+| ------------------ | ------------------------------------------------------------- |
+| `SecurityLevel`    | `LOW \| MEDIUM \| HIGH \| CRITICAL`                           |
+| `AgentStatus`      | `idle \| thinking \| executing \| waiting \| error`           |
+| `DiscussionStatus` | `pending \| active \| paused \| completed \| archived`        |
+| `LLMTaskType`      | `ANALYSIS \| GENERATION \| EVALUATION \| ...`                 |
 | `ToolCategory`     | in `tool.ts` — 16 categories (API, DATABASE, WEB_SEARCH, ...) |
-| `AuditEventType`   | audit log event classifications |
-| `PersonaStatus`    | `active \| inactive \| DEPRECATED` |
-| `CapabilityStatus` | includes `DEPRECATED` value |
+| `AuditEventType`   | audit log event classifications                               |
+| `PersonaStatus`    | `active \| inactive \| DEPRECATED`                            |
+| `CapabilityStatus` | includes `DEPRECATED` value                                   |
 
 ## KNOWN ISSUES
 

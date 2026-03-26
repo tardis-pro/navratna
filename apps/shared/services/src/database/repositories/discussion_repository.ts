@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { getIntelligenceDb } from '../drizzle/clients/index';
-import { discussions, discussionParticipants } from '../drizzle/schemas/intelligence_schema';
-import { eq, and, or, ilike, inArray, desc } from 'drizzle-orm';
+import { discussions } from '../drizzle/schemas/intelligence_schema';
+import { eq, desc } from 'drizzle-orm';
 
 export class DiscussionRepository {
   private get db() {

@@ -1,6 +1,5 @@
 import { QdrantService } from '../qdrant_service';
 import { knowledgeItems } from '../database/drizzle/schemas/intelligence_schema';
-import { getIntelligenceDb } from '../database/drizzle/clients/index';
 import {
   KnowledgeType,
   SourceType,

@@ -464,10 +464,9 @@ export class ToolRegistry {
 
   // Utility Methods
   async validateToolDefinition(
-    tool: Partial<ToolDefinition>
+    _tool: Partial<ToolDefinition>
   ): Promise<{ valid: boolean; errors: string[] }> {
     try {
-      tool as ToolDefinition;
       return { valid: true, errors: [] };
     } catch (error) {
       if (error instanceof z.ZodError) {

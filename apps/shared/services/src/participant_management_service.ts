@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import type { DiscussionParticipant } from './database/drizzle/schemas/intelligence_schema';

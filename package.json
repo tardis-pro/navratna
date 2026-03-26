@@ -39,6 +39,8 @@
     "@types/node": "^25.5.0",
     "concurrently": "catalog:dev",
     "dependency-cruiser": "^17.3.9",
+    "jscpd": "^4.0.8",
+    "knip": "^6.0.6",
     "nx": "22.6.1",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",

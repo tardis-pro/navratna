@@ -44,7 +44,6 @@ import type {
   SessionStatus,
   AuthenticationMethod,
   OAuthProviderType,
-  LLMProviderType,
 } from '@uaip/types';
 
 // ─── base ──────────────────────────────────────────────────────────────────

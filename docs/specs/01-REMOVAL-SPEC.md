@@ -215,34 +215,35 @@ Every removal is driven by one of three principles:
 
 ## Status Dashboard (2026-03-26 Audit)
 
-| #  | Item                             | Phase | Status          | Notes                                                                                    |
-|----|----------------------------------|-------|-----------------|------------------------------------------------------------------------------------------|
-| 1  | MinIO                            | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                          |
-| 2  | TEI Embeddings GPU               | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                          |
-| 3  | TEI Reranker                     | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                          |
-| 4  | Prometheus                       | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 291)                                                   |
-| 5  | Loki                             | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 308)                                                   |
-| 6  | Grafana (Local)                  | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 424)                                                   |
-| 7  | Promtail                         | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 321)                                                   |
-| 8  | Exporter Containers              | 0     | **PARTIAL** ⚠️ | neo4j-exporter removed; postgres-exporter (338), redis-exporter (352), node-exporter (367), nginx-exporter (405) still present |
-| 9  | RabbitMQ                         | 1     | **PARTIAL** ⚠️ | Removed from main compose; still in test/enterprise/infra compose + scripts + monitoring |
-| 10 | TEI Embeddings CPU               | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                          |
-| 11 | Marketplace Service              | 0     | **NOT DONE** ❌ | Directory still exists at apps/backend/services/marketplace-service/                     |
-| 12 | Enterprise Docker Compose        | 3     | **EXISTS** ℹ️   | At infrastructure/docker-compose.enterprise.yml — spec says archive, not delete          |
-| 13 | DesktopUnified                   | 2     | **DONE** ✅     | DesktopUnified.tsx + DesktopWorkspace.tsx deleted                                        |
-| 14 | DashboardPortal                  | 0     | **NOT DONE** ❌ | Still exists, lazy-loaded via portal_registry.tsx                                        |
-| 15 | MiniBrowserPortal                | 0     | **NOT DONE** ❌ | Still exists, lazy-loaded via portal_registry.tsx                                        |
-| 16 | ChatPortal                       | 0     | **NOT DONE** ❌ | Still exists, lazy-loaded via portal_registry.tsx                                        |
-| 17 | MultiChatManager                 | 0     | **NOT DONE** ❌ | Still exists in futuristic/portals/                                                      |
-| 18 | MindMap                          | 0     | **NOT DONE** ❌ | Still exists as MindMap.tsx in futuristic/portals/                                       |
-| 19 | KnowledgeGraphVisualization      | 0     | **NOT DONE** ❌ | Still exists as KnowledgeGraphVisualization.tsx in futuristic/portals/                   |
-| 20 | TypeORM                          | 1     | **DONE** ✅     | Zero traces in source, deps, config, lockfile                                            |
-| 21 | amqplib / RabbitMQ Client        | 1     | **DONE** ✅     | Zero in source, zero in package.json                                                     |
-| 22 | OpenClaw Infrastructure           | 3     | **DONE** ✅     | /openclaw-infra/ directory does not exist                                                |
+| #   | Item                        | Phase | Status          | Notes                                                                                                                          |
+| --- | --------------------------- | ----- | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | MinIO                       | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
+| 2   | TEI Embeddings GPU          | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
+| 3   | TEI Reranker                | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
+| 4   | Prometheus                  | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 291)                                                                                         |
+| 5   | Loki                        | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 308)                                                                                         |
+| 6   | Grafana (Local)             | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 424)                                                                                         |
+| 7   | Promtail                    | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 321)                                                                                         |
+| 8   | Exporter Containers         | 0     | **PARTIAL** ⚠️  | neo4j-exporter removed; postgres-exporter (338), redis-exporter (352), node-exporter (367), nginx-exporter (405) still present |
+| 9   | RabbitMQ                    | 1     | **PARTIAL** ⚠️  | Removed from main compose; still in test/enterprise/infra compose + scripts + monitoring                                       |
+| 10  | TEI Embeddings CPU          | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
+| 11  | Marketplace Service         | 0     | **NOT DONE** ❌ | Directory still exists at apps/backend/services/marketplace-service/                                                           |
+| 12  | Enterprise Docker Compose   | 3     | **EXISTS** ℹ️   | At infrastructure/docker-compose.enterprise.yml — spec says archive, not delete                                                |
+| 13  | DesktopUnified              | 2     | **DONE** ✅     | DesktopUnified.tsx + DesktopWorkspace.tsx deleted                                                                              |
+| 14  | DashboardPortal             | 0     | **NOT DONE** ❌ | Still exists, lazy-loaded via portal_registry.tsx                                                                              |
+| 15  | MiniBrowserPortal           | 0     | **NOT DONE** ❌ | Still exists, lazy-loaded via portal_registry.tsx                                                                              |
+| 16  | ChatPortal                  | 0     | **NOT DONE** ❌ | Still exists, lazy-loaded via portal_registry.tsx                                                                              |
+| 17  | MultiChatManager            | 0     | **NOT DONE** ❌ | Still exists in futuristic/portals/                                                                                            |
+| 18  | MindMap                     | 0     | **NOT DONE** ❌ | Still exists as MindMap.tsx in futuristic/portals/                                                                             |
+| 19  | KnowledgeGraphVisualization | 0     | **NOT DONE** ❌ | Still exists as KnowledgeGraphVisualization.tsx in futuristic/portals/                                                         |
+| 20  | TypeORM                     | 1     | **DONE** ✅     | Zero traces in source, deps, config, lockfile                                                                                  |
+| 21  | amqplib / RabbitMQ Client   | 1     | **DONE** ✅     | Zero in source, zero in package.json                                                                                           |
+| 22  | OpenClaw Infrastructure     | 3     | **DONE** ✅     | /openclaw-infra/ directory does not exist                                                                                      |
 
 **Scorecard**: 8 DONE ✅ | 2 PARTIAL ⚠️ | 11 NOT DONE ❌ | 1 INFO ℹ️
 
 **Undocumented containers still in docker-compose.yml** (not in original removal spec):
+
 - `node-exporter` (line 367) — not mentioned in spec, should be evaluated
 - `nginx-exporter` (line 405) — not mentioned in spec, should be evaluated
 
@@ -280,14 +281,15 @@ Before each removal:
 Based on the audit, the following removals are overdue (were planned for Phase 0 but not executed):
 
 **HIGH PRIORITY** (Phase 0 items still pending):
+
 1. Remove monitoring stack from docker-compose.yml: prometheus, loki, grafana, promtail, postgres-exporter, redis-exporter (#4–8)
 2. Delete frontend stubs: ChatPortal, MultiChatManager, MindMap, KnowledgeGraphVisualization (#16–19) — and update portal_registry.tsx
 3. Delete DashboardPortal (mock data) and MiniBrowserPortal (#14–15) — and update portal_registry.tsx
 4. Delete marketplace-service directory (#11)
 
-**MEDIUM PRIORITY** (Phase 1 items with residual):
-5. Clean RabbitMQ from infrastructure compose files, scripts, monitoring configs (see 02-REPLACEMENT-SPEC.md D3–D8)
+**MEDIUM PRIORITY** (Phase 1 items with residual): 5. Clean RabbitMQ from infrastructure compose files, scripts, monitoring configs (see 02-REPLACEMENT-SPEC.md D3–D8)
 
 **Decision needed**:
+
 - node-exporter and nginx-exporter: remove with monitoring stack or keep for basic health monitoring?
 - Portal components: some are lazy-loaded and functional — confirm they should be deleted vs kept as Telescope content

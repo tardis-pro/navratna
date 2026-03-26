@@ -28,36 +28,39 @@ import type { EventContracts } from '@uaip/contracts/events';
 ## KEY CONTRACTS
 
 ### tool.ts
-| Export | Purpose |
-|--------|---------|
-| `ToolExecutionRequest / Response` | Request/response shape for tool execution |
-| `ToolExecutionCoordinator` | Interface for services that execute tools |
-| `ToolContract` | Full tool interface (execute, validate, getSchema) |
-| `CapabilityRegistry` | Register/discover/filter capabilities |
-| `Capability / CapabilityFilters` | Capability shape and search filters |
-| `ToolDefinitionSchema` | Zod runtime validator for tool definitions |
-| `ToolRelationshipSchema` | Zod validator for tool relationships |
+
+| Export                            | Purpose                                            |
+| --------------------------------- | -------------------------------------------------- |
+| `ToolExecutionRequest / Response` | Request/response shape for tool execution          |
+| `ToolExecutionCoordinator`        | Interface for services that execute tools          |
+| `ToolContract`                    | Full tool interface (execute, validate, getSchema) |
+| `CapabilityRegistry`              | Register/discover/filter capabilities              |
+| `Capability / CapabilityFilters`  | Capability shape and search filters                |
+| `ToolDefinitionSchema`            | Zod runtime validator for tool definitions         |
+| `ToolRelationshipSchema`          | Zod validator for tool relationships               |
 
 ### orchestration.ts
-| Export | Purpose |
-|--------|---------|
-| `OrchestrationPipeline` | Create/execute/pause/cancel execution plans |
-| `ExecutionPlan / ExecutionContext / ExecutionResult` | Pipeline data shapes |
-| `StepExecutor / CompensationHandler` | Per-step execution + saga compensation |
-| `WorkflowOrchestrator` | Start workflows, submit tasks, subscribe to events |
-| `ExecutionStatus` | Progress tracking (queued/running/paused/completed/failed) |
+
+| Export                                               | Purpose                                                    |
+| ---------------------------------------------------- | ---------------------------------------------------------- |
+| `OrchestrationPipeline`                              | Create/execute/pause/cancel execution plans                |
+| `ExecutionPlan / ExecutionContext / ExecutionResult` | Pipeline data shapes                                       |
+| `StepExecutor / CompensationHandler`                 | Per-step execution + saga compensation                     |
+| `WorkflowOrchestrator`                               | Start workflows, submit tasks, subscribe to events         |
+| `ExecutionStatus`                                    | Progress tracking (queued/running/paused/completed/failed) |
 
 ### events.ts — Event Types
+
 All events extend `UAIPEvent<TPayload>` from `@uaip/types` with a narrowed `type` literal.
 
-| Event type string | Purpose |
-|-------------------|---------|
-| `tool.execute.request/response` | Tool execution round-trip |
-| `approval.request/response` | Human-in-the-loop approvals |
-| `operation.started/completed/failed` | Operation lifecycle |
-| `operation.step.completed/failed` | Step-level tracking |
-| `capability.discovered/updated` | Registry sync |
-| `security.validation.requested/completed` | Security checks |
+| Event type string                         | Purpose                     |
+| ----------------------------------------- | --------------------------- |
+| `tool.execute.request/response`           | Tool execution round-trip   |
+| `approval.request/response`               | Human-in-the-loop approvals |
+| `operation.started/completed/failed`      | Operation lifecycle         |
+| `operation.step.completed/failed`         | Step-level tracking         |
+| `capability.discovered/updated`           | Registry sync               |
+| `security.validation.requested/completed` | Security checks             |
 
 ## WHEN TO USE
 

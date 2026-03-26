@@ -1,4 +1,4 @@
-import { logger, ApiError } from '@uaip/utils';
+import { logger } from '@uaip/utils';
 import { CapabilityDiscoveryService, SecurityValidationService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import {
@@ -129,7 +129,7 @@ export class CapabilityController {
     };
   };
 
-  public listCapabilities = async ({ query, headers, set }: ElysiaContext) => {
+  public listCapabilities = async ({ query, headers, set: _set }: ElysiaContext) => {
     const q = query ?? {};
     const { query: qParam = '*', type, limit = 50 } = q;
 
@@ -246,7 +246,7 @@ export class CapabilityController {
     return;
   };
 
-  public getCategories = async ({ headers, set }: ElysiaContext) => {
+  public getCategories = async ({ headers, set: _set }: ElysiaContext) => {
     const securityContext = this.extractSecurityContext(headers ?? {});
 
     await this.securityValidationService.validateOperation(
@@ -340,7 +340,7 @@ export class CapabilityController {
     };
   };
 
-  public getRecommendations = async ({ query, headers, set }: ElysiaContext) => {
+  public getRecommendations = async ({ query, headers, set: _set }: ElysiaContext) => {
     const q = query ?? {};
     const { context, intent } = q;
 

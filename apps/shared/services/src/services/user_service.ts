@@ -10,7 +10,6 @@ import { UserContactRepository } from '../database/repositories/user_contact_rep
 import { UserEntity } from '../entities/user_entity';
 import { RefreshTokenEntity } from '../entities/refresh_token_entity';
 import { PasswordResetTokenEntity } from '../entities/password_reset_token_entity';
-import { UserLLMPreference } from '../entities/user_l_l_m_preference_entity';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 

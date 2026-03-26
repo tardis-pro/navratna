@@ -13,11 +13,7 @@ import { Persona, Agent, AgentSchema, Discussion } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService, EventBusMessage } from '@uaip/infra/event_bus';
-import {
-  Agent as AgentEntity,
-  Discussion as DiscussionEntity,
-  UserEntity,
-} from '@uaip/shared-services';
+import { Agent as AgentEntity, UserEntity } from '@uaip/shared-services';
 
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {

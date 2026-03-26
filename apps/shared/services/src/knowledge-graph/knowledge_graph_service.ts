@@ -334,7 +334,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
   async findRelated(
     itemId: string,
     relationshipTypes?: string[],
-    scope?: KnowledgeScope
+    _scope?: KnowledgeScope
   ): Promise<KnowledgeItem[]> {
     try {
       const relationships = await this.repository.getRelationships(itemId);
@@ -477,7 +477,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
   private async enhanceWithRelationships(
     items: KnowledgeItem[],
-    scope?: KnowledgeScope
+    _scope?: KnowledgeScope
   ): Promise<KnowledgeItem[]> {
     const enhanced = [];
 

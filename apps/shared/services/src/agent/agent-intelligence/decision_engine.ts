@@ -6,7 +6,6 @@ import {
   DecisionResult,
   CapabilityResolver,
 } from '@uaip/types';
-import { ToolRegistryCapabilityResolver } from './capability_resolver';
 import { AgentStateMachine } from '../../agent-state/agent_state_machine';
 import { AgentEventBus } from '../../observability/agent_event_bus';
 import { logger } from '@uaip/utils';

@@ -18,29 +18,32 @@ src/
 Minimal own source. Routes imported from legacy service `src/` directories (not full coverage — see gaps below).
 
 ### Imported routes
-| Import | Source | Exposes |
-|--------|--------|---------|
-| `registerAgentRoutes` | `agent-intelligence/src/routes/agent.routes.ts` | **ONE route only**: `POST /api/v1/agents/relevance` |
-| `registerConstellationRoutes` | `agent-intelligence/src/routes/constellation.routes.ts` | `POST /api/v1/knowledge/constellations` |
-| `registerArtifactRoutes` | `artifact-service/src/routes/artifactRoutes.ts` | 8 routes under `/api/v1/artifacts` |
-| `registerShortLinkRoutes` | `artifact-service/src/routes/shortLinkRoutes.ts` | 7 routes under `/api/v1/links` + `/s/:shortCode` |
-| `registerLLMRoutes` | `llm-service/src/routes/llm.routes.ts` | 17 routes under `/api/v1/llm` |
-| `registerUserLLMRoutes` | `llm-service/src/routes/user-llm.routes.ts` | 13 routes under `/api/v1/user/llm` |
+
+| Import                        | Source                                                  | Exposes                                             |
+| ----------------------------- | ------------------------------------------------------- | --------------------------------------------------- |
+| `registerAgentRoutes`         | `agent-intelligence/src/routes/agent.routes.ts`         | **ONE route only**: `POST /api/v1/agents/relevance` |
+| `registerConstellationRoutes` | `agent-intelligence/src/routes/constellation.routes.ts` | `POST /api/v1/knowledge/constellations`             |
+| `registerArtifactRoutes`      | `artifact-service/src/routes/artifactRoutes.ts`         | 8 routes under `/api/v1/artifacts`                  |
+| `registerShortLinkRoutes`     | `artifact-service/src/routes/shortLinkRoutes.ts`        | 7 routes under `/api/v1/links` + `/s/:shortCode`    |
+| `registerLLMRoutes`           | `llm-service/src/routes/llm.routes.ts`                  | 17 routes under `/api/v1/llm`                       |
+| `registerUserLLMRoutes`       | `llm-service/src/routes/user-llm.routes.ts`             | 13 routes under `/api/v1/user/llm`                  |
 
 ### ⚠️ CRITICAL GAP
+
 Full agent CRUD (`/api/v1/agents`), chat (`/api/v1/agents/:id/chat`), memory management, persona CRUD, and discussion endpoints are **inline** in `agent-intelligence/src/index.ts` — they are NOT in the extracted route files. These endpoints are **not accessible via navratna-core**; they require the legacy `agent-intelligence` service to be running.
 
 ### Socket.IO handlers (from discussion-orchestration)
+
 Imported: `UserChatHandler`, `ConversationIntelligenceHandler`, `TaskNotificationHandler`, `StreamingHandler`, `CodingAgentSocketHandler`, `DebateHandler`, `WhatsAppHandler`, `setupWebSocketHandlers`. Each wrapped in `try/catch` — silent degradation on failure.
 
 **Engine**: `@socket.io/bun-engine`, path `/socket.io/`, pingInterval 25s, pingTimeout 60s
 
-| Namespace | Handler |
-|-----------|---------|
-| `/` (default) | `setupWebSocketHandlers` — full discussion lifecycle: join/leave rooms, messages, typing, turns, reactions |
-| `/conversation-intelligence` | `ConversationIntelligenceHandler` |
-| `/streaming` | `StreamingHandler` |
-| `/coding-agent` | `CodingAgentSocketHandler` |
+| Namespace                    | Handler                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `/` (default)                | `setupWebSocketHandlers` — full discussion lifecycle: join/leave rooms, messages, typing, turns, reactions |
+| `/conversation-intelligence` | `ConversationIntelligenceHandler`                                                                          |
+| `/streaming`                 | `StreamingHandler`                                                                                         |
+| `/coding-agent`              | `CodingAgentSocketHandler`                                                                                 |
 
 ## WHAT IT EXPOSES
 
@@ -53,6 +56,7 @@ Imported: `UserChatHandler`, `ConversationIntelligenceHandler`, `TaskNotificatio
 ## AUTH
 
 Socket.IO auth (correlation-ID pattern):
+
 1. Extract token from `socket.handshake.auth.token` / `Authorization: Bearer` / `query.token`
 2. Publish `security.auth.validate` with UUID correlation ID → await `security.auth.response` (5s timeout)
 3. HTTP fallback: `GET http://navratna-gateway:3002/api/v1/auth/validate` (then `http://localhost:3002`)

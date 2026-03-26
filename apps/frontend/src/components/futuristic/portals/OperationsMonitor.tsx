@@ -66,21 +66,21 @@ export const OperationsMonitor: React.FC = () => {
     switch (status) {
       case OperationStatus.RUNNING:
       case 'running':
-        return <PlayIcon className="w-4 h-4 text-blue-500" />;
+        return <Play className="w-4 h-4 text-blue-500" />;
       case OperationStatus.PAUSED:
       case 'paused':
-        return <PauseIcon className="w-4 h-4 text-yellow-500" />;
+        return <Pause className="w-4 h-4 text-yellow-500" />;
       case OperationStatus.COMPLETED:
       case 'completed':
-        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case OperationStatus.FAILED:
       case 'failed':
-        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-red-500" />;
       case OperationStatus.CANCELLED:
       case 'cancelled':
-        return <StopIcon className="w-4 h-4 text-gray-500" />;
+        return <Square className="w-4 h-4 text-gray-500" />;
       default:
-        return <ClockIcon className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
 
@@ -141,7 +141,7 @@ export const OperationsMonitor: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
+            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
             <p className="text-red-500 dark:text-red-400">Failed to load operations</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
               {operations.error.message}
@@ -164,7 +164,7 @@ export const OperationsMonitor: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
+            <RefreshCw className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
             <p className="text-gray-500 dark:text-gray-400">Loading operations...</p>
           </div>
         </div>
@@ -179,7 +179,7 @@ export const OperationsMonitor: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <CogIcon className="w-6 h-6 mr-2 text-blue-500" />
+            <Settings className="w-6 h-6 mr-2 text-blue-500" />
             Operations Monitor
           </h2>
           <div className="flex items-center space-x-4">
@@ -196,7 +196,7 @@ export const OperationsMonitor: React.FC = () => {
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               title="Refresh operations"
             >
-              <ArrowPathIcon className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -204,7 +204,7 @@ export const OperationsMonitor: React.FC = () => {
         {/* Empty State */}
         <div className="flex items-center justify-center h-32">
           <div className="text-center">
-            <CogIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <Settings className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500 dark:text-gray-400">No operations to monitor</p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
               Operations will appear here when agents start working
@@ -226,7 +226,7 @@ export const OperationsMonitor: React.FC = () => {
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <CogIcon className="w-6 h-6 mr-2 text-blue-500" />
+          <Settings className="w-6 h-6 mr-2 text-blue-500" />
           Operations Monitor
         </h2>
         <div className="flex items-center space-x-4">
@@ -243,7 +243,7 @@ export const OperationsMonitor: React.FC = () => {
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             title="Refresh operations"
           >
-            <ArrowPathIcon className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
           </button>
           {operations.lastUpdated && (
             <span className="text-xs text-gray-400">
@@ -263,7 +263,7 @@ export const OperationsMonitor: React.FC = () => {
               </p>
               <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{metrics.total}</p>
             </div>
-            <CogIcon className="w-8 h-8 text-blue-500" />
+            <Settings className="w-8 h-8 text-blue-500" />
           </div>
         </div>
 
@@ -275,7 +275,7 @@ export const OperationsMonitor: React.FC = () => {
                 {metrics.active}
               </p>
             </div>
-            <BoltIcon className="w-8 h-8 text-green-500" />
+            <Zap className="w-8 h-8 text-green-500" />
           </div>
         </div>
 
@@ -287,7 +287,7 @@ export const OperationsMonitor: React.FC = () => {
                 {metrics.completed}
               </p>
             </div>
-            <CheckCircleIcon className="w-8 h-8 text-purple-500" />
+            <CheckCircle2 className="w-8 h-8 text-purple-500" />
           </div>
         </div>
 
@@ -301,7 +301,7 @@ export const OperationsMonitor: React.FC = () => {
                 {(metrics.successRate * 100).toFixed(1)}%
               </p>
             </div>
-            <ChartBarIcon className="w-8 h-8 text-orange-500" />
+            <BarChart2 className="w-8 h-8 text-orange-500" />
           </div>
         </div>
       </div>
@@ -310,7 +310,7 @@ export const OperationsMonitor: React.FC = () => {
         {/* Operations List */}
         <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <BoltIcon className="w-5 h-5 mr-2 text-green-500" />
+            <Zap className="w-5 h-5 mr-2 text-green-500" />
             Recent Operations ({operations.data.length})
           </h3>
 
@@ -389,7 +389,7 @@ export const OperationsMonitor: React.FC = () => {
         {/* Operation Details */}
         <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <EyeIcon className="w-5 h-5 mr-2 text-blue-500" />
+            <Eye className="w-5 h-5 mr-2 text-blue-500" />
             Operation Details
           </h3>
 
@@ -482,7 +482,7 @@ export const OperationsMonitor: React.FC = () => {
           ) : (
             <div className="flex items-center justify-center h-32">
               <div className="text-center">
-                <EyeIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-gray-500 dark:text-gray-400">
                   Select an operation to view details
                 </p>

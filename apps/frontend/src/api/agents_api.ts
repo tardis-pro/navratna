@@ -7,10 +7,8 @@ import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
 import type {
   Agent,
-  AgentRole,
   AgentCreate,
   AgentUpdate,
-  AgentStatus,
   AgentAnalysisResult,
   ExecutionPlan,
 } from '@uaip/contracts/api';

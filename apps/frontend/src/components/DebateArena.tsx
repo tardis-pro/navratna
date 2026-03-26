@@ -66,8 +66,12 @@ export const DebateArena: React.FC<DebateArenaProps> = ({ onTopicChange }) => {
               {participants.length === 0 ? (
                 <p className="text-gray-500 text-sm italic">No participants yet</p>
               ) : (
-                participants.map((p, i) => (
-                  <Badge key={i} variant="outline" className="bg-blue-900/30 text-blue-400">
+                participants.map((p) => (
+                  <Badge
+                    key={p.agentId || p.id}
+                    variant="outline"
+                    className="bg-blue-900/30 text-blue-400"
+                  >
                     {String(p.role || 'participant')}
                   </Badge>
                 ))
@@ -90,8 +94,8 @@ export const DebateArena: React.FC<DebateArenaProps> = ({ onTopicChange }) => {
                   Enter a topic and start the debate...
                 </p>
               ) : (
-                messages.map((msg, i) => (
-                  <div key={i} className="text-sm text-gray-300 border-b border-gray-800 pb-1">
+                messages.map((msg) => (
+                  <div key={msg.id} className="text-sm text-gray-300 border-b border-gray-800 pb-1">
                     {typeof msg === 'string'
                       ? msg
                       : (msg as { content?: string }).content || JSON.stringify(msg)}

@@ -5,7 +5,7 @@
 
 import { APIClient } from './client';
 import { API_ROUTES } from '@/config/api_config';
-import type { UserRole, UserLLMPreference } from '@uaip/contracts/api';
+import type { UserLLMPreference } from '@uaip/contracts/api';
 import type {
   User,
   UserCreate,

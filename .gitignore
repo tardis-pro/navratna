@@ -33,3 +33,7 @@ sprint/
 *.d.ts
 *.d.ts.map
 **/**/*.tsbuildinfo
+
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json

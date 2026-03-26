@@ -10,7 +10,6 @@ import type {
   Discussion,
   DiscussionParticipant,
   DiscussionMessage,
-  DiscussionStatus,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionAnalytics as SharedDiscussionAnalytics,

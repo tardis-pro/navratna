@@ -10,19 +10,12 @@ import {
   WidgetError,
   WidgetPermission,
   WidgetCategory,
+  WidgetServiceOptions,
   WidgetStatus as _WidgetStatus,
   SecurityLevel,
 } from '@uaip/types';
 import { DatabaseService } from './database_service';
 import { logger } from '@uaip/utils';
-
-export interface WidgetServiceOptions {
-  enableRBAC: boolean;
-  auditEnabled: boolean;
-  defaultPermissions: WidgetPermission[];
-  maxWidgetsPerUser: number;
-  allowDynamicRegistration: boolean;
-}
 
 export class WidgetService {
   private databaseService: DatabaseService;

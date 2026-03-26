@@ -4,28 +4,28 @@ All domain service classes accessed via `ServiceFactory`. Never instantiate with
 
 ## SERVICE CATALOG
 
-| Class                          | Domain         | Key Responsibility                                              |
-| ------------------------------ | -------------- | --------------------------------------------------------------- |
-| `UserService.ts`               | Users          | User CRUD, LLM provider assignment per user                     |
-| `AgentService.ts`              | Agents         | Agent CRUD, state management, capability attachment             |
-| `ToolService.ts`               | Tools          | Tool CRUD, execution history, availability checks               |
-| `AuditService.ts`              | Security       | Audit log writes, compliance records                            |
-| `SecurityService.ts`           | Security       | RBAC policies, permission checks                                |
-| `MFAService.ts`                | Auth           | TOTP setup/verify, MFA enforcement                              |
-| `OAuthService.ts`              | Auth           | OAuth provider adapter orchestration                            |
-| `SessionService.ts`            | Auth           | Session lifecycle (create/validate/revoke)                      |
-| `ArtifactService.ts`           | Artifacts      | Artifact CRUD, status tracking                                  |
-| `ProjectService.ts`            | Projects       | Project CRUD, allowed tools config, member management           |
-| `OperationService.ts`          | Orchestration  | Operation lifecycle (pending→running→completed/failed)          |
-| `task.service.ts`              | Orchestration  | Task CRUD, assignment, status transitions                       |
-| `MCPService.ts`                | MCP Protocol   | MCP client/server — tool discovery, invocation, streaming       |
-| `ModelSelectionOrchestrator.ts`| LLM Routing    | 5-strategy model selection waterfall                            |
-| `UnifiedModelSelectionFacade.ts`| LLM Routing   | High-level facade over `ModelSelectionOrchestrator`             |
-| `llmPreferenceResolutionService.ts` | LLM       | Resolves user + agent LLM preferences                          |
-| `UserToolPreferencesService.ts`| Tools          | Per-user tool preference CRUD                                   |
-| `CachedUserService.ts`         | Users          | Redis-cached wrapper for `UserService` (hot paths)              |
-| `BaseDomainService.ts`         | Base           | Abstract base for all domain services (constructor pattern)     |
-| `AgentTaskTypeResolver.ts`     | Agents         | Maps agent capabilities to appropriate task types               |
+| Class                               | Domain        | Key Responsibility                                          |
+| ----------------------------------- | ------------- | ----------------------------------------------------------- |
+| `UserService.ts`                    | Users         | User CRUD, LLM provider assignment per user                 |
+| `AgentService.ts`                   | Agents        | Agent CRUD, state management, capability attachment         |
+| `ToolService.ts`                    | Tools         | Tool CRUD, execution history, availability checks           |
+| `AuditService.ts`                   | Security      | Audit log writes, compliance records                        |
+| `SecurityService.ts`                | Security      | RBAC policies, permission checks                            |
+| `MFAService.ts`                     | Auth          | TOTP setup/verify, MFA enforcement                          |
+| `OAuthService.ts`                   | Auth          | OAuth provider adapter orchestration                        |
+| `SessionService.ts`                 | Auth          | Session lifecycle (create/validate/revoke)                  |
+| `ArtifactService.ts`                | Artifacts     | Artifact CRUD, status tracking                              |
+| `ProjectService.ts`                 | Projects      | Project CRUD, allowed tools config, member management       |
+| `OperationService.ts`               | Orchestration | Operation lifecycle (pending→running→completed/failed)      |
+| `task.service.ts`                   | Orchestration | Task CRUD, assignment, status transitions                   |
+| `MCPService.ts`                     | MCP Protocol  | MCP client/server — tool discovery, invocation, streaming   |
+| `ModelSelectionOrchestrator.ts`     | LLM Routing   | 5-strategy model selection waterfall                        |
+| `UnifiedModelSelectionFacade.ts`    | LLM Routing   | High-level facade over `ModelSelectionOrchestrator`         |
+| `llmPreferenceResolutionService.ts` | LLM           | Resolves user + agent LLM preferences                       |
+| `UserToolPreferencesService.ts`     | Tools         | Per-user tool preference CRUD                               |
+| `CachedUserService.ts`              | Users         | Redis-cached wrapper for `UserService` (hot paths)          |
+| `BaseDomainService.ts`              | Base          | Abstract base for all domain services (constructor pattern) |
+| `AgentTaskTypeResolver.ts`          | Agents        | Maps agent capabilities to appropriate task types           |
 
 ## USAGE
 

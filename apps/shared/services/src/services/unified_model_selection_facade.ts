@@ -2,7 +2,7 @@ import { ModelSelectionOrchestrator } from './model_selection_orchestrator';
 import type { ModelSelectionRequest, ModelSelectionResult, FallbackChain } from '@uaip/types';
 import { LLMTaskType, RoutingRequest } from '@uaip/types';
 
-type Repository<T> = unknown;
+type Repository<_T> = unknown;
 type Agent = Record<string, unknown>;
 type UserLLMPreference = Record<string, unknown>;
 type AgentLLMPreference = Record<string, unknown>;

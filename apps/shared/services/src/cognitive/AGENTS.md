@@ -4,32 +4,33 @@ Metacognitive reasoning layer. Confidence-gated execution, structured debate, ex
 
 ## SERVICES
 
-| File                               | Purpose                                                             |
-| ---------------------------------- | ------------------------------------------------------------------- |
+| File                                  | Purpose                                                            |
+| ------------------------------------- | ------------------------------------------------------------------ |
 | `confidenceGatedExecution.service.ts` | Halts tool execution below confidence threshold; triggers approval |
-| `critique.service.ts`              | Agent self-critique — evaluates own responses for quality           |
-| `debate-orchestrator.service.ts`   | Structures formal multi-agent debates with argument tracking        |
-| `metaReasoning.interceptor.ts`     | Intercepts reasoning steps; annotates with meta-analysis            |
-| `explanationDAG.service.ts`        | Builds directed acyclic graph of reasoning chains                   |
-| `taskDAG.service.ts`               | Decomposes complex tasks into dependency-ordered sub-tasks          |
-| `thought-parser.service.ts`        | Parses `<thinking>` blocks and structured CoT outputs               |
-| `capabilityGapRadar.service.ts`    | Identifies gaps between agent capabilities and task requirements    |
-| `workflowTemplates.ts`             | Pre-built workflow definitions for common reasoning patterns        |
+| `critique.service.ts`                 | Agent self-critique — evaluates own responses for quality          |
+| `debate-orchestrator.service.ts`      | Structures formal multi-agent debates with argument tracking       |
+| `metaReasoning.interceptor.ts`        | Intercepts reasoning steps; annotates with meta-analysis           |
+| `explanationDAG.service.ts`           | Builds directed acyclic graph of reasoning chains                  |
+| `taskDAG.service.ts`                  | Decomposes complex tasks into dependency-ordered sub-tasks         |
+| `thought-parser.service.ts`           | Parses `<thinking>` blocks and structured CoT outputs              |
+| `capabilityGapRadar.service.ts`       | Identifies gaps between agent capabilities and task requirements   |
+| `workflowTemplates.ts`                | Pre-built workflow definitions for common reasoning patterns       |
 
 ## WHERE TO LOOK
 
-| Task                            | Location                                 |
-| ------------------------------- | ---------------------------------------- |
-| Confidence gate before tool use | `confidenceGatedExecution.service.ts`    |
-| Formal debate between agents    | `debate-orchestrator.service.ts`         |
-| Parse LLM reasoning chains      | `thought-parser.service.ts`              |
-| Task dependency graph           | `taskDAG.service.ts`                     |
-| Reasoning explanation trail     | `explanationDAG.service.ts`              |
-| Capability gap analysis         | `capabilityGapRadar.service.ts`          |
+| Task                            | Location                              |
+| ------------------------------- | ------------------------------------- |
+| Confidence gate before tool use | `confidenceGatedExecution.service.ts` |
+| Formal debate between agents    | `debate-orchestrator.service.ts`      |
+| Parse LLM reasoning chains      | `thought-parser.service.ts`           |
+| Task dependency graph           | `taskDAG.service.ts`                  |
+| Reasoning explanation trail     | `explanationDAG.service.ts`           |
+| Capability gap analysis         | `capabilityGapRadar.service.ts`       |
 
 ## KEY PATTERNS
 
 **Confidence-gated execution** — the decision engine calls this before tool invocation:
+
 ```typescript
 // From agent/agent-intelligence/decision-engine.ts
 const gate = new ConfidenceGatedExecutionService();
