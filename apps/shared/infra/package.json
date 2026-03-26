@@ -37,14 +37,14 @@
       "types": "./dist/index.d.ts"
     },
     "./eventBus": {
-      "import": "./dist/eventBus.js",
-      "require": "./dist/eventBus.js",
-      "types": "./dist/eventBus.d.ts"
+      "import": "./dist/event_bus.js",
+      "require": "./dist/event_bus.js",
+      "types": "./dist/event_bus.d.ts"
     },
     "./event_bus": {
-      "import": "./dist/eventBus.js",
-      "require": "./dist/eventBus.js",
-      "types": "./dist/eventBus.d.ts"
+      "import": "./dist/event_bus.js",
+      "require": "./dist/event_bus.js",
+      "types": "./dist/event_bus.d.ts"
     },
     "./database": {
       "import": "./dist/database/index.js",

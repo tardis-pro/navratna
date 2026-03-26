@@ -469,6 +469,9 @@ importers:
       '@uaip/config':
         specifier: workspace:*
         version: link:../../../shared/config
+      '@uaip/infra':
+        specifier: workspace:*
+        version: link:../../../shared/infra
       '@uaip/middleware':
         specifier: workspace:*
         version: link:../../../shared/middleware
@@ -1011,6 +1014,9 @@ importers:
       '@uaip/config':
         specifier: workspace:*
         version: link:../../../shared/config
+      '@uaip/infra':
+        specifier: workspace:*
+        version: link:../../../shared/infra
       '@uaip/middleware':
         specifier: workspace:*
         version: link:../../../shared/middleware
@@ -1148,6 +1154,9 @@ importers:
       '@uaip/config':
         specifier: workspace:*
         version: link:../../../shared/config
+      '@uaip/infra':
+        specifier: workspace:*
+        version: link:../../../shared/infra
       '@uaip/llm-service':
         specifier: workspace:*
         version: link:../../../shared/llm-service

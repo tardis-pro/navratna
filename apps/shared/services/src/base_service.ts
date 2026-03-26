@@ -5,8 +5,8 @@ import { metricsEndpoint, metricsMiddleware } from '@uaip/middleware';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from './event_bus_service';
-import {
-  UnifiedModelSelectionFacade,
+import { UnifiedModelSelectionFacade } from './services/unified_model_selection_facade';
+import type {
   UnifiedModelSelection,
   UnifiedSelectionRequest,
 } from './services/unified_model_selection_facade';

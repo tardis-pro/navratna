@@ -1,11 +1,11 @@
-import { drizzleService } from '@uaip/shared-services/drizzle_service';
+import { getIntelligenceDb } from '@uaip/shared-services';
 import { shortLinks } from '@uaip/shared-services/drizzle/intelligence';
 import { eq, and, ilike, or } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 
-export { LinkType, LinkStatus } from '@uaip/shared-services/drizzle/intelligence';
+export type { LinkType, LinkStatus };
 export type { ShortLink as ShortLinkEntity } from '@uaip/shared-services/drizzle/intelligence';
 
 import type { ShortLink } from '@uaip/shared-services/drizzle/intelligence';
@@ -67,7 +67,7 @@ const BCRYPT_ROUNDS = 12;
 
 export class ShortLinkService {
   private get db() {
-    return drizzleService.intelligence;
+    return getIntelligenceDb();
   }
 
   async createShortLink(

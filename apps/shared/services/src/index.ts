@@ -58,8 +58,8 @@ export type {
   ModelSelectionContext,
 } from '@uaip/types';
 
-export {
-  UnifiedModelSelectionFacade,
+export { UnifiedModelSelectionFacade } from './services/unified_model_selection_facade';
+export type {
   UnifiedModelSelection,
   UnifiedSelectionRequest,
   SelectionMetrics,
