@@ -1,20 +1,21 @@
+import type { Mocked } from 'vitest';
 import { AgentIntelligenceService } from '../../agentIntelligenceService';
 import { DatabaseService } from '../../databaseService';
 
-jest.mock('../../databaseService');
-jest.mock('../../eventBusService');
+vi.mock('../../databaseService');
+vi.mock('../../eventBusService');
 
 describe('AgentIntelligenceService', () => {
   let service: AgentIntelligenceService;
-  let mockDatabaseService: jest.Mocked<DatabaseService>;
+  let mockDatabaseService: Mocked<DatabaseService>;
 
   beforeEach(() => {
-    mockDatabaseService = new DatabaseService() as jest.Mocked<DatabaseService>;
+    mockDatabaseService = new DatabaseService() as Mocked<DatabaseService>;
     service = new AgentIntelligenceService(mockDatabaseService);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('initialization', () => {

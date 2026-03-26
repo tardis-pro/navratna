@@ -6,8 +6,8 @@
 import { useMemo } from 'react';
 import type { ConstellationHealth } from '@uaip/types';
 import { CONSTELLATION_HEALTH_EXPRESSION_MAP } from '@uaip/types';
-import type { Microexpression } from '@/types/microexpression';
-import { MICROEXPRESSION_LABELS } from '@/types/microexpression';
+import type { Microexpression } from '@uaip/types';
+import { MICROEXPRESSION_LABELS } from '@uaip/types';
 
 interface UseKnowledgeMicroexpressionInput {
   health: ConstellationHealth;

@@ -42,8 +42,8 @@ export class InterviewCaptureService {
       currentQuestionIndex: 0,
       answers: [],
       status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.sessions.set(session.id, session);
@@ -93,7 +93,7 @@ export class InterviewCaptureService {
     for (let i = session.currentQuestionIndex; i < session.questions.length; i++) {
       if (!answeredIds.has(session.questions[i].id)) {
         session.currentQuestionIndex = i;
-        session.updatedAt = new Date();
+        session.updatedAt = new Date().toISOString();
         return session.questions[i];
       }
     }
@@ -122,7 +122,7 @@ export class InterviewCaptureService {
       session.currentQuestionIndex += 1;
     }
 
-    session.updatedAt = new Date();
+    session.updatedAt = new Date().toISOString();
 
     logger.info('Question skipped', { sessionId, questionId });
   }
@@ -156,7 +156,7 @@ export class InterviewCaptureService {
       followUpNeeded: analysis.followUpNeeded,
       resolvedAssumptions: analysis.resolvedAssumptions,
       newContradictions: analysis.newContradictions,
-      capturedAt: new Date(),
+      capturedAt: new Date().toISOString(),
     };
 
     session.answers.push(interviewAnswer);
@@ -169,7 +169,7 @@ export class InterviewCaptureService {
       session.currentQuestionIndex += 1;
     }
 
-    session.updatedAt = new Date();
+    session.updatedAt = new Date().toISOString();
 
     logger.info('Interview answer recorded', {
       sessionId,
@@ -208,7 +208,7 @@ export class InterviewCaptureService {
     this.assertActive(session);
 
     session.status = 'paused';
-    session.updatedAt = new Date();
+    session.updatedAt = new Date().toISOString();
 
     logger.info('Interview session paused', { sessionId });
   }
@@ -226,7 +226,7 @@ export class InterviewCaptureService {
     }
 
     session.status = 'active';
-    session.updatedAt = new Date();
+    session.updatedAt = new Date().toISOString();
 
     logger.info('Interview session resumed', { sessionId });
   }
@@ -244,7 +244,7 @@ export class InterviewCaptureService {
     }
 
     session.status = 'completed';
-    session.updatedAt = new Date();
+    session.updatedAt = new Date().toISOString();
 
     const answeredIds = new Set(session.answers.map((a) => a.questionId));
     const unresolvedQuestions = session.questions.filter((q) => !answeredIds.has(q.id));
@@ -308,7 +308,7 @@ export class InterviewCaptureService {
       newContradictions,
       unresolvedQuestions,
       suggestedFollowUps,
-      completedAt: new Date(),
+      completedAt: new Date().toISOString(),
     };
 
     logger.info('Interview session completed', {

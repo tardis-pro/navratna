@@ -9,6 +9,7 @@ import { logger } from '@uaip/utils';
 import { getControlDb, eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
 import { mcpServers, mcpToolCalls } from '@uaip/shared-services/drizzle/control';
 import type { ControlDB } from '@uaip/shared-services';
+import type { MCPServer } from '@uaip/shared-services/drizzle/control';
 
 // ── Domain error ────────────────────────────────────────────────────────────
 
@@ -244,7 +245,7 @@ export class McpRepository {
 
   // ── Server operations ─────────────────────────────────────────────────────
 
-  async createServer(data: Record<string, unknown>) {
+  async createServer(data: Record<string, unknown>): Promise<MCPServer> {
     try {
       const [row] = await this.db
         .insert(mcpServers)
@@ -260,7 +261,7 @@ export class McpRepository {
     }
   }
 
-  async updateServer(id: string, updates: Record<string, unknown>) {
+  async updateServer(id: string, updates: Record<string, unknown>): Promise<MCPServer> {
     try {
       const [row] = await this.db
         .update(mcpServers)
@@ -279,7 +280,7 @@ export class McpRepository {
     }
   }
 
-  async getServer(id: string) {
+  async getServer(id: string): Promise<MCPServer | null> {
     const [row] = await this.db
       .select()
       .from(mcpServers)
@@ -288,7 +289,7 @@ export class McpRepository {
     return row ?? null;
   }
 
-  async getServerByName(name: string) {
+  async getServerByName(name: string): Promise<MCPServer | null> {
     try {
       const [row] = await this.db
         .select()
@@ -304,7 +305,7 @@ export class McpRepository {
     }
   }
 
-  async getAllServers() {
+  async getAllServers(): Promise<MCPServer[]> {
     try {
       return this.db
         .select()

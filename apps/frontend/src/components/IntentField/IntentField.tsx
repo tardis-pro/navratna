@@ -13,7 +13,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { useIntentDetection } from './useIntentDetection';
-import { AGENT_ACTIVITY_EVENT, type AgentActivityEventDetail } from '@/types/microexpression';
+import { AGENT_ACTIVITY_EVENT, type AgentActivityEventDetail } from '@uaip/types';
 import type { IntentFieldProps, IntentOption } from './IntentField.types';
 import { INTENT_ICONS } from './IntentField.types';
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Microexpression } from '@/types/microexpression';
+import type { Microexpression } from '@uaip/types';
 
 /**
  * Block types that can be materialized on TelescopeSurface

@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import * as axiosModule from 'axios';
 import { OAuthProviderService } from '../../services/oauthProviderService.js';
 import { createMockDatabaseService, createMockAuditService } from '../utils/mockServices.js';
 import {
@@ -12,18 +12,18 @@ import {
 import { ApiError as _ApiError } from '@uaip/utils';
 
 // Mock external dependencies
-jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
+vi.mock('@uaip/shared-services', () => ({
+  DatabaseService: vi.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
-jest.mock('@uaip/utils', () => ({
+vi.mock('@uaip/utils', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
-  ApiError: jest.fn().mockImplementation((status, message: string, code) => {
+  ApiError: vi.fn().mockImplementation((status, message: string, code) => {
     const error = new Error(message);
     (error as unknown).status = status;
     (error as unknown).code = code;
@@ -31,10 +31,10 @@ jest.mock('@uaip/utils', () => ({
   }),
 }));
 
-jest.mock('axios', () => ({
+vi.mock('axios', () => ({
   default: {
-    post: jest.fn(),
-    get: jest.fn(),
+    post: vi.fn(),
+    get: vi.fn(),
   },
 }));
 
@@ -53,7 +53,7 @@ describe('OAuthProviderService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Provider Configuration', () => {
@@ -342,9 +342,7 @@ describe('OAuthProviderService', () => {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
       });
 
-      // Mock axios for token exchange
-      const axios = require('axios');
-      axios.default.post.mockResolvedValue({
+      vi.mocked(axiosModule.default.post).mockResolvedValue({
         data: {
           access_token: 'github-access-token',
           token_type: 'bearer',

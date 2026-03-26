@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+
 import { SecurityGatewayService } from '../../services/securityGatewayService.js';
 import {
   createMockDatabaseService,
@@ -15,16 +15,16 @@ import {
 } from '@uaip/types';
 
 // Mock the services
-jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
+vi.mock('@uaip/shared-services', () => ({
+  DatabaseService: vi.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
-jest.mock('../../services/auditService.js', () => ({
-  AuditService: jest.fn().mockImplementation(() => createMockAuditService()),
+vi.mock('../../services/auditService.js', () => ({
+  AuditService: vi.fn().mockImplementation(() => createMockAuditService()),
 }));
 
-jest.mock('../../services/approvalWorkflowService.js', () => ({
-  ApprovalWorkflowService: jest.fn().mockImplementation(() => createMockApprovalWorkflowService()),
+vi.mock('../../services/approvalWorkflowService.js', () => ({
+  ApprovalWorkflowService: vi.fn().mockImplementation(() => createMockApprovalWorkflowService()),
 }));
 
 describe('SecurityGatewayService', () => {
@@ -46,7 +46,7 @@ describe('SecurityGatewayService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // Helper function to create test security validation requests
@@ -114,10 +114,10 @@ describe('SecurityGatewayService', () => {
     });
 
     it('should assess time-based risk factors correctly', async () => {
-      // Mock current time to be off-hours (10 PM)
+      vi.useFakeTimers();
       const offHoursDate = new Date();
       offHoursDate.setHours(22, 0, 0, 0);
-      jest.spyOn(global, 'Date').mockImplementation(() => offHoursDate as unknown);
+      vi.setSystemTime(offHoursDate);
 
       const request = createSecurityValidationRequest({
         operation: {
@@ -129,8 +129,8 @@ describe('SecurityGatewayService', () => {
 
       const result = await securityGatewayService.validateSecurity(request);
 
-      // Risk should be elevated due to off-hours access
       expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH]).toContain(result.riskLevel);
+      vi.useRealTimers();
     });
 
     it('should assess context-based risk factors', async () => {

@@ -1,19 +1,19 @@
 describe('DiscussionWebSocketHandler', () => {
   const mockWebSocketHandler = {
-    handleConnection: jest.fn(),
-    broadcastToDiscussion: jest.fn(),
-    getStats: jest.fn(),
-    cleanup: jest.fn(),
+    handleConnection: vi.fn(),
+    broadcastToDiscussion: vi.fn(),
+    getStats: vi.fn(),
+    cleanup: vi.fn(),
   };
 
   let webSocketHandler: unknown;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock implementations
     (mockWebSocketHandler.handleConnection as unknown).mockReturnValue({
-      ws: { on: jest.fn(), send: jest.fn() },
+      ws: { on: vi.fn(), send: vi.fn() },
       discussionId: 'discussion-123',
       userId: 'user-123',
       participantId: 'participant-123',
@@ -44,12 +44,12 @@ describe('DiscussionWebSocketHandler', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Connection Management', () => {
     it('should handle new WebSocket connection successfully', () => {
-      const mockWebSocket = { on: jest.fn(), send: jest.fn() };
+      const mockWebSocket = { on: vi.fn(), send: vi.fn() };
       const mockRequest = {
         url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
         headers: { host: 'localhost:3005' },
@@ -66,10 +66,10 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should reject connection without discussion ID', () => {
-      const mockWebSocket = { close: jest.fn() };
+      const mockWebSocket = { close: vi.fn() };
       const invalidRequest = { url: '/discussions/ws' };
 
-      webSocketHandler.handleConnection = jest.fn().mockImplementation((ws) => {
+      webSocketHandler.handleConnection = vi.fn().mockImplementation((ws) => {
         ws.close(1008, 'Missing discussion ID');
       });
 
@@ -79,7 +79,7 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should extract user info from query params and headers', () => {
-      const mockWebSocket = { on: jest.fn(), send: jest.fn() };
+      const mockWebSocket = { on: vi.fn(), send: vi.fn() };
       const mockRequest = {
         url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
         headers: { 'x-user-id': 'user-123' },
@@ -92,7 +92,7 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should verify participant access on connection', () => {
-      const mockWebSocket = { on: jest.fn(), send: jest.fn() };
+      const mockWebSocket = { on: vi.fn(), send: vi.fn() };
       const mockRequest = {
         url: '/discussions/discussion-123/ws?userId=user-123',
         headers: {},
@@ -307,13 +307,13 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should handle missing user ID', () => {
-      const mockWebSocket = { close: jest.fn() };
+      const mockWebSocket = { close: vi.fn() };
       const requestWithoutUserId = {
         url: '/discussions/discussion-123/ws',
         headers: {},
       };
 
-      webSocketHandler.handleConnection = jest.fn().mockImplementation((ws) => {
+      webSocketHandler.handleConnection = vi.fn().mockImplementation((ws) => {
         ws.close(1008, 'User ID required');
       });
 
@@ -405,7 +405,7 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should support WebSocket event handling', () => {
-      const mockWebSocket = { on: jest.fn(), send: jest.fn(), close: jest.fn() };
+      const mockWebSocket = { on: vi.fn(), send: vi.fn(), close: vi.fn() };
       const mockRequest = { url: '/discussions/discussion-123/ws?userId=user-123' };
 
       const connection = webSocketHandler.handleConnection(mockWebSocket, mockRequest);

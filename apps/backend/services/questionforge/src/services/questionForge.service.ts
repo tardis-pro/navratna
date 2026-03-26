@@ -7,7 +7,7 @@ import {
   Assumption,
   Contradiction,
 } from '@uaip/types';
-import type { ForgeRequest, ForgeResult } from '@uaip/types';
+import type { ForgeRequest, ForgeResult, InterviewSession, CouncilDebateResult } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 
@@ -99,7 +99,7 @@ export class QuestionForgeService {
 
       // Step 3: Extract and deduplicate questions from debate results
       logger.info('Step 3: Extracting and deduplicating questions', { projectBriefId });
-      const rawQuestions = this.extractQuestionsFromDebate(debateResult);
+      const rawQuestions = this.extractQuestionsFromDebate(debateResult as unknown as Record<string, unknown>);
       const deduplicatedQuestions = this.deduplicateQuestions(rawQuestions);
 
       logger.info('Questions extracted', {
@@ -110,7 +110,7 @@ export class QuestionForgeService {
 
       // Step 4: Rank questions
       logger.info('Step 4: Ranking questions', { projectBriefId });
-      const assumptions: Assumption[] = debateResult.assumptions ?? [];
+      const assumptions: Assumption[] = (debateResult as unknown as { assumptions?: Assumption[] }).assumptions ?? [];
       const contradictions: Contradiction[] = debateResult.contradictions ?? [];
       const scores = this.questionRanker.rankQuestions(
         deduplicatedQuestions,
@@ -156,10 +156,10 @@ export class QuestionForgeService {
         projectBriefId,
         normalizedBrief,
         debateResult,
-        questionPacks,
+        questionPacks: Object.fromEntries(questionPacks) as ForgeResult['questionPacks'],
         topAssumptions: assumptions,
         contradictions,
-        interviewScripts,
+        interviewScripts: Object.fromEntries(interviewScripts) as ForgeResult['interviewScripts'],
         metadata: {
           totalQuestions: rankedQuestions.length,
           totalAssumptions: assumptions.length,
@@ -213,21 +213,21 @@ export class QuestionForgeService {
       throw new Error(`Forge result not found: ${forgeResultId}`);
     }
 
-    const script = forgeResult.interviewScripts.get(stakeholderRole);
+    const script = (forgeResult.interviewScripts as Record<string, unknown>)[stakeholderRole] as (typeof forgeResult.interviewScripts)[string] | undefined;
     if (!script) {
       throw new Error(`No interview script found for stakeholder role: ${stakeholderRole}`);
     }
 
-    const session: InterviewSession = {
+    const session = {
       id: randomUUID(),
       forgeResultId,
       stakeholderRole,
       questions: script.questions,
       currentQuestionIndex: 0,
-      answers: new Map(),
+      answers: [],
       status: 'pending',
-      createdAt: new Date(),
-    };
+      createdAt: new Date().toISOString(),
+    } as unknown as InterviewSession;
 
     logger.info('Interview session created', {
       sessionId: session.id,
@@ -270,23 +270,25 @@ export class QuestionForgeService {
     const questions: Question[] = [];
     const agentAnalyses = debateResult.agentAnalyses ?? debateResult.analyses ?? [];
 
-    for (const analysis of agentAnalyses) {
-      const agentQuestions = analysis.questions ?? analysis.generatedQuestions ?? [];
-      const stakeholderId = analysis.agentId ?? analysis.personaId;
-      const stakeholderName = analysis.agentName ?? analysis.personaName ?? stakeholderId;
+    for (const analysis of agentAnalyses as unknown[]) {
+      const a = analysis as Record<string, unknown>;
+      const agentQuestions = (a.questions ?? a.generatedQuestions ?? []) as unknown[];
+      const stakeholderId = a.agentId ?? a.personaId;
+      const stakeholderName = a.agentName ?? a.personaName ?? stakeholderId;
 
-      for (const q of agentQuestions) {
+      for (const _q of agentQuestions) {
+        const q = _q as Record<string, unknown>;
         const question: Question = {
-          id: q.id ?? randomUUID(),
-          projectBriefId: debateResult.projectBriefId ?? '',
-          stakeholderId,
-          stakeholderName,
-          category: q.category ?? QuestionCategory.ASSUMPTION_REVEAL,
-          text: typeof q === 'string' ? q : (q.text ?? q.question ?? ''),
-          intent: q.intent ?? 'Discover hidden assumptions and stakeholder needs',
-          priority: q.priority ?? 5,
-          phase: q.phase ?? QuestionPhase.DISCOVERY,
-          tags: q.tags ?? [],
+          id: (q.id as string | undefined) ?? randomUUID(),
+          projectBriefId: (debateResult.projectBriefId as string | undefined) ?? '',
+          stakeholderId: stakeholderId as string | undefined,
+          stakeholderName: stakeholderName as string | undefined,
+          category: (q.category as QuestionCategory | undefined) ?? QuestionCategory.ASSUMPTION_REVEAL,
+          text: typeof q === 'string' ? q : ((q.text ?? q.question ?? '') as string),
+          intent: (q.intent as string | undefined) ?? 'Discover hidden assumptions and stakeholder needs',
+          priority: (q.priority as number | undefined) ?? 5,
+          phase: (q.phase as QuestionPhase | undefined) ?? QuestionPhase.DISCOVERY,
+          tags: (q.tags as string[] | undefined) ?? [],
           status: QuestionStatus.DRAFT,
           usageCount: 0,
           createdAt: new Date(),

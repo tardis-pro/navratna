@@ -1,28 +1,19 @@
 describe('OrchestrationEngine', () => {
-  const mockOrchestrationEngine: {
-    executeOperation: jest.Mock;
-    pauseOperation: jest.Mock;
-    resumeOperation: jest.Mock;
-    cancelOperation: jest.Mock;
-    getOperationStatus: jest.Mock;
-    createCheckpoint: jest.Mock;
-    on: jest.Mock;
-    emit: jest.Mock;
-  } = {
-    executeOperation: jest.fn(),
-    pauseOperation: jest.fn(),
-    resumeOperation: jest.fn(),
-    cancelOperation: jest.fn(),
-    getOperationStatus: jest.fn(),
-    createCheckpoint: jest.fn(),
-    on: jest.fn(),
-    emit: jest.fn(),
+  const mockOrchestrationEngine = {
+    executeOperation: vi.fn(),
+    pauseOperation: vi.fn(),
+    resumeOperation: vi.fn(),
+    cancelOperation: vi.fn(),
+    getOperationStatus: vi.fn(),
+    createCheckpoint: vi.fn(),
+    on: vi.fn(),
+    emit: vi.fn(),
   };
 
   let orchestrationEngine: typeof mockOrchestrationEngine;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock implementations
     mockOrchestrationEngine.executeOperation.mockResolvedValue('workflow-123');
@@ -47,7 +38,7 @@ describe('OrchestrationEngine', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Initialization', () => {

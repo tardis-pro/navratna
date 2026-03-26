@@ -4,7 +4,7 @@
 
 import { ToolRegistry } from '../services/toolRegistry.js';
 import { ToolExecutor } from '../services/toolExecutor.js';
-import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
+import { ToolDefinition, ToolCategory, SecurityLevel, ToolRelationship } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
@@ -518,6 +518,9 @@ export class ToolController {
       const validatedRelationship = AddRelationshipSchema.parse(body);
 
       await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, {
+        sourceToolId: id,
+        targetToolId: validatedRelationship.toToolId,
+        relationshipType: validatedRelationship.type as ToolRelationship['relationshipType'],
         type: validatedRelationship.type,
         strength: validatedRelationship.strength,
         reason: validatedRelationship.reason,

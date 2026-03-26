@@ -3,9 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",
     "composite": false,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@uaip/types": ["../../../packages/shared-types/src"],
       "@uaip/types/*": ["../../../packages/shared-types/src/*"],
       "@uaip/utils": ["../../../packages/shared-utils/src"],
@@ -36,5 +35,40 @@
     "src/__tests__/**/*",
     "../**/__tests__/**/*",
     "../**/*.test.ts"
+  ],
+  "references": [
+    {
+      "path": "../discussion-orchestration"
+    },
+    {
+      "path": "../llm-service"
+    },
+    {
+      "path": "../artifact-service"
+    },
+    {
+      "path": "../agent-intelligence"
+    },
+    {
+      "path": "../../../packages/shared-utils"
+    },
+    {
+      "path": "../../../packages/shared-types"
+    },
+    {
+      "path": "../../../shared/services"
+    },
+    {
+      "path": "../../../shared/middleware"
+    },
+    {
+      "path": "../../../shared/llm-service"
+    },
+    {
+      "path": "../../../shared/infra"
+    },
+    {
+      "path": "../../../shared/config"
+    }
   ]
 }

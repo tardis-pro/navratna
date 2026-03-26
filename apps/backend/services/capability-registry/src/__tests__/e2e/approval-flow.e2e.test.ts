@@ -9,38 +9,32 @@
  * 5. Tool execution proceeds
  */
 
-import { jest } from '@jest/globals';
-
-// Simple ID generator (replaces uuid dependency)
 const generateId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 };
 
-// Mock EventBusService
 const mockEventBus = {
-  publish: jest.fn().mockResolvedValue(undefined),
-  subscribe: jest
+  publish: vi.fn().mockResolvedValue(undefined),
+  subscribe: vi
     .fn()
     .mockImplementation((topic: string, handler: (event: unknown) => Promise<void>) => {
       const subscriptionId = generateId();
-      return { subscriptionId, topic, handler, unsubscribe: jest.fn() };
+      return { subscriptionId, topic, handler, unsubscribe: vi.fn() };
     }),
-  unsubscribe: jest.fn().mockResolvedValue(undefined),
-  request: jest.fn().mockResolvedValue({ success: true, data: {} }),
-  publishSync: jest.fn().mockResolvedValue(undefined),
+  unsubscribe: vi.fn().mockResolvedValue(undefined),
+  request: vi.fn().mockResolvedValue({ success: true, data: {} }),
+  publishSync: vi.fn().mockResolvedValue(undefined),
 };
 
-// Mock Logger
 const mockLogger = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
 };
 
-// Mock the danger tool utilities
-jest.unstable_mockModule('../services/dangerToolList.js', () => ({
-  toolRequiresApproval: jest.fn((toolId: string) => {
+vi.mock('../services/dangerToolList.js', () => ({
+  toolRequiresApproval: vi.fn((toolId: string) => {
     const dangerTools = [
       'file.write',
       'process.run',
@@ -50,7 +44,7 @@ jest.unstable_mockModule('../services/dangerToolList.js', () => ({
     ];
     return dangerTools.includes(toolId);
   }),
-  getDangerToolConfig: jest.fn((toolId: string) => {
+  getDangerToolConfig: vi.fn((toolId: string) => {
     const configs: Record<string, unknown> = {
       'file.write': {
         toolId: 'file.write',
@@ -79,7 +73,7 @@ jest.unstable_mockModule('../services/dangerToolList.js', () => ({
     };
     return configs[toolId] || null;
   }),
-  getRequiredApprovalLevel: jest.fn((toolId: string) => {
+  getRequiredApprovalLevel: vi.fn((toolId: string) => {
     const levels: Record<string, string> = {
       'file.write': 'USER_CONSENT',
       'process.run': 'ADMIN',
@@ -87,7 +81,7 @@ jest.unstable_mockModule('../services/dangerToolList.js', () => ({
     };
     return levels[toolId] || 'NONE';
   }),
-  toolRequiresAudit: jest.fn(() => true),
+  toolRequiresAudit: vi.fn(() => true),
 }));
 
 describe('E2E Approval Flow: LLM→plan→approval→execution', () => {

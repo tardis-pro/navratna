@@ -60,7 +60,7 @@ export class InputNormalizerService {
         metadata: {
           inputType: detectedType,
           wordCount,
-          processedAt: new Date(),
+          processedAt: new Date().toISOString(),
           confidence: parsed.metadata?.confidence ?? 0.8,
         },
       };
@@ -142,7 +142,7 @@ export class InputNormalizerService {
       metadata: {
         inputType: 'brief',
         wordCount: 0,
-        processedAt: new Date(),
+        processedAt: new Date().toISOString(),
         confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.8,
       },
     };
@@ -256,7 +256,7 @@ export class InputNormalizerService {
       metadata: {
         inputType,
         wordCount,
-        processedAt: new Date(),
+        processedAt: new Date().toISOString(),
         confidence: 0.3,
       },
     };

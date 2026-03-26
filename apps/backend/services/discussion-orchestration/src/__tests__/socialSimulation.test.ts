@@ -107,11 +107,11 @@ const createDiscussion = (
 
 describe('Layer 4: Social Simulation', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('completes a 3-agent round-robin loop without deadlock', async () => {
@@ -222,12 +222,12 @@ describe('Layer 4: Social Simulation', () => {
     );
 
     const discussionService = {
-      getDiscussion: jest.fn(async () => parentDiscussion),
-      createDiscussion: jest.fn(async () => huddleDiscussion),
+      getDiscussion: vi.fn(async () => parentDiscussion),
+      createDiscussion: vi.fn(async () => huddleDiscussion),
     } as unknown as DiscussionService;
 
     const eventBusService = {
-      publish: jest.fn(async () => undefined),
+      publish: vi.fn(async () => undefined),
     } as unknown as EventBusService;
 
     const service = new DiscussionOrchestrationService(discussionService, eventBusService);
@@ -266,8 +266,8 @@ describe('Layer 4: Social Simulation', () => {
     );
 
     const discussionService = {
-      getDiscussion: jest.fn(async () => discussion),
-      updateDiscussion: jest.fn(async (_discussionId: string, update: Partial<Discussion>) => {
+      getDiscussion: vi.fn(async () => discussion),
+      updateDiscussion: vi.fn(async (_discussionId: string, update: Partial<Discussion>) => {
         if (update.state) {
           discussion.state = {
             ...discussion.state,
@@ -283,12 +283,12 @@ describe('Layer 4: Social Simulation', () => {
     } as unknown as DiscussionService;
 
     const eventBusService = {
-      publish: jest.fn(async () => undefined),
+      publish: vi.fn(async () => undefined),
     } as unknown as EventBusService;
 
     const webSocketHandler = {
-      broadcastToDiscussion: jest.fn(),
-      broadcastContextUpdate: jest.fn(),
+      broadcastToDiscussion: vi.fn(),
+      broadcastContextUpdate: vi.fn(),
     } as unknown as DiscussionWebSocketHandler;
 
     const service = new DiscussionOrchestrationService(
@@ -324,16 +324,16 @@ describe('Layer 4: Social Simulation', () => {
     );
 
     const discussionService = {
-      getDiscussion: jest.fn(async () => discussion),
+      getDiscussion: vi.fn(async () => discussion),
     } as unknown as DiscussionService;
 
     const eventBusService = {
-      publish: jest.fn(async () => undefined),
+      publish: vi.fn(async () => undefined),
     } as unknown as EventBusService;
 
     const webSocketHandler = {
-      broadcastToDiscussion: jest.fn(),
-      broadcastContextUpdate: jest.fn(),
+      broadcastToDiscussion: vi.fn(),
+      broadcastContextUpdate: vi.fn(),
     } as unknown as DiscussionWebSocketHandler;
 
     const service = new DiscussionOrchestrationService(

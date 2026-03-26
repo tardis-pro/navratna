@@ -12,10 +12,8 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "downlevelIteration": true,
     "skipLibCheck": true,
     "strict": false,
-    "baseUrl": ".",
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "paths": {
       "@uaip/types": ["../../packages/shared-types/src"],

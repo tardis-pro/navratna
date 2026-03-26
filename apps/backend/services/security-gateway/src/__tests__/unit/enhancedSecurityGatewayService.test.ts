@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+
 import { EnhancedSecurityGatewayService } from '../../services/enhancedSecurityGatewayService.js';
 import { OAuthProviderService as _OAuthProviderService } from '../../services/oauthProviderService.js';
 import { EnhancedAuthService as _EnhancedAuthService } from '../../services/enhancedAuthService.js';
@@ -24,18 +24,18 @@ import {
 import { ApiError as _ApiError } from '@uaip/utils';
 
 // Mock external dependencies
-jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
+vi.mock('@uaip/shared-services', () => ({
+  DatabaseService: vi.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
-jest.mock('@uaip/utils', () => ({
+vi.mock('@uaip/utils', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
-  ApiError: jest.fn().mockImplementation((status: number, message: string, code?: string) => {
+  ApiError: vi.fn().mockImplementation((status: number, message: string, code?: string) => {
     const error = new Error(message);
     (error as unknown).status = status;
     (error as unknown).code = code;
@@ -70,7 +70,7 @@ describe('EnhancedSecurityGatewayService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // Helper function to create enhanced security requests

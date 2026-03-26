@@ -4,7 +4,6 @@
     "outDir": "dist",
     "composite": true,
     "rootDir": "src",
-    "baseUrl": ".",
     "paths": {
       "@uaip/infra": ["../../../shared/infra/src"],
       "@uaip/infra/*": ["../../../shared/infra/src/*"]

@@ -1,42 +1,42 @@
 import { DatabaseService } from '../../databaseService';
 
 const createMockRepository = () => ({
-  find: jest.fn().mockResolvedValue([]),
-  findOne: jest.fn().mockResolvedValue(null),
-  save: jest.fn().mockResolvedValue({}),
-  delete: jest.fn().mockResolvedValue({}),
-  count: jest.fn().mockResolvedValue(0),
-  create: jest.fn().mockReturnValue({}),
-  createQueryBuilder: jest.fn().mockReturnValue({
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    offset: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue([]),
-    getOne: jest.fn().mockResolvedValue(null),
-    getCount: jest.fn().mockResolvedValue(0),
-    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+  find: vi.fn().mockResolvedValue([]),
+  findOne: vi.fn().mockResolvedValue(null),
+  save: vi.fn().mockResolvedValue({}),
+  delete: vi.fn().mockResolvedValue({}),
+  count: vi.fn().mockResolvedValue(0),
+  create: vi.fn().mockReturnValue({}),
+  createQueryBuilder: vi.fn().mockReturnValue({
+    where: vi.fn().mockReturnThis(),
+    andWhere: vi.fn().mockReturnThis(),
+    orWhere: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    offset: vi.fn().mockReturnThis(),
+    getMany: vi.fn().mockResolvedValue([]),
+    getOne: vi.fn().mockResolvedValue(null),
+    getCount: vi.fn().mockResolvedValue(0),
+    getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
   }),
-  query: jest.fn().mockResolvedValue([]),
-  update: jest.fn().mockResolvedValue({ affected: 1 }),
-  insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 1 }] }),
-  remove: jest.fn().mockResolvedValue({}),
+  query: vi.fn().mockResolvedValue([]),
+  update: vi.fn().mockResolvedValue({ affected: 1 }),
+  insert: vi.fn().mockResolvedValue({ identifiers: [{ id: 1 }] }),
+  remove: vi.fn().mockResolvedValue({}),
 });
 
 // Mock the database/drizzle/clients module
-jest.mock('../../database/drizzle/clients/index', () => ({
-  initializePlanes: jest.fn().mockResolvedValue({ intelligenceDb: {}, controlDb: {} }),
-  closePlanes: jest.fn().mockResolvedValue(undefined),
-  checkPlanesHealth: jest.fn().mockResolvedValue({ intelligence: 'healthy', control: 'healthy' }),
-  getIntelligenceDb: jest.fn(() => ({})),
-  getControlDb: jest.fn(() => ({})),
-  getIntelligencePool: jest.fn(() => ({
-    query: jest.fn().mockResolvedValue({ rows: [] }),
+vi.mock('../../database/drizzle/clients/index', () => ({
+  initializePlanes: vi.fn().mockResolvedValue({ intelligenceDb: {}, controlDb: {} }),
+  closePlanes: vi.fn().mockResolvedValue(undefined),
+  checkPlanesHealth: vi.fn().mockResolvedValue({ intelligence: 'healthy', control: 'healthy' }),
+  getIntelligenceDb: vi.fn(() => ({})),
+  getControlDb: vi.fn(() => ({})),
+  getIntelligencePool: vi.fn(() => ({
+    query: vi.fn().mockResolvedValue({ rows: [] }),
   })),
-  getControlPool: jest.fn(() => ({
-    query: jest.fn().mockResolvedValue({ rows: [] }),
+  getControlPool: vi.fn(() => ({
+    query: vi.fn().mockResolvedValue({ rows: [] }),
   })),
 }));
 
@@ -47,7 +47,7 @@ describe('DatabaseService', () => {
     // Reset singleton instance before each test
     (DatabaseService as unknown as { instance: null }).instance = null;
     service = new DatabaseService();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Singleton Pattern', () => {
@@ -125,7 +125,7 @@ describe('DatabaseService', () => {
     });
 
     it('should execute operations within transaction', async () => {
-      const callback = jest.fn().mockResolvedValue('success');
+      const callback = vi.fn().mockResolvedValue('success');
       const result = await service.transaction(callback);
 
       expect(callback).toHaveBeenCalledTimes(1);
@@ -134,7 +134,7 @@ describe('DatabaseService', () => {
 
     it('should handle transaction errors', async () => {
       const error = new Error('Transaction failed');
-      const callback = jest.fn().mockRejectedValue(error);
+      const callback = vi.fn().mockRejectedValue(error);
 
       await expect(service.transaction(callback)).rejects.toThrow('Transaction failed');
     });

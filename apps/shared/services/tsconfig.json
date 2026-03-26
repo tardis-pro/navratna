@@ -8,14 +8,10 @@
     "declarationMap": true,
     "sourceMap": true,
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "skipLibCheck": true,
     "strict": false,
-    "baseUrl": ".",
     "paths": {
       "@uaip/infra/*": ["../infra/src/*"]
     },
@@ -34,9 +30,20 @@
     "**/*.spec.ts"
   ],
   "references": [
-    { "path": "../../packages/shared-types" },
-    { "path": "../config" },
-    { "path": "../../packages/shared-utils" },
-    { "path": "../infra" }
+    {
+      "path": "../../packages/shared-utils"
+    },
+    {
+      "path": "../../packages/shared-types"
+    },
+    {
+      "path": "../middleware"
+    },
+    {
+      "path": "../infra"
+    },
+    {
+      "path": "../config"
+    }
   ]
 }

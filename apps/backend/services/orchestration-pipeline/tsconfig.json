@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
     "noImplicitAny": false,
     "noCheck": true,
     "paths": {
@@ -28,5 +27,27 @@
     },
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ],
+  "references": [
+    {
+      "path": "../../../shared/infra"
+    },
+    {
+      "path": "../../../packages/shared-utils"
+    },
+    {
+      "path": "../../../packages/shared-types"
+    },
+    {
+      "path": "../../../shared/services"
+    },
+    {
+      "path": "../../../shared/middleware"
+    },
+    {
+      "path": "../../../shared/config"
+    }
+  ]
 }

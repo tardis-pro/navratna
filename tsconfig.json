@@ -1,11 +1,66 @@
 {
     "files": [],
     "references": [
-        { "path": "./apps/frontend" },
-        { "path": "./apps/packages/contracts" },
-        { "path": "./apps/packages/shared-types" },
-        { "path": "./apps/packages/shared-utils" },
-        { "path": "./apps/backend" }
+      {
+        "path": "./apps/packages/contracts"
+      },
+      {
+        "path": "./apps/packages/shared-types"
+      },
+      {
+        "path": "./apps/packages/shared-utils"
+      },
+      {
+        "path": "./apps/backend"
+      },
+      {
+        "path": "./apps/backend/services/discussion-orchestration"
+      },
+      {
+        "path": "./apps/backend/services/orchestration-pipeline"
+      },
+      {
+        "path": "./apps/backend/services/capability-registry"
+      },
+      {
+        "path": "./apps/backend/services/marketplace-service"
+      },
+      {
+        "path": "./apps/backend/services/agent-intelligence"
+      },
+      {
+        "path": "./apps/backend/services/artifact-service"
+      },
+      {
+        "path": "./apps/backend/services/navratna-gateway"
+      },
+      {
+        "path": "./apps/backend/services/security-gateway"
+      },
+      {
+        "path": "./apps/backend/services/basebench-meta"
+      },
+      {
+        "path": "./apps/backend/services/questionforge"
+      },
+      {
+        "path": "./apps/backend/services/llm-service"
+      },
+      {
+        "path": "./apps/shared/llm-service"
+      },
+      {
+        "path": "./apps/shared/middleware"
+      },
+      {
+        "path": "./apps/shared/services"
+      },
+      {
+        "path": "./apps/shared/config"
+      },
+      {
+        "path": "./apps/shared/infra"
+      }
     ],
     "compilerOptions": {
         "paths": {

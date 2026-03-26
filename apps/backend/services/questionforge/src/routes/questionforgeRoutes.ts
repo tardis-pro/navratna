@@ -1,4 +1,5 @@
 import { logger } from '@uaip/utils';
+import type { Question } from '@uaip/types';
 import { QuestionForgeService } from '../services/questionForge.service.js';
 import { InterviewCaptureService } from '../services/interviewCapture.service.js';
 
@@ -32,19 +33,18 @@ export function registerQuestionForgeRoutes(
           }
 
           const result = await forgeService.forge({
-            projectBriefText,
-            inputType,
-            stakeholderRoles,
-            agentPersonaIds,
+            projectBriefText: projectBriefText as string,
+            inputType: inputType as string | undefined,
+            stakeholderRoles: (stakeholderRoles ?? []) as string[],
+            agentPersonaIds: (agentPersonaIds ?? []) as string[],
           });
 
           return {
             success: true,
             data: {
               ...result,
-              // Convert Maps to objects for JSON serialization
-              questionPacks: Object.fromEntries(result.questionPacks),
-              interviewScripts: Object.fromEntries(result.interviewScripts),
+              questionPacks: result.questionPacks,
+              interviewScripts: result.interviewScripts,
             },
           };
         } catch (error) {
@@ -60,9 +60,12 @@ export function registerQuestionForgeRoutes(
       // Create an interview session from a forge result
       .post('/interviews', async ({ body, set }: RouteContext) => {
         try {
-          const { projectBriefId, stakeholderRole, questions } = body;
+          const { projectBriefId: _pbId, stakeholderRole: _sr, questions: _q } = body;
+          const projectBriefId = _pbId as string;
+          const stakeholderRole = _sr as string;
+          const questions = _q as string[];
 
-          if (!projectBriefId || !stakeholderRole || !questions?.length) {
+          if (!projectBriefId || !stakeholderRole || !(questions as unknown[])?.length) {
             set.status = 400;
             return {
               success: false,
@@ -74,9 +77,9 @@ export function registerQuestionForgeRoutes(
           }
 
           const session = interviewService.createSession(
-            projectBriefId,
-            stakeholderRole,
-            questions
+            projectBriefId as string,
+            stakeholderRole as string,
+            questions as unknown as Question[]
           );
           return { success: true, data: session };
         } catch (error) {
@@ -124,7 +127,7 @@ export function registerQuestionForgeRoutes(
             };
           }
 
-          const result = await interviewService.recordAnswer(params.sessionId, questionId, answer);
+          const result = await interviewService.recordAnswer(params.sessionId as string, questionId as string, answer as string);
           return { success: true, data: result };
         } catch (error) {
           logger.error('Failed to record interview answer', { error });
@@ -141,9 +144,10 @@ export function registerQuestionForgeRoutes(
         try {
           const question = interviewService.nextQuestion(params.sessionId);
           if (!question) {
-            return { success: true, data: null, message: 'No more questions' };
+            return { success: true, data: null as null, message: 'No more questions' as string };
           }
-          return { success: true, data: question };
+          const resp: { success: boolean; data: Question } = { success: true, data: question as Question };
+          return resp;
         } catch (error) {
           logger.error('Failed to get next question', { error });
           set.status = 500;

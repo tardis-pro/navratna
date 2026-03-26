@@ -1,11 +1,8 @@
-import { jest } from '@jest/globals';
-
-// Mock logger directly to avoid module resolution issues
 const mockLogger: unknown = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
 };
 
 expect.extend({
@@ -28,12 +25,12 @@ expect.extend({
 // Global test setup
 beforeEach(() => {
   // Clear all mocks before each test
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 afterEach(() => {
   // Restore all mocks after each test
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 // Global test utilities
@@ -54,23 +51,23 @@ export const createMockRequest: (
   headers: {},
   user,
   ip: '127.0.0.1',
-  get: jest.fn().mockReturnValue('test-value'),
+  get: vi.fn().mockReturnValue('test-value'),
 });
 
 export const createMockResponse: () => unknown = () => {
   const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
-    send: jest.fn().mockReturnThis(),
-    cookie: jest.fn().mockReturnThis(),
-    clearCookie: jest.fn().mockReturnThis(),
-    header: jest.fn().mockReturnThis(),
-    redirect: jest.fn().mockReturnThis(),
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn().mockReturnThis(),
+    send: vi.fn().mockReturnThis(),
+    cookie: vi.fn().mockReturnThis(),
+    clearCookie: vi.fn().mockReturnThis(),
+    header: vi.fn().mockReturnThis(),
+    redirect: vi.fn().mockReturnThis(),
   };
   return res;
 };
 
-export const createMockNext: () => unknown = () => jest.fn();
+export const createMockNext: () => unknown = () => vi.fn();
 
 // Mock environment variables for testing
 process.env.NODE_ENV = 'test';
@@ -84,8 +81,8 @@ process.env.REDIS_URL = 'redis://localhost:6379';
 // Mock crypto for deterministic testing
 Object.defineProperty(global, 'crypto', {
   value: {
-    randomUUID: jest.fn(() => 'test-uuid-123'),
-    getRandomValues: jest.fn((arr: Uint8Array) => {
+    randomUUID: vi.fn(() => 'test-uuid-123'),
+    getRandomValues: vi.fn((arr: Uint8Array) => {
       for (let i = 0; i < arr.length; i++) {
         arr[i] = Math.floor(Math.random() * 256);
       }
@@ -94,10 +91,8 @@ Object.defineProperty(global, 'crypto', {
   },
 });
 
-// Mock Date.now for consistent timestamps
 const mockDate = new Date('2023-01-01T00:00:00Z');
-jest.spyOn(global, 'Date').mockImplementation(() => mockDate as unknown);
-Date.now = jest.fn(() => mockDate.getTime());
+vi.spyOn(Date, 'now').mockReturnValue(mockDate.getTime());
 
 // Export mock logger for use in tests
 export { mockLogger };

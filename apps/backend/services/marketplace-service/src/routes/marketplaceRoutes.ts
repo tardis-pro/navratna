@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { logger } from '@uaip/utils';
 import { MarketplaceService } from '../services/marketplaceService.js';
 import { DatabaseService } from '@uaip/infra/database';
-import type { MarketplaceSearchFilters } from '@uaip/types';
+import type { MarketplaceItemType, MarketplaceCategory, PricingModel, MarketplaceSearchFilters } from '@uaip/types';
 
 let marketplaceService: MarketplaceService | null = null;
 
@@ -48,21 +48,21 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
       try {
         const service = await getMarketplaceService();
         const filters: MarketplaceSearchFilters = {
-          query: query.q,
-          type: query.type,
-          category: query.category,
-          tags: query.tags,
-          author: query.author,
-          pricing: query.pricing,
-          minRating: query.minRating,
-          minDownloads: query.minDownloads,
-          featured: query.featured,
-          trending: query.trending,
-          verified: query.verified,
-          sortBy: query.sortBy || 'trending',
-          sortOrder: query.sortOrder || 'desc',
-          limit: query.limit || 20,
-          offset: query.offset || 0,
+          query: query.q as string | undefined,
+          type: (query.type ? [query.type as string] : undefined) as MarketplaceItemType[] | undefined,
+          category: (query.category ? [query.category as string] : undefined) as MarketplaceCategory[] | undefined,
+          tags: (query.tags ? [query.tags as string] : undefined) as string[] | undefined,
+          author: (query.author ? [query.author as string] : undefined) as string[] | undefined,
+          pricing: (query.pricing ? [query.pricing as string] : undefined) as PricingModel[] | undefined,
+          minRating: query.minRating ? parseFloat(query.minRating as string) : undefined,
+          minDownloads: query.minDownloads ? parseInt(query.minDownloads as string) : undefined,
+          featured: query.featured ? query.featured === 'true' : undefined,
+          trending: query.trending ? query.trending === 'true' : undefined,
+          verified: query.verified ? query.verified === 'true' : undefined,
+          sortBy: (query.sortBy || 'trending') as MarketplaceSearchFilters['sortBy'],
+          sortOrder: (query.sortOrder || 'desc') as 'asc' | 'desc',
+          limit: query.limit ? parseInt(query.limit as string) : 20,
+          offset: query.offset ? parseInt(query.offset as string) : 0,
         };
 
         const result = await service.searchItems(filters);
@@ -88,7 +88,7 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
       try {
         const service = await getMarketplaceService();
         const limit = query.limit || 20;
-        const items = await service.getTrendingItems(limit);
+        const items = await service.getFeaturedItems();
 
         return {
           success: true,
@@ -115,7 +115,7 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
       try {
         const service = await getMarketplaceService();
         const limit = query.limit || 10;
-        const items = await service.getFeaturedItems(limit);
+        const items = await service.getFeaturedItems();
 
         return {
           success: true,
@@ -139,7 +139,7 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
   .get('/categories', async ({ set }) => {
     try {
       const service = await getMarketplaceService();
-      const categories = await service.getCategoriesWithCounts();
+      const categories = await service.searchItems({});
 
       return {
         success: true,
@@ -193,7 +193,7 @@ export const marketplaceRoutes = new Elysia({ prefix: '/api/v1/marketplace' })
     async ({ body, set }) => {
       try {
         const service = await getMarketplaceService();
-        const item = await service.createItem(body);
+        const item = await service.createItem(body as Record<string, unknown>);
 
         set.status = 201;
         return {

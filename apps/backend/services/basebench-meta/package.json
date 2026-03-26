@@ -25,7 +25,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/jest": "catalog:backend",
     "@types/node": "catalog:backend",
     "nodemon": "catalog:backend",
     "rimraf": "catalog:",

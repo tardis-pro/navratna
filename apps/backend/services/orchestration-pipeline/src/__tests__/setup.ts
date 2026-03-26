@@ -1,15 +1,11 @@
-// Global test setup
 beforeEach(() => {
-  // Clear all mocks before each test
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 afterEach(() => {
-  // Restore all mocks after each test
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
-// Global test utilities
 export const createMockRequest = (
   body = {},
   params = {},
@@ -22,43 +18,35 @@ export const createMockRequest = (
   headers: {},
   user,
   ip: '127.0.0.1',
-  get: jest.fn().mockReturnValue('test-value'),
+  get: vi.fn().mockReturnValue('test-value'),
 });
 
-export const createMockResponse = () => {
-  const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
-    send: jest.fn().mockReturnThis(),
-    cookie: jest.fn().mockReturnThis(),
-    clearCookie: jest.fn().mockReturnThis(),
-    header: jest.fn().mockReturnThis(),
-    removeHeader: jest.fn().mockReturnThis(),
-    redirect: jest.fn().mockReturnThis(),
-  };
-  return res;
-};
+export const createMockResponse = () => ({
+  status: vi.fn().mockReturnThis(),
+  json: vi.fn().mockReturnThis(),
+  send: vi.fn().mockReturnThis(),
+  cookie: vi.fn().mockReturnThis(),
+  clearCookie: vi.fn().mockReturnThis(),
+  header: vi.fn().mockReturnThis(),
+  removeHeader: vi.fn().mockReturnThis(),
+  redirect: vi.fn().mockReturnThis(),
+});
 
-export const createMockNext = () => jest.fn();
+export const createMockNext = () => vi.fn();
 
-// Mock environment variables for testing
 process.env.NODE_ENV = 'test';
 process.env.PORT = '3002';
 process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
 process.env.REDIS_URL = 'redis://localhost:6379';
 
-// Mock Date.now for consistent timestamps
 const mockDate = new Date('2023-01-01T00:00:00Z');
-jest.spyOn(global, 'Date').mockImplementation(() => mockDate as unknown as Date);
-Date.now = jest.fn(() => mockDate.getTime());
+vi.spyOn(Date, 'now').mockReturnValue(mockDate.getTime());
 
-// Mock process events to prevent interference with tests
-const originalOn = process.on;
-(process.on as unknown as jest.Mock) = jest.fn().mockImplementation((event, callback) => {
+const originalOn = process.on.bind(process);
+vi.spyOn(process, 'on').mockImplementation((event: string, listener: (...args: unknown[]) => void) => {
   if (event === 'SIGTERM' || event === 'SIGINT') {
-    // Don't actually register these handlers in tests
     return process;
   }
-  return originalOn.call(process, event, callback);
+  return originalOn(event as NodeJS.Signals, listener as (...args: unknown[]) => void);
 });

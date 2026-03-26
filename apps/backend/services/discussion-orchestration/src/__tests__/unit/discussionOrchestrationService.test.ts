@@ -1,30 +1,30 @@
 describe('DiscussionOrchestrationService', () => {
   const mockDiscussionOrchestrationService = {
-    createDiscussion: jest.fn(),
-    startDiscussion: jest.fn(),
-    addParticipant: jest.fn(),
-    sendMessage: jest.fn(),
-    advanceTurn: jest.fn(),
-    pauseDiscussion: jest.fn(),
-    resumeDiscussion: jest.fn(),
-    endDiscussion: jest.fn(),
-    getDiscussion: jest.fn(),
-    verifyParticipantAccess: jest.fn(),
-    getParticipantByUserId: jest.fn(),
-    requestTurn: jest.fn(),
-    endTurn: jest.fn(),
-    addReaction: jest.fn(),
-    getStatus: jest.fn(),
-    cleanup: jest.fn(),
-    setWebSocketHandler: jest.fn(),
-    on: jest.fn(),
-    emit: jest.fn(),
+    createDiscussion: vi.fn(),
+    startDiscussion: vi.fn(),
+    addParticipant: vi.fn(),
+    sendMessage: vi.fn(),
+    advanceTurn: vi.fn(),
+    pauseDiscussion: vi.fn(),
+    resumeDiscussion: vi.fn(),
+    endDiscussion: vi.fn(),
+    getDiscussion: vi.fn(),
+    verifyParticipantAccess: vi.fn(),
+    getParticipantByUserId: vi.fn(),
+    requestTurn: vi.fn(),
+    endTurn: vi.fn(),
+    addReaction: vi.fn(),
+    getStatus: vi.fn(),
+    cleanup: vi.fn(),
+    setWebSocketHandler: vi.fn(),
+    on: vi.fn(),
+    emit: vi.fn(),
   };
 
   let discussionOrchestrationService: unknown;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock implementations
     (mockDiscussionOrchestrationService.createDiscussion as unknown).mockResolvedValue({
@@ -186,7 +186,7 @@ describe('DiscussionOrchestrationService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Initialization', () => {
@@ -202,7 +202,7 @@ describe('DiscussionOrchestrationService', () => {
     it('should support WebSocket handler configuration', () => {
       expect(discussionOrchestrationService.setWebSocketHandler).toBeDefined();
 
-      const mockHandler = { broadcastToDiscussion: jest.fn() };
+      const mockHandler = { broadcastToDiscussion: vi.fn() };
       discussionOrchestrationService.setWebSocketHandler(mockHandler);
 
       expect(discussionOrchestrationService.setWebSocketHandler).toHaveBeenCalledWith(mockHandler);

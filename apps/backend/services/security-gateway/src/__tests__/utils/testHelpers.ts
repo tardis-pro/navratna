@@ -76,7 +76,7 @@ export function createMockRedis() {
   const expiry = new Map<string, number>();
 
   return {
-    get: jest.fn(async (key: string) => {
+    get: vi.fn(async (key: string) => {
       const exp = expiry.get(key);
       if (exp && Date.now() > exp) {
         store.delete(key);
@@ -86,7 +86,7 @@ export function createMockRedis() {
       return store.get(key) || null;
     }),
 
-    set: jest.fn(async (key: string, value: string, mode?: string, duration?: number) => {
+    set: vi.fn(async (key: string, value: string, mode?: string, duration?: number) => {
       store.set(key, value);
       if (mode === 'EX' && duration) {
         expiry.set(key, Date.now() + duration * 1000);
@@ -94,20 +94,20 @@ export function createMockRedis() {
       return 'OK';
     }),
 
-    setex: jest.fn(async (key: string, seconds: number, value: string) => {
+    setex: vi.fn(async (key: string, seconds: number, value: string) => {
       store.set(key, value);
       expiry.set(key, Date.now() + seconds * 1000);
       return 'OK';
     }),
 
-    del: jest.fn(async (key: string) => {
+    del: vi.fn(async (key: string) => {
       const deleted = store.has(key) ? 1 : 0;
       store.delete(key);
       expiry.delete(key);
       return deleted;
     }),
 
-    exists: jest.fn(async (key: string) => {
+    exists: vi.fn(async (key: string) => {
       const exp = expiry.get(key);
       if (exp && Date.now() > exp) {
         store.delete(key);
@@ -117,14 +117,14 @@ export function createMockRedis() {
       return store.has(key) ? 1 : 0;
     }),
 
-    incr: jest.fn(async (key: string) => {
+    incr: vi.fn(async (key: string) => {
       const current = parseInt(store.get(key) || '0');
       const newValue = current + 1;
       store.set(key, newValue.toString());
       return newValue;
     }),
 
-    expire: jest.fn(async (key: string, seconds: number) => {
+    expire: vi.fn(async (key: string, seconds: number) => {
       if (store.has(key)) {
         expiry.set(key, Date.now() + seconds * 1000);
         return 1;
@@ -132,14 +132,14 @@ export function createMockRedis() {
       return 0;
     }),
 
-    ttl: jest.fn(async (key: string) => {
+    ttl: vi.fn(async (key: string) => {
       const exp = expiry.get(key);
       if (!exp) return -1;
       const remaining = Math.ceil((exp - Date.now()) / 1000);
       return remaining > 0 ? remaining : -2;
     }),
 
-    disconnect: jest.fn(async () => {
+    disconnect: vi.fn(async () => {
       store.clear();
       expiry.clear();
     }),

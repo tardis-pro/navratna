@@ -360,7 +360,7 @@ Rules:
   // ─── Response parsers ─────────────────────────────────────────────────────
 
   parseRound1Response(raw: string): AgentAnalysis {
-    const json = this.extractJSON(raw);
+    const json = this.extractJSON(raw) as Record<string, unknown>;
 
     return {
       agentId: '', // filled in by caller
@@ -378,7 +378,7 @@ Rules:
     mergedQuestions: string[];
     escalatedBlockers: string[];
   } {
-    const json = this.extractJSON(raw);
+    const json = this.extractJSON(raw) as Record<string, unknown>;
 
     return {
       challenge: typeof json.challenge === 'string' ? json.challenge : '',
@@ -416,8 +416,8 @@ Rules:
       tags: q.targetStakeholder ? [q.targetStakeholder] : [],
       status: 'pending' as QuestionStatus,
       usageCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().toISOString() as unknown as Date,
+      updatedAt: new Date().toISOString() as unknown as Date,
     }));
 
     // Detect contradictions from conflicting assumptions across agents
@@ -431,7 +431,7 @@ Rules:
 
     return {
       debateId,
-      round1Analyses: round1,
+      round1Analyses: round1 as unknown as CouncilDebateResult['round1Analyses'],
       round2Challenges: round2,
       synthesizedQuestions,
       contradictions,

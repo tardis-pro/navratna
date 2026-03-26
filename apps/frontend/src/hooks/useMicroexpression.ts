@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Microexpression, MicroexpressionConfig } from '@/types/microexpression';
-import { DEFAULT_MICROEXPRESSION_CONFIG } from '@/types/microexpression';
+import type { Microexpression, MicroexpressionConfig } from '@uaip/types';
+import { DEFAULT_MICROEXPRESSION_CONFIG } from '@uaip/types';
 
 export function useMicroexpression(
   initial?: Microexpression,

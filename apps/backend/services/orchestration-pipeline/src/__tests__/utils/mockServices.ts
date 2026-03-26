@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { jest } from '@jest/globals';
 import {
   Operation,
   OperationType,
@@ -13,8 +12,8 @@ import {
 
 // Mock DatabaseService
 export const createMockDatabaseService = (): Record<string, unknown> => ({
-  initialize: jest.fn().mockResolvedValue(undefined),
-  healthCheck: jest.fn().mockResolvedValue({
+  initialize: vi.fn().mockResolvedValue(undefined),
+  healthCheck: vi.fn().mockResolvedValue({
     status: 'healthy',
     details: {
       connected: true,
@@ -24,10 +23,10 @@ export const createMockDatabaseService = (): Record<string, unknown> => ({
       responseTime: 5,
     },
   }),
-  close: jest.fn().mockResolvedValue(undefined),
+  close: vi.fn().mockResolvedValue(undefined),
 
   // Operation methods
-  getOperation: jest.fn().mockResolvedValue({
+  getOperation: vi.fn().mockResolvedValue({
     id: 'operation-123',
     type: OperationType.TOOL_EXECUTION,
     agentId: 'agent-123',
@@ -42,24 +41,24 @@ export const createMockDatabaseService = (): Record<string, unknown> => ({
     createdAt: new Date(),
     estimatedDuration: 60000,
   }),
-  saveStepResult: jest.fn().mockResolvedValue(undefined),
-  updateOperationResult: jest.fn().mockResolvedValue(undefined),
+  saveStepResult: vi.fn().mockResolvedValue(undefined),
+  updateOperationResult: vi.fn().mockResolvedValue(undefined),
 });
 
 // Mock EventBusService
 export const createMockEventBusService = (): Record<string, unknown> => ({
-  connect: jest.fn().mockResolvedValue(undefined),
-  close: jest.fn().mockResolvedValue(undefined),
-  publishEvent: jest.fn().mockResolvedValue(undefined),
-  subscribe: jest.fn().mockResolvedValue(undefined),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
+  connect: vi.fn().mockResolvedValue(undefined),
+  close: vi.fn().mockResolvedValue(undefined),
+  publishEvent: vi.fn().mockResolvedValue(undefined),
+  subscribe: vi.fn().mockResolvedValue(undefined),
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock StateManagerService
 export const createMockStateManagerService = (): Record<string, unknown> => ({
-  initializeOperationState: jest.fn().mockResolvedValue(undefined),
-  updateOperationState: jest.fn().mockResolvedValue(undefined),
-  getOperationState: jest.fn().mockResolvedValue({
+  initializeOperationState: vi.fn().mockResolvedValue(undefined),
+  updateOperationState: vi.fn().mockResolvedValue(undefined),
+  getOperationState: vi.fn().mockResolvedValue({
     operationId: 'operation-123',
     status: OperationStatus.RUNNING,
     currentStep: 'step-1',
@@ -69,8 +68,8 @@ export const createMockStateManagerService = (): Record<string, unknown> => ({
     checkpoints: [],
     lastUpdated: new Date(),
   }),
-  saveCheckpoint: jest.fn().mockResolvedValue(undefined),
-  restoreFromCheckpoint: jest.fn().mockResolvedValue({
+  saveCheckpoint: vi.fn().mockResolvedValue(undefined),
+  restoreFromCheckpoint: vi.fn().mockResolvedValue({
     operationId: 'operation-123',
     status: OperationStatus.RUNNING,
     completedSteps: ['step-1'],
@@ -79,36 +78,36 @@ export const createMockStateManagerService = (): Record<string, unknown> => ({
     checkpoints: [],
     lastUpdated: new Date(),
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock ResourceManagerService
 export const createMockResourceManagerService = (): Record<string, unknown> => ({
-  checkResourceAvailability: jest.fn().mockResolvedValue({
+  checkResourceAvailability: vi.fn().mockResolvedValue({
     available: true,
     allocatedCpu: 1,
     allocatedMemory: 512 * 1024 * 1024,
     reason: 'Resources available',
   }),
-  allocateResources: jest.fn().mockResolvedValue({
+  allocateResources: vi.fn().mockResolvedValue({
     allocationId: 'allocation-123',
     operationId: 'operation-123',
     allocatedCpu: 2,
     allocatedMemory: 1024 * 1024 * 1024,
     allocatedAt: new Date(),
   }),
-  releaseResources: jest.fn().mockResolvedValue(undefined),
-  getResourceUsage: jest.fn().mockResolvedValue({
+  releaseResources: vi.fn().mockResolvedValue(undefined),
+  getResourceUsage: vi.fn().mockResolvedValue({
     cpu: 1.5,
     memory: 512 * 1024 * 1024,
     network: 0,
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock StepExecutorService
 export const createMockStepExecutorService = (): Record<string, unknown> => ({
-  executeStep: jest.fn().mockResolvedValue({
+  executeStep: vi.fn().mockResolvedValue({
     stepId: 'step-1',
     status: StepStatus.COMPLETED,
     data: { result: 'success' },
@@ -118,39 +117,39 @@ export const createMockStepExecutorService = (): Record<string, unknown> => ({
       completedAt: new Date(),
     },
   }),
-  cancelStep: jest.fn().mockResolvedValue(undefined),
-  forceStopStep: jest.fn().mockResolvedValue(undefined),
-  getStepStatus: jest.fn().mockResolvedValue({
+  cancelStep: vi.fn().mockResolvedValue(undefined),
+  forceStopStep: vi.fn().mockResolvedValue(undefined),
+  getStepStatus: vi.fn().mockResolvedValue({
     stepId: 'step-1',
     status: StepStatus.RUNNING,
     progress: 50,
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock CompensationService
 export const createMockCompensationService = (): Record<string, unknown> => ({
-  createCompensationPlan: jest.fn().mockResolvedValue({
+  createCompensationPlan: vi.fn().mockResolvedValue({
     id: 'compensation-123',
     operationId: 'operation-123',
     actions: [{ type: 'rollback', stepId: 'step-1', description: 'Rollback step 1' }],
   }),
-  executeCompensation: jest.fn().mockResolvedValue({
+  executeCompensation: vi.fn().mockResolvedValue({
     compensationId: 'compensation-123',
     status: 'completed',
     executedActions: 1,
     failedActions: 0,
   }),
-  getCompensationStatus: jest.fn().mockResolvedValue({
+  getCompensationStatus: vi.fn().mockResolvedValue({
     id: 'compensation-123',
     status: 'pending',
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Mock OperationManagementService
 export const createMockOperationManagementService = (): Record<string, unknown> => ({
-  createOperation: jest.fn().mockResolvedValue({
+  createOperation: vi.fn().mockResolvedValue({
     id: 'operation-123',
     type: OperationType.TOOL_EXECUTION,
     agentId: 'agent-123',
@@ -165,7 +164,7 @@ export const createMockOperationManagementService = (): Record<string, unknown> 
     createdAt: new Date(),
     estimatedDuration: 60000,
   }),
-  getOperation: jest.fn().mockResolvedValue({
+  getOperation: vi.fn().mockResolvedValue({
     id: 'operation-123',
     type: OperationType.TOOL_EXECUTION,
     agentId: 'agent-123',
@@ -180,9 +179,9 @@ export const createMockOperationManagementService = (): Record<string, unknown> 
     createdAt: new Date(),
     estimatedDuration: 60000,
   }),
-  updateOperation: jest.fn().mockResolvedValue(undefined),
-  deleteOperation: jest.fn().mockResolvedValue(undefined),
-  createOperationState: jest.fn().mockResolvedValue({
+  updateOperation: vi.fn().mockResolvedValue(undefined),
+  deleteOperation: vi.fn().mockResolvedValue(undefined),
+  createOperationState: vi.fn().mockResolvedValue({
     id: 'state-123',
     operationId: 'operation-123',
     status: OperationStatus.PENDING,
@@ -191,28 +190,28 @@ export const createMockOperationManagementService = (): Record<string, unknown> 
       priority: 'normal',
     },
   }),
-  updateOperationState: jest.fn().mockResolvedValue(undefined),
-  createWorkflowInstance: jest.fn().mockResolvedValue({
+  updateOperationState: vi.fn().mockResolvedValue(undefined),
+  createWorkflowInstance: vi.fn().mockResolvedValue({
     id: 'workflow-123',
     operationId: 'operation-123',
     status: OperationStatus.QUEUED,
     createdAt: new Date(),
   }),
-  createCheckpoint: jest.fn().mockResolvedValue({
+  createCheckpoint: vi.fn().mockResolvedValue({
     id: 'checkpoint-123',
     stepId: 'step-1',
     type: CheckpointType.PROGRESS_MARKER,
     data: {},
     timestamp: new Date(),
   }),
-  createStepResult: jest.fn().mockResolvedValue({
+  createStepResult: vi.fn().mockResolvedValue({
     id: 'result-123',
     stepId: 'step-1',
     status: StepStatus.COMPLETED,
     data: { result: 'success' },
     executionTime: 1500,
   }),
-  healthCheck: jest.fn().mockResolvedValue({ status: 'healthy' }),
+  healthCheck: vi.fn().mockResolvedValue({ status: 'healthy' }),
 });
 
 // Utility to create a mock operation
@@ -311,7 +310,7 @@ export const createMockStepResult = (overrides: Partial<StepResult> = {}): StepR
 
 // Mock config service
 export const createMockConfig = (): Record<string, unknown> => ({
-  getExecutionConfig: jest.fn().mockReturnValue({
+  getExecutionConfig: vi.fn().mockReturnValue({
     operationTimeoutMax: 3600000,
     cleanupOrphanedOperationsInterval: 300000,
     maxParallelSteps: 10,

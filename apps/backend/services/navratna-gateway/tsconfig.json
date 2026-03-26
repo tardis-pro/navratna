@@ -4,9 +4,8 @@
     "outDir": "dist",
     "composite": true,
     "rootDir": "src",
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@uaip/types": ["../../../packages/shared-types/src"],
       "@uaip/types/*": ["../../../packages/shared-types/src/*"],
       "@uaip/utils": ["../../../packages/shared-utils/src"],
@@ -25,11 +24,32 @@
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*"],
   "references": [
-    { "path": "../../../packages/shared-types" },
-    { "path": "../../../packages/shared-utils" },
-    { "path": "../../../shared/config" },
-    { "path": "../../../shared/services" },
-    { "path": "../../../shared/middleware" },
-    { "path": "../../../shared/infra" }
+    {
+      "path": "../capability-registry"
+    },
+    {
+      "path": "../orchestration-pipeline"
+    },
+    {
+      "path": "../security-gateway"
+    },
+    {
+      "path": "../../../packages/shared-utils"
+    },
+    {
+      "path": "../../../packages/shared-types"
+    },
+    {
+      "path": "../../../shared/services"
+    },
+    {
+      "path": "../../../shared/middleware"
+    },
+    {
+      "path": "../../../shared/infra"
+    },
+    {
+      "path": "../../../shared/config"
+    }
   ]
 }

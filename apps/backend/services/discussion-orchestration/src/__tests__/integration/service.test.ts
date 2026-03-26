@@ -1,18 +1,18 @@
 describe('Discussion Orchestration Service Integration', () => {
   const mockIntegrationService = {
-    createDiscussionFlow: jest.fn(),
-    realTimeCollaborationFlow: jest.fn(),
-    turnManagementFlow: jest.fn(),
-    participantManagementFlow: jest.fn(),
-    eventBroadcastingFlow: jest.fn(),
-    errorHandlingFlow: jest.fn(),
-    cleanup: jest.fn(),
+    createDiscussionFlow: vi.fn(),
+    realTimeCollaborationFlow: vi.fn(),
+    turnManagementFlow: vi.fn(),
+    participantManagementFlow: vi.fn(),
+    eventBroadcastingFlow: vi.fn(),
+    errorHandlingFlow: vi.fn(),
+    cleanup: vi.fn(),
   };
 
   let integrationService: Record<string, unknown>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup integration test scenarios
     (mockIntegrationService.createDiscussionFlow as unknown).mockResolvedValue({
@@ -122,7 +122,7 @@ describe('Discussion Orchestration Service Integration', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('End-to-End Discussion Creation Flow', () => {

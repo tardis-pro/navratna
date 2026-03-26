@@ -1,6 +1,6 @@
 import { CapabilityDiscoveryService } from '../../capabilityDiscoveryService';
 
-jest.mock('../../databaseService');
+vi.mock('../../databaseService');
 
 describe('CapabilityDiscoveryService', () => {
   let service: CapabilityDiscoveryService;
@@ -10,7 +10,7 @@ describe('CapabilityDiscoveryService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('initialization', () => {

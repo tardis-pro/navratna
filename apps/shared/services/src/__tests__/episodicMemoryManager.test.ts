@@ -70,17 +70,17 @@ function createEpisode(): Episode {
 
 describe('EpisodicMemoryManager', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('stores an episode and creates FOLLOWED_BY relationships', async () => {
-    const runQuery = jest.fn().mockResolvedValue(undefined);
-    const getToolGraphDatabase = jest.fn().mockResolvedValue({ runQuery });
+    const runQuery = vi.fn().mockResolvedValue(undefined);
+    const getToolGraphDatabase = vi.fn().mockResolvedValue({ runQuery });
     const databaseMock = { getToolGraphDatabase } as unknown as DatabaseService;
-    jest.spyOn(DatabaseService, 'getInstance').mockReturnValue(databaseMock);
+    vi.spyOn(DatabaseService, 'getInstance').mockReturnValue(databaseMock);
 
-    const ingest = jest.fn().mockResolvedValue(undefined);
-    const search = jest.fn();
+    const ingest = vi.fn().mockResolvedValue(undefined);
+    const search = vi.fn();
     const knowledgeGraph = { ingest, search } as unknown as KnowledgeGraphService;
 
     const manager = new EpisodicMemoryManager(knowledgeGraph);
@@ -110,11 +110,11 @@ describe('EpisodicMemoryManager', () => {
   });
 
   it('finds similar episodes based on knowledge graph search results', async () => {
-    const getToolGraphDatabase = jest.fn();
+    const getToolGraphDatabase = vi.fn();
     const databaseMock = { getToolGraphDatabase } as unknown as DatabaseService;
-    jest.spyOn(DatabaseService, 'getInstance').mockReturnValue(databaseMock);
+    vi.spyOn(DatabaseService, 'getInstance').mockReturnValue(databaseMock);
 
-    const search = jest.fn().mockResolvedValue({
+    const search = vi.fn().mockResolvedValue({
       items: [
         {
           id: 'knowledge-1',
@@ -164,7 +164,7 @@ describe('EpisodicMemoryManager', () => {
         filtersApplied: ['agent-memory'],
       },
     });
-    const ingest = jest.fn();
+    const ingest = vi.fn();
     const knowledgeGraph = { ingest, search } as unknown as KnowledgeGraphService;
 
     const manager = new EpisodicMemoryManager(knowledgeGraph);

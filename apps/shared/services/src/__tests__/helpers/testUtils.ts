@@ -1,60 +1,60 @@
-// Jest is globally available
+import type { Mock, Mocked } from 'vitest';
 import { DatabaseService } from '../../database/DatabaseService';
 import { EventBusService } from '../../eventBusService';
 
 interface MockRepository<T = unknown> {
-  find: jest.Mock;
-  findOne: jest.Mock;
-  findOneBy: jest.Mock;
-  findBy: jest.Mock;
-  save: jest.Mock;
-  create: jest.Mock;
-  update: jest.Mock;
-  delete: jest.Mock;
-  remove: jest.Mock;
-  count: jest.Mock;
-  createQueryBuilder: jest.Mock;
-  query: jest.Mock;
-  clear: jest.Mock;
-  insert: jest.Mock;
-  upsert: jest.Mock;
-  reload: jest.Mock;
+  find: Mock;
+  findOne: Mock;
+  findOneBy: Mock;
+  findBy: Mock;
+  save: Mock;
+  create: Mock;
+  update: Mock;
+  delete: Mock;
+  remove: Mock;
+  count: Mock;
+  createQueryBuilder: Mock;
+  query: Mock;
+  clear: Mock;
+  insert: Mock;
+  upsert: Mock;
+  reload: Mock;
   _entity?: T;
 }
 
 interface MockPool {
-  query: jest.Mock;
-  connect: jest.Mock;
-  end: jest.Mock;
+  query: Mock;
+  connect: Mock;
+  end: Mock;
 }
 
 export namespace TestUtils {
   export function createMockRepository<T>(): MockRepository<T> {
     return {
-      find: jest.fn(),
-      findOne: jest.fn(),
-      findOneBy: jest.fn(),
-      findBy: jest.fn(),
-      save: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      remove: jest.fn(),
-      count: jest.fn(),
-      createQueryBuilder: jest.fn(),
-      query: jest.fn(),
-      clear: jest.fn(),
-      insert: jest.fn(),
-      upsert: jest.fn(),
-      reload: jest.fn(),
+      find: vi.fn(),
+      findOne: vi.fn(),
+      findOneBy: vi.fn(),
+      findBy: vi.fn(),
+      save: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      remove: vi.fn(),
+      count: vi.fn(),
+      createQueryBuilder: vi.fn(),
+      query: vi.fn(),
+      clear: vi.fn(),
+      insert: vi.fn(),
+      upsert: vi.fn(),
+      reload: vi.fn(),
     };
   }
 
   export function createMockPool(): MockPool {
     return {
-      query: jest.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-      connect: jest.fn().mockResolvedValue({ query: jest.fn(), release: jest.fn() }),
-      end: jest.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+      connect: vi.fn().mockResolvedValue({ query: vi.fn(), release: vi.fn() }),
+      end: vi.fn().mockResolvedValue(undefined),
     };
   }
 
@@ -62,12 +62,12 @@ export namespace TestUtils {
     return TestUtils.createMockPool();
   }
 
-  export function createMockDatabaseService(): jest.Mocked<DatabaseService> {
+  export function createMockDatabaseService(): Mocked<DatabaseService> {
     return {
-      initialize: jest.fn().mockResolvedValue(undefined),
-      close: jest.fn().mockResolvedValue(undefined),
-      isInitialized: jest.fn().mockReturnValue(true),
-      seedDatabase: jest.fn().mockResolvedValue(undefined),
+      initialize: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      isInitialized: vi.fn().mockReturnValue(true),
+      seedDatabase: vi.fn().mockResolvedValue(undefined),
       users: TestUtils.createMockRepository(),
       refreshTokens: TestUtils.createMockRepository(),
       passwordResetTokens: TestUtils.createMockRepository(),
@@ -86,22 +86,22 @@ export namespace TestUtils {
       capabilities: TestUtils.createMockRepository(),
       llmProviders: TestUtils.createMockRepository(),
       userLLMProviders: TestUtils.createMockRepository(),
-      getInstance: jest.fn(),
-      transaction: jest.fn().mockImplementation(async (fn) => await fn({})),
+      getInstance: vi.fn(),
+      transaction: vi.fn().mockImplementation(async (fn) => await fn({})),
     } as unknown as never;
   }
 
-  export function createMockEventBusService(): jest.Mocked<EventBusService> {
+  export function createMockEventBusService(): Mocked<EventBusService> {
     return {
-      connect: jest.fn().mockResolvedValue(undefined),
-      disconnect: jest.fn().mockResolvedValue(undefined),
-      publish: jest.fn().mockResolvedValue(undefined),
-      subscribe: jest.fn().mockResolvedValue(undefined),
-      createChannel: jest.fn().mockResolvedValue({}),
-      isConnected: jest.fn().mockReturnValue(true),
-      assertExchange: jest.fn().mockResolvedValue(undefined),
-      assertQueue: jest.fn().mockResolvedValue(undefined),
-      bindQueue: jest.fn().mockResolvedValue(undefined),
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      publish: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn().mockResolvedValue(undefined),
+      createChannel: vi.fn().mockResolvedValue({}),
+      isConnected: vi.fn().mockReturnValue(true),
+      assertExchange: vi.fn().mockResolvedValue(undefined),
+      assertQueue: vi.fn().mockResolvedValue(undefined),
+      bindQueue: vi.fn().mockResolvedValue(undefined),
     } as unknown as never;
   }
 
@@ -132,10 +132,10 @@ export namespace TestUtils {
 
   export function createMockLogger() {
     return {
-      info: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      debug: jest.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
     };
   }
 

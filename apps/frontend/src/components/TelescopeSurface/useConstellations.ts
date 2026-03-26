@@ -12,7 +12,7 @@ import type {
   MaterializableBlockType,
   BlockVisibility,
 } from '@/components/MaterializableBlock/MaterializableBlock.types';
-import type { Microexpression } from '@/types/microexpression';
+import type { Microexpression } from '@uaip/types';
 import type { ConstellationBlockData } from './TelescopeSurface.types';
 
 export type { ConstellationBlockData } from './TelescopeSurface.types';

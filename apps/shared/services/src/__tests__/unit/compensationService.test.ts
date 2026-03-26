@@ -1,21 +1,22 @@
+import type { Mocked } from 'vitest';
 import { CompensationService } from '../../compensationService';
 import { DatabaseService } from '../../databaseService';
 import { EventBusService } from '../../eventBusService';
 
-jest.mock('../../databaseService');
-jest.mock('../../eventBusService');
+vi.mock('../../databaseService');
+vi.mock('../../eventBusService');
 
 describe('CompensationService', () => {
   let service: CompensationService;
-  let mockDatabaseService: jest.Mocked<DatabaseService>;
-  let mockEventBusService: jest.Mocked<EventBusService>;
+  let mockDatabaseService: Mocked<DatabaseService>;
+  let mockEventBusService: Mocked<EventBusService>;
 
   beforeEach(() => {
-    mockDatabaseService = new DatabaseService() as jest.Mocked<DatabaseService>;
+    mockDatabaseService = new DatabaseService() as Mocked<DatabaseService>;
     mockEventBusService = new EventBusService(
       { url: 'test', serviceName: 'test' },
       console as unknown as Console
-    ) as jest.Mocked<EventBusService>;
+    ) as Mocked<EventBusService>;
     service = new CompensationService(mockDatabaseService, mockEventBusService);
   });
 

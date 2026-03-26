@@ -1,6 +1,7 @@
 import { BaseService, ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
+import type { ForgeRequest } from '@uaip/types';
 
 import { QuestionForgeService } from './services/questionForge.service.js';
 import { InterviewCaptureService } from './services/interviewCapture.service.js';
@@ -42,11 +43,11 @@ class QuestionForgeApp extends BaseService {
       await this.subscribeWithErrorHandling(
         'questionforge.forge.request',
         async (data) => {
-          const result = await this.forgeService.forge(data);
+          const result = await this.forgeService.forge(data as ForgeRequest);
           return {
             ...result,
-            questionPacks: Object.fromEntries(result.questionPacks),
-            interviewScripts: Object.fromEntries(result.interviewScripts),
+            questionPacks: result.questionPacks,
+            interviewScripts: result.interviewScripts,
           };
         },
         {

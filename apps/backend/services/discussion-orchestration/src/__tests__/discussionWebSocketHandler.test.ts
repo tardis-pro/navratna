@@ -5,29 +5,28 @@ import {
 } from '../websocket/discussionWebSocketHandler.js';
 import { DiscussionOrchestrationService } from '../services/discussionOrchestrationService.js';
 
-jest.mock('../websocket/websocket-security-utils.js', () => ({
-  authenticateConnection: jest.fn(() => ({
+vi.mock('../websocket/websocket-security-utils.js', () => ({
+  authenticateConnection: vi.fn(() => ({
     authenticated: true,
     userId: 'user-1',
     securityLevel: 2,
   })),
-  isValidUUID: jest.fn(() => true),
-  sanitizeContent: jest.fn((content: string) => content),
-  generateSecureConnectionId: jest.fn(() => 'conn-test-id'),
-  checkWebSocketRateLimit: jest.fn(() => true),
-  validateMessageSize: jest.fn(() => true),
+  isValidUUID: vi.fn(() => true),
+  sanitizeContent: vi.fn((content: string) => content),
+  generateSecureConnectionId: vi.fn(() => 'conn-test-id'),
+  checkWebSocketRateLimit: vi.fn(() => true),
+  validateMessageSize: vi.fn(() => true),
 }));
 
-jest.mock('../websocket/redis-session-manager.js', () => ({
-  RedisSessionManager: jest.fn().mockImplementation(() => ({
-    checkConnectionLimits: jest.fn().mockResolvedValue(true),
-    createSession: jest.fn().mockResolvedValue(undefined),
-    removeSession: jest.fn().mockResolvedValue(undefined),
-    cleanupExpiredSessions: jest.fn().mockResolvedValue(undefined),
-    getSessionStats: jest
-      .fn()
+vi.mock('../websocket/redis-session-manager.js', () => ({
+  RedisSessionManager: vi.fn().mockImplementation(() => ({
+    checkConnectionLimits: vi.fn().mockResolvedValue(true),
+    createSession: vi.fn().mockResolvedValue(undefined),
+    removeSession: vi.fn().mockResolvedValue(undefined),
+    cleanupExpiredSessions: vi.fn().mockResolvedValue(undefined),
+    getSessionStats: vi.fn()
       .mockResolvedValue({ totalSessions: 0, activeUsers: 0, activeDiscussions: 0 }),
-    destroy: jest.fn().mockResolvedValue(undefined),
+    destroy: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
@@ -46,19 +45,19 @@ type HandlerInternals = {
 
 function createMockOrchestrationService(): DiscussionOrchestrationService {
   return {
-    on: jest.fn(),
-    verifyParticipantAccess: jest.fn().mockResolvedValue(true),
+    on: vi.fn(),
+    verifyParticipantAccess: vi.fn().mockResolvedValue(true),
   } as unknown as DiscussionOrchestrationService;
 }
 
 function createConnection(): WebSocketConnection {
   const wsMock = {
-    on: jest.fn(),
-    send: jest.fn(),
-    close: jest.fn(),
-    ping: jest.fn(),
-    terminate: jest.fn(),
-    removeAllListeners: jest.fn(),
+    on: vi.fn(),
+    send: vi.fn(),
+    close: vi.fn(),
+    ping: vi.fn(),
+    terminate: vi.fn(),
+    removeAllListeners: vi.fn(),
     readyState: WebSocket.OPEN,
   } as unknown as WebSocket;
 
@@ -82,15 +81,15 @@ describe('DiscussionWebSocketHandler', () => {
   let handler: DiscussionWebSocketHandler;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     handler = new DiscussionWebSocketHandler(createMockOrchestrationService());
   });
 
   afterEach(async () => {
     await handler.destroy();
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('handleDisconnection clears connection timer and removes listeners', async () => {
@@ -100,8 +99,8 @@ describe('DiscussionWebSocketHandler', () => {
 
     internals.connectionTimers.set(connection.connectionId, timeoutHandle);
 
-    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
-    const removeConnectionAtomicSpy = jest
+    const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
+    const removeConnectionAtomicSpy = vi
       .spyOn(internals, 'removeConnectionAtomic')
       .mockResolvedValue(undefined);
 

@@ -1,4 +1,4 @@
-import type { Microexpression } from '@/types/microexpression';
+import type { Microexpression } from '@uaip/types';
 import { cn } from '@/lib/utils';
 
 interface MicroexpressionIconProps {

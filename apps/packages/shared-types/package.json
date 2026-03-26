@@ -23,16 +23,19 @@
   },
   "exports": {
     ".": {
+      "@uaip/source": "./src/index.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
     "./operation": {
+      "@uaip/source": "./src/operation.ts",
       "import": "./dist/operation.js",
       "require": "./dist/operation.js",
       "types": "./dist/operation.d.ts"
     },
     "./*": {
+      "@uaip/source": "./src/*.ts",
       "import": "./dist/*.js",
       "require": "./dist/*.js",
       "types": "./dist/*.d.ts"

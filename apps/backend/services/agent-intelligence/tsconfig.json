@@ -5,13 +5,12 @@
     "composite": true,
     // relative to package root
     "rootDir": "src",
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@uaip/knowledge-graph": ["src/knowledge-graph/index.ts"],
-      "@uaip/knowledge-graph/*": ["src/knowledge-graph/*"],
-      "@uaip/agent-memory": ["src/agent-memory/index.ts"],
-      "@uaip/agent-memory/*": ["src/agent-memory/*"],
+      "@/*": ["./src/*"],
+      "@uaip/knowledge-graph": ["./src/knowledge-graph/index.ts"],
+      "@uaip/knowledge-graph/*": ["./src/knowledge-graph/*"],
+      "@uaip/agent-memory": ["./src/agent-memory/index.ts"],
+      "@uaip/agent-memory/*": ["./src/agent-memory/*"],
       "@uaip/types": ["../../../packages/shared-types/src"],
       "@uaip/types/*": ["../../../packages/shared-types/src/*"],
       "@uaip/utils": ["../../../packages/shared-utils/src"],

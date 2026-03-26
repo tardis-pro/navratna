@@ -55,12 +55,12 @@ export default defineConfig(({ _mode }) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-framer': ['framer-motion'],
-            'vendor-radix': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
-            'vendor-socket': ['socket.io-client'],
-            'vendor-query': ['@tanstack/react-query'],
+          manualChunks(id) {
+            if (id.includes('react-dom') || (id.includes('react') && !id.includes('@tanstack'))) return 'vendor-react';
+            if (id.includes('framer-motion')) return 'vendor-framer';
+            if (id.includes('@radix-ui')) return 'vendor-radix';
+            if (id.includes('socket.io-client')) return 'vendor-socket';
+            if (id.includes('@tanstack/react-query')) return 'vendor-query';
           },
         },
       },
@@ -68,9 +68,8 @@ export default defineConfig(({ _mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '@uaip/types': path.resolve(__dirname, '../../packages/shared-types/src'),
-        '@uaip/utils': path.resolve(__dirname, '../../packages/shared-utils/src'),
       },
+      conditions: ['@uaip/source'],
     },
     test: {
       globals: true,

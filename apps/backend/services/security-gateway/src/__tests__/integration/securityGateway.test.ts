@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+
 import { SecurityGatewayService } from '../../services/securityGatewayService.js';
 import { ApprovalWorkflowService as _ApprovalWorkflowService } from '../../services/approvalWorkflowService.js';
 import { AuditService as _AuditService } from '../../services/auditService.js';
@@ -10,16 +10,16 @@ import {
 import { SecurityValidationRequest, SecurityLevel, RiskLevel, AuditEventType } from '@uaip/types';
 
 // Mock all external dependencies for integration testing
-jest.mock('@uaip/shared-services', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
+vi.mock('@uaip/shared-services', () => ({
+  DatabaseService: vi.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
-jest.mock('../../services/auditService.js', () => ({
-  AuditService: jest.fn().mockImplementation(() => createMockAuditService()),
+vi.mock('../../services/auditService.js', () => ({
+  AuditService: vi.fn().mockImplementation(() => createMockAuditService()),
 }));
 
-jest.mock('../../services/approvalWorkflowService.js', () => ({
-  ApprovalWorkflowService: jest.fn().mockImplementation(() => createMockApprovalWorkflowService()),
+vi.mock('../../services/approvalWorkflowService.js', () => ({
+  ApprovalWorkflowService: vi.fn().mockImplementation(() => createMockApprovalWorkflowService()),
 }));
 
 describe('Security Gateway Integration', () => {
@@ -172,11 +172,11 @@ describe('Security Gateway Integration', () => {
     });
 
     it('should handle time-sensitive operations correctly', async () => {
-      // Mock weekend time (Saturday evening)
+      vi.useFakeTimers();
       const weekendDate = new Date();
-      weekendDate.setDate(weekendDate.getDate() + (6 - weekendDate.getDay())); // Move to Saturday
-      weekendDate.setHours(20, 0, 0, 0); // 8 PM
-      jest.spyOn(global, 'Date').mockImplementation(() => weekendDate as unknown);
+      weekendDate.setDate(weekendDate.getDate() + (6 - weekendDate.getDay()));
+      weekendDate.setHours(20, 0, 0, 0);
+      vi.setSystemTime(weekendDate);
 
       const request: SecurityValidationRequest = {
         operation: {
@@ -195,8 +195,8 @@ describe('Security Gateway Integration', () => {
 
       const validationResult = await securityGatewayService.validateSecurity(request);
 
-      // Weekend + evening should increase risk
       expect([SecurityLevel.MEDIUM, SecurityLevel.HIGH]).toContain(validationResult.riskLevel);
+      vi.useRealTimers();
     });
 
     it('should handle user with security history correctly', async () => {

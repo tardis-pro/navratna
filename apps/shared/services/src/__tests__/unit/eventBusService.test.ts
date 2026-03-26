@@ -9,10 +9,10 @@ describe('EventBusService', () => {
       serviceName: 'test-service',
     };
     const mockLogger = {
-      info: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      debug: jest.fn(),
+      info: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
     } as unknown as Console;
     service = new EventBusService(mockConfig, mockLogger);
   });

@@ -3,25 +3,25 @@ import { OperationState, Checkpoint } from '@uaip/types';
 
 // Mock Redis client
 const mockRedis = {
-  setex: jest.fn().mockResolvedValue('OK'),
-  get: jest.fn().mockResolvedValue(null),
-  expire: jest.fn().mockResolvedValue(1),
-  keys: jest.fn().mockResolvedValue([]),
-  ttl: jest.fn().mockResolvedValue(-1),
-  info: jest.fn().mockResolvedValue('keyspace_hits:100\r\nkeyspace_misses:20\r\n'),
-  quit: jest.fn().mockResolvedValue('OK'),
-  on: jest.fn(),
+  setex: vi.fn().mockResolvedValue('OK'),
+  get: vi.fn().mockResolvedValue(null),
+  expire: vi.fn().mockResolvedValue(1),
+  keys: vi.fn().mockResolvedValue([]),
+  ttl: vi.fn().mockResolvedValue(-1),
+  info: vi.fn().mockResolvedValue('keyspace_hits:100\r\nkeyspace_misses:20\r\n'),
+  quit: vi.fn().mockResolvedValue('OK'),
+  on: vi.fn(),
 };
 
 // Mock ioredis
-jest.mock('ioredis', () => {
-  return jest.fn().mockImplementation(() => mockRedis);
+vi.mock('ioredis', () => {
+  return vi.fn().mockImplementation(() => mockRedis);
 });
 
 // Mock config
-jest.mock('@uaip/config', () => ({
+vi.mock('@uaip/config', () => ({
   config: {
-    getRedisConfig: jest.fn().mockReturnValue({
+    getRedisConfig: vi.fn().mockReturnValue({
       host: 'localhost',
       port: 6379,
       password: null,
@@ -30,7 +30,7 @@ jest.mock('@uaip/config', () => ({
       retryDelayOnFailover: 100,
       enableOfflineQueue: false,
     }),
-    getStateConfig: jest.fn().mockReturnValue({
+    getStateConfig: vi.fn().mockReturnValue({
       compressionEnabled: true,
       maxCheckpointSize: 1048576, // 1MB
     }),
@@ -39,20 +39,20 @@ jest.mock('@uaip/config', () => ({
 
 // Mock DatabaseService
 const createMockDatabaseService = () => ({
-  saveOperationState: jest.fn().mockResolvedValue(undefined),
-  getOperationState: jest.fn().mockResolvedValue(null),
-  updateOperationState: jest.fn().mockResolvedValue(undefined),
-  saveCheckpoint: jest.fn().mockResolvedValue(undefined),
-  getCheckpoint: jest.fn().mockResolvedValue(null),
-  listCheckpoints: jest.fn().mockResolvedValue([]),
-  deleteOldOperationStates: jest.fn().mockResolvedValue(5),
-  getStateStatistics: jest.fn().mockResolvedValue({
+  saveOperationState: vi.fn().mockResolvedValue(undefined),
+  getOperationState: vi.fn().mockResolvedValue(null),
+  updateOperationState: vi.fn().mockResolvedValue(undefined),
+  saveCheckpoint: vi.fn().mockResolvedValue(undefined),
+  getCheckpoint: vi.fn().mockResolvedValue(null),
+  listCheckpoints: vi.fn().mockResolvedValue([]),
+  deleteOldOperationStates: vi.fn().mockResolvedValue(5),
+  getStateStatistics: vi.fn().mockResolvedValue({
     totalOperations: 100,
     activeOperations: 15,
     totalCheckpoints: 50,
     averageStateSize: 2048,
   }),
-  healthCheck: jest.fn().mockResolvedValue({
+  healthCheck: vi.fn().mockResolvedValue({
     status: 'healthy',
     details: {
       connected: true,
@@ -69,7 +69,7 @@ describe('StateManagerService', () => {
   let mockDatabaseService: ReturnType<typeof createMockDatabaseService>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockDatabaseService = createMockDatabaseService();
     service = new StateManagerService(mockDatabaseService as unknown as DatabaseService);
   });

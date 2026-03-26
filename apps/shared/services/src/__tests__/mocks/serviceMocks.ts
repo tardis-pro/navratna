@@ -4,73 +4,73 @@ import { TestUtils } from '../helpers/testUtils';
 export namespace ServiceMockFactory {
   export function createMockRedisService() {
     return {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-      exists: jest.fn(),
-      expire: jest.fn(),
-      ttl: jest.fn(),
-      keys: jest.fn(),
-      flushdb: jest.fn(),
-      incr: jest.fn(),
-      decr: jest.fn(),
-      hget: jest.fn(),
-      hset: jest.fn(),
-      hdel: jest.fn(),
-      hgetall: jest.fn(),
-      sadd: jest.fn(),
-      srem: jest.fn(),
-      smembers: jest.fn(),
-      sismember: jest.fn(),
-      lpush: jest.fn(),
-      rpush: jest.fn(),
-      lpop: jest.fn(),
-      rpop: jest.fn(),
-      llen: jest.fn(),
-      lrange: jest.fn(),
-      publish: jest.fn(),
-      subscribe: jest.fn(),
-      unsubscribe: jest.fn(),
-      disconnect: jest.fn(),
-      connect: jest.fn(),
-      ping: jest.fn(),
+      get: vi.fn(),
+      set: vi.fn(),
+      del: vi.fn(),
+      exists: vi.fn(),
+      expire: vi.fn(),
+      ttl: vi.fn(),
+      keys: vi.fn(),
+      flushdb: vi.fn(),
+      incr: vi.fn(),
+      decr: vi.fn(),
+      hget: vi.fn(),
+      hset: vi.fn(),
+      hdel: vi.fn(),
+      hgetall: vi.fn(),
+      sadd: vi.fn(),
+      srem: vi.fn(),
+      smembers: vi.fn(),
+      sismember: vi.fn(),
+      lpush: vi.fn(),
+      rpush: vi.fn(),
+      lpop: vi.fn(),
+      rpop: vi.fn(),
+      llen: vi.fn(),
+      lrange: vi.fn(),
+      publish: vi.fn(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
+      disconnect: vi.fn(),
+      connect: vi.fn(),
+      ping: vi.fn(),
     };
   }
 
   export function createMockNeo4jService() {
     return {
       driver: {
-        session: jest.fn().mockReturnValue({
-          run: jest.fn(),
-          close: jest.fn(),
-          readTransaction: jest.fn(),
-          writeTransaction: jest.fn(),
+        session: vi.fn().mockReturnValue({
+          run: vi.fn(),
+          close: vi.fn(),
+          readTransaction: vi.fn(),
+          writeTransaction: vi.fn(),
         }),
-        close: jest.fn(),
-        verifyConnectivity: jest.fn(),
+        close: vi.fn(),
+        verifyConnectivity: vi.fn(),
       },
-      query: jest.fn(),
-      createNode: jest.fn(),
-      updateNode: jest.fn(),
-      deleteNode: jest.fn(),
-      createRelationship: jest.fn(),
-      deleteRelationship: jest.fn(),
-      findNodes: jest.fn(),
-      findRelationships: jest.fn(),
-      close: jest.fn(),
+      query: vi.fn(),
+      createNode: vi.fn(),
+      updateNode: vi.fn(),
+      deleteNode: vi.fn(),
+      createRelationship: vi.fn(),
+      deleteRelationship: vi.fn(),
+      findNodes: vi.fn(),
+      findRelationships: vi.fn(),
+      close: vi.fn(),
     };
   }
 
   export function createMockLLMService() {
     return {
-      generateCompletion: jest.fn().mockResolvedValue({
+      generateCompletion: vi.fn().mockResolvedValue({
         content: 'Mock AI response',
         usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
       }),
-      generateEmbedding: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
-      listModels: jest.fn().mockResolvedValue(['gpt-4', 'gpt-3.5-turbo']),
-      validateModel: jest.fn().mockReturnValue(true),
-      getModelInfo: jest.fn().mockReturnValue({
+      generateEmbedding: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+      listModels: vi.fn().mockResolvedValue(['gpt-4', 'gpt-3.5-turbo']),
+      validateModel: vi.fn().mockReturnValue(true),
+      getModelInfo: vi.fn().mockReturnValue({
         id: 'gpt-4',
         name: 'GPT-4',
         maxTokens: 8192,
@@ -81,102 +81,102 @@ export namespace ServiceMockFactory {
 
   export function createMockQueueService() {
     return {
-      connect: jest.fn(),
-      disconnect: jest.fn(),
-      publish: jest.fn(),
-      subscribe: jest.fn(),
-      unsubscribe: jest.fn(),
-      createQueue: jest.fn(),
-      deleteQueue: jest.fn(),
-      purgeQueue: jest.fn(),
-      getQueueInfo: jest.fn(),
-      ack: jest.fn(),
-      nack: jest.fn(),
-      reject: jest.fn(),
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      publish: vi.fn(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
+      createQueue: vi.fn(),
+      deleteQueue: vi.fn(),
+      purgeQueue: vi.fn(),
+      getQueueInfo: vi.fn(),
+      ack: vi.fn(),
+      nack: vi.fn(),
+      reject: vi.fn(),
     };
   }
 
   export function createMockSecurityService() {
     return {
-      hashPassword: jest.fn().mockResolvedValue('hashed_password'),
-      comparePassword: jest.fn().mockResolvedValue(true),
-      generateToken: jest.fn().mockReturnValue('mock_token'),
-      verifyToken: jest.fn().mockReturnValue({ userId: TestUtils.generateUUID() }),
-      encryptSensitiveData: jest.fn().mockReturnValue('encrypted_data'),
-      decryptSensitiveData: jest.fn().mockReturnValue('decrypted_data'),
-      validateSecurityLevel: jest.fn().mockReturnValue(true),
-      auditSecurityEvent: jest.fn(),
+      hashPassword: vi.fn().mockResolvedValue('hashed_password'),
+      comparePassword: vi.fn().mockResolvedValue(true),
+      generateToken: vi.fn().mockReturnValue('mock_token'),
+      verifyToken: vi.fn().mockReturnValue({ userId: TestUtils.generateUUID() }),
+      encryptSensitiveData: vi.fn().mockReturnValue('encrypted_data'),
+      decryptSensitiveData: vi.fn().mockReturnValue('decrypted_data'),
+      validateSecurityLevel: vi.fn().mockReturnValue(true),
+      auditSecurityEvent: vi.fn(),
     };
   }
 
   export function createMockNotificationService() {
     return {
-      sendEmail: jest.fn(),
-      sendSMS: jest.fn(),
-      sendPushNotification: jest.fn(),
-      createNotification: jest.fn(),
-      markAsRead: jest.fn(),
-      getNotifications: jest.fn(),
-      deleteNotification: jest.fn(),
+      sendEmail: vi.fn(),
+      sendSMS: vi.fn(),
+      sendPushNotification: vi.fn(),
+      createNotification: vi.fn(),
+      markAsRead: vi.fn(),
+      getNotifications: vi.fn(),
+      deleteNotification: vi.fn(),
     };
   }
 
   export function createMockFileService() {
     return {
-      uploadFile: jest.fn(),
-      downloadFile: jest.fn(),
-      deleteFile: jest.fn(),
-      getFileMetadata: jest.fn(),
-      generateSignedUrl: jest.fn(),
-      listFiles: jest.fn(),
-      moveFile: jest.fn(),
-      copyFile: jest.fn(),
+      uploadFile: vi.fn(),
+      downloadFile: vi.fn(),
+      deleteFile: vi.fn(),
+      getFileMetadata: vi.fn(),
+      generateSignedUrl: vi.fn(),
+      listFiles: vi.fn(),
+      moveFile: vi.fn(),
+      copyFile: vi.fn(),
     };
   }
 
   export function createMockMetricsService() {
     return {
-      recordMetric: jest.fn(),
-      incrementCounter: jest.fn(),
-      recordGauge: jest.fn(),
-      recordHistogram: jest.fn(),
-      recordTimer: jest.fn(),
-      getMetrics: jest.fn(),
-      resetMetrics: jest.fn(),
+      recordMetric: vi.fn(),
+      incrementCounter: vi.fn(),
+      recordGauge: vi.fn(),
+      recordHistogram: vi.fn(),
+      recordTimer: vi.fn(),
+      getMetrics: vi.fn(),
+      resetMetrics: vi.fn(),
     };
   }
 
   export function createMockCacheService() {
     return {
-      get: jest.fn(),
-      set: jest.fn(),
-      delete: jest.fn(),
-      clear: jest.fn(),
-      has: jest.fn(),
-      keys: jest.fn(),
-      size: jest.fn(),
-      invalidatePattern: jest.fn(),
-      setWithTTL: jest.fn(),
-      getTTL: jest.fn(),
+      get: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+      clear: vi.fn(),
+      has: vi.fn(),
+      keys: vi.fn(),
+      size: vi.fn(),
+      invalidatePattern: vi.fn(),
+      setWithTTL: vi.fn(),
+      getTTL: vi.fn(),
     };
   }
 
   export function createMockConfigService() {
     return {
-      get: jest.fn(),
-      set: jest.fn(),
-      has: jest.fn(),
-      getAll: jest.fn(),
-      reload: jest.fn(),
-      validate: jest.fn(),
-      watch: jest.fn(),
-      unwatch: jest.fn(),
+      get: vi.fn(),
+      set: vi.fn(),
+      has: vi.fn(),
+      getAll: vi.fn(),
+      reload: vi.fn(),
+      validate: vi.fn(),
+      watch: vi.fn(),
+      unwatch: vi.fn(),
     };
   }
 
   export function createMockHealthService() {
     return {
-      checkHealth: jest.fn().mockResolvedValue({
+      checkHealth: vi.fn().mockResolvedValue({
         status: 'healthy',
         checks: {
           database: 'healthy',
@@ -185,21 +185,21 @@ export namespace ServiceMockFactory {
         },
         timestamp: new Date().toISOString(),
       }),
-      checkComponent: jest.fn(),
-      registerHealthCheck: jest.fn(),
-      unregisterHealthCheck: jest.fn(),
+      checkComponent: vi.fn(),
+      registerHealthCheck: vi.fn(),
+      unregisterHealthCheck: vi.fn(),
     };
   }
 
   export function createMockSchedulerService() {
     return {
-      scheduleJob: jest.fn(),
-      cancelJob: jest.fn(),
-      pauseJob: jest.fn(),
-      resumeJob: jest.fn(),
-      listJobs: jest.fn(),
-      getJobStatus: jest.fn(),
-      runJobNow: jest.fn(),
+      scheduleJob: vi.fn(),
+      cancelJob: vi.fn(),
+      pauseJob: vi.fn(),
+      resumeJob: vi.fn(),
+      listJobs: vi.fn(),
+      getJobStatus: vi.fn(),
+      runJobNow: vi.fn(),
     };
   }
 }

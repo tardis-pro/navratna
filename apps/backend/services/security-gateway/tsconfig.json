@@ -3,25 +3,20 @@
   "compilerOptions": {
     "outDir": "dist", // relative to package root
     "rootDir": "src",
-    "baseUrl": ".", // enables clean import paths within the package
     "noImplicitAny": false,
     "noCheck": true,
     "composite": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
+    "target": "ES2022","allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "strict": false,
     "useDefineForClassFields": false,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "paths": {
-      "@/services/*": ["src/services/*"],
-      "@/routes/*": ["src/routes/*"],
+      "@/services/*": ["./src/services/*"],
+      "@/routes/*": ["./src/routes/*"],
       "@uaip/types": ["../../../packages/shared-types/src"],
       "@uaip/types/*": ["../../../packages/shared-types/src/*"],
       "@uaip/utils": ["../../../packages/shared-utils/src"],
@@ -40,13 +35,16 @@
   },
   "references": [
     {
-      "path": "../../../packages/shared-types"
+      "path": "../../../shared/infra"
     },
     {
       "path": "../../../packages/shared-utils"
     },
     {
-      "path": "../../../shared/config"
+      "path": "../../../packages/shared-types"
+    },
+    {
+      "path": "../../../shared/llm-service"
     },
     {
       "path": "../../../shared/services"
@@ -55,7 +53,7 @@
       "path": "../../../shared/middleware"
     },
     {
-      "path": "../../../shared/infra"
+      "path": "../../../shared/config"
     }
   ],
   "files": ["src/routes/llmAgentProviderRoutes.ts"],

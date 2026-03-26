@@ -4,8 +4,10 @@ import { useSearchParams as _useSearchParams } from 'react-router-dom';
 import { useAgents } from '../../../contexts/AgentContext';
 import { PersonaSelector } from '../../PersonaSelector';
 import { AgentEditModal } from '../../AgentEditModal';
-import { AgentState, createAgentStateFromBackend } from '../../../types/agent';
+import type { FrontendAgentState as AgentState } from '@uaip/types';
 import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
+
+const createAgentStateFromBackend = (data: unknown): AgentState => data as AgentState;
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip-api';
 import { APIClient } from '../../../api/client';

@@ -33,10 +33,10 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../../apps/packages/shared-types"
+      "path": "../packages/shared-utils"
     },
     {
-      "path": "../../apps/packages/shared-utils"
+      "path": "../packages/shared-types"
     }
   ]
 }

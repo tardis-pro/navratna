@@ -4,7 +4,7 @@ import {
   AGENT_ACTIVITY_EVENT,
   type AgentActivityEventDetail,
   type Microexpression,
-} from '@/types/microexpression';
+} from '@uaip/types';
 
 interface UseAgentMicroexpressionOptions {
   intentFieldOpen?: boolean;

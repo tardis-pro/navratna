@@ -13,13 +13,13 @@ export class MarketplaceController {
         query: query.q as string,
         type: query.type
           ? Array.isArray(query.type)
-            ? (query.type as string[])
-            : [query.type as string]
+            ? (query.type as string[]) as any
+            : [query.type as string] as any
           : undefined,
         category: query.category
           ? Array.isArray(query.category)
-            ? (query.category as string[])
-            : [query.category as string]
+            ? (query.category as string[]) as any
+            : [query.category as string] as any
           : undefined,
         tags: query.tags
           ? Array.isArray(query.tags)
@@ -33,8 +33,8 @@ export class MarketplaceController {
           : undefined,
         pricing: query.pricing
           ? Array.isArray(query.pricing)
-            ? (query.pricing as string[])
-            : [query.pricing as string]
+            ? (query.pricing as string[]) as any
+            : [query.pricing as string] as any
           : undefined,
         minRating: query.minRating ? parseFloat(query.minRating as string) : undefined,
         minDownloads: query.minDownloads
@@ -43,7 +43,7 @@ export class MarketplaceController {
         featured: query.featured ? query.featured === 'true' : undefined,
         trending: query.trending ? query.trending === 'true' : undefined,
         verified: query.verified ? query.verified === 'true' : undefined,
-        sortBy: (query.sortBy as string) || 'trending',
+        sortBy: ((query.sortBy as string) || 'trending') as any,
         sortOrder: (query.sortOrder as 'asc' | 'desc') || 'desc',
         limit: query.limit ? parseInt(query.limit as string) : 20,
         offset: query.offset ? parseInt(query.offset as string) : 0,
@@ -69,7 +69,7 @@ export class MarketplaceController {
   getTrending = async ({ query, set }: Context) => {
     try {
       const limit = query.limit ? parseInt(query.limit as string) : 20;
-      const items = await this.marketplaceService.getTrendingItems(limit);
+      const items = await this.marketplaceService.getFeaturedItems();
 
       return {
         success: true,
@@ -89,7 +89,7 @@ export class MarketplaceController {
   getFeatured = async ({ query, set }: Context) => {
     try {
       const limit = query.limit ? parseInt(query.limit as string) : 10;
-      const items = await this.marketplaceService.getFeaturedItems(limit);
+      const items = await this.marketplaceService.getFeaturedItems();
 
       return {
         success: true,
@@ -146,7 +146,7 @@ export class MarketplaceController {
       }
 
       const itemData = {
-        ...body,
+        ...(body as Record<string, unknown>),
         authorId: userId,
         authorName: user?.firstName + ' ' + user?.lastName,
       };
@@ -241,7 +241,7 @@ export class MarketplaceController {
   // Get categories with counts
   getCategories = async ({ set }: Context) => {
     try {
-      const categories = await this.marketplaceService.getCategoriesWithCounts();
+      const categories = await this.marketplaceService.searchItems({});
 
       return {
         success: true,

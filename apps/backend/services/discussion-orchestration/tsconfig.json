@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "dist", // relative to package root
     "rootDir": "src",
-    "baseUrl": ".", // enables clean import paths within the package
     "noImplicitAny": false,
     "noCheck": true,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
@@ -31,12 +30,23 @@
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "src/**/*.old*.ts"],
   "references": [
-    { "path": "../../../packages/shared-types" },
-    { "path": "../../../packages/shared-utils" },
-    { "path": "../../../shared/config" },
-    { "path": "../../../shared/services" },
-    { "path": "../../../shared/middleware" },
-    { "path": "../../../shared/llm-service" },
-    { "path": "../../../shared/infra" }
+    {
+      "path": "../../../shared/infra"
+    },
+    {
+      "path": "../../../packages/shared-utils"
+    },
+    {
+      "path": "../../../packages/shared-types"
+    },
+    {
+      "path": "../../../shared/services"
+    },
+    {
+      "path": "../../../shared/middleware"
+    },
+    {
+      "path": "../../../shared/config"
+    }
   ]
 }

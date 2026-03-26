@@ -1,36 +1,37 @@
+import type { Mocked } from 'vitest';
 import { SecurityValidationService } from '../../securityValidationService';
 import { RiskLevel, SecurityContext, SecurityLevel, ExecutionPlan } from '@uaip/types';
 
 // Mock DatabaseService methods
 const createMockDatabaseService = () => ({
-  initialize: jest.fn().mockResolvedValue(undefined),
-  getUserAuthDetails: jest.fn().mockResolvedValue({
+  initialize: vi.fn().mockResolvedValue(undefined),
+  getUserAuthDetails: vi.fn().mockResolvedValue({
     id: 'user-123',
     email: 'test@example.com',
     isActive: true,
     role: 'user',
     securityClearance: SecurityLevel.MEDIUM,
   }),
-  getUserPermissions: jest.fn().mockResolvedValue({
+  getUserPermissions: vi.fn().mockResolvedValue({
     rolePermissions: [
       { operations: ['read:documents', 'write:documents'] },
       { operations: ['execute:basic_operations'] },
     ],
     directPermissions: [{ operations: ['admin:dashboard'] }],
   }),
-  getUserRiskData: jest.fn().mockResolvedValue({
+  getUserRiskData: vi.fn().mockResolvedValue({
     recentActivityCount: 25,
     failedLoginAttempts: 0,
     lastLoginTime: new Date(),
     riskScore: 2,
   }),
-  getUserHighestRole: jest.fn().mockResolvedValue('user'),
-  createApprovalWorkflow: jest.fn().mockResolvedValue(undefined),
+  getUserHighestRole: vi.fn().mockResolvedValue('user'),
+  createApprovalWorkflow: vi.fn().mockResolvedValue(undefined),
 });
 
 // Mock the DatabaseService
-jest.mock('../../databaseService.ts', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => createMockDatabaseService()),
+vi.mock('../../databaseService.ts', () => ({
+  DatabaseService: vi.fn().mockImplementation(() => createMockDatabaseService()),
 }));
 
 describe('SecurityValidationService', () => {
@@ -38,10 +39,10 @@ describe('SecurityValidationService', () => {
   let mockDatabaseService: ReturnType<typeof createMockDatabaseService>;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new SecurityValidationService();
     mockDatabaseService = (service as Record<string, unknown>)
-      .databaseService as jest.Mocked<DatabaseService>;
+      .databaseService as Mocked<DatabaseService>;
   });
 
   describe('Service Initialization', () => {
@@ -565,11 +566,11 @@ expect.extend({
   },
 });
 
-// Extend Jest matchers type
-declare global {
-  namespace jest {
-    interface Matchers<R> {
-      toBeOneOf(items: unknown[]): R;
-    }
+declare module 'vitest' {
+  interface Assertion<T = unknown> {
+    toBeOneOf(items: unknown[]): T;
+  }
+  interface AsymmetricMatchersContaining {
+    toBeOneOf(items: unknown[]): void;
   }
 }
