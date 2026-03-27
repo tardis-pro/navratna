@@ -1,0 +1,25 @@
+{
+  "files": [],
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "CommonJS",
+    "baseUrl": ".",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "strict": false,
+    "noImplicitAny": false,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@uaip/types": ["../packages/shared-types/src"],
+      "@uaip/types/*": ["../packages/shared-types/src/*"],
+      "@uaip/utils": ["../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../packages/shared-utils/src/*"]
+    }
+  }
+}

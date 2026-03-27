@@ -271,18 +271,17 @@ export interface FrontendDocumentContextValue extends FrontendDocumentContextSta
 // ============================================================================
 // Frontend extension types (migrated from frontend/src/types/frontend-extensions.ts)
 // ============================================================================
+import type { Agent } from './agent.js';
+import type { Discussion, MessageType } from './discussion.js';
 import type {
-  Agent,
-  Discussion,
-  MessageType,
   ToolCapableMessage,
   ToolPermissionSet,
   ToolUsageRecord,
   ToolExecution,
   ToolPreferences,
   ToolBudget,
-  Persona,
-} from './index.js';
+} from './tool.js';
+import type { Persona } from './persona.js';
 
 export type FrontendConversationPattern =
   | 'interruption'

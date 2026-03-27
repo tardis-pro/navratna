@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import type { DesktopTheme } from './desktop_themes';
 
 interface ViewportSize {
   width: number;
@@ -23,17 +24,6 @@ interface ViewportSize {
   isMobile: boolean;
   isTablet: boolean;
   isDesktop: boolean;
-}
-
-interface DesktopTheme {
-  colors: {
-    background: { primary: string; secondary: string };
-    surface: { primary: string; secondary: string };
-    text: { primary: string; secondary: string; muted: string };
-    accent: { primary: string; secondary: string };
-    border: { primary: string; secondary: string };
-  };
-  effects: { blur: string; shadow: string };
 }
 
 interface DesktopHeaderProps {
