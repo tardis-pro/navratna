@@ -9,6 +9,7 @@ interface TaskButtonProps {
   className?: string;
   type?: 'button' | 'submit' | 'reset';
   title?: string;
+  disabled?: boolean;
 }
 
 export const Button: React.FC<TaskButtonProps> = ({
@@ -19,6 +20,7 @@ export const Button: React.FC<TaskButtonProps> = ({
   className = '',
   type = 'button',
   title,
+  disabled = false,
 }) => {
   const variants = {
     primary: `bg-gradient-to-r ${DESIGN_TOKENS.colors.primary} text-white hover:scale-105`,
@@ -39,9 +41,11 @@ export const Button: React.FC<TaskButtonProps> = ({
       type={type}
       onClick={onClick}
       title={title}
+      disabled={disabled}
       className={`
         ${variants[variant]} ${sizes[size]} ${DESIGN_TOKENS.radius.md} 
         ${DESIGN_TOKENS.transition} flex items-center ${DESIGN_TOKENS.spacing.sm}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         ${className}
       `}
     >

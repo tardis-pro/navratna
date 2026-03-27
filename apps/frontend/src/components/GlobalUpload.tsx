@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
+import { parseCommaSeparatedValues } from '@/utils/parse_comma_separated';
 import type { KnowledgeIngestRequest } from '@uaip/types';
 import { KnowledgeType, SourceType } from '@uaip/types';
 
@@ -28,6 +29,22 @@ interface GlobalUploadProps {
   onClose: () => void;
   onKnowledgeCreated?: (knowledgeId: string) => void;
 }
+
+const UploadingSpinner: React.FC<{ className?: string }> = ({ className }) => (
+  <motion.div
+    className={`flex items-center gap-2 ${className ?? ''}`}
+    animate={{ opacity: [1, 0.6, 1] }}
+    transition={{ duration: 1.5, repeat: Infinity }}
+  >
+    <motion.div
+      animate={{ rotate: 360 }}
+      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+    >
+      <Zap className="w-4 h-4" />
+    </motion.div>
+    Uploading...
+  </motion.div>
+);
 
 const KNOWLEDGE_TYPES = [
   { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
@@ -124,10 +141,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
       if (uploadMethod === 'text') {
         if (!uploadContent.trim()) return;
 
-        const tags = uploadTags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean);
+        const tags = parseCommaSeparatedValues(uploadTags);
 
         const knowledgeItem: KnowledgeIngestRequest = {
           content: uploadContent,
@@ -154,10 +168,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
             const content = await readFileContent(file);
             const fileType = determineKnowledgeType(file);
             const fileTags = generateTagsFromFile(file);
-            const userTags = uploadTags
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean);
+            const userTags = parseCommaSeparatedValues(uploadTags);
             const tags = [...fileTags, ...userTags];
 
             const knowledgeItem: KnowledgeIngestRequest = {
@@ -187,10 +198,11 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
 
       if (knowledgeItems.length > 0) {
         const results = await uploadKnowledge(knowledgeItems);
+        const firstCreatedItem = Array.isArray(results?.items) ? results.items[0] : undefined;
 
         // If we have a callback and results, call it with the first knowledge ID
-        if (onKnowledgeCreated && results && results.length > 0) {
-          onKnowledgeCreated(results[0].id);
+        if (onKnowledgeCreated && firstCreatedItem?.id) {
+          onKnowledgeCreated(firstCreatedItem.id);
         }
 
         handleClose();
@@ -401,10 +413,10 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
                 <motion.div
                   key="file-upload"
                   className="space-y-6"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 12 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
                 >
                   <div>
                     <label className="text-sm font-semibold mb-3 block text-slate-300 flex items-center gap-2">
@@ -427,20 +439,20 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
                     <AnimatePresence>
                       {selectedFiles.length > 0 && (
                         <motion.div
-                          className="mt-4 space-y-2"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3 }}
+                          className="mt-4 space-y-2 overflow-hidden"
+                          initial={{ opacity: 0, maxHeight: 0 }}
+                          animate={{ opacity: 1, maxHeight: 800 }}
+                          exit={{ opacity: 0, maxHeight: 0 }}
+                          transition={{ duration: 0.35, ease: 'easeInOut' }}
                         >
                           {selectedFiles.map((file, index) => (
                             <motion.div
                               key={file.name} // oxlint-ignore-line no-array-index-key
                               className="flex items-center justify-between p-3 bg-slate-800/50 border border-slate-600/30 rounded-lg group hover:border-purple-400/50 transition-all duration-300"
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              transition={{ delay: index * 0.05 }}
+                              initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                              transition={{ delay: index * 0.04, duration: 0.2 }}
                             >
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
@@ -501,19 +513,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
                   transition={{ duration: 0.3 }}
                 >
                   <div className="flex justify-between items-center text-sm">
-                    <motion.span
-                      className="flex items-center gap-2 text-cyan-300 font-medium"
-                      animate={{ opacity: [1, 0.6, 1] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                      >
-                        <Zap className="w-4 h-4" />
-                      </motion.div>
-                      Uploading...
-                    </motion.span>
+                    <UploadingSpinner className="text-cyan-300 font-medium" />
                     <span className="text-cyan-200 font-semibold">{uploadProgress}%</span>
                   </div>
                   <div className="relative">
@@ -564,19 +564,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
                   {isUploading ? (
-                    <motion.div
-                      className="flex items-center gap-2"
-                      animate={{ opacity: [1, 0.6, 1] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                      >
-                        <Zap className="w-4 h-4" />
-                      </motion.div>
-                      Uploading...
-                    </motion.div>
+                    <UploadingSpinner />
                   ) : (
                     <span className="flex items-center gap-2 relative z-10">
                       <Database className="w-4 h-4" />

@@ -230,19 +230,25 @@ function injectCSRFHeaders(args: unknown[], headers: Record<string, string>): vo
   }
 }
 
+async function injectAndCall(
+  args: unknown[],
+  fn: (...args: unknown[]) => Promise<unknown>
+): Promise<unknown> {
+  injectCSRFHeaders(args, await csrfService.getHeaders());
+  return await fn(...args);
+}
+
 export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unknown>>(
   apiFunction: T
 ): T {
   return (async (...args: unknown[]) => {
     try {
-      injectCSRFHeaders(args, await csrfService.getHeaders());
-      return await apiFunction(...args);
+      return await injectAndCall(args, apiFunction);
     } catch (error) {
       if (error instanceof Error && error.message.includes('CSRF')) {
         try {
           await csrfService.refreshToken();
-          injectCSRFHeaders(args, await csrfService.getHeaders());
-          return await apiFunction(...args);
+          return await injectAndCall(args, apiFunction);
         } catch (retryError) {
           logger.error('[CSRF] Failed to retry with refreshed token:', retryError);
           throw retryError;

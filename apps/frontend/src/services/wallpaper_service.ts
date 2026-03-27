@@ -33,7 +33,7 @@ class WallpaperService {
   private static instance: WallpaperService;
   private preferences: WallpaperPreferences;
   private currentImageIndex: number = 0;
-  private slideshowTimer: NodeJS.Timeout | null = null;
+  private slideshowTimer: ReturnType<typeof setInterval> | null = null;
   private currentTheme: WallpaperTheme | null = null;
   private listeners: Set<(image: WallpaperImage) => void> = new Set();
 
@@ -525,10 +525,7 @@ class WallpaperService {
 
   // Clean up resources
   destroy(): void {
-    if (this.slideshowTimer) {
-      clearInterval(this.slideshowTimer);
-      this.slideshowTimer = null;
-    }
+    this.stopSlideshow();
     this.listeners.clear();
   }
 }

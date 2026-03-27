@@ -4,16 +4,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  CommandIcon,
-  FileTextIcon,
-  SearchIcon,
-  MessageSquareIcon,
-  HelpCircleIcon,
-  SparklesIcon,
-  Loader2Icon,
-  XIcon,
-} from 'lucide-react';
+import { AutocompleteSuggestionItems } from '@/components/ui/AutocompleteSuggestionItems';
+import { SparklesIcon, Loader2Icon, XIcon, MessageSquareIcon, FileTextIcon } from 'lucide-react';
+import { BASE_SUGGESTION_ICONS, handleSuggestionArrowKeys } from './suggestion-icons';
+import { useAutocompleteState } from '@/hooks/use_autocomplete_state';
 import { useConversationIntelligence } from '@/hooks/use_conversation_intelligence';
 import { useDebounce } from '@/hooks/use_debounce';
 import { AutocompleteSuggestion } from '@uaip/types';
@@ -37,11 +31,7 @@ interface GlobalAutocompleteProps {
 }
 
 const SUGGESTION_ICONS = {
-  command: <CommandIcon className="w-4 h-4" />,
-  tool: <FileTextIcon className="w-4 h-4" />,
-  previous: <SearchIcon className="w-4 h-4" />,
-  common: <MessageSquareIcon className="w-4 h-4" />,
-  question: <HelpCircleIcon className="w-4 h-4" />,
+  ...BASE_SUGGESTION_ICONS,
   ai_generated: <SparklesIcon className="w-4 h-4" />,
   topic: <MessageSquareIcon className="w-4 h-4" />,
   context: <FileTextIcon className="w-4 h-4" />,
@@ -72,9 +62,15 @@ export const GlobalAutocomplete = forwardRef<
     },
     ref
   ) => {
-    const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
-    const [selectedIndex, setSelectedIndex] = useState(-1);
-    const [showSuggestions, setShowSuggestions] = useState(false);
+    const {
+      suggestions,
+      selectedIndex,
+      showSuggestions,
+      setSelectedIndex,
+      setSuggestionResults,
+      hideSuggestions,
+      clearSuggestions,
+    } = useAutocompleteState<AutocompleteSuggestion>();
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [enhancedSuggestions, setEnhancedSuggestions] = useState<string[]>([]);
     const [showEnhancementPanel, setShowEnhancementPanel] = useState(false);
@@ -85,10 +81,10 @@ export const GlobalAutocomplete = forwardRef<
     // Use conversation intelligence for autocomplete with user's default LLM provider
     const {
       connected,
-      _autocompleteSuggestions,
-      _loading,
+      autocompleteSuggestions: _autocompleteSuggestions,
+      loading: _loading,
       requestAutocomplete,
-      _clearAutocomplete,
+      clearAutocomplete: _clearAutocomplete,
     } = useConversationIntelligence({
       agentId: 'global-user-llm',
       conversationId: context.conversationId,
@@ -99,9 +95,7 @@ export const GlobalAutocomplete = forwardRef<
           setEnhancedSuggestions(enhancementTexts);
           setIsEnhancing(false);
         } else {
-          // Regular autocomplete suggestions
-          setSuggestions(results);
-          setShowSuggestions(results.length > 0);
+          setSuggestionResults(results);
         }
       },
     });
@@ -115,8 +109,7 @@ export const GlobalAutocomplete = forwardRef<
     // Request autocomplete suggestions
     useEffect(() => {
       if (!connected || !debouncedValue || debouncedValue.length < 2) {
-        setSuggestions([]);
-        setShowSuggestions(false);
+        clearSuggestions();
         return;
       }
 
@@ -127,7 +120,7 @@ export const GlobalAutocomplete = forwardRef<
         selectedAgents: context.selectedAgents,
         conversationId: context.conversationId,
       });
-    }, [connected, debouncedValue, enhancementType, context, requestAutocomplete]);
+    }, [connected, debouncedValue, enhancementType, context, requestAutocomplete, clearSuggestions]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
@@ -135,17 +128,9 @@ export const GlobalAutocomplete = forwardRef<
           return;
         }
 
+        if (handleSuggestionArrowKeys(e, suggestions.length, setSelectedIndex)) return;
+
         switch (e.key) {
-          case 'ArrowDown':
-            e.preventDefault();
-            setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
-            break;
-
-          case 'ArrowUp':
-            e.preventDefault();
-            setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
-            break;
-
           case 'Tab':
           case 'Enter':
             if (!multiline || e.ctrlKey) {
@@ -157,23 +142,21 @@ export const GlobalAutocomplete = forwardRef<
             break;
 
           case 'Escape':
-            setShowSuggestions(false);
-            setSelectedIndex(-1);
+            hideSuggestions();
             setShowEnhancementPanel(false);
             break;
         }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [showSuggestions, suggestions, selectedIndex, multiline]
+      [showSuggestions, suggestions, selectedIndex, multiline, hideSuggestions]
     );
 
     const selectSuggestion = useCallback(
       (suggestion: AutocompleteSuggestion) => {
         onChange(suggestion.text);
-        setShowSuggestions(false);
-        setSelectedIndex(-1);
+        hideSuggestions();
       },
-      [onChange]
+      [onChange, hideSuggestions]
     );
 
     const handleEnhanceRequest = useCallback(async () => {
@@ -216,10 +199,10 @@ export const GlobalAutocomplete = forwardRef<
 
     const handleClickOutside = useCallback((e: MouseEvent) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
+        hideSuggestions();
         setShowEnhancementPanel(false);
       }
-    }, []);
+    }, [hideSuggestions]);
 
     useEffect(() => {
       document.addEventListener('mousedown', handleClickOutside);
@@ -232,7 +215,7 @@ export const GlobalAutocomplete = forwardRef<
       <div className="relative">
         <div className="relative">
           <InputComponent
-            ref={ref as unknown}
+            ref={ref as React.Ref<HTMLInputElement & HTMLTextAreaElement>}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -276,30 +259,13 @@ export const GlobalAutocomplete = forwardRef<
             className="absolute z-[10000] w-full mt-1 shadow-lg border-slate-600 bg-slate-800/95 backdrop-blur-sm"
           >
             <CardContent className="p-0">
-              {suggestions.map((suggestion, _index) => (
-                <div
-                  key={`suggestion-${suggestion.text.substring(0, 20)}`}
-                  className={`
-                  flex items-center gap-2 px-3 py-2 cursor-pointer
-                  ${index === selectedIndex ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-slate-700/50 text-slate-300'}
-                  ${index !== suggestions.length - 1 ? 'border-b border-slate-700' : ''}
-                `}
-                  onClick={() => selectSuggestion(suggestion)}
-                >
-                  <span className="text-slate-400">
-                    {SUGGESTION_ICONS[suggestion.type] || SUGGESTION_ICONS.common}
-                  </span>
-                  <span className="flex-1 text-sm">{suggestion.text}</span>
-                  {suggestion.metadata?.description && (
-                    <span className="text-xs text-slate-500">
-                      {suggestion.metadata.description}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500">
-                    {Math.round(suggestion.score * 100)}%
-                  </span>
-                </div>
-              ))}
+              <AutocompleteSuggestionItems
+                suggestions={suggestions}
+                selectedIndex={selectedIndex}
+                onSelectSuggestion={selectSuggestion}
+                variant="inverted"
+                icons={SUGGESTION_ICONS}
+              />
             </CardContent>
           </Card>
         )}

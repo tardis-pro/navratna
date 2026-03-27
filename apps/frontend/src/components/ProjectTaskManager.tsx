@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { TaskBoard } from './TaskBoard';
+import { TaskBoard, Task } from './TaskBoard';
 import { TaskAssignment } from './TaskAssignment';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -27,10 +27,7 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  _TrendingUp,
   Activity,
-  _Calendar,
-  _Filter,
   Download,
   Settings,
 } from 'lucide-react';
@@ -39,6 +36,55 @@ import { toast } from 'sonner';
 
 interface ProjectTaskManagerProps {
   projectId: string;
+}
+
+type TaskStatistics = {
+  total?: number;
+  byStatus?: Record<string, number>;
+  byAssigneeType?: Record<string, number>;
+};
+
+function getApiErrorMessage(error: unknown): string {
+  if (error !== null && typeof error === 'object') {
+    const err = error as { response?: { data?: { error?: string } }; message?: string };
+    return err.response?.data?.error ?? err.message ?? 'Unknown error occurred';
+  }
+  return 'Unknown error occurred';
+}
+
+function AssignmentStatCard({
+  icon,
+  label,
+  count,
+  total,
+  valueColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  total: number;
+  valueColor: string;
+}) {
+  return (
+    <Card
+      className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+    >
+      <CardHeader className="pb-3">
+        <CardTitle
+          className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
+        >
+          {icon}
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className={`text-2xl font-bold ${valueColor}`}>{count}</div>
+        <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
+          {total > 0 ? Math.round((count / total) * 100) : 0}% of total
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectId }) => {
@@ -50,16 +96,18 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
   // Queries
   const {
-    data: tasksData,
+    data: _tasksRaw,
     isLoading: tasksLoading,
     error: tasksError,
   } = useQuery({
     ...useTasksQuery(projectId, selectedFilters),
   });
+  const tasksData = _tasksRaw as Task[] | undefined;
 
-  const { data: statisticsData, isLoading: _statsLoading } = useQuery({
+  const { data: _statsRaw, isLoading: _statsLoading } = useQuery({
     ...useTaskStatisticsQuery(projectId),
   });
+  const statisticsData = _statsRaw as TaskStatistics | undefined;
 
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
@@ -75,7 +123,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       toast.success('Task created successfully');
     },
     onError: (error: unknown) => {
-      toast.error('Failed to create task: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to create task: ' + getApiErrorMessage(error));
     },
   });
 
@@ -88,7 +136,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       toast.success('Task updated successfully');
     },
     onError: (error: unknown) => {
-      toast.error('Failed to update task: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to update task: ' + getApiErrorMessage(error));
     },
   });
 
@@ -100,7 +148,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       toast.success('Task deleted successfully');
     },
     onError: (error: unknown) => {
-      toast.error('Failed to delete task: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to delete task: ' + getApiErrorMessage(error));
     },
   });
 
@@ -114,17 +162,17 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       toast.success('Task assigned successfully');
     },
     onError: (error: unknown) => {
-      toast.error('Failed to assign task: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to assign task: ' + getApiErrorMessage(error));
     },
   });
 
   // Event handlers
   const handleTaskCreate = async (taskData: unknown) => {
-    await createTaskMutation.mutateAsync(taskData);
+    await createTaskMutation.mutateAsync(taskData as CreateTaskRequest);
   };
 
   const handleTaskUpdate = async (taskId: string, updates: unknown) => {
-    await updateTaskMutation.mutateAsync({ taskId, updates });
+    await updateTaskMutation.mutateAsync({ taskId, updates: updates as UpdateTaskRequest });
   };
 
   const handleTaskDelete = async (taskId: string) => {
@@ -174,13 +222,13 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   }, []);
 
   // Statistics calculations
-  const stats = statisticsData || {};
-  const totalTasks = stats.total || 0;
-  const completedTasks = stats.byStatus?.completed || 0;
-  const inProgressTasks = stats.byStatus?.in_progress || 0;
-  const blockedTasks = stats.byStatus?.blocked || 0;
-  const humanAssigned = stats.byAssigneeType?.human || 0;
-  const agentAssigned = stats.byAssigneeType?.agent || 0;
+  const stats = statisticsData ?? {};
+  const totalTasks = stats.total ?? 0;
+  const completedTasks = stats.byStatus?.completed ?? 0;
+  const inProgressTasks = stats.byStatus?.in_progress ?? 0;
+  const blockedTasks = stats.byStatus?.blocked ?? 0;
+  const humanAssigned = stats.byAssigneeType?.human ?? 0;
+  const agentAssigned = stats.byAssigneeType?.agent ?? 0;
   const unassigned = totalTasks - humanAssigned - agentAssigned;
 
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -189,7 +237,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     title: string;
     value: string | number;
     subtitle?: string;
-    icon: React.ReactNode;
+    icon: React.ReactElement<{ className?: string }>;
     color?: string;
   }> = ({ title, value, subtitle, icon, color = DESIGN_TOKENS.colors.textSecondary }) => (
     <Card
@@ -211,7 +259,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             )}
           </div>
           <div className={`${color} opacity-70 flex-shrink-0 ml-2`}>
-            {React.cloneElement(icon as React.ReactElement, {
+            {React.cloneElement(icon, {
               className: 'w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8',
             })}
           </div>
@@ -330,62 +378,27 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
       <div
         className={`grid grid-cols-1 sm:grid-cols-3 ${DESIGN_TOKENS.spacing.sm} sm:${DESIGN_TOKENS.spacing.md}`}
       >
-        <Card
-          className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle
-              className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
-            >
-              <Users className="w-4 h-4" />
-              Human Assigned
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-400">{humanAssigned}</div>
-            <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
-              {totalTasks > 0 ? Math.round((humanAssigned / totalTasks) * 100) : 0}% of total
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle
-              className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
-            >
-              <Bot className="w-4 h-4" />
-              Agent Assigned
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-400">{agentAssigned}</div>
-            <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
-              {totalTasks > 0 ? Math.round((agentAssigned / totalTasks) * 100) : 0}% of total
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
-        >
-          <CardHeader className="pb-3">
-            <CardTitle
-              className={`text-sm font-medium flex items-center gap-2 ${DESIGN_TOKENS.colors.text}`}
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Unassigned
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-400">{unassigned}</div>
-            <div className={`text-xs ${DESIGN_TOKENS.colors.textMuted}`}>
-              {totalTasks > 0 ? Math.round((unassigned / totalTasks) * 100) : 0}% of total
-            </div>
-          </CardContent>
-        </Card>
+        <AssignmentStatCard
+          icon={<Users className="w-4 h-4" />}
+          label="Human Assigned"
+          count={humanAssigned}
+          total={totalTasks}
+          valueColor="text-blue-400"
+        />
+        <AssignmentStatCard
+          icon={<Bot className="w-4 h-4" />}
+          label="Agent Assigned"
+          count={agentAssigned}
+          total={totalTasks}
+          valueColor="text-purple-400"
+        />
+        <AssignmentStatCard
+          icon={<AlertTriangle className="w-4 h-4" />}
+          label="Unassigned"
+          count={unassigned}
+          total={totalTasks}
+          valueColor="text-orange-400"
+        />
       </div>
 
       {/* Status Breakdown */}
@@ -400,10 +413,10 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {Object.entries(stats.byStatus || {}).map(([status, count]) => {
+            {Object.entries(stats.byStatus ?? {}).map(([status, count]) => {
               const percentage =
-                totalTasks > 0 ? Math.round(((count as number) / totalTasks) * 100) : 0;
-              const statusColors = {
+                totalTasks > 0 ? Math.round((count / totalTasks) * 100) : 0;
+              const statusColors: Record<string, string> = {
                 todo: 'bg-slate-400',
                 in_progress: 'bg-blue-500',
                 in_review: 'bg-yellow-500',
@@ -416,7 +429,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
                 <div key={status} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-3 h-3 rounded-full ${statusColors[status as keyof typeof statusColors]}`}
+                      className={`w-3 h-3 rounded-full ${statusColors[status] ?? 'bg-slate-400'}`}
                     />
                     <span
                       className={`text-sm font-medium capitalize ${DESIGN_TOKENS.colors.textSecondary}`}
@@ -454,7 +467,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   }
 
   const selectedTask = selectedTaskForAssignment
-    ? tasksData?.find((task: unknown) => task.id === selectedTaskForAssignment)
+    ? tasksData?.find((task) => task.id === selectedTaskForAssignment)
     : null;
 
   return (
@@ -469,7 +482,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               <h1
                 className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${DESIGN_TOKENS.colors.text} truncate`}
               >
-                {projectData?.name || 'Project'} - Tasks
+                {(projectData as { name?: string } | undefined)?.name ?? 'Project'} - Tasks
               </h1>
               {/* Mobile compact description */}
               <p className={`${DESIGN_TOKENS.colors.textMuted} text-xs mt-1 sm:hidden`}>
@@ -564,7 +577,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
             <div className="h-full overflow-hidden">
               <TaskBoard
                 projectId={projectId}
-                tasks={tasksData || []}
+                tasks={tasksData ?? []}
                 onTaskCreate={handleTaskCreate}
                 onTaskUpdate={handleTaskUpdate}
                 onTaskDelete={handleTaskDelete}
@@ -598,17 +611,17 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
                   type: selectedTask.assigneeType,
                   id:
                     selectedTask.assigneeType === 'human'
-                      ? selectedTask.assignedToUser?.id
-                      : selectedTask.assignedToAgent?.id,
+                      ? (selectedTask.assignedToUser?.id ?? '')
+                      : (selectedTask.assignedToAgent?.id ?? ''),
                   name:
                     selectedTask.assigneeType === 'human'
-                      ? selectedTask.assignedToUser?.name
-                      : selectedTask.assignedToAgent?.name,
+                      ? (selectedTask.assignedToUser?.name ?? '')
+                      : (selectedTask.assignedToAgent?.name ?? ''),
                 }
               : undefined
           }
           onAssign={handleTaskAssign}
-          onGetSuggestions={handleGetAssignmentSuggestions}
+          onGetSuggestions={handleGetAssignmentSuggestions as React.ComponentProps<typeof TaskAssignment>['onGetSuggestions']}
           onGetProjectMembers={handleGetProjectMembers}
           onGetAvailableAgents={handleGetAvailableAgents}
           projectId={projectId}

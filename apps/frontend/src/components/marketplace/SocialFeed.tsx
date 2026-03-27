@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatNumber } from './marketplace-utils';
+import { MarketplacePageHeader } from './MarketplacePageHeader';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -388,22 +389,19 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ onAgentClick, onUserClic
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-          📱 Social Feed
-        </h1>
-        <p className="text-lg text-gray-600">
-          Share your AI agents, celebrate victories, and discover trending content
-        </p>
-      </div>
+      <MarketplacePageHeader
+        title="📱 Social Feed"
+        description="Share your AI agents, celebrate victories, and discover trending content"
+        gradientClassName="bg-gradient-to-r from-purple-600 to-pink-600"
+      />
 
       {/* Feed Tabs */}
       <div className="flex justify-center gap-2">
-        {['following', 'trending', 'discover'].map((tab) => (
+        {(['following', 'trending', 'discover'] as const).map((tab) => (
           <Button
             key={tab}
             variant={selectedTab === tab ? 'default' : 'outline'}
-            onClick={() => setSelectedTab(tab as unknown)}
+            onClick={() => setSelectedTab(tab)}
             className="capitalize"
           >
             {tab === 'following' && <Users className="w-4 h-4 mr-2" />}

@@ -214,10 +214,10 @@ export const RecentItemsPanel: React.FC<RecentItemsPanelProps> = ({
                           <motion.div
                             key={item.id}
                             className="mb-2"
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ delay: index * 0.05 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ delay: index * 0.05, duration: 0.2 }}
                           >
                             <div
                               className="p-3 bg-slate-800/30 hover:bg-slate-700/50 rounded-lg cursor-pointer transition-all duration-200 group border border-transparent hover:border-slate-600/50"

@@ -1,5 +1,22 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+
+interface PortalContainerProps {
+  children: React.ReactNode;
+  className?: string;
+  isMobile?: boolean;
+}
+
+export const PortalContainer: React.FC<PortalContainerProps> = ({ children, className, isMobile }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className={`space-y-6 ${className ?? ''} ${isMobile ? 'px-2' : ''}`}
+  >
+    {children}
+  </motion.div>
+);
 
 interface PortalConnectionBadgeProps {
   isConnected: boolean;
@@ -110,6 +127,49 @@ export const PortalErrorState: React.FC<PortalErrorStateProps> = ({
   </div>
 );
 
+interface PortalHeaderProps {
+  icon: React.ReactNode;
+  title: string;
+  isConnected: boolean;
+  onRefresh: () => void;
+  refreshTitle?: string;
+  connectionLabel?: string;
+  lastUpdated?: Date | null;
+  extraControls?: React.ReactNode;
+}
+
+export const PortalHeader: React.FC<PortalHeaderProps> = ({
+  icon,
+  title,
+  isConnected,
+  onRefresh,
+  refreshTitle,
+  connectionLabel,
+  lastUpdated,
+  extraControls,
+}) => (
+  <div className="flex items-center justify-between">
+    <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+      {icon}
+      {title}
+    </h2>
+    <div className="flex items-center space-x-4">
+      {extraControls}
+      <PortalConnectionBadge
+        isConnected={isConnected}
+        onRefresh={onRefresh}
+        refreshTitle={refreshTitle}
+        label={connectionLabel}
+      />
+      {lastUpdated && (
+        <span className="text-xs text-gray-400">
+          Updated: {lastUpdated.toLocaleTimeString()}
+        </span>
+      )}
+    </div>
+  </div>
+);
+
 interface PortalSearchFilterProps {
   value: string;
   onChange: (value: string) => void;
@@ -151,5 +211,35 @@ export const PortalSearchFilter: React.FC<PortalSearchFilterProps> = ({
         </option>
       ))}
     </select>
+  </div>
+);
+
+interface PortalDetailCardProps {
+  name: string;
+  subtitle: string;
+  badge: React.ReactNode;
+  description?: string;
+  children?: React.ReactNode;
+}
+
+export const PortalDetailCard: React.FC<PortalDetailCardProps> = ({
+  name,
+  subtitle,
+  badge,
+  description,
+  children,
+}) => (
+  <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+    <div className="flex items-start justify-between mb-3">
+      <div>
+        <h4 className="font-semibold text-gray-900 dark:text-white">{name}</h4>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+      </div>
+      {badge}
+    </div>
+    {description && (
+      <p className="text-gray-600 dark:text-gray-400 mb-4">{description}</p>
+    )}
+    {children}
   </div>
 );

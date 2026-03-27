@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { KnowledgeTypeSelectItems } from '@/components/TextKnowledgeCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
+import { parseCommaSeparatedValues } from '@/utils/parse_comma_separated';
 import { KnowledgeType, SourceType } from '@uaip/types';
 // Dynamic import for html2canvas to avoid bundling issues
 import {
@@ -93,14 +95,7 @@ const VIEWPORT_SIZES: ViewportSize[] = [
   { name: 'Mobile', width: 375, height: 667, icon: <Smartphone className="w-4 h-4" /> },
 ];
 
-const KNOWLEDGE_TYPES = [
-  { value: KnowledgeType.FACTUAL, label: 'Factual' },
-  { value: KnowledgeType.PROCEDURAL, label: 'Procedural' },
-  { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual' },
-  { value: KnowledgeType.EXPERIENTIAL, label: 'Experiential' },
-  { value: KnowledgeType.EPISODIC, label: 'Episodic' },
-  { value: KnowledgeType.SEMANTIC, label: 'Semantic' },
-];
+
 
 interface MiniBrowserPortalProps {
   className?: string;
@@ -786,10 +781,7 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
   const handleSave = async () => {
     if (!screenshot) return;
 
-    const tagArray = tags
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
+    const tagArray = parseCommaSeparatedValues(tags);
     await onSave(screenshot, tagArray, notes, knowledgeType);
 
     // Reset form
@@ -849,11 +841,7 @@ const SaveScreenshotDialog: React.FC<SaveScreenshotDialogProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {KNOWLEDGE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
+                  <KnowledgeTypeSelectItems />
                 </SelectContent>
               </Select>
             </div>

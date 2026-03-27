@@ -10,7 +10,6 @@ import {
   File,
   Tag,
   RefreshCw,
-  AlertTriangle,
   X,
   Cloud,
   Code,
@@ -18,10 +17,34 @@ import {
 } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip_api';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalHeader,
+  PortalSearchFilter,
+  PortalErrorState,
+  PortalLoadingState,
+  PortalDetailCard,
+} from './portal-shared-components';
 
 interface ToolManagementPortalProps {
   className?: string;
   viewport?: ViewportSize;
+}
+
+interface ConsolidatedTool {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  tags: string[];
+  version: string;
+  author: string;
+  securityLevel: 'safe' | 'moderate' | 'restricted' | 'dangerous';
+  requiresApproval: boolean;
+  isEnabled: boolean;
+  source: string;
+  type: string;
+  parameters?: Record<string, unknown>;
+  examples?: unknown[];
 }
 
 interface ToolFormData {
@@ -76,20 +99,18 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
 
   const currentViewport = useViewport(viewport);
 
-  // Consolidate tools from all sources like ToolsPanel does
-  const allTools = React.useMemo(() => {
-    const consolidatedTools: unknown[] = [];
+  const allTools = React.useMemo((): ConsolidatedTool[] => {
+    const result: ConsolidatedTool[] = [];
 
-    // Add tools from capabilities registry
     capabilities.data.forEach((capability) => {
-      consolidatedTools.push({
-        id: capability.id,
-        name: capability.name,
+      result.push({
+        id: capability.id ?? `cap-${result.length}`,
+        name: capability.name ?? 'Unknown Capability',
         description: capability.description,
-        category: capability.category || 'api',
-        tags: capability.tags || [],
-        version: '1.0.0',
-        author: 'System',
+        category: capability.category || capability.metadata?.category || 'api',
+        tags: (capability.metadata?.tags as string[] | undefined) ?? [],
+        version: capability.version || (capability.metadata?.version as string | undefined) || '1.0.0',
+        author: (capability.metadata?.author as string | undefined) ?? 'System',
         securityLevel: 'safe',
         requiresApproval: false,
         isEnabled: true,
@@ -98,33 +119,31 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       });
     });
 
-    // Add tools from tool integrations
     toolIntegrations.data.forEach((integration) => {
-      consolidatedTools.push({
+      result.push({
         id: integration.id,
         name: integration.name,
-        description: integration.description,
-        category: integration.type || 'api',
-        tags: integration.tags || [],
-        version: integration.version || '1.0.0',
-        author: integration.provider || 'External',
+        description: undefined,
+        category: integration.type ?? 'api',
+        tags: [],
+        version: '1.0.0',
+        author: 'External',
         securityLevel: 'moderate',
         requiresApproval: true,
-        isEnabled: integration.status === 'active',
+        isEnabled: integration.status === 'connected',
         source: 'tool-integration',
         type: integration.type,
       });
     });
 
-    // Add tools from agent capabilities
     agents.data.forEach((agent) => {
-      agent.capabilities.forEach((capability, index) => {
-        consolidatedTools.push({
+      (agent.capabilities as string[]).forEach((capabilityName, index) => {
+        result.push({
           id: `${agent.id}-capability-${index}`,
-          name: capability.name || `${agent.name} Capability ${index + 1}`,
-          description: capability.description || `Capability from agent ${agent.name}`,
-          category: capability.category || 'agent-capability',
-          tags: capability.tags || [],
+          name: capabilityName,
+          description: `Capability from agent ${agent.name}`,
+          category: 'agent-capability',
+          tags: [],
           version: '1.0.0',
           author: agent.name,
           securityLevel: 'safe',
@@ -136,22 +155,18 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       });
     });
 
-    return consolidatedTools;
+    return result;
   }, [capabilities.data, toolIntegrations.data, agents.data]);
 
-  // Extract categories from consolidated tools data
-  const categories: string[] = [
-    'all',
-    ...(Array.from(new Set(allTools.map((tool) => tool.category || 'api'))) as string[]),
-  ];
+  const categories: string[] = ['all', ...Array.from(new Set(allTools.map((t) => t.category)))];
 
   const filteredTools = allTools.filter((tool) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.tags?.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory =
-      selectedCategory === 'all' || (tool.category || 'api') === selectedCategory;
+      tool.name.toLowerCase().includes(q) ||
+      tool.description?.toLowerCase().includes(q) ||
+      tool.tags.some((tag) => tag.toLowerCase().includes(q));
+    const matchesCategory = selectedCategory === 'all' || tool.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -203,7 +218,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         isEnabled: true,
         author: formData.author,
         tags: formData.tags,
-        dependencies: [],
+        dependencies: [] as string[],
         examples: formData.customConfig?.examples || [],
         // Add type-specific configs
         ...(formData.type === 'mcp' && { mcpConfig: formData.mcpConfig }),
@@ -248,41 +263,25 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
     }));
   };
 
-  // Show error state
   if (capabilities.error || toolIntegrations.error || agents.error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load tools</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {capabilities.error?.message ||
-                toolIntegrations.error?.message ||
-                agents.error?.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <PortalErrorState
+          message="Failed to load tools"
+          detail={capabilities.error?.message || toolIntegrations.error?.message || agents.error?.message}
+          onRetry={refreshData}
+        />
       </div>
     );
   }
 
-  // Show loading state
   if (capabilities.isLoading || toolIntegrations.isLoading || agents.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <RefreshCw className="w-8 h-8 text-purple-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading tools...</p>
-          </div>
-        </div>
+        <PortalLoadingState
+          message="Loading tools..."
+          icon={<RefreshCw className="w-8 h-8 text-purple-400 mx-auto mb-2 animate-spin" />}
+        />
       </div>
     );
   }
@@ -293,21 +292,14 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
       animate={{ opacity: 1, y: 0 }}
       className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
     >
-      {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <Wrench className="w-6 h-6 mr-2 text-purple-500" />
-          Tool Management
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
+      <PortalHeader
+        icon={<Wrench className="w-6 h-6 mr-2 text-purple-500" />}
+        title="Tool Management"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+        refreshTitle="Refresh tools"
+        lastUpdated={capabilities.lastUpdated || toolIntegrations.lastUpdated || agents.lastUpdated}
+        extraControls={
           <button
             onClick={() => setShowCreateForm(true)}
             className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all flex items-center space-x-2"
@@ -316,50 +308,18 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
             <Plus className="w-4 h-4" />
             <span>Add Tool</span>
           </button>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh tools"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          {(capabilities.lastUpdated || toolIntegrations.lastUpdated || agents.lastUpdated) && (
-            <span className="text-xs text-gray-400">
-              Updated:{' '}
-              {(
-                capabilities.lastUpdated ||
-                toolIntegrations.lastUpdated ||
-                agents.lastUpdated
-              )?.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+        }
+      />
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search tools..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          />
-        </div>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-        >
-          {categories.map((categoryStr) => (
-            <option key={categoryStr} value={categoryStr}>
-              {categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PortalSearchFilter
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search tools..."
+        searchIcon={<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Tools List */}
@@ -399,7 +359,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start space-x-3">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white">
-                        {getTypeIcon((tool as unknown).type)}
+                        {getTypeIcon(tool.type)}
                       </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-900 dark:text-white">{tool.name}</h4>
@@ -475,7 +435,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                   <select
                     value={formData.type}
                     onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, type: e.target.value as unknown }))
+                      setFormData((prev) => ({ ...prev, type: e.target.value as ToolFormData['type'] }))
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
@@ -561,7 +521,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          securityLevel: e.target.value as unknown,
+                          securityLevel: e.target.value as ToolFormData['securityLevel'],
                         }))
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -714,28 +674,16 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
 
               {selectedToolData ? (
                 <div className="space-y-6">
-                  {/* Header */}
-                  <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white">
-                          {selectedToolData.name}
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          ID: {selectedToolData.id} • Category: {selectedToolData.category || 'api'}
-                        </p>
-                      </div>
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(selectedToolData.securityLevel)}`}
-                      >
+                  <PortalDetailCard
+                    name={selectedToolData.name}
+                    subtitle={`ID: ${selectedToolData.id} • Category: ${selectedToolData.category || 'api'}`}
+                    badge={
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(selectedToolData.securityLevel)}`}>
                         {(selectedToolData.securityLevel || 'safe').toUpperCase()}
                       </span>
-                    </div>
-
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      {selectedToolData.description || 'No description available'}
-                    </p>
-
+                    }
+                    description={selectedToolData.description || 'No description available'}
+                  >
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500 dark:text-gray-400">Version</span>
@@ -762,7 +710,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </PortalDetailCard>
 
                   {/* Tags */}
                   {selectedToolData.tags && selectedToolData.tags.length > 0 && (

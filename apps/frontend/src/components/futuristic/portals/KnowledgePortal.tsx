@@ -93,7 +93,6 @@ const KNOWLEDGE_TYPE_COLORS: Record<string, string> = {
   document: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
 };
 
-/** Extract a readable one-line title from raw knowledge content */
 const getContentTitle = (content: string): string => {
   if (!content) return 'No content';
   const first = content.split('\n').find((l) => l.trim().length > 0) || content;
@@ -126,6 +125,13 @@ const KnowledgeItemMeta: React.FC<{ item: KnowledgeItem }> = ({ item }) => (
         </Badge>
       ))}
     </div>
+  </div>
+);
+
+const KnowledgeItemRow: React.FC<{ item: KnowledgeItem; actions: React.ReactNode }> = ({ item, actions }) => (
+  <div className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors">
+    <KnowledgeItemMeta item={item} />
+    {actions}
   </div>
 );
 
@@ -267,70 +273,41 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               <ScrollArea className="h-full">
                 <div className="space-y-2">
                   {searchResults.map((item) => (
-                    <div
+                    <KnowledgeItemRow
                       key={item.id}
-                      className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
-                    >
-                      <KnowledgeItemMeta item={item} />
-                      <div className="flex items-center space-x-1 ml-3">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => navigator.clipboard.writeText(item.content || '')}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Copy"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const blob = new Blob([item.content || ''], { type: 'text/plain' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `knowledge-${item.id}.txt`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          }}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Download"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <DiscussionTrigger
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                              title="Discuss"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                          }
-                          contextType="knowledge"
-                          contextData={{
-                            knowledgeItem: {
-                              id: item.id,
-                              content: item.content || '',
-                              type: item.type,
-                              tags: item.tags || [],
-                            },
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </Button>
-                        {renderDeleteExamineActions(item)}
-                      </div>
-                    </div>
+                      item={item}
+                      actions={
+                        <div className="flex items-center space-x-1 ml-3">
+                          <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(item.content || '')} className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Copy">
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            onClick={() => {
+                              const blob = new Blob([item.content || ''], { type: 'text/plain' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `knowledge-${item.id}.txt`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <DiscussionTrigger
+                            trigger={<Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Discuss"><MessageSquare className="w-4 h-4" /></Button>}
+                            contextType="knowledge"
+                            contextData={{ knowledgeItem: { id: item.id, content: item.content || '', type: item.type, tags: item.tags || [] } }}
+                          />
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Edit">
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          {renderDeleteExamineActions(item)}
+                        </div>
+                      }
+                    />
                   ))}
                 </div>
               </ScrollArea>
@@ -342,15 +319,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               <ScrollArea className="h-full">
                 <div className="space-y-2">
                   {Object.values(items).map((item) => (
-                    <div
+                    <KnowledgeItemRow
                       key={item.id}
-                      className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
-                    >
-                      <KnowledgeItemMeta item={item} />
-                      <div className="flex items-center gap-1">
-                        {renderDeleteExamineActions(item)}
-                      </div>
-                    </div>
+                      item={item}
+                      actions={<div className="flex items-center gap-1">{renderDeleteExamineActions(item)}</div>}
+                    />
                   ))}
                 </div>
               </ScrollArea>

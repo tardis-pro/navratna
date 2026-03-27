@@ -102,6 +102,7 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
         className="relative p-4 md:p-6 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-700/50"
       >
         <div className="flex items-center gap-4">

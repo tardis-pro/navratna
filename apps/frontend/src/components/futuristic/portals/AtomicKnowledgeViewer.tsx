@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { downloadJson } from '@/utils/download_utils';
 import { motion, AnimatePresence as _AnimatePresence } from 'framer-motion';
 import {
   Brain,
@@ -60,6 +61,7 @@ import { Progress as _Progress } from '@/components/ui/progress';
 import type { KnowledgeItem } from '@uaip/types';
 import { KnowledgeType, SourceType as _SourceType } from '@uaip/types';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
+import { parseCommaSeparatedValues } from '@/utils/parse_comma_separated';
 
 interface AtomicKnowledgeViewerProps {
   item: KnowledgeItem;
@@ -294,10 +296,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
     try {
       await onUpdate({
         content: editedContent,
-        tags: editedTags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
+        tags: parseCommaSeparatedValues(editedTags),
       });
       setIsEditing(false);
     } catch (error) {
@@ -321,13 +320,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
       analysis: analysis,
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `knowledge-${item.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadJson(exportData, `knowledge-${item.id}.json`);
   };
 
   const _getSentimentColor = (sentiment: string) => {

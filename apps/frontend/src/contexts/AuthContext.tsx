@@ -42,6 +42,13 @@ interface SystemOperationsFlow {
   discoverServices: () => Promise<unknown>;
 }
 
+const CLEARED_AUTH_STATE: AuthState = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+};
+
 function parseUser(userData: { id?: string; email?: string; name?: string; role?: string }): User {
   return {
     id: userData.id ?? '',
@@ -138,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const executeSecurityFlow = async (flow: string, params: unknown) => {
     switch (flow) {
       case 'login':
-        return await uaipAPI.client.auth.login(params);
+        return await uaipAPI.client.auth.login(params as { email: string; password: string });
       case 'logout':
         return await uaipAPI.client.auth.logout();
       case 'refreshToken':
@@ -200,8 +207,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const security: SecurityFlow = useMemo(
     () => ({
       login: (credentials) => executeFlow('security', 'login', credentials),
-      logout: () => executeFlow('security', 'logout'),
-      refreshToken: () => executeFlow('security', 'refreshToken'),
+      logout: async () => { await executeFlow('security', 'logout'); },
+      refreshToken: async () => {
+        const token = await executeFlow('security', 'refreshToken');
+        return typeof token === 'string' ? token : '';
+      },
       validatePermissions: (resource) =>
         executeFlow('security', 'validatePermissions', { resource }),
       assessRisk: (operation) => executeFlow('security', 'assessRisk', operation),
@@ -217,7 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       getSystemMetrics: () => executeFlow('systemOperations', 'getSystemMetrics'),
       getSystemConfig: () => executeFlow('systemOperations', 'getSystemConfig'),
       migrateDatabase: () => executeFlow('systemOperations', 'migrateDatabase'),
-      clearCache: (layer) => executeFlow('systemOperations', 'clearCache', { layer }),
+      clearCache: async (layer) => { await executeFlow('systemOperations', 'clearCache', { layer }); },
       getSystemLogs: (filters) => executeFlow('systemOperations', 'getSystemLogs', filters),
       backupSystem: () => executeFlow('systemOperations', 'backupSystem'),
       monitorSystem: () => executeFlow('systemOperations', 'monitorSystem'),
@@ -235,17 +245,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userData) {
         setState({ user: parseUser(userData), isAuthenticated: true, isLoading: false, error: null });
       } else {
-        setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+        setState(CLEARED_AUTH_STATE);
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
       uaipAPI.client.clearAuth();
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     }
   }, []);
 
@@ -255,12 +260,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for auth failures from the API client
     const handleAuthFailure = () => {
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     };
 
     // Listen for the auth:unauthorized event from the API client
@@ -322,13 +322,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // WebSocket client reset removed - using useWebSocket hook instead
 
-      // Clear auth state
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     } catch (error) {
       console.error('Logout failed:', error);
 
@@ -337,12 +331,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // WebSocket client reset removed - using useWebSocket hook instead
 
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     }
   }, []);
 
@@ -355,27 +344,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userData) {
         setState((prev) => ({ ...prev, user: parseUser(userData), error: null }));
       } else {
-        // If user refresh fails, it might mean the token is invalid
         console.warn('User refresh failed, clearing auth');
         uaipAPI.client.clearAuth();
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        setState(CLEARED_AUTH_STATE);
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);
-      // Don't clear auth on network errors, only on auth failures
       if (error instanceof Error && error.message.includes('Authentication failed')) {
         uaipAPI.client.clearAuth();
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        setState(CLEARED_AUTH_STATE);
       }
     }
   }, [state.isAuthenticated]);

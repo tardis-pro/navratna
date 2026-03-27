@@ -6,16 +6,16 @@ import {
   Clock,
   Star,
   BarChart3,
-  _Filter,
   Calendar,
   Zap,
   Target,
   Award,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { _Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll_area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+type IconWithSizeProps = React.ComponentType<{ size?: number; className?: string }>;
 
 export interface ActivityEvent {
   id: string;
@@ -171,7 +171,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
         <div className="flex items-center space-x-2">
           <select
             value={selectedTimeRange}
-            onChange={(e) => setSelectedTimeRange(e.target.value as unknown)}
+            onChange={(e) => setSelectedTimeRange(e.target.value as 'today' | 'week' | 'month')}
             className="bg-slate-800/50 border border-slate-600/50 text-white text-xs rounded px-2 py-1"
           >
             <option value="today">Today</option>
@@ -265,7 +265,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 {trendingItems.map((trend, index) => {
                   if (!trend.item) return null;
 
-                  const IconComponent = trend.item.icon || Activity;
+                  const IconComponent = (trend.item.icon || Activity) as unknown as IconWithSizeProps;
 
                   return (
                     <motion.div
@@ -328,7 +328,7 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 </h4>
                 <div className="space-y-2">
                   {activityStats.mostUsedItems.slice(0, 3).map((item, _index) => {
-                    const IconComponent = item.icon || Activity;
+                    const IconComponent = (item.icon || Activity) as unknown as IconWithSizeProps;
                     return (
                       <div
                         key={item.id}

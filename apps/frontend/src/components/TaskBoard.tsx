@@ -1,4 +1,4 @@
-import React, { useState, _useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,18 +25,15 @@ import {
   Calendar,
   AlertTriangle,
   CheckCircle,
-  _Circle,
-  _Pause,
-  _X,
-  _GripVertical,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { DESIGN_TOKENS, PRIORITY_OPTION_VALUES, TYPE_OPTION_VALUES } from './TaskDesignTokens';
+import { DESIGN_TOKENS, PRIORITY_OPTION_VALUES as _PRIORITY_OPTION_VALUES, TYPE_OPTION_VALUES as _TYPE_OPTION_VALUES } from './TaskDesignTokens';
 import { Button } from './TaskButton';
 import { TaskCreateForm } from './TaskCreateForm';
+import { PrioritySelectOptions, TypeSelectOptions } from './TaskSelectOptions';
 
 // Types
-interface Task {
+export interface Task {
   id: string;
   taskNumber: string;
   title: string;
@@ -112,8 +109,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
   tasks,
   onTaskUpdate,
   onTaskCreate,
-  _onTaskDelete,
-  _onTaskAssign,
+  onTaskDelete: _onTaskDelete,
+  onTaskAssign: _onTaskAssign,
   isLoading = false,
 }) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -408,11 +405,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              {PRIORITY_OPTION_VALUES.map((v) => (
-                <SelectItem key={v} value={v}>
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
-                </SelectItem>
-              ))}
+              <PrioritySelectOptions />
             </SelectContent>
           </Select>
           <Select
@@ -424,11 +417,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              {TYPE_OPTION_VALUES.map((v) => (
-                <SelectItem key={v} value={v}>
-                  {v.charAt(0).toUpperCase() + v.slice(1)}
-                </SelectItem>
-              ))}
+              <TypeSelectOptions />
             </SelectContent>
           </Select>
         </div>

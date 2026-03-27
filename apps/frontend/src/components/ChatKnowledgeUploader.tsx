@@ -2,7 +2,6 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Upload,
   FileText,
-  X,
   Loader2,
   MessageSquare,
   Brain,
@@ -16,14 +15,20 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { knowledgeAPI } from '@/api/knowledge_api';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import { useKnowledgeUpload } from '@/hooks/use_knowledge_upload';
+import {
+  useKnowledgeUpload,
+  filterFilesByType,
+  generateFileId,
+} from '@/hooks/use_knowledge_upload';
 import { KnowledgeErrorAlert } from '@/components/KnowledgeErrorAlert';
 import { TextKnowledgeCard } from '@/components/TextKnowledgeCard';
+import { UploadDropZone } from '@/components/UploadDropZone';
+import { UploadProgressBar } from '@/components/UploadProgressBar';
+import { FileRemoveButton } from '@/components/FileRemoveButton';
 
 interface ChatKnowledgeUploaderProps {
   onUploadComplete?: () => void;
@@ -101,24 +106,17 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
   const handleFiles = useCallback(
     (newFiles: File[]) => {
       setError(null);
-
-      const validFiles = newFiles.filter((file) => {
-        const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-        return CHAT_FILE_TYPES.includes(extension);
-      });
-
-      if (validFiles.length !== newFiles.length) {
+      const { valid: validFiles, skipped } = filterFilesByType(newFiles, CHAT_FILE_TYPES);
+      if (skipped > 0) {
         setError(`Some files were skipped. Supported formats: ${CHAT_FILE_TYPES.join(', ')}`);
       }
-
       const chatFileUploads: ChatFile[] = validFiles.map((file) => ({
-        id: `${file.name}-${Date.now()}`,
+        id: generateFileId(file),
         file,
         platform: detectPlatform(file.name),
         status: 'pending',
         progress: 0,
       }));
-
       setChatFiles((prev) => [...prev, ...chatFileUploads]);
     },
     [detectPlatform]
@@ -356,22 +354,17 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                 </div>
               </div>
 
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  dragActive
-                    ? 'border-blue-400 bg-blue-500/10'
-                    : 'border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5'
-                }`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
+              <UploadDropZone
+                dragActive={dragActive}
+                handleDrag={handleDrag}
+                handleDrop={handleDrop}
+                handleFileSelect={handleFileSelect}
+                fileInputRef={fileInputRef}
+                acceptedTypes={CHAT_FILE_TYPES}
+                promptText="Drop chat files here, or click to select"
+                formatsLabel="Supported:"
+                buttonText="Select Chat Files"
               >
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-white mb-2">Drop chat files here, or click to select</p>
-                <p className="text-sm text-gray-400 mb-4">
-                  Supported: {CHAT_FILE_TYPES.join(', ')}
-                </p>
                 <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-gray-400">
                   {Object.entries(PLATFORM_DESCRIPTIONS).map(([platform, desc]) => (
                     <div key={platform} className="flex items-center justify-center">
@@ -380,22 +373,7 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                     </div>
                   ))}
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-blue-500/30 hover:bg-blue-500/10"
-                >
-                  Select Chat Files
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={CHAT_FILE_TYPES.join(',')}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </div>
+              </UploadDropZone>
 
               {chatFiles.length > 0 && (
                 <div className="space-y-3">
@@ -443,25 +421,16 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
                             >
                               {file.status}
                             </Badge>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeFile(file.id)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
+                            <FileRemoveButton onClick={() => removeFile(file.id)} />
                           </div>
                         </div>
 
                         {file.status === 'processing' && (
-                          <div className="space-y-2 mb-2">
-                            <div className="flex justify-between text-sm text-gray-300">
-                              <span>Processing...</span>
-                              <span>{file.progress}%</span>
-                            </div>
-                            <Progress value={file.progress} className="h-2" />
-                          </div>
+                          <UploadProgressBar
+                            label="Processing..."
+                            value={file.progress}
+                            className="mb-2"
+                          />
                         )}
 
                         {file.status === 'failed' && file.error && (

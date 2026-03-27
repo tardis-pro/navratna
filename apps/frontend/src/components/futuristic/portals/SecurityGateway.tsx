@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
 import {
   ShieldCheck,
   Lightbulb,
@@ -10,10 +9,35 @@ import {
   FileText,
   Lock,
   Eye,
-  RefreshCw,
-  AlertTriangle,
 } from 'lucide-react';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalContainer,
+  PortalErrorState,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalHeader,
+} from './portal-shared-components';
+
+interface AuditEntry {
+  id: string;
+  timestamp: Date;
+  userId: string;
+  action: string;
+  resource: string;
+  result: 'success' | 'failure' | 'denied';
+  details: string;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+}
+
+interface SecurityMetrics {
+  totalApprovals: number;
+  pendingApprovals: number;
+  approved: number;
+  rejected: number;
+  averageApprovalTime: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+}
 
 interface SecurityGatewayPortalProps {
   className?: string;
@@ -183,122 +207,55 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   // Show error state
   if (approvals.error) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load security data</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {approvals.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+        <PortalErrorState
+          message="Failed to load security data"
+          detail={approvals.error.message}
+          onRetry={refreshData}
+        />
+      </PortalContainer>
     );
   }
 
-  // Show loading state
   if (approvals.isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <RefreshCw className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading security data...</p>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+        <PortalLoadingState message="Loading security data..." />
+      </PortalContainer>
     );
   }
 
-  // Show empty state
   if (approvals.data.length === 0) {
     return (
-      <div className="space-y-6">
-        {/* Header with Connection Status */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <ShieldCheck className="w-6 h-6 mr-2 text-green-500" />
-            Security Gateway
-          </h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <button
-              onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title="Refresh security data"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            {approvals.lastUpdated && (
-              <span className="text-xs text-gray-400">
-                Updated: {approvals.lastUpdated.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ShieldCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No security approvals pending</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              All operations are within approved security parameters
-            </p>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+        <PortalHeader
+          icon={<ShieldCheck className="w-6 h-6 mr-2 text-green-500" />}
+          title="Security Gateway"
+          isConnected={isWebSocketConnected}
+          onRefresh={refreshData}
+          refreshTitle="Refresh security data"
+          lastUpdated={approvals.lastUpdated}
+        />
+        <PortalEmptyState
+          icon={<ShieldCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          message="No security approvals pending"
+          subMessage="All operations are within approved security parameters"
+        />
+      </PortalContainer>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
+    <PortalContainer className={className} isMobile={currentViewport.isMobile}>
       {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <ShieldCheck className="w-6 h-6 mr-2 text-red-500" />
-          Security Gateway
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh security data"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          {approvals.lastUpdated && (
-            <span className="text-xs text-gray-400">
-              Updated: {approvals.lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+      <PortalHeader
+        icon={<ShieldCheck className="w-6 h-6 mr-2 text-red-500" />}
+        title="Security Gateway"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+        refreshTitle="Refresh security data"
+        lastUpdated={approvals.lastUpdated}
+      />
 
       {/* Security Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -546,6 +503,6 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           </div>
         </div>
       )}
-    </motion.div>
+    </PortalContainer>
   );
 };

@@ -113,13 +113,13 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
     setConfig((prev) => {
       const newConfig = { ...prev };
       const keys = path.split('.');
-      let current: unknown = newConfig;
+      let current = newConfig as Record<string, unknown>;
 
       for (let i = 0; i < keys.length - 1; i++) {
-        if (!(keys[i] in current)) {
+        if (typeof current[keys[i]] !== 'object' || current[keys[i]] === null) {
           current[keys[i]] = {};
         }
-        current = current[keys[i]];
+        current = current[keys[i]] as Record<string, unknown>;
       }
 
       current[keys[keys.length - 1]] = value;
@@ -153,8 +153,9 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
     <div className={`space-y-4 ${className} ${currentViewport.isMobile ? 'px-2' : ''}`}>
       {/* System Config Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
         className="relative p-4 md:p-6 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-xl rounded-2xl border border-emerald-500/20"
       >
         <div

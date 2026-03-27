@@ -23,6 +23,16 @@ export const KNOWLEDGE_TYPES: { value: KnowledgeType; label: string }[] = [
   { value: KnowledgeType.SEMANTIC, label: 'Semantic Knowledge' },
 ];
 
+export const KnowledgeTypeSelectItems: React.FC = () => (
+  <>
+    {KNOWLEDGE_TYPES.map((type) => (
+      <SelectItem key={type.value} value={type.value}>
+        {type.label}
+      </SelectItem>
+    ))}
+  </>
+);
+
 interface TextKnowledgeCardProps {
   uploadKnowledge: (items: KnowledgeIngestRequest[]) => Promise<KnowledgeIngestResponse>;
   isUploading: boolean;
@@ -97,11 +107,7 @@ export const TextKnowledgeCard: React.FC<TextKnowledgeCardProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {KNOWLEDGE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
+                <KnowledgeTypeSelectItems />
               </SelectContent>
             </Select>
           </div>

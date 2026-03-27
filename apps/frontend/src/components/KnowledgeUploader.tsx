@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Upload, FileText, X, Loader2 } from 'lucide-react';
+import { Upload, FileText, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,13 +11,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import type { KnowledgeIngestRequest } from '@uaip/types';
-import { useKnowledgeUpload } from '@/hooks/use_knowledge_upload';
+import {
+  useKnowledgeUpload,
+  filterFilesByType,
+  generateFileId,
+} from '@/hooks/use_knowledge_upload';
 import { KnowledgeErrorAlert } from '@/components/KnowledgeErrorAlert';
 import { TextKnowledgeCard, KNOWLEDGE_TYPES } from '@/components/TextKnowledgeCard';
+import { UploadDropZone } from '@/components/UploadDropZone';
+import { UploadProgressBar } from '@/components/UploadProgressBar';
+import { FileRemoveButton } from '@/components/FileRemoveButton';
+import { parseCommaSeparatedValues } from '@/utils/parse_comma_separated';
 
 interface KnowledgeUploaderProps {
   onUploadComplete?: () => void;
@@ -58,21 +65,15 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
   const handleFiles = useCallback(
     async (newFiles: File[]) => {
       setError(null);
-
-      const validFiles = newFiles.filter((file) => {
-        const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-        return SUPPORTED_FILE_TYPES.includes(extension);
-      });
-
-      if (validFiles.length !== newFiles.length) {
+      const { valid: validFiles, skipped } = filterFilesByType(newFiles, SUPPORTED_FILE_TYPES);
+      if (skipped > 0) {
         setError(`Some files were skipped. Supported formats: ${SUPPORTED_FILE_TYPES.join(', ')}`);
       }
-
       const fileUploads: FileUpload[] = await Promise.all(
         validFiles.map(async (file) => {
           const content = await readFileContent(file);
           return {
-            id: `${file.name}-${Date.now()}`,
+            id: generateFileId(file),
             file,
             content,
             type: KnowledgeType.FACTUAL,
@@ -81,7 +82,6 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
           };
         })
       );
-
       setFiles((prev) => [...prev, ...fileUploads]);
     },
     [readFileContent]
@@ -164,38 +164,14 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragActive
-                ? 'border-blue-400 bg-blue-500/10'
-                : 'border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/5'
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-white mb-2">Drag and drop files here, or click to select</p>
-            <p className="text-sm text-gray-400 mb-4">
-              Supported formats: {SUPPORTED_FILE_TYPES.join(', ')}
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="border-blue-500/30 hover:bg-blue-500/10"
-            >
-              Select Files
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={SUPPORTED_FILE_TYPES.join(',')}
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
+          <UploadDropZone
+            dragActive={dragActive}
+            handleDrag={handleDrag}
+            handleDrop={handleDrop}
+            handleFileSelect={handleFileSelect}
+            fileInputRef={fileInputRef}
+            acceptedTypes={SUPPORTED_FILE_TYPES}
+          />
 
           {files.length > 0 && (
             <div className="space-y-3">
@@ -221,13 +197,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
               </div>
 
               {isUploading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm text-gray-300">
-                    <span>Upload Progress</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} className="h-2" />
-                </div>
+                <UploadProgressBar label="Upload Progress" value={uploadProgress} />
               )}
 
               <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -250,14 +220,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
                           <Badge className="bg-green-600">Complete</Badge>
                         )}
                         {file.status === 'error' && <Badge variant="destructive">Error</Badge>}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeFile(file.id)}
-                          className="h-6 w-6 p-0"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
+                        <FileRemoveButton onClick={() => removeFile(file.id)} />
                       </div>
                     </div>
 
@@ -283,15 +246,12 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
-                      <Input
-                        value={file.tags.join(', ')}
-                        onChange={(e) => {
-                          const tags = e.target.value
-                            .split(',')
-                            .map((tag) => tag.trim())
-                            .filter(Boolean);
-                          updateFile(file.id, { tags });
-                        }}
+                        <Input
+                          value={file.tags.join(', ')}
+                          onChange={(e) => {
+                            const tags = parseCommaSeparatedValues(e.target.value);
+                            updateFile(file.id, { tags });
+                          }}
                         placeholder="Tags (comma-separated)"
                         className="h-8 bg-black/20 border-blue-500/30 text-white placeholder-gray-400"
                       />

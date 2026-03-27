@@ -64,12 +64,26 @@ const DropdownPanel: React.FC<{ show: boolean; width: string; children: React.Re
   </AnimatePresence>
 );
 
+const HeaderDropdown: React.FC<{
+  show: boolean;
+  panelWidth: string;
+  trigger: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ show, panelWidth, trigger, children }) => (
+  <div className="relative">
+    {trigger}
+    <DropdownPanel show={show} width={panelWidth}>
+      {children}
+    </DropdownPanel>
+  </div>
+);
+
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   viewport,
   onToggleRecentPanel,
   showRecentPanel,
   onOpenSettings,
-  _theme,
+  theme: _theme,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -193,100 +207,74 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           </Button>
         )}
 
-        {/* Notifications */}
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="text-slate-400 hover:text-white hover:bg-slate-700/50 w-10 h-10 p-0 relative"
-          >
-            <Bell size={18} />
-            {unreadCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center p-0">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Badge>
-            )}
-          </Button>
+        <HeaderDropdown
+          show={showNotifications}
+          panelWidth="w-80"
+          trigger={
+            <Button variant="ghost" size="sm" onClick={() => setShowNotifications(!showNotifications)} className="text-slate-400 hover:text-white hover:bg-slate-700/50 w-10 h-10 p-0 relative">
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center p-0">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </Button>
+          }
+        >
+          <div className="p-4 border-b border-slate-700">
+            <h3 className="text-white font-semibold">Notifications</h3>
+            <p className="text-slate-400 text-sm">{unreadCount} unread</p>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {notifications.map((notification) => (
+              <div key={notification.id} className="p-3 border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer">
+                <div className="flex items-start space-x-3">
+                  <div className={`w-2 h-2 rounded-full mt-2 ${notification.type === 'success' ? 'bg-green-500' : notification.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'}`} />
+                  <div className="flex-1">
+                    <p className="text-white text-sm">{notification.title}</p>
+                    <p className="text-slate-400 text-xs">{notification.time}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="p-3 border-t border-slate-700">
+            <Button variant="ghost" size="sm" className="w-full text-slate-400 hover:text-white">
+              View All Notifications
+            </Button>
+          </div>
+        </HeaderDropdown>
 
-          <DropdownPanel show={showNotifications} width="w-80">
-                <div className="p-4 border-b border-slate-700">
-                  <h3 className="text-white font-semibold">Notifications</h3>
-                  <p className="text-slate-400 text-sm">{unreadCount} unread</p>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className="p-3 border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer"
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div
-                          className={`w-2 h-2 rounded-full mt-2 ${
-                            notification.type === 'success'
-                              ? 'bg-green-500'
-                              : notification.type === 'warning'
-                                ? 'bg-yellow-500'
-                                : 'bg-blue-500'
-                          }`}
-                        />
-                        <div className="flex-1">
-                          <p className="text-white text-sm">{notification.title}</p>
-                          <p className="text-slate-400 text-xs">{notification.time}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="p-3 border-t border-slate-700">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-slate-400 hover:text-white"
-                  >
-                    View All Notifications
-                  </Button>
-                </div>
-          </DropdownPanel>
-        </div>
-
-        {/* User Profile */}
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2 px-3"
-          >
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <User size={16} className="text-white" />
-            </div>
-            {!viewport.isMobile && <span className="text-sm">Admin</span>}
-          </Button>
-
-          <DropdownPanel show={showUserMenu} width="w-48">
-                <div className="p-3 border-b border-slate-700">
-                  <p className="text-white font-medium">Administrator</p>
-                  <p className="text-slate-400 text-sm">admin@tardis.digital</p>
-                </div>
-                <div className="py-2">
-                  <button className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2">
-                    <Settings size={16} />
-                    <span>Settings</span>
-                  </button>
-                  <button className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2">
-                    <User size={16} />
-                    <span>Profile</span>
-                  </button>
-                </div>
-                <div className="border-t border-slate-700 py-2">
-                  <button className="w-full px-3 py-2 text-left text-red-400 hover:text-red-300 hover:bg-slate-700/50 flex items-center space-x-2">
-                    <LogOut size={16} />
-                    <span>Sign Out</span>
-                  </button>
-                </div>
-          </DropdownPanel>
-        </div>
+        <HeaderDropdown
+          show={showUserMenu}
+          panelWidth="w-48"
+          trigger={
+            <Button variant="ghost" size="sm" onClick={() => setShowUserMenu(!showUserMenu)} className="text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2 px-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                <User size={16} className="text-white" />
+              </div>
+              {!viewport.isMobile && <span className="text-sm">Admin</span>}
+            </Button>
+          }
+        >
+          <div className="p-3 border-b border-slate-700">
+            <p className="text-white font-medium">Administrator</p>
+            <p className="text-slate-400 text-sm">admin@tardis.digital</p>
+          </div>
+          <div className="py-2">
+            <button className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2">
+              <Settings size={16} /><span>Settings</span>
+            </button>
+            <button className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center space-x-2">
+              <User size={16} /><span>Profile</span>
+            </button>
+          </div>
+          <div className="border-t border-slate-700 py-2">
+            <button className="w-full px-3 py-2 text-left text-red-400 hover:text-red-300 hover:bg-slate-700/50 flex items-center space-x-2">
+              <LogOut size={16} /><span>Sign Out</span>
+            </button>
+          </div>
+        </HeaderDropdown>
 
         {/* Recent Panel Toggle (Desktop/Tablet) */}
         {!viewport.isMobile && (

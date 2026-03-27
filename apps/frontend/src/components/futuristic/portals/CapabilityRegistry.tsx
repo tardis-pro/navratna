@@ -1,6 +1,5 @@
 import React, { useState, useEffect as _useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
 import {
   PuzzlePieceIcon,
   MagnifyingGlassIcon,
@@ -13,10 +12,11 @@ import {
 } from '@heroicons/react/24/outline';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 import {
-  PortalConnectionBadge,
+  PortalContainer,
   PortalLoadingState,
   PortalEmptyState,
   PortalErrorState,
+  PortalHeader,
   PortalSearchFilter,
 } from './portal-shared-components';
 
@@ -34,16 +34,7 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
 
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   const categories: string[] = [
     'all',
@@ -92,27 +83,27 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   if (capabilities.error) {
     return (
-      <div className="space-y-6">
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
         <PortalErrorState
           message="Failed to load capabilities"
           detail={capabilities.error.message}
           onRetry={refreshData}
         />
-      </div>
+      </PortalContainer>
     );
   }
 
   if (capabilities.isLoading) {
     return (
-      <div className="space-y-6">
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
         <PortalLoadingState message="Loading capabilities..." />
-      </div>
+      </PortalContainer>
     );
   }
 
   if (capabilities.data.length === 0) {
     return (
-      <div className="space-y-6">
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
         <PortalEmptyState
           icon={<PuzzlePieceIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
           message="No capabilities available"
@@ -120,35 +111,20 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
           onRefresh={refreshData}
           refreshLabel="Refresh"
         />
-      </div>
+      </PortalContainer>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
-      {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <PuzzlePieceIcon className="w-6 h-6 mr-2 text-purple-500" />
-          Capability Registry
-        </h2>
-        <div className="flex items-center space-x-4">
-          <PortalConnectionBadge
-            isConnected={isWebSocketConnected}
-            onRefresh={refreshData}
-            refreshTitle="Refresh capabilities"
-          />
-          {capabilities.lastUpdated && (
-            <span className="text-xs text-gray-400">
-              Updated: {capabilities.lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+    <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalHeader
+        icon={<PuzzlePieceIcon className="w-6 h-6 mr-2 text-purple-500" />}
+        title="Capability Registry"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+        refreshTitle="Refresh capabilities"
+        lastUpdated={capabilities.lastUpdated}
+      />
 
       <PortalSearchFilter
         value={searchQuery}
@@ -352,6 +328,6 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
           )}
         </div>
       </div>
-    </motion.div>
+    </PortalContainer>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Socket } from 'socket.io-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,28 +30,24 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
   const [editValue, setEditValue] = useState(topic);
   const [keywords, _setKeywords] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number>(0);
-  const [_socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const { user } = useAuth();
 
-  // Initialize WebSocket connection
   useEffect(() => {
+    // @ts-expect-error -- user.token exists at runtime but not in the shared User type
     if (!user?.token) return;
+    // @ts-expect-error -- user.token exists at runtime but not in the shared User type
+    const socket = createConversationIntelligenceSocket(user.token, agentId, conversationId);
+    socketRef.current = socket;
 
-    const newSocket = createConversationIntelligenceSocket(user.token, agentId, conversationId);
-
-    newSocket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data: { topicName: string; confidence: number }) => {
+    socket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data: { topicName: string; confidence: number }) => {
       setTopic(data.topicName);
       setConfidence(data.confidence);
-      if (onTopicChange) {
-        onTopicChange(data.topicName);
-      }
+      onTopicChange?.(data.topicName);
     });
 
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
+    return () => { socket.close(); };
+    // @ts-expect-error -- user.token exists at runtime but not in the shared User type
   }, [user?.token, agentId, conversationId, onTopicChange]);
 
   const handleEdit = () => {

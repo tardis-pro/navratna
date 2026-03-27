@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Folder,
@@ -35,6 +35,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
 import { ViewportSize } from '@/hooks/use_viewport';
+
+const PROJECT_STATUS_OPTIONS = ['planning', 'active', 'paused', 'completed', 'archived'] as const;
 
 interface ProjectManagementPortalProps {
   viewport?: ViewportSize;
@@ -292,9 +294,10 @@ const CreateProjectModal: React.FC<{
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.97, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        exit={{ opacity: 0, scale: 0.97, y: 12 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
         className="bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-800/50 p-6 md:p-8 w-full max-w-lg shadow-2xl shadow-black/20 max-h-[90vh] overflow-y-auto"
       >
         <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
@@ -336,10 +339,11 @@ const CreateProjectModal: React.FC<{
                 }
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
               >
-                <option value="planning">Planning</option>
-                <option value="active">Active</option>
-                <option value="paused">Paused</option>
-                <option value="completed">Completed</option>
+                {PROJECT_STATUS_OPTIONS.filter((s) => s !== 'archived').map((s) => (
+                  <option key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -411,44 +415,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const isDesktop = viewport?.isDesktop ?? true;
   const gridCols = isMobile ? 1 : isTablet ? 2 : 3;
 
-  // Load projects from API
-  useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        const apiProjects = await projectsAPI.list();
-
-        // Convert API projects to local Project interface
-        const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
-          id: apiProject.id,
-          name: apiProject.name,
-          description: apiProject.description || '',
-          status: apiProject.status,
-          priority: (apiProject.metadata?.priority as Project['priority']) || 'medium',
-          progress: apiProject.metadata?.progress || 0,
-          startDate: new Date(apiProject.createdAt),
-          dueDate: apiProject.metadata?.dueDate ? new Date(apiProject.metadata.dueDate) : undefined,
-          team: apiProject.metadata?.team || [],
-          tags: apiProject.metadata?.tags || [],
-          resources: apiProject.metadata?.resources || [],
-          tasks: apiProject.metadata?.tasks || [],
-          createdBy: apiProject.ownerId,
-          createdAt: new Date(apiProject.createdAt),
-          updatedAt: new Date(apiProject.updatedAt),
-        }));
-
-        setProjects(convertedProjects);
-      } catch (error) {
-        console.error('Failed to load projects:', error);
-        // Fallback to empty array or could show error state
-        setProjects([]);
-      }
-    };
-
-    loadProjects();
-  }, []);
-
-  // Add a function to refresh projects when needed
-  const refreshProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       const apiProjects = await projectsAPI.list();
       const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
@@ -470,9 +437,16 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
       }));
       setProjects(convertedProjects);
     } catch (error) {
-      console.error('Failed to refresh projects:', error);
+      console.error('Failed to load projects:', error);
+      setProjects([]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  const refreshProjects = loadProjects;
 
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
@@ -735,11 +709,11 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           className={`${isMobile ? 'w-full' : ''} px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none backdrop-blur-sm`}
         >
           <option value="all">All</option>
-          <option value="planning">Planning</option>
-          <option value="active">Active</option>
-          <option value="paused">Paused</option>
-          <option value="completed">Completed</option>
-          <option value="archived">Archived</option>
+          {PROJECT_STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </option>
+          ))}
         </select>
       </div>
 

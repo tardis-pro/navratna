@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { PRIORITY_OPTION_VALUES, TYPE_OPTION_VALUES } from './TaskDesignTokens';
+import { PRIORITY_OPTION_VALUES as _PRIORITY_OPTION_VALUES, TYPE_OPTION_VALUES as _TYPE_OPTION_VALUES } from './TaskDesignTokens';
+import { PrioritySelectOptions, TypeSelectOptions } from './TaskSelectOptions';
 
 const INITIAL_FORM_DATA = {
   title: '',
@@ -75,11 +76,7 @@ export const TaskCreateForm: React.FC<TaskCreateFormProps> = ({
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent className={selectContentClassName}>
-            {PRIORITY_OPTION_VALUES.map((v) => (
-              <SelectItem key={v} value={v}>
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-              </SelectItem>
-            ))}
+            <PrioritySelectOptions />
           </SelectContent>
         </Select>
         <Select
@@ -90,11 +87,7 @@ export const TaskCreateForm: React.FC<TaskCreateFormProps> = ({
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent className={selectContentClassName}>
-            {TYPE_OPTION_VALUES.map((v) => (
-              <SelectItem key={v} value={v}>
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-              </SelectItem>
-            ))}
+            <TypeSelectOptions />
           </SelectContent>
         </Select>
       </div>

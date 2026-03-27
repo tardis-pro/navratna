@@ -24,4 +24,4 @@ export { useAgentMicroexpression } from './use_agent_microexpression';
 export { useViewport, getDefaultViewport } from './use_viewport';
 export type { ViewportSize } from './use_viewport';
 
-export { useKnowledgeUpload } from './use_knowledge_upload';
+export { useKnowledgeUpload, filterFilesByType, generateFileId } from './use_knowledge_upload';

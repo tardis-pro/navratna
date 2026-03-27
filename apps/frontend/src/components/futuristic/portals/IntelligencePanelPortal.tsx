@@ -122,6 +122,29 @@ const AnalysisCard: React.FC<{
   </motion.div>
 );
 
+const AnalysisSection: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  slideFrom: 'left' | 'right';
+  children: React.ReactNode;
+}> = ({ icon, title, slideFrom, children }) => (
+  <motion.div
+    initial={{ opacity: 0, x: slideFrom === 'left' ? -20 : 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
+  >
+    <motion.h3
+      className="text-lg font-bold text-white mb-4 flex items-center"
+      animate={{ x: slideFrom === 'left' ? [0, 2, 0] : [0, -2, 0] }}
+      transition={{ duration: 3, repeat: Infinity }}
+    >
+      {icon}
+      {title}
+    </motion.h3>
+    <div className="space-y-4">{children}</div>
+  </motion.div>
+);
+
 export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = ({
   className,
   mode = 'analysis',
@@ -184,7 +207,13 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         agentCapabilities: agentList.map((agent) => agent.capabilities || []).flat(),
       };
 
-      const contextAnalysis = await uaipAPI.ai.analyzeContext(analysisRequest);
+      type ContextAnalysisResult = {
+        engagementScore: number;
+        confidence: number;
+        processingTime: number;
+        patterns?: unknown[];
+      };
+      const contextAnalysis = await uaipAPI.llm.analyzeContext(analysisRequest) as ContextAnalysisResult | null;
 
       if (contextAnalysis) {
         // Generate advanced insights from the analysis
@@ -710,22 +739,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/*  Context Analyses */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-        >
-          <motion.h3
-            className="text-lg font-bold text-white mb-4 flex items-center"
-            animate={{ x: [0, 2, 0] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <ChartBarIcon className="w-5 h-5 mr-3 text-blue-400" />
-            Context Analysis
-          </motion.h3>
-
-          <div className="space-y-4">
+        <AnalysisSection slideFrom="left" icon={<ChartBarIcon className="w-5 h-5 mr-3 text-blue-400" />} title="Context Analysis">
             {contextAnalyses.map((analysis, index) => (
               <AnalysisCard
                 key={`${analysis.conversationId}-${analysis.timestamp.toISOString()}`}
@@ -789,25 +803,9 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                 </div>
               </AnalysisCard>
             ))}
-          </div>
-        </motion.div>
+        </AnalysisSection>
 
-        {/* Cognitive Insights */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-        >
-          <motion.h3
-            className="text-lg font-bold text-white mb-4 flex items-center"
-            animate={{ x: [0, -2, 0] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <LightBulbIcon className="w-5 h-5 mr-3 text-yellow-400" />
-            Cognitive Insights
-          </motion.h3>
-
-          <div className="space-y-4">
+        <AnalysisSection slideFrom="right" icon={<LightBulbIcon className="w-5 h-5 mr-3 text-yellow-400" />} title="Cognitive Insights">
             {cognitiveInsights.map((insight, index) => (
               <AnalysisCard
                 key={insight.id}
@@ -864,8 +862,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                 </div>
               </AnalysisCard>
             ))}
-          </div>
-        </motion.div>
+        </AnalysisSection>
       </div>
 
       {/* Agent Intelligence Matrix */}

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip_api';
 import MCPConfigUpload from '@/components/MCPConfigUpload';
+import { PortalLoadingState, PortalEmptyState } from './portal-shared-components';
 
 interface Agent {
   id: string;
@@ -117,17 +118,19 @@ export const UnifiedToolPortal: React.FC = () => {
   const loadTools = async () => {
     try {
       // Load regular tools
-      const regularResult = await uaipAPI.tools.list();
+      const regularResult = await uaipAPI.tools.list() as unknown;
       const regularTools = Array.isArray(regularResult)
         ? regularResult
-        : regularResult?.data?.tools && Array.isArray(regularResult.data.tools)
-          ? regularResult.data.tools
-          : regularResult?.tools && Array.isArray(regularResult.tools)
-            ? regularResult.tools
+        : (regularResult as { data?: { tools?: Tool[] }; tools?: Tool[] })?.data?.tools &&
+            Array.isArray((regularResult as { data?: { tools?: Tool[] } }).data?.tools)
+          ? (regularResult as { data: { tools: Tool[] } }).data.tools
+          : (regularResult as { tools?: Tool[] })?.tools &&
+              Array.isArray((regularResult as { tools?: Tool[] }).tools)
+            ? (regularResult as { tools: Tool[] }).tools
             : [];
 
       // Load MCP tools
-      let mcpTools = [];
+      let mcpTools: Tool[] = [];
       try {
         const mcpResult = await uaipAPI.mcp.getTools();
         if (mcpResult?.tools) {
@@ -167,16 +170,20 @@ export const UnifiedToolPortal: React.FC = () => {
 
   const loadAgents = async () => {
     try {
-      const result = await uaipAPI.agents.list();
+      const result = await uaipAPI.agents.list() as unknown;
       // Handle different response structures
+      type AgentResult = { data?: { agents?: Agent[] }; agents?: Agent[]; } | Agent[];
       const agentsArray = Array.isArray(result)
         ? result
-        : result?.data?.agents && Array.isArray(result.data.agents)
-          ? result.data.agents
-          : result?.agents && Array.isArray(result.agents)
-            ? result.agents
-            : result?.data && Array.isArray(result.data)
-              ? result.data
+        : (result as AgentResult & { data?: { agents?: Agent[] } })?.data?.agents &&
+            Array.isArray((result as { data?: { agents?: Agent[] } }).data?.agents)
+          ? (result as { data: { agents: Agent[] } }).data.agents
+          : (result as AgentResult & { agents?: Agent[] })?.agents &&
+              Array.isArray((result as { agents?: Agent[] }).agents)
+            ? (result as { agents: Agent[] }).agents
+            : (result as AgentResult & { data?: Agent[] })?.data &&
+                Array.isArray((result as { data?: Agent[] }).data)
+              ? (result as { data: Agent[] }).data
               : [];
 
       setAgents(agentsArray);
@@ -198,8 +205,8 @@ export const UnifiedToolPortal: React.FC = () => {
             status: mcpData.configExists ? 'active' : 'inactive',
             totalServers: mcpData.servers?.length || 0,
             runningServers:
-              mcpData.servers?.filter((s: unknown) => s.status === 'running').length || 0,
-            errorServers: mcpData.servers?.filter((s: unknown) => s.status === 'error').length || 0,
+              mcpData.servers?.filter((s: { status?: string }) => s.status === 'running').length || 0,
+            errorServers: mcpData.servers?.filter((s: { status?: string }) => s.status === 'error').length || 0,
             totalTools: 0, // Will be calculated from actual tools
             servers: mcpData.servers || [],
           },
@@ -456,10 +463,10 @@ export const UnifiedToolPortal: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <Server className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-            <p className="text-gray-400 mb-4">No MCP servers configured</p>
-          </div>
+          <PortalEmptyState
+            icon={<Server className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+            message="No MCP servers configured"
+          />
         )}
       </div>
 
@@ -619,15 +626,13 @@ export const UnifiedToolPortal: React.FC = () => {
       </div>
 
       {filteredTools.length === 0 && (
-        <div className="text-center py-12">
-          <Wrench className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-          <p className="text-gray-400 mb-2">No tools found</p>
-          <p className="text-gray-500 text-sm">
-            {searchQuery
-              ? 'Try adjusting your search or filters'
-              : 'Add your first tool to get started'}
-          </p>
-        </div>
+        <PortalEmptyState
+          icon={<Wrench className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+          message="No tools found"
+          subMessage={
+            searchQuery ? 'Try adjusting your search or filters' : 'Add your first tool to get started'
+          }
+        />
       )}
     </div>
   );
@@ -741,10 +746,7 @@ export const UnifiedToolPortal: React.FC = () => {
   if (loading) {
     return (
       <div className="bg-gray-900 text-white p-8 rounded-lg">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          <span className="ml-3">Loading unified tool portal...</span>
-        </div>
+        <PortalLoadingState message="Loading unified tool portal..." />
       </div>
     );
   }
@@ -772,29 +774,31 @@ export const UnifiedToolPortal: React.FC = () => {
 
       {/* Tab Navigation */}
       <div className="flex space-x-4 mb-6 border-b border-gray-700">
-        {[
-          {
-            id: 'discover',
-            label: 'Discover',
-            icon: Server,
-            description: 'MCP servers & integrations',
-          },
-          {
-            id: 'manage',
-            label: 'Manage',
-            icon: Wrench,
-            description: 'Tool CRUD operations',
-          },
-          {
-            id: 'monitor',
-            label: 'Monitor',
-            icon: BarChart2,
-            description: 'Performance & analytics',
-          },
-        ].map((tab) => (
+        {(
+          [
+            {
+              id: 'discover' as const,
+              label: 'Discover',
+              icon: Server,
+              description: 'MCP servers & integrations',
+            },
+            {
+              id: 'manage' as const,
+              label: 'Manage',
+              icon: Wrench,
+              description: 'Tool CRUD operations',
+            },
+            {
+              id: 'monitor' as const,
+              label: 'Monitor',
+              icon: BarChart2,
+              description: 'Performance & analytics',
+            },
+          ] as const
+        ).map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as unknown)}
+            onClick={() => setActiveTab(tab.id)}
             className={`px-6 py-3 font-medium text-sm transition-colors flex items-center gap-2 ${
               activeTab === tab.id
                 ? 'text-white border-b-2 border-blue-500'
@@ -891,10 +895,10 @@ export const UnifiedToolPortal: React.FC = () => {
             </div>
 
             {agents.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-                <p className="text-gray-400">No agents available</p>
-              </div>
+              <PortalEmptyState
+                icon={<Users className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+                message="No agents available"
+              />
             )}
           </div>
         </div>

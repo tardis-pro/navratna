@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
 import {
   BoltIcon,
   InformationCircleIcon,
@@ -11,10 +10,11 @@ import {
 } from '@heroicons/react/24/outline';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 import {
-  PortalConnectionBadge,
+  PortalContainer,
   PortalLoadingState,
   PortalEmptyState,
   PortalErrorState,
+  PortalHeader,
 } from './portal-shared-components';
 
 interface EventStreamMonitorPortalProps {
@@ -40,17 +40,7 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [maxEvents, setMaxEvents] = useState<number>(50);
 
-  // Default viewport setup
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   useEffect(() => {
     // Transform events from UAIPContext to display format
@@ -164,89 +154,55 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
 
   if (events.error) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-      >
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
         <PortalErrorState
           message="Failed to load events"
           detail={events.error.message}
           onRetry={refreshData}
         />
-      </motion.div>
+      </PortalContainer>
     );
   }
 
   if (events.isLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-      >
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
         <PortalLoadingState message="Loading events..." />
-      </motion.div>
+      </PortalContainer>
     );
   }
 
   if (displayEvents.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-      >
-        {/* Header with Connection Status */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <BoltIcon className="w-6 h-6 mr-2 text-gray-400" />
-            Event Stream Monitor
-          </h2>
-          <div className="flex items-center space-x-4">
-            <PortalConnectionBadge
-              isConnected={isWebSocketConnected}
-              onRefresh={refreshData}
-              refreshTitle="Refresh events"
-            />
-          </div>
-        </div>
+      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+        <PortalHeader
+          icon={<BoltIcon className="w-6 h-6 mr-2 text-gray-400" />}
+          title="Event Stream Monitor"
+          isConnected={isWebSocketConnected}
+          onRefresh={refreshData}
+          refreshTitle="Refresh events"
+        />
 
         <PortalEmptyState
           icon={<BoltIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
           message="No events to display"
           subMessage="Events will appear here as they occur"
         />
-      </motion.div>
+      </PortalContainer>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
-      {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <BoltIcon className="w-6 h-6 mr-2 text-green-500" />
-          Event Stream Monitor
-        </h2>
-        <div className="flex items-center space-x-4">
-          <PortalConnectionBadge
-            isConnected={isWebSocketConnected}
-            onRefresh={refreshData}
-            refreshTitle="Refresh events"
-            label={` (${eventCounts.all})`}
-          />
-          {events.lastUpdated && (
-            <span className="text-xs text-gray-400">
-              Updated: {events.lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+    <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalHeader
+        icon={<BoltIcon className="w-6 h-6 mr-2 text-green-500" />}
+        title="Event Stream Monitor"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+        refreshTitle="Refresh events"
+        connectionLabel={` (${eventCounts.all})`}
+        lastUpdated={events.lastUpdated}
+      />
 
       {/* Event Type Filters */}
       <div className="flex flex-wrap gap-2">
@@ -346,6 +302,6 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
           </div>
         </div>
       </div>
-    </motion.div>
+    </PortalContainer>
   );
 };

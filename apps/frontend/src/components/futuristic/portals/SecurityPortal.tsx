@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Portal, PortalProps } from '../Portal';
 import { cn } from '@/lib/utils';
+import { ViewportSize } from '@/hooks/use_viewport';
 
 interface SecurityMetric {
   id: string;
@@ -33,7 +34,7 @@ interface SecurityMetric {
   unit: string;
   trend: 'up' | 'down' | 'stable';
   status: 'good' | 'warning' | 'critical';
-  icon: React.ComponentType<unknown>;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 interface SecurityEvent {
@@ -159,7 +160,7 @@ const SECURITY_EVENTS: SecurityEvent[] = [
 const SecurityPortalContent: React.FC<{
   mode: 'dashboard' | 'monitor' | 'settings';
   showAdvanced: boolean;
-  viewport?: unknown;
+  viewport?: ViewportSize;
 }> = ({ mode: _mode, showAdvanced: _showAdvanced, viewport }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'threats' | 'monitoring' | 'users'>(
@@ -273,11 +274,13 @@ const SecurityPortalContent: React.FC<{
     return `${days}d ago`;
   };
 
+  type TabId = 'overview' | 'threats' | 'monitoring' | 'users';
+
   const TAB_ITEMS: Array<{
-    id: string;
+    id: TabId;
     label: string;
     compactLabel: string;
-    icon: React.ComponentType<unknown>;
+    icon: React.ComponentType<{ className?: string }>;
   }> = [
     { id: 'overview', label: 'Overview', compactLabel: 'Overview', icon: BarChart3 },
     { id: 'threats', label: 'Threats', compactLabel: 'Threats', icon: ShieldAlert },
@@ -293,7 +296,7 @@ const SecurityPortalContent: React.FC<{
           return (
             <motion.button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as unknown)}
+              onClick={() => setActiveTab(tab.id)}
               className={`${
                 compact
                   ? 'flex items-center justify-center p-2'
@@ -323,6 +326,28 @@ const SecurityPortalContent: React.FC<{
     if (type === 'audit') return <FileText className={sizeClass} />;
     return null;
   };
+
+  const renderPlaceholderTab = (
+    tabId: string,
+    icon: React.ReactNode,
+    title: string,
+    description: string
+  ) => (
+    <motion.div
+      key={tabId}
+      initial={{ opacity: 0, x: 10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -10 }}
+      transition={{ duration: 0.25 }}
+      className="space-y-6"
+    >
+      <div className="text-center py-12">
+        {icon}
+        <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
+        <p className="text-slate-400">{description}</p>
+      </div>
+    </motion.div>
+  );
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
@@ -463,9 +488,10 @@ const SecurityPortalContent: React.FC<{
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, x: 16, scale: 0.99 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -16 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
               className="space-y-6"
             >
               {/* Security Metrics Grid */}
@@ -615,55 +641,29 @@ const SecurityPortalContent: React.FC<{
             </motion.div>
           )}
 
-          {activeTab === 'threats' && (
-            <motion.div
-              key="threats"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              <div className="text-center py-12">
-                <ShieldAlert className="w-16 h-16 text-red-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">Threat Detection</h3>
-                <p className="text-slate-400">Advanced threat monitoring and response system</p>
-              </div>
-            </motion.div>
-          )}
+          {activeTab === 'threats' &&
+            renderPlaceholderTab(
+              'threats',
+              <ShieldAlert className="w-16 h-16 text-red-400 mx-auto mb-4" />,
+              'Threat Detection',
+              'Advanced threat monitoring and response system'
+            )}
 
-          {activeTab === 'monitoring' && (
-            <motion.div
-              key="monitoring"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              <div className="text-center py-12">
-                <Activity className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">System Monitoring</h3>
-                <p className="text-slate-400">Real-time system health and performance metrics</p>
-              </div>
-            </motion.div>
-          )}
+          {activeTab === 'monitoring' &&
+            renderPlaceholderTab(
+              'monitoring',
+              <Activity className="w-16 h-16 text-blue-400 mx-auto mb-4" />,
+              'System Monitoring',
+              'Real-time system health and performance metrics'
+            )}
 
-          {activeTab === 'users' && (
-            <motion.div
-              key="users"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-purple-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">User Management</h3>
-                <p className="text-slate-400">
-                  Manage user access, permissions, and security policies
-                </p>
-              </div>
-            </motion.div>
-          )}
+          {activeTab === 'users' &&
+            renderPlaceholderTab(
+              'users',
+              <Users className="w-16 h-16 text-purple-400 mx-auto mb-4" />,
+              'User Management',
+              'Manage user access, permissions, and security policies'
+            )}
         </AnimatePresence>
       </div>
 

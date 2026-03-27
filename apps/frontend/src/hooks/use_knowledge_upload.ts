@@ -1,5 +1,20 @@
 import React, { useState, useCallback } from 'react';
 
+export function filterFilesByType(
+  files: File[],
+  acceptedTypes: string[]
+): { valid: File[]; skipped: number } {
+  const valid = files.filter((file) => {
+    const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+    return acceptedTypes.includes(extension);
+  });
+  return { valid, skipped: files.length - valid.length };
+}
+
+export function generateFileId(file: File): string {
+  return `${file.name}-${Date.now()}`;
+}
+
 interface UseKnowledgeUploadOptions {
   onFiles: (files: File[]) => void;
 }

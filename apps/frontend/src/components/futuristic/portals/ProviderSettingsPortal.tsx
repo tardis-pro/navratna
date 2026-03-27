@@ -26,6 +26,31 @@ interface ProviderSettingsPortalProps {
   viewport?: ViewportSize;
 }
 
+type ModelItem = {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint: string;
+  apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+  provider: string;
+  isAvailable: boolean;
+};
+
+const StatusBadge: React.FC<{ colorClass: string; children: React.ReactNode }> = ({
+  colorClass,
+  children,
+}) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.8 }}
+    animate={{ opacity: 1, scale: 1 }}
+    exit={{ opacity: 0, scale: 0.8 }}
+    className={`flex items-center gap-1 px-2 py-1 rounded-lg border ${colorClass}`}
+  >
+    {children}
+  </motion.div>
+);
+
 export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
   className,
   viewport,
@@ -209,10 +234,10 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
   // Calculate statistics
   const providerCount = modelState?.providers?.length || 0;
   const activeProviderCount =
-    modelState?.providers?.filter((p: unknown) => p.isActive)?.length || 0;
+    modelState?.providers?.filter((p: { isActive?: boolean }) => p.isActive)?.length || 0;
   const modelCount = modelState?.models?.length || 0;
   const availableModelCount =
-    modelState?.models?.filter((m: unknown) => m.isAvailable)?.length || 0;
+    modelState?.models?.filter((m: { isAvailable?: boolean }) => m.isAvailable)?.length || 0;
 
   return (
     <div className={`h-full flex flex-col space-y-4 overflow-hidden ${className}`}>
@@ -259,45 +284,26 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
           >
             <AnimatePresence mode="wait">
               {initializationStatus.loading && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-1 px-2 py-1 bg-purple-500/20 rounded-lg border border-purple-500/30"
-                >
+                <StatusBadge colorClass="bg-purple-500/20 border-purple-500/30">
                   <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity }}
                   >
                     <RefreshCw className="w-3 h-3 text-purple-400" />
                   </motion.div>
-                  <span className="text-xs text-purple-300 font-medium">
-                    {currentViewport.isMobile ? 'Sync...' : 'Sync...'}
-                  </span>
-                </motion.div>
+                  <span className="text-xs text-purple-300 font-medium">Sync...</span>
+                </StatusBadge>
               )}
 
               {initializationStatus.error && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-1 px-2 py-1 bg-red-500/20 rounded-lg border border-red-500/30"
-                >
+                <StatusBadge colorClass="bg-red-500/20 border-red-500/30">
                   <AlertCircle className="w-3 h-3 text-red-400" />
-                  <span className="text-xs text-red-300 font-medium">
-                    {currentViewport.isMobile ? 'Error' : 'Error'}
-                  </span>
-                </motion.div>
+                  <span className="text-xs text-red-300 font-medium">Error</span>
+                </StatusBadge>
               )}
 
               {!initializationStatus.loading && !initializationStatus.error && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="flex items-center gap-1 px-2 py-1 bg-emerald-500/20 rounded-lg border border-emerald-500/30"
-                >
+                <StatusBadge colorClass="bg-emerald-500/20 border-emerald-500/30">
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -305,7 +311,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                     <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                   </motion.div>
                   <span className="text-xs text-emerald-300 font-medium">Ready</span>
-                </motion.div>
+                </StatusBadge>
               )}
             </AnimatePresence>
 
@@ -429,7 +435,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
             <ModelProviderSettings
               className="h-full overflow-auto"
               providers={modelState?.providers || []}
-              models={modelState?.models || []}
+              models={(modelState?.models || []) as ModelItem[]}
               loading={
                 modelState?.loadingProviders ||
                 modelState?.loadingModels ||
@@ -559,16 +565,15 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                                 className="flex-1 px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                               >
                                 <option value="">Select a model...</option>
-                                {(modelState?.models || [])
+                                {((modelState?.models || []) as ModelItem[])
                                   .filter(
-                                    (model: unknown) =>
+                                    (model) =>
                                       model.provider === preference.preferredProvider ||
                                       model.apiType === preference.preferredProvider ||
-                                      // Include popular models regardless of provider
                                       model.name?.toLowerCase().includes('claude') ||
                                       model.name?.toLowerCase().includes('gpt')
                                   )
-                                  .map((model: unknown) => (
+                                  .map((model) => (
                                     <option key={model.id} value={model.id}>
                                       {model.name} ({model.provider || model.source})
                                     </option>

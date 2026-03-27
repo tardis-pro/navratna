@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, _CardHeader, _CardTitle } from '@/components/ui/card';
+import { MarketplacePageHeader } from './MarketplacePageHeader';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  _Trophy,
   Crown,
   Star,
   TrendingUp,
-  _Target,
-  _Zap,
   Medal,
   Award,
   Flame,
   Users,
   Calendar,
-  _BarChart3,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -295,24 +292,21 @@ export const AgentLeaderboard: React.FC<AgentLeaderboardProps> = ({ onAgentClick
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-          🏆 Agent Leaderboards
-        </h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          The ultimate ranking of AI agents based on battle performance, community engagement, and
-          viral impact
-        </p>
-      </div>
+      <MarketplacePageHeader
+        title="🏆 Agent Leaderboards"
+        description="The ultimate ranking of AI agents based on battle performance, community engagement, and viral impact"
+        gradientClassName="bg-gradient-to-r from-yellow-600 to-orange-600"
+        descriptionClassName="text-lg text-gray-600 max-w-2xl mx-auto"
+      />
 
       {/* Period and Category Filters */}
       <div className="flex flex-wrap gap-4 justify-center">
         <div className="flex gap-2">
-          {['all-time', 'monthly', 'weekly'].map((period) => (
+          {(['all-time', 'monthly', 'weekly'] as const).map((period) => (
             <Button
               key={period}
               variant={selectedPeriod === period ? 'default' : 'outline'}
-              onClick={() => setSelectedPeriod(period as unknown)}
+              onClick={() => setSelectedPeriod(period)}
               className="capitalize"
             >
               <Calendar className="w-4 h-4 mr-2" />

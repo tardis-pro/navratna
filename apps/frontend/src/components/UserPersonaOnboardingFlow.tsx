@@ -1,4 +1,4 @@
-import React, { useState, _useEffect } from 'react';
+import React, { useState, useEffect as _useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -11,12 +11,12 @@ import {
   Clock,
   Target,
   Lightbulb,
-  _Shield,
+  Shield as _Shield,
   Users,
   Zap,
   BookOpen,
   Timer,
-  _AlertCircle,
+  AlertCircle as _AlertCircle,
   CheckCircle,
   X,
 } from 'lucide-react';
@@ -358,7 +358,7 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
   onClose,
   onComplete,
 }) => {
-  const { _user } = useAuth();
+  const { user: _user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [responses, setResponses] = useState<Record<string, PersonaResponse>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -497,6 +497,29 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
     );
   };
 
+  const renderTimeRangeButtons = (variant: 'dashboard' | 'portal') => {
+    const containerCls =
+      variant === 'portal'
+        ? 'flex items-center gap-1 bg-slate-800/50 border border-slate-700/50 rounded-lg p-1'
+        : 'flex items-center gap-1 border rounded-lg';
+    const btnCls = variant === 'portal' ? 'text-xs' : '';
+    return (
+      <div className={containerCls}>
+        {(['24h', '7d', '30d'] as const).map((range) => (
+          <Button
+            key={range}
+            variant={timeRange === range ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setTimeRange(range)}
+            className={btnCls}
+          >
+            {range}
+          </Button>
+        ))}
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -522,29 +545,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 border rounded-lg">
-              <Button
-                variant={timeRange === '24h' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('24h')}
-              >
-                24h
-              </Button>
-              <Button
-                variant={timeRange === '7d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('7d')}
-              >
-                7d
-              </Button>
-              <Button
-                variant={timeRange === '30d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('30d')}
-              >
-                30d
-              </Button>
-            </div>
+            {renderTimeRangeButtons('dashboard')}
 
             <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
@@ -567,32 +568,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           className="flex items-center justify-between mb-4"
         >
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-800/50 border border-slate-700/50 rounded-lg p-1">
-              <Button
-                variant={timeRange === '24h' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('24h')}
-                className="text-xs"
-              >
-                24h
-              </Button>
-              <Button
-                variant={timeRange === '7d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('7d')}
-                className="text-xs"
-              >
-                7d
-              </Button>
-              <Button
-                variant={timeRange === '30d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('30d')}
-                className="text-xs"
-              >
-                30d
-              </Button>
-            </div>
+            {renderTimeRangeButtons('portal')}
           </div>
 
           <div className="flex items-center gap-2">
