@@ -1,7 +1,62 @@
 import { ArtifactService } from '../artifact_service.js';
-import { ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
+import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
+
+const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isArtifactType(value: unknown): value is ArtifactType {
+  return (
+    value === 'code' ||
+    value === 'test' ||
+    value === 'documentation' ||
+    value === 'prd'
+  );
+}
+
+function isArtifactConversationContext(value: unknown): value is ArtifactConversationContext {
+  return (
+    isRecord(value) &&
+    typeof value.conversationId === 'string' &&
+    Array.isArray(value.messages) &&
+    Array.isArray(value.participants) &&
+    Array.isArray(value.topics) &&
+    Array.isArray(value.decisions) &&
+    Array.isArray(value.actionItems)
+  );
+}
+
+function buildArtifactGenerationRequest(body: unknown): ArtifactGenerationRequest | null {
+  if (!isRecord(body) || !isArtifactType(body.type) || !isArtifactConversationContext(body.context)) {
+    return null;
+  }
+
+  const options = isRecord(body.options)
+    ? {
+        ...(typeof body.options.template === 'string' ? { template: body.options.template } : {}),
+        ...(typeof body.options.language === 'string' ? { language: body.options.language } : {}),
+        ...(typeof body.options.framework === 'string' ? { framework: body.options.framework } : {}),
+      }
+    : undefined;
+
+  return {
+    type: body.type,
+    context: body.context,
+    ...(Array.isArray(body.requirements)
+      ? { requirements: body.requirements.filter((value): value is string => typeof value === 'string') }
+      : {}),
+    ...(Array.isArray(body.constraints)
+      ? { constraints: body.constraints.filter((value): value is string => typeof value === 'string') }
+      : {}),
+    ...(isRecord(body.preferences) ? { preferences: body.preferences } : {}),
+    ...(isRecord(body.metadata) ? { metadata: body.metadata } : {}),
+    ...(options && Object.keys(options).length > 0 ? { options } : {}),
+  };
+}
 
 export function registerArtifactRoutes(
   app: { group: (path: string, cb: (g: unknown) => unknown) => unknown },
@@ -24,14 +79,10 @@ export function registerArtifactRoutes(
               const limit = query.limit ? parseInt(query.limit) : 50;
               const offset = query.offset ? parseInt(query.offset) : 0;
 
-              let artifacts;
-              if (type) {
-                artifacts = await artifactRepo.findByType(type);
-              } else if (projectId) {
-                artifacts = await artifactRepo.findByProject(projectId);
-              } else {
-                artifacts = await artifactRepo.findMany({});
-              }
+              const artifacts = await artifactRepo.findMany({
+                ...(type ? { type } : {}),
+                ...(projectId ? { projectId } : {}),
+              });
 
               // Apply pagination
               const paginatedArtifacts = artifacts.slice(offset, offset + limit);
@@ -90,7 +141,7 @@ export function registerArtifactRoutes(
           '/generate',
           async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
             try {
-              const request: ArtifactGenerationRequest = body as ArtifactGenerationRequest;
+              const request = buildArtifactGenerationRequest(body);
 
               if (!request?.type || !request?.context) {
                 set.status = 400;
@@ -103,20 +154,18 @@ export function registerArtifactRoutes(
                 };
               }
 
-              const valid: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
-              if (!valid.includes(request.type)) {
+              if (!supportedArtifactTypes.includes(request.type)) {
                 set.status = 400;
                 return {
                   success: false,
                   error: {
                     code: 'INVALID_TYPE',
-                    message: `Invalid type. Supported: ${valid.join(', ')}`,
+                    message: `Invalid type. Supported: ${supportedArtifactTypes.join(', ')}`,
                   },
                 };
               }
 
-              const ctx = request.context as Record<string, unknown>;
-              if (!ctx?.agent || !ctx?.persona || !ctx?.discussion) {
+              if (!request.context.agent || !request.context.persona || !request.context.discussion) {
                 set.status = 400;
                 return {
                   success: false,
@@ -129,8 +178,8 @@ export function registerArtifactRoutes(
 
               logger.info('Artifact generation request received', {
                 type: request.type,
-                agent: (ctx.agent as Record<string, unknown>)?.id,
-                persona: (ctx.persona as Record<string, unknown>)?.role,
+                agent: request.context.agent.id,
+                persona: request.context.persona.role,
               });
 
               const response = await artifactService.generateArtifact(request);
@@ -212,7 +261,7 @@ export function registerArtifactRoutes(
           async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
             try {
               const { content, type } = body as Record<string, unknown>;
-              if (!content || !type) {
+              if (typeof content !== 'string' || !isArtifactType(type)) {
                 set.status = 400;
                 return {
                   success: false,
@@ -222,10 +271,7 @@ export function registerArtifactRoutes(
                   },
                 };
               }
-              const validation = await artifactService.validateArtifact(
-                content as string,
-                type as string
-              );
+              const validation = await artifactService.validateArtifact(content, type);
               return { success: true, validation };
             } catch (error) {
               logger.error('Validation error:', error);
@@ -254,10 +300,9 @@ export function registerArtifactRoutes(
         })
 
         .get('/types', () => {
-          const supported: ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
           return {
             success: true,
-            types: supported.map((type) => ({ type, description: getTypeDescription(type) })),
+            types: supportedArtifactTypes.map((type) => ({ type, description: getTypeDescription(type) })),
           };
         })
   );

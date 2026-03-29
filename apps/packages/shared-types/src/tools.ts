@@ -56,25 +56,7 @@ export interface ToolExecutionError {
   suggestedAction?: string;
 }
 
-export interface ToolDefinition {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
-  category: string;
-  parameters: Record<string, unknown>;
-  returnType?: Record<string, unknown>;
-  securityLevel: 'safe' | 'moderate' | 'restricted' | 'dangerous';
-  requiresApproval: boolean;
-  isEnabled: boolean;
-  executionTimeEstimate?: number;
-  costEstimate?: number;
-  author: string;
-  tags: string[];
-  dependencies: string[];
-  rateLimits?: Record<string, unknown>;
-  examples: Array<Record<string, unknown>>;
-}
+export type { ToolDefinition } from './tool.js';
 
 export interface ToolError {
   type: string;

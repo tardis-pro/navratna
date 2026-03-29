@@ -20,6 +20,23 @@ interface DecomposeResponseNode {
 // Task DAG Service
 // ============================================================================
 
+function buildAdjacencyMap(nodes: Array<{ id: string }>, edges: Array<{ from: string; to: string }>): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>();
+  for (const node of nodes) adjacency.set(node.id, []);
+  for (const edge of edges) adjacency.get(edge.from)?.push(edge.to);
+  return adjacency;
+}
+
+function extractEventData<T extends object>(eventMessage: unknown): T {
+  return typeof eventMessage === 'object' &&
+    eventMessage !== null &&
+    'data' in eventMessage &&
+    typeof (eventMessage as { data: unknown }).data === 'object' &&
+    (eventMessage as { data: unknown }).data !== null
+    ? ((eventMessage as { data: T }).data as T)
+    : ({} as T);
+}
+
 export class TaskDAGService {
   private static instance: TaskDAGService;
   private eventBus: EventBusService;
@@ -419,18 +436,9 @@ ${goal}
       }
     }
 
-    // Cycle detection using DFS
     const visited = new Set<string>();
     const visiting = new Set<string>();
-    const adjacency = new Map<string, string[]>();
-
-    for (const node of dag.nodes) {
-      adjacency.set(node.id, []);
-    }
-    for (const edge of dag.edges) {
-      const adj = adjacency.get(edge.from);
-      if (adj) adj.push(edge.to);
-    }
+    const adjacency = buildAdjacencyMap(dag.nodes, dag.edges);
 
     const hasCycle = (nodeId: string): boolean => {
       if (visiting.has(nodeId)) return true;
@@ -511,14 +519,7 @@ ${goal}
         clearTimeout(timeout);
         void this.eventBus.unsubscribe(responseEvent, responseHandler);
 
-        const data =
-          typeof eventMessage === 'object' &&
-          eventMessage !== null &&
-          'data' in eventMessage &&
-          typeof eventMessage.data === 'object' &&
-          eventMessage.data !== null
-            ? (eventMessage.data as { result?: unknown; error?: string })
-            : {};
+        const data = extractEventData<{ result?: unknown; error?: string }>(eventMessage);
 
         if (data.error) {
           reject(new Error(data.error));
@@ -583,17 +584,9 @@ ${goal}
     }
     dag.edges = dag.edges.filter((e) => nodeIds.has(e.from) && nodeIds.has(e.to));
 
-    // Break cycles by removing back edges (simple heuristic: remove last edge forming cycle)
     const visited = new Set<string>();
     const visiting = new Set<string>();
-    const adjacency = new Map<string, string[]>();
-
-    for (const node of dag.nodes) {
-      adjacency.set(node.id, []);
-    }
-    for (const edge of dag.edges) {
-      adjacency.get(edge.from)?.push(edge.to);
-    }
+    const adjacency = buildAdjacencyMap(dag.nodes, dag.edges);
 
     const edgesToRemove: Array<{ from: string; to: string }> = [];
 
@@ -634,14 +627,7 @@ ${goal}
         clearTimeout(timeout);
         void this.eventBus.unsubscribe(responseEvent, responseHandler);
 
-        const data =
-          typeof eventMessage === 'object' &&
-          eventMessage !== null &&
-          'data' in eventMessage &&
-          typeof eventMessage.data === 'object' &&
-          eventMessage.data !== null
-            ? (eventMessage.data as { content?: string; error?: string })
-            : {};
+        const data = extractEventData<{ content?: string; error?: string }>(eventMessage);
 
         if (data.error) {
           reject(new Error(data.error));

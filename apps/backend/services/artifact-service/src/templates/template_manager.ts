@@ -2,6 +2,7 @@ import { ITemplateManager, ArtifactTemplateFilters } from '@uaip/types';
 import {
   ArtifactGenerationTemplate as ArtifactTemplate,
   ArtifactConversationContext as GenerationContext,
+  type ConversationMessage,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -129,26 +130,24 @@ export class TemplateManager implements ITemplateManager {
     };
   }
 
-  private extractRequirements(messages: Record<string, unknown>[]): string {
+  private extractRequirements(messages: ConversationMessage[]): string {
     const requirements: string[] = [];
 
     for (const message of messages) {
-      const msg = message as Record<string, unknown>;
-      const content = (typeof msg.content === 'string' ? msg.content.toLowerCase() : '') || '';
+      const content = message.content.toLowerCase();
 
       // Look for requirement indicators
       if (content.includes('need') || content.includes('require') || content.includes('must')) {
-        requirements.push(msg.content as string);
+        requirements.push(message.content);
       }
     }
 
     return requirements.length > 0 ? requirements.join('\n- ') : 'No specific requirements found';
   }
 
-  private extractFunctionName(messages: Record<string, unknown>[]): string {
+  private extractFunctionName(messages: ConversationMessage[]): string {
     for (const message of messages) {
-      const msg = message as Record<string, unknown>;
-      const content = (typeof msg.content === 'string' ? msg.content : '') || '';
+      const content = message.content;
       const functionMatch = content.match(/function\s+(\w+)/i) || content.match(/(\w+)\s*\(/);
       if (functionMatch) {
         return functionMatch[1];
@@ -157,10 +156,9 @@ export class TemplateManager implements ITemplateManager {
     return 'processData';
   }
 
-  private extractClassName(messages: Record<string, unknown>[]): string {
+  private extractClassName(messages: ConversationMessage[]): string {
     for (const message of messages) {
-      const msg = message as Record<string, unknown>;
-      const content = (typeof msg.content === 'string' ? msg.content : '') || '';
+      const content = message.content;
       const classMatch = content.match(/class\s+(\w+)/i);
       if (classMatch) {
         return classMatch[1];

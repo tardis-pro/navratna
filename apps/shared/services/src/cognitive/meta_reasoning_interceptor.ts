@@ -1,6 +1,7 @@
 import { EventBusService } from '../event_bus_service';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { fetchAgentCapabilitiesViaEventBus } from './agent_capability_utils';
 import type {
   MetaReasoningInput,
   MetaReasoningDecision,
@@ -272,24 +273,8 @@ export class MetaReasoningInterceptor {
   /**
    * Query agent capabilities via event bus.
    */
-  private async getAgentCapabilities(agentId: string): Promise<string[]> {
-    return new Promise<string[]>((resolve) => {
-      const requestId = uuidv4();
-      const timeout = setTimeout(() => {
-        resolve([]); // Default to empty on timeout
-      }, 5_000);
-
-      this.eventBus.subscribe(`agent.capabilities.response.${requestId}`, async (event) => {
-        clearTimeout(timeout);
-        const data = event.data as { capabilities?: string[] };
-        resolve(data?.capabilities ?? []);
-      });
-
-      this.eventBus.publish('agent.capabilities.request', {
-        requestId,
-        agentId,
-      });
-    });
+  private getAgentCapabilities(agentId: string): Promise<string[]> {
+    return fetchAgentCapabilitiesViaEventBus(this.eventBus, agentId);
   }
 
   // -------------------------------------------------------------------------

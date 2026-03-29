@@ -19,6 +19,17 @@ interface AuthenticatedSocket extends Socket {
   rateLimitReset?: number;
 }
 
+type AuthPayload = {
+  userId: string;
+  role?: string;
+  isExpired?: boolean;
+  exp?: Date | number | string;
+};
+
+function isAuthPayload(value: unknown): value is AuthPayload {
+  return typeof value === 'object' && value !== null && 'userId' in value && typeof value.userId === 'string';
+}
+
 // Validation schemas for incoming WebSocket messages
 const JoinDiscussionSchema = z.object({
   discussionId: z.string().uuid('Discussion ID must be a valid UUID'),
@@ -138,7 +149,7 @@ export function setupWebSocketHandlers(
 
       const payload = tokenValidation.payload;
 
-      if (!payload || !payload.userId) {
+      if (!isAuthPayload(payload)) {
         logger.warn('JWT token missing required user information', {
           socketId: socket.id,
           hasPayload: !!payload,

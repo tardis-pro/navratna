@@ -1,6 +1,16 @@
 import type { RiskLevel } from './security.js';
 import type { AgentAnalysis } from './agent.js';
 import type { Question, QuestionPack, Assumption, Contradiction } from './knowledge_graph.js';
+import type { NormalizedBrief as QFNormalizedBrief } from './questionforge.js';
+
+interface PolicyRule {
+  id?: string;
+  type: 'allow' | 'deny' | 'require_approval';
+  resource: string;
+  action: string;
+  conditions?: Record<string, unknown>;
+  riskLevel?: RiskLevel;
+}
 
 export interface UserPersonaData {
   workStyle: 'collaborative' | 'independent' | 'hybrid';
@@ -272,14 +282,7 @@ export interface SecurityRule {
 export interface PolicyCreate {
   name: string;
   description?: string;
-  rules: Array<{
-    id?: string;
-    type: 'allow' | 'deny' | 'require_approval';
-    resource: string;
-    action: string;
-    conditions?: Record<string, unknown>;
-    riskLevel?: RiskLevel;
-  }>;
+  rules: PolicyRule[];
   priority?: number;
   isActive?: boolean;
 }
@@ -287,14 +290,7 @@ export interface PolicyCreate {
 export interface PolicyUpdate {
   name?: string;
   description?: string;
-  rules?: Array<{
-    id?: string;
-    type: 'allow' | 'deny' | 'require_approval';
-    resource: string;
-    action: string;
-    conditions?: Record<string, unknown>;
-    riskLevel?: RiskLevel;
-  }>;
+  rules?: PolicyRule[];
   priority?: number;
   isActive?: boolean;
 }
@@ -771,28 +767,7 @@ export interface ForgeResult {
   };
 }
 
-export interface NormalizedBrief {
-  projectName: string;
-  rawInput: string;
-  goals: Array<{ description: string; priority: 'high' | 'medium' | 'low'; stakeholder?: string }>;
-  actors: Array<{ name: string; role: string; responsibilities: string[] }>;
-  assumptions: Array<{ content: string; confidence: number; source: string; stakeholder?: string }>;
-  constraints: Array<{
-    description: string;
-    type: 'technical' | 'business' | 'legal' | 'timeline' | 'resource';
-    severity: 'hard' | 'soft';
-  }>;
-  successMetrics: Array<{ metric: string; target?: string; measurement?: string }>;
-  missingInformation: string[];
-  contradictions: Array<{ itemA: string; itemB: string; description: string }>;
-  domainTerms: Array<{ term: string; definition?: string; context: string }>;
-  metadata: {
-    inputType: string;
-    wordCount: number;
-    processedAt: string;
-    confidence: number;
-  };
-}
+export type NormalizedBrief = QFNormalizedBrief;
 
 export interface CouncilDebateResult {
   debateId: string;

@@ -1,4 +1,4 @@
-import { LLMRequest, LLMResponse, LLMProviderConfig } from '../interfaces';
+import { LLMRequest, LLMResponse, ProviderModelInfo, LLMProviderConfig } from '../interfaces';
 import { logger } from '@uaip/utils';
 import { ApiKeyDecryptionService } from '../services/api_key_decryption_service.js';
 
@@ -13,15 +13,7 @@ export abstract class BaseProvider {
 
   abstract generateResponse(request: LLMRequest): Promise<LLMResponse>;
 
-  async getAvailableModels(): Promise<
-    Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>
-  > {
+  async getAvailableModels(): Promise<ProviderModelInfo[]> {
     // Default implementation - should be overridden by specific providers
     try {
       logger.info(`${this.name}: Fetching models from ${this.config.baseUrl}`);
@@ -38,17 +30,28 @@ export abstract class BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<
-    Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>
-  > {
+  protected async fetchModelsFromProvider(): Promise<ProviderModelInfo[]> {
     // Base implementation - should be overridden by specific providers
     return [];
+  }
+
+  protected static isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  protected static toString(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
+
+  protected static toNumber(value: unknown): number | null {
+    return typeof value === 'number' ? value : null;
+  }
+
+  protected buildChatMessages(systemPrompt: string | undefined, prompt: string): Array<{ role: string; content: string }> {
+    const messages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: prompt });
+    return messages;
   }
 
   getName(): string {
@@ -91,42 +94,23 @@ export abstract class BaseProvider {
     return undefined;
   }
 
-  protected async makeRequest(
+  private async executeWithRetry(
     url: string,
-    body: Record<string, unknown>,
-    headers: Record<string, string> = {}
+    fetchOptions: RequestInit,
+    label: string
   ): Promise<Record<string, unknown>> {
-    const defaultHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...headers,
-    };
-
-    const apiKey = await this.getApiKey();
-    if (apiKey) {
-      defaultHeaders['Authorization'] = `Bearer ${apiKey}`;
-    }
-
     const maxRetries = this.config.retries || 3;
     const timeout = this.config.timeout || 30000;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        logger.info(`${this.name} API request attempt ${attempt}`, {
-          url,
-          attempt,
-          maxRetries,
-        });
+        logger.info(`${this.name} ${label} attempt ${attempt}`, { url, attempt, maxRetries });
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: defaultHeaders,
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
+        // eslint-disable-next-line no-await-in-loop -- sequential retry required
+        const response = await fetch(url, { ...fetchOptions, signal: controller.signal });
 
         clearTimeout(timeoutId);
 
@@ -134,16 +118,13 @@ export abstract class BaseProvider {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
+        // eslint-disable-next-line no-await-in-loop -- sequential retry required
         const data = (await response.json()) as Record<string, unknown>;
-        logger.info(`${this.name} API request successful`, {
-          attempt,
-          status: response.status,
-        });
+        logger.info(`${this.name} ${label} successful`, { attempt, status: response.status });
 
         return data;
       } catch (error) {
-        logger.error(`${this.name} API request failed`, {
+        logger.error(`${this.name} ${label} failed`, {
           attempt,
           maxRetries,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -153,9 +134,8 @@ export abstract class BaseProvider {
           throw error;
         }
 
-        // Exponential backoff
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
+        // eslint-disable-next-line no-await-in-loop -- sequential retry required
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -163,73 +143,31 @@ export abstract class BaseProvider {
     throw new Error(`Failed after ${maxRetries} attempts`);
   }
 
+  protected async makeRequest(
+    url: string,
+    body: Record<string, unknown>,
+    headers: Record<string, string> = {}
+  ): Promise<Record<string, unknown>> {
+    const apiKey = await this.getApiKey();
+    const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json', ...headers };
+    if (apiKey) requestHeaders['Authorization'] = `Bearer ${apiKey}`;
+
+    return this.executeWithRetry(
+      url,
+      { method: 'POST', headers: requestHeaders, body: JSON.stringify(body) },
+      'API request'
+    );
+  }
+
   protected async makeGetRequest(
     url: string,
     headers: Record<string, string> = {}
   ): Promise<Record<string, unknown>> {
-    const defaultHeaders: Record<string, string> = {
-      ...headers,
-    };
-
     const apiKey = await this.getApiKey();
-    if (apiKey) {
-      defaultHeaders['Authorization'] = `Bearer ${apiKey}`;
-    }
+    const requestHeaders: Record<string, string> = { ...headers };
+    if (apiKey) requestHeaders['Authorization'] = `Bearer ${apiKey}`;
 
-    const maxRetries = this.config.retries || 3;
-    const timeout = this.config.timeout || 30000;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        logger.info(`${this.name} GET request attempt ${attempt}`, {
-          url,
-          attempt,
-          maxRetries,
-        });
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: defaultHeaders,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        const data = (await response.json()) as Record<string, unknown>;
-        logger.info(`${this.name} GET request successful`, {
-          attempt,
-          status: response.status,
-        });
-
-        return data;
-      } catch (error) {
-        logger.error(`${this.name} GET request failed`, {
-          attempt,
-          maxRetries,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-
-        if (attempt === maxRetries) {
-          throw error;
-        }
-
-        // Exponential backoff
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-
-    throw new Error(`Failed after ${maxRetries} attempts`);
+    return this.executeWithRetry(url, { method: 'GET', headers: requestHeaders }, 'GET request');
   }
 
   protected handleError(error: unknown, context: string): LLMResponse {

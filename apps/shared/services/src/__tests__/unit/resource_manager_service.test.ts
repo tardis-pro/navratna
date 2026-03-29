@@ -7,9 +7,6 @@ describe('ResourceManagerService', () => {
     service = new ResourceManagerService();
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
 
   describe('initialization', () => {
     it('should initialize with database service', () => {

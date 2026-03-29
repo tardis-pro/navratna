@@ -100,6 +100,13 @@ export class ReconciliationService {
     private readonly knowledgeSync: KnowledgeSyncService
   ) {}
 
+  private async getPairSimilarity(embeddings: Map<string, number[]>, idA: string, idB: string): Promise<number | null> {
+    const e1 = embeddings.get(idA);
+    const e2 = embeddings.get(idB);
+    if (!e1 || !e2) return null;
+    return this.calculateSimilarity(e1, e2);
+  }
+
   async detectConflicts(
     knowledgeItems: KnowledgeItem[],
     options: ReconciliationOptions = {}
@@ -407,16 +414,10 @@ export class ReconciliationService {
       for (let j = i + 1; j < items.length; j++) {
         if (processed.has(items[j].id)) continue;
 
-        const embedding1 = embeddings.get(items[i].id);
-        const embedding2 = embeddings.get(items[j].id);
-
-        if (embedding1 && embedding2) {
-          // oxlint-disable-next-line no-await-in-loop
-          const similarity = await this.calculateSimilarity(embedding1, embedding2);
-
-          if (similarity >= (options.similarityThreshold || this.duplicateThreshold)) {
-            similarItems.push(items[j]);
-          }
+        // oxlint-disable-next-line no-await-in-loop
+        const similarity = await this.getPairSimilarity(embeddings, items[i].id, items[j].id);
+        if (similarity !== null && similarity >= (options.similarityThreshold || this.duplicateThreshold)) {
+          similarItems.push(items[j]);
         }
       }
 
@@ -455,36 +456,29 @@ export class ReconciliationService {
 
     for (let i = 0; i < items.length; i++) {
       for (let j = i + 1; j < items.length; j++) {
-        const embedding1 = embeddings.get(items[i].id);
-        const embedding2 = embeddings.get(items[j].id);
+        // oxlint-disable-next-line no-await-in-loop
+        const similarity = await this.getPairSimilarity(embeddings, items[i].id, items[j].id);
+        if (similarity !== null && similarity >= this.conflictThreshold) {
+          const isContradictory = this.detectContradictoryContent(
+            items[i].content,
+            items[j].content
+          );
 
-        if (embedding1 && embedding2) {
-          // oxlint-disable-next-line no-await-in-loop
-          const similarity = await this.calculateSimilarity(embedding1, embedding2);
-
-          // Items are similar in topic but potentially contradictory
-          if (similarity >= this.conflictThreshold) {
-            const isContradictory = this.detectContradictoryContent(
-              items[i].content,
-              items[j].content
-            );
-
-            if (isContradictory) {
-              const conflictId = uuidv4();
-              contradictions.push({
-                id: conflictId,
-                type: 'CONTRADICTION',
-                items: [items[i], items[j]],
-                resolution: {
-                  type: 'MANUAL_REVIEW',
-                  reasoning: 'Items appear to contain contradictory information',
-                },
-                confidence: 0.8,
-                description: 'Contradictory information detected',
-                evidence: ['Semantic similarity with contradictory patterns'],
-                severity: 'HIGH',
-              });
-            }
+          if (isContradictory) {
+            const conflictId = uuidv4();
+            contradictions.push({
+              id: conflictId,
+              type: 'CONTRADICTION',
+              items: [items[i], items[j]],
+              resolution: {
+                type: 'MANUAL_REVIEW',
+                reasoning: 'Items appear to contain contradictory information',
+              },
+              confidence: 0.8,
+              description: 'Contradictory information detected',
+              evidence: ['Semantic similarity with contradictory patterns'],
+              severity: 'HIGH',
+            });
           }
         }
       }

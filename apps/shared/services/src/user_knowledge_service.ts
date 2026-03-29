@@ -10,6 +10,20 @@ import {
 } from '@uaip/types';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge_graph_service';
 
+export type UserKnowledgeStats = {
+  totalItems: number;
+  itemsByType: Record<string, number>;
+  recentActivity: { itemsThisWeek: number; itemsThisMonth: number };
+  generalKnowledge: { totalItems: number; itemsByType: Record<string, number> };
+};
+
+export type ConversationMemoryMeta = {
+  agentId?: string;
+  intent?: unknown;
+  topic?: string;
+  sentiment?: string;
+};
+
 export class UserKnowledgeService {
   constructor(private readonly knowledgeGraphService: KnowledgeGraphService) {}
 
@@ -108,18 +122,7 @@ export class UserKnowledgeService {
   /**
    * Get user's knowledge statistics
    */
-  async getUserKnowledgeStats(userId: string): Promise<{
-    totalItems: number;
-    itemsByType: Record<string, number>;
-    recentActivity: {
-      itemsThisWeek: number;
-      itemsThisMonth: number;
-    };
-    generalKnowledge: {
-      totalItems: number;
-      itemsByType: Record<string, number>;
-    };
-  }> {
+  async getUserKnowledgeStats(userId: string): Promise<UserKnowledgeStats> {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -207,12 +210,7 @@ export class UserKnowledgeService {
     conversationId: string,
     userMessage: string,
     assistantResponse: string,
-    metadata?: {
-      agentId?: string;
-      intent?: unknown;
-      topic?: string;
-      sentiment?: string;
-    }
+    metadata?: ConversationMemoryMeta
   ): Promise<KnowledgeItem> {
     const conversationTurn = {
       conversationId,

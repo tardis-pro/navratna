@@ -1,5 +1,9 @@
 import { BaseRepository } from '../base/base_repository';
 
+export async function mergeAndUpdateState(repo: BaseRepository<Record<string, unknown>>, id: string, state: Record<string, unknown>, updates: Record<string, unknown>): Promise<void> {
+  await repo.update(id, { ...state, ...updates });
+}
+
 export class OperationRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {
     return 'operations';
@@ -55,12 +59,8 @@ export class OperationStateRepository extends BaseRepository<Record<string, unkn
     const r = await this.findMany({ operation_id: operationId }, { limit: 1 });
     return r[0] ?? null;
   }
-  async updateOperationState(
-    operationId: string,
-    state: Record<string, unknown>,
-    updates: Record<string, unknown>
-  ): Promise<void> {
-    await this.update(operationId, { ...state, ...updates });
+  async updateOperationState(operationId: string, state: Record<string, unknown>, updates: Record<string, unknown>): Promise<void> {
+    await mergeAndUpdateState(this, operationId, state, updates);
   }
   async deleteOldOperationStates(_cutoffDate: Date): Promise<number> {
     return 0;

@@ -19,6 +19,9 @@ export interface WorkflowTemplate {
 // Pre-Built Workflow Templates
 // ============================================================================
 
+const linearEdges = (count: number): Array<{ fromIndex: number; toIndex: number }> =>
+  Array.from({ length: count - 1 }, (_, i) => ({ fromIndex: i, toIndex: i + 1 }));
+
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   // 1. Onboard New Project
   {
@@ -121,12 +124,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         toolId: 'notify.send',
       },
     ],
-    edges: [
-      { fromIndex: 0, toIndex: 1 },
-      { fromIndex: 1, toIndex: 2 },
-      { fromIndex: 2, toIndex: 3 },
-      { fromIndex: 3, toIndex: 4 },
-    ],
+    edges: linearEdges(5),
     category: 'devops',
   },
 
@@ -230,12 +228,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         toolId: 'git.pr',
       },
     ],
-    edges: [
-      { fromIndex: 0, toIndex: 1 },
-      { fromIndex: 1, toIndex: 2 },
-      { fromIndex: 2, toIndex: 3 },
-      { fromIndex: 3, toIndex: 4 },
-    ],
+    edges: linearEdges(5),
     category: 'engineering',
   },
 
@@ -338,12 +331,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         toolId: 'db.cutover',
       },
     ],
-    edges: [
-      { fromIndex: 0, toIndex: 1 },
-      { fromIndex: 1, toIndex: 2 },
-      { fromIndex: 2, toIndex: 3 },
-      { fromIndex: 3, toIndex: 4 },
-    ],
+    edges: linearEdges(5),
     category: 'data',
   },
 

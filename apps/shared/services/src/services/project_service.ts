@@ -1,5 +1,6 @@
 import { BaseDomainService } from './base_domain_service';
 import { getControlPool } from '../database/drizzle/clients/index';
+import { updateTableRow } from './sql_helpers';
 
 export class ProjectService extends BaseDomainService {
   protected constructor() {
@@ -86,18 +87,7 @@ export class ProjectService extends BaseDomainService {
     id: string,
     data: Record<string, unknown>
   ): Promise<Record<string, unknown> | null> {
-    const pool = getControlPool();
-    const keys = Object.keys(data);
-    if (keys.length === 0) {
-      return this.findProjectById(id);
-    }
-    const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map((k) => data[k])];
-    const result = await pool.query(
-      `UPDATE projects SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      values
-    );
-    return result.rows[0] ?? null;
+    return updateTableRow('projects', id, data, (i) => this.findProjectById(i));
   }
 
   public async updateProjectStatus(id: string, status: string): Promise<boolean> {
@@ -245,37 +235,25 @@ export class ProjectService extends BaseDomainService {
     return result.rows;
   }
 
-  public async assignToolsToProject(projectId: string, toolIds: string[]): Promise<void> {
+  private async getProjectAllowedTools(projectId: string): Promise<{ metadata: Record<string, unknown>; tools: string[] }> {
     const project = await this.findProjectById(projectId);
     if (!project) throw new Error('Project not found');
-
     const metadata = (project.metadata as Record<string, unknown>) || {};
-    const currentTools = Array.isArray(metadata.allowedTools)
-      ? (metadata.allowedTools as string[])
-      : [];
-    const newTools = Array.from(new Set([...currentTools, ...toolIds]));
+    const tools = Array.isArray(metadata.allowedTools) ? (metadata.allowedTools as string[]) : [];
+    return { metadata, tools };
+  }
 
+  public async assignToolsToProject(projectId: string, toolIds: string[]): Promise<void> {
+    const { metadata, tools } = await this.getProjectAllowedTools(projectId);
     await this.updateProject(projectId, {
-      metadata: {
-        ...metadata,
-        allowedTools: newTools,
-      },
+      metadata: { ...metadata, allowedTools: Array.from(new Set([...tools, ...toolIds])) },
     });
   }
 
   public async removeToolsFromProject(projectId: string, toolIds: string[]): Promise<void> {
-    const project = await this.findProjectById(projectId);
-    if (!project) throw new Error('Project not found');
-
-    const metadata = (project.metadata as Record<string, unknown>) || {};
-    const currentTools: string[] = (metadata.allowedTools as string[]) || [];
-    const remainingTools = currentTools.filter((id: string) => !toolIds.includes(id));
-
+    const { metadata, tools } = await this.getProjectAllowedTools(projectId);
     await this.updateProject(projectId, {
-      metadata: {
-        ...metadata,
-        allowedTools: remainingTools,
-      },
+      metadata: { ...metadata, allowedTools: tools.filter((id) => !toolIds.includes(id)) },
     });
   }
 

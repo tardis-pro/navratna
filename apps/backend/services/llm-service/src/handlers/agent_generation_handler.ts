@@ -20,7 +20,7 @@ export class AgentGenerationHandler {
       logger.info('Agent generation completed', {
         requestId: request.requestId,
         agentId: request.agentId,
-        responseLength: response.content?.length || 0,
+        responseLength: (response.content as string)?.length || 0,
       });
     } catch (error) {
       await this.handleError(event, error);
@@ -62,6 +62,7 @@ export class AgentGenerationHandler {
     const { AgentService } = await import('@uaip/shared-services');
     const agentService = AgentService.getInstance();
     const agentRepository = agentService.getAgentRepository();
+    // @ts-expect-error -- getActiveAgentById exists at runtime but not in base AgentRepository type
     const agent = await agentRepository.getActiveAgentById(agentId);
 
     if (!agent) {
@@ -100,10 +101,10 @@ export class AgentGenerationHandler {
     // Use user-specific service if agent has user context
     if (agent?.createdBy) {
       try {
-        return await this.userLLMService.generateResponse(
+        return (await this.userLLMService.generateResponse(
           agent.createdBy as string,
           generationRequest
-        );
+        )) as unknown as Record<string, unknown>;
       } catch (error) {
         logger.warn('UserLLMService failed, falling back to global', {
           agentId: agent.id,
@@ -114,7 +115,7 @@ export class AgentGenerationHandler {
     }
 
     // Fall back to global service
-    return await this.llmService.generateResponse(generationRequest);
+    return (await this.llmService.generateResponse(generationRequest)) as unknown as Record<string, unknown>;
   }
 
   private buildPromptFromMessages(messages: Array<{ content: string; sender?: string }>): string {

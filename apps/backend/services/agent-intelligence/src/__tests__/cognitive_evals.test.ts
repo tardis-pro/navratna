@@ -15,9 +15,9 @@ import {
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { AgentPlanningService } from '../services/agent_planning_service.js';
-import { DecisionEngine } from '../../../../../shared/services/src/agent/agent-intelligence/decision_engine.js';
-import type { CapabilityResolver } from '../../../../../shared/services/src/agent/agent-intelligence/capability_resolver.js';
-import { AgentStateMachine } from '../../../../../shared/services/src/agent-state/agent_state_machine.js';
+import { DecisionEngine } from '@uaip/shared-services/decision-engine';
+import type { CapabilityResolver } from '@uaip/shared-services/decision-engine';
+import { AgentStateMachine } from '@uaip/shared-services/agent-state';
 
 const createTool = (name: string): ToolDefinition => ({
   id: `${name}-id`,

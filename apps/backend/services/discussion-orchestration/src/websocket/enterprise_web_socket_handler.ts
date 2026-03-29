@@ -86,6 +86,26 @@ interface OutboundWebSocketMessage {
   payload: Record<string, unknown>;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isJoinLeavePayload(value: unknown): value is JoinLeavePayload {
+  return isRecord(value) && typeof value.discussionId === 'string';
+}
+
+function isSendMessagePayload(value: unknown): value is SendMessagePayload {
+  return isRecord(value) && typeof value.discussionId === 'string' && typeof value.content === 'string';
+}
+
+function isAgentChatPayload(value: unknown): value is AgentChatPayload {
+  return isRecord(value) && typeof value.agentId === 'string' && typeof value.message === 'string';
+}
+
+function toPayloadRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
 export class EnterpriseWebSocketHandler extends EventEmitter {
   private connections = new Map<string, EnterpriseConnection>();
   private discussionConnections = new Map<string, Set<string>>();
@@ -124,50 +144,6 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     wss.on('error', (error: Error) => {
       logger.error('WebSocket server error', { error: error.message, stack: error.stack });
     });
-
-    // Override the WebSocket server's handling to intercept and validate close frames
-    const originalHandleUpgrade = server.on;
-    server.on = function (event: string, listener: (...args: unknown[]) => void) {
-      if (event === 'upgrade') {
-        return originalHandleUpgrade.call(
-          this,
-          event,
-          (request: import('http').IncomingMessage, socket: import('net').Socket, head: Buffer) => {
-            // Add close frame validation to the socket
-            const originalWrite = socket.write;
-            socket.write = function (data: Buffer, ...args: unknown[]) {
-              try {
-                // Check if this is a WebSocket close frame and validate the close code
-                if (data && data.length >= 2) {
-                  const firstByte = data[0];
-                  if (firstByte & 0x80 && (firstByte & 0x0f) === 0x08) {
-                    // Close frame
-                    const closeCode = data.readUInt16BE(2);
-                    if (!this.isValidCloseCode(closeCode)) {
-                      logger.warn('Blocking invalid WebSocket close code', { closeCode });
-                      // Replace with valid close code
-                      data.writeUInt16BE(1000, 2); // Normal closure
-                    }
-                  }
-                }
-              } catch {
-                // If parsing fails, just pass through
-              }
-              return originalWrite.call(this, data, ...args);
-            };
-
-            return (
-              listener as (
-                req: import('http').IncomingMessage,
-                sock: import('net').Socket,
-                h: Buffer
-              ) => void
-            )(request, socket, head);
-          }
-        );
-      }
-      return originalHandleUpgrade.call(this, event, listener);
-    };
 
     // Set up cleanup intervals
     this.heartbeatInterval = setInterval(this.sendHeartbeats.bind(this), 30000);
@@ -410,15 +386,31 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
       // Route message based on type
       switch (message.type) {
         case 'join_discussion':
+          if (!isJoinLeavePayload(message.payload)) {
+            this.sendError(connectionId, 'Invalid join discussion payload');
+            return;
+          }
           await this.handleJoinDiscussion(connectionId, message.payload);
           break;
         case 'leave_discussion':
+          if (!isJoinLeavePayload(message.payload)) {
+            this.sendError(connectionId, 'Invalid leave discussion payload');
+            return;
+          }
           await this.handleLeaveDiscussion(connectionId, message.payload);
           break;
         case 'send_message':
+          if (!isSendMessagePayload(message.payload)) {
+            this.sendError(connectionId, 'Invalid send message payload');
+            return;
+          }
           await this.handleSendMessage(connectionId, message.payload);
           break;
         case 'agent_chat':
+          if (!isAgentChatPayload(message.payload)) {
+            this.sendError(connectionId, 'Invalid agent chat payload');
+            return;
+          }
           await this.handleAgentChat(connectionId, message.payload);
           break;
         case 'heartbeat':
@@ -713,7 +705,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         (event.data as Record<string, unknown>).discussionId as string,
         {
           type: 'new_message',
-          payload: event.data,
+          payload: toPayloadRecord(event.data),
         }
       );
     });
@@ -723,7 +715,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
         (event.data as Record<string, unknown>).discussionId as string,
         {
           type: 'agent_response',
-          payload: event.data,
+          payload: toPayloadRecord(event.data),
         }
       );
     });
@@ -880,7 +872,9 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     });
 
     // Method 1: Authorization header (for raw WebSocket and some Socket.IO clients)
-    const authHeader = req.headers.authorization;
+    const authHeader = Array.isArray(req.headers.authorization)
+      ? req.headers.authorization[0]
+      : req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       logger.info('Token extracted from Authorization header');
       return authHeader.substring(7);
@@ -903,7 +897,9 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     // Socket.IO often embeds auth data in the handshake
     if (req.url.includes('/socket.io/')) {
       // Extract token from Socket.IO handshake data or cookies
-      const cookies = req.headers.cookie;
+      const cookies = Array.isArray(req.headers.cookie)
+        ? req.headers.cookie.join(';')
+        : req.headers.cookie;
       if (cookies) {
         // Try to extract token from cookies (common pattern)
         const tokenMatch = cookies.match(/(?:token|auth|access_token)=([^;]+)/);

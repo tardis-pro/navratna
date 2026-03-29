@@ -177,10 +177,7 @@ export class CacheManager {
 
   public async bulkWarmUpUserCaches(userIds: string[]): Promise<void> {
     logger.info('Bulk warming up user caches', { userCount: userIds.length });
-
-    const promises = userIds.map((userId) => this.warmUpUserCache(userId));
-    await Promise.all(promises);
-
+    await Promise.all(userIds.map((id) => this.warmUpUserCache(id)));
     logger.info('Bulk user cache warm-up completed', { userCount: userIds.length });
   }
 

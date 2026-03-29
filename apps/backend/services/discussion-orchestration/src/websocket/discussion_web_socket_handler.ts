@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
+import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { config } from '../config/index.js';
 import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js';
@@ -13,6 +14,15 @@ import { RedisSessionManager } from './redis_session_manager.js';
 import type { WebSocketConnection, IWebSocketHandler } from '@uaip/types';
 
 export { WebSocketConnection };
+
+const WS_RATE_LIMITS = {
+  MAX_CONNECTIONS_PER_USER: 5,
+};
+
+const WebSocketMessageSchema = z.object({
+  type: z.string(),
+  data: z.record(z.any()).optional(),
+});
 
 export class DiscussionWebSocketHandler implements IWebSocketHandler {
   private connections: Map<string, Set<WebSocketConnection>> = new Map();
@@ -314,13 +324,17 @@ export class DiscussionWebSocketHandler implements IWebSocketHandler {
     });
 
     ws.on('close', (code, reason) => {
-      this.handleDisconnection(connection, code, reason?.toString());
+      this.handleDisconnection(
+        connection,
+        typeof code === 'number' ? code : 1006,
+        reason?.toString()
+      );
     });
 
     ws.on('error', (error) => {
       logger.error('WebSocket error', {
         connectionId: connection.connectionId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
     });
 

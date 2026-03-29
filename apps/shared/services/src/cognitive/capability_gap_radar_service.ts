@@ -2,6 +2,7 @@ import { EventBusService } from '../event_bus_service';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 import type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
+import { fetchAgentCapabilitiesViaEventBus } from './agent_capability_utils';
 
 interface CacheEntry<T> {
   value: T;
@@ -172,26 +173,8 @@ export class CapabilityGapRadarService {
   /**
    * Fetch capabilities from the event bus.
    */
-  private async fetchAgentCapabilities(agentId: string): Promise<string[]> {
-    const requestId = uuidv4();
-
-    return new Promise<string[]>((resolve) => {
-      const timeout = setTimeout(() => {
-        logger.warn('Agent capabilities request timed out, returning empty', { agentId });
-        resolve([]);
-      }, EVENT_BUS_TIMEOUT_MS);
-
-      this.eventBus.subscribe(`agent.capabilities.response.${requestId}`, async (event) => {
-        clearTimeout(timeout);
-        const data = event.data as { capabilities?: string[] };
-        resolve(data?.capabilities ?? []);
-      });
-
-      this.eventBus.publish('agent.capabilities.request', {
-        requestId,
-        agentId,
-      });
-    });
+  private fetchAgentCapabilities(agentId: string): Promise<string[]> {
+    return fetchAgentCapabilitiesViaEventBus(this.eventBus, agentId, EVENT_BUS_TIMEOUT_MS);
   }
 
   // -------------------------------------------------------------------------

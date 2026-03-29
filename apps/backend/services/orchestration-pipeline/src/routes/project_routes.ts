@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia';
 import { ProjectManagementService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
-import { EventBusService } from '@uaip/infra/event_bus';
+import { DatabaseService } from '@uaip/shared-services/database';
+import { EventBusService } from '@uaip/shared-services/event-bus';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 import { ProjectStatus, ProjectPriority, ProjectVisibility } from '@uaip/types';
@@ -223,10 +223,11 @@ export function registerProjectRoutes(app: Elysia): void {
       const projectId = params.projectId;
 
       const validatedBody = updateProjectSchema.parse(body);
-      // Convert date strings to Date objects
-      const updateData: Record<string, unknown> = { ...validatedBody };
-      if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
-      if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+      const updateData: Record<string, unknown> = {
+        ...validatedBody,
+        ...(validatedBody.startDate ? { startDate: new Date(validatedBody.startDate) } : {}),
+        ...(validatedBody.endDate ? { endDate: new Date(validatedBody.endDate) } : {}),
+      };
       const project = await projectService.updateProject(projectId, updateData);
       return project;
     } catch (error) {

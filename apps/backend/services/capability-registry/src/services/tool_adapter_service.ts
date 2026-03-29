@@ -236,6 +236,56 @@ export class ToolAdapterService {
     }
   }
 
+  private buildBasicAuthHeaders(email: string, apiToken: string): Record<string, string> {
+    const auth = Buffer.from(`${email}:${apiToken}`).toString('base64');
+    return {
+      Authorization: `Basic ${auth}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+  }
+
+  private async testBasicAuthConnection(
+    url: string,
+    email: string,
+    apiToken: string,
+    errorMessage: string
+  ): Promise<void> {
+    const auth = Buffer.from(`${email}:${apiToken}`).toString('base64');
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(errorMessage);
+    }
+  }
+
+  private async fetchGetJson(
+    url: string,
+    headers: Record<string, string>
+  ): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+    const response = await fetch(url, { headers: headers as HeadersInit });
+    const data = (await response.json()) as Record<string, unknown>;
+    return { ok: response.ok, data };
+  }
+
+  private async fetchPostJson(
+    url: string,
+    headers: Record<string, string>,
+    body: unknown
+  ): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers as HeadersInit,
+      body: JSON.stringify(body),
+    });
+    const data = (await response.json()) as Record<string, unknown>;
+    return { ok: response.ok, data };
+  }
+
   private async testGitHubConnection(config: GitHubConfig): Promise<void> {
     const response = await fetch('https://api.github.com/user', {
       headers: {
@@ -250,31 +300,21 @@ export class ToolAdapterService {
   }
 
   private async testJiraConnection(config: JiraConfig): Promise<void> {
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const response = await fetch(`${config.url}/rest/api/3/myself`, {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        Accept: 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Invalid Jira credentials or API access denied');
-    }
+    await this.testBasicAuthConnection(
+      `${config.url}/rest/api/3/myself`,
+      config.email,
+      config.apiToken,
+      'Invalid Jira credentials or API access denied'
+    );
   }
 
   private async testConfluenceConnection(config: ConfluenceConfig): Promise<void> {
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-    const response = await fetch(`${config.url}/rest/api/user/current`, {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        Accept: 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Invalid Confluence credentials or API access denied');
-    }
+    await this.testBasicAuthConnection(
+      `${config.url}/rest/api/user/current`,
+      config.email,
+      config.apiToken,
+      'Invalid Confluence credentials or API access denied'
+    );
   }
 
   private async executeGitHubOperation(operation: ToolOperation): Promise<ToolResult> {
@@ -331,14 +371,8 @@ export class ToolAdapterService {
     const path = typeof p.path === 'string' ? p.path : '';
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data,
-      error: response.ok ? undefined : data.message,
-    };
+    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
   }
 
   private async githubCreate(params: unknown, headers: unknown): Promise<ToolResult> {
@@ -377,19 +411,8 @@ export class ToolAdapterService {
         };
     }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers as HeadersInit,
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data,
-      error: response.ok ? undefined : data.message,
-    };
+    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, body);
+    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
   }
 
   private async githubList(params: unknown, headers: unknown): Promise<ToolResult> {
@@ -416,25 +439,13 @@ export class ToolAdapterService {
         return { success: false, error: `Unsupported list type: ${type}` };
     }
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data: Array.isArray(data) ? data : [data],
-      error: response.ok ? undefined : data.message,
-    };
+    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+    return { success: ok, data: Array.isArray(data) ? data : [data], error: ok ? undefined : (data.message as string | undefined) };
   }
 
   private async executeJiraOperation(operation: ToolOperation): Promise<ToolResult> {
     const config = this.configurations.get('jira') as JiraConfig;
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-
-    const headers = {
-      Authorization: `Basic ${auth}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    };
+    const headers = this.buildBasicAuthHeaders(config.email, config.apiToken);
 
     switch (operation.operation) {
       case 'search':
@@ -466,22 +477,14 @@ export class ToolAdapterService {
     const jql = String(p.jql || '');
     const url = `${config.url}/rest/api/3/search`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers as HeadersInit,
-      body: JSON.stringify({ jql, maxResults: p.maxResults || 50 }),
+    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, {
+      jql,
+      maxResults: p.maxResults || 50,
     });
-
-    const data = await response.json();
-
     return {
-      success: response.ok,
-      data: data.issues || [],
-      metadata: {
-        total: data.total,
-        startAt: data.startAt,
-        maxResults: data.maxResults,
-      },
+      success: ok,
+      data: (data.issues as unknown[]) || [],
+      metadata: { total: data.total, startAt: data.startAt, maxResults: data.maxResults },
     };
   }
 
@@ -494,14 +497,9 @@ export class ToolAdapterService {
     const issueKey = String(p.issueKey || '');
     const url = `${config.url}/rest/api/3/issue/${issueKey}`;
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data,
-      error: response.ok ? undefined : data.errorMessages?.join(', '),
-    };
+    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+    const errorMessages = data.errorMessages as string[] | undefined;
+    return { success: ok, data, error: ok ? undefined : errorMessages?.join(', ') };
   }
 
   private async jiraCreate(
@@ -538,19 +536,9 @@ export class ToolAdapterService {
       },
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers as HeadersInit,
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data,
-      error: response.ok ? undefined : data.errorMessages?.join(', '),
-    };
+    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, body);
+    const errorMessages = data.errorMessages as string[] | undefined;
+    return { success: ok, data, error: ok ? undefined : errorMessages?.join(', ') };
   }
 
   private async jiraList(
@@ -567,15 +555,11 @@ export class ToolAdapterService {
         const jql = projectKey ? `project = "${projectKey}"` : 'assignee = currentUser()';
         return await this.jiraSearch({ jql, maxResults: p.maxResults }, headers, config);
 
-      case 'projects':
+      case 'projects': {
         const url = `${config.url}/rest/api/3/project`;
-        const response = await fetch(url, { headers: headers as HeadersInit });
-        const data = await response.json();
-
-        return {
-          success: response.ok,
-          data: Array.isArray(data) ? data : [data],
-        };
+        const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+        return { success: ok, data: Array.isArray(data) ? data : [data] };
+      }
 
       default:
         return { success: false, error: `Unsupported Jira list type: ${type}` };
@@ -584,13 +568,7 @@ export class ToolAdapterService {
 
   private async executeConfluenceOperation(operation: ToolOperation): Promise<ToolResult> {
     const config = this.configurations.get('confluence') as ConfluenceConfig;
-    const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
-
-    const headers = {
-      Authorization: `Basic ${auth}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    };
+    const headers = this.buildBasicAuthHeaders(config.email, config.apiToken);
 
     switch (operation.operation) {
       case 'search':
@@ -643,14 +621,8 @@ export class ToolAdapterService {
     const expand = typeof p.expand === 'string' ? p.expand : 'body.storage,version';
     const url = `${config.url}/rest/api/content/${pageId}?expand=${expand}`;
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data,
-      error: response.ok ? undefined : data.message,
-    };
+    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
   }
 
   private async confluenceCreate(
@@ -681,19 +653,8 @@ export class ToolAdapterService {
       },
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers as HeadersInit,
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-
-    return {
-      success: response.ok,
-      data,
-      error: response.ok ? undefined : data.message,
-    };
+    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, body);
+    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
   }
 
   private async confluenceList(
@@ -711,12 +672,10 @@ export class ToolAdapterService {
       url += `&spaceKey=${spaceKey}`;
     }
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
-
+    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
     return {
-      success: response.ok,
-      data: data.results || [],
+      success: ok,
+      data: (data.results as unknown[]) || [],
       metadata: { size: data.size, start: data.start },
     };
   }

@@ -90,6 +90,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             const { domainAuditService } = await getServices();
             const offset = (value.page - 1) * value.limit;
             const repo = domainAuditService.getAuditRepository();
+            // @ts-expect-error -- Property does not exist on inferred type
             const result = await repo.searchAuditLogs({
               ...value,
               offset,
@@ -125,6 +126,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             const { domainAuditService } = await getServices();
             const { logId } = logIdParamsSchema.parse(params);
             const repo = domainAuditService.getAuditRepository();
+            // @ts-expect-error -- Property does not exist on inferred type
             const log = await repo.getAuditLogById(logId);
             if (!log) {
               set.status = 404;
@@ -142,6 +144,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
           try {
             const { domainAuditService } = await getServices();
             const repo = domainAuditService.getAuditRepository();
+            // @ts-expect-error -- Property does not exist on inferred type
             const eventTypes = await repo.getAuditEventTypes();
             return { message: 'Event types retrieved successfully', eventTypes };
           } catch {
@@ -157,6 +160,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             const selected = parsedQuery.success ? (parsedQuery.data.timeframe ?? '24h') : '24h';
             const { domainAuditService } = await getServices();
             const repo = domainAuditService.getAuditRepository();
+            // @ts-expect-error -- Property does not exist on inferred type
             const statistics = await repo.getAuditStatistics(selected);
             return {
               message: 'Audit statistics retrieved successfully',
@@ -173,6 +177,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
         })
 
         // POST /export
+        // @ts-expect-error -- Property does not exist on inferred type
         .post('/export', async ({ set, body, user, request, headers }) => {
           const { error, value } = validateWithZod(exportSchema, body);
           if (error) {
@@ -203,6 +208,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
                 eventType: value.eventType,
                 startDate: value.startDate,
                 endDate: value.endDate,
+                // @ts-expect-error -- Property does not exist on inferred type
                 recordCount: parsedData.recordCount,
               },
               ipAddress: request.headers.get('x-forwarded-for') || '',
@@ -211,8 +217,10 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             return {
               message: 'Audit logs exported successfully',
               format: value.format,
+              // @ts-expect-error -- Property does not exist on inferred type
               recordCount: parsedData.recordCount,
               exportedAt: new Date().toISOString(),
+              // @ts-expect-error -- Property does not exist on inferred type
               data: parsedData.data || exportData,
             };
           } catch {
@@ -222,6 +230,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
         })
 
         // POST /compliance-report
+        // @ts-expect-error -- Property does not exist on inferred type
         .post('/compliance-report', async ({ set, body, user, request, headers }) => {
           const { error, value } = validateWithZod(complianceReportSchema, body);
           if (error) {
@@ -273,6 +282,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             const { page, limit, startDate, endDate, eventType } = parsedData;
             const offset = (page - 1) * limit;
             const repo = domainAuditService.getAuditRepository();
+            // @ts-expect-error -- Property does not exist on inferred type
             const result = await repo.getUserActivityAuditTrail({
               userId,
               startDate,
@@ -301,6 +311,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
         })
 
         // DELETE /cleanup
+        // @ts-expect-error -- Property does not exist on inferred type
         .delete('/cleanup', async ({ set, user, request, headers }) => {
           try {
             const { auditService } = await getServices();

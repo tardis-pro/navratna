@@ -2,6 +2,17 @@ import { DatabaseService } from './database_service';
 import { logger, ApiError } from '@uaip/utils';
 import { Capability, CapabilitySearchQuery, CapabilitySearchResult } from '@uaip/types';
 
+export type CapabilitySearchParams = {
+  query?: string;
+  types?: string[];
+  tags?: string[];
+  securityLevel?: string;
+  agentId?: string;
+  includeExperimental?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
 export class CapabilityDiscoveryService {
   private databaseService: DatabaseService;
   private neo4jService: unknown; // Neo4j service for graph queries
@@ -454,16 +465,7 @@ export class CapabilityDiscoveryService {
     }
   }
 
-  public async searchCapabilitiesAdvanced(searchParams: {
-    query?: string;
-    types?: string[];
-    tags?: string[];
-    securityLevel?: string;
-    agentId?: string;
-    includeExperimental?: boolean;
-    limit?: number;
-    offset?: number;
-  }): Promise<CapabilitySearchResult> {
+  public async searchCapabilitiesAdvanced(searchParams: CapabilitySearchParams): Promise<CapabilitySearchResult> {
     try {
       const startTime = Date.now();
 

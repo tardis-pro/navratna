@@ -1,6 +1,21 @@
 import { BaseRepository } from '../base/base_repository';
 import { getControlPool } from '../drizzle/clients/index';
 
+export type BaseCreateToolParams = {
+  name: string;
+  description: string;
+  category: string;
+  isEnabled?: boolean;
+  version?: string;
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  configuration?: Record<string, unknown>;
+  requiredPermissions?: string[];
+  securityLevel?: string;
+  maxRetries?: number;
+  timeout?: number;
+};
+
 export class ToolRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {
     return 'tool_definitions';
@@ -9,20 +24,7 @@ export class ToolRepository extends BaseRepository<Record<string, unknown>> {
     return 'control';
   }
 
-  async createTool(data: {
-    name: string;
-    description: string;
-    category: string;
-    isEnabled?: boolean;
-    version?: string;
-    inputSchema?: Record<string, unknown>;
-    outputSchema?: Record<string, unknown>;
-    configuration?: Record<string, unknown>;
-    requiredPermissions?: string[];
-    securityLevel?: string;
-    maxRetries?: number;
-    timeout?: number;
-  }): Promise<Record<string, unknown>> {
+  async createTool(data: BaseCreateToolParams): Promise<Record<string, unknown>> {
     const pool = getControlPool();
     const result = await pool.query(
       `INSERT INTO tool_definitions (name, description, category, security_level, version, parameters, is_enabled)

@@ -1,14 +1,20 @@
-import { getIntelligenceDb } from '@uaip/shared-services';
-import { shortLinks } from '@uaip/shared-services/drizzle/intelligence';
-import { eq, and, ilike, or } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getIntelligenceDb,
+  ilike,
+  or,
+  sql,
+} from '@uaip/shared-services/database/drizzle/clients/index';
+import { shortLinks } from '@uaip/shared-services/database/drizzle/schemas/intelligence_schema';
 import { logger } from '@uaip/utils';
 import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 
 export type { LinkType, LinkStatus };
-export type { ShortLink as ShortLinkEntity } from '@uaip/shared-services/drizzle/intelligence';
+export type ShortLinkEntity = typeof shortLinks.$inferSelect;
 
-import type { ShortLink } from '@uaip/shared-services/drizzle/intelligence';
+type ShortLink = typeof shortLinks.$inferSelect;
 
 type LinkType = 'artifact' | 'project_file' | 'document' | 'external';
 type LinkStatus = 'active' | 'expired' | 'disabled' | 'deleted';
@@ -179,21 +185,24 @@ export class ShortLinkService {
     const { page = 1, limit = 20, type, search } = options;
     const offset = (page - 1) * limit;
 
-    const conditions = [eq(shortLinks.createdById, userId)];
-    if (type) conditions.push(eq(shortLinks.type, type));
+    let whereClause = eq(shortLinks.createdById, userId);
+    if (type) {
+      whereClause = and(whereClause, eq(shortLinks.type, type)) ?? whereClause;
+    }
     if (search) {
-      conditions.push(
-        or(
-          ilike(shortLinks.title as Parameters<typeof ilike>[0], `%${search}%`),
-          ilike(shortLinks.originalUrl, `%${search}%`)
-        ) as Parameters<typeof and>[0]
+      const searchCondition = or(
+        ilike(sql<string>`coalesce(${shortLinks.title}, '')`, `%${search}%`),
+        ilike(shortLinks.originalUrl, `%${search}%`)
       );
+      if (searchCondition) {
+        whereClause = and(whereClause, searchCondition) ?? whereClause;
+      }
     }
 
     return this.db
       .select()
       .from(shortLinks)
-      .where(and(...conditions))
+      .where(whereClause)
       .orderBy(shortLinks.createdAt)
       .limit(limit)
       .offset(offset);
@@ -328,7 +337,7 @@ export class ShortLinkService {
         .set({
           clickCount: link.clickCount + 1,
           lastClickedAt: new Date(),
-          analytics: updatedAnalytics,
+          analytics: updatedAnalytics as Record<string, unknown>,
           updatedAt: new Date(),
         })
         .where(eq(shortLinks.id, linkId));

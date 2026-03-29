@@ -11,7 +11,12 @@ export type {
 } from '@uaip/types';
 
 // Core interfaces for the artifact service
-import { ArtifactConversationContext, GenerationTrigger, ConversationSummary } from '@uaip/types';
+import {
+  ArtifactConversationContext,
+  ConversationSummary,
+  GenerationTrigger,
+  Requirement,
+} from '@uaip/types';
 
 // Import ValidationResult from shared types
 import { ValidationResult } from '@uaip/types';
@@ -36,5 +41,5 @@ export interface SecurityManager {
 export interface ConversationAnalyzer {
   analyzeConversation(context: ArtifactConversationContext): Promise<ConversationSummary>;
   detectGenerationTriggers(context: ArtifactConversationContext): Promise<GenerationTrigger[]>;
-  extractRequirements(context: ArtifactConversationContext): Promise<unknown[]>;
+  extractRequirements(context: ArtifactConversationContext): Promise<Requirement[]>;
 }

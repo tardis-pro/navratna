@@ -15,7 +15,8 @@
     "format:check": "oxfmt --check src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run --reporter=verbose src/**/__tests__/**/unit/**"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -36,36 +37,43 @@
   },
   "exports": {
     ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./authMiddleware": {
+      "@uaip/source": "./src/authMiddleware.ts",
       "import": "./dist/authMiddleware.js",
       "require": "./dist/authMiddleware.js",
       "types": "./dist/authMiddleware.d.ts"
     },
     "./validateRequest": {
+      "@uaip/source": "./src/validateRequest.ts",
       "import": "./dist/validateRequest.js",
       "require": "./dist/validateRequest.js",
       "types": "./dist/validateRequest.d.ts"
     },
     "./errorHandler": {
+      "@uaip/source": "./src/errorHandler.ts",
       "import": "./dist/errorHandler.js",
       "require": "./dist/errorHandler.js",
       "types": "./dist/errorHandler.d.ts"
     },
     "./metrics": {
+      "@uaip/source": "./src/metrics.ts",
       "import": "./dist/metrics.js",
       "require": "./dist/metrics.js",
       "types": "./dist/metrics.d.ts"
     },
     "./rateLimiter": {
+      "@uaip/source": "./src/rateLimiter.ts",
       "import": "./dist/rateLimiter.js",
       "require": "./dist/rateLimiter.js",
       "types": "./dist/rateLimiter.d.ts"
     },
     "./requestLogger": {
+      "@uaip/source": "./src/requestLogger.ts",
       "import": "./dist/requestLogger.js",
       "require": "./dist/requestLogger.js",
       "types": "./dist/requestLogger.d.ts"

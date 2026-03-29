@@ -4,6 +4,20 @@ import type { DiscussionParticipant } from './database/drizzle/schemas/intellige
 
 const PARTICIPANTS_TABLE = 'discussion_participants';
 
+type ParticipantRoleInDiscussion = 'moderator' | 'participant' | 'observer' | 'facilitator' | 'expert' | 'critic';
+
+type BaseParticipantOptions = {
+  discussionId: string;
+  displayName?: string;
+  roleInDiscussion?: ParticipantRoleInDiscussion;
+  permissions?: string[];
+  turnOrder?: number;
+  turnWeight?: number;
+  participationConfig?: Record<string, unknown>;
+  behavioralConstraints?: Record<string, unknown>;
+  contextAwareness?: Record<string, unknown>;
+};
+
 /**
  * Enterprise Participant Management Service
  *
@@ -25,6 +39,105 @@ export class ParticipantManagementService {
     this.databaseService = databaseService;
   }
 
+  private async createOrFindParticipant(
+    discussionId: string,
+    participantType: 'agent' | 'user',
+    participantId: string,
+    participantIdField: 'agentId' | 'userId',
+    roleInDiscussion: string,
+    meta: {
+      displayName?: string;
+      permissions?: string[];
+      turnOrder?: number;
+      turnWeight?: number;
+      participationConfig?: Record<string, unknown>;
+      behavioralConstraints?: Record<string, unknown>;
+      contextAwareness?: Record<string, unknown>;
+    }
+  ): Promise<DiscussionParticipant> {
+    const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
+      PARTICIPANTS_TABLE,
+      { discussionId, participantType, [participantIdField]: participantId }
+    );
+    const existing = existingParticipants[0] || null;
+
+    if (existing) {
+      const nextMetadata = {
+        ...((existing.metadata as Record<string, unknown>) || {}),
+        ...(meta.displayName !== undefined ? { displayName: meta.displayName } : {}),
+        ...(meta.permissions !== undefined ? { permissions: meta.permissions } : {}),
+        ...(meta.turnOrder !== undefined ? { turnOrder: meta.turnOrder } : {}),
+        ...(meta.turnWeight !== undefined ? { turnWeight: meta.turnWeight } : {}),
+        ...(meta.participationConfig !== undefined
+          ? { participationConfig: meta.participationConfig }
+          : {}),
+        ...(meta.behavioralConstraints !== undefined
+          ? { behavioralConstraints: meta.behavioralConstraints }
+          : {}),
+        ...(meta.contextAwareness !== undefined ? { contextAwareness: meta.contextAwareness } : {}),
+      };
+
+      const hasMetadataChanges =
+        JSON.stringify(nextMetadata) !== JSON.stringify((existing.metadata as Record<string, unknown>) || {});
+
+      if (hasMetadataChanges) {
+        const updatedParticipant = await this.databaseService.update<DiscussionParticipant>(
+          PARTICIPANTS_TABLE,
+          existing.id,
+          {
+            metadata: nextMetadata,
+            updatedAt: new Date(),
+          }
+        );
+
+        if (updatedParticipant) {
+          logger.info(`${participantType} participant already exists, metadata refreshed`, {
+            discussionId,
+            [participantIdField]: participantId,
+            participantId: existing.id,
+          });
+          return updatedParticipant;
+        }
+      }
+
+      logger.info(`${participantType} participant already exists, returning existing`, {
+        discussionId,
+        [participantIdField]: participantId,
+        participantId: existing.id,
+      });
+      return existing;
+    }
+
+    const participant = await this.databaseService.create<DiscussionParticipant>(PARTICIPANTS_TABLE, {
+      discussionId,
+      participantType,
+      [participantIdField]: participantId,
+      role: roleInDiscussion,
+      joinedAt: new Date(),
+      isActive: true,
+      turnCount: 0,
+      messageCount: 0,
+      metadata: {
+        displayName: meta.displayName,
+        permissions: meta.permissions,
+        turnOrder: meta.turnOrder,
+        turnWeight: meta.turnWeight,
+        participationConfig: meta.participationConfig,
+        behavioralConstraints: meta.behavioralConstraints,
+        contextAwareness: meta.contextAwareness,
+      },
+    });
+
+    logger.info(`Created new ${participantType} participant`, {
+      discussionId,
+      [participantIdField]: participantId,
+      participantId: participant.id,
+      roleInDiscussion,
+    });
+
+    return participant;
+  }
+
   /**
    * Create or retrieve a participant for an agent in a discussion
    *
@@ -34,24 +147,7 @@ export class ParticipantManagementService {
    * - Agent identity is properly maintained
    * - Enterprise-scale collaboration is supported
    */
-  async createAgentParticipant(options: {
-    discussionId: string;
-    agentId: string;
-    displayName?: string;
-    roleInDiscussion?:
-      | 'moderator'
-      | 'participant'
-      | 'observer'
-      | 'facilitator'
-      | 'expert'
-      | 'critic';
-    permissions?: string[];
-    turnOrder?: number;
-    turnWeight?: number;
-    participationConfig?: Record<string, unknown>;
-    behavioralConstraints?: Record<string, unknown>;
-    contextAwareness?: Record<string, unknown>;
-  }): Promise<DiscussionParticipant> {
+  async createAgentParticipant(options: BaseParticipantOptions & { agentId: string }): Promise<DiscussionParticipant> {
     const {
       discussionId,
       agentId,
@@ -66,54 +162,18 @@ export class ParticipantManagementService {
     } = options;
 
     try {
-      // Check if participant already exists for this agent in this discussion
-      const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
-        PARTICIPANTS_TABLE,
+      return await this.createOrFindParticipant(
+        discussionId, 'agent', agentId, 'agentId', roleInDiscussion,
         {
-          discussionId,
-          participantType: 'agent',
-          agentId,
+          displayName: _displayName,
+          permissions: _permissions,
+          turnOrder: _turnOrder,
+          turnWeight: _turnWeight,
+          participationConfig,
+          behavioralConstraints,
+          contextAwareness,
         }
       );
-      const existingParticipant = existingParticipants[0] || null;
-
-      if (existingParticipant) {
-        logger.info('Agent participant already exists, returning existing', {
-          discussionId,
-          agentId,
-          participantId: existingParticipant.id,
-        });
-        return existingParticipant;
-      }
-
-      // Create new participant
-      const participant = await this.databaseService.create<DiscussionParticipant>(
-        PARTICIPANTS_TABLE,
-        {
-          discussionId,
-          participantType: 'agent',
-          agentId,
-          role: roleInDiscussion,
-          joinedAt: new Date(),
-          isActive: true,
-          turnCount: 0,
-          messageCount: 0,
-          metadata: {
-            participationConfig,
-            behavioralConstraints,
-            contextAwareness,
-          },
-        }
-      );
-
-      logger.info('Created new agent participant', {
-        discussionId,
-        agentId,
-        participantId: participant.id,
-        roleInDiscussion,
-      });
-
-      return participant;
     } catch (error) {
       logger.error('Error creating agent participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -127,24 +187,7 @@ export class ParticipantManagementService {
   /**
    * Create or retrieve a participant for a user in a discussion
    */
-  async createUserParticipant(options: {
-    discussionId: string;
-    userId: string;
-    displayName?: string;
-    roleInDiscussion?:
-      | 'moderator'
-      | 'participant'
-      | 'observer'
-      | 'facilitator'
-      | 'expert'
-      | 'critic';
-    permissions?: string[];
-    turnOrder?: number;
-    turnWeight?: number;
-    participationConfig?: Record<string, unknown>;
-    behavioralConstraints?: Record<string, unknown>;
-    contextAwareness?: Record<string, unknown>;
-  }): Promise<DiscussionParticipant> {
+  async createUserParticipant(options: BaseParticipantOptions & { userId: string }): Promise<DiscussionParticipant> {
     const {
       discussionId,
       userId,
@@ -159,52 +202,18 @@ export class ParticipantManagementService {
     } = options;
 
     try {
-      const existingParticipants = await this.databaseService.findMany<DiscussionParticipant>(
-        PARTICIPANTS_TABLE,
+      return await this.createOrFindParticipant(
+        discussionId, 'user', userId, 'userId', roleInDiscussion,
         {
-          discussionId,
-          participantType: 'user',
-          userId,
+          displayName: _displayName,
+          permissions: _permissions,
+          turnOrder: _turnOrder,
+          turnWeight: _turnWeight,
+          participationConfig,
+          behavioralConstraints,
+          contextAwareness,
         }
       );
-      const existingParticipant = existingParticipants[0] || null;
-
-      if (existingParticipant) {
-        logger.info('User participant already exists, returning existing', {
-          discussionId,
-          userId,
-          participantId: existingParticipant.id,
-        });
-        return existingParticipant;
-      }
-
-      const participant = await this.databaseService.create<DiscussionParticipant>(
-        PARTICIPANTS_TABLE,
-        {
-          discussionId,
-          participantType: 'user',
-          userId,
-          role: roleInDiscussion,
-          joinedAt: new Date(),
-          isActive: true,
-          turnCount: 0,
-          messageCount: 0,
-          metadata: {
-            participationConfig,
-            behavioralConstraints,
-            contextAwareness,
-          },
-        }
-      );
-
-      logger.info('Created new user participant', {
-        discussionId,
-        userId,
-        participantId: participant.id,
-        roleInDiscussion,
-      });
-
-      return participant;
     } catch (error) {
       logger.error('Error creating user participant', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -359,23 +368,7 @@ export class ParticipantManagementService {
    */
   async createMultipleAgentParticipants(
     discussionId: string,
-    agentConfigs: Array<{
-      agentId: string;
-      displayName?: string;
-      roleInDiscussion?:
-        | 'moderator'
-        | 'participant'
-        | 'observer'
-        | 'facilitator'
-        | 'expert'
-        | 'critic';
-      permissions?: string[];
-      turnOrder?: number;
-      turnWeight?: number;
-      participationConfig?: Record<string, unknown>;
-      behavioralConstraints?: Record<string, unknown>;
-      contextAwareness?: Record<string, unknown>;
-    }>
+    agentConfigs: Array<Omit<BaseParticipantOptions, 'discussionId'> & { agentId: string }>
   ): Promise<DiscussionParticipant[]> {
     const settledResults = await Promise.allSettled(
       agentConfigs.map((config) =>

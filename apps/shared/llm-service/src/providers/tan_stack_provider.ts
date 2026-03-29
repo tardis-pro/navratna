@@ -3,7 +3,7 @@ import { openai } from '@tanstack/ai-openai';
 import { anthropic } from '@tanstack/ai-anthropic';
 import { ollama } from '@tanstack/ai-ollama';
 import { BaseProvider } from './base_provider.js';
-import { LLMRequest, LLMResponse, LLMProviderConfig } from '../interfaces.js';
+import { LLMRequest, LLMResponse, LLMProviderConfig, ProviderModelInfo } from '../interfaces.js';
 import { StreamChunk, StreamingLLMRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -39,16 +39,15 @@ export class TanStackProvider extends BaseProvider {
     }
   }
 
+  private buildTanStackMessages(systemPrompt: string | undefined, prompt: string): Array<{ role: 'user'; content: string }> {
+    const userContent = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    return [{ role: 'user' as const, content: userContent }];
+  }
+
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const adapter = await this.createAdapter();
-
-      // Build messages - combine system prompt with user message
-      const userContent = request.systemPrompt
-        ? `${request.systemPrompt}\n\n${request.prompt}`
-        : request.prompt;
-
-      const messages = [{ role: 'user' as const, content: userContent }];
+      const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
       const model = request.model || this.config.defaultModel || 'gpt-4o';
 
       const response = await chat({
@@ -94,13 +93,7 @@ export class TanStackProvider extends BaseProvider {
    */
   async *streamResponse(request: StreamingLLMRequest): AsyncGenerator<StreamChunk, void, unknown> {
     const adapter = await this.createAdapter();
-
-    // Build messages
-    const userContent = request.systemPrompt
-      ? `${request.systemPrompt}\n\n${request.prompt}`
-      : request.prompt;
-
-    const messages = [{ role: 'user' as const, content: userContent }];
+    const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
     const model = request.model || this.config.defaultModel || 'gpt-4o';
 
     const stream = await chat({
@@ -158,15 +151,7 @@ export class TanStackProvider extends BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<
-    Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>
-  > {
+  protected async fetchModelsFromProvider(): Promise<ProviderModelInfo[]> {
     // TanStack AI doesn't have a models endpoint - return configured models
     const defaultModels = this.getDefaultModelsForType();
     return defaultModels.map((model) => ({

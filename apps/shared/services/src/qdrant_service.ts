@@ -4,6 +4,7 @@ import type {
   CollectionOptions,
   VectorSearchOptions,
 } from '@uaip/types';
+import { config } from '@uaip/config';
 
 export class QdrantService {
   private qdrantUrl: string;
@@ -16,21 +17,7 @@ export class QdrantService {
     collectionName: string = 'knowledge_embeddings',
     embeddingDimensions: number = 1024
   ) {
-    // Use environment variable or detect containerized environment
-    this.qdrantUrl =
-      qdrantUrl ||
-      process.env.QDRANT_URL ||
-      (() => {
-        // Check multiple indicators for containerized environment
-        const isDocker =
-          process.env.DOCKER_ENV === 'true' ||
-          process.env.NODE_ENV === 'production' ||
-          process.env.KUBERNETES_SERVICE_HOST ||
-          process.env.HOSTNAME?.includes('docker') ||
-          (process.platform === 'linux' && process.env.container);
-
-        return isDocker ? 'http://qdrant:6333' : 'http://localhost:6333';
-      })();
+    this.qdrantUrl = qdrantUrl || config.database.qdrant.url;
     this.embeddingDimensions = embeddingDimensions;
     this.collectionNames = this.resolveCollectionNames(collectionName);
   }
@@ -52,6 +39,35 @@ export class QdrantService {
   private getCollectionName(options?: CollectionOptions): string {
     const collectionType = options?.collection || 'semantic';
     return this.collectionNames[collectionType];
+  }
+
+  private async putPoints(workingUrl: string, collectionName: string, points: unknown[]): Promise<void> {
+    const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points }),
+    });
+    if (!response.ok) {
+      throw new Error(`Qdrant upsert failed: ${response.statusText}`);
+    }
+  }
+
+  private mapSearchPoints(data: Record<string, unknown>): VectorSearchResult[] {
+    return (data.result as unknown[]).map((item: unknown) => {
+      const point = item as { id: string; score: number; payload: Record<string, unknown> };
+      return { id: point.id, score: point.score, payload: point.payload };
+    });
+  }
+
+  private async deleteByIds(workingUrl: string, collectionName: string, ids: string[]): Promise<void> {
+    const response = await fetch(`${workingUrl}/collections/${collectionName}/points/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points: ids }),
+    });
+    if (!response.ok) {
+      throw new Error(`Qdrant delete points failed: ${response.statusText}`);
+    }
   }
 
   private async ensureConnection(): Promise<string> {
@@ -128,10 +144,7 @@ export class QdrantService {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return (data.result as unknown[]).map((item: unknown) => {
-        const point = item as { id: string; score: number; payload: Record<string, unknown> };
-        return { id: point.id, score: point.score, payload: point.payload };
-      });
+      return this.mapSearchPoints(data);
     } catch (error) {
       console.error('Qdrant search error:', error);
       throw new Error(
@@ -160,19 +173,7 @@ export class QdrantService {
         },
       }));
 
-      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          points: points,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Qdrant storage failed: ${response.statusText}`);
-      }
+      await this.putPoints(workingUrl, collectionName, points);
     } catch (error) {
       console.error('Qdrant storage error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
@@ -412,44 +413,19 @@ export class QdrantService {
     }>,
     collectionOptions?: CollectionOptions
   ): Promise<void> {
-    try {
-      const workingUrl = await this.ensureConnection();
-      const collectionName = this.getCollectionName(collectionOptions);
-
-      const points = documents.map((doc) => ({
-        id: doc.id,
-        vector: doc.embedding,
-        payload: {
-          content: doc.content,
-          knowledge_item_id: doc.id,
-          ...doc.metadata,
-          created_at: new Date().toISOString(),
-        },
-      }));
-
-      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          points: points,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Qdrant upsert failed: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Qdrant upsert error:', error);
-      const _errMsg = error instanceof Error ? error.message : String(error);
-      throw new Error(`Vector upsert failed: ${_errMsg}`, { cause: error });
-    }
+    const points = documents.map((doc) => ({
+      id: doc.id,
+      vector: doc.embedding,
+      payload: {
+        content: doc.content,
+        knowledge_item_id: doc.id,
+        ...doc.metadata,
+        created_at: new Date().toISOString(),
+      },
+    }));
+    await this.upsertPoints(points, collectionOptions);
   }
 
-  /**
-   * Upsert points with UUID support for knowledge sync
-   */
   async upsertPoints(
     points: Array<{
       id: string;
@@ -461,18 +437,7 @@ export class QdrantService {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
-
-      const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ points }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Qdrant upsert failed: ${response.statusText}`);
-      }
+      await this.putPoints(workingUrl, collectionName, points);
     } catch (error) {
       console.error('Qdrant upsert error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
@@ -525,27 +490,11 @@ export class QdrantService {
     }
   }
 
-  /**
-   * Delete points by IDs
-   */
   async deletePoints(ids: string[], collectionOptions?: CollectionOptions): Promise<void> {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
-
-      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/delete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          points: ids,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Qdrant delete points failed: ${response.statusText}`);
-      }
+      await this.deleteByIds(workingUrl, collectionName, ids);
     } catch (error) {
       console.error('Qdrant delete points error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);

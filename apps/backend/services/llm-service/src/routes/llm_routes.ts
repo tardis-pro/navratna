@@ -5,8 +5,104 @@ import {
   StreamingService,
   UserLLMService,
 } from '@uaip/llm-service';
-import { StreamingLLMRequest } from '@uaip/types';
+import type {
+  AgentResponseRequest,
+  AvailableTool,
+  ChatMessage,
+  ContextDocument,
+  ContextMessage,
+  StreamingLLMRequest,
+} from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
+
+type UserProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
+type LLMArtifactType = 'code' | 'documentation' | 'test' | 'prd';
+
+const _artifactTypes: readonly LLMArtifactType[] = ['code', 'documentation', 'test', 'prd'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isChatMessageArray(value: unknown): value is ChatMessage[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (message) =>
+        isRecord(message) &&
+        typeof message.id === 'string' &&
+        typeof message.content === 'string' &&
+        typeof message.sender === 'string' &&
+        typeof message.timestamp === 'string' &&
+        ['user', 'assistant', 'system', 'tool'].includes(String(message.type))
+    )
+  );
+}
+
+function isAvailableToolArray(value: unknown): value is AvailableTool[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (tool) =>
+        isRecord(tool) &&
+        typeof tool.name === 'string' &&
+        typeof tool.description === 'string' &&
+        isRecord(tool.parameters)
+    )
+  );
+}
+
+function isContextDocument(value: unknown): value is ContextDocument {
+  return (
+    isRecord(value) &&
+    (value.title === undefined || typeof value.title === 'string') &&
+    (value.content === undefined || typeof value.content === 'string') &&
+    (value.language === undefined || typeof value.language === 'string')
+  );
+}
+
+function isContextMessageArray(value: unknown): value is ContextMessage[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (message) =>
+        isRecord(message) &&
+        typeof message.sender === 'string' &&
+        typeof message.content === 'string'
+    )
+  );
+}
+
+function isAgentResponseRequest(value: unknown): value is AgentResponseRequest {
+  return (
+    isRecord(value) &&
+    isRecord(value.agent) &&
+    typeof value.agent.id === 'string' &&
+    typeof value.agent.name === 'string' &&
+    typeof value.agent.role === 'string' &&
+    isChatMessageArray(value.messages) &&
+    (value.context === undefined || isContextDocument(value.context)) &&
+    (value.tools === undefined || isAvailableToolArray(value.tools))
+  );
+}
+
+function isArtifactType(value: unknown): value is LLMArtifactType {
+  return value === 'code' || value === 'documentation' || value === 'test' || value === 'prd';
+}
+
+function toUserProviderType(value: unknown): UserProviderType | undefined {
+  switch (value) {
+    case 'ollama':
+    case 'llmstudio':
+    case 'openai':
+    case 'anthropic':
+    case 'google':
+    case 'custom':
+      return value;
+    default:
+      return undefined;
+  }
+}
 
 export function registerLLMRoutes(
   app: AnyElysia,
@@ -83,18 +179,11 @@ export function registerLLMRoutes(
 
         // Generate agent response
         .post('/agent-response', async ({ body }: { body: Record<string, unknown> }) => {
-          const { agent, messages, context, tools } = body;
-
-          if (!agent || !messages) {
-            throw new ValidationError('Agent and messages are required');
+          if (!isAgentResponseRequest(body)) {
+            throw new ValidationError('Agent response request is invalid');
           }
 
-          const response = await llmService.generateAgentResponse({
-            agent,
-            messages,
-            context,
-            tools,
-          });
+          const response = await llmService.generateAgentResponse(body);
 
           return {
             success: true,
@@ -104,17 +193,17 @@ export function registerLLMRoutes(
 
         // Generate artifact
         .post('/artifact', async ({ body }: { body: Record<string, unknown> }) => {
-          const { type, prompt, language, requirements } = body;
-
-          if (!type || !prompt) {
+          if (!isArtifactType(body.type) || typeof body.prompt !== 'string') {
             throw new ValidationError('Type and prompt are required');
           }
 
           const response = await llmService.generateArtifact({
-            type: type as string,
-            context: prompt as string,
-            language: language as string | undefined,
-            requirements: requirements as string[] | undefined,
+            type: body.type,
+            context: body.prompt,
+            language: typeof body.language === 'string' ? body.language : undefined,
+            requirements: Array.isArray(body.requirements)
+              ? body.requirements.filter((value): value is string => typeof value === 'string')
+              : [],
             constraints: [],
           });
 
@@ -126,17 +215,17 @@ export function registerLLMRoutes(
 
         // Analyze context
         .post('/analyze-context', async ({ body }: { body: Record<string, unknown> }) => {
-          const { conversationHistory, currentContext, userRequest, agentCapabilities } = body;
-
-          if (!conversationHistory) {
+          if (!isContextMessageArray(body.conversationHistory)) {
             throw new ValidationError('Conversation history is required');
           }
 
           const response = await llmService.analyzeContext({
-            conversationHistory,
-            currentContext,
-            userRequest,
-            agentCapabilities,
+            conversationHistory: body.conversationHistory,
+            currentContext: isContextDocument(body.currentContext) ? body.currentContext : undefined,
+            userRequest: typeof body.userRequest === 'string' ? body.userRequest : undefined,
+            agentCapabilities: Array.isArray(body.agentCapabilities)
+              ? body.agentCapabilities.filter((value): value is string => typeof value === 'string')
+              : undefined,
           });
 
           return {
@@ -304,6 +393,7 @@ export function registerLLMRoutes(
               providerType,
             } = body;
             const userId = store.user?.id;
+            const preferredProviderType = toUserProviderType(providerType);
 
             if (!userId) {
               throw new ValidationError('User not authenticated');
@@ -322,8 +412,8 @@ export function registerLLMRoutes(
                 userId,
                 agentId as string,
                 {
-                  model,
-                  provider: providerType,
+                  model: typeof model === 'string' ? model : undefined,
+                  provider: preferredProviderType,
                 }
               );
 
@@ -336,7 +426,7 @@ export function registerLLMRoutes(
             if (!userProvider) {
               userProvider = await userLLMService.getBestProviderForUser(
                 userId,
-                providerType as string | undefined
+                preferredProviderType
               );
             }
 

@@ -3,7 +3,6 @@ import {
   ReactFlow,
   Controls,
   Background,
-  MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -14,8 +13,6 @@ import {
   type Node,
   type Edge,
   type Connection,
-  type NodeChange,
-  type EdgeChange,
 } from '@xyflow/react';
 import Dagre from '@dagrejs/dagre';
 import { Card } from '@/components/ui/card';

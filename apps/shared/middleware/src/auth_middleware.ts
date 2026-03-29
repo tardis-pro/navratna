@@ -26,6 +26,21 @@ const getValidatedUserContext = (context: ContextWithOptionalUser): UserContext 
   return context.user;
 };
 
+function getAuthenticatedUser(
+  context: ContextWithOptionalUser
+): UserContext | { error: string; code: string } {
+  const user = getValidatedUserContext(context);
+  if (!user) {
+    (context as unknown as { set: { status: number } }).set.status = 401;
+    return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
+  }
+  return user;
+}
+
+function isAuthError(v: UserContext | { error: string; code: string }): v is { error: string; code: string } {
+  return 'code' in v && !('id' in v);
+}
+
 const createUserContext = (result: {
   userId?: string;
   email?: string;
@@ -74,32 +89,24 @@ export function attachAuth<T extends Elysia>(app: T) {
   });
 }
 
-// Elysia guard to require authentication
 export function requireAuth<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const user = getValidatedUserContext(context);
-      if (!user) {
-        context.set.status = 401;
-        return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
-      }
+      const result = getAuthenticatedUser(context);
+      if (isAuthError(result)) return result;
     },
   });
 }
 
-// Elysia guard to require admin role
 export function requireAdmin<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const user = getValidatedUserContext(context);
-      if (!user) {
-        context.set.status = 401;
-        return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
-      }
-      if (user.role !== 'admin') {
+      const result = getAuthenticatedUser(context);
+      if (isAuthError(result)) return result;
+      if (result.role !== 'admin') {
         logger.warn('Non-admin user attempted admin access', {
-          userId: user.id,
-          role: user.role,
+          userId: result.id,
+          role: result.role,
         });
         context.set.status = 403;
         return { error: 'Admin access required', code: 'ADMIN_REQUIRED' };
@@ -108,23 +115,19 @@ export function requireAdmin<T extends Elysia>(app: T) {
   });
 }
 
-// Elysia guard to require operator+ level access
 export function requireOperator<T extends Elysia>(app: T) {
   return app.guard({
     beforeHandle(context) {
-      const user = getValidatedUserContext(context);
-      if (!user) {
-        context.set.status = 401;
-        return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
-      }
+      const result = getAuthenticatedUser(context);
+      if (isAuthError(result)) return result;
 
-      const role = (user.role || '').toLowerCase();
+      const role = (result.role || '').toLowerCase();
       const allowedRoles = ['admin', 'operator', 'security_admin', 'security-admin'];
 
       if (!allowedRoles.includes(role)) {
         logger.warn('Insufficient privileges for operator access', {
-          userId: user.id,
-          role: user.role,
+          userId: result.id,
+          role: result.role,
           requiredRoles: allowedRoles,
         });
         context.set.status = 403;

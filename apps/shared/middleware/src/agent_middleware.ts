@@ -9,7 +9,21 @@ export type { AgentContext, AgentExecution };
 // Agent validation schemas
 const agentIdSchema = z.string().uuid();
 
-// Elysia plugin to load agent context
+function withAgentGuard(
+  ctx: unknown,
+  callback: (agentContext: AgentContext, set: { status: number }) => unknown
+): unknown {
+  const { agentContext, set } = ctx as unknown as {
+    agentContext: AgentContext | null;
+    set: { status: number };
+  };
+  if (!agentContext) {
+    set.status = 401;
+    return { error: 'Agent context required' };
+  }
+  return callback(agentContext, set);
+}
+
 export function loadAgentContext(app: Elysia): Elysia {
   return app.derive(({ params, ...ctx }) => {
     const user = (ctx as unknown as { user?: { id: string } }).user;
@@ -50,83 +64,56 @@ export function loadAgentContext(app: Elysia): Elysia {
   });
 }
 
-// Elysia guard to require agent context
 export function requireAgentContext(app: Elysia): Elysia {
   return app.guard({
     beforeHandle(ctx) {
-      const { agentContext, set } = ctx as unknown as {
-        agentContext: AgentContext | null;
-        set: { status: number };
-      };
-      if (!agentContext) {
-        set.status = 401;
-        return { error: 'Agent context required' };
-      }
+      return withAgentGuard(ctx, () => undefined);
     },
   });
 }
 
-// Elysia guard to require agent permission
 export function requireAgentPermission(requiredPermission: string) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as {
-          agentContext: AgentContext | null;
-          set: { status: number };
-        };
-        if (!agentContext) {
-          set.status = 401;
-          return { error: 'Agent context required' };
-        }
-
-        const hasPermission = agentContext.permissions.includes(requiredPermission);
-
-        if (!hasPermission) {
-          logger.warn(`Agent ${agentContext.agentId} lacks permission: ${requiredPermission}`);
-          set.status = 403;
-          return {
-            error: 'Insufficient permissions',
-            required: requiredPermission,
-            available: agentContext.permissions,
-          };
-        }
+        return withAgentGuard(ctx, (agentContext, set) => {
+          if (!agentContext.permissions.includes(requiredPermission)) {
+            logger.warn(`Agent ${agentContext.agentId} lacks permission: ${requiredPermission}`);
+            set.status = 403;
+            return {
+              error: 'Insufficient permissions',
+              required: requiredPermission,
+              available: agentContext.permissions,
+            };
+          }
+        });
       },
     });
   };
 }
 
-// Elysia guard to require minimum security level
 export function requireSecurityLevel(minLevel: SecurityLevel) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as {
-          agentContext: AgentContext | null;
-          set: { status: number };
-        };
-        if (!agentContext) {
-          set.status = 401;
-          return { error: 'Agent context required' };
-        }
-
-        if (agentContext.securityLevel < minLevel) {
-          logger.warn(
-            `Agent ${agentContext.agentId} security level ${agentContext.securityLevel} insufficient for required ${minLevel}`
-          );
-          set.status = 403;
-          return {
-            error: 'Insufficient security level',
-            required: minLevel,
-            current: agentContext.securityLevel,
-          };
-        }
+        return withAgentGuard(ctx, (agentContext, set) => {
+          if (agentContext.securityLevel < minLevel) {
+            logger.warn(
+              `Agent ${agentContext.agentId} security level ${agentContext.securityLevel} insufficient for required ${minLevel}`
+            );
+            set.status = 403;
+            return {
+              error: 'Insufficient security level',
+              required: minLevel,
+              current: agentContext.securityLevel,
+            };
+          }
+        });
       },
     });
   };
 }
 
-// Elysia plugin to track agent operations
 export function trackAgentOperation(operationName: string) {
   return (app: Elysia) => {
     return app
@@ -172,108 +159,80 @@ export function trackAgentOperation(operationName: string) {
   };
 }
 
-// In-memory rate limiter for agent operations
 const agentRequestCounts = new Map<string, { count: number; resetTime: number }>();
 
-// Elysia guard for agent rate limiting
 export function agentRateLimit(maxRequests = 100, windowMs = 60000) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, user, set } = ctx as unknown as {
-          agentContext: AgentContext | null;
-          user?: { id: string };
-          set: { status: number };
-        };
-        if (!agentContext) {
-          set.status = 401;
-          return { error: 'Agent context required' };
-        }
+        return withAgentGuard(ctx, (agentContext, set) => {
+          const { user } = ctx as unknown as { user?: { id: string } };
+          const key = `${agentContext.agentId}:${user?.id || 'anonymous'}`;
+          const now = Date.now();
+          const windowStart = now - windowMs;
 
-        const key = `${agentContext.agentId}:${user?.id || 'anonymous'}`;
-        const now = Date.now();
-        const windowStart = now - windowMs;
+          let requestData = agentRequestCounts.get(key);
 
-        let requestData = agentRequestCounts.get(key);
+          if (!requestData || requestData.resetTime < windowStart) {
+            requestData = { count: 0, resetTime: now + windowMs };
+            agentRequestCounts.set(key, requestData);
+          }
 
-        if (!requestData || requestData.resetTime < windowStart) {
-          requestData = { count: 0, resetTime: now + windowMs };
-          agentRequestCounts.set(key, requestData);
-        }
+          requestData.count++;
 
-        requestData.count++;
-
-        if (requestData.count > maxRequests) {
-          logger.warn(`Rate limit exceeded for agent ${agentContext.agentId}`);
-          set.status = 429;
-          return {
-            error: 'Rate limit exceeded',
-            retryAfter: Math.ceil((requestData.resetTime - now) / 1000),
-          };
-        }
+          if (requestData.count > maxRequests) {
+            logger.warn(`Rate limit exceeded for agent ${agentContext.agentId}`);
+            set.status = 429;
+            return {
+              error: 'Rate limit exceeded',
+              retryAfter: Math.ceil((requestData.resetTime - now) / 1000),
+            };
+          }
+        });
       },
     });
   };
 }
 
-// Elysia guard to require specific agent statuses
 export function requireAgentStatus(...allowedStatuses: AgentStatus[]) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as {
-          agentContext: AgentContext | null;
-          set: { status: number };
-        };
-        if (!agentContext) {
-          set.status = 401;
-          return { error: 'Agent context required' };
-        }
-
-        if (!allowedStatuses.includes(agentContext.status)) {
-          logger.warn(`Agent ${agentContext.agentId} has invalid status: ${agentContext.status}`);
-          set.status = 403;
-          return {
-            error: 'Agent status not allowed',
-            required: allowedStatuses,
-            current: agentContext.status,
-          };
-        }
+        return withAgentGuard(ctx, (agentContext, set) => {
+          if (!allowedStatuses.includes(agentContext.status)) {
+            logger.warn(`Agent ${agentContext.agentId} has invalid status: ${agentContext.status}`);
+            set.status = 403;
+            return {
+              error: 'Agent status not allowed',
+              required: allowedStatuses,
+              current: agentContext.status,
+            };
+          }
+        });
       },
     });
   };
 }
 
-// Elysia guard to require agent capability
 export function requireAgentCapability(requiredCapability: string) {
   return (app: Elysia) => {
     return app.guard({
       beforeHandle(ctx) {
-        const { agentContext, set } = ctx as unknown as {
-          agentContext: AgentContext | null;
-          set: { status: number };
-        };
-        if (!agentContext) {
-          set.status = 401;
-          return { error: 'Agent context required' };
-        }
-
-        const hasCapability = agentContext.permissions.includes(`capability:${requiredCapability}`);
-
-        if (!hasCapability) {
-          logger.warn(`Agent ${agentContext.agentId} lacks capability: ${requiredCapability}`);
-          set.status = 403;
-          return {
-            error: 'Required capability not available',
-            required: requiredCapability,
-          };
-        }
+        return withAgentGuard(ctx, (agentContext, set) => {
+          if (!agentContext.permissions.includes(`capability:${requiredCapability}`)) {
+            logger.warn(`Agent ${agentContext.agentId} lacks capability: ${requiredCapability}`);
+            set.status = 403;
+            return {
+              error: 'Required capability not available',
+              required: requiredCapability,
+            };
+          }
+        });
       },
     });
   };
 }
 
-// Generic agent operation executor plugin
 export function executeAgentOperation(
   operationHandler: (context: AgentContext, params: Record<string, unknown>) => Promise<unknown>
 ) {
@@ -322,7 +281,6 @@ export function executeAgentOperation(
   };
 }
 
-// Tool execution plugin for agents
 export function executeAgentTool(toolName: string) {
   return (app: Elysia) => {
     return app.derive((ctx) => {
@@ -342,7 +300,6 @@ export function executeAgentTool(toolName: string) {
   };
 }
 
-// Composite middleware chain builder
 export function agentOperationChain(config: {
   requiredPermission?: string;
   requiredCapability?: string;

@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema, SearchPaginationSchema } from './common.js';
+
+const ParameterBaseSchema = z.object({
+  name: z.string(),
+  type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
+  required: z.boolean().default(false),
+  description: z.string().optional(),
+});
 
 // Capability types
 export enum CapabilityType {
@@ -24,13 +31,7 @@ export const ToolCapabilitySchema = z.object({
     config: z.record(z.any()).optional(),
   }),
   parameters: z.array(
-    z.object({
-      name: z.string(),
-      type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
-      required: z.boolean().default(false),
-      description: z.string().optional(),
-      validation: z.record(z.any()).optional(),
-    })
+    ParameterBaseSchema.extend({ validation: z.record(z.any()).optional() })
   ),
   responseSchema: z.record(z.any()).optional(),
   timeout: z.number().min(0).default(30000),
@@ -50,13 +51,7 @@ export const ArtifactTemplateSchema = z.object({
   template: z.string(),
   outputFormat: z.enum(['text', 'json', 'yaml', 'xml', 'html', 'markdown', 'code']),
   variables: z.array(
-    z.object({
-      name: z.string(),
-      type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
-      required: z.boolean().default(false),
-      description: z.string().optional(),
-      defaultValue: z.any().optional(),
-    })
+    ParameterBaseSchema.extend({ defaultValue: z.any().optional() })
   ),
   validationRules: z
     .array(
@@ -143,10 +138,7 @@ export const CapabilitySearchRequestSchema = z.object({
   sortBy: z
     .enum(['relevance', 'name', 'usage_count', 'trust_score', 'created_at'])
     .default('relevance'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
-  limit: z.number().min(1).max(100).default(20),
-  offset: z.number().min(0).default(0),
-});
+}).merge(SearchPaginationSchema);
 
 export type CapabilitySearchRequest = z.infer<typeof CapabilitySearchRequestSchema>;
 

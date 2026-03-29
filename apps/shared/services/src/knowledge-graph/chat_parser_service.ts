@@ -155,7 +155,12 @@ export class ChatParserService {
     return conversations;
   }
 
-  private parseClaudeText(content: string, filename: string): ParsedConversation[] {
+  private parseTextFormat(
+    content: string,
+    filename: string,
+    format: string,
+    detectSender: (line: string) => { sender: string; lineContent: string } | null
+  ): ParsedConversation[] {
     const lines = content.split('\n');
     const messages: ParsedMessage[] = [];
     let currentSender = '';
@@ -164,30 +169,35 @@ export class ChatParserService {
 
     for (const line of lines) {
       const trimmedLine = line.trim();
-
-      if (trimmedLine.startsWith('Human:') || trimmedLine.startsWith('User:')) {
+      const detected = detectSender(trimmedLine);
+      if (detected) {
         if (currentContent && currentSender) {
           messages.push(this.createMessage(currentSender, currentContent, messageCounter++));
         }
-        currentSender = 'Human';
-        currentContent = trimmedLine.replace(/^(Human:|User:)\s*/, '');
-      } else if (trimmedLine.startsWith('Assistant:') || trimmedLine.startsWith('Claude:')) {
-        if (currentContent && currentSender) {
-          messages.push(this.createMessage(currentSender, currentContent, messageCounter++));
-        }
-        currentSender = 'Assistant';
-        currentContent = trimmedLine.replace(/^(Assistant:|Claude:)\s*/, '');
+        currentSender = detected.sender;
+        currentContent = detected.lineContent;
       } else if (trimmedLine && currentSender) {
         currentContent += '\n' + trimmedLine;
       }
     }
 
-    // Add final message
     if (currentContent && currentSender) {
       messages.push(this.createMessage(currentSender, currentContent, messageCounter));
     }
 
-    return this.createConversationFromMessages(messages, 'claude', filename);
+    return this.createConversationFromMessages(messages, format, filename);
+  }
+
+  private parseClaudeText(content: string, filename: string): ParsedConversation[] {
+    return this.parseTextFormat(content, filename, 'claude', (line) => {
+      if (line.startsWith('Human:') || line.startsWith('User:')) {
+        return { sender: 'Human', lineContent: line.replace(/^(Human:|User:)\s*/, '') };
+      }
+      if (line.startsWith('Assistant:') || line.startsWith('Claude:')) {
+        return { sender: 'Assistant', lineContent: line.replace(/^(Assistant:|Claude:)\s*/, '') };
+      }
+      return null;
+    });
   }
 
   private async parseGPTExport(content: string, filename: string): Promise<ParsedConversation[]> {
@@ -221,38 +231,15 @@ export class ChatParserService {
   }
 
   private parseGPTText(content: string, filename: string): ParsedConversation[] {
-    const lines = content.split('\n');
-    const messages: ParsedMessage[] = [];
-    let currentSender = '';
-    let currentContent = '';
-    let messageCounter = 0;
-
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-
-      if (trimmedLine.startsWith('You:') || trimmedLine.startsWith('User:')) {
-        if (currentContent && currentSender) {
-          messages.push(this.createMessage(currentSender, currentContent, messageCounter++));
-        }
-        currentSender = 'User';
-        currentContent = trimmedLine.replace(/^(You:|User:)\s*/, '');
-      } else if (trimmedLine.startsWith('ChatGPT:') || trimmedLine.startsWith('Assistant:')) {
-        if (currentContent && currentSender) {
-          messages.push(this.createMessage(currentSender, currentContent, messageCounter++));
-        }
-        currentSender = 'Assistant';
-        currentContent = trimmedLine.replace(/^(ChatGPT:|Assistant:)\s*/, '');
-      } else if (trimmedLine && currentSender) {
-        currentContent += '\n' + trimmedLine;
+    return this.parseTextFormat(content, filename, 'gpt', (line) => {
+      if (line.startsWith('You:') || line.startsWith('User:')) {
+        return { sender: 'User', lineContent: line.replace(/^(You:|User:)\s*/, '') };
       }
-    }
-
-    // Add final message
-    if (currentContent && currentSender) {
-      messages.push(this.createMessage(currentSender, currentContent, messageCounter));
-    }
-
-    return this.createConversationFromMessages(messages, 'gpt', filename);
+      if (line.startsWith('ChatGPT:') || line.startsWith('Assistant:')) {
+        return { sender: 'Assistant', lineContent: line.replace(/^(ChatGPT:|Assistant:)\s*/, '') };
+      }
+      return null;
+    });
   }
 
   private async parseWhatsAppExport(
@@ -326,10 +313,11 @@ export class ChatParserService {
     return this.createConversationFromMessages(messages, 'generic', filename);
   }
 
-  private convertClaudeConversation(
+  private convertImportedConversation(
     data: ImportedConversation,
     filename: string,
-    _index: number
+    format: string,
+    mapRole: (role: string) => string
   ): ParsedConversation {
     const messages: ParsedMessage[] = [];
     const conversationId = uuidv4();
@@ -339,7 +327,7 @@ export class ChatParserService {
         messages.push({
           id: uuidv4(),
           timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
-          sender: msg.role === 'human' ? 'Human' : 'Assistant',
+          sender: mapRole(msg.role || ''),
           content: msg.content || msg.message || '',
           type: 'text',
           metadata: { messageIndex: msgIndex, originalRole: msg.role },
@@ -347,49 +335,22 @@ export class ChatParserService {
       });
     }
 
-    const conversations = this.createConversationFromMessages(
-      messages,
-      'claude',
-      filename,
-      conversationId,
-      data.title
-    );
+    const conversations = this.createConversationFromMessages(messages, format, filename, conversationId, data.title);
     return conversations.length > 0
       ? conversations[0]
-      : this.createEmptyConversation('claude', filename, conversationId);
+      : this.createEmptyConversation(format, filename, conversationId);
   }
 
-  private convertGPTConversation(
-    data: ImportedConversation,
-    filename: string,
-    _index: number
-  ): ParsedConversation {
-    const messages: ParsedMessage[] = [];
-    const conversationId = uuidv4();
-
-    if (data.messages && Array.isArray(data.messages)) {
-      data.messages.forEach((msg: ImportedMessage, msgIndex: number) => {
-        messages.push({
-          id: uuidv4(),
-          timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
-          sender: msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'Assistant' : 'System',
-          content: msg.content || msg.message || '',
-          type: 'text',
-          metadata: { messageIndex: msgIndex, originalRole: msg.role },
-        });
-      });
-    }
-
-    const conversations = this.createConversationFromMessages(
-      messages,
-      'gpt',
-      filename,
-      conversationId,
-      data.title
+  private convertClaudeConversation(data: ImportedConversation, filename: string, _index: number): ParsedConversation {
+    return this.convertImportedConversation(data, filename, 'claude', (role) =>
+      role === 'human' ? 'Human' : 'Assistant'
     );
-    return conversations.length > 0
-      ? conversations[0]
-      : this.createEmptyConversation('gpt', filename, conversationId);
+  }
+
+  private convertGPTConversation(data: ImportedConversation, filename: string, _index: number): ParsedConversation {
+    return this.convertImportedConversation(data, filename, 'gpt', (role) =>
+      role === 'user' ? 'User' : role === 'assistant' ? 'Assistant' : 'System'
+    );
   }
 
   private createMessage(sender: string, content: string, index: number): ParsedMessage {

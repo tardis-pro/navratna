@@ -9,6 +9,7 @@ import {
   Artifact as GeneratedArtifact,
   ArtifactMetadata,
   ArtifactType,
+  EventBusMessage,
 } from '@uaip/types';
 import { CodeGenerator } from './generators/code_generator.js';
 import { TestGenerator } from './generators/test_generator.js';
@@ -40,6 +41,15 @@ export interface LLMGenerationResponse {
     details?: Record<string, unknown>;
   };
   metadata?: Record<string, unknown>;
+}
+
+function isLLMGenerationResponse(value: unknown): value is LLMGenerationResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'success' in value &&
+    typeof value.success === 'boolean'
+  );
 }
 
 export class ArtifactService implements IArtifactService {
@@ -93,13 +103,21 @@ export class ArtifactService implements IArtifactService {
     }
   }
 
-  private async handleLLMGenerationResponse(eventMessage: {
-    data?: LLMGenerationResponse;
-    metadata?: { requestId?: string };
-  }): Promise<void> {
+  private async handleLLMGenerationResponse(eventMessage: EventBusMessage): Promise<void> {
     try {
-      const response: LLMGenerationResponse = eventMessage.data as LLMGenerationResponse;
-      const requestId = eventMessage.metadata?.requestId;
+      if (!isLLMGenerationResponse(eventMessage.data)) {
+        logger.warn('Received malformed LLM generation response', {
+          type: eventMessage.type,
+          data: eventMessage.data,
+        });
+        return;
+      }
+
+      const response = eventMessage.data;
+      const requestId =
+        typeof eventMessage.metadata?.requestId === 'string'
+          ? eventMessage.metadata.requestId
+          : eventMessage.correlationId;
 
       if (!requestId) {
         logger.warn('Received LLM response without requestId', { response });

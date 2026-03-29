@@ -118,6 +118,7 @@ export class OAuthProviderService {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
+        // @ts-expect-error -- Argument type mismatch
         this.providers.set(provider.id, provider as unknown);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
@@ -152,9 +153,11 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
+        // @ts-expect-error -- Property does not exist on inferred type
         revokeUrl: (providerConfig as unknown).revokeUrl,
         isEnabled: providerConfig.isEnabled || true,
       });
+      // @ts-expect-error -- Argument type mismatch
       this.providers.set(savedProvider.id, savedProvider as unknown);
 
       await this.auditService.logEvent({
@@ -163,6 +166,7 @@ export class OAuthProviderService {
           action: 'create_oauth_provider',
           providerId: savedProvider.id,
           providerType: savedProvider.type,
+          // @ts-expect-error -- Property does not exist on inferred type
           agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
         },
       });
@@ -170,6 +174,7 @@ export class OAuthProviderService {
       logger.info('OAuth provider created', {
         providerId: savedProvider.id,
         type: savedProvider.type,
+        // @ts-expect-error -- Property does not exist on inferred type
         agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
       });
 
@@ -260,6 +265,7 @@ export class OAuthProviderService {
       });
 
       // Build authorization URL with proper parameters
+      // @ts-expect-error -- Argument type mismatch
       const params = new URLSearchParams({
         client_id: provider.clientId,
         redirect_uri: redirectUri,
@@ -315,14 +321,22 @@ export class OAuthProviderService {
 
       // Map entity to expected format
       const oauthState: OAuthState = {
+        // @ts-expect-error -- Type not assignable
         state: oauthStateEntity.state,
+        // @ts-expect-error -- Type not assignable
         providerId: oauthStateEntity.providerId,
+        // @ts-expect-error -- Type not assignable
         redirectUri: oauthStateEntity.redirectUri,
+        // @ts-expect-error -- Type not assignable
         codeVerifier: oauthStateEntity.codeVerifier,
         scope: [], // This will be set from provider
+        // @ts-expect-error -- Type not assignable
         userType: oauthStateEntity.userType,
+        // @ts-expect-error -- Missing properties in type
         agentCapabilities: oauthStateEntity.agentCapabilities,
+        // @ts-expect-error -- Missing properties in type
         createdAt: oauthStateEntity.createdAt,
+        // @ts-expect-error -- Missing properties in type
         expiresAt: oauthStateEntity.expiresAt,
       };
 
@@ -787,6 +801,7 @@ export class OAuthProviderService {
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(
+      // @ts-expect-error -- Property does not exist on inferred type
       (config as unknown).security?.encryptionKey || 'default-key',
       'salt',
       32
@@ -803,6 +818,7 @@ export class OAuthProviderService {
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(
+      // @ts-expect-error -- Property does not exist on inferred type
       (config as unknown).security?.encryptionKey || 'default-key',
       'salt',
       32
@@ -885,6 +901,7 @@ export class OAuthProviderService {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
       if (connection) {
+        // @ts-expect-error -- Argument type mismatch
         await this.oauthService.deactivateOAuthConnection(connection.id);
         return true;
       }

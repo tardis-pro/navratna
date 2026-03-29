@@ -25,6 +25,33 @@ export class CritiqueService {
     this.config = DEFAULT_CRITIQUE_CONFIG;
   }
 
+  private requestLLMResponse(
+    topic: string,
+    prompt: string,
+    options: { eventTopic: string; systemPrompt?: string; maxTokens?: number; temperature?: number; timeoutMs?: number; extraPayload?: Record<string, unknown> }
+  ): Promise<string> {
+    const requestId = uuidv4();
+    return new Promise<string>((resolve, reject) => {
+      const timeoutMs = options.timeoutMs ?? 30000;
+      const timeout = setTimeout(() => reject(new Error(`${topic} request timeout`)), timeoutMs);
+      this.eventBus.subscribe(
+        `llm.response.${requestId}`,
+        async (event: { data?: { content?: string } }) => {
+          clearTimeout(timeout);
+          resolve(event.data?.content || '');
+        }
+      );
+      this.eventBus.publish(options.eventTopic, {
+        requestId,
+        prompt,
+        ...(options.systemPrompt && { systemPrompt: options.systemPrompt }),
+        ...(options.maxTokens && { maxTokens: options.maxTokens }),
+        ...(options.temperature !== undefined && { temperature: options.temperature }),
+        ...options.extraPayload,
+      });
+    });
+  }
+
   static getInstance(): CritiqueService {
     if (!CritiqueService.instance) {
       CritiqueService.instance = new CritiqueService();
@@ -56,33 +83,14 @@ ${response}
 
 Evaluate this response using the criteria specified.`;
 
-    // Request LLM critique via event bus
-    const requestId = uuidv4();
-
-    const critiqueResponse = await new Promise<string>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Critique request timeout'));
-      }, 30000);
-
-      this.eventBus.subscribe(
-        `llm.response.${requestId}`,
-        async (event: { data?: { content?: string } }) => {
-          clearTimeout(timeout);
-          resolve(event.data?.content || '');
-        }
-      );
-
-      this.eventBus.publish('llm.global.request', {
-        requestId,
-        prompt: critiquePrompt,
-        systemPrompt: CRITIQUE_SYSTEM_PROMPT,
-        maxTokens: 1000,
-        temperature: 0.3, // Lower temperature for more consistent evaluation
-      });
+    const critiqueResponse = await this.requestLLMResponse('Critique', critiquePrompt, {
+      eventTopic: 'llm.global.request',
+      systemPrompt: CRITIQUE_SYSTEM_PROMPT,
+      maxTokens: 1000,
+      temperature: 0.3,
     });
 
-    // Parse critique response
-    const result = this.parseCritiqueResponse(critiqueResponse, response, requestId);
+    const result = this.parseCritiqueResponse(critiqueResponse, response, uuidv4());
 
     // Emit critique event
     await this.eventBus.publish('agent.critique.completed', {
@@ -248,29 +256,13 @@ Please provide an improved response that addresses these issues while maintainin
   /**
    * Request improved response via event bus
    */
-  private async requestImprovedResponse(prompt: string, userId: string): Promise<string> {
-    const requestId = uuidv4();
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Improvement request timeout'));
-      }, 60000);
-
-      this.eventBus.subscribe(
-        `llm.response.${requestId}`,
-        async (event: { data?: { content?: string } }) => {
-          clearTimeout(timeout);
-          resolve(event.data?.content || '');
-        }
-      );
-
-      this.eventBus.publish('llm.user.request', {
-        requestId,
-        userId,
-        prompt,
-        maxTokens: 2000,
-        temperature: 0.7,
-      });
+  private requestImprovedResponse(prompt: string, userId: string): Promise<string> {
+    return this.requestLLMResponse('Improvement', prompt, {
+      eventTopic: 'llm.user.request',
+      maxTokens: 2000,
+      temperature: 0.7,
+      timeoutMs: 60000,
+      extraPayload: { userId },
     });
   }
 }

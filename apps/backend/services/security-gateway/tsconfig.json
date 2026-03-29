@@ -4,7 +4,6 @@
     "outDir": "dist", // relative to package root
     "rootDir": "src",
     "noImplicitAny": false,
-    "noCheck": true,
     "composite": true,
     "declaration": true,
     "declarationMap": true,
@@ -28,8 +27,8 @@
       "@uaip/shared-services/*": ["../../../shared/services/src/*"],
       "@uaip/middleware": ["../../../shared/middleware/src"],
       "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
-      "@uaip/llm-service": ["../../../shared/llm-service"],
-      "@uaip/llm-service/*": ["../../../shared/llm-service/*"],
+      "@uaip/llm-service": ["../../../shared/llm-service/src"],
+      "@uaip/llm-service/*": ["../../../shared/llm-service/src/*"],
       "@uaip/infra": ["../../../shared/infra/src"],
       "@uaip/infra/*": ["../../../shared/infra/src/*"]
     }
@@ -57,6 +56,6 @@
       "path": "../../../shared/config"
     }
   ],
-  "include": ["src/**/*", "src/__tests__/types/**/*"],
-  "exclude": ["src/__tests__/**/*", "!src/__tests__/types/**/*", "src/routes/**/*", "src/**/*.js"]
+  "include": ["src/**/*"],
+  "exclude": ["src/__tests__/**/*", "src/**/*.test.ts", "src/routes/**/*", "src/**/*.js"]
 }

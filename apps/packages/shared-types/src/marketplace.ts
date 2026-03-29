@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema, SearchPaginationSchema } from './common.js';
 
 // Marketplace item types
 export enum MarketplaceItemType {
@@ -211,10 +211,7 @@ export const MarketplaceSearchFiltersSchema = z.object({
   sortBy: z
     .enum(['name', 'downloads', 'rating', 'created', 'updated', 'trending'])
     .default('trending'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
-  limit: z.number().min(1).max(100).default(20),
-  offset: z.number().min(0).default(0),
-});
+}).merge(SearchPaginationSchema);
 
 export type MarketplaceSearchFilters = z.infer<typeof MarketplaceSearchFiltersSchema>;
 

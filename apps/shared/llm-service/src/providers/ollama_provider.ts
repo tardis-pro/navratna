@@ -1,18 +1,7 @@
 import { BaseProvider } from './base_provider.js';
-import { LLMRequest, LLMResponse } from '../interfaces';
+import { LLMRequest, LLMResponse, ProviderModelInfo } from '../interfaces';
 
 export class OllamaProvider extends BaseProvider {
-  private static isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-  }
-
-  private static toString(value: unknown): string | null {
-    return typeof value === 'string' ? value : null;
-  }
-
-  private static toNumber(value: unknown): number | null {
-    return typeof value === 'number' ? value : null;
-  }
 
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
@@ -59,15 +48,7 @@ export class OllamaProvider extends BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<
-    Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>
-  > {
+  protected async fetchModelsFromProvider(): Promise<ProviderModelInfo[]> {
     try {
       const url = `${this.config.baseUrl}/api/tags`;
       const data = await this.makeGetRequest(url);

@@ -96,17 +96,19 @@ export interface ModelSelectionRequest {
   complexity?: 'low' | 'medium' | 'high';
 }
 
+export interface LLMSettings {
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  systemPrompt?: string;
+  customSettings?: Record<string, unknown>;
+}
+
 export interface ModelSelectionResult {
   provider: LLMProviderType;
   model: string;
   fallbackModel?: string;
-  settings: {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemPrompt?: string;
-    customSettings?: Record<string, unknown>;
-  };
+  settings: LLMSettings;
   source: 'agent' | 'user' | 'system';
   reasoning: string;
   confidence: number;
@@ -141,13 +143,7 @@ export interface ResolvedLLMPreference {
   provider: LLMProviderType;
   model: string;
   fallbackModel?: string;
-  settings?: {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemPrompt?: string;
-    customSettings?: Record<string, unknown>;
-  };
+  settings?: LLMSettings;
   source: 'agent' | 'user' | 'system';
   reasoning: string;
   confidence: number;

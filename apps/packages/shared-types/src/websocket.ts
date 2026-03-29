@@ -202,8 +202,18 @@ export const WebSocketAuthSchema = z.object({
 
 export type WebSocketAuth = z.infer<typeof WebSocketAuthSchema>;
 
+export interface WebSocketLike {
+  close(code?: number, reason?: string): void;
+  send(data: string): void;
+  ping(): void;
+  terminate(): void;
+  removeAllListeners(): void;
+  on(event: string, listener: (...args: unknown[]) => void): void;
+  readyState: number;
+}
+
 export interface WebSocketConnection {
-  ws: unknown;
+  ws: WebSocketLike | null;
   discussionId: string;
   userId?: string;
   participantId?: string;

@@ -329,60 +329,34 @@ export abstract class BaseService {
   // UNIFIED MODEL SELECTION METHODS
   // =============================================================================
 
-  /**
-   * Select model for agent-based tasks
-   */
+  private requireModelFacade() {
+    if (!this.modelSelectionFacade) {
+      throw new Error(`Model selection not initialized in ${this.config.name}`);
+    }
+    return this.modelSelectionFacade;
+  }
+
   protected async selectModelForAgent(
     agentId: string,
     taskType: LLMTaskType,
-    options?: {
-      model?: string;
-      provider?: string;
-      urgency?: 'low' | 'medium' | 'high' | 'critical';
-    }
+    options?: { model?: string; provider?: string; urgency?: 'low' | 'medium' | 'high' | 'critical' }
   ): Promise<UnifiedModelSelection> {
-    if (!this.modelSelectionFacade) {
-      throw new Error(`Model selection not initialized in ${this.config.name}`);
-    }
-
-    return this.modelSelectionFacade.selectForAgent(agentId, taskType, options);
+    return this.requireModelFacade().selectForAgent(agentId, taskType, options);
   }
 
-  /**
-   * Select model for user-based tasks
-   */
   protected async selectModelForUser(
     userId: string,
     taskType: LLMTaskType,
-    options?: {
-      model?: string;
-      provider?: string;
-      urgency?: 'low' | 'medium' | 'high' | 'critical';
-    }
+    options?: { model?: string; provider?: string; urgency?: 'low' | 'medium' | 'high' | 'critical' }
   ): Promise<UnifiedModelSelection> {
-    if (!this.modelSelectionFacade) {
-      throw new Error(`Model selection not initialized in ${this.config.name}`);
-    }
-
-    return this.modelSelectionFacade.selectForUser(userId, taskType, options);
+    return this.requireModelFacade().selectForUser(userId, taskType, options);
   }
 
-  /**
-   * Select model for system-level tasks
-   */
   protected async selectModelForSystem(
     taskType: LLMTaskType,
-    options?: {
-      model?: string;
-      provider?: string;
-      urgency?: 'low' | 'medium' | 'high' | 'critical';
-    }
+    options?: { model?: string; provider?: string; urgency?: 'low' | 'medium' | 'high' | 'critical' }
   ): Promise<UnifiedModelSelection> {
-    if (!this.modelSelectionFacade) {
-      throw new Error(`Model selection not initialized in ${this.config.name}`);
-    }
-
-    return this.modelSelectionFacade.selectForSystem(taskType, options);
+    return this.requireModelFacade().selectForSystem(taskType, options);
   }
 
   /**

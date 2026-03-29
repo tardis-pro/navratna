@@ -87,4 +87,12 @@ export type {
   PackGenerationInput,
   QuestionScore,
   RankingConfig,
+  NormalizedBrief,
 } from './questionforge';
+export type {
+  LoginCredentials,
+  RefreshTokenResponse,
+  ResetPasswordConfirm,
+  RegisterRequest,
+  RegisterResponse,
+} from './frontend_auth.js';

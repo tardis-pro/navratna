@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { IDSchema } from './common.js';
 
+const ImprovementItemSchema = z.object({
+  category: z.string(),
+  description: z.string(),
+  impact: z.enum(['low', 'medium', 'high']),
+});
+
 // Extend EventType enum for conversation intelligence
 export enum ConversationIntelligenceEventType {
   // Intent Detection Events
@@ -492,13 +498,7 @@ export const WritingEnhancementCompletedEventSchema = z.object({
     requestId: IDSchema,
     originalText: z.string(),
     enhancedText: z.string(),
-    improvements: z.array(
-      z.object({
-        category: z.string(),
-        description: z.string(),
-        impact: z.enum(['low', 'medium', 'high']),
-      })
-    ),
+    improvements: z.array(ImprovementItemSchema),
     score: z.object({
       readability: z.number().min(0).max(100),
       engagement: z.number().min(0).max(100),
@@ -566,13 +566,7 @@ export const WritingEnhancementResultsWebSocketEventSchema = z.object({
     requestId: IDSchema,
     originalText: z.string(),
     enhancedText: z.string(),
-    improvements: z.array(
-      z.object({
-        category: z.string(),
-        description: z.string(),
-        impact: z.enum(['low', 'medium', 'high']),
-      })
-    ),
+    improvements: z.array(ImprovementItemSchema),
   }),
 });
 

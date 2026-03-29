@@ -116,7 +116,8 @@ export class OperationValidator {
       }),
     };
 
-    const schema = schemas[step.type];
+    const stepType = typeof step.type === 'string' ? step.type : undefined;
+    const schema = stepType ? schemas[stepType] : undefined;
     if (schema) {
       try {
         schema.parse(step);

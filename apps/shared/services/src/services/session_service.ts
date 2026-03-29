@@ -1,6 +1,7 @@
 import { BaseDomainService } from './base_domain_service';
 import { AuthenticationMethod } from '@uaip/types';
 import { getControlPool } from '../database/drizzle/clients/index';
+import { updateTableRow } from './sql_helpers';
 
 export class SessionService extends BaseDomainService {
   protected constructor() {
@@ -50,18 +51,7 @@ export class SessionService extends BaseDomainService {
     id: string,
     data: Record<string, unknown>
   ): Promise<Record<string, unknown> | null> {
-    const pool = getControlPool();
-    const keys = Object.keys(data);
-    if (keys.length === 0) {
-      return this.findSessionById(id);
-    }
-    const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map((k) => data[k])];
-    const result = await pool.query(
-      `UPDATE sessions SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      values
-    );
-    return result.rows[0] ?? null;
+    return updateTableRow('sessions', id, data, (i) => this.findSessionById(i));
   }
 
   public async invalidateSession(sessionToken: string): Promise<boolean> {

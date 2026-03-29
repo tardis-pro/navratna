@@ -9,6 +9,17 @@ export interface AuthenticationResult {
   reason?: string;
 }
 
+type AuthPayload = {
+  userId: string;
+  role?: string;
+  isExpired?: boolean;
+  exp?: Date | number | string;
+};
+
+function isAuthPayload(value: unknown): value is AuthPayload {
+  return typeof value === 'object' && value !== null && 'userId' in value && typeof value.userId === 'string';
+}
+
 export function extractAccessTokenFromCookieHeader(
   cookieHeader?: string | string[]
 ): string | undefined {
@@ -91,7 +102,7 @@ export function authenticateConnection(
 
     const payload = tokenValidation.payload;
 
-    if (!payload || !payload.userId) {
+    if (!isAuthPayload(payload)) {
       return {
         authenticated: false,
         reason: 'Invalid token payload',

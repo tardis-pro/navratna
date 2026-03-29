@@ -18,6 +18,9 @@ import {
   _Zap,
 } from 'lucide-react';
 import { MarketplaceHome } from './MarketplaceHome';
+import { BattleArena } from './BattleArena';
+import { AgentLeaderboard } from './AgentLeaderboard';
+import { SocialFeed } from './SocialFeed';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 
 interface MarketplaceHubProps {

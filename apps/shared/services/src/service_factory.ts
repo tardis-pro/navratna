@@ -46,6 +46,23 @@ export class ServiceFactory {
 
   private constructor() {}
 
+  private async forEachService(
+    callback: (serviceName: string, svc: Record<string, unknown>) => Promise<void>
+  ): Promise<void> {
+    await Promise.all(
+      Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
+        try {
+          const svc = serviceInstance as Record<string, unknown>;
+          await callback(serviceName, svc);
+        } catch (error) {
+          this.logger.error(`Service operation error: ${serviceName}`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      })
+    );
+  }
+
   static getInstance(): ServiceFactory {
     if (!ServiceFactory.instance) {
       ServiceFactory.instance = new ServiceFactory();
@@ -362,20 +379,13 @@ export class ServiceFactory {
   }> {
     const services: Record<string, boolean> = {};
 
-    await Promise.all(
-      Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
-        try {
-          const svc = serviceInstance as Record<string, unknown>;
-          if (svc && typeof svc['isHealthy'] === 'function') {
-            services[serviceName] = await (svc['isHealthy'] as () => Promise<boolean>)();
-          } else {
-            services[serviceName] = !!svc;
-          }
-        } catch {
-          services[serviceName] = false;
-        }
-      })
-    );
+    await this.forEachService(async (serviceName, svc) => {
+      if (svc && typeof svc['isHealthy'] === 'function') {
+        services[serviceName] = await (svc['isHealthy'] as () => Promise<boolean>)();
+      } else {
+        services[serviceName] = !!svc;
+      }
+    });
 
     type DatabaseHealth = {
       status: 'healthy' | 'unhealthy';
@@ -478,20 +488,11 @@ export class ServiceFactory {
   async shutdown(): Promise<void> {
     this.logger.info('Shutting down ServiceFactory...');
 
-    await Promise.all(
-      Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
-        try {
-          const svc = serviceInstance as Record<string, unknown>;
-          if (svc && typeof svc['close'] === 'function') {
-            await (svc['close'] as () => Promise<void>)();
-          }
-        } catch (error) {
-          this.logger.error(`Error shutting down service: ${serviceName}`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      })
-    );
+    await this.forEachService(async (_name, svc) => {
+      if (svc && typeof svc['close'] === 'function') {
+        await (svc['close'] as () => Promise<void>)();
+      }
+    });
 
     try {
       await closeDatabase();

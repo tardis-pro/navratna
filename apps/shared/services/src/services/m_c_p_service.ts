@@ -2,6 +2,29 @@ import { getControlPool } from '../database/drizzle/clients/index';
 import { logger } from '@uaip/utils';
 import type { MCPJobRequest } from '@uaip/types';
 
+async function updateRecordInTable(
+  table: string,
+  id: string,
+  updates: Record<string, unknown>,
+  notFoundMessage: string
+): Promise<Record<string, unknown>> {
+  const pool = getControlPool();
+  const keys = Object.keys(updates);
+  if (keys.length === 0) {
+    const result = await pool.query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id]);
+    if (result.rows.length === 0) throw new Error(notFoundMessage);
+    return result.rows[0];
+  }
+  const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+  const values = [id, ...keys.map((k) => updates[k])];
+  const result = await pool.query(
+    `UPDATE ${table} SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+    values
+  );
+  if (result.rows.length === 0) throw new Error(notFoundMessage);
+  return result.rows[0];
+}
+
 export class MCPService {
   private static instance: MCPService;
 
@@ -41,29 +64,8 @@ export class MCPService {
     return toolCall;
   }
 
-  async updateToolCall(
-    id: string,
-    updates: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const pool = getControlPool();
-    const keys = Object.keys(updates);
-    if (keys.length === 0) {
-      const result = await pool.query(`SELECT * FROM mcp_tool_calls WHERE id = $1 LIMIT 1`, [id]);
-      if (result.rows.length === 0) {
-        throw new Error(`Tool call not found: ${id}`);
-      }
-      return result.rows[0];
-    }
-    const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map((k) => updates[k])];
-    const result = await pool.query(
-      `UPDATE mcp_tool_calls SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      values
-    );
-    if (result.rows.length === 0) {
-      throw new Error(`Tool call not found: ${id}`);
-    }
-    return result.rows[0];
+  async updateToolCall(id: string, updates: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return updateRecordInTable('mcp_tool_calls', id, updates, `Tool call not found: ${id}`);
   }
 
   async getToolCall(id: string): Promise<Record<string, unknown> | null> {
@@ -221,29 +223,8 @@ export class MCPService {
     return result.rows[0];
   }
 
-  async updateServer(
-    id: string,
-    updates: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const pool = getControlPool();
-    const keys = Object.keys(updates);
-    if (keys.length === 0) {
-      const result = await pool.query(`SELECT * FROM mcp_servers WHERE id = $1 LIMIT 1`, [id]);
-      if (result.rows.length === 0) {
-        throw new Error(`Server not found: ${id}`);
-      }
-      return result.rows[0];
-    }
-    const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map((k) => updates[k])];
-    const result = await pool.query(
-      `UPDATE mcp_servers SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
-      values
-    );
-    if (result.rows.length === 0) {
-      throw new Error(`Server not found: ${id}`);
-    }
-    return result.rows[0];
+  async updateServer(id: string, updates: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return updateRecordInTable('mcp_servers', id, updates, `Server not found: ${id}`);
   }
 
   async getServer(id: string): Promise<Record<string, unknown> | null> {

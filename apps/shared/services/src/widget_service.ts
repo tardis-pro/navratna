@@ -17,6 +17,14 @@ import {
 import { DatabaseService } from './database_service';
 import { logger } from '@uaip/utils';
 
+type WidgetAnalytics = {
+  totalUsage: number;
+  uniqueUsers: number;
+  averageSessionDuration: number;
+  errorRate: number;
+  popularActions: Array<{ action: string; count: number }>;
+};
+
 export class WidgetService {
   private databaseService: DatabaseService;
   private options: WidgetServiceOptions;
@@ -316,13 +324,7 @@ export class WidgetService {
   async getWidgetAnalytics(
     widgetId: string,
     timeRange: { start: Date; end: Date }
-  ): Promise<{
-    totalUsage: number;
-    uniqueUsers: number;
-    averageSessionDuration: number;
-    errorRate: number;
-    popularActions: Array<{ action: string; count: number }>;
-  }> {
+  ): Promise<WidgetAnalytics> {
     return await this.calculateWidgetAnalytics(widgetId, timeRange);
   }
 
@@ -647,13 +649,7 @@ export class WidgetService {
   private async calculateWidgetAnalytics(
     widgetId: string,
     timeRange: { start: Date; end: Date }
-  ): Promise<{
-    totalUsage: number;
-    uniqueUsers: number;
-    averageSessionDuration: number;
-    errorRate: number;
-    popularActions: Array<{ action: string; count: number }>;
-  }> {
+  ): Promise<WidgetAnalytics> {
     logger.debug('Calculating widget analytics', { widgetId, timeRange });
     // TODO: Implement analytics calculation
     return {

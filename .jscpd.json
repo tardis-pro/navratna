@@ -1,0 +1,14 @@
+{
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/.next/**",
+    "**/*.json",
+    "**/*.config.ts",
+    "**/*.config.js"
+  ],
+  "minLines": 5,
+  "minTokens": 50
+}

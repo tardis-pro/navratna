@@ -4,6 +4,9 @@
 import {
   Artifact,
   ArtifactConversationContext,
+  ConversationSummary,
+  GenerationTrigger,
+  Requirement,
   ValidationResult as SharedValidationResult,
   ValidationError,
   ValidationWarning,
@@ -45,9 +48,9 @@ export interface ArtifactResult {
 export interface AnalysisResult {
   success: boolean;
   data?: {
-    summary: Record<string, unknown>;
-    triggers: Record<string, unknown>[];
-    requirements: Record<string, unknown>[];
+    summary: ConversationSummary;
+    triggers: GenerationTrigger[];
+    requirements: Requirement[];
   };
   error?: {
     code: string;

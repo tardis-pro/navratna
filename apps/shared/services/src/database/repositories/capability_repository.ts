@@ -1,4 +1,17 @@
 import { BaseRepository } from '../base/base_repository';
+import type { CapabilitySearchParams } from '../../capability_discovery_service';
+
+function filterByNameOrDescription(
+  results: Record<string, unknown>[],
+  query: string
+): Record<string, unknown>[] {
+  const q = query.toLowerCase();
+  return results.filter((r) => {
+    const name = ((r.name as string) || '').toLowerCase();
+    const description = ((r.description as string) || '').toLowerCase();
+    return name.includes(q) || description.includes(q);
+  });
+}
 
 export class CapabilityRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {
@@ -20,14 +33,8 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
 
     let results = await this.findMany(conditions);
 
-    // Filter by query text (name or description contains query)
     if (filters.query) {
-      const q = filters.query.toLowerCase();
-      results = results.filter((r) => {
-        const name = ((r.name as string) || '').toLowerCase();
-        const description = ((r.description as string) || '').toLowerCase();
-        return name.includes(q) || description.includes(q);
-      });
+      results = filterByNameOrDescription(results, filters.query);
     }
 
     if (filters.limit) {
@@ -52,13 +59,7 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
   }
 
   async getCapabilityDependencies(ids: string[]): Promise<Record<string, unknown>[]> {
-    if (ids.length === 0) return [];
-    const results: Record<string, unknown>[] = [];
-    for (const id of ids) {
-      const row = await this.findById(id);
-      if (row) results.push(row);
-    }
-    return results;
+    return this.getCapabilitiesByIds(ids);
   }
 
   async getCapabilityDependents(capabilityId: string): Promise<Record<string, unknown>[]> {
@@ -70,16 +71,7 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
     });
   }
 
-  async searchCapabilitiesAdvanced(params: {
-    query?: string;
-    types?: string[];
-    tags?: string[];
-    securityLevel?: string;
-    agentId?: string;
-    includeExperimental?: boolean;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ capabilities: Record<string, unknown>[]; totalCount: number }> {
+  async searchCapabilitiesAdvanced(params: CapabilitySearchParams): Promise<{ capabilities: Record<string, unknown>[]; totalCount: number }> {
     let results = await this.findMany({});
 
     // Filter by types
@@ -87,14 +79,8 @@ export class CapabilityRepository extends BaseRepository<Record<string, unknown>
       results = results.filter((r) => params.types!.includes(r.type as string));
     }
 
-    // Filter by query text
     if (params.query) {
-      const q = params.query.toLowerCase();
-      results = results.filter((r) => {
-        const name = ((r.name as string) || '').toLowerCase();
-        const description = ((r.description as string) || '').toLowerCase();
-        return name.includes(q) || description.includes(q);
-      });
+      results = filterByNameOrDescription(results, params.query);
     }
 
     // Filter by security level

@@ -24,6 +24,18 @@ export interface SearchOptions {
   filters?: Record<string, unknown>;
 }
 
+function mapCandidateToResult(candidate: VectorCandidate, index: number, includeEmbeddings = false): EnhancedSearchResult {
+  return {
+    id: candidate.id,
+    content: candidate.payload?.content || '',
+    metadata: candidate.payload?.metadata,
+    score: candidate.score,
+    originalScore: candidate.score,
+    rank: index + 1,
+    embedding: includeEmbeddings ? candidate.payload?.embedding : undefined,
+  };
+}
+
 type VectorCandidate = {
   id: string;
   score: number;
@@ -97,15 +109,7 @@ export class EnhancedRAGService {
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
         // Use vector similarity scores only
-        results = filteredCandidates.slice(0, topK).map((candidate, index) => ({
-          id: candidate.id,
-          content: candidate.payload?.content || '',
-          metadata: candidate.payload?.metadata,
-          score: candidate.score,
-          originalScore: candidate.score,
-          rank: index + 1,
-          embedding: includeEmbeddings ? candidate.payload?.embedding : undefined,
-        }));
+        results = filteredCandidates.slice(0, topK).map((c, i) => mapCandidateToResult(c, i, includeEmbeddings));
       }
 
       return results;
@@ -200,14 +204,7 @@ export class EnhancedRAGService {
       return candidates
         .filter((c) => c.score >= minScore)
         .slice(0, topK)
-        .map((candidate, index) => ({
-          id: candidate.id,
-          content: candidate.payload?.content || '',
-          metadata: candidate.payload?.metadata,
-          score: candidate.score,
-          originalScore: candidate.score,
-          rank: index + 1,
-        }));
+        .map((c, i) => mapCandidateToResult(c, i));
     } catch (error) {
       console.error('Similar documents search failed:', error);
       const wrappedError = new Error(`Failed to find similar documents: ${error.message}`);

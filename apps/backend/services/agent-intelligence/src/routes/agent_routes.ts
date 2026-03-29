@@ -1,21 +1,15 @@
-import { z } from 'zod';
-import { logger } from '@uaip/utils';
-import { relevance, type RelevanceInput } from '../services/relevance.js';
-
-interface AgentRouteGroup {
-  post(path: string, handler: (ctx: unknown) => unknown): AgentRouteGroup;
-}
-
-interface AgentRouteAppLike {
-  group(path: string, handler: (group: AgentRouteGroup) => unknown): unknown;
-}
+import { z } from 'zod'
+import type { AnyElysia } from 'elysia'
+import { withNginxAuth } from '@uaip/middleware'
+import { scoreRelevance } from '@uaip/shared-services'
+import { logger } from '@uaip/utils'
 
 const candidateSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['agent', 'sop', 'task', 'knowledge', 'capability']),
   vector: z.array(z.number()).optional(),
   metadata: z.record(z.unknown()).optional(),
-});
+})
 
 const relevanceSchema = z.object({
   query: z.string().min(1),
@@ -29,48 +23,63 @@ const relevanceSchema = z.object({
     })
     .optional(),
   limit: z.number().int().positive().max(100).optional(),
-});
+})
 
-export function registerAgentRoutes<T>(app: T): T {
-  const routeApp = app as unknown as AgentRouteAppLike;
-  routeApp.group('/api/v1/agents', (group) =>
-    group.post('/relevance', async (ctx) => {
-      const context =
-        ctx && typeof ctx === 'object'
-          ? (ctx as { body?: unknown; set?: { status?: number | string } })
-          : {};
-      const body = context.body;
-      const set = context.set;
-      const parsed = relevanceSchema.safeParse(body);
+export function registerAgentRoutes(app: AnyElysia): AnyElysia {
+  return app.group('/api/v1/agents', (group: AnyElysia) =>
+    withNginxAuth(group).post('/relevance', async (ctx) => {
+      const parsed = relevanceSchema.safeParse(ctx.body)
 
       if (!parsed.success) {
-        if (set) set.status = 400;
+        ctx.set.status = 400
         return {
           success: false,
           error: 'Invalid relevance payload',
           details: parsed.error.flatten(),
-        };
+        }
       }
 
       try {
-        const payload = parsed.data as RelevanceInput;
-        const results = await relevance(payload);
-
+        const payload = relevanceSchema.parse(ctx.body)
+        const results = await scoreRelevance({
+          query: payload.query,
+          candidates: payload.candidates.map((candidate) => ({
+            id: candidate.id,
+            type: candidate.type,
+            ...(candidate.vector ? { vector: candidate.vector } : {}),
+            ...(candidate.metadata ? { metadata: candidate.metadata } : {}),
+          })),
+          ...(payload.weights
+            ? {
+                weights: {
+                  vector: payload.weights.vector,
+                  graph: payload.weights.graph,
+                  recency: payload.weights.recency,
+                  explicit: payload.weights.explicit,
+                },
+              }
+            : {}),
+          ...(payload.limit ? { limit: payload.limit } : {}),
+        })
+        // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+        const userId = ctx.user.id
         return {
+          success: true,
           results,
           total: results.length,
           query: payload.query,
-        };
+          requestedBy: userId,
+        }
       } catch (error) {
-        logger.error('Failed to score relevance', { error });
-        if (set) set.status = 500;
+        // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+        const userId = ctx.user.id
+        logger.error('Failed to score relevance', { error, userId })
+        ctx.set.status = 500
         return {
           success: false,
           error: 'Failed to score relevance',
-        };
+        }
       }
     })
-  );
-
-  return app;
+  )
 }

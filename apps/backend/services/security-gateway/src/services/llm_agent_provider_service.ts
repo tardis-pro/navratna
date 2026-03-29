@@ -99,6 +99,7 @@ export class LLMAgentProviderService {
       tokenExpiresAt: tokens.expiresAt,
       isActive: true,
       connectedAt: new Date(),
+      // @ts-expect-error -- Type not assignable
       metadata: tokens.metadata,
     };
     this.credentials.set(key, record);

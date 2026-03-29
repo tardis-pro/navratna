@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import {
+  CreateDiscussionRequest,
   Discussion,
   DiscussionParticipant,
   DiscussionMessage,
@@ -9,7 +10,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
-import { DiscussionService } from './discussion_service.js';
+import { DiscussionService } from '@uaip/shared-services/discussion';
 import { TurnStrategyService } from './turn_strategy_service.js';
 import type { IWebSocketHandler } from '@uaip/types';
 
@@ -41,6 +42,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private turnTimerRetryCounts: Map<string, number> = new Map();
   private participationRateLimits: Map<string, number> = new Map(); // Discussion-level rate limiting
   private cleanupInterval: NodeJS.Timeout | null = null;
+
+  private getParticipantMetadata(participant: { metadata?: Record<string, unknown> }): Record<string, unknown> {
+    return participant.metadata ?? {}
+  }
 
   constructor(
     discussionService: DiscussionService,
@@ -434,11 +439,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           discussionId,
           requestedParticipantId: participantId,
           availableParticipants: allParticipants.map((p) => ({
-            participantId: p.participantId,
+            participantId: p.id,
             agentId: p.agentId,
-            displayName: p.displayName,
+            displayName: String(this.getParticipantMetadata(p).displayName ?? p.agentId),
             isActive: p.isActive,
-            roleInDiscussion: p.roleInDiscussion,
+            roleInDiscussion: p.role,
           })),
         });
         return { success: false, error: 'Participant not found' };
@@ -508,11 +513,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
       );
 
       // Update participant activity using enterprise participant management
+      const participantMetadata = this.getParticipantMetadata(participant)
       await participantManagementService.updateParticipantActivity(actualParticipantId, {
         messageCount: participant.messageCount + 1,
         lastMessageAt: new Date(),
-        contributionScore: (participant.contributionScore || 0) + 1,
-        engagementLevel: Math.min(1.0, (participant.engagementLevel || 0) + 0.1),
+        contributionScore: Number(participantMetadata.contributionScore ?? 0) + 1,
+        engagementLevel: Math.min(1.0, Number(participantMetadata.engagementLevel ?? 0) + 0.1),
       });
 
       // Update discussion state (the service handles participant updates internally)
@@ -1783,23 +1789,23 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId: discussion.id,
         totalAgentParticipants: agentParticipants.length,
         participantDetails: agentParticipants.map((p) => ({
-          participantId: p.participantId,
+          participantId: p.id,
           agentId: p.agentId,
-          displayName: p.displayName,
+          displayName: String(this.getParticipantMetadata(p).displayName ?? p.agentId),
           messageCount: p.messageCount,
-          lastMessageAt: p.lastMessageAt,
+          lastMessageAt: this.getParticipantMetadata(p).lastMessageAt,
         })),
       });
 
       // Phase-based agent participation logic
       const neverParticipatedAgents = agentParticipants.filter((p) => {
         // Check if agent has never sent a message
-        return !p.lastMessageAt && p.messageCount === 0;
+        return !this.getParticipantMetadata(p).lastMessageAt && p.messageCount === 0;
       });
 
       const participatedAgents = agentParticipants.filter((p) => {
         // Agents who have participated but may need to continue conversation
-        return p.lastMessageAt && p.messageCount > 0;
+        return Boolean(this.getParticipantMetadata(p).lastMessageAt) && p.messageCount > 0;
       });
 
       // Phase 1: Introduction phase - trigger agents who haven't introduced themselves
@@ -1812,7 +1818,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
         // Trigger participation for the first agent who has never participated
         const agentToTrigger = neverParticipatedAgents[0];
-        await this.triggerAgentParticipationEvent(discussion.id, agentToTrigger);
+        await this.triggerAgentParticipationEvent(discussion.id, {
+          ...agentToTrigger,
+          role: agentToTrigger.role as 'participant' | 'moderator' | 'observer' | 'facilitator',
+        });
       }
       // Phase 2: Main discussion phase - continue conversation with participated agents
       else if (participatedAgents.length > 0 && discussion.state.currentTurn) {
@@ -2278,7 +2287,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
           }
         ).databaseService
       );
-      return await participantManagementService.getActiveParticipants(discussionId);
+      return (await participantManagementService.getActiveParticipants(discussionId)).map(
+        (participant) => ({
+          ...participant,
+          role: participant.role as 'participant' | 'moderator' | 'observer' | 'facilitator',
+        })
+      );
     } catch (error) {
       logger.error('Error getting active participants', {
         error: (error as Error).message,
@@ -2534,13 +2548,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
     const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
       .artifactConfig;
     if (artifactConfig?.enabled && artifactConfig?.artifactType) {
-      return artifactConfig.artifactType;
+      return String(artifactConfig.artifactType);
     }
 
     // Fallback to content-based detection
     const title = discussion.title.toLowerCase();
     const description = (discussion.description || '').toLowerCase();
-    const messageContent = messages.map((m) => m.content.toLowerCase()).join(' ');
+    const messageContent = messages
+      .map((message) => (typeof message.content === 'string' ? message.content.toLowerCase() : ''))
+      .join(' ');
 
     // Check for code-related discussions
     if (

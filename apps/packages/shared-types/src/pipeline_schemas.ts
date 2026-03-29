@@ -170,6 +170,16 @@ export const operationMetadataSchema = z.object({
 });
 export type PipelineOperationMetadata = z.infer<typeof operationMetadataSchema>;
 
+const baseOperationBodyShape = {
+  agentId: uuidSchema,
+  userId: uuidSchema,
+  name: z.string().min(1).max(255),
+  description: z.string().max(1000).default(''),
+  context: operationContextSchema,
+  executionPlan: pipelineExecutionPlanSchema,
+  metadata: operationMetadataSchema,
+};
+
 export const apiOperationSchema = z.object({
   id: uuidSchema,
   type: z.enum([
@@ -189,14 +199,8 @@ export const apiOperationSchema = z.object({
     'waiting_approval',
     'compensating',
   ]),
-  agentId: uuidSchema,
-  userId: uuidSchema,
-  name: z.string().min(1).max(255),
-  description: z.string().max(1000).default(''),
-  context: operationContextSchema,
-  executionPlan: pipelineExecutionPlanSchema,
+  ...baseOperationBodyShape,
   results: z.record(z.string(), z.any()).optional(),
-  metadata: operationMetadataSchema,
   createdAt: timestampSchema,
   startedAt: timestampSchema.optional(),
   completedAt: timestampSchema.optional(),
@@ -214,13 +218,7 @@ export const executeOperationRequestSchema = z.object({
       'approval_workflow',
       'composite_operation',
     ]),
-    agentId: uuidSchema,
-    userId: uuidSchema,
-    name: z.string().min(1).max(255),
-    description: z.string().max(1000).default(''),
-    context: operationContextSchema,
-    executionPlan: pipelineExecutionPlanSchema,
-    metadata: operationMetadataSchema,
+    ...baseOperationBodyShape,
   }),
 });
 export type ApiExecuteOperationRequest = z.infer<typeof executeOperationRequestSchema>;

@@ -1,4 +1,4 @@
-import { UserService } from './user_service';
+import { UserService, CreateUserData } from './user_service';
 import { CachedUserLLMProviderRepository } from '../database/repositories/cached_user_l_l_m_provider_repository';
 import { CachedLLMProviderRepository } from '../database/repositories/cached_l_l_m_provider_repository';
 import { UserEntity } from '../entities/user_entity';
@@ -161,15 +161,7 @@ export class CachedUserService extends UserService {
   /**
    * Create user and invalidate cache
    */
-  public async createUser(data: {
-    email: string;
-    password?: string;
-    firstName?: string;
-    lastName?: string;
-    role?: string;
-    department?: string;
-    isOAuthUser?: boolean;
-  }): Promise<UserEntity> {
+  public async createUser(data: CreateUserData): Promise<UserEntity> {
     const user = await super.createUser(data);
 
     // Invalidate relevant caches

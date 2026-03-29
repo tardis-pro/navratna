@@ -27,6 +27,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // GET /:userId/tool-preferences
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/tool-preferences', async ({ set, params, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;
@@ -43,6 +44,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // GET /:userId/available-tools
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/available-tools', async ({ set, params, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;
@@ -59,6 +61,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // POST /:userId/tools/set-preferences
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:userId/tools/set-preferences', async ({ set, params, body, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;
@@ -92,6 +95,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // GET /:userId/tool-preferences/:toolId
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/tool-preferences/:toolId', async ({ set, params, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId, toolId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;
@@ -112,6 +116,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // GET /:userId/favorite-tools
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/favorite-tools', async ({ set, params, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;
@@ -128,6 +133,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // GET /:userId/tool-usage-stats
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .get('/:userId/tool-usage-stats', async ({ set, params, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;
@@ -144,6 +150,7 @@ export function registerToolPreferenceRoutes(elysiaApp: AnyElysia): AnyElysia {
       // POST /:userId/tools/:toolId/check-access
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/:userId/tools/:toolId/check-access', async ({ set, params, user }) => {
+        // @ts-expect-error -- Property does not exist on inferred type
         const { userId, toolId } = params as unknown;
         if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
           set.status = 403;

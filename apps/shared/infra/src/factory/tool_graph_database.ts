@@ -16,6 +16,9 @@ const logger = createLogger({
 
 export type { ToolGraphDatabaseConfig, ToolNode, ToolRelationship };
 
+const mapRecordToToolNode = (record: { get: (key: string) => { properties: ToolNode } }): ToolNode =>
+  record.get('tool').properties as ToolNode;
+
 export class ToolGraphDatabase {
   private driver: Driver | null = null;
   private config: ToolGraphDatabaseConfig;
@@ -237,10 +240,7 @@ export class ToolGraphDatabase {
       `;
 
       const result = await session.run(query, params);
-      return result.records.map(
-        (record: { get: (key: string) => { properties: ToolNode } }) =>
-          record.get('tool').properties as ToolNode
-      );
+      return result.records.map(mapRecordToToolNode);
     } catch (error) {
       logger.error('Failed to get recommendations', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -262,10 +262,7 @@ export class ToolGraphDatabase {
     const session = await this.getSession();
     try {
       const result = await session.run('MATCH (tool:Tool) RETURN tool');
-      return result.records.map(
-        (record: { get: (key: string) => { properties: ToolNode } }) =>
-          record.get('tool').properties as ToolNode
-      );
+      return result.records.map(mapRecordToToolNode);
     } catch (error) {
       logger.error('Failed to get all tools', {
         error: error instanceof Error ? error.message : 'Unknown error',

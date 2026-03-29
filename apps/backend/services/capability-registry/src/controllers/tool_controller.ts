@@ -166,14 +166,7 @@ export class ToolController {
       const message = error instanceof Error ? error.message : String(error);
       logger.error('Failed to register tool:', error);
 
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-        };
-      }
+      if (error instanceof z.ZodError) return this.buildZodErrorResponse(set, error);
 
       set.status = 500;
       return {
@@ -189,18 +182,8 @@ export class ToolController {
     try {
       const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
-      // Validate ID format
-      const idSchema = z.string();
-      const validationResult = idSchema.safeParse(id);
-
-      if (!validationResult.success) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Invalid tool ID format',
-          message: 'Tool ID must be a positive integer',
-        };
-      }
+      const validationResult = z.string().safeParse(id);
+      if (!validationResult.success) return this.buildInvalidIdResponse(set);
 
       const updates = RegisterToolSchema.partial().parse(body);
       const transformedUpdates = this.transformToPartialToolDefinition(updates);
@@ -216,14 +199,7 @@ export class ToolController {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to update tool ${(params ?? {}).id}:`, error);
 
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-        };
-      }
+      if (error instanceof z.ZodError) return this.buildZodErrorResponse(set, error);
 
       set.status = 500;
       return {
@@ -239,18 +215,8 @@ export class ToolController {
     try {
       const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
-      // Validate ID format
-      const idSchema = z.string();
-      const validationResult = idSchema.safeParse(id);
-
-      if (!validationResult.success) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Invalid tool ID format',
-          message: 'Tool ID must be a positive integer',
-        };
-      }
+      const validationResult = z.string().safeParse(id);
+      if (!validationResult.success) return this.buildInvalidIdResponse(set);
 
       await this.toolRegistry.unregisterTool(validationResult.data);
 
@@ -278,18 +244,8 @@ export class ToolController {
     try {
       const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
-      // Validate ID format
-      const idSchema = z.string();
-      const validationResult = idSchema.safeParse(id);
-
-      if (!validationResult.success) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Invalid tool ID format',
-          message: 'Tool ID must be a positive integer',
-        };
-      }
+      const validationResult = z.string().safeParse(id);
+      if (!validationResult.success) return this.buildInvalidIdResponse(set);
 
       const validatedRequest = ExecuteToolSchema.parse(body);
 
@@ -312,14 +268,7 @@ export class ToolController {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to execute tool ${(params ?? {}).id}:`, error);
 
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-        };
-      }
+      if (error instanceof z.ZodError) return this.buildZodErrorResponse(set, error);
 
       set.status = 500;
       return {
@@ -465,18 +414,8 @@ export class ToolController {
     try {
       const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
 
-      // Validate ID format
-      const idSchema = z.string();
-      const validationResult = idSchema.safeParse(id);
-
-      if (!validationResult.success) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Invalid tool ID format',
-          message: 'Tool ID must be a positive integer',
-        };
-      }
+      const validationResult = z.string().safeParse(id);
+      if (!validationResult.success) return this.buildInvalidIdResponse(set);
 
       const { types, minStrength } = query ?? {};
 
@@ -538,14 +477,7 @@ export class ToolController {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to add relationship for tool ${(params ?? {}).id}:`, error);
 
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return {
-          success: false,
-          error: 'Validation error',
-          details: error.errors,
-        };
-      }
+      if (error instanceof z.ZodError) return this.buildZodErrorResponse(set, error);
 
       set.status = 500;
       return {
@@ -814,12 +746,7 @@ export class ToolController {
     }
   }
 
-  private transformToToolDefinition(validatedTool: unknown): ToolDefinition {
-    const transformed =
-      validatedTool && typeof validatedTool === 'object'
-        ? ({ ...validatedTool } as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
-
+  private applyToolDefinitionTransforms(transformed: Record<string, unknown>): void {
     // Transform category string to ToolCategory enum
     if (typeof transformed.category === 'string' && transformed.category.length > 0) {
       const categoryMap: Record<string, ToolCategory> = {
@@ -869,6 +796,33 @@ export class ToolController {
         };
       });
     }
+  }
+
+  private buildInvalidIdResponse(set: { status: number }): Record<string, unknown> {
+    set.status = 400;
+    return {
+      success: false,
+      error: 'Invalid tool ID format',
+      message: 'Tool ID must be a positive integer',
+    };
+  }
+
+  private buildZodErrorResponse(set: { status: number }, error: z.ZodError): Record<string, unknown> {
+    set.status = 400;
+    return {
+      success: false,
+      error: 'Validation error',
+      details: error.errors,
+    };
+  }
+
+  private transformToToolDefinition(validatedTool: unknown): ToolDefinition {
+    const transformed =
+      validatedTool && typeof validatedTool === 'object'
+        ? ({ ...validatedTool } as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+
+    this.applyToolDefinitionTransforms(transformed);
 
     return transformed as unknown as ToolDefinition;
   }
@@ -879,55 +833,7 @@ export class ToolController {
         ? ({ ...validatedTool } as Record<string, unknown>)
         : ({} as Record<string, unknown>);
 
-    // Transform category string to ToolCategory enum
-    if (typeof transformed.category === 'string' && transformed.category.length > 0) {
-      const categoryMap: Record<string, ToolCategory> = {
-        api: ToolCategory.API,
-        computation: ToolCategory.COMPUTATION,
-        'file-system': ToolCategory.FILE_SYSTEM,
-        database: ToolCategory.DATABASE,
-        'web-search': ToolCategory.WEB_SEARCH,
-        'code-execution': ToolCategory.CODE_EXECUTION,
-        communication: ToolCategory.COMMUNICATION,
-        'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
-        deployment: ToolCategory.DEPLOYMENT,
-        monitoring: ToolCategory.MONITORING,
-        analysis: ToolCategory.ANALYSIS,
-        generation: ToolCategory.GENERATION,
-      };
-      transformed.category = categoryMap[transformed.category] || ToolCategory.API;
-    }
-
-    // Transform securityLevel string to SecurityLevel enum
-    if (typeof transformed.securityLevel === 'string' && transformed.securityLevel.length > 0) {
-      const securityMap: Record<string, SecurityLevel> = {
-        low: SecurityLevel.LOW,
-        medium: SecurityLevel.MEDIUM,
-        high: SecurityLevel.HIGH,
-        critical: SecurityLevel.CRITICAL,
-      };
-      transformed.securityLevel = securityMap[transformed.securityLevel] || SecurityLevel.MEDIUM;
-    }
-
-    // Transform examples to proper ToolExample format
-    if (transformed.examples && Array.isArray(transformed.examples)) {
-      transformed.examples = transformed.examples.map((example: unknown, index: number) => {
-        const ex =
-          example && typeof example === 'object'
-            ? (example as Record<string, unknown>)
-            : ({} as Record<string, unknown>);
-        return {
-          name: typeof ex.name === 'string' ? ex.name : `Example ${index + 1}`,
-          description:
-            typeof ex.description === 'string' ? ex.description : `Example usage ${index + 1}`,
-          input:
-            (ex.input && typeof ex.input === 'object' ? ex.input : undefined) ||
-            (ex.parameters && typeof ex.parameters === 'object' ? ex.parameters : undefined) ||
-            {},
-          expectedOutput: ex.expectedOutput ?? ex.output ?? 'Expected output',
-        };
-      });
-    }
+    this.applyToolDefinitionTransforms(transformed);
 
     return transformed as Partial<ToolDefinition>;
   }

@@ -3,8 +3,6 @@ import { logger } from '@uaip/utils';
 import { getControlPool } from '../database/drizzle/clients/index';
 
 export class OutboxPublisher {
-  constructor() {}
-
   async publishEvent(
     entityType: IntegrationEvent['entityType'],
     entityId: string,

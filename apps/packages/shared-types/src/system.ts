@@ -1,7 +1,16 @@
 import { z } from 'zod';
 import { BaseEntitySchema, IDSchema, HealthCheckSchema } from './common.js';
 
-// System health status
+const StorageStatsSchema = z.object({
+  used: z.number().min(0),
+  total: z.number().min(0),
+  percentage: z.number().min(0).max(100),
+});
+
+const StorageStatsWithFreeSchema = StorageStatsSchema.extend({
+  free: z.number().min(0),
+});
+
 export enum HealthStatusLevel {
   HEALTHY = 'healthy',
   DEGRADED = 'degraded',
@@ -19,26 +28,14 @@ export const HealthStatusSchema = z.object({
   dependencies: z.array(HealthCheckSchema).default([]),
   resources: z
     .object({
-      memory: z
-        .object({
-          used: z.number().min(0),
-          total: z.number().min(0),
-          percentage: z.number().min(0).max(100),
-        })
-        .optional(),
+      memory: StorageStatsSchema.optional(),
       cpu: z
         .object({
           usage: z.number().min(0).max(100),
           load: z.array(z.number()).optional(),
         })
         .optional(),
-      disk: z
-        .object({
-          used: z.number().min(0),
-          total: z.number().min(0),
-          percentage: z.number().min(0).max(100),
-        })
-        .optional(),
+      disk: StorageStatsSchema.optional(),
     })
     .optional(),
   metadata: z.record(z.any()).optional(),
@@ -63,26 +60,10 @@ export const SystemMetricsSchema = z.object({
       load: z.array(z.number()).optional(),
       cores: z.number().min(1).optional(),
     }),
-    memory: z.object({
-      used: z.number().min(0),
-      total: z.number().min(0),
-      free: z.number().min(0),
-      percentage: z.number().min(0).max(100),
-      heap: z
-        .object({
-          used: z.number().min(0),
-          total: z.number().min(0),
-        })
-        .optional(),
+    memory: StorageStatsWithFreeSchema.extend({
+      heap: StorageStatsSchema.pick({ used: true, total: true }).optional(),
     }),
-    disk: z
-      .object({
-        used: z.number().min(0),
-        total: z.number().min(0),
-        free: z.number().min(0),
-        percentage: z.number().min(0).max(100),
-      })
-      .optional(),
+    disk: StorageStatsWithFreeSchema.optional(),
     network: z
       .object({
         bytesIn: z.number().min(0),

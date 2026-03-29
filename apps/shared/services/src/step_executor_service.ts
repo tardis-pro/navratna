@@ -12,6 +12,7 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { EventBusService } from './event_bus_service';
+import { delayWithAbort } from './utils/async_helpers';
 
 export interface StepExecutionContext {
   operationId: string;
@@ -339,21 +340,8 @@ export class StepExecutorService extends EventEmitter {
     };
   }
 
-  private async delay(ms: number, signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(resolve, ms);
-
-      const abortHandler = () => {
-        clearTimeout(timeout);
-        reject(new Error('Step execution was cancelled'));
-      };
-
-      signal.addEventListener('abort', abortHandler);
-
-      setTimeout(() => {
-        signal.removeEventListener('abort', abortHandler);
-      }, ms);
-    });
+  private delay(ms: number, signal: AbortSignal): Promise<void> {
+    return delayWithAbort(ms, signal, 'Step execution was cancelled');
   }
 
   // Add missing methods

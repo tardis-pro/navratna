@@ -1,12 +1,10 @@
-import { BaseService, TaskService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
-import { TaskController } from './controllers/task_controller.js';
-import { registerProjectRoutes } from './routes/project_routes.js';
-import { registerTaskRoutes } from './routes/task_routes.js';
+import { BaseService } from '@uaip/shared-services'
+import { FeatureFactory } from '@uaip/shared-services/feature-factory'
+import { logger } from '@uaip/utils'
+import { orchestrationFeature } from './feature.js'
 
 class OrchestrationPipelineService extends BaseService {
-  private taskService!: TaskService;
-  private taskController!: TaskController;
+  private factory = new FeatureFactory().register(orchestrationFeature)
 
   constructor() {
     super({
@@ -14,36 +12,36 @@ class OrchestrationPipelineService extends BaseService {
       port: parseInt(process.env.ORCHESTRATION_PIPELINE_PORT || '3002', 10),
       version: '1.0.0',
       enableEnterpriseEventBus: true,
-    });
-    this.registerEntities([]);
+    })
+    this.registerEntities([])
   }
 
   protected async initialize(): Promise<void> {
-    this.taskService = TaskService.getInstance();
-    this.taskController = new TaskController(this.taskService);
-    logger.info('orchestration-pipeline: services initialized');
+    await this.factory.initialize({ eventBusService: this.eventBusService })
+    logger.info('orchestration-pipeline: services initialized')
   }
 
   protected async setupRoutes(): Promise<void> {
-    registerProjectRoutes(this.app);
-    registerTaskRoutes(this.app, this.taskController);
-
+    this.factory.mountRoutes(this.app)
     this.app.get('/health', () => ({
       status: 'ok',
       service: 'orchestration-pipeline',
-      version: '1.0.0',
-    }));
+      features: this.factory.activeFeatureNames,
+    }))
+    logger.info('orchestration-pipeline: routes configured')
+  }
 
-    logger.info('orchestration-pipeline: routes configured');
+  protected async setupEventSubscriptions(): Promise<void> {
+    await this.factory.subscribeEvents(this.eventBusService)
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
-    return true;
+    return true
   }
 }
 
-const service = new OrchestrationPipelineService();
+const service = new OrchestrationPipelineService()
 service.start().catch((error) => {
-  logger.error('Failed to start orchestration-pipeline', { error });
-  process.exit(1);
-});
+  logger.error('Failed to start orchestration-pipeline', { error })
+  process.exit(1)
+})

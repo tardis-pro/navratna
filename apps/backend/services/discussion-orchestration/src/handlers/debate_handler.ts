@@ -113,7 +113,7 @@ export class DebateHandler {
   private broadcastToDiscussion(
     discussionId: string | undefined,
     event: string,
-    data: Record<string, unknown>
+    data: unknown
   ): void {
     if (!discussionId) return;
     this.io.to(`discussion:${discussionId}`).emit(event, data);

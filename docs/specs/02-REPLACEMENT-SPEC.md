@@ -1,11 +1,11 @@
 ---
 # Replacement Specification — Navratna v3.0
-
 ## Document Control
-- **Version**: 2.4
-- **Date**: 2026-03-26
+- **Version**: 2.6
+- **Date**: 2026-03-29
 - **Purpose**: Detail every technology swap, current status, and remaining work
-- **Updated**: 2026-03-26 — Codebase audit v2.4. Corrected false "100% complete" claims on R2 and R3. Fixed all filename references (codebase now uses snake_case). Identified stale build artifacts and residual infra/script references.
+- **Updated**: 2026-03-29 — Code review v2.6. Oracle-assisted deep review of 179 unstaged files (+3,158/-7,769 lines). **Two critical findings**: (1) new discussion/persona routes have zero auth — anonymous create/update/delete, (2) shared `DiscussionService` doesn't load participants before start/turn flows, breaking lifecycle logic. Participant migration silently drops `displayName`/`permissions`/`turnOrder`/`turnWeight`. R3 status downgraded from ~90% to ~75%. New E-items E6–E9 added. FeatureFactory interface docs corrected to match actual code.
+- **Previous**: 2026-03-29 v2.5 — FeatureFactory architecture introduced across all 7 legacy services. All services now have `feature.ts` + FeatureFactory-based `index.ts`. Legacy services are modernized as importable feature modules, not deleted. Type guards replace `as any` casts across routes handlers. DRY refactoring in controllers. Discussion-orchestration local services deleted (2,709 lines). Shared schema base extracted. Hard constraint violation flagged: FeatureFactory env-var toggles (`process.env.FEATURE_X !== 'false'`) contradict the "no feature flags" rule — requires user decision.
 
 ---
 
@@ -39,19 +39,21 @@ grep -r "ExpressRequest\|ExpressResponse\|ExpressNextFunction" --include="*.ts" 
 
 ---
 
-## Current Status (2026-03-26 — Audit v2.4)
+## Current Status (2026-03-29 — Review v2.6)
 
-| #   | What                           | Status      | Notes                                                                                                                                                                 |
-| --- | ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | TypeORM → Drizzle              | **100%** ✅ | `grep typeorm` → 0 source hits. Zero in lockfile. Zero in env/config.                                                                                                 |
-| 2   | RabbitMQ → BullMQ              | **~85%** ⚠️ | Source code clean (0 amqplib hits). BullMQ wired. But: test/enterprise/infra compose files, 4 monitoring YAMLs, 2 scripts still reference rabbitmq.                   |
-| 3   | 7 → 2 Services                 | **~80%** ⚠️ | navratna-core/gateway live; docker/nginx updated. But: 4 of 7 legacy index.ts still exist; marketplace-service directory not deleted; agent CRUD routes not imported. |
-| 4   | DesktopUnified → Telescope     | **100%** ✅ | DesktopUnified.tsx + DesktopWorkspace.tsx deleted. All portals wired as lazy MaterializableBlocks in portal_registry.tsx.                                             |
-| 5   | Framer Basic → Advanced        | **100%** ✅ | 7-state MICROEXPRESSION_VARIANTS wired in MaterializableBlock. layoutId + useMotionValue + gestures in TelescopeSurface.                                              |
-| 6   | Code Splitting                 | **100%** ✅ | All portals lazy-loaded in portal_registry.tsx. Vite manualChunks configured. Suspense fallback implemented.                                                          |
-| 7   | Auth Tokens → httpOnly cookies | **100%** ✅ | auth_elysia.ts sets httpOnly access_token + refresh_token cookies. api/client.ts uses withCredentials:true, no localStorage.                                          |
-| 8   | Express elimination            | **100%** ✅ | `grep express` → 0 source hits. Transitive only via @modelcontextprotocol/sdk in lockfile.                                                                            |
-| 9   | Types → `@packages/`           | **100%** ✅ | All service type files deleted. Zod schemas moved to @uaip/types pipeline_schemas.ts. frontend/src/types/ reduced to frontend_extensions.ts only.                     |
+| #   | What                           | Status      | Notes                                                                                                                                                                                                                  |
+| --- | ------------------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | TypeORM → Drizzle              | **100%** ✅ | `grep typeorm` → 0 source hits. Zero in lockfile. Zero in env/config.                                                                                                                                                  |
+| 2   | RabbitMQ → BullMQ              | **~85%** ⚠️ | Source code clean (0 amqplib hits). BullMQ wired. But: test/enterprise/infra compose files, 4 monitoring YAMLs, 2 scripts still reference rabbitmq.                                                                    |
+| 3   | 7 → 2 Services                 | **~75%** 🔴 | FeatureFactory architecture complete. All 7 legacy services modernized. **Blockers**: new discussion/persona routes have zero auth (E6); shared `DiscussionService` doesn't load participants for start/turn (E7); participant migration drops fields (E8). See ⚠️ constraint flag. |
+| 4   | DesktopUnified → Telescope     | **100%** ✅ | DesktopUnified.tsx + DesktopWorkspace.tsx deleted. All portals wired as lazy MaterializableBlocks in portal_registry.tsx.                                                                                              |
+| 5   | Framer Basic → Advanced        | **100%** ✅ | 7-state MICROEXPRESSION_VARIANTS wired in MaterializableBlock. layoutId + useMotionValue + gestures in TelescopeSurface.                                                                                               |
+| 6   | Code Splitting                 | **100%** ✅ | All portals lazy-loaded in portal_registry.tsx. Vite manualChunks configured. Suspense fallback implemented.                                                                                                           |
+| 7   | Auth Tokens → httpOnly cookies | **100%** ✅ | auth_elysia.ts sets httpOnly access_token + refresh_token cookies. api/client.ts uses withCredentials:true, no localStorage.                                                                                           |
+| 8   | Express elimination            | **100%** ✅ | `grep express` → 0 source hits. Transitive only via @modelcontextprotocol/sdk in lockfile.                                                                                                                             |
+| 9   | Types → `@packages/`           | **100%** ✅ | All service type files deleted. Zod schemas moved to @uaip/types pipeline_schemas.ts. frontend/src/types/ reduced to frontend_extensions.ts only.                                                                      |
+
+> ⚠️ **Hard Constraint Violation Flag (2026-03-29)**: FeatureFactory uses env-var toggles (`process.env.FEATURE_X !== 'false'`) in navratna-core and navratna-gateway. This contradicts Hard Constraint #4 ("No fallbacks. No feature flags."). **Requires user decision**: remove the toggles (features always on) or formally relax the constraint.
 
 > **Filename Convention Note (2026-03-26)**: The codebase now uses **snake_case** for all filenames. This spec has been updated accordingly. Previous versions referenced camelCase/kebab-case names that no longer exist.
 
@@ -160,32 +162,85 @@ The following still reference RabbitMQ and need cleanup:
 
 **NAVRATNA-GATEWAY** (Port 3002): Security Gateway + Orchestration Pipeline + Capability Registry
 
+### FeatureFactory Architecture (2026-03-29, corrected v2.6)
+
+All 7 legacy services now follow a uniform `feature.ts` + FeatureFactory pattern. Each service exports a `Feature` object (4 optional lifecycle hooks: `initialize`, `routes`, `events`, `websocket`, `shutdown`). The consolidated services (`navratna-core`, `navratna-gateway`) compose features via `new FeatureFactory().register(feature)` and call lifecycle methods in sequence. Standalone services also use FeatureFactory in their `index.ts`.
+
+```typescript
+// apps/shared/services/src/feature_factory.ts (64 lines) — actual interface
+export interface Feature {
+  readonly name: string;
+  initialize?(deps: ServiceDeps): Promise<void>;
+  routes?<TApp extends Elysia>(app: TApp): TApp;
+  events?(bus: EventBusService): Promise<void>;
+  websocket?(io: MinimalWebSocketServer): void;
+  shutdown?(): Promise<void>;
+}
+
+export class FeatureFactory {
+  register(feature: Feature | null | false): this;
+  get activeFeatureNames(): string[];
+  async initialize(deps: ServiceDeps): Promise<void>;
+  mountRoutes<TApp extends Elysia>(app: TApp): TApp;
+  async subscribeEvents(bus: EventBusService): Promise<void>;
+  mountWebSocket(io: MinimalWebSocketServer): void;
+  async shutdown(): Promise<void>;
+}
+```
+
+**navratna-core** composes 4 features: `agentIntelligenceFeature`, `discussionFeature`, `artifactFeature`, `llmFeature`.
+
+**navratna-gateway** composes 3 features: `securityFeature`, `orchestrationFeature`, `capabilityFeature`.
+
 ### Verified Complete
 
-- ✅ `navratna-core/src/index.ts` (486 lines) — imports routes from agent-intelligence, artifact-service, llm-service, discussion-orchestration
-- ✅ `navratna-gateway/src/index.ts` (82 lines) — imports routes from security-gateway (10 route files), orchestration-pipeline, capability-registry
+- ✅ `navratna-core/src/index.ts` — uses FeatureFactory with 4 features; env-var toggles per feature (⚠️ see constraint flag above)
+- ✅ `navratna-gateway/src/index.ts` — uses FeatureFactory with 3 features; env-var toggles per feature (⚠️ see constraint flag above)
 - ✅ Both use `BaseService` + Elysia; `enableWebSocket: true` set on core
-- ✅ **discussion-orchestration WebSocket fully wired into navratna-core** — `setupWebSocketHandlers`, `UserChatHandler`, `ConversationIntelligenceHandler`, `TaskNotificationHandler`, `StreamingHandler`, `CodingAgentSocketHandler`, `DebateHandler`, `WhatsAppHandler` all imported and instantiated
+- ✅ **discussion-orchestration WebSocket fully wired into navratna-core** — all handlers imported and instantiated via feature lifecycle
 - ✅ `docker-compose.yml` — only `navratna-core` and `navratna-gateway` as application services; all 7 legacy service entries removed
 - ✅ `api-gateway/nginx.conf` — upstreams point to `navratna_core:3001` and `navratna_gateway:3002`; all routing rules updated
+- ✅ **All 7 legacy services have `feature.ts`** — each exports a `Feature` consumed by the consolidated services
+- ⚠️ **Discussion-orchestration local services deleted** (2,709 lines): `discussion_service.ts`, `participant_management_service.ts`, `persona_service.ts` — absorbed by `@uaip/shared-services` canonical versions. **However**: shared `DiscussionService` does not load participants before start/turn flows (see E7). Participant migration drops `displayName`/`permissions`/`turnOrder`/`turnWeight` (see E8).
+- 🔴 **New discussion/persona route files lack auth** — `discussion_routes.ts` and `persona_routes.ts` added state-changing endpoints with zero auth middleware; several paths default to `'system'`/`'anonymous'` on missing `x-user-id` (see E6).
+- ✅ **Shared schema base extracted**: `apps/shared/services/src/database/drizzle/schemas/schema_base.ts` — common Drizzle columns (`id`, `createdAt`, `updatedAt`, `isActive`)
+- ✅ **New shared utilities**: `cognitive/agent_capability_utils.ts` (event bus capability fetcher), `utils/async_helpers.ts` (abort-aware delay), `knowledge-graph/base_embedding_service.ts` (abstract embedding base)
+- ✅ **Type guards added across route handlers**: `isLLMGenerationResponse`, `isArtifactType`, `isRecord`, `isArtifactConversationContext`, `buildArtifactGenerationRequest` in artifact-service; `requireUser`/`isAuthError` in short_link_routes; `getIdParam`/`requireCapabilityId`/`registryMeta` in capability-registry
+- ✅ **DRY consolidation**: `buildZodErrorResponse`/`buildInvalidIdResponse`/`applyToolDefinitionTransforms` extracted in tool_controller; `supportedArtifactTypes` constant replaces inline arrays
+- ✅ **`noCheck: true` removed** from artifact-service and basebench-meta tsconfigs — type checking now enabled
+- ✅ **Import paths consolidated**: relative deep imports (`../../../../../shared/services/src/...`) replaced with `@uaip/shared-services/decision-engine`, `@uaip/shared-services/agent-state`, etc.
 
-### What Remains (2026-03-26 Audit — Correction)
+### Legacy Service Status (2026-03-29)
 
-**Previous claim "All 7 legacy index.ts deleted" was incorrect.** Only 3 of 7 were deleted.
+Strategy shifted from "delete index.ts" to "modernize as importable feature modules". All 7 now have `feature.ts` + FeatureFactory-based `index.ts`.
 
-| Legacy Service             | `src/index.ts`        | Notes                                                                      |
-| -------------------------- | --------------------- | -------------------------------------------------------------------------- |
-| `agent-intelligence`       | **EXISTS** (42 lines) | Stripped shell — still registers 2 route files                             |
-| `discussion-orchestration` | **EXISTS** (73 lines) | Shell — no routes, services-only initialization                            |
-| `artifact-service`         | **DELETED** ✅        | Only route/service files remain (imported by navratna-core)                |
-| `llm-service`              | **DELETED** ✅        | Only route/service files remain (imported by navratna-core)                |
-| `security-gateway`         | **DELETED** ✅        | Only `http/`, `routes/`, `services/` remain (imported by navratna-gateway) |
-| `orchestration-pipeline`   | **EXISTS** (49 lines) | Full standalone service — still runnable independently                     |
-| `capability-registry`      | **EXISTS** (50 lines) | Full standalone service — still runnable independently                     |
+| Legacy Service             | `src/index.ts`              | `src/feature.ts` | Status                                                                    |
+| -------------------------- | --------------------------- | ----------------- | ------------------------------------------------------------------------- |
+| `agent-intelligence`       | **FeatureFactory shell** ✅ | ✅ Created        | Registers routes via FeatureFactory lifecycle                             |
+| `discussion-orchestration` | **FeatureFactory shell** ✅ | ✅ Created        | 2,709 lines local services deleted; ⚠️ shared-services parity incomplete (E7, E8) |
+| `artifact-service`         | **New** (untracked) ✅      | ✅ Created        | Replaces deleted original; standalone runner via FeatureFactory            |
+| `llm-service`              | **New** (untracked) ✅      | ✅ Created        | Replaces deleted original; standalone runner via FeatureFactory            |
+| `security-gateway`         | **New** (untracked) ✅      | ✅ Created        | Routes/services imported directly by navratna-gateway; ⚠️ `projects_elysia.ts` not mounted (E9) |
+| `orchestration-pipeline`   | **FeatureFactory shell** ✅ | ✅ Created        | Registers routes via FeatureFactory lifecycle                             |
+| `capability-registry`      | **FeatureFactory shell** ✅ | ✅ Created        | Registers routes via FeatureFactory lifecycle                             |
 
 **Additional**: `marketplace-service/` directory still exists (not deleted per removal spec).
 
-**Functional concern**: `agent-intelligence/src/index.ts` contains full agent/persona/discussion CRUD routes inline (not in extracted route files). navratna-core only imports `POST /api/v1/agents/relevance` via `agent_routes.js`. The nginx config routes `/api/v1/agents` → `navratna_core`, but the full CRUD endpoints may not be served. Verify this is not a live 404.
+### Code Review Findings (2026-03-29, updated v2.6)
+
+Issues discovered during v2.5 audit + v2.6 Oracle-assisted deep review of 179 unstaged files. E6–E7 are **merge blockers**. Tracked as E-items in Outstanding Work.
+
+| ID  | Finding                                                                                                 | Severity     |
+| --- | ------------------------------------------------------------------------------------------------------- | ------------ |
+| E1  | `sql_helpers.ts` — table/column names string-interpolated into SQL. Currently low risk (hardcoded callers) but a landmine for future use. Parameterize or add allowlist. | Medium       |
+| E2  | `feature_factory.ts` — `factory.shutdown()` never called anywhere. Resource leak on process exit.       | Medium       |
+| E3  | `feature_factory.ts` — no error isolation in lifecycle loops. One failing feature kills the entire service startup. | Low          |
+| E4  | `isRecord()` utility duplicated 6x across codebase and doesn't guard against arrays (`!Array.isArray`). Needs `!Array.isArray(value)` check and DRY consolidation. | Low          |
+| E5  | `basebench-meta` type regression: `data.entries ?? []` → `(data as Record<string, unknown>).entries as unknown[] ?? []` — worse than before. Also `agent_generation_handler.ts` reintroduces `@ts-expect-error` + `as unknown as Record<string, unknown>`. | Low          |
+| E6  | 🔴 **Auth bypass in new discussion/persona routes** — `discussion_routes.ts` (lines 20–35, 85–167, 248–289) and `persona_routes.ts` (lines 15–171) add state-changing endpoints with zero auth middleware. Several paths default to `'system'` or `'anonymous'` when `x-user-id` absent. Creates anonymous create/update/delete/start/end behavior. | **Critical** |
+| E7  | 🔴 **Shared `DiscussionService` incompatible with start/turn flows** — `discussion_service.ts:181–195` fetches via `findById('discussions', id)` but `startDiscussion` (:264–305) and turn init (:1047–1081) depend on `discussion.participants`. Deleted local implementation loaded participants; shared one does not. Start/turn will fail or behave as zero participants. | **Critical** |
+| E8  | **Participant migration dropped fields** — `participant_management_service.ts:42–79` only persists `participationConfig`/`behavioralConstraints`/`contextAwareness` in metadata. `displayName`, `permissions`, `turnOrder`, `turnWeight` accepted then silently discarded (:100–150). Downstream code in `discussion_orchestration_service.ts:444–446, 1984–2055` and `discussion_service.ts:455–488, 594–606` still reads these fields. | **Important** |
+| E9  | `projects_elysia.ts` edited but not mounted — `security-gateway/src/feature.ts` registers 11 route modules but does not include `registerProjectRoutes`. Dead code or missing mount. | Minor        |
 
 ---
 
@@ -338,38 +393,58 @@ All exported types and interfaces used across more than one service or component
 | C1   | Wire 7-state microexpression system to Framer Motion variants in MaterializableBlock | ✅ 2026-03-25 |
 | C2   | Add layoutId, useMotionValue, gesture recognition to TelescopeSurface                | ✅ 2026-03-25 |
 
-### Outstanding Work (2026-03-26 Audit)
+### Outstanding Work (2026-03-29 Review v2.6)
 
-| Item | Description                                                                                                                                                            | Priority |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| D1   | Delete 4 remaining legacy `index.ts`: agent-intelligence, discussion-orchestration, orchestration-pipeline, capability-registry                                        | **High** |
+| Item | Description                                                                                                                                                            | Priority     |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| E6   | 🔴 **MERGE BLOCKER** — Add required auth middleware to discussion/persona route groups. Remove all `'system'`/`'anonymous'` fallbacks on write paths. Fail closed on missing `x-user-id`. | **Critical** |
+| E7   | 🔴 **MERGE BLOCKER** — Fix shared `DiscussionService` integration: either load participants/messages explicitly before start/turn, or keep the local service until parity is proven with regression test. | **Critical** |
+| E8   | Persist participant fields that orchestration layer reads: `displayName`, `permissions`, `turnOrder`, `turnWeight` in `participant_management_service.ts`. Add regression test for participant creation → start flow. | **High**     |
+| D1   | ~~Delete 4 remaining legacy `index.ts`~~ **Redesigned** — All 7 legacy services now modernized via FeatureFactory pattern. Original D1 (delete index.ts) no longer applies. Remaining: remove env-var toggles to comply with Hard Constraint #4 (see ⚠️ flag). | **High** |
 | D2   | Verify agent CRUD routes (`GET/POST/PUT/DELETE /api/v1/agents`) are served by navratna-core — currently inline in legacy agent-intelligence/src/index.ts, not imported | **High** |
 | D3   | Remove rabbitmq from `scripts/run-integration-tests.sh` (REQUIRED_SERVICES, inline compose, RABBITMQ_URL export)                                                       | **High** |
 | D4   | Remove rabbitmq from `scripts/dev-start.sh` (INFRASTRUCTURE_SERVICES, RABBITMQ_DEFAULT_USER/PASS)                                                                      | **High** |
 | D5   | Remove rabbitmq service from `infrastructure/docker-compose.test.yml`                                                                                                  | **High** |
+| E5   | Replace remaining unsafe casts in `agent_generation_handler.ts` (`@ts-expect-error`, `as unknown as Record`) and `basebench-meta/src/index.ts` with narrow validators  | Medium       |
 | D6   | Remove rabbitmq-enterprise + RABBITMQ_URL from `infrastructure/docker-compose.enterprise.yml`                                                                          | Medium   |
 | D7   | Remove orphaned `rabbitmq_data:` volume from `infrastructure/docker-compose.infrastructure.yml`                                                                        | Low      |
 | D8   | Remove RabbitMQ scrape targets and rules from 4 monitoring YAML files                                                                                                  | Medium   |
 | D9   | Delete marketplace-service directory                                                                                                                                   | Medium   |
+| E9   | Mount `projects_elysia.ts` in `security-gateway/src/feature.ts` or delete it — currently edited but not registered                                                     | Medium   |
+| E1   | `sql_helpers.ts` — parameterize table/column interpolation or add allowlist to prevent SQL injection                                                                   | Medium   |
+| E2   | `feature_factory.ts` — call `factory.shutdown()` on process exit (SIGTERM/SIGINT handler)                                                                              | Medium   |
+| E3   | `feature_factory.ts` — add error isolation in lifecycle loops so one failing feature doesn't kill entire service. Move feature state out of module scope into per-registration instances (`createFeature()` pattern). | Low      |
+| E4   | Consolidate `isRecord()` to single shared utility and add `!Array.isArray()` guard                                                                                     | Low      |
 | D10  | Clean stale build artifacts: `auth.elysia.js/.d.ts/.map` in security-gateway/src/http/                                                                                 | Low      |
 | D11  | Clean stale build artifacts: `pipeline-schemas.js/.d.ts/.map` in shared-types/src/                                                                                     | Low      |
+| D12  | Export `fetchAgentCapabilitiesViaEventBus` from shared-services barrel (`apps/shared/services/src/index.ts`)                                                           | Low      |
+| D13  | Export `schema_base` from shared-services barrel                                                                                                                       | Low      |
+| D14  | Re-enable `strict: true` in `apps/shared/tsconfig.base.json` (currently `false` for consolidation phase)                                                               | Low      |
 
 ---
 
 ## Replacement Summary
 
-| #   | What           | From             | To                | Status      | Remaining                                                            |
-| --- | -------------- | ---------------- | ----------------- | ----------- | -------------------------------------------------------------------- |
-| 1   | ORM            | TypeORM          | Drizzle           | **100% ✅** | —                                                                    |
-| 2   | Message Bus    | RabbitMQ         | BullMQ/Redis      | **~85% ⚠️** | D3–D8: infra/scripts/monitoring cleanup                              |
-| 3   | Services       | 7 microservices  | 2 consolidated    | **~80% ⚠️** | D1–D2, D9: delete legacy index.ts, verify routes, delete marketplace |
-| 4   | UI Shell       | DesktopUnified   | TelescopeSurface  | **100% ✅** | —                                                                    |
-| 5   | Animations     | Basic Framer     | Advanced Framer   | **100% ✅** | —                                                                    |
-| 6   | Bundle         | Monolithic       | Code-split        | **100% ✅** | —                                                                    |
-| 7   | Auth tokens    | localStorage     | httpOnly cookies  | **100% ✅** | —                                                                    |
-| 8   | HTTP framework | Express remnants | Elysia            | **100% ✅** | —                                                                    |
-| 9   | Types          | Scattered        | `@packages/` only | **100% ✅** | —                                                                    |
+| #   | What           | From             | To                | Status       | Remaining                                                                      |
+| --- | -------------- | ---------------- | ----------------- | ------------ | ------------------------------------------------------------------------------ |
+| 1   | ORM            | TypeORM          | Drizzle           | **100% ✅**  | —                                                                              |
+| 2   | Message Bus    | RabbitMQ         | BullMQ/Redis      | **~85% ⚠️**  | D3–D8: infra/scripts/monitoring cleanup                                        |
+| 3   | Services       | 7 microservices  | 2 consolidated    | **~75% 🔴**  | **Blockers**: E6 (auth bypass), E7 (DiscussionService parity), E8 (participant fields). Also: D1 (env-var toggles), D2 (agent routes), D9 (marketplace), E1–E5,E9 (code review) |
+| 4   | UI Shell       | DesktopUnified   | TelescopeSurface  | **100% ✅**  | —                                                                              |
+| 5   | Animations     | Basic Framer     | Advanced Framer   | **100% ✅**  | —                                                                              |
+| 6   | Bundle         | Monolithic       | Code-split        | **100% ✅**  | —                                                                              |
+| 7   | Auth tokens    | localStorage     | httpOnly cookies  | **100% ✅**  | —                                                                              |
+| 8   | HTTP framework | Express remnants | Elysia            | **100% ✅**  | —                                                                              |
+| 9   | Types          | Scattered        | `@packages/` only | **100% ✅**  | —                                                                              |
 
 No feature flags. No rollback paths. No fallbacks. Migrate, verify, delete.
+
+### What's Done Well (v2.6 Review)
+
+- ✅ **Net deletion of 4,611 lines** — DRY improvements are substantial and mostly well-executed
+- ✅ **Import cleanup to `@uaip/*` sub-path exports** — shared-services `package.json` properly defines the new export map
+- ✅ **Removing `noCheck: true`** and adding real type guards in route handlers is the right direction
+- ✅ **FeatureFactory** is intentionally small (64 lines) and well-shaped — composable, testable surface
+- ✅ **Type guards** in artifact_routes, short_link_routes, capability_controller are production-quality runtime validation
 
 ---

@@ -28,6 +28,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { base, llmPreferenceCommonColumns } from './schema_base';
 import type {
   SecurityLevel,
   UserType,
@@ -45,14 +46,6 @@ import type {
   AuthenticationMethod,
   OAuthProviderType,
 } from '@uaip/types';
-
-// ─── base ──────────────────────────────────────────────────────────────────
-
-const base = {
-  id: uuid('id').defaultRandom().primaryKey(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-};
 
 // ─── USERS & AUTH ──────────────────────────────────────────────────────────
 
@@ -181,17 +174,15 @@ export const sessions = pgTable(
   ]
 );
 
+const userTokenColumns = {
+  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 500 }).notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+};
+
 export const refreshTokens = pgTable(
   'refresh_tokens',
-  {
-    ...base,
-    userId: varchar('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    token: varchar('token', { length: 500 }).notNull().unique(),
-    expiresAt: timestamp('expires_at').notNull(),
-    revokedAt: timestamp('revoked_at'),
-  },
+  { ...base, ...userTokenColumns, revokedAt: timestamp('revoked_at') },
   (t) => [
     uniqueIndex('idx_refresh_tokens_token').on(t.token),
     index('idx_refresh_tokens_user_id').on(t.userId),
@@ -201,11 +192,7 @@ export const refreshTokens = pgTable(
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {
   ...base,
-  userId: varchar('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  token: varchar('token', { length: 500 }).notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
+  ...userTokenColumns,
   usedAt: timestamp('used_at'),
 });
 
@@ -344,14 +331,9 @@ export const userLLMProviders = pgTable('user_llm_providers', {
 
 export const userLLMPreferences = pgTable('user_llm_preferences', {
   ...base,
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  modelId: uuid('model_id'),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   temperature: decimal('temperature', { precision: 3, scale: 2 }),
-  maxTokens: integer('max_tokens'),
-  systemPrompt: text('system_prompt'),
-  preferences: jsonb('preferences').$type<Record<string, unknown>>(),
+  ...llmPreferenceCommonColumns,
 });
 
 // ─── OPERATIONS ────────────────────────────────────────────────────────────

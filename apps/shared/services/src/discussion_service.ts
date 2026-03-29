@@ -58,6 +58,26 @@ export class DiscussionService {
     this.activeDiscussions = new Map();
   }
 
+  private async hydrateDiscussionRelations(
+    discussion: Record<string, unknown>
+  ): Promise<DiscussionType> {
+    const participantManagementService = new (
+      await import('./participant_management_service')
+    ).ParticipantManagementService(this.databaseService)
+
+    const participants = await participantManagementService.getDiscussionParticipants(
+      discussion.id as string
+    )
+
+    return {
+      ...discussion,
+      participants: participants.map((participant) => ({
+        ...participant,
+        role: participant.role as DiscussionParticipantType['role'],
+      })),
+    } as DiscussionType
+  }
+
   // ===== DISCUSSION LIFECYCLE MANAGEMENT =====
 
   async createDiscussion(request: CreateDiscussionRequest): Promise<DiscussionType> {
@@ -130,11 +150,11 @@ export class DiscussionService {
         updatedAt: new Date(),
       };
 
-      const discussion = await this.databaseService.create<Record<string, unknown>>(
+      const createdDiscussion = await this.databaseService.create<Record<string, unknown>>(
         'discussions',
         discussionData
       );
-      const discussionId = discussion.id as string;
+      const discussionId = createdDiscussion.id as string;
 
       if (request.createdBy) {
         await this.addUserParticipant(discussionId, request.createdBy);
@@ -145,7 +165,7 @@ export class DiscussionService {
         logger.debug('Adding initial participants', {
           discussionId,
           participantCount: request.initialParticipants.length,
-          discussionSettings: discussion.settings,
+          discussionSettings: createdDiscussion.settings,
         });
         await Promise.all(
           request.initialParticipants
@@ -159,6 +179,8 @@ export class DiscussionService {
             )
         );
       }
+
+      const discussion = await this.hydrateDiscussionRelations(createdDiscussion)
 
       // Cache active discussion
       this.activeDiscussions.set(discussionId, discussion);
@@ -193,11 +215,15 @@ export class DiscussionService {
         'discussions',
         id
       );
-      if (discussion && discussion.status === DiscussionStatus.ACTIVE) {
-        this.activeDiscussions.set(id, discussion);
+      if (discussion) {
+        const hydratedDiscussion = await this.hydrateDiscussionRelations(discussion)
+        if (hydratedDiscussion.status === DiscussionStatus.ACTIVE) {
+          this.activeDiscussions.set(id, hydratedDiscussion)
+        }
+        return hydratedDiscussion
       }
 
-      return discussion;
+      return null;
     } catch (error) {
       logger.error('Failed to get discussion', {
         error: (error as Error).message,
@@ -228,14 +254,16 @@ export class DiscussionService {
       });
 
       // Fetch the updated discussion with all relations (especially participants)
-      const discussion = await this.databaseService.findById<Record<string, unknown>>(
+      const updatedDiscussion = await this.databaseService.findById<Record<string, unknown>>(
         'discussions',
         id
       );
 
-      if (!discussion) {
+      if (!updatedDiscussion) {
         throw new Error(`Failed to update discussion: ${id}`);
       }
+
+      const discussion = await this.hydrateDiscussionRelations(updatedDiscussion)
 
       // Update cache
       if (discussion.status === DiscussionStatus.ACTIVE) {
@@ -291,18 +319,23 @@ export class DiscussionService {
       }
 
       // Update discussion status and state
-      const updatedDiscussion = await this.updateDiscussion(id, {
+      await this.updateDiscussion(id, {
         status: DiscussionStatus.ACTIVE,
         startedAt: new Date(),
         state: {
           ...discussion.state,
           phase: 'discussion',
-          activeParticipants: discussion.state?.activeParticipants + 1,
+          activeParticipants: (discussion.state?.activeParticipants || 0) + 1,
         },
       });
 
       // Initialize first turn
       await this.initializeFirstTurn(id);
+
+      const refreshedDiscussion = await this.getDiscussion(id, true);
+      if (!refreshedDiscussion) {
+        throw new Error(`Failed to refresh discussion after start: ${id}`);
+      }
 
       // Emit start event
       await this.emitDiscussionEvent(id, DiscussionEventType.STATUS_CHANGED, {
@@ -312,7 +345,7 @@ export class DiscussionService {
       });
 
       logger.info('Discussion started successfully', { discussionId: id });
-      return updatedDiscussion;
+      return refreshedDiscussion;
     } catch (error) {
       logger.error('Failed to start discussion', {
         error: (error as Error).message,
@@ -856,7 +889,7 @@ export class DiscussionService {
             participantId: nextParticipantId,
             startedAt: new Date(),
             expectedEndAt: new Date(Date.now() + this.defaultTurnTimeout * 1000),
-            turnNumber: discussion.state?.currentTurn?.turnNumber + 1,
+            turnNumber: (discussion.state?.currentTurn?.turnNumber || 0) + 1,
           },
         },
       });
@@ -865,7 +898,7 @@ export class DiscussionService {
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.TURN_CHANGED, {
         previousParticipantId: discussion.state?.currentTurn?.participantId,
         nextParticipantId,
-        turnNumber: discussion.state?.currentTurn?.turnNumber + 1,
+        turnNumber: (discussion.state?.currentTurn?.turnNumber || 0) + 1,
         forcedBy,
       });
 

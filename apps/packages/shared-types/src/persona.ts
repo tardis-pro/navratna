@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema, EntityFilterBaseSchema } from './common.js';
 
 // Persona trait types
 export enum PersonaTraitType {
@@ -234,16 +234,12 @@ export const UpdatePersonaRequestSchema = PersonaSchema.partial().omit({
 export type UpdatePersonaRequest = z.infer<typeof UpdatePersonaRequestSchema>;
 
 // Persona search filters
-export const PersonaSearchFiltersSchema = z.object({
+export const PersonaSearchFiltersSchema = EntityFilterBaseSchema.extend({
   query: z.string().optional(),
   expertise: z.array(z.string()).optional(),
   traits: z.array(z.string()).optional(),
   status: z.array(z.nativeEnum(PersonaStatus)).optional(),
   visibility: z.array(z.nativeEnum(PersonaVisibility)).optional(),
-  createdBy: z.array(IDSchema).optional(),
-  organizationId: IDSchema.optional(),
-  teamId: IDSchema.optional(),
-  tags: z.array(z.string()).optional(),
   minUsageCount: z.number().min(0).optional(),
   minFeedbackScore: z.number().min(0).max(5).optional(),
   createdAfter: z.date().optional(),

@@ -1,4 +1,4 @@
-import { UserKnowledgeService } from './user_knowledge_service';
+import { UserKnowledgeService, UserKnowledgeStats, ConversationMemoryMeta } from './user_knowledge_service';
 import { KnowledgeGraphService as _KnowledgeGraphService } from './knowledge-graph/knowledge_graph_service';
 import {
   KnowledgeItem,
@@ -48,26 +48,11 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
   /**
    * Get user knowledge statistics with caching
    */
-  async getUserKnowledgeStats(
-    userId: string,
-    useCache = true
-  ): Promise<{
-    totalItems: number;
-    itemsByType: Record<string, number>;
-    recentActivity: {
-      itemsThisWeek: number;
-      itemsThisMonth: number;
-    };
-    generalKnowledge: {
-      totalItems: number;
-      itemsByType: Record<string, number>;
-    };
-  }> {
+  async getUserKnowledgeStats(userId: string, useCache = true): Promise<UserKnowledgeStats> {
     const cacheKey = this.CACHE_KEYS.USER_KNOWLEDGE_STATS(userId);
 
     if (useCache) {
-      type StatsResult = Awaited<ReturnType<CachedUserKnowledgeService['getUserKnowledgeStats']>>;
-      const cached = await redisCacheService.get<StatsResult>(cacheKey);
+      const cached = await redisCacheService.get<UserKnowledgeStats>(cacheKey);
       if (cached) {
         logger.debug('User knowledge stats retrieved from cache', { userId });
         return cached;
@@ -442,12 +427,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
     conversationId: string,
     userMessage: string,
     assistantResponse: string,
-    metadata?: {
-      agentId?: string;
-      intent?: unknown;
-      topic?: string;
-      sentiment?: string;
-    }
+    metadata?: ConversationMemoryMeta
   ): Promise<KnowledgeItem> {
     const result = await super.storeConversationMemory(
       userId,

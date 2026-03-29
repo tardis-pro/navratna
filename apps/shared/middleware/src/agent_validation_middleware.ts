@@ -11,127 +11,108 @@ import { AgentTransformationService } from './agent_transformation_service.js';
  */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class AgentValidationMiddleware {
-  /**
-   * Elysia plugin for agent creation validation with persona transformation support
-   */
+  private static validateBodyObject(
+    body: unknown,
+    set: { status?: number | string }
+  ): Record<string, unknown> | { validationError: { error: string; code: string } } {
+    const rawData = body as Record<string, unknown>;
+    if (!rawData || typeof rawData !== 'object') {
+      set.status = 400;
+      return {
+        validationError: {
+          error: 'Request body is required and must be an object',
+          code: 'INVALID_REQUEST_BODY',
+        },
+      };
+    }
+    return rawData;
+  }
+
+  private static deriveWithValidBody(
+    operation: string,
+    handler: (rawData: Record<string, unknown>, set: { status?: number | string }) => Record<string, unknown>
+  ) {
+    return (app: Elysia) => {
+      return app.derive(({ body, set }) => {
+        const bodyResult = AgentValidationMiddleware.validateBodyObject(body, set);
+        if ('validationError' in bodyResult) return bodyResult;
+        try {
+          return handler(bodyResult, set);
+        } catch (error) {
+          return AgentValidationMiddleware.handleValidationError(error, operation, set);
+        }
+      });
+    };
+  }
+
   static validateAgentCreation() {
-    return (app: Elysia) => {
-      return app.derive(({ body, set }) => {
-        try {
-          const rawData = body as Record<string, unknown>;
-
-          if (!rawData || typeof rawData !== 'object') {
-            set.status = 400;
-            return {
-              validationError: {
-                error: 'Request body is required and must be an object',
-                code: 'INVALID_REQUEST_BODY',
-              },
-            };
-          }
-
-          logger.info('Validating agent creation request', {
-            hasName: !!rawData.name,
-            hasRole: !!rawData.role,
-            hasCapabilities: !!rawData.capabilities,
-            hasPersona: !!rawData.persona,
-            inputFormat: AgentValidationMiddleware.detectInputFormat(rawData),
-          });
-
-          const needsTransformation = AgentValidationMiddleware.needsPersonaTransformation(rawData);
-
-          let validatedData;
-
-          if (needsTransformation) {
-            logger.info('Applying persona transformation', { name: rawData.name });
-
-            const transformedData =
-              AgentTransformationService.transformPersonaToAgentRequest(rawData);
-            validatedData = AgentCreateRequestSchema.parse(transformedData);
-
-            logger.info('Persona transformation and validation successful', {
-              originalRole: rawData.role || (rawData.persona as Record<string, unknown>)?.role,
-              transformedRole: validatedData.role,
-              capabilities: validatedData.capabilities?.length,
-            });
-          } else {
-            validatedData = AgentCreateRequestSchema.parse(rawData);
-
-            logger.info('Direct agent validation successful', {
-              role: validatedData.role,
-              capabilities: validatedData.capabilities?.length,
-            });
-          }
-
-          // Additional business logic validation
-          AgentValidationMiddleware.validateBusinessRules(validatedData);
-
-          const validationMeta: ValidationMeta = {
-            transformationApplied: needsTransformation,
-            originalFormat: AgentValidationMiddleware.detectInputFormat(rawData),
-            validatedAt: new Date(),
-          };
-
-          return {
-            validatedBody: validatedData,
-            validationMeta,
-          };
-        } catch (error) {
-          return AgentValidationMiddleware.handleValidationError(error, 'agent creation', set);
-        }
+    return AgentValidationMiddleware.deriveWithValidBody('agent creation', (rawData) => {
+      logger.info('Validating agent creation request', {
+        hasName: !!rawData.name,
+        hasRole: !!rawData.role,
+        hasCapabilities: !!rawData.capabilities,
+        hasPersona: !!rawData.persona,
+        inputFormat: AgentValidationMiddleware.detectInputFormat(rawData),
       });
-    };
+
+      const needsTransformation = AgentValidationMiddleware.needsPersonaTransformation(rawData);
+
+      let validatedData;
+
+      if (needsTransformation) {
+        logger.info('Applying persona transformation', { name: rawData.name });
+
+        const transformedData = AgentTransformationService.transformPersonaToAgentRequest(rawData);
+        validatedData = AgentCreateRequestSchema.parse(transformedData);
+
+        logger.info('Persona transformation and validation successful', {
+          originalRole: rawData.role || (rawData.persona as Record<string, unknown>)?.role,
+          transformedRole: validatedData.role,
+          capabilities: validatedData.capabilities?.length,
+        });
+      } else {
+        validatedData = AgentCreateRequestSchema.parse(rawData);
+
+        logger.info('Direct agent validation successful', {
+          role: validatedData.role,
+          capabilities: validatedData.capabilities?.length,
+        });
+      }
+
+      AgentValidationMiddleware.validateBusinessRules(validatedData);
+
+      const validationMeta: ValidationMeta = {
+        transformationApplied: needsTransformation,
+        originalFormat: AgentValidationMiddleware.detectInputFormat(rawData),
+        validatedAt: new Date(),
+      };
+
+      return { validatedBody: validatedData, validationMeta };
+    });
   }
 
-  /**
-   * Elysia plugin for agent update validation
-   */
   static validateAgentUpdate() {
-    return (app: Elysia) => {
-      return app.derive(({ body, set }) => {
-        try {
-          const rawData = body as Record<string, unknown>;
+    return AgentValidationMiddleware.deriveWithValidBody('agent update', (rawData) => {
+      const validatedData = AgentUpdateSchema.parse(rawData);
 
-          if (!rawData || typeof rawData !== 'object') {
-            set.status = 400;
-            return {
-              validationError: {
-                error: 'Request body is required and must be an object',
-                code: 'INVALID_REQUEST_BODY',
-              },
-            };
-          }
+      if (validatedData.role) {
+        AgentValidationMiddleware.validateRole(validatedData.role);
+      }
 
-          const validatedData = AgentUpdateSchema.parse(rawData);
+      if (validatedData.persona?.capabilities) {
+        AgentValidationMiddleware.validateCapabilities(validatedData.persona.capabilities);
+      }
 
-          if (validatedData.role) {
-            AgentValidationMiddleware.validateRole(validatedData.role);
-          }
+      const validationMeta: ValidationMeta = {
+        transformationApplied: false,
+        originalFormat: 'agent-update',
+        validatedAt: new Date(),
+      };
 
-          if (validatedData.persona?.capabilities) {
-            AgentValidationMiddleware.validateCapabilities(validatedData.persona.capabilities);
-          }
-
-          const validationMeta: ValidationMeta = {
-            transformationApplied: false,
-            originalFormat: 'agent-update',
-            validatedAt: new Date(),
-          };
-
-          return {
-            validatedBody: validatedData,
-            validationMeta,
-          };
-        } catch (error) {
-          return AgentValidationMiddleware.handleValidationError(error, 'agent update', set);
-        }
-      });
-    };
+      return { validatedBody: validatedData, validationMeta };
+    });
   }
 
-  /**
-   * Elysia plugin for agent query parameter validation
-   */
   static validateAgentQuery() {
     return (app: Elysia) => {
       return app.derive(({ query, set }) => {

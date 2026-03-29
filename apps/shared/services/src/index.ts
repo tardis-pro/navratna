@@ -100,7 +100,7 @@ export type {
   TaskAssignmentSuggestion,
   TaskFilters,
 } from '@uaip/types';
-export type { Project as TaskEntity } from './database/drizzle/schemas/control_schema';
+export type { TaskEntity } from '@uaip/types';
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agent_intelligence_service';
@@ -172,6 +172,8 @@ export type {
 export * from './knowledge-graph/index';
 export { UserKnowledgeService } from './user_knowledge_service';
 export { ContextOrchestrationService } from './context_orchestration_service';
+export { scoreRelevance } from './relevance_service';
+export { getConstellations } from './constellation_service';
 
 // Agent Memory Services
 export * from './agent-memory/index';
@@ -236,4 +238,6 @@ export {
   initializeServices,
   servicesHealthCheck,
   resetServices,
-} from './service_factory';
+} from './service_factory'
+
+export { FeatureFactory, type Feature, type ServiceDeps } from './feature_factory.js';

@@ -3,6 +3,9 @@ import { ThoughtParserService } from '../thought_parser_service';
 import { CritiqueService } from '../critique_service';
 import { DebateOrchestratorService } from '../debate_orchestrator_service';
 
+type VoteStance = 'support' | 'oppose' | 'abstain' | 'neutral';
+const makeVote = (agentId: string, stance: VoteStance, weight = 1) => ({ agentId, stance, weight, timestamp: Date.now() });
+
 describe('Cognitive Services Integration', () => {
   let thoughtParser: ThoughtParserService;
   let critiqueService: CritiqueService;
@@ -140,11 +143,7 @@ Redis would be a good fit for this use case.
 
   describe('DebateOrchestratorService', () => {
     it('should calculate consensus correctly', () => {
-      const votes = [
-        { agentId: 'a1', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a2', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a3', stance: 'oppose' as const, weight: 1, timestamp: Date.now() },
-      ];
+      const votes = [makeVote('a1', 'support'), makeVote('a2', 'support'), makeVote('a3', 'oppose')];
 
       const consensus = debateOrchestrator.calculateConsensus(votes);
 
@@ -155,10 +154,7 @@ Redis would be a good fit for this use case.
     });
 
     it('should detect deadlock', () => {
-      const votes = [
-        { agentId: 'a1', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a2', stance: 'oppose' as const, weight: 1, timestamp: Date.now() },
-      ];
+      const votes = [makeVote('a1', 'support'), makeVote('a2', 'oppose')];
 
       const consensus = debateOrchestrator.calculateConsensus(votes);
 
@@ -167,10 +163,7 @@ Redis would be a good fit for this use case.
     });
 
     it('should handle weighted votes correctly', () => {
-      const votes = [
-        { agentId: 'expert', stance: 'support' as const, weight: 2, timestamp: Date.now() },
-        { agentId: 'novice', stance: 'oppose' as const, weight: 0.5, timestamp: Date.now() },
-      ];
+      const votes = [makeVote('expert', 'support', 2), makeVote('novice', 'oppose', 0.5)];
 
       const consensus = debateOrchestrator.calculateConsensus(votes);
 
@@ -181,11 +174,7 @@ Redis would be a good fit for this use case.
     });
 
     it('should detect unanimity', () => {
-      const votes = [
-        { agentId: 'a1', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a2', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a3', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-      ];
+      const votes = [makeVote('a1', 'support'), makeVote('a2', 'support'), makeVote('a3', 'support')];
 
       const consensus = debateOrchestrator.calculateConsensus(votes);
 
@@ -194,11 +183,7 @@ Redis would be a good fit for this use case.
     });
 
     it('should handle abstentions correctly', () => {
-      const votes = [
-        { agentId: 'a1', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a2', stance: 'abstain' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a3', stance: 'oppose' as const, weight: 1, timestamp: Date.now() },
-      ];
+      const votes = [makeVote('a1', 'support'), makeVote('a2', 'abstain'), makeVote('a3', 'oppose')];
 
       const consensus = debateOrchestrator.calculateConsensus(votes);
 
@@ -209,12 +194,7 @@ Redis would be a good fit for this use case.
     });
 
     it('should detect weak consensus', () => {
-      const votes = [
-        { agentId: 'a1', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a2', stance: 'support' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a3', stance: 'oppose' as const, weight: 1, timestamp: Date.now() },
-        { agentId: 'a4', stance: 'neutral' as const, weight: 1, timestamp: Date.now() },
-      ];
+      const votes = [makeVote('a1', 'support'), makeVote('a2', 'support'), makeVote('a3', 'oppose'), makeVote('a4', 'neutral')];
 
       const consensus = debateOrchestrator.calculateConsensus(votes);
 

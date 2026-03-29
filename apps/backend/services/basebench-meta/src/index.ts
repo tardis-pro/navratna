@@ -46,7 +46,7 @@ class BaseBenchMetaApp extends BaseService {
 
       await this.subscribeWithErrorHandling(
         'basebench.evaluate.batch.request',
-        async (data) => this.baseBenchService.evaluateBatch(data.entries ?? []),
+        async (data) => this.baseBenchService.evaluateBatch((data as Record<string, unknown>).entries as unknown[] ?? []),
         {
           responseEvent: 'basebench.evaluate.batch.response',
           errorEvent: 'basebench.evaluate.batch.error',

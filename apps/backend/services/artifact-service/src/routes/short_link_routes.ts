@@ -1,12 +1,25 @@
 import { ShortLinkService } from '../services/short_link_service.js';
 import { logger } from '@uaip/utils';
 
-function getShortLinkService(): ShortLinkService {
-  return new ShortLinkService();
+type HeaderCtx = { headers: Record<string, string>; set: { status: number } };
+
+function requireUser(
+  headers: Record<string, string>,
+  set: { status: number }
+): { userId: string; svc: ShortLinkService } | { error: string } {
+  const userId = headers['x-user-id'];
+  if (!userId) {
+    set.status = 401;
+    return { error: 'User not authenticated' };
+  }
+  return { userId, svc: new ShortLinkService() };
+}
+
+function isAuthError(v: unknown): v is { error: string } {
+  return typeof v === 'object' && v !== null && 'error' in v && !('userId' in v);
 }
 
 export function registerShortLinkRoutes(app: unknown) {
-  // Auth via x-user-id header for user routes
   (app as { group: Function }).group(
     '/api/v1',
     (g: { post: Function; get: Function; put: Function; delete: Function }) =>
@@ -17,18 +30,11 @@ export function registerShortLinkRoutes(app: unknown) {
             headers,
             body,
             set,
-          }: {
-            headers: Record<string, string>;
-            body: Record<string, unknown>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { body: Record<string, unknown> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               const shortLink = await svc.createShortLink(body.originalUrl as string, userId, body);
               logger.info('Short link created', {
                 shortCode: shortLink.shortCode,
@@ -54,18 +60,11 @@ export function registerShortLinkRoutes(app: unknown) {
             headers,
             query,
             set,
-          }: {
-            headers: Record<string, string>;
-            query: Record<string, unknown>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { query: Record<string, unknown> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               const options = {
                 page: parseInt(String(query.page ?? 1)),
                 limit: parseInt(String(query.limit ?? 20)),
@@ -88,18 +87,11 @@ export function registerShortLinkRoutes(app: unknown) {
             headers,
             params,
             set,
-          }: {
-            headers: Record<string, string>;
-            params: Record<string, string>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { params: Record<string, string> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               const link = await svc.getLinkById(params.id, userId);
               if (!link) {
                 set.status = 404;
@@ -121,19 +113,11 @@ export function registerShortLinkRoutes(app: unknown) {
             params,
             body,
             set,
-          }: {
-            headers: Record<string, string>;
-            params: Record<string, string>;
-            body: Record<string, unknown>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { params: Record<string, string>; body: Record<string, unknown> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               const updated = await svc.updateLink(params.id, userId, body);
               logger.info('Short link updated', { linkId: params.id, userId });
               return { success: true, data: updated };
@@ -154,18 +138,11 @@ export function registerShortLinkRoutes(app: unknown) {
             headers,
             params,
             set,
-          }: {
-            headers: Record<string, string>;
-            params: Record<string, string>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { params: Record<string, string> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               await svc.deleteLink(params.id, userId);
               logger.info('Short link deleted', { linkId: params.id, userId });
               return { success: true, message: 'Link deleted successfully' };
@@ -186,18 +163,11 @@ export function registerShortLinkRoutes(app: unknown) {
             headers,
             params,
             set,
-          }: {
-            headers: Record<string, string>;
-            params: Record<string, string>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { params: Record<string, string> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               const qrCode = await svc.generateQRCode(params.id, userId);
               return { success: true, data: { qrCode } };
             } catch (error) {
@@ -217,18 +187,11 @@ export function registerShortLinkRoutes(app: unknown) {
             headers,
             params,
             set,
-          }: {
-            headers: Record<string, string>;
-            params: Record<string, string>;
-            set: { status: number };
-          }) => {
+          }: HeaderCtx & { params: Record<string, string> }) => {
             try {
-              const userId = headers['x-user-id'];
-              if (!userId) {
-                set.status = 401;
-                return { error: 'User not authenticated' };
-              }
-              const svc = getShortLinkService();
+              const auth = requireUser(headers, set);
+              if (isAuthError(auth)) return auth;
+              const { userId, svc } = auth;
               const analytics = await svc.getLinkAnalytics(params.id, userId);
               return { success: true, data: analytics };
             } catch (error) {
@@ -240,7 +203,6 @@ export function registerShortLinkRoutes(app: unknown) {
         )
   );
 
-  // Public resolution (no auth) under /s/:shortCode
   (app as { group: Function }).group('/s', (g: { get: Function }) =>
     g.get(
       '/:shortCode',
@@ -252,7 +214,7 @@ export function registerShortLinkRoutes(app: unknown) {
         headers: Record<string, string>;
       }) => {
         try {
-          const svc = getShortLinkService();
+          const svc = new ShortLinkService();
           const result = await svc.resolveShortLink(params.shortCode, {
             password: undefined,
             userId: headers['x-user-id'],

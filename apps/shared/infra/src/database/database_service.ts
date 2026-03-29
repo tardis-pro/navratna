@@ -202,6 +202,13 @@ export class DatabaseService {
     return rows[0] ?? null;
   }
 
+  private buildConditionClause(conditions: Record<string, unknown>): { clause: string; values: unknown[] } {
+    const keys = Object.keys(conditions);
+    if (keys.length === 0) return { clause: '', values: [] };
+    const clause = ' WHERE ' + keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+    return { clause, values: Object.values(conditions) };
+  }
+
   async findMany<T = Record<string, unknown>>(
     tableOrEntity: unknown,
     conditions: Record<string, unknown> = {},
@@ -209,19 +216,10 @@ export class DatabaseService {
   ): Promise<T[]> {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
-    const keys = Object.keys(conditions);
-    let query = `SELECT * FROM "${table}"`;
-    const values: unknown[] = [];
-    if (keys.length > 0) {
-      const where = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
-      query += ` WHERE ${where}`;
-      values.push(...Object.values(conditions));
-    }
+    const { clause, values } = this.buildConditionClause(conditions);
+    let query = `SELECT * FROM "${table}"${clause}`;
     if (options.order) {
-      const orderClauses = Object.entries(options.order)
-        .map(([col, dir]) => `"${col}" ${dir}`)
-        .join(', ');
-      query += ` ORDER BY ${orderClauses}`;
+      query += ' ORDER BY ' + Object.entries(options.order).map(([col, dir]) => `"${col}" ${dir}`).join(', ');
     }
     if (options.take) query += ` LIMIT ${options.take}`;
     if (options.skip) query += ` OFFSET ${options.skip}`;
@@ -231,15 +229,11 @@ export class DatabaseService {
   async count(tableOrEntity: unknown, conditions: Record<string, unknown> = {}): Promise<number> {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
-    const keys = Object.keys(conditions);
-    let query = `SELECT COUNT(*)::int AS cnt FROM "${table}"`;
-    const values: unknown[] = [];
-    if (keys.length > 0) {
-      const where = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
-      query += ` WHERE ${where}`;
-      values.push(...Object.values(conditions));
-    }
-    const rows = await this.executeQuery<{ cnt: number }>(query, values);
+    const { clause, values } = this.buildConditionClause(conditions);
+    const rows = await this.executeQuery<{ cnt: number }>(
+      `SELECT COUNT(*)::int AS cnt FROM "${table}"${clause}`,
+      values
+    );
     return rows[0]?.cnt ?? 0;
   }
 

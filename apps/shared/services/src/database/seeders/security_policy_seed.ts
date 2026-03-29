@@ -23,6 +23,11 @@ export class SecurityPolicySeed extends BaseSeed {
   }
 
   async getSeedData(): Promise<any[]> {
+    const defaultRestrictions = {
+      timeRestrictions: { allowedHours: [9, 17], allowedDays: [1, 2, 3, 4, 5], timezone: 'UTC' },
+      environmentRestrictions: ['production'],
+      riskThresholds: { minRiskScore: 0.8, maxRiskScore: 0.95 },
+    };
     return [
       {
         name: 'High Security Operations Policy',
@@ -32,16 +37,7 @@ export class SecurityPolicySeed extends BaseSeed {
           operationTypes: ['high-risk'],
           resourceTypes: ['database', 'api'],
           userRoles: ['system_admin', 'operations_manager'],
-          timeRestrictions: {
-            allowedHours: [9, 17],
-            allowedDays: [1, 2, 3, 4, 5],
-            timezone: 'UTC',
-          },
-          environmentRestrictions: ['production'],
-          riskThresholds: {
-            minRiskScore: 0.8,
-            maxRiskScore: 0.95,
-          },
+          ...defaultRestrictions,
         },
         isEnabled: true,
         priority: 1,
@@ -56,16 +52,7 @@ export class SecurityPolicySeed extends BaseSeed {
           operationTypes: ['standard'],
           resourceTypes: ['database', 'api'],
           userRoles: ['developer', 'data_analyst', 'operations_manager'],
-          timeRestrictions: {
-            allowedHours: [9, 17],
-            allowedDays: [1, 2, 3, 4, 5],
-            timezone: 'UTC',
-          },
-          environmentRestrictions: ['production'],
-          riskThresholds: {
-            minRiskScore: 0.8,
-            maxRiskScore: 0.95,
-          },
+          ...defaultRestrictions,
         },
         isEnabled: true,
         priority: 2,
@@ -80,16 +67,7 @@ export class SecurityPolicySeed extends BaseSeed {
           operationTypes: ['standard'],
           resourceTypes: ['database', 'api'],
           userRoles: ['guest'],
-          timeRestrictions: {
-            allowedHours: [9, 17],
-            allowedDays: [1, 2, 3, 4, 5],
-            timezone: 'UTC',
-          },
-          environmentRestrictions: ['production'],
-          riskThresholds: {
-            minRiskScore: 0.8,
-            maxRiskScore: 0.95,
-          },
+          ...defaultRestrictions,
         },
         isEnabled: true,
         priority: 3,

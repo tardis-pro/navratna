@@ -3,6 +3,13 @@ import { logger } from '@uaip/utils';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
 import { DatabaseService } from '../database_service';
 
+export function extractItemMetadata(item: unknown): { record: Record<string, unknown>; source: Record<string, unknown> | undefined; metadata: Record<string, unknown> | undefined } {
+  const record = item as Record<string, unknown>;
+  const source = record.source as Record<string, unknown> | undefined;
+  const metadata = (source?.metadata || record.metadata) as Record<string, unknown> | undefined;
+  return { record, source, metadata };
+}
+
 export class EpisodicMemoryManager {
   private readonly databaseService = DatabaseService.getInstance();
 
@@ -214,13 +221,9 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
   }
 
   private contentToEpisode(item: unknown): Episode {
-    // Parse content back to episode structure
-    const record = item as Record<string, unknown>;
-    const source = record.source as Record<string, unknown> | undefined;
-    const metadata = (source?.metadata || record.metadata) as Record<string, unknown> | undefined;
+    const { record, source, metadata } = extractItemMetadata(item);
 
     if (!metadata) {
-      // Fallback parsing from content if metadata is not available
       return this.parseEpisodeFromContent(item);
     }
 

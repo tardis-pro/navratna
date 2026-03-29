@@ -19,6 +19,14 @@ import type {
   ContextAnalysis,
 } from '@uaip/types';
 
+export type ProviderModelInfo = {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint: string;
+};
+
 export type {
   LLMRequest,
   LLMResponse,

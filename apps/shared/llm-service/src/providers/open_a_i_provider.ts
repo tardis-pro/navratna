@@ -1,30 +1,12 @@
 import { BaseProvider } from './base_provider.js';
-import { LLMRequest, LLMResponse } from '../interfaces';
+import { LLMRequest, LLMResponse, ProviderModelInfo } from '../interfaces';
 
 export class OpenAIProvider extends BaseProvider {
-  private static isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-  }
-
-  private static toString(value: unknown): string | null {
-    return typeof value === 'string' ? value : null;
-  }
-
-  private static toNumber(value: unknown): number | null {
-    return typeof value === 'number' ? value : null;
-  }
 
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/chat/completions`;
-      const messages = [];
-
-      if (request.systemPrompt) {
-        messages.push({ role: 'system', content: request.systemPrompt });
-      }
-
-      messages.push({ role: 'user', content: request.prompt });
-
+      const messages = this.buildChatMessages(request.systemPrompt, request.prompt);
       const body = {
         model: request.model || this.config.defaultModel || 'gpt-3.5-turbo',
         messages,
@@ -88,15 +70,7 @@ export class OpenAIProvider extends BaseProvider {
     }
   }
 
-  protected async fetchModelsFromProvider(): Promise<
-    Array<{
-      id: string;
-      name: string;
-      description?: string;
-      source: string;
-      apiEndpoint: string;
-    }>
-  > {
+  protected async fetchModelsFromProvider(): Promise<ProviderModelInfo[]> {
     try {
       const url = `${this.config.baseUrl || 'https://api.openai.com'}/v1/models`;
 

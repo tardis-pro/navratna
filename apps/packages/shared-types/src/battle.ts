@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema, SearchPaginationSchema } from './common.js';
 
 // Battle types
 export enum BattleType {
@@ -248,10 +248,7 @@ export const BattleSearchFiltersSchema = z.object({
   startTimeAfter: z.date().optional(),
   startTimeBefore: z.date().optional(),
   sortBy: z.enum(['created', 'startTime', 'prizePool', 'participants', 'viral']).default('created'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
-  limit: z.number().min(1).max(100).default(20),
-  offset: z.number().min(0).default(0),
-});
+}).merge(SearchPaginationSchema);
 
 export type BattleSearchFilters = z.infer<typeof BattleSearchFiltersSchema>;
 

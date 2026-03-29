@@ -344,45 +344,30 @@ export class SmartEmbeddingService extends EmbeddingService {
   /**
    * Record successful operation
    */
+  private syncHealthMetrics(): void {
+    this.performanceMetrics.successRate =
+      this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
+    this.healthStatus.performanceMetrics = {
+      avgLatency: this.performanceMetrics.avgLatency,
+      successRate: this.performanceMetrics.successRate,
+      totalRequests: this.performanceMetrics.totalRequests,
+    };
+  }
+
   private recordSuccess(startTime: number): void {
     const latency = Date.now() - startTime;
     this.performanceMetrics.successfulRequests++;
-
-    // Update average latency
     const totalLatency =
-      this.performanceMetrics.avgLatency * (this.performanceMetrics.successfulRequests - 1) +
-      latency;
+      this.performanceMetrics.avgLatency * (this.performanceMetrics.successfulRequests - 1) + latency;
     this.performanceMetrics.avgLatency = totalLatency / this.performanceMetrics.successfulRequests;
-
-    // Update success rate
-    this.performanceMetrics.successRate =
-      this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
-
-    // Update health status metrics
-    this.healthStatus.performanceMetrics = {
-      avgLatency: this.performanceMetrics.avgLatency,
-      successRate: this.performanceMetrics.successRate,
-      totalRequests: this.performanceMetrics.totalRequests,
-    };
+    this.syncHealthMetrics();
   }
 
-  /**
-   * Record failed operation
-   */
   private recordFailure(_startTime: number): void {
-    // Update success rate
-    this.performanceMetrics.successRate =
-      this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests;
-
-    // Update health status metrics
-    this.healthStatus.performanceMetrics = {
-      avgLatency: this.performanceMetrics.avgLatency,
-      successRate: this.performanceMetrics.successRate,
-      totalRequests: this.performanceMetrics.totalRequests,
-    };
+    this.syncHealthMetrics();
   }
 
-  protected override buildContextText(context: ContextRequest): string {
+  override buildContextText(context: ContextRequest): string {
     if (this.shouldUseTEI()) {
       return this.teiService.buildContextText(context);
     }

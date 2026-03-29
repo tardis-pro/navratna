@@ -11,6 +11,7 @@ import { DatabaseService } from '@uaip/infra/database';
 import { OperationRepository } from './database/repositories/operation_repository';
 import { EventBusService } from './event_bus_service';
 import type { CompensationStep, CompensationResult } from '@uaip/types';
+import { delayWithAbort } from './utils/async_helpers';
 
 export type { CompensationStep, CompensationResult };
 
@@ -418,20 +419,7 @@ export class CompensationService extends EventEmitter {
     };
   }
 
-  private async delay(ms: number, signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(resolve, ms);
-
-      const abortHandler = () => {
-        clearTimeout(timeout);
-        reject(new Error('Compensation step was cancelled'));
-      };
-
-      signal.addEventListener('abort', abortHandler);
-
-      setTimeout(() => {
-        signal.removeEventListener('abort', abortHandler);
-      }, ms);
-    });
+  private delay(ms: number, signal: AbortSignal): Promise<void> {
+    return delayWithAbort(ms, signal, 'Compensation step was cancelled');
   }
 }

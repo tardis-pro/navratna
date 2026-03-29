@@ -18,6 +18,19 @@ import { logger as _logger } from '@uaip/utils';
 class CachePerformanceTest {
   private testUserId = 'test-user-123';
   private testEmail = 'test@example.com';
+
+  private makeTestUserData() {
+    return {
+      id: this.testUserId,
+      email: this.testEmail,
+      firstName: 'Test',
+      lastName: 'User',
+      role: 'user',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
   private testProviderId = 'test-provider-456';
 
   async runPerformanceTest(): Promise<void> {
@@ -106,41 +119,13 @@ class CachePerformanceTest {
     // Test user by ID caching
 
     // Populate cache with test user data
-    await redisCacheService.set(
-      `user:id:${this.testUserId}`,
-      {
-        id: this.testUserId,
-        email: this.testEmail,
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'user',
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      900 // 15 minute TTL
-    );
+    await redisCacheService.set(`user:id:${this.testUserId}`, this.makeTestUserData(), 900);
 
     const userByIdStart = performance.now();
     const _cachedUser = await userService.findUserById(this.testUserId, true);
     const _userByIdTime = performance.now() - userByIdStart;
 
-    // Test user by email caching
-
-    await redisCacheService.set(
-      `user:email:${this.testEmail}`,
-      {
-        id: this.testUserId,
-        email: this.testEmail,
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'user',
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      900 // 15 minute TTL
-    );
+    await redisCacheService.set(`user:email:${this.testEmail}`, this.makeTestUserData(), 900);
 
     const userByEmailStart = performance.now();
     const _cachedUserByEmail = await userService.findUserByEmail(this.testEmail, true);

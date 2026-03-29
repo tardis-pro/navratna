@@ -2,6 +2,14 @@ import type { Mocked } from 'vitest';
 import { SecurityValidationService } from '../../security_validation_service';
 import { RiskLevel, SecurityContext, SecurityLevel, ExecutionPlan } from '@uaip/types';
 
+const DENY_AUTH_FAILED = {
+  allowed: false,
+  riskLevel: SecurityLevel.HIGH,
+  approvalRequired: false,
+  conditions: [],
+  reasoning: 'User authentication failed',
+};
+
 // Mock DatabaseService methods
 const createMockDatabaseService = () => ({
   initialize: vi.fn().mockResolvedValue(undefined),
@@ -103,44 +111,15 @@ describe('SecurityValidationService', () => {
       it('should deny operation when user authentication fails', async () => {
         mockDatabaseService.getUserAuthDetails.mockResolvedValueOnce(null);
 
-        const result = await service.validateOperation(
-          defaultSecurityContext,
-          'read:documents',
-          ['doc-1'],
-          {}
-        );
-
-        expect(result).toEqual({
-          allowed: false,
-          riskLevel: SecurityLevel.HIGH,
-          approvalRequired: false,
-          conditions: [],
-          reasoning: 'User authentication failed',
-        });
+        const result = await service.validateOperation(defaultSecurityContext, 'read:documents', ['doc-1'], {});
+        expect(result).toEqual(DENY_AUTH_FAILED);
       });
 
       it('should deny operation when user account is disabled', async () => {
-        mockDatabaseService.getUserAuthDetails.mockResolvedValueOnce({
-          id: 'user-123',
-          email: 'test@example.com',
-          isActive: false,
-          role: 'user',
-        });
+        mockDatabaseService.getUserAuthDetails.mockResolvedValueOnce({ id: 'user-123', email: 'test@example.com', isActive: false, role: 'user' });
 
-        const result = await service.validateOperation(
-          defaultSecurityContext,
-          'read:documents',
-          ['doc-1'],
-          {}
-        );
-
-        expect(result).toEqual({
-          allowed: false,
-          riskLevel: SecurityLevel.HIGH,
-          approvalRequired: false,
-          conditions: [],
-          reasoning: 'User authentication failed',
-        });
+        const result = await service.validateOperation(defaultSecurityContext, 'read:documents', ['doc-1'], {});
+        expect(result).toEqual(DENY_AUTH_FAILED);
       });
 
       it('should deny operation when user lacks required permissions', async () => {

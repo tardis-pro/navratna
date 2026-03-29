@@ -202,10 +202,9 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
               )
             : [],
           overturnEvidence:
-            typeof source.selfCritique.overturnEvidence === 'string' ||
-            source.selfCritique.overturnEvidence === null
+            typeof source.selfCritique.overturnEvidence === 'string'
               ? source.selfCritique.overturnEvidence
-              : null,
+              : undefined,
         }
       : undefined,
     revisedAnswer,
@@ -308,10 +307,9 @@ function toTestCase(value: Record<string, unknown>): BaseBenchTestCase {
               ? value.evidenceUpdate.newEvidence
               : '',
           revisedGroundTruthAnswer:
-            typeof value.evidenceUpdate.revisedGroundTruthAnswer === 'string' ||
-            value.evidenceUpdate.revisedGroundTruthAnswer === null
+            typeof value.evidenceUpdate.revisedGroundTruthAnswer === 'string'
               ? value.evidenceUpdate.revisedGroundTruthAnswer
-              : null,
+              : undefined,
           expectedConfidenceShift:
             value.evidenceUpdate.expectedConfidenceShift === 'increase' ||
             value.evidenceUpdate.expectedConfidenceShift === 'decrease' ||

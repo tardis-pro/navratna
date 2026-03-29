@@ -15,6 +15,12 @@ import { UserEntity } from '../entities/user_entity';
 import { Agent } from '../entities/agent_entity';
 import { v4 as uuidv4 } from 'uuid';
 
+type AssignmentContext = {
+  workload: number;
+  capabilities?: string[];
+  skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
+};
+
 // Local interface compatible with DrizzleRepository
 interface IRepository<T = any> {
   findOne(opts: { where?: any }): Promise<T | null>;
@@ -88,6 +94,16 @@ export class TaskService {
     this.eventBusService = repositories.eventBusService ?? null;
   }
 
+  private async requireUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new Error('Assigned user not found');
+  }
+
+  private async requireAgent(agentId: string): Promise<void> {
+    const agent = await this.agentRepository.findOne({ where: { id: agentId } });
+    if (!agent) throw new Error('Assigned agent not found');
+  }
+
   async createTask(request: CreateTaskRequest): Promise<TaskEntity> {
     if (
       !this.taskRepository ||
@@ -107,23 +123,11 @@ export class TaskService {
         throw new Error('Project not found');
       }
 
-      // Validate assignee if specified
       if (request.assigneeType && request.assignedToUserId) {
-        const user = await this.userRepository.findOne({
-          where: { id: request.assignedToUserId },
-        });
-        if (!user) {
-          throw new Error('Assigned user not found');
-        }
+        await this.requireUser(request.assignedToUserId);
       }
-
       if (request.assigneeType && request.assignedToAgentId) {
-        const agent = await this.agentRepository.findOne({
-          where: { id: request.assignedToAgentId },
-        });
-        if (!agent) {
-          throw new Error('Assigned agent not found');
-        }
+        await this.requireAgent(request.assignedToAgentId);
       }
 
       // Generate task number
@@ -313,23 +317,11 @@ export class TaskService {
         throw new Error('Task not found');
       }
 
-      // Validate assignee
       if (request.assigneeType === AssigneeType.HUMAN && request.assignedToUserId) {
-        const user = await this.userRepository.findOne({
-          where: { id: request.assignedToUserId },
-        });
-        if (!user) {
-          throw new Error('Assigned user not found');
-        }
+        await this.requireUser(request.assignedToUserId);
       }
-
       if (request.assigneeType === AssigneeType.AGENT && request.assignedToAgentId) {
-        const agent = await this.agentRepository.findOne({
-          where: { id: request.assignedToAgentId },
-        });
-        if (!agent) {
-          throw new Error('Assigned agent not found');
-        }
+        await this.requireAgent(request.assignedToAgentId);
       }
 
       // Clear previous assignment
@@ -561,11 +553,7 @@ export class TaskService {
   private calculateAssignmentScore(
     task: TaskEntity,
     assigneeType: 'human' | 'agent',
-    context: {
-      workload: number;
-      capabilities?: string[];
-      skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
-    }
+    context: AssignmentContext
   ): number {
     let score = 50; // Base score
 
@@ -618,11 +606,7 @@ export class TaskService {
   private getAssignmentReason(
     task: TaskEntity,
     assigneeType: 'human' | 'agent',
-    context: {
-      workload: number;
-      capabilities?: string[];
-      skills?: Array<{ name: string; description?: string; enabled?: boolean }>;
-    }
+    context: AssignmentContext
   ): string {
     const reasons: string[] = [];
 

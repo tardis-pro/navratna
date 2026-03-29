@@ -1,42 +1,48 @@
-import { BaseService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
-import { registerAgentRoutes } from './routes/agent_routes.js';
-import { registerConstellationRoutes } from './routes/constellation_routes.js';
+import { BaseService } from '@uaip/shared-services'
+import { FeatureFactory } from '@uaip/shared-services/feature-factory'
+import { logger } from '@uaip/utils'
+import { agentIntelligenceFeature } from './feature.js'
 
 class AgentIntelligenceService extends BaseService {
+  private factory = new FeatureFactory().register(agentIntelligenceFeature)
+
   constructor() {
     super({
       name: 'agent-intelligence',
       port: parseInt(process.env.AGENT_INTELLIGENCE_PORT || '3001', 10),
       version: '1.0.0',
-      enableWebSocket: false,
       enableNeo4j: true,
       enableEnterpriseEventBus: true,
-    });
+    })
+    this.registerEntities([])
   }
 
   protected async initialize(): Promise<void> {
-    logger.info('agent-intelligence: services initialized');
+    await this.factory.initialize({ eventBusService: this.eventBusService })
+    logger.info('agent-intelligence: services initialized')
   }
 
   protected async setupRoutes(): Promise<void> {
-    registerAgentRoutes(this.app);
-    registerConstellationRoutes(this.app);
+    this.factory.mountRoutes(this.app)
     this.app.get('/health', () => ({
       status: 'ok',
       service: 'agent-intelligence',
-      version: '1.0.0',
-    }));
-    logger.info('agent-intelligence: routes configured');
+      features: this.factory.activeFeatureNames,
+    }))
+    logger.info('agent-intelligence: routes configured')
+  }
+
+  protected async setupEventSubscriptions(): Promise<void> {
+    await this.factory.subscribeEvents(this.eventBusService)
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
-    return true;
+    return true
   }
 }
 
-const service = new AgentIntelligenceService();
+const service = new AgentIntelligenceService()
 service.start().catch((error) => {
-  logger.error('Failed to start agent-intelligence', { error });
-  process.exit(1);
-});
+  logger.error('Failed to start agent-intelligence', { error })
+  process.exit(1)
+})

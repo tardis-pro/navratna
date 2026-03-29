@@ -1,6 +1,7 @@
 import { SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
+import { extractItemMetadata } from './episodic_memory_manager';
 
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
@@ -326,12 +327,9 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
   }
 
   private itemToSemanticMemory(item: unknown): SemanticMemory {
-    const record = item as Record<string, unknown>;
-    const source = record.source as Record<string, unknown> | undefined;
-    const metadata = (source?.metadata || record.metadata) as Record<string, unknown> | undefined;
+    const { record, metadata } = extractItemMetadata(item);
 
     if (!metadata) {
-      // Fallback parsing from content
       return this.parseSemanticMemoryFromContent(item);
     }
 

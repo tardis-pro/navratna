@@ -19,7 +19,7 @@ async function seedUserLLMProviders() {
     const userLLMProviderSeed = new UserLLMProviderSeed(allUsers.map((u) => u.id));
     await userLLMProviderSeed.seed();
 
-    console.log('UserLLMProvider seeding completed');
+    console.warn('UserLLMProvider seeding completed');
   } catch (error) {
     console.error('UserLLMProvider seeding failed:', error);
     process.exit(1);

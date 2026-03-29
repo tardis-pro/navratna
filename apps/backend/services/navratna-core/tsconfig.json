@@ -23,13 +23,7 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "rootDir": "../../.."
   },
-  "include": [
-    "src/**/*",
-    "../agent-intelligence/src/**/*",
-    "../artifact-service/src/**/*",
-    "../llm-service/src/**/*",
-    "../discussion-orchestration/src/**/*"
-  ],
+  "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "../**/__tests__/**/*", "../**/*.test.ts"],
   "references": [
     {

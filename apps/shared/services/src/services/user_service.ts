@@ -13,6 +13,16 @@ import { PasswordResetTokenEntity } from '../entities/password_reset_token_entit
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 
+export type CreateUserData = {
+  email: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  department?: string;
+  isOAuthUser?: boolean;
+};
+
 export class UserService {
   private static instance: UserService;
 
@@ -88,15 +98,7 @@ export class UserService {
   // These methods are kept for backward compatibility but should be migrated
 
   // User operations
-  public async createUser(data: {
-    email: string;
-    password?: string;
-    firstName?: string;
-    lastName?: string;
-    role?: string;
-    department?: string;
-    isOAuthUser?: boolean;
-  }): Promise<UserEntity> {
+  public async createUser(data: CreateUserData): Promise<UserEntity> {
     const userRepo = this.getUserRepository();
 
     const userData = {

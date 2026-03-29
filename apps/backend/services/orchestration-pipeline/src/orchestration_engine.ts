@@ -75,6 +75,33 @@ export class OrchestrationEngine extends EventEmitter {
   /**
    * Execute an operation with full orchestration
    */
+  private buildOperationInsert(operation: Operation) {
+    return {
+      id: operation.id,
+      type: operation.type,
+      status: operation.status,
+      priority: operation.priority,
+      agentId: operation.agentId,
+      userId: operation.userId,
+      name: operation.plan.description,
+      description: operation.plan.description,
+      executionPlan: operation.executionPlan,
+      context: operation.context,
+      result: operation.results,
+      error: operation.error,
+      startedAt: operation.startedAt,
+      completedAt: operation.completedAt,
+      estimatedDuration: operation.estimatedDuration,
+      progress: operation.progress.percentage.toString(),
+      currentStep: operation.currentStep,
+      totalSteps: operation.progress.totalSteps,
+      dependencies: operation.plan.dependencies ?? [],
+      metadata: operation.metadata,
+      timeoutDuration: operation.timeout,
+      tags: operation.metadata?.tags ?? [],
+    }
+  }
+
   public async executeOperation(operation: Operation): Promise<string> {
     const startTime = Date.now();
 
@@ -94,7 +121,9 @@ export class OrchestrationEngine extends EventEmitter {
       await this.validator.validateOperation(operation);
 
       // Persist operation to database
-      const savedOperation = await this.operationManagementService.createOperation(operation);
+      const savedOperation = await this.operationManagementService.createOperation(
+        this.buildOperationInsert(operation)
+      );
       logger.info('Operation persisted to database', { operationId: savedOperation.id });
 
       // Create workflow instance ID
@@ -110,10 +139,7 @@ export class OrchestrationEngine extends EventEmitter {
       });
 
       // Execute workflow
-      const result = await this.workflowOrchestrator.orchestrateWorkflow(
-        savedOperation,
-        workflowInstanceId
-      );
+      const result = await this.workflowOrchestrator.orchestrateWorkflow(operation, workflowInstanceId);
 
       // Update operation status
       await this.operationManagementService.updateOperation(savedOperation.id, {
@@ -162,7 +188,9 @@ export class OrchestrationEngine extends EventEmitter {
   ): Promise<string> {
     const input = this.extractSetupProjectWorkspaceInput(operation);
 
-    const savedOperation = await this.operationManagementService.createOperation(operation);
+    const savedOperation = await this.operationManagementService.createOperation(
+      this.buildOperationInsert(operation)
+    );
     logger.info('Operation persisted to database', { operationId: savedOperation.id });
 
     const workflowInstanceId = `wf-${savedOperation.id}-${Date.now()}`;

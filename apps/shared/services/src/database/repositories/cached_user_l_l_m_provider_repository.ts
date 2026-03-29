@@ -25,14 +25,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     } catch {}
   }
 
-  async invalidateUserProviderCache(userId: string): Promise<void> {
-    const pattern = `user_llm_provider:*:${userId}*`;
-    const keys = await redisCacheService.keys(pattern);
-    for (const key of keys) {
-      try {
-        await redisCacheService.del(key);
-      } catch {}
-    }
+  private async invalidateUserProviderIds(userId: string): Promise<void> {
     const userProviders = await this.findByUserId(userId);
     for (const provider of userProviders) {
       if (provider.id) {
@@ -43,19 +36,23 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     }
   }
 
+  async invalidateUserProviderCache(userId: string): Promise<void> {
+    const pattern = `user_llm_provider:*:${userId}*`;
+    const keys = await redisCacheService.keys(pattern);
+    for (const key of keys) {
+      try {
+        await redisCacheService.del(key);
+      } catch {}
+    }
+    await this.invalidateUserProviderIds(userId);
+  }
+
   async invalidateProviderSpecificCache(providerId: string, userId: string): Promise<void> {
     const key = `user_llm_provider:${providerId}:${userId}`;
     try {
       await redisCacheService.del(key);
     } catch {}
-    const userProviders = await this.findByUserId(userId);
-    for (const provider of userProviders) {
-      if (provider.id) {
-        try {
-          await redisCacheService.del(`user_llm_provider:${provider.id}`);
-        } catch {}
-      }
-    }
+    await this.invalidateUserProviderIds(userId);
   }
 
   async findActiveProvidersByUser(

@@ -147,7 +147,7 @@ async function testLLMEventIntegration() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   testLLMEventIntegration()
     .then((result) => {
-      if (result.testSuccess) {
+      if ('testSuccess' in result && result.testSuccess) {
         process.exit(0);
       } else {
         process.exit(1);

@@ -298,20 +298,25 @@ export const ModelCapabilityDetectionSchema = z.object({
 
 export type ModelCapabilityDetection = z.infer<typeof ModelCapabilityDetectionSchema>;
 
-// Default model configurations with capabilities
+const LLMPreferenceSettingsSchema = z.object({
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().min(1).optional(),
+  topP: z.number().min(0).max(1).optional(),
+  systemPrompt: z.string().optional(),
+  customSettings: z.record(z.any()).optional(),
+});
+
 export const DefaultModelConfigSchema = z.object({
   provider: z.nativeEnum(LLMProviderType),
   modelId: z.string(),
   name: z.string(),
   description: z.string().optional(),
   capabilities: z.array(z.nativeEnum(ModelCapability)),
-  defaultSettings: z
-    .object({
-      temperature: z.number().min(0).max(2).optional(),
-      maxTokens: z.number().min(1).optional(),
-      topP: z.number().min(0).max(1).optional(),
-    })
-    .optional(),
+  defaultSettings: LLMPreferenceSettingsSchema.pick({
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+  }).optional(),
   priority: z.number().min(1).max(100).default(50),
   isRecommended: z.boolean().default(false),
 });
@@ -345,54 +350,32 @@ export enum LLMTaskType {
   CLASSIFICATION = 'classification',
 }
 
-export const UserLLMPreferenceSchema = z.object({
-  id: IDSchema,
-  userId: IDSchema,
+const LLMPreferenceBaseSchema = z.object({
   taskType: z.nativeEnum(LLMTaskType),
   preferredProvider: z.nativeEnum(LLMProviderType),
   preferredModel: z.string(),
   fallbackModel: z.string().optional(),
-  settings: z
-    .object({
-      temperature: z.number().min(0).max(2).optional(),
-      maxTokens: z.number().min(1).optional(),
-      topP: z.number().min(0).max(1).optional(),
-      systemPrompt: z.string().optional(),
-      customSettings: z.record(z.any()).optional(),
-    })
-    .optional(),
+  settings: LLMPreferenceSettingsSchema.optional(),
   isActive: z.boolean().default(true),
   priority: z.number().min(1).max(100).default(50),
-  createdAt: z.date(),
-  updatedAt: z.date(),
 });
+
+export const UserLLMPreferenceSchema = z
+  .object({ id: IDSchema, userId: IDSchema })
+  .merge(LLMPreferenceBaseSchema)
+  .extend({ createdAt: z.date(), updatedAt: z.date() });
 
 export type UserLLMPreference = z.infer<typeof UserLLMPreferenceSchema>;
 
-// Agent LLM Preferences Schema
-export const AgentLLMPreferenceSchema = z.object({
-  id: IDSchema.optional(),
-  agentId: IDSchema,
-  taskType: z.nativeEnum(LLMTaskType),
-  preferredProvider: z.nativeEnum(LLMProviderType),
-  preferredModel: z.string(),
-  fallbackModel: z.string().optional(),
-  settings: z
-    .object({
-      temperature: z.number().min(0).max(2).optional(),
-      maxTokens: z.number().min(1).optional(),
-      topP: z.number().min(0).max(1).optional(),
-      systemPrompt: z.string().optional(),
-      customSettings: z.record(z.any()).optional(),
-    })
-    .optional(),
-  isActive: z.boolean().default(true),
-  priority: z.number().min(1).max(100).default(50),
-  description: z.string().optional(),
-  reasoning: z.string().optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-});
+export const AgentLLMPreferenceSchema = z
+  .object({ id: IDSchema.optional(), agentId: IDSchema })
+  .merge(LLMPreferenceBaseSchema)
+  .extend({
+    description: z.string().optional(),
+    reasoning: z.string().optional(),
+    createdAt: z.date().optional(),
+    updatedAt: z.date().optional(),
+  });
 
 export type AgentLLMPreference = z.infer<typeof AgentLLMPreferenceSchema>;
 

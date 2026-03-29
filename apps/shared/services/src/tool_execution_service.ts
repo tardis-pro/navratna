@@ -10,6 +10,16 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from './database_service';
 import { EventBusService } from './event_bus_service';
 
+type ToolRequestInput =
+  | string
+  | {
+      toolId: string;
+      operation?: string;
+      parameters: Record<string, unknown>;
+      userId?: string;
+      securityContext?: Record<string, unknown>;
+    };
+
 interface ToolExecutionEntity {
   id?: string;
   toolId: string;
@@ -79,6 +89,143 @@ export class ToolExecutionService {
       : undefined;
   }
 
+  private parseToolRequest(
+    toolIdOrRequest: ToolRequestInput,
+    agentId?: string,
+    parameters?: Record<string, unknown>
+  ): {
+    toolId: string;
+    actualAgentId: string;
+    actualParameters: Record<string, unknown>;
+    securityContext: Record<string, unknown> | undefined;
+  } {
+    if (typeof toolIdOrRequest === 'object') {
+      return {
+        toolId: toolIdOrRequest.toolId,
+        actualAgentId: toolIdOrRequest.userId || agentId || 'unknown',
+        actualParameters: {
+          operation: toolIdOrRequest.operation,
+          ...toolIdOrRequest.parameters,
+        },
+        securityContext: toolIdOrRequest.securityContext,
+      };
+    }
+    return {
+      toolId: toolIdOrRequest,
+      actualAgentId: agentId || 'unknown',
+      actualParameters: parameters || {},
+      securityContext: undefined,
+    };
+  }
+
+  private buildExecutionRecord(
+    requestId: string,
+    toolId: string,
+    actualAgentId: string,
+    actualParameters: Record<string, unknown>,
+    options: ToolExecutionOptions,
+    correlationId: string,
+    idempotencyKey: string,
+    timeoutOverride?: number
+  ): ToolExecutionType {
+    return {
+      id: requestId,
+      toolId,
+      agentId: actualAgentId,
+      parameters: actualParameters,
+      status: ToolExecutionStatus.PENDING,
+      startTime: new Date(),
+      approvalRequired: false,
+      retryCount: 0,
+      maxRetries: options.maxRetries || 3,
+      success: false,
+      data: null,
+      metadata: {
+        priority: options.priority || 'normal',
+        timeout: options.timeout || timeoutOverride || 30000,
+        retryOnFailure: options.retryOnFailure || false,
+        idempotencyKey,
+        correlationId,
+      },
+    };
+  }
+
+  private markExecutionFailed(
+    execution: ToolExecutionType,
+    error: { message: string; stack?: string },
+    logPrefix: string
+  ): never {
+    logger.error(logPrefix, error);
+    execution.status = ToolExecutionStatus.FAILED;
+    execution.success = false;
+    execution.error = {
+      type: 'execution',
+      message: error.message,
+      details: { stack: error.stack },
+      recoverable: false,
+    };
+    execution.endTime = new Date();
+    throw error;
+  }
+
+  private buildEventPayload(
+    requestId: string,
+    toolId: string,
+    actualAgentId: string,
+    actualParameters: Record<string, unknown>,
+    securityContext: Record<string, unknown> | undefined,
+    idempotencyKey: string,
+    correlationId: string
+  ): ToolExecutionRequestEvent {
+    return {
+      requestId,
+      toolId,
+      agentId: actualAgentId,
+      parameters: actualParameters,
+      securityContext,
+      timestamp: new Date().toISOString(),
+      idempotencyKey,
+      correlationId,
+    };
+  }
+
+  private prepareExecution(
+    toolIdOrRequest: ToolRequestInput,
+    agentId: string | undefined,
+    parameters: Record<string, unknown> | undefined,
+    options: ToolExecutionOptions,
+    timeoutMs?: number
+  ): {
+    toolId: string;
+    actualAgentId: string;
+    actualParameters: Record<string, unknown>;
+    securityContext: Record<string, unknown> | undefined;
+    requestId: string;
+    correlationId: string;
+    idempotencyKey: string;
+    execution: ToolExecutionType;
+  } {
+    const { toolId, actualAgentId, actualParameters, securityContext } = this.parseToolRequest(
+      toolIdOrRequest,
+      agentId,
+      parameters
+    );
+    const requestId = randomUUID();
+    const correlationId = this.generateCorrelationId();
+    const idempotencyKey = this.generateIdempotencyKey(toolId, actualParameters, actualAgentId);
+    const execution = this.buildExecutionRecord(
+      requestId,
+      toolId,
+      actualAgentId,
+      actualParameters,
+      options,
+      correlationId,
+      idempotencyKey,
+      timeoutMs
+    );
+    return { toolId, actualAgentId, actualParameters, securityContext, requestId, correlationId, idempotencyKey, execution };
+  }
+
   private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {
     return {
       id: execution.id,
@@ -107,91 +254,24 @@ export class ToolExecutionService {
    * Supports both object-style and parameter-style calls for agent compatibility
    */
   async executeTool(
-    toolIdOrRequest:
-      | string
-      | {
-          toolId: string;
-          operation?: string;
-          parameters: Record<string, unknown>;
-          userId?: string;
-          securityContext?: Record<string, unknown>;
-        },
+    toolIdOrRequest: ToolRequestInput,
     agentId?: string,
     parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {}
   ): Promise<ToolExecutionType> {
-    // Handle object-style call (agent compatibility)
-    let toolId: string;
-    let actualAgentId: string;
-    let actualParameters: Record<string, unknown>;
-    let securityContext: Record<string, unknown> | undefined;
-
-    if (typeof toolIdOrRequest === 'object') {
-      toolId = toolIdOrRequest.toolId;
-      actualAgentId = toolIdOrRequest.userId || agentId || 'unknown';
-      actualParameters = {
-        operation: toolIdOrRequest.operation,
-        ...toolIdOrRequest.parameters,
-      };
-      securityContext = toolIdOrRequest.securityContext;
-    } else {
-      // Handle parameter-style call
-      toolId = toolIdOrRequest;
-      actualAgentId = agentId || 'unknown';
-      actualParameters = parameters || {};
-    }
-
-    // Generate request ID and correlation ID
-    const requestId = randomUUID();
-    const correlationId = this.generateCorrelationId();
-
-    // Generate idempotency key to prevent duplicate executions
-    const idempotencyKey = this.generateIdempotencyKey(toolId, actualParameters, actualAgentId);
-
-    // Create execution record
-    const execution: ToolExecutionType = {
-      id: requestId,
-      toolId,
-      agentId: actualAgentId,
-      parameters: actualParameters,
-      status: ToolExecutionStatus.PENDING,
-      startTime: new Date(),
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: options.maxRetries || 3,
-      success: false,
-      data: null,
-      metadata: {
-        priority: options.priority || 'normal',
-        timeout: options.timeout || 30000,
-        retryOnFailure: options.retryOnFailure || false,
-        idempotencyKey,
-        correlationId,
-      },
-    };
+    const { toolId, actualAgentId, actualParameters, securityContext, requestId, correlationId, idempotencyKey, execution } =
+      this.prepareExecution(toolIdOrRequest, agentId, parameters, options);
 
     try {
-      // Store initial execution record
       await this.databaseService.tools.createToolExecution(this.toEntityExecution(execution));
 
-      // Publish tool execution request event to capability-registry
-      const eventPayload: ToolExecutionRequestEvent = {
-        requestId,
-        toolId,
-        agentId: actualAgentId,
-        parameters: actualParameters,
-        securityContext,
-        timestamp: new Date().toISOString(),
-        idempotencyKey,
-        correlationId,
-      };
+      const eventPayload = this.buildEventPayload(
+        requestId, toolId, actualAgentId, actualParameters, securityContext, idempotencyKey, correlationId
+      );
 
       await this.eventBus.publish('tool.execute.request', eventPayload, {
         correlationId,
-        metadata: {
-          idempotencyKey,
-          service: this.serviceName,
-        },
+        metadata: { idempotencyKey, service: this.serviceName },
       });
 
       logger.info(`Tool execution initiated: ${requestId}`, {
@@ -204,18 +284,7 @@ export class ToolExecutionService {
 
       return execution;
     } catch (error) {
-      logger.error(`Failed to initiate tool execution ${requestId}:`, error);
-      execution.status = ToolExecutionStatus.FAILED;
-      execution.success = false;
-      execution.error = {
-        type: 'execution',
-        message: error.message,
-        details: { stack: error.stack },
-        recoverable: false,
-      };
-      execution.endTime = new Date();
-
-      throw error;
+      this.markExecutionFailed(execution, error, `Failed to initiate tool execution ${requestId}:`);
     }
   }
 
@@ -283,82 +352,21 @@ export class ToolExecutionService {
    * Uses publish-subscribe pattern with correlation ID for request-response
    */
   async executeToolSync(
-    toolIdOrRequest:
-      | string
-      | {
-          toolId: string;
-          operation?: string;
-          parameters: Record<string, unknown>;
-          userId?: string;
-          securityContext?: Record<string, unknown>;
-        },
+    toolIdOrRequest: ToolRequestInput,
     agentId?: string,
     parameters?: Record<string, unknown>,
     options: ToolExecutionOptions = {},
     timeoutMs: number = 30000
   ): Promise<ToolExecutionType> {
-    // Handle object-style call (agent compatibility)
-    let toolId: string;
-    let actualAgentId: string;
-    let actualParameters: Record<string, unknown>;
-    let securityContext: Record<string, unknown> | undefined;
-
-    if (typeof toolIdOrRequest === 'object') {
-      toolId = toolIdOrRequest.toolId;
-      actualAgentId = toolIdOrRequest.userId || agentId || 'unknown';
-      actualParameters = {
-        operation: toolIdOrRequest.operation,
-        ...toolIdOrRequest.parameters,
-      };
-      securityContext = toolIdOrRequest.securityContext;
-    } else {
-      toolId = toolIdOrRequest;
-      actualAgentId = agentId || 'unknown';
-      actualParameters = parameters || {};
-    }
-
-    // Generate request ID and correlation ID
-    const requestId = randomUUID();
-    const correlationId = this.generateCorrelationId();
-    const idempotencyKey = this.generateIdempotencyKey(toolId, actualParameters, actualAgentId);
-
-    // Create execution record
-    const execution: ToolExecutionType = {
-      id: requestId,
-      toolId,
-      agentId: actualAgentId,
-      parameters: actualParameters,
-      status: ToolExecutionStatus.PENDING,
-      startTime: new Date(),
-      approvalRequired: false,
-      retryCount: 0,
-      maxRetries: options.maxRetries || 3,
-      success: false,
-      data: null,
-      metadata: {
-        priority: options.priority || 'normal',
-        timeout: options.timeout || timeoutMs,
-        retryOnFailure: options.retryOnFailure || false,
-        idempotencyKey,
-        correlationId,
-      },
-    };
+    const { toolId, actualAgentId, actualParameters, securityContext, requestId, correlationId, idempotencyKey, execution } =
+      this.prepareExecution(toolIdOrRequest, agentId, parameters, options, timeoutMs);
 
     try {
-      // Store initial execution record
       await this.databaseService.tools.createToolExecution(this.toEntityExecution(execution));
 
-      // Prepare event payload
-      const eventPayload: ToolExecutionRequestEvent = {
-        requestId,
-        toolId,
-        agentId: actualAgentId,
-        parameters: actualParameters,
-        securityContext,
-        timestamp: new Date().toISOString(),
-        idempotencyKey,
-        correlationId,
-      };
+      const eventPayload = this.buildEventPayload(
+        requestId, toolId, actualAgentId, actualParameters, securityContext, idempotencyKey, correlationId
+      );
 
       // Subscribe to response before publishing to avoid race condition
       const responsePromise = new Promise<ToolExecutionType>((resolve, reject) => {
@@ -436,18 +444,7 @@ export class ToolExecutionService {
 
       return await responsePromise;
     } catch (error) {
-      logger.error(`Failed to execute tool synchronously ${requestId}:`, error);
-      execution.status = ToolExecutionStatus.FAILED;
-      execution.success = false;
-      execution.error = {
-        type: 'execution',
-        message: error.message,
-        details: { stack: error.stack },
-        recoverable: false,
-      };
-      execution.endTime = new Date();
-
-      throw error;
+      this.markExecutionFailed(execution, error, `Failed to execute tool synchronously ${requestId}:`);
     }
   }
 }

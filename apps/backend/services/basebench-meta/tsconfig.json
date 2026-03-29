@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "noCheck": true,
     "paths": {
       "@uaip/types": ["../../../packages/shared-types/src/index.ts"],
       "@uaip/types/*": ["../../../packages/shared-types/src/*"],

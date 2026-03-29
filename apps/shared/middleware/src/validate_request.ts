@@ -2,6 +2,14 @@ import { Elysia } from 'elysia';
 import { z, ZodSchema, ZodError } from 'zod';
 import { logger } from '@uaip/utils';
 
+function formatZodErrors(error: ZodError): Array<{ field: string; message: string; code: string }> {
+  return error.errors.map((err) => ({
+    field: err.path.join('.'),
+    message: err.message,
+    code: err.code,
+  }));
+}
+
 interface ValidationSchemas {
   body?: ZodSchema;
   query?: ZodSchema;
@@ -43,11 +51,7 @@ export function validateRequest(schemas: ValidationSchemas) {
         };
       } catch (error) {
         if (error instanceof ZodError) {
-          const errorMessages = error.errors.map((err) => ({
-            field: err.path.join('.'),
-            message: err.message,
-            code: err.code,
-          }));
+          const errorMessages = formatZodErrors(error);
 
           logger.warn('Request validation failed', {
             errors: errorMessages,
@@ -96,11 +100,7 @@ export function withValidation(schemas: ValidationSchemas) {
           }
         } catch (error) {
           if (error instanceof ZodError) {
-            const errorMessages = error.errors.map((err) => ({
-              field: err.path.join('.'),
-              message: err.message,
-              code: err.code,
-            }));
+            const errorMessages = formatZodErrors(error);
 
             logger.warn('Request validation failed', { errors: errorMessages });
 

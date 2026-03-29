@@ -11,7 +11,13 @@ export type {
 } from '@uaip/types';
 
 // Cache services
-export { RedisCacheService, redisCacheService } from './cache/index.js';
+export {
+  RedisCacheService,
+  redisCacheService,
+  initializeRedisCache,
+  getRedisClient,
+  isRedisCacheHealthy,
+} from './cache/index.js';
 
 // Database services
 export { DatabaseService, DatabaseError } from './database/database_service.js';

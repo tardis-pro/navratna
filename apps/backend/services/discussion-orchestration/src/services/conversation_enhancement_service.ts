@@ -97,8 +97,8 @@ export function getNextPersonaContribution(
   const enhancedResponse = generateEnhancedResponse(
     selectedPersona,
     baseContent,
-    responseEnhancement as unknown, // Type cast to resolve compatibility
-    context as unknown, // Type cast to resolve compatibility
+    responseEnhancement,
+    context,
     contextualTriggers
   );
 

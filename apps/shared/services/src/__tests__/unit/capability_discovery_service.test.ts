@@ -9,9 +9,6 @@ describe('CapabilityDiscoveryService', () => {
     service = new CapabilityDiscoveryService();
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
 
   describe('initialization', () => {
     it('should initialize with database service', () => {

@@ -4,7 +4,6 @@
     "outDir": "dist", // relative to package root
     "rootDir": "src",
     "noImplicitAny": false,
-    "noCheck": true,
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "paths": {
       "@/config": ["./src/config/index.ts"],

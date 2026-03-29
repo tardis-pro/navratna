@@ -17,26 +17,31 @@
   },
   "exports": {
     ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./tool": {
+      "@uaip/source": "./src/tool.ts",
       "import": "./dist/tool.js",
       "require": "./dist/tool.js",
       "types": "./dist/tool.d.ts"
     },
     "./orchestration": {
+      "@uaip/source": "./src/orchestration.ts",
       "import": "./dist/orchestration.js",
       "require": "./dist/orchestration.js",
       "types": "./dist/orchestration.d.ts"
     },
     "./events": {
+      "@uaip/source": "./src/events.ts",
       "import": "./dist/events.js",
       "require": "./dist/events.js",
       "types": "./dist/events.d.ts"
     },
     "./api": {
+      "@uaip/source": "./src/api/index.ts",
       "import": "./dist/api/index.js",
       "require": "./dist/api/index.js",
       "types": "./dist/api/index.d.ts"

@@ -174,17 +174,18 @@ export class OperationManagementService {
     }
   }
 
+  private readonly activeStatuses = [
+    OperationStatus.RUNNING,
+    OperationStatus.PENDING,
+    OperationStatus.PAUSED,
+  ] as OperationStatus[];
+
   async getActiveOperations(): Promise<OperationRow[]> {
     try {
-      const activeStatuses = [
-        OperationStatus.RUNNING,
-        OperationStatus.PENDING,
-        OperationStatus.PAUSED,
-      ] as OperationStatus[];
       return await this.db
         .select()
         .from(operations)
-        .where(inArray(operations.status, activeStatuses))
+        .where(inArray(operations.status, this.activeStatuses))
         .orderBy(desc(operations.createdAt));
     } catch (error) {
       this.logger.error('Failed to get active operations', { error: (error as Error).message });
@@ -194,16 +195,11 @@ export class OperationManagementService {
 
   async findStaleOperations(cutoffDate: Date): Promise<OperationRow[]> {
     try {
-      const activeStatuses = [
-        OperationStatus.RUNNING,
-        OperationStatus.PENDING,
-        OperationStatus.PAUSED,
-      ] as OperationStatus[];
       return await this.db
         .select()
         .from(operations)
         .where(
-          and(inArray(operations.status, activeStatuses), lt(operations.updatedAt, cutoffDate))
+          and(inArray(operations.status, this.activeStatuses), lt(operations.updatedAt, cutoffDate))
         )
         .orderBy(asc(operations.updatedAt));
     } catch (error) {

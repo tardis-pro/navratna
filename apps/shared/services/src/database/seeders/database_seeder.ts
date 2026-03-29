@@ -87,9 +87,9 @@ export class DatabaseSeeder {
     const successCount = Object.values(results).filter(Boolean).length;
     const totalCount = Object.keys(results).length;
     if (successCount === totalCount) {
-      console.log('✅ All seeders completed successfully');
+      console.warn('✅ All seeders completed successfully');
     } else if (successCount > 0) {
-      console.log(`⚠️ ${successCount}/${totalCount} seeders completed`);
+      console.warn(`⚠️ ${successCount}/${totalCount} seeders completed`);
     } else {
       throw new Error('All seeders failed');
     }

@@ -28,7 +28,6 @@ import {
   uniqueIndex,
   customType,
 } from 'drizzle-orm/pg-core';
-
 const numericDecimal = customType<{ data: number; driverData: string }>({
   dataType(params: { precision?: number; scale?: number }) {
     const { precision, scale } = params;
@@ -75,14 +74,7 @@ import type {
   ValidationResult,
   MessageType,
 } from '@uaip/types';
-
-// ─── base ──────────────────────────────────────────────────────────────────
-
-const base = {
-  id: uuid('id').defaultRandom().primaryKey(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-};
+import { base, llmPreferenceCommonColumns } from './schema_base';
 
 // ─── PERSONAS ──────────────────────────────────────────────────────────────
 
@@ -241,14 +233,9 @@ export const agents = pgTable(
 
 export const agentLLMPreferences = pgTable('agent_llm_preferences', {
   ...base,
-  agentId: uuid('agent_id')
-    .notNull()
-    .references(() => agents.id, { onDelete: 'cascade' }),
-  modelId: uuid('model_id'),
+  agentId: uuid('agent_id').notNull().references(() => agents.id, { onDelete: 'cascade' }),
   temperature: numericDecimal('temperature', { precision: 3, scale: 2 }),
-  maxTokens: integer('max_tokens'),
-  systemPrompt: text('system_prompt'),
-  preferences: jsonb('preferences').$type<Record<string, unknown>>(),
+  ...llmPreferenceCommonColumns,
 });
 
 export const agentCapabilityMetrics = pgTable('agent_capability_metrics', {

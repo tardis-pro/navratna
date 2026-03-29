@@ -1,5 +1,7 @@
 import { BaseRepository } from '../base/base_repository';
 
+export { AgentLLMPreferenceRepository } from './agent_l_l_m_preference_repository';
+
 export class UserLLMPreferenceRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {
     return 'user_llm_preferences';
@@ -7,24 +9,17 @@ export class UserLLMPreferenceRepository extends BaseRepository<Record<string, u
   get plane(): 'control' {
     return 'control';
   }
-}
 
-export class AgentLLMPreferenceRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() {
-    return 'agent_llm_preferences';
+  async findByUserId(userId: string): Promise<Record<string, unknown>[]> {
+    return this.findMany({ user_id: userId });
   }
-  get plane(): 'intelligence' {
-    return 'intelligence';
-  }
-  async findByAgentId(agentId: string): Promise<Record<string, unknown>[]> {
-    return this.findMany({ agent_id: agentId });
-  }
-  async upsertForAgent(
-    agentId: string,
+
+  async upsertForUser(
+    userId: string,
     data: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
-    const existing = await this.findMany({ agent_id: agentId });
+    const existing = await this.findMany({ user_id: userId }, { limit: 1 });
     if (existing[0]) return (await this.update(existing[0].id as string, data)) ?? existing[0];
-    return this.create({ agent_id: agentId, ...data });
+    return this.create({ user_id: userId, ...data });
   }
 }

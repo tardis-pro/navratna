@@ -13,9 +13,11 @@
       "@uaip/utils/*": ["../packages/shared-utils/dist/*"],
       "@uaip/config": ["../shared/config/src"],
       "@uaip/infra": ["../shared/infra/src"],
-      "@uaip/shared-services": ["../shared/services/src"]
-      // "@uaip/middleware": ["../shared/middleware/src"],
-      // "@uaip/llm-service": ["../shared/llm-service/src"],
+      "@uaip/shared-services": ["../shared/services/src"],
+      "@uaip/middleware": ["../shared/middleware/src"],
+      "@uaip/middleware/*": ["../shared/middleware/src/*"],
+      "@uaip/llm-service": ["../shared/llm-service/src"],
+      "@uaip/llm-service/*": ["../shared/llm-service/src/*"]
       // "@uaip/agent-intelligence": ["services/agent-intelligence/src"],
       // "@uaip/artifact-service": ["services/artifact-service/src"],
       // "@uaip/capability-registry": ["services/capability-registry/src"],

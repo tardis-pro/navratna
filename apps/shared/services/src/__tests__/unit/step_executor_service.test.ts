@@ -7,9 +7,6 @@ describe('StepExecutorService', () => {
     service = new StepExecutorService();
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
 
   describe('initialization', () => {
     it('should initialize with database service', () => {

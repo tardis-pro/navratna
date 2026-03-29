@@ -30,33 +30,25 @@ export class MFAService extends BaseDomainService {
     return result.rows[0];
   }
 
-  public async verifyMFAChallenge(userId: string, code: string): Promise<boolean> {
+  private async verifyChallengeByFilter(
+    filterColumn: 'user_id' | 'session_id',
+    filterValue: string,
+    code: string
+  ): Promise<boolean> {
     const pool = getControlPool();
-
-    // Find the challenge
     const challengeResult = await pool.query(
-      `SELECT * FROM mfa_challenges
-       WHERE user_id = $1 AND challenge_data->>'challenge' = $2 AND verified_at IS NULL
-       ORDER BY created_at DESC LIMIT 1`,
-      [userId, code]
+      `SELECT * FROM mfa_challenges WHERE ${filterColumn} = $1 AND challenge_data->>'challenge' = $2 AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1`,
+      [filterValue, code]
     );
-
-    if (challengeResult.rows.length === 0) {
-      return false;
-    }
-
+    if (challengeResult.rows.length === 0) return false;
     const challenge = challengeResult.rows[0];
-    if (new Date(challenge.expires_at) < new Date()) {
-      return false;
-    }
-
-    // Mark as verified
-    await pool.query(`UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`, [
-      new Date(),
-      challenge.id,
-    ]);
-
+    if (new Date(challenge.expires_at) < new Date()) return false;
+    await pool.query(`UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`, [new Date(), challenge.id]);
     return true;
+  }
+
+  public async verifyMFAChallenge(userId: string, code: string): Promise<boolean> {
+    return this.verifyChallengeByFilter('user_id', userId, code);
   }
 
   public async findMFAChallenge(challengeId: string): Promise<Record<string, unknown> | null> {
@@ -139,31 +131,6 @@ export class MFAService extends BaseDomainService {
   }
 
   public async verifyMFAChallengeBySession(sessionId: string, code: string): Promise<boolean> {
-    const pool = getControlPool();
-
-    // Find the challenge
-    const challengeResult = await pool.query(
-      `SELECT * FROM mfa_challenges
-       WHERE session_id = $1 AND challenge_data->>'challenge' = $2 AND verified_at IS NULL
-       ORDER BY created_at DESC LIMIT 1`,
-      [sessionId, code]
-    );
-
-    if (challengeResult.rows.length === 0) {
-      return false;
-    }
-
-    const challenge = challengeResult.rows[0];
-    if (new Date(challenge.expires_at) < new Date()) {
-      return false;
-    }
-
-    // Mark as verified
-    await pool.query(`UPDATE mfa_challenges SET verified_at = $1 WHERE id = $2`, [
-      new Date(),
-      challenge.id,
-    ]);
-
-    return true;
+    return this.verifyChallengeByFilter('session_id', sessionId, code);
   }
 }

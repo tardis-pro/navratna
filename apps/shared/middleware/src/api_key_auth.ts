@@ -301,80 +301,67 @@ export class APIKeyAuthService {
     };
   }
 
-  // Elysia guard to require specific permissions
   public requirePermissions(requiredPermissions: string[]) {
-    return (app: Elysia) => {
-      return app.guard({
-        beforeHandle(ctx) {
-          const { apiKey, set } = ctx as unknown as {
-            apiKey: APIKeyContext | null;
-            set: { status: number };
-          };
-          if (!apiKey) {
-            set.status = 401;
-            return {
-              success: false,
-              error: {
-                code: 'API_KEY_REQUIRED',
-                message: 'API key authentication required',
-              },
-            };
-          }
+    return this.requireApiKeyGuard((apiKey, set) => {
+      const hasPermissions = requiredPermissions.every(
+        (permission) =>
+          apiKey.permissions.includes(permission) || apiKey.permissions.includes('*')
+      );
+      if (!hasPermissions) {
+        set.status = 403;
+        return {
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_PERMISSIONS',
+            message: `Missing required permissions: ${requiredPermissions.join(', ')}`,
+          },
+        };
+      }
+    });
+  }
 
-          const hasPermissions = requiredPermissions.every(
-            (permission) =>
-              apiKey.permissions.includes(permission) || apiKey.permissions.includes('*')
-          );
+  public requireScopes(requiredScopes: string[]) {
+    return this.requireApiKeyGuard((apiKey, set) => {
+      const hasScopes = requiredScopes.every(
+        (scope) => apiKey.scopes.includes(scope) || apiKey.scopes.includes('*')
+      );
+      if (!hasScopes) {
+        set.status = 403;
+        return {
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_SCOPES',
+            message: `Missing required scopes: ${requiredScopes.join(', ')}`,
+          },
+        };
+      }
+    });
+  }
 
-          if (!hasPermissions) {
-            set.status = 403;
-            return {
-              success: false,
-              error: {
-                code: 'INSUFFICIENT_PERMISSIONS',
-                message: `Missing required permissions: ${requiredPermissions.join(', ')}`,
-              },
-            };
-          }
-        },
-      });
+  private extractApiKeyCtx(ctx: unknown): { apiKey: APIKeyContext | null; set: { status: number } } {
+    return ctx as unknown as { apiKey: APIKeyContext | null; set: { status: number } };
+  }
+
+  private missingKeyResponse(set: { status: number }): {
+    success: false;
+    error: { code: string; message: string };
+  } {
+    set.status = 401;
+    return {
+      success: false,
+      error: { code: 'API_KEY_REQUIRED', message: 'API key authentication required' },
     };
   }
 
-  // Elysia guard to require specific scopes
-  public requireScopes(requiredScopes: string[]) {
+  private requireApiKeyGuard(
+    callback: (apiKey: APIKeyContext, set: { status: number }) => unknown
+  ) {
     return (app: Elysia) => {
       return app.guard({
-        beforeHandle(ctx) {
-          const { apiKey, set } = ctx as unknown as {
-            apiKey: APIKeyContext | null;
-            set: { status: number };
-          };
-          if (!apiKey) {
-            set.status = 401;
-            return {
-              success: false,
-              error: {
-                code: 'API_KEY_REQUIRED',
-                message: 'API key authentication required',
-              },
-            };
-          }
-
-          const hasScopes = requiredScopes.every(
-            (scope) => apiKey.scopes.includes(scope) || apiKey.scopes.includes('*')
-          );
-
-          if (!hasScopes) {
-            set.status = 403;
-            return {
-              success: false,
-              error: {
-                code: 'INSUFFICIENT_SCOPES',
-                message: `Missing required scopes: ${requiredScopes.join(', ')}`,
-              },
-            };
-          }
+        beforeHandle: (ctx) => {
+          const { apiKey, set } = this.extractApiKeyCtx(ctx);
+          if (!apiKey) return this.missingKeyResponse(set);
+          return callback(apiKey, set);
         },
       });
     };

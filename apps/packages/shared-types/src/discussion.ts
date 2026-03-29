@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseEntitySchema, IDSchema } from './common.js';
+import { BaseEntitySchema, IDSchema, EntityFilterBaseSchema } from './common.js';
 
 // Discussion status
 export enum DiscussionStatus {
@@ -447,14 +447,10 @@ export const UpdateDiscussionRequestSchema = DiscussionSchema.partial().omit({
 export type UpdateDiscussionRequest = z.infer<typeof UpdateDiscussionRequestSchema>;
 
 // Discussion search filters
-export const DiscussionSearchFiltersSchema = z.object({
+export const DiscussionSearchFiltersSchema = EntityFilterBaseSchema.extend({
   query: z.string().optional(),
   status: z.array(z.nativeEnum(DiscussionStatus)).optional(),
   visibility: z.array(z.nativeEnum(DiscussionVisibility)).optional(),
-  createdBy: z.array(IDSchema).optional(),
-  organizationId: IDSchema.optional(),
-  teamId: IDSchema.optional(),
-  tags: z.array(z.string()).optional(),
   participants: z.array(IDSchema).optional(),
   turnStrategy: z.array(z.nativeEnum(TurnStrategy)).optional(),
   hasObjectives: z.boolean().optional(),

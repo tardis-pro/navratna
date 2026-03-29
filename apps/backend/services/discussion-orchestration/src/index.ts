@@ -1,13 +1,10 @@
-import { BaseService, getDatabaseConnectionString } from '@uaip/shared-services';
+import { BaseService } from '@uaip/shared-services';
+import { FeatureFactory } from '@uaip/shared-services/feature-factory';
 import { logger } from '@uaip/utils';
-import { DiscussionOrchestrationService } from './services/discussion_orchestration_service.js';
-import { DiscussionService } from './services/discussion_service.js';
-import { PersonaService } from './services/persona_service.js';
+import { discussionFeature } from './feature.js';
 
 class DiscussionOrchestrationServiceApp extends BaseService {
-  private orchestrationService!: DiscussionOrchestrationService;
-  private discussionService!: DiscussionService;
-  private personaService!: PersonaService;
+  private factory = new FeatureFactory().register(discussionFeature);
 
   constructor() {
     super({
@@ -20,45 +17,25 @@ class DiscussionOrchestrationServiceApp extends BaseService {
   }
 
   protected async initialize(): Promise<void> {
-    this.personaService = new PersonaService({
-      databaseService: this.databaseService,
+    await this.factory.initialize({
       eventBusService: this.eventBusService,
-      cacheConfig: {
-        redis: getDatabaseConnectionString(
-          'discussion-orchestration',
-          'redis',
-          'redis-application'
-        ),
-        ttl: 300,
-        securityLevel: 3,
-      },
-    });
-
-    this.discussionService = new DiscussionService({
       databaseService: this.databaseService,
-      eventBusService: this.eventBusService,
-      personaService: this.personaService,
-      enableRealTimeEvents: true,
-      enableAnalytics: false,
-      auditMode: 'comprehensive',
     });
-
-    this.orchestrationService = new DiscussionOrchestrationService(
-      this.discussionService,
-      this.eventBusService
-    );
-
     logger.info('discussion-orchestration: services initialized');
   }
 
   protected async setupRoutes(): Promise<void> {
+    this.factory.mountRoutes(this.app);
     this.app.get('/health', () => ({
       status: 'ok',
       service: 'discussion-orchestration',
       version: '1.0.0',
     }));
-
     logger.info('discussion-orchestration: routes configured');
+  }
+
+  protected async setupEventSubscriptions(): Promise<void> {
+    await this.factory.subscribeEvents(this.eventBusService);
   }
 
   protected async checkServiceHealth(): Promise<boolean> {

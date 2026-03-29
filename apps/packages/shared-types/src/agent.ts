@@ -84,6 +84,45 @@ export const AgentSecurityContextSchema = z.object({
 
 export type AgentSecurityContext = z.infer<typeof AgentSecurityContextSchema>;
 
+// ============================================================================
+// Shared sub-schemas reused across multiple agent schema variants
+// ============================================================================
+
+const AgentConfigSchema = z.object({
+  model: z.string().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+  contextWindowSize: z.number().positive().optional(),
+  decisionThreshold: z.number().min(0).max(1).optional(),
+  learningEnabled: z.boolean().optional(),
+  collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
+});
+
+const MCPToolItemSchema = z.object({
+  toolId: z.string(),
+  toolName: z.string(),
+  serverName: z.string(),
+  enabled: z.boolean(),
+  priority: z.number().optional(),
+  parameters: z.record(z.any()).optional(),
+});
+
+const MCPToolSettingsSchema = z.object({
+  allowedServers: z.array(z.string()).optional(),
+  blockedServers: z.array(z.string()).optional(),
+  maxToolsPerServer: z.number().positive().optional(),
+  autoDiscoveryEnabled: z.boolean().optional(),
+});
+
+const AgentModelFieldsSchema = z.object({
+  modelId: z.string().optional(),
+  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
+  userLLMProviderId: IDSchema.optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().positive().optional(),
+  systemPrompt: z.string().optional(),
+});
+
 export const AgentSchema = BaseEntitySchema.extend({
   name: z.string().min(1).max(255),
   description: z.string().optional(),
@@ -100,47 +139,12 @@ export const AgentSchema = BaseEntitySchema.extend({
   metadata: z.record(z.any()).optional(),
   createdBy: IDSchema,
   lastActiveAt: z.date().optional(),
-  configuration: z
-    .object({
-      model: z.string().optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
-      contextWindowSize: z.number().positive().optional(),
-      decisionThreshold: z.number().min(0).max(1).optional(),
-      learningEnabled: z.boolean().optional(),
-      collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
-    })
-    .optional(),
-  // Model configuration fields (direct agent fields, not in configuration)
-  modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
-  userLLMProviderId: IDSchema.optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().positive().optional(),
-  systemPrompt: z.string().optional(),
+  configuration: AgentConfigSchema.optional(),
+  ...AgentModelFieldsSchema.shape,
 
-  // MCP Tool System Integration
-  assignedMCPTools: z
-    .array(
-      z.object({
-        toolId: z.string(),
-        toolName: z.string(),
-        serverName: z.string(),
-        enabled: z.boolean(),
-        priority: z.number().optional(),
-        parameters: z.record(z.any()).optional(),
-      })
-    )
-    .default([]),
+  assignedMCPTools: z.array(MCPToolItemSchema).default([]),
 
-  mcpToolSettings: z
-    .object({
-      allowedServers: z.array(z.string()).optional(),
-      blockedServers: z.array(z.string()).optional(),
-      maxToolsPerServer: z.number().positive().optional(),
-      autoDiscoveryEnabled: z.boolean().optional(),
-    })
-    .optional(),
+  mcpToolSettings: MCPToolSettingsSchema.optional(),
 });
 
 export type Agent = z.infer<typeof AgentSchema>;
@@ -183,30 +187,14 @@ export const AgentCreateRequestSchema = z
       .optional()
       .default([]),
 
-    // MCP Tool System Integration
     assignedMCPTools: z
-      .array(
-        z.object({
-          toolId: z.string(),
-          toolName: z.string(),
-          serverName: z.string(),
-          enabled: z.boolean().default(true),
-          priority: z.number().optional(),
-          parameters: z.record(z.any()).optional(),
-        })
-      )
+      .array(MCPToolItemSchema.extend({ enabled: z.boolean().default(true) }))
       .optional()
       .default([]),
 
-    mcpToolSettings: z
-      .object({
-        allowedServers: z.array(z.string()).optional(),
-        blockedServers: z.array(z.string()).optional(),
-        maxToolsPerServer: z.number().positive().optional(),
-        autoDiscoveryEnabled: z.boolean().optional().default(true),
-      })
-      .optional(),
-    // Chat functionality enhancements
+    mcpToolSettings: MCPToolSettingsSchema.extend({
+      autoDiscoveryEnabled: z.boolean().optional().default(true),
+    }).optional(),
     chatConfig: z
       .object({
         enableKnowledgeAccess: z.boolean().optional().default(true),
@@ -216,18 +204,7 @@ export const AgentCreateRequestSchema = z
         conversationTimeout: z.number().positive().optional().default(3600000), // 1 hour in ms
       })
       .optional(),
-    configuration: z
-      .object({
-        model: z.string().optional(),
-        temperature: z.number().min(0).max(2).optional(),
-        analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
-        contextWindowSize: z.number().positive().optional(),
-        decisionThreshold: z.number().min(0).max(1).optional(),
-        learningEnabled: z.boolean().optional(),
-        collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
-      })
-      .optional(),
-    // Model configuration fields (direct agent fields)
+    configuration: AgentConfigSchema.optional(),
     modelId: z.string().optional(),
     apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
     securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
@@ -248,53 +225,18 @@ export const AgentUpdateSchema = z.object({
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
   intelligenceConfig: AgentIntelligenceConfigSchema.optional(),
-  configuration: z
-    .object({
-      model: z.string().optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
-      contextWindowSize: z.number().positive().optional(),
-      decisionThreshold: z.number().min(0).max(1).optional(),
-      learningEnabled: z.boolean().optional(),
-      collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
-    })
-    .optional(),
+  configuration: AgentConfigSchema.optional(),
   securityContext: AgentSecurityContextSchema.optional(),
   isActive: z.boolean().optional(),
   status: z.enum(['idle', 'active', 'busy', 'error', 'offline']).optional(),
   lastActiveAt: z.date().optional(),
   metadata: z.record(z.any()).optional(),
   skills: z.array(AgentSkillSchema).optional(),
-  // Model configuration fields (direct agent fields, not in configuration)
-  modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
-  userLLMProviderId: IDSchema.optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().positive().optional(),
-  systemPrompt: z.string().optional(),
+  ...AgentModelFieldsSchema.shape,
 
-  // MCP Tool System Integration
-  assignedMCPTools: z
-    .array(
-      z.object({
-        toolId: z.string(),
-        toolName: z.string(),
-        serverName: z.string(),
-        enabled: z.boolean(),
-        priority: z.number().optional(),
-        parameters: z.record(z.any()).optional(),
-      })
-    )
-    .optional(),
+  assignedMCPTools: z.array(MCPToolItemSchema).optional(),
 
-  mcpToolSettings: z
-    .object({
-      allowedServers: z.array(z.string()).optional(),
-      blockedServers: z.array(z.string()).optional(),
-      maxToolsPerServer: z.number().positive().optional(),
-      autoDiscoveryEnabled: z.boolean().optional(),
-    })
-    .optional(),
+  mcpToolSettings: MCPToolSettingsSchema.optional(),
 });
 
 export type AgentUpdate = z.infer<typeof AgentUpdateSchema>;
@@ -308,45 +250,16 @@ export const AgentUpdateRequestSchema = z.object({
   role: z.nativeEnum(AgentRole).optional(),
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
-  configuration: z
-    .object({
-      model: z.string().optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
-      contextWindowSize: z.number().positive().optional(),
-      decisionThreshold: z.number().min(0).max(1).optional(),
-      learningEnabled: z.boolean().optional(),
-      collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
-    })
-    .optional(),
-  modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
-  userLLMProviderId: IDSchema.optional(),
+  configuration: AgentConfigSchema.optional(),
+  ...AgentModelFieldsSchema.pick({ modelId: true, apiType: true, userLLMProviderId: true }).shape,
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   isActive: z.boolean().optional(),
 
-  // MCP Tool System Integration
   assignedMCPTools: z
-    .array(
-      z.object({
-        toolId: z.string(),
-        toolName: z.string(),
-        serverName: z.string(),
-        enabled: z.boolean().default(true),
-        priority: z.number().optional(),
-        parameters: z.record(z.any()).optional(),
-      })
-    )
+    .array(MCPToolItemSchema.extend({ enabled: z.boolean().default(true) }))
     .optional(),
 
-  mcpToolSettings: z
-    .object({
-      allowedServers: z.array(z.string()).optional(),
-      blockedServers: z.array(z.string()).optional(),
-      maxToolsPerServer: z.number().positive().optional(),
-      autoDiscoveryEnabled: z.boolean().optional(),
-    })
-    .optional(),
+  mcpToolSettings: MCPToolSettingsSchema.optional(),
 });
 
 export type AgentUpdateRequest = z.infer<typeof AgentUpdateRequestSchema>;
@@ -360,48 +273,17 @@ export const CreateAgentRequestSchema = z.object({
   role: z.nativeEnum(AgentRole),
   personaId: IDSchema.optional(),
   persona: AgentPersonaSchema.optional(),
-  configuration: z
-    .object({
-      model: z.string().optional(),
-      temperature: z.number().min(0).max(2).optional(),
-      analysisDepth: z.enum(['basic', 'intermediate', 'advanced']).optional(),
-      contextWindowSize: z.number().positive().optional(),
-      decisionThreshold: z.number().min(0).max(1).optional(),
-      learningEnabled: z.boolean().optional(),
-      collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
-    })
-    .optional(),
+  configuration: AgentConfigSchema.optional(),
   metadata: z.record(z.any()).optional(),
-  modelId: z.string().optional(),
-  apiType: z.enum(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']).optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().positive().optional(),
-  systemPrompt: z.string().optional(),
+  ...AgentModelFieldsSchema.omit({ userLLMProviderId: true }).shape,
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   isActive: z.boolean().default(true),
 
-  // MCP Tool System Integration
   assignedMCPTools: z
-    .array(
-      z.object({
-        toolId: z.string(),
-        toolName: z.string(),
-        serverName: z.string(),
-        enabled: z.boolean().default(true),
-        priority: z.number().optional(),
-        parameters: z.record(z.any()).optional(),
-      })
-    )
+    .array(MCPToolItemSchema.extend({ enabled: z.boolean().default(true) }))
     .optional(),
 
-  mcpToolSettings: z
-    .object({
-      allowedServers: z.array(z.string()).optional(),
-      blockedServers: z.array(z.string()).optional(),
-      maxToolsPerServer: z.number().positive().optional(),
-      autoDiscoveryEnabled: z.boolean().optional(),
-    })
-    .optional(),
+  mcpToolSettings: MCPToolSettingsSchema.optional(),
 });
 
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;

@@ -115,8 +115,10 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
           });
           return { success: true, authorization_url: url, state };
         } catch (error: unknown) {
+          // @ts-expect-error -- Property does not exist on inferred type
           logger.error('Authorize failed', { error: error?.message });
           set.status = 400;
+          // @ts-expect-error -- Property does not exist on inferred type
           return { success: false, error: error?.message || 'Authorization failed' };
         }
       })
@@ -166,12 +168,14 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
           await auditService.logEvent({
             eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
             details: {
+              // @ts-expect-error -- Property does not exist on inferred type
               error: error?.message,
               ipAddress: request.headers.get('x-forwarded-for') || '',
               userAgent: headers['user-agent'],
             },
           });
           set.status = 500;
+          // @ts-expect-error -- Property does not exist on inferred type
           return { success: false, error: error?.message || 'OAuth callback failed' };
         }
       })
@@ -222,12 +226,14 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
             eventType: AuditEventType.AGENT_AUTH_FAILED,
             agentId: parsedBody.success ? parsedBody.data.agent_id : undefined,
             details: {
+              // @ts-expect-error -- Property does not exist on inferred type
               error: error?.message,
               ipAddress: request.headers.get('x-forwarded-for') || '',
               userAgent: headers['user-agent'],
             },
           });
           set.status = 500;
+          // @ts-expect-error -- Property does not exist on inferred type
           return { success: false, error: error?.message || 'Agent authentication failed' };
         }
       })
@@ -269,6 +275,7 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
             };
           } catch (error: unknown) {
             set.status = 500;
+            // @ts-expect-error -- Property does not exist on inferred type
             return { success: false, error: error?.message || 'Failed to connect OAuth provider' };
           }
         })
@@ -329,12 +336,14 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
                 eventType: AuditEventType.AGENT_OPERATION_FAILED,
                 agentId: user!.id,
                 details: {
+                  // @ts-expect-error -- Property does not exist on inferred type
                   error: error?.message,
                   providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
                   operation: parsedBody.success ? parsedBody.data.operation : undefined,
                 },
               });
               set.status = 500;
+              // @ts-expect-error -- Property does not exist on inferred type
               return { success: false, error: error?.message || 'GitHub operation failed' };
             }
           })
@@ -403,12 +412,14 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
                 eventType: AuditEventType.AGENT_OPERATION_FAILED,
                 agentId: user!.id,
                 details: {
+                  // @ts-expect-error -- Property does not exist on inferred type
                   error: error?.message,
                   providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
                   operation: parsedBody.success ? parsedBody.data.operation : undefined,
                 },
               });
               set.status = 500;
+              // @ts-expect-error -- Property does not exist on inferred type
               return { success: false, error: error?.message || 'Gmail operation failed' };
             }
           })

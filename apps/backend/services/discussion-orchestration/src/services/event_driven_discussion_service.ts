@@ -24,7 +24,7 @@ export class EventDrivenDiscussionService extends EventEmitter {
   private pendingRequests = new Map<
     string,
     {
-      resolve: (value: Discussion) => void;
+      resolve: (value: unknown) => void;
       reject: (reason?: unknown) => void;
       timeout: NodeJS.Timeout;
     }

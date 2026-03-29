@@ -1,8 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "strict": false,
-    "noImplicitAny": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "customConditions": ["@uaip/source"],
     "target": "ES2022",
     "lib": ["ES2022"],
     "declaration": true,
@@ -11,11 +12,10 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "moduleDetection": "force",
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "6.0",
+    "types": []
   }
 }

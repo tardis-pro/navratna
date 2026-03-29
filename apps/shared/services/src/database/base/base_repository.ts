@@ -44,16 +44,24 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     }
   }
 
+  private buildWhereClause(
+    conditions: Record<string, unknown>
+  ): { whereSql: string; values: unknown[] } {
+    const keys = Object.keys(conditions);
+    return {
+      whereSql: keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND '),
+      values: Object.values(conditions),
+    };
+  }
+
   async findMany(
     conditions: Record<string, unknown> = {},
     options: FindManyOptions = {}
   ): Promise<T[]> {
     try {
-      const keys = Object.keys(conditions);
-      const whereClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
-      const values = Object.values(conditions);
+      const { whereSql, values } = this.buildWhereClause(conditions);
       let query = `SELECT * FROM "${this.tableName}"`;
-      if (whereClauses) query += ` WHERE ${whereClauses}`;
+      if (whereSql) query += ` WHERE ${whereSql}`;
       if (options.orderBy) {
         const orderClauses = Object.entries(options.orderBy)
           .map(([col, dir]) => `"${col}" ${dir}`)
@@ -125,11 +133,9 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
 
   async count(conditions: Record<string, unknown> = {}): Promise<number> {
     try {
-      const keys = Object.keys(conditions);
-      const whereClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
-      const values = Object.values(conditions);
+      const { whereSql, values } = this.buildWhereClause(conditions);
       let query = `SELECT COUNT(*)::int as cnt FROM "${this.tableName}"`;
-      if (whereClauses) query += ` WHERE ${whereClauses}`;
+      if (whereSql) query += ` WHERE ${whereSql}`;
       const rows = await this.rawQuery<{ cnt: number }>(query, values);
       return rows[0]?.cnt ?? 0;
     } catch (error) {

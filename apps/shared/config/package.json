@@ -25,9 +25,10 @@
   },
   "exports": {
     ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     }
   }
 }

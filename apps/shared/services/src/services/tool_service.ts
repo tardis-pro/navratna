@@ -5,11 +5,24 @@ import {
   ToolExecutionRepository,
   ToolUsageRepository,
   ToolAssignmentRepository,
+  BaseCreateToolParams,
 } from '../database/repositories/tool_repository';
 import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
 import { RedisCacheService } from '../redis_cache_service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
 import { getControlPool } from '../database/drizzle/clients/index';
+
+type ToolUsageData = {
+  toolId: string;
+  agentId?: string;
+  userId?: string;
+  executionId?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  executionTime?: number;
+  success: boolean;
+  error?: string;
+};
 
 export class ToolService extends BaseDomainService {
   private redisService: RedisCacheService;
@@ -40,21 +53,7 @@ export class ToolService extends BaseDomainService {
     return this.getRepository('toolAssignRepo', () => new ToolAssignmentRepository());
   }
 
-  public async createTool(data: {
-    name: string;
-    displayName: string;
-    description: string;
-    category: ToolCategory;
-    isEnabled?: boolean;
-    version?: string;
-    inputSchema?: Record<string, unknown>;
-    outputSchema?: Record<string, unknown>;
-    configuration?: Record<string, unknown>;
-    requiredPermissions?: string[];
-    securityLevel?: SecurityLevel;
-    maxRetries?: number;
-    timeout?: number;
-  }): Promise<Record<string, unknown>> {
+  public async createTool(data: BaseCreateToolParams & { displayName: string; category: ToolCategory; securityLevel?: SecurityLevel }): Promise<Record<string, unknown>> {
     const toolRepo = this.getToolRepository();
     return await toolRepo.createTool({
       name: data.name,
@@ -196,17 +195,7 @@ export class ToolService extends BaseDomainService {
     });
   }
 
-  public async trackUsage(data: {
-    toolId: string;
-    agentId?: string;
-    userId?: string;
-    executionId?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    executionTime?: number;
-    success: boolean;
-    error?: string;
-  }): Promise<Record<string, unknown>> {
+  public async trackUsage(data: ToolUsageData): Promise<Record<string, unknown>> {
     const usageRepo = this.getToolUsageRepository();
     return await usageRepo.recordToolUsage({
       toolId: data.toolId,
@@ -363,17 +352,7 @@ export class ToolService extends BaseDomainService {
     );
   }
 
-  public async recordToolUsage(usage: {
-    toolId: string;
-    agentId?: string;
-    userId?: string;
-    executionId?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    executionTime?: number;
-    success: boolean;
-    error?: string;
-  }): Promise<void> {
+  public async recordToolUsage(usage: ToolUsageData): Promise<void> {
     await this.trackUsage(usage);
   }
 

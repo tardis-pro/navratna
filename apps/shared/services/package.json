@@ -66,94 +66,85 @@
   },
   "exports": {
     ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "default": "./dist/index.js"
     },
     "./drizzle": {
-      "import": "./dist/database/drizzle/index.js",
-      "require": "./dist/database/drizzle/index.js",
-      "types": "./dist/database/drizzle/index.d.ts"
+      "@uaip/source": "./src/database/drizzle/index.ts",
+      "types": "./dist/database/drizzle/index.d.ts",
+      "import": "./dist/database/drizzle/index.js"
     },
     "./drizzle/intelligence": {
-      "import": "./dist/database/drizzle/schemas/intelligence.schema.js",
-      "require": "./dist/database/drizzle/schemas/intelligence.schema.js",
-      "types": "./dist/database/drizzle/schemas/intelligence.schema.d.ts"
+      "@uaip/source": "./src/database/drizzle/schemas/intelligence_schema.ts",
+      "types": "./dist/database/drizzle/schemas/intelligence_schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/intelligence_schema.js"
     },
     "./drizzle/control": {
-      "import": "./dist/database/drizzle/schemas/control.schema.js",
-      "require": "./dist/database/drizzle/schemas/control.schema.js",
-      "types": "./dist/database/drizzle/schemas/control.schema.d.ts"
+      "@uaip/source": "./src/database/drizzle/schemas/control_schema.ts",
+      "types": "./dist/database/drizzle/schemas/control_schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/control_schema.js"
     },
     "./drizzle/clients": {
-      "import": "./dist/database/drizzle/clients/index.js",
-      "require": "./dist/database/drizzle/clients/index.js",
-      "types": "./dist/database/drizzle/clients/index.d.ts"
+      "@uaip/source": "./src/database/drizzle/clients/index.ts",
+      "types": "./dist/database/drizzle/clients/index.d.ts",
+      "import": "./dist/database/drizzle/clients/index.js"
     },
-    "./agentIntelligenceService": {
-      "import": "./dist/agentIntelligenceService.js",
-      "require": "./dist/agentIntelligenceService.js",
-      "types": "./dist/agentIntelligenceService.d.ts"
+    "./base-service": {
+      "@uaip/source": "./src/base_service.ts",
+      "types": "./dist/base_service.d.ts",
+      "import": "./dist/base_service.js"
     },
-    "./capabilityDiscoveryService": {
-      "import": "./dist/capabilityDiscoveryService.js",
-      "require": "./dist/capabilityDiscoveryService.js",
-      "types": "./dist/capabilityDiscoveryService.d.ts"
+    "./persona": {
+      "@uaip/source": "./src/persona_service.ts",
+      "types": "./dist/persona_service.d.ts",
+      "import": "./dist/persona_service.js"
     },
-    "./securityValidationService": {
-      "import": "./dist/securityValidationService.js",
-      "require": "./dist/securityValidationService.js",
-      "types": "./dist/securityValidationService.d.ts"
+    "./discussion": {
+      "@uaip/source": "./src/discussion_service.ts",
+      "types": "./dist/discussion_service.d.ts",
+      "import": "./dist/discussion_service.js"
     },
-    "./eventBusService": {
-      "import": "@uaip/infra/eventBus.js",
-      "require": "@uaip/infra/eventBus.js",
-      "types": "@uaip/infra/eventBus.d.ts"
+    "./participant": {
+      "@uaip/source": "./src/participant_management_service.ts",
+      "types": "./dist/participant_management_service.d.ts",
+      "import": "./dist/participant_management_service.js"
     },
-    "./databaseService": {
-      "import": "@uaip/infra/database/index.js",
-      "require": "@uaip/infra/database/index.js",
-      "types": "@uaip/infra/database/index.d.ts"
+    "./agent-state": {
+      "@uaip/source": "./src/agent-state/agent_state_machine.ts",
+      "types": "./dist/agent-state/agent_state_machine.d.ts",
+      "import": "./dist/agent-state/agent_state_machine.js"
     },
-    "./cacheService": {
-      "import": "@uaip/infra/cache/index.js",
-      "require": "@uaip/infra/cache/index.js",
-      "types": "@uaip/infra/cache/index.d.ts"
+    "./agent-memory": {
+      "@uaip/source": "./src/agent-memory/index.ts",
+      "types": "./dist/agent-memory/index.d.ts",
+      "import": "./dist/agent-memory/index.js"
     },
-    "./stateManagerService": {
-      "import": "./dist/stateManagerService.js",
-      "require": "./dist/stateManagerService.js",
-      "types": "./dist/stateManagerService.d.ts"
+    "./decision-engine": {
+      "@uaip/source": "./src/agent/agent-intelligence/decision_engine.ts",
+      "types": "./dist/agent/agent-intelligence/decision_engine.d.ts",
+      "import": "./dist/agent/agent-intelligence/decision_engine.js"
     },
-    "./stepExecutorService": {
-      "import": "./dist/stepExecutorService.js",
-      "require": "./dist/stepExecutorService.js",
-      "types": "./dist/stepExecutorService.d.ts"
+    "./cognitive": {
+      "@uaip/source": "./src/cognitive/index.ts",
+      "types": "./dist/cognitive/index.d.ts",
+      "import": "./dist/cognitive/index.js"
     },
-    "./resourceManagerService": {
-      "import": "./dist/resourceManagerService.js",
-      "require": "./dist/resourceManagerService.js",
-      "types": "./dist/resourceManagerService.d.ts"
+    "./event-bus": {
+      "@uaip/source": "./src/event_bus_service.ts",
+      "types": "./dist/event_bus_service.d.ts",
+      "import": "./dist/event_bus_service.js"
     },
-    "./compensationService": {
-      "import": "./dist/compensationService.js",
-      "require": "./dist/compensationService.js",
-      "types": "./dist/compensationService.d.ts"
+    "./database": {
+      "@uaip/source": "./src/database_service.ts",
+      "types": "./dist/database_service.d.ts",
+      "import": "./dist/database_service.js"
     },
-    "./personaService": {
-      "import": "./dist/personaService.js",
-      "require": "./dist/personaService.js",
-      "types": "./dist/personaService.d.ts"
-    },
-    "./discussionService": {
-      "import": "./dist/discussionService.js",
-      "require": "./dist/discussionService.js",
-      "types": "./dist/discussionService.d.ts"
-    },
-    "./drizzleService": {
-      "import": "./dist/drizzleService.js",
-      "require": "./dist/drizzleService.js",
-      "types": "./dist/drizzleService.d.ts"
+    "./feature-factory": {
+      "@uaip/source": "./src/feature_factory.ts",
+      "types": "./dist/feature_factory.d.ts",
+      "import": "./dist/feature_factory.js"
     }
   }
 }

@@ -17,6 +17,25 @@ interface ElysiaContext {
   set: { status: number };
 }
 
+function getIdParam(params: Record<string, unknown> | undefined): string {
+  return typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+}
+
+function requireCapabilityId(
+  id: string,
+  set: { status: number }
+): { success: false; error: string } | null {
+  if (!id) {
+    set.status = 400;
+    return { success: false, error: 'Capability ID is required' };
+  }
+  return null;
+}
+
+function registryMeta(extra?: Record<string, unknown>) {
+  return { ...extra, timestamp: new Date(), service: 'capability-registry' };
+}
+
 export class CapabilityController {
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
@@ -94,17 +113,15 @@ export class CapabilityController {
     return {
       success: true,
       data: { capability },
-      meta: { timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta(),
     };
   };
 
   public getCapability = async ({ params, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const id = getIdParam(params);
 
-    if (!id) {
-      set.status = 400;
-      return { success: false, error: 'Capability ID is required' };
-    }
+    const idError = requireCapabilityId(id, set);
+    if (idError) return idError;
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -125,7 +142,7 @@ export class CapabilityController {
     return {
       success: true,
       data: { capability },
-      meta: { timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta(),
     };
   };
 
@@ -151,17 +168,15 @@ export class CapabilityController {
     return {
       success: true,
       data: { capabilities, totalCount: capabilities.length },
-      meta: { timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta(),
     };
   };
 
   public executeCapability = async ({ params, body, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const id = getIdParam(params);
 
-    if (!id) {
-      set.status = 400;
-      return { success: false, error: 'Capability ID is required' };
-    }
+    const idError = requireCapabilityId(id, set);
+    if (idError) return idError;
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -186,18 +201,16 @@ export class CapabilityController {
     return {
       success: true,
       data: { execution },
-      meta: { capabilityId: id, timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta({ capabilityId: id }),
     };
   };
 
   public updateCapability = async ({ params, body, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const id = getIdParam(params);
     const updateData = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 
-    if (!id) {
-      set.status = 400;
-      return { success: false, error: 'Capability ID is required' };
-    }
+    const idError = requireCapabilityId(id, set);
+    if (idError) return idError;
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -216,17 +229,15 @@ export class CapabilityController {
     return {
       success: true,
       data: { capability: { id, ...updateData } },
-      meta: { timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta(),
     };
   };
 
   public deleteCapability = async ({ params, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const id = getIdParam(params);
 
-    if (!id) {
-      set.status = 400;
-      return { success: false, error: 'Capability ID is required' };
-    }
+    const idError = requireCapabilityId(id, set);
+    if (idError) return idError;
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -280,17 +291,15 @@ export class CapabilityController {
     return {
       success: true,
       data: { categories },
-      meta: { timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta(),
     };
   };
 
   public getCapabilityDependencies = async ({ params, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const id = getIdParam(params);
 
-    if (!id) {
-      set.status = 400;
-      return { success: false, error: 'Capability ID is required' };
-    }
+    const idError = requireCapabilityId(id, set);
+    if (idError) return idError;
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -306,17 +315,15 @@ export class CapabilityController {
     return {
       success: true,
       data: { dependencies },
-      meta: { capabilityId: id, timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta({ capabilityId: id }),
     };
   };
 
   public validateCapability = async ({ params, body, headers, set }: ElysiaContext) => {
-    const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+    const id = getIdParam(params);
 
-    if (!id) {
-      set.status = 400;
-      return { success: false, error: 'Capability ID is required' };
-    }
+    const idError = requireCapabilityId(id, set);
+    if (idError) return idError;
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -336,7 +343,7 @@ export class CapabilityController {
     return {
       success: true,
       data: { validationResult },
-      meta: { capabilityId: id, timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta({ capabilityId: id }),
     };
   };
 
@@ -358,7 +365,7 @@ export class CapabilityController {
     return {
       success: true,
       data: { recommendations },
-      meta: { timestamp: new Date(), service: 'capability-registry' },
+      meta: registryMeta(),
     };
   };
 

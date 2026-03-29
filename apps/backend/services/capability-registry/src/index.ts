@@ -1,12 +1,11 @@
-import { BaseService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
-import { registerCapabilityRoutes } from './routes/capability_routes.js';
-import { registerHealthRoutes } from './routes/health_routes.js';
-import { registerMCPRoutes } from './routes/mcp_routes.js';
-import { registerToolRoutes } from './routes/tool_routes.js';
-import { registerWorkspaceRoutes } from './routes/workspace_routes.js';
+import { BaseService } from '@uaip/shared-services'
+import { FeatureFactory } from '@uaip/shared-services/feature-factory'
+import { logger } from '@uaip/utils'
+import { capabilityFeature } from './feature.js'
 
 class CapabilityRegistryService extends BaseService {
+  private factory = new FeatureFactory().register(capabilityFeature)
+
   constructor() {
     super({
       name: 'capability-registry',
@@ -14,37 +13,36 @@ class CapabilityRegistryService extends BaseService {
       version: '1.0.0',
       enableNeo4j: true,
       enableEnterpriseEventBus: true,
-    });
-    this.registerEntities([]);
+    })
+    this.registerEntities([])
   }
 
   protected async initialize(): Promise<void> {
-    logger.info('capability-registry: services initialized');
+    await this.factory.initialize({ eventBusService: this.eventBusService })
+    logger.info('capability-registry: services initialized')
   }
 
   protected async setupRoutes(): Promise<void> {
-    registerCapabilityRoutes(this.app);
-    registerHealthRoutes(this.app);
-    registerMCPRoutes(this.app);
-    registerToolRoutes(this.app);
-    registerWorkspaceRoutes(this.app);
-
+    this.factory.mountRoutes(this.app)
     this.app.get('/health', () => ({
       status: 'ok',
       service: 'capability-registry',
-      version: '1.0.0',
-    }));
+      features: this.factory.activeFeatureNames,
+    }))
+    logger.info('capability-registry: routes configured')
+  }
 
-    logger.info('capability-registry: routes configured');
+  protected async setupEventSubscriptions(): Promise<void> {
+    await this.factory.subscribeEvents(this.eventBusService)
   }
 
   protected async checkServiceHealth(): Promise<boolean> {
-    return true;
+    return true
   }
 }
 
-const service = new CapabilityRegistryService();
+const service = new CapabilityRegistryService()
 service.start().catch((error) => {
-  logger.error('Failed to start capability-registry', { error });
-  process.exit(1);
-});
+  logger.error('Failed to start capability-registry', { error })
+  process.exit(1)
+})

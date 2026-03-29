@@ -100,10 +100,10 @@ export class LLMPreferenceResolutionService {
     private agentRepository: unknown
   ) {}
 
-  /**
-   * Resolve LLM preference for a specific agent and task type
-   * Follows hierarchy: Agent -> User -> System defaults
-   */
+  private async getAgentOwner(repo: { findOne: (q: unknown) => Promise<unknown> }, agentId: string): Promise<string | undefined> {
+    const agent = await repo.findOne({ where: { id: agentId }, select: ['createdBy'] });
+    return (agent as { createdBy?: string })?.createdBy;
+  }
   async resolveLLMPreference(
     agentId: string,
     taskType: LLMTaskType,
@@ -131,17 +131,9 @@ export class LLMPreferenceResolutionService {
       };
     }
 
-    // Step 2: Check for user-specific preference
-    const agent = await (this.agentRepository as { findOne: Function }).findOne({
-      where: { id: agentId },
-      select: ['createdBy'],
-    });
-
-    if ((agent as { createdBy?: string })?.createdBy) {
-      const userPreference = await this.getUserPreference(
-        (agent as { createdBy: string }).createdBy,
-        taskType
-      );
+    const createdBy = await this.getAgentOwner(this.agentRepository as { findOne: (q: unknown) => Promise<unknown> }, agentId);
+    if (createdBy) {
+      const userPreference = await this.getUserPreference(createdBy, taskType);
       if (userPreference && (userPreference as { isActive: boolean }).isActive) {
         return {
           provider: (userPreference as { preferredProvider: LLMProviderType }).preferredProvider,
@@ -266,17 +258,9 @@ export class LLMPreferenceResolutionService {
       await agentPrefRepo.save(agentPreference);
     }
 
-    // Update user-specific stats
-    const agent = await agentRepo.findOne({
-      where: { id: agentId },
-      select: ['createdBy'],
-    });
-
-    if ((agent as { createdBy?: string })?.createdBy) {
-      const userPreference = await this.getUserPreference(
-        (agent as { createdBy: string }).createdBy,
-        taskType
-      );
+    const createdBy = await this.getAgentOwner(agentRepo as { findOne: (q: unknown) => Promise<unknown> }, agentId);
+    if (createdBy) {
+      const userPreference = await this.getUserPreference(createdBy, taskType);
       if (userPreference) {
         (userPreference as { updateUsageStats: Function }).updateUsageStats(responseTime, success);
         await userPrefRepo.save(userPreference);

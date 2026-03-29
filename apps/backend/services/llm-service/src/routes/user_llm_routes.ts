@@ -1,7 +1,43 @@
 import { UserLLMService, AgentResponseRequest } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
-import { ModelCapabilityDetector, UserLLMProviderType } from '@uaip/shared-services';
+import { ModelCapabilityDetector } from '@uaip/shared-services';
+import { LLMProviderType } from '@uaip/types';
 import type { Elysia, Context } from 'elysia';
+
+type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
+
+function _isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isUserLLMProviderType(value: unknown): value is UserLLMProviderType {
+  switch (value) {
+    case 'ollama':
+    case 'llmstudio':
+    case 'openai':
+    case 'anthropic':
+    case 'google':
+    case 'custom':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function toDetectorProviderType(value: UserLLMProviderType): LLMProviderType | null {
+  switch (value) {
+    case 'ollama':
+      return LLMProviderType.OLLAMA;
+    case 'llmstudio':
+      return LLMProviderType.LLMSTUDIO;
+    case 'openai':
+      return LLMProviderType.OPENAI;
+    case 'anthropic':
+      return LLMProviderType.ANTHROPIC;
+    default:
+      return null;
+  }
+}
 
 // Request Interfaces
 interface CreateProviderRequest {
@@ -36,6 +72,44 @@ interface GenerateRequest {
   model?: string;
 }
 
+type LLMProviderShape = {
+  id: string;
+  name: string;
+  userId: string;
+  description?: string;
+  type: UserLLMProviderType;
+  baseUrl?: string;
+  apiKeyEncrypted?: string;
+  isDefault: boolean;
+  configuration?: Record<string, unknown>;
+  isActive?: boolean;
+  defaultModel?: string;
+  modelId?: string;
+};
+
+function sanitizeProvider(provider: LLMProviderShape) {
+  return {
+    id: provider.id,
+    userId: provider.userId,
+    name: provider.name,
+    description: provider.description,
+    type: provider.type,
+    baseUrl: provider.baseUrl,
+    isDefault: provider.isDefault,
+    configuration: provider.configuration,
+    isActive: provider.isActive,
+    defaultModel: provider.defaultModel,
+    modelId: provider.modelId,
+    hasApiKey: Boolean(provider.apiKeyEncrypted),
+  };
+}
+
+function requireUserId(headers: Record<string, string | undefined>) {
+  const userId = headers['x-user-id'];
+  if (!userId) return { userId: null, error: { success: false, error: 'User authentication required' } };
+  return { userId, error: null };
+}
+
 export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMService) {
   return app.group(
     '/api/v1/user/llm',
@@ -43,36 +117,13 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
       group
         // Get user's providers
         .get('/providers', async ({ headers }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const providers = await userLLMService.getUserProviders(userId);
 
           // Remove sensitive data (API keys) from response
-          const sanitizedProviders = providers.map((provider) => ({
-            id: provider.id,
-            name: provider.name,
-            description: provider.description,
-            type: provider.type,
-            baseUrl: provider.baseUrl,
-            defaultModel: provider.defaultModel,
-            status: provider.status,
-            isActive: provider.isActive,
-            priority: provider.priority,
-            totalTokensUsed: provider.totalTokensUsed,
-            totalRequests: provider.totalRequests,
-            totalErrors: provider.totalErrors,
-            lastUsedAt: provider.lastUsedAt,
-            healthCheckResult: provider.healthCheckResult,
-            hasApiKey: provider.hasApiKey(),
-            createdAt: provider.createdAt,
-            updatedAt: provider.updatedAt,
-          }));
+          const sanitizedProviders = providers.map(sanitizeProvider);
 
           return {
             success: true,
@@ -82,13 +133,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Create a new provider for user
         .post('/providers', async ({ headers, body }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const requestBody = body as CreateProviderRequest;
           const {
@@ -125,29 +171,25 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
             success: true,
             data: {
               id: provider.id,
+              userId: provider.userId,
               name: provider.name,
               description: provider.description,
               type: provider.type,
               baseUrl: provider.baseUrl,
-              defaultModel: provider.defaultModel,
-              status: provider.status,
+              isDefault: provider.isDefault,
+              configuration: provider.configuration,
               isActive: provider.isActive,
-              priority: provider.priority,
-              hasApiKey: provider.hasApiKey(),
-              createdAt: provider.createdAt,
+              defaultModel: provider.defaultModel,
+              modelId: provider.modelId,
+              hasApiKey: Boolean(provider.apiKeyEncrypted),
             },
           };
         })
 
         // Update provider configuration
         .put('/providers/:providerId', async ({ headers, params, body }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const { providerId } = params;
           const requestBody = body as UpdateProviderRequest;
@@ -171,13 +213,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Update provider API key
         .put('/providers/:providerId/api-key', async ({ headers, params, body }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const { providerId } = params;
           const requestBody = body as UpdateApiKeyRequest;
@@ -200,13 +237,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Test provider connectivity
         .post('/providers/:providerId/test', async ({ headers }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const result = await userLLMService.testUserProvider(userId);
 
@@ -218,13 +250,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Delete provider
         .delete('/providers/:providerId', async ({ headers, params }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const { providerId } = params;
           await userLLMService.deleteUserProvider(userId, providerId);
@@ -237,42 +264,21 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Get user's providers by type
         .get('/providers/type/:type', async ({ headers, params }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const { type } = params;
-          // Cast string param to UserLLMProviderType - strictly speaking we should validate it
-          // but for now we assume it's valid or the service will handle the empty result
+          if (!isUserLLMProviderType(type)) {
+            return { success: false, error: 'Invalid provider type' };
+          }
+
           const providers = await userLLMService.getUserProvidersByType(
             userId,
-            type as UserLLMProviderType
+            type
           );
 
           // Remove sensitive data (API keys) from response
-          const sanitizedProviders = providers.map((provider) => ({
-            id: provider.id,
-            name: provider.name,
-            description: provider.description,
-            type: provider.type,
-            baseUrl: provider.baseUrl,
-            defaultModel: provider.defaultModel,
-            status: provider.status,
-            isActive: provider.isActive,
-            priority: provider.priority,
-            totalTokensUsed: provider.totalTokensUsed,
-            totalRequests: provider.totalRequests,
-            totalErrors: provider.totalErrors,
-            lastUsedAt: provider.lastUsedAt,
-            healthCheckResult: provider.healthCheckResult,
-            hasApiKey: provider.hasApiKey(),
-            createdAt: provider.createdAt,
-            updatedAt: provider.updatedAt,
-          }));
+          const sanitizedProviders = providers.map(sanitizeProvider);
 
           return {
             success: true,
@@ -282,13 +288,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Get available models for user
         .get('/models', async ({ headers }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
           logger.info('Getting available models for user', { userId });
           const models = await userLLMService.getAvailableModels(userId);
           const healthResults = await userLLMService.testUserProvider(userId);
@@ -301,13 +302,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Generate LLM response
         .post('/generate', async ({ headers, body }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const requestBody = body as GenerateRequest;
           const { prompt, systemPrompt, maxTokens, temperature, model } = requestBody || {};
@@ -335,13 +331,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Generate agent response
         .post('/agent-response', async ({ headers, body }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           // Cast body to AgentResponseRequest
           const request = body as AgentResponseRequest;
@@ -369,13 +360,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Get model capabilities for user's providers
         .get('/capabilities', async ({ headers }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const userProviders = await userLLMService.getUserProviders(userId);
 
@@ -392,7 +378,6 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
               detectedCapabilities: (config?.detectedCapabilities as string[]) || [],
               lastCapabilityCheck: config?.lastCapabilityCheck as Date | undefined,
               isActive: provider.isActive,
-              status: provider.status,
             };
 
             capabilities.push(providerCapabilities);
@@ -433,15 +418,18 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
             }
 
             const detector = ModelCapabilityDetector.getInstance();
-            const apiKey = await provider.getApiKey();
-            // ModelCapabilityDetector expects specific types, we assume compatibility here or cast if needed
-            // Since UserLLMProviderType and detector types might differ slightly, we cast to any or compatible type
-            // However, avoiding any, we assume they are compatible strings.
+            const detectorProviderType = toDetectorProviderType(provider.type);
+            if (!detectorProviderType) {
+              return {
+                success: false,
+                error: `Provider type ${provider.type} is not supported for capability detection`,
+              };
+            }
+
             const detection = await detector.detectCapabilities(
               provider.defaultModel,
-              provider.type as unknown as string, // Cast to compatible type for detector
-              provider.baseUrl,
-              apiKey
+              detectorProviderType,
+              provider.baseUrl
             );
 
             // Update provider configuration with detected capabilities
@@ -471,13 +459,8 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
 
         // Detect capabilities for all user providers
         .post('/detect-all-capabilities', async ({ headers }: Context) => {
-          const userId = headers['x-user-id'];
-          if (!userId) {
-            return {
-              success: false,
-              error: 'User authentication required',
-            };
-          }
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
 
           const userProviders = await userLLMService.getUserProviders(userId);
 
@@ -487,14 +470,24 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
           for (const provider of userProviders) {
             try {
               if (provider.defaultModel) {
-                // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
-                const apiKey = await provider.getApiKey();
+                const detectorProviderType = toDetectorProviderType(provider.type);
+                if (!detectorProviderType) {
+                  results.push({
+                    providerId: provider.id,
+                    providerName: provider.name,
+                    modelId: provider.defaultModel,
+                    success: false,
+                    error: `Provider type ${provider.type} is not supported for capability detection`,
+                    detectedCapabilities: [] as string[],
+                  });
+                  continue;
+                }
+
                 // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
                 const detection = await detector.detectCapabilities(
                   provider.defaultModel,
-                  provider.type as unknown as string,
-                  provider.baseUrl,
-                  apiKey
+                  detectorProviderType,
+                  provider.baseUrl
                 );
 
                 // Update provider configuration with detected capabilities

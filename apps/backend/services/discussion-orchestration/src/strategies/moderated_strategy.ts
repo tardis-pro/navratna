@@ -222,7 +222,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
       }
 
       // Check if moderator approval is required for this strategy
-      if (config?.config.type === 'moderated' && config.config.requireApproval) {
+      if (_config?.config.type === 'moderated' && _config.config.requireApproval) {
         // For moderated strategy, check if participant has permission
         // Note: MODERATOR role was already handled above, so check for other privileged roles
         return participant.role === ParticipantRole.FACILITATOR;
@@ -362,7 +362,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): boolean {
     // Check if participant has received moderator approval
     // This would typically be stored in discussion state or participant metadata
-    const metadata = discussion.metadata as Record<string, unknown> | undefined;
+    const metadata = _discussion.metadata as Record<string, unknown> | undefined;
     const approvals = (metadata?.moderatorApprovals as string[] | undefined) || [];
     return approvals.includes(participant.id);
   }

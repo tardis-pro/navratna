@@ -49,6 +49,26 @@ export interface ServiceAccess {
  * - Compliance requirements (SOC 2, HIPAA, PCI DSS)
  * - Network segmentation
  */
+const appPgConn = (): DatabaseConnection => ({
+  type: 'postgresql',
+  tier: DatabaseTier.APPLICATION,
+  instance: 'postgres-application',
+  port: 5432,
+  permissions: [AccessLevel.READ, AccessLevel.WRITE],
+  encryption: 'required',
+  auditLevel: 'standard',
+});
+
+const appRedisConn = (): DatabaseConnection => ({
+  type: 'redis',
+  tier: DatabaseTier.APPLICATION,
+  instance: 'redis-application',
+  port: 6379,
+  permissions: [AccessLevel.READ, AccessLevel.WRITE],
+  encryption: 'optional',
+  auditLevel: 'standard',
+});
+
 export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   // =============================================================================
   // LEVEL 4 RESTRICTED - SECURITY TIER
@@ -107,60 +127,12 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
     serviceName: 'agent-intelligence',
     securityLevel: 3,
     databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres-application',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'required',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'neo4j',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'neo4j-knowledge',
-        port: 7688,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'neo4j',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'neo4j-agent',
-        port: 7689,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'qdrant',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'qdrant-knowledge',
-        port: 6335,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'qdrant',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'qdrant-agent',
-        port: 6337,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis-application',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
+      appPgConn(),
+      { type: 'neo4j', tier: DatabaseTier.APPLICATION, instance: 'neo4j-knowledge', port: 7688, permissions: [AccessLevel.READ, AccessLevel.WRITE], encryption: 'optional', auditLevel: 'standard' },
+      { type: 'neo4j', tier: DatabaseTier.APPLICATION, instance: 'neo4j-agent', port: 7689, permissions: [AccessLevel.READ, AccessLevel.WRITE], encryption: 'optional', auditLevel: 'standard' },
+      { type: 'qdrant', tier: DatabaseTier.APPLICATION, instance: 'qdrant-knowledge', port: 6335, permissions: [AccessLevel.READ, AccessLevel.WRITE], encryption: 'optional', auditLevel: 'standard' },
+      { type: 'qdrant', tier: DatabaseTier.APPLICATION, instance: 'qdrant-agent', port: 6337, permissions: [AccessLevel.READ, AccessLevel.WRITE], encryption: 'optional', auditLevel: 'standard' },
+      appRedisConn(),
     ],
     networkSegments: ['uaip-application-network'],
     complianceFlags: ['SOC2_CC6_6', 'HIPAA_164_312_C', 'DATA_CLASS_3'],
@@ -170,33 +142,9 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
     serviceName: 'capability-registry',
     securityLevel: 3,
     databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres-application',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'required',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'qdrant',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'qdrant-knowledge',
-        port: 6335,
-        permissions: [AccessLevel.READ],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis-application',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
+      appPgConn(),
+      { type: 'qdrant', tier: DatabaseTier.APPLICATION, instance: 'qdrant-knowledge', port: 6335, permissions: [AccessLevel.READ], encryption: 'optional', auditLevel: 'standard' },
+      appRedisConn(),
     ],
     networkSegments: ['uaip-application-network'],
     complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
@@ -205,26 +153,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'discussion-orchestration': {
     serviceName: 'discussion-orchestration',
     securityLevel: 3,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres-application',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'required',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis-application',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-    ],
+    databases: [appPgConn(), appRedisConn()],
     networkSegments: ['uaip-application-network'],
     complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
@@ -232,26 +161,7 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'artifact-service': {
     serviceName: 'artifact-service',
     securityLevel: 3,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres-application',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'required',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis-application',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-    ],
+    databases: [appPgConn(), appRedisConn()],
     networkSegments: ['uaip-application-network'],
     complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
@@ -259,74 +169,19 @@ export const SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'llm-service': {
     serviceName: 'llm-service',
     securityLevel: 3,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres-application',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'required',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis-application',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-    ],
+    databases: [appPgConn(), appRedisConn()],
     networkSegments: ['uaip-application-network'],
     complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3'],
   },
-
-  // =============================================================================
-  // LEVEL 2/3 HYBRID - OPERATIONS TIER
-  // =============================================================================
 
   'orchestration-pipeline': {
     serviceName: 'orchestration-pipeline',
     securityLevel: 3,
     databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres-application',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'required',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.OPERATIONS,
-        instance: 'postgres-operations',
-        port: 5435,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'neo4j',
-        tier: DatabaseTier.OPERATIONS,
-        instance: 'neo4j-operations',
-        port: 7690,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis-application',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'standard',
-      },
+      appPgConn(),
+      { type: 'postgresql', tier: DatabaseTier.OPERATIONS, instance: 'postgres-operations', port: 5435, permissions: [AccessLevel.READ, AccessLevel.WRITE], encryption: 'optional', auditLevel: 'standard' },
+      { type: 'neo4j', tier: DatabaseTier.OPERATIONS, instance: 'neo4j-operations', port: 7690, permissions: [AccessLevel.READ, AccessLevel.WRITE], encryption: 'optional', auditLevel: 'standard' },
+      appRedisConn(),
     ],
     networkSegments: ['uaip-application-network', 'uaip-analytics-network'],
     complianceFlags: ['SOC2_CC6_6', 'DATA_CLASS_3', 'DATA_CLASS_2'],
@@ -483,54 +338,51 @@ export const COMPLIANCE_CONTROLS = {
   },
 };
 
-/**
- * Standard Development Service Access Matrix
- *
- * Simplified access control for development environments
- * Maps docker-compose service names to standard database instances
- */
+const devPgConn = (): DatabaseConnection => ({
+  type: 'postgresql',
+  tier: DatabaseTier.APPLICATION,
+  instance: 'postgres',
+  port: 5432,
+  permissions: [AccessLevel.READ, AccessLevel.WRITE],
+  encryption: 'optional',
+  auditLevel: 'minimal',
+});
+
+const devRedisConn = (port: number = 6379): DatabaseConnection => ({
+  type: 'redis',
+  tier: DatabaseTier.APPLICATION,
+  instance: 'redis',
+  port,
+  permissions: [AccessLevel.READ, AccessLevel.WRITE],
+  encryption: 'optional',
+  auditLevel: 'minimal',
+});
+
+const devNeo4jConn = (): DatabaseConnection => ({
+  type: 'neo4j',
+  tier: DatabaseTier.APPLICATION,
+  instance: 'neo4j',
+  port: 7687,
+  permissions: [AccessLevel.READ, AccessLevel.WRITE],
+  encryption: 'optional',
+  auditLevel: 'minimal',
+});
+
+const devQdrantConn = (permissions: AccessLevel[] = [AccessLevel.READ, AccessLevel.WRITE]): DatabaseConnection => ({
+  type: 'qdrant',
+  tier: DatabaseTier.APPLICATION,
+  instance: 'qdrant',
+  port: 6333,
+  permissions,
+  encryption: 'optional',
+  auditLevel: 'minimal',
+});
+
 export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'agent-intelligence': {
     serviceName: 'agent-intelligence',
     securityLevel: 2,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres', // Docker container name
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'neo4j',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'neo4j',
-        port: 7687,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'qdrant',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'qdrant',
-        port: 6333,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-    ],
+    databases: [devPgConn(), devNeo4jConn(), devRedisConn(), devQdrantConn()],
     networkSegments: ['uaip-network'],
     complianceFlags: ['DEV_MODE'],
   },
@@ -538,35 +390,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'capability-registry': {
     serviceName: 'capability-registry',
     securityLevel: 2,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'qdrant',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'qdrant',
-        port: 6333,
-        permissions: [AccessLevel.READ],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-    ],
+    databases: [devPgConn(), devRedisConn(), devQdrantConn([AccessLevel.READ])],
     networkSegments: ['uaip-network'],
     complianceFlags: ['DEV_MODE'],
   },
@@ -574,35 +398,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'orchestration-pipeline': {
     serviceName: 'orchestration-pipeline',
     securityLevel: 2,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 5672,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-    ],
+    databases: [devPgConn(), devRedisConn(), devRedisConn(5672)],
     networkSegments: ['uaip-network'],
     complianceFlags: ['DEV_MODE'],
   },
@@ -610,35 +406,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'discussion-orchestration': {
     serviceName: 'discussion-orchestration',
     securityLevel: 2,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 5672,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-    ],
+    databases: [devPgConn(), devRedisConn(), devRedisConn(5672)],
     networkSegments: ['uaip-network'],
     complianceFlags: ['DEV_MODE'],
   },
@@ -646,26 +414,7 @@ export const STANDARD_SERVICE_ACCESS_MATRIX: Record<string, ServiceAccess> = {
   'security-gateway': {
     serviceName: 'security-gateway',
     securityLevel: 3,
-    databases: [
-      {
-        type: 'postgresql',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'postgres',
-        port: 5432,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-      {
-        type: 'redis',
-        tier: DatabaseTier.APPLICATION,
-        instance: 'redis',
-        port: 6379,
-        permissions: [AccessLevel.READ, AccessLevel.WRITE],
-        encryption: 'optional',
-        auditLevel: 'minimal',
-      },
-    ],
+    databases: [devPgConn(), devRedisConn()],
     networkSegments: ['uaip-network'],
     complianceFlags: ['DEV_MODE'],
   },

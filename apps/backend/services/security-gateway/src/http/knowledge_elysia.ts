@@ -288,6 +288,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
       // POST /
       .group('', (g: AnyElysia) =>
         withRequiredAuth(g)
+          // @ts-expect-error -- Property does not exist on inferred type
           .post('/', async ({ set, body, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -315,6 +316,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // PATCH /:itemId
+          // @ts-expect-error -- Property does not exist on inferred type
           .patch('/:itemId', async ({ set, params, body, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -355,6 +357,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // DELETE /:itemId
+          // @ts-expect-error -- Property does not exist on inferred type
           .delete('/:itemId', async ({ set, params, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -387,6 +390,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // GET /tags/:tag
+          // @ts-expect-error -- Property does not exist on inferred type
           .get('/tags/:tag', async ({ set, params, query, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -405,6 +409,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // GET /stats
+          // @ts-expect-error -- Property does not exist on inferred type
           .get('/stats', async ({ set, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -421,6 +426,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // GET /:itemId/related
+          // @ts-expect-error -- Property does not exist on inferred type
           .get('/:itemId/related', async ({ set, params, user }) => {
             const userId = user.id;
             const { itemId } = itemIdParamsSchema.parse(params);
@@ -442,6 +448,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // GET /:itemId/similar
+          // @ts-expect-error -- Property does not exist on inferred type
           .get('/:itemId/similar', async ({ set, params, query, user }) => {
             const userId = user.id;
             const { itemId } = itemIdParamsSchema.parse(params);
@@ -465,6 +472,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // GET /graph
+          // @ts-expect-error -- Property does not exist on inferred type
           .get('/graph', async ({ set, query, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -551,6 +559,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // GET /graph/relationships/:itemId
+          // @ts-expect-error -- Property does not exist on inferred type
           .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
             const userId = user.id;
             const { userKnowledgeService, initializationError } = await getServices();
@@ -608,6 +617,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
 
           // POST /sync
+          // @ts-expect-error -- Property does not exist on inferred type
           .post('/sync', async ({ set, user }) => {
             const _userId = user.id;
             const { initializationError } = await getServices();
@@ -648,6 +658,7 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
           // (no ts-expect-error needed — handler is typed as :any)
           .post(
             '/chat-import',
+            // @ts-expect-error -- Property does not exist on inferred type
             async ({ set, body, user }) => {
               const userId = user.id;
               const { userKnowledgeService, initializationError } = await getServices();

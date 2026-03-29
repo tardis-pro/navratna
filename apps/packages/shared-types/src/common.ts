@@ -31,6 +31,23 @@ export const PaginationSchema = z.object({
 
 export type Pagination = z.infer<typeof PaginationSchema>;
 
+export const SearchPaginationSchema = z.object({
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  limit: z.number().min(1).max(100).default(20),
+  offset: z.number().min(0).default(0),
+});
+
+export type SearchPagination = z.infer<typeof SearchPaginationSchema>;
+
+export const EntityFilterBaseSchema = z.object({
+  createdBy: z.array(IDSchema).optional(),
+  organizationId: IDSchema.optional(),
+  teamId: IDSchema.optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+export type EntityFilterBase = z.infer<typeof EntityFilterBaseSchema>;
+
 // Base entity schema
 export const BaseEntitySchema = z.object({
   id: IDSchema,

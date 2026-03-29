@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Select, SelectContent, SelectTrigger, SelectValue } from './ui/select';
 import { PRIORITY_OPTION_VALUES as _PRIORITY_OPTION_VALUES, TYPE_OPTION_VALUES as _TYPE_OPTION_VALUES } from './TaskDesignTokens';
 import { PrioritySelectOptions, TypeSelectOptions } from './TaskSelectOptions';
 

@@ -1,4 +1,5 @@
 import { BaseRepository } from '../base/base_repository';
+import { mergeAndUpdateState } from './operation_repository';
 
 export class SecurityPolicyRepository extends BaseRepository<Record<string, unknown>> {
   get tableName() {
@@ -46,12 +47,8 @@ export class ApprovalWorkflowRepository extends BaseRepository<Record<string, un
     return this.findById(operationId);
   }
 
-  async updateOperationState(
-    operationId: string,
-    state: Record<string, unknown>,
-    updates: Record<string, unknown>
-  ): Promise<void> {
-    await this.update(operationId, { ...state, ...updates });
+  async updateOperationState(operationId: string, state: Record<string, unknown>, updates: Record<string, unknown>): Promise<void> {
+    await mergeAndUpdateState(this, operationId, state, updates);
   }
 }
 

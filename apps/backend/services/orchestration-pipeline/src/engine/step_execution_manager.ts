@@ -124,7 +124,7 @@ export class StepExecutionManager extends EventEmitter {
     step: ExecutionStep,
     context: StepExecutionContext
   ): Promise<StepResult> {
-    const params = this.resolveParameters(step.parameters, context);
+    const params = this.toRecord(this.resolveParameters(step.parameters, context));
 
     const result = await this.stepExecutorService.executeAgentAction(
       step,
@@ -144,7 +144,7 @@ export class StepExecutionManager extends EventEmitter {
     step: ExecutionStep,
     context: StepExecutionContext
   ): Promise<StepResult> {
-    const input = this.resolveParameters(step.input, context);
+    const input = this.toRecord(this.resolveParameters(step.input, context));
 
     const result = await this.stepExecutorService.executeTool(
       step,
@@ -164,7 +164,7 @@ export class StepExecutionManager extends EventEmitter {
     step: ExecutionStep,
     context: StepExecutionContext
   ): Promise<StepResult> {
-    const input = this.resolveParameters(step.input, context);
+    const input = this.toRecord(this.resolveParameters(step.input, context));
 
     const result = await this.stepExecutorService.executeApprovalStep(
       step,
@@ -334,10 +334,7 @@ export class StepExecutionManager extends EventEmitter {
     return this.resourceManagerService.getUsage();
   }
 
-  private resolveParameters(
-    params: Record<string, unknown>,
-    context: StepExecutionContext
-  ): Record<string, unknown> {
+  private resolveParameters(params: unknown, context: StepExecutionContext): unknown {
     if (!params) return params;
 
     // Handle parameter resolution from previous step results
@@ -352,8 +349,12 @@ export class StepExecutionManager extends EventEmitter {
     }
 
     // Recursively resolve nested parameters
+    if (Array.isArray(params)) {
+      return params.map((value) => this.resolveParameters(value, context));
+    }
+
     if (typeof params === 'object') {
-      const resolved: Record<string, unknown> = Array.isArray(params) ? [] : {};
+      const resolved: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(params)) {
         resolved[key] = this.resolveParameters(value, context);
       }
@@ -361,6 +362,14 @@ export class StepExecutionManager extends EventEmitter {
     }
 
     return params;
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      return value as Record<string, unknown>
+    }
+
+    return {}
   }
 
   private getNestedProperty(obj: Record<string, unknown>, path: string[]): unknown {

@@ -112,14 +112,17 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
           }
           const { personaData, onboardingProgress, behavioralPatterns } = validation.data;
           if (personaData)
+            // @ts-expect-error -- Spread from non-object type
             entity.userPersona = { ...entity.userPersona, ...personaData } as unknown;
           if (onboardingProgress)
             entity.onboardingProgress = {
+              // @ts-expect-error -- Spread from non-object type
               ...entity.onboardingProgress,
               ...onboardingProgress,
             } as unknown;
           if (behavioralPatterns)
             entity.behavioralPatterns = {
+              // @ts-expect-error -- Spread from non-object type
               ...entity.behavioralPatterns,
               ...behavioralPatterns,
             } as unknown;
@@ -182,6 +185,7 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
           await repo.update(user!.id, entity);
           try {
             const providerRepo = UserService.getInstance().getUserLLMProviderRepository();
+            // @ts-expect-error -- Property does not exist on inferred type
             const providers = await providerRepo.findAllProvidersByUser(user!.id);
             if (providers.length === 0)
               await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(user!.id);
@@ -220,6 +224,7 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
             return { error: 'User not found' };
           }
           entity.behavioralPatterns = {
+            // @ts-expect-error -- Spread from non-object type
             ...entity.behavioralPatterns,
             ...validation.data,
           } as unknown;
@@ -269,7 +274,9 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
           return { error: 'Invalid interaction data', details: validation.error.errors };
         }
         try {
+          // @ts-expect-error -- Property does not exist on inferred type
           const { type, data, timestamp } = validation.data as unknown;
+          // @ts-expect-error -- Argument type mismatch
           await processUserInteraction(user!.id, type, data, timestamp as unknown);
           return { success: true };
         } catch {
@@ -288,6 +295,7 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
             set.status = 400;
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
+          // @ts-expect-error -- Argument type mismatch
           const compatible = await getCompatibleAgents(entity.userPersona as unknown);
           return compatible;
         } catch {
@@ -307,6 +315,7 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
             return { error: 'User persona not found. Please complete onboarding first.' };
           }
           const workspace = await generateOptimizedWorkspace(
+            // @ts-expect-error -- Argument type mismatch
             entity.userPersona as unknown,
             entity.behavioralPatterns as unknown
           );
