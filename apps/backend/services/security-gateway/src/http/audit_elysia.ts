@@ -2,7 +2,9 @@ import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { logger as _logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
-import { AuditService as DomainAuditService } from '@uaip/shared-services';
+import { AuditService as DomainAuditService, getControlDb } from '@uaip/shared-services';
+import { auditEvents } from '@uaip/shared-services/database/drizzle/schemas/control_schema';
+import { eq } from 'drizzle-orm';
 import { AuditService } from '../services/audit_service.js';
 import { AuditEventType } from '@uaip/types';
 
@@ -326,6 +328,54 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             return { error: 'Internal Server Error', message: 'Failed to cleanup audit logs' };
           }
         })
+    )
+  );
+
+  app.use(
+    withRequiredAuth(
+      withAdminGuard(
+        app
+          .patch('/api/v1/audit/logs/:logId/resolve', async ({ params, request, set }) => {
+            try {
+              const { logId } = logIdParamsSchema.parse(params);
+              const userId = request.headers.get('x-user-id') || '';
+              const db = getControlDb();
+
+              const [existing] = await db
+                .select({ id: auditEvents.id, resolved: auditEvents.resolved })
+                .from(auditEvents)
+                .where(eq(auditEvents.id, logId))
+                .limit(1);
+
+              if (!existing) {
+                set.status = 404;
+                return { error: 'Audit event not found' };
+              }
+
+              if (existing.resolved) {
+                return { message: 'Already resolved', id: logId };
+              }
+
+              await db
+                .update(auditEvents)
+                .set({
+                  resolved: true,
+                  resolvedBy: userId || null,
+                  resolvedAt: new Date(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(auditEvents.id, logId));
+
+              return { message: 'Audit event resolved', id: logId };
+            } catch (error) {
+              _logger.error('Failed to resolve audit event', {
+                error: error instanceof Error ? error.message : String(error),
+              });
+              set.status = 500;
+              return { error: 'Failed to resolve audit event' };
+            }
+          })
+      )
     )
   );
 }

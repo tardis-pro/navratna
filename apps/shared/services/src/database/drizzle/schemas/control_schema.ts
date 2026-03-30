@@ -731,6 +731,9 @@ export const auditEvents = pgTable('audit_events', {
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  resolved: boolean('resolved').default(false).notNull(),
+  resolvedBy: uuid('resolved_by'),
+  resolvedAt: timestamp('resolved_at'),
 });
 
 export const integrationEvents = pgTable('integration_events', {
