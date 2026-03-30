@@ -1,3 +1,4 @@
+import { Elysia } from 'elysia';
 import { ToolController } from '../controllers/tool_controller.js';
 import { ToolRegistry } from '../services/tool_registry.js';
 import { ToolExecutor } from '../services/tool_executor.js';
@@ -23,7 +24,9 @@ interface RouteApp {
   group: (path: string, handler: (group: RouteGroup) => RouteGroup) => RouteApp;
 }
 
-export function registerToolRoutes(app: unknown, toolController?: ToolController) {
+
+
+export function registerToolRoutes<T extends Elysia>(app: T, toolController?: ToolController): T {
   const routeApp = app as RouteApp;
   const controller =
     toolController ??

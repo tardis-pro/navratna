@@ -1,8 +1,8 @@
+import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { MCPClientService } from '../services/mcp_client_service.js';
 import { MCPResourceDiscoveryService } from '../services/mcp_resource_discovery_service.js';
 
-// Elysia context with params and query
 interface MCPContext {
   params: Record<string, string>;
   query: Record<string, string | undefined>;
@@ -67,7 +67,7 @@ function requireAdmin(ctx: MCPContext): void {
 // ---------------------------------------------------------------------------
 
 // Minimal Elysia route group for MCP endpoints
-export function registerMCPRoutes(app: unknown) {
+export function registerMCPRoutes<T extends Elysia>(app: T): T {
   const routeApp = app as MCPRouteApp;
   const mcpService = MCPClientService.getInstance();
 

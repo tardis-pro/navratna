@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { LLMService } from '@uaip/llm-service';
 
-export function registerHealthRoutes(app: Elysia): void {
+export function registerHealthRoutes<T extends Elysia>(app: T): T {
   app.get('/health', () => {
     return {
       status: 'healthy',
@@ -67,4 +67,6 @@ export function registerHealthRoutes(app: Elysia): void {
       };
     }
   });
+
+  return app;
 }

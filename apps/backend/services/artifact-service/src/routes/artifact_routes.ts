@@ -4,6 +4,8 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import { withNginxAuth } from '@uaip/middleware';
 
+type Elysia = { group: Function };
+
 const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -59,12 +61,12 @@ function buildArtifactGenerationRequest(body: unknown): ArtifactGenerationReques
   };
 }
 
-export function registerArtifactRoutes(
-  app: { group: (path: string, cb: (g: unknown) => unknown) => unknown },
+export function registerArtifactRoutes<T extends Elysia>(
+  app: T,
   artifactService: ArtifactService
-) {
+): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- withNginxAuth type flows through Elysia group generics
-  return (app as { group: Function }).group(
+  (app as { group: Function }).group(
     '/api/v1/artifacts',
     (g: any) =>
       withNginxAuth(g)
@@ -308,6 +310,8 @@ export function registerArtifactRoutes(
           };
         })
   );
+
+  return app;
 }
 
 function getTypeDescription(type: ArtifactType): string {

@@ -1,5 +1,5 @@
 import type { Feature } from '@uaip/shared-services/feature-factory'
-import type { Elysia } from 'elysia'
+import { Elysia } from 'elysia'
 
 import { registerAuthRoutes } from './http/auth_elysia.js'
 import { registerUserRoutes } from './http/users_elysia.js'
@@ -32,6 +32,6 @@ export const securityFeature: Feature = {
     registerContactRoutes(app)
     registerToolPreferenceRoutes(app)
     registerDashboardRoutes(app)
-    return app as TApp
+    return app
   },
 }

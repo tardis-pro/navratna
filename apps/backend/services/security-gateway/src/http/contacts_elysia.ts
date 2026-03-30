@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/audit_service.js';
@@ -45,8 +45,8 @@ function getContactStatus(contact: { metadata?: Record<string, unknown> | null }
   return typeof status === 'string' ? status : 'PENDING';
 }
 
-export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/contacts', (app: AnyElysia) =>
+export function registerContactRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/contacts', (app: any) =>
     withRequiredAuth(app)
       // POST /request
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -337,6 +337,8 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
         };
       })
   );
+
+  return elysiaApp;
 }
 
 export default registerContactRoutes;

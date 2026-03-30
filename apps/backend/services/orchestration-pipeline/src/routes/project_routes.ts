@@ -90,7 +90,7 @@ const initServices = async () => {
   }
 };
 
-export function registerProjectRoutes(app: Elysia): void {
+export function registerProjectRoutes<T extends Elysia>(app: T): T {
   // Create project
   app.post('/api/v1/projects', async ({ body, headers, set }) => {
     try {
@@ -416,4 +416,5 @@ export function registerProjectRoutes(app: Elysia): void {
       return { error: 'Failed to fetch project analytics' };
     }
   });
+  return app;
 }

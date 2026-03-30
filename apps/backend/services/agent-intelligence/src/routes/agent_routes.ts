@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import { scoreRelevance } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
@@ -25,9 +25,9 @@ const relevanceSchema = z.object({
   limit: z.number().int().positive().max(100).optional(),
 })
 
-export function registerAgentRoutes(app: AnyElysia): AnyElysia {
-  return app.group('/api/v1/agents', (group: AnyElysia) =>
-    withNginxAuth(group).post('/relevance', async (ctx) => {
+export function registerAgentRoutes<T extends Elysia>(app: T): T {
+  app.group('/api/v1/agents', (group) =>
+    withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0]).post('/relevance', async (ctx) => {
       const parsed = relevanceSchema.safeParse(ctx.body)
 
       if (!parsed.success) {
@@ -82,4 +82,6 @@ export function registerAgentRoutes(app: AnyElysia): AnyElysia {
       }
     })
   )
+
+  return app
 }

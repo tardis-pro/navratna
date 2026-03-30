@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
@@ -11,14 +11,14 @@ type AgentCrudDeps = Pick<
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerAgentCrudRoutes(
-  app: AnyElysia,
+export function registerAgentCrudRoutes<T extends Elysia>(
+  app: T,
   agentIntelligenceService: AgentCrudDeps
-): AnyElysia {
-  return app.group(
+): T {
+  app.group(
     '/api/v1/agents',
-    (group: AnyElysia) =>
-      withNginxAuth(group)
+    (group: unknown) =>
+      withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0])
         .get('/', async (ctx) => {
           try {
             const page = Math.max(1, parseInt(String(ctx.query?.page ?? '1'), 10) || 1)
@@ -110,4 +110,6 @@ export function registerAgentCrudRoutes(
           }
         })
   )
+
+  return app
 }

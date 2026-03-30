@@ -61,11 +61,9 @@ export const discussionFeature: Feature = {
   },
 
   routes(app) {
-    return registerDiscussionRoutes(
-      registerPersonaRoutes(app, personaService),
-      discussionService,
-      orchestrationService
-    ) as typeof app
+    registerPersonaRoutes(app, personaService)
+    registerDiscussionRoutes(app, discussionService, orchestrationService)
+    return app
   },
 
   async events(bus: EventBusService): Promise<void> {

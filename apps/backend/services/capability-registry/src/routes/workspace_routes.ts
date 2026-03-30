@@ -1,3 +1,4 @@
+import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { WorkspaceManager, type WorkspaceConfig } from '../services/workspace_manager_service.js';
 import {
@@ -41,6 +42,8 @@ interface WorkspaceRouteApp {
   ) => WorkspaceRouteApp;
 }
 
+
+
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
@@ -55,18 +58,18 @@ function getHeader(headers: unknown, name: string): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
-export function registerWorkspaceRoutes(
-  app: unknown,
+export function registerWorkspaceRoutes<T extends Elysia>(
+  app: T,
   workspaceManager?: WorkspaceManager,
   codingAgentExecutor?: CodingAgentExecutor
-) {
+): T {
   const wm = workspaceManager ?? WorkspaceManager.getInstance();
   const executor = codingAgentExecutor ?? CodingAgentExecutor.getInstance(wm);
 
   logger.info('Registering workspace routes');
 
   const a = app as WorkspaceRouteApp;
-  return a.group('/api/v1/workspaces', (g: WorkspaceRouteGroup) =>
+  a.group('/api/v1/workspaces', (g: WorkspaceRouteGroup) =>
     g
       .post('/', async ({ body, set }) => {
         const b = asRecord(body);
@@ -356,4 +359,6 @@ export function registerWorkspaceRoutes(
         return { success: result.exitCode === 0, data: result };
       })
   );
+
+  return app;
 }

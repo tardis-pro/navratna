@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ProjectManagementService } from '@uaip/shared-services';
@@ -57,8 +57,8 @@ const projectQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerProjectRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/projects', (app: AnyElysia) =>
+export function registerProjectRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/projects', (app: any) =>
     withOptionalAuth(app)
       // List projects
       .get('/', async ({ query, set, user }) => {
@@ -230,4 +230,6 @@ export function registerProjectRoutes(elysiaApp: AnyElysia): AnyElysia {
         }
       })
   );
+
+  return elysiaApp;
 }

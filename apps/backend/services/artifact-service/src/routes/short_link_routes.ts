@@ -1,6 +1,8 @@
 import { ShortLinkService } from '../services/short_link_service.js';
 import { logger } from '@uaip/utils';
 
+type Elysia = { group: Function };
+
 type HeaderCtx = { headers: Record<string, string>; set: { status: number } };
 
 function requireUser(
@@ -19,7 +21,7 @@ function isAuthError(v: unknown): v is { error: string } {
   return typeof v === 'object' && v !== null && 'error' in v && !('userId' in v);
 }
 
-export function registerShortLinkRoutes(app: unknown) {
+export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
   (app as { group: Function }).group(
     '/api/v1',
     (g: { post: Function; get: Function; put: Function; delete: Function }) =>

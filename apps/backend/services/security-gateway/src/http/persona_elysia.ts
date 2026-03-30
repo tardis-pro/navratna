@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
@@ -83,8 +83,8 @@ const InteractionTrackingSchema = z.object({
     .transform((str) => new Date(str)),
 });
 
-export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/users/persona', (app: AnyElysia) =>
+export function registerPersonaRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/users/persona', (app: any) =>
     withRequiredAuth(app)
       // GET /
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -346,6 +346,8 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
         }
       })
   );
+
+  return elysiaApp;
 }
 
 async function generatePersonaRecommendations(

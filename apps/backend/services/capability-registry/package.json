@@ -36,6 +36,7 @@
     "neo4j-driver": "catalog:backend",
     "pg": "catalog:backend",
     "prom-client": "catalog:backend",
+    "elysia": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import type { SecurityStatsResponse, UserRateLimitState } from '@uaip/types';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService as DomainAuditService, getControlDb } from '@uaip/shared-services';
@@ -49,11 +49,11 @@ function toCount(value: unknown): number {
   return typeof value === 'number' ? value : Number(value ?? 0);
 }
 
-export function registerSecurityStatsRoutes(app: AnyElysia): void {
+export function registerSecurityStatsRoutes<T extends Elysia>(app: T): T {
   app.use(
     withRequiredAuth(
       withAdminGuard(
-        app.get('/api/v1/security/stats', async ({ request, set }) => {
+        (app as any).get('/api/v1/security/stats', async ({ request, set }) => {
           const userId = request.headers.get('x-user-id') ?? '';
           if (!userId) {
             set.status = 401;
@@ -168,4 +168,5 @@ export function registerSecurityStatsRoutes(app: AnyElysia): void {
       )
     )
   );
+  return app;
 }

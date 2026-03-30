@@ -17,11 +17,8 @@ export const artifactFeature: Feature = {
   },
 
   routes(app) {
-    registerArtifactRoutes(
-      app as unknown as Parameters<typeof registerArtifactRoutes>[0],
-      artifactService
-    )
-    registerShortLinkRoutes(app as unknown as Parameters<typeof registerShortLinkRoutes>[0])
+    registerArtifactRoutes(app, artifactService)
+    registerShortLinkRoutes(app)
     return app
   },
 }

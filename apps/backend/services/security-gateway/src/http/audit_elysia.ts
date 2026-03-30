@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger as _logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
@@ -74,9 +74,9 @@ function validateWithZod<T>(
   };
 }
 
-export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/audit', (app: AnyElysia) =>
-    withRequiredAuth(app).group('', (g: AnyElysia) =>
+export function registerAuditRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/audit', (app: any) =>
+    withRequiredAuth(app).group('', (g: any) =>
       withAdminGuard(g)
         // GET /logs
         .get('/logs', async ({ set, query }) => {
@@ -370,6 +370,8 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
         })
     )
   );
+
+  return elysiaApp;
 }
 
 export default registerAuditRoutes;

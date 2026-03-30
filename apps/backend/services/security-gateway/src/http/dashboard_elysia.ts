@@ -1,4 +1,4 @@
-import type { AnyElysia, Elysia } from 'elysia';
+import { Elysia } from 'elysia';
 import type {
   ActivityType,
   AuthUser,
@@ -227,8 +227,8 @@ function getAuthUser(value: unknown): AuthUser | null {
   return { id: value.id };
 }
 
-export function registerDashboardRoutes(app: Elysia): void {
-  app.group('/api/v1/dashboard', (groupedApp: AnyElysia) =>
+export function registerDashboardRoutes<T extends Elysia>(app: T): T {
+  app.group('/api/v1/dashboard', (groupedApp: any) =>
     withRequiredAuth(groupedApp).get('/stats', async (context) => {
       const authUser = getAuthUser('user' in context ? context.user : undefined);
       if (!authUser) {
@@ -363,4 +363,6 @@ export function registerDashboardRoutes(app: Elysia): void {
       return payload;
     })
   );
+
+  return app;
 }

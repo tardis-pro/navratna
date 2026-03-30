@@ -39,27 +39,12 @@ export const agentIntelligenceFeature: Feature = {
   },
 
   routes(app) {
-    registerAgentCrudRoutes(
-      app as unknown as Parameters<typeof registerAgentCrudRoutes>[0],
-      agentIntelligenceService
-    )
-    registerAgentChatRoutes(
-      app as unknown as Parameters<typeof registerAgentChatRoutes>[0],
-      agentIntelligenceService,
-      userLLMService,
-      securityService
-    )
-    registerAgentCapabilityRoutes(
-      app as unknown as Parameters<typeof registerAgentCapabilityRoutes>[0],
-      agentIntelligenceService,
-      capabilityDiscoveryService
-    )
-    registerAgentMemoryRoutes(
-      app as unknown as Parameters<typeof registerAgentMemoryRoutes>[0],
-      semanticMemoryManager
-    )
-    registerAgentRoutes(app as unknown as Parameters<typeof registerAgentRoutes>[0])
-    registerConstellationRoutes(app as unknown as Parameters<typeof registerConstellationRoutes>[0])
+    registerAgentCrudRoutes(app, agentIntelligenceService)
+    registerAgentChatRoutes(app, agentIntelligenceService, userLLMService, securityService)
+    registerAgentCapabilityRoutes(app, agentIntelligenceService, capabilityDiscoveryService)
+    registerAgentMemoryRoutes(app, semanticMemoryManager)
+    registerAgentRoutes(app)
+    registerConstellationRoutes(app)
     return app
   },
 }

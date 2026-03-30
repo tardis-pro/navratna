@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type {
   AgentIntelligenceService,
@@ -15,15 +15,15 @@ type CapabilityDiscoveryDeps = Pick<CapabilityDiscoveryService, 'getAgentCapabil
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerAgentCapabilityRoutes(
-  app: AnyElysia,
+export function registerAgentCapabilityRoutes<T extends Elysia>(
+  app: T,
   agentIntelligenceService: CapabilityRouteDeps,
   capabilityDiscoveryService: CapabilityDiscoveryDeps
-): AnyElysia {
-  return app.group(
+): T {
+  app.group(
     '/api/v1/agents',
-    (group: AnyElysia) =>
-      withNginxAuth(group)
+    (group: unknown) =>
+      withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0])
         .get('/:agentId/capabilities', async (ctx) => {
           try {
             const capabilities = await capabilityDiscoveryService.getAgentCapabilities(
@@ -145,4 +145,6 @@ export function registerAgentCapabilityRoutes(
           }
         })
   )
+
+  return app
 }

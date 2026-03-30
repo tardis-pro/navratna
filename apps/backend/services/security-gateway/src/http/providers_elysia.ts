@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
@@ -82,11 +82,10 @@ const getEventBusService = (): EventBusService => {
   return eventBusServiceSingleton;
 };
 
-export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return (
-    elysiaApp
+export function registerProviderRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp
       // Admin/system provider management
-      .group('/api/v1', (app: AnyElysia) =>
+      .group('/api/v1', (app: any) =>
         withAdminGuard(app)
           .get('/providers', async ({ set }) => {
             try {
@@ -197,7 +196,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
       )
 
       // User-scoped provider management (nginx routes /api/v1/llm/my-providers here)
-      .group('/api/v1/llm', (app: AnyElysia) =>
+      .group('/api/v1/llm', (app: any) =>
         withRequiredAuth(app)
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/limits', async ({ user }) => {
@@ -552,8 +551,9 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
               return { success: false, error: 'Failed to get provider statistics' };
             }
           })
-      )
-  );
+      );
+
+  return elysiaApp;
 }
 
 function toSafeProvider(provider: Record<string, unknown>) {

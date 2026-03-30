@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
@@ -94,11 +94,11 @@ function calculateUrgency(workflow: Record<string, unknown>): number {
   return urgency;
 }
 
-export function registerApprovalRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/approvals', (app: AnyElysia) =>
+export function registerApprovalRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/approvals', (app: any) =>
     withRequiredAuth(app)
       // Create workflow (operator)
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withOperatorGuard(g)
           // @ts-expect-error -- Property does not exist on inferred type
           .post('/workflows', async ({ body, set, user, request, headers }) => {
@@ -305,7 +305,7 @@ export function registerApprovalRoutes(elysiaApp: AnyElysia): AnyElysia {
       })
 
       // Cancel workflow (operator)
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withOperatorGuard(g).post(
           '/:workflowId/cancel',
           // @ts-expect-error -- Property does not exist on inferred type
@@ -439,6 +439,8 @@ export function registerApprovalRoutes(elysiaApp: AnyElysia): AnyElysia {
         }
       })
   );
+
+  return elysiaApp;
 }
 
 export default registerApprovalRoutes;

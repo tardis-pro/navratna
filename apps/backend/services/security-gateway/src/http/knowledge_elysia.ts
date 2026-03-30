@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { withOptionalAuth, withRequiredAuth, t } from '@uaip/middleware';
 import { z } from 'zod';
 import {
@@ -282,11 +282,11 @@ async function getServices(): Promise<{
   }
 }
 
-export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/knowledge', (app: AnyElysia) =>
+export function registerKnowledgeRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/knowledge', (app: any) =>
     withOptionalAuth(app)
       // POST /
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withRequiredAuth(g)
           // @ts-expect-error -- Property does not exist on inferred type
           .post('/', async ({ set, body, user }) => {
@@ -863,6 +863,8 @@ export function registerKnowledgeRoutes(elysiaApp: AnyElysia): AnyElysia {
         );
       })
   );
+
+  return elysiaApp;
 }
 
 export default registerKnowledgeRoutes;

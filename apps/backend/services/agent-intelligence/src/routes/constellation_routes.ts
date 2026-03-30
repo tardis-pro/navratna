@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import { getConstellations } from '@uaip/shared-services'
 import type { ConstellationRequest } from '@uaip/types'
@@ -12,9 +12,9 @@ const constellationRequestSchema = z.object({
   includeItems: z.boolean().optional(),
 })
 
-export function registerConstellationRoutes(app: AnyElysia): AnyElysia {
-  return app.group('/api/v1/knowledge', (group: AnyElysia) =>
-    withNginxAuth(group).post('/constellations', async (ctx) => {
+export function registerConstellationRoutes<T extends Elysia>(app: T): T {
+  app.group('/api/v1/knowledge', (group: unknown) =>
+    withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0]).post('/constellations', async (ctx) => {
       const parsed = constellationRequestSchema.safeParse(ctx.body)
 
       if (!parsed.success) {
@@ -48,4 +48,6 @@ export function registerConstellationRoutes(app: AnyElysia): AnyElysia {
       }
     })
   )
+
+  return app
 }

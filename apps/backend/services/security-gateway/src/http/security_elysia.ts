@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
@@ -135,8 +135,8 @@ function validateWithZod<T>(
   };
 }
 
-export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/security', (app: AnyElysia) =>
+export function registerSecurityRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/security', (app: any) =>
     withRequiredAuth(app)
       // POST /assess-risk
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -241,7 +241,7 @@ export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
       })
 
       // Admin-only: policies
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withAdminGuard(g)
           .get('/policies', async ({ set, query }) => {
             try {
@@ -509,6 +509,8 @@ export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
       )
   );
+
+  return elysiaApp;
 }
 
 export default registerSecurityRoutes;

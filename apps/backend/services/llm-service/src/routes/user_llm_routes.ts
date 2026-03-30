@@ -2,7 +2,7 @@ import { UserLLMService, AgentResponseRequest } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
 import { ModelCapabilityDetector } from '@uaip/shared-services';
 import { LLMProviderType } from '@uaip/types';
-import type { Elysia, Context } from 'elysia';
+import { Elysia, type Context } from 'elysia';
 
 type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
 
@@ -110,8 +110,8 @@ function requireUserId(headers: Record<string, string | undefined>) {
   return { userId, error: null };
 }
 
-export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMService) {
-  return app.group(
+export function registerUserLLMRoutes<T extends Elysia>(app: T, userLLMService: UserLLMService): T {
+  app.group(
     '/api/v1/user/llm',
     (group: { get: Function; post: Function; put: Function; delete: Function }) =>
       group
@@ -536,4 +536,6 @@ export function registerUserLLMRoutes(app: Elysia, userLLMService: UserLLMServic
           };
         })
   );
+
+  return app;
 }

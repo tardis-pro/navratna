@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import type { AgentResponseRequest, ChatMessage, DocumentContext } from '@uaip/types'
@@ -99,16 +99,16 @@ const toAgentRequest = (
   context,
 })
 
-export function registerAgentChatRoutes(
-  app: AnyElysia,
+export function registerAgentChatRoutes<T extends Elysia>(
+  app: T,
   agentIntelligenceService: AgentChatDeps,
   userLLMService: UserLlmDeps,
   securityService: SecurityDeps
-): AnyElysia {
-  return app.group(
+): T {
+  app.group(
     '/api/v1/agents',
-    (group: AnyElysia) =>
-      withNginxAuth(group)
+    (group: unknown) =>
+      withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0])
         .post('/:agentId/chat', async (ctx) => {
           try {
             const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
@@ -251,4 +251,6 @@ export function registerAgentChatRoutes(
           }
         })
   )
+
+  return app
 }

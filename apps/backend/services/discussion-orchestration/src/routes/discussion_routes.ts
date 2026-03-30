@@ -33,12 +33,12 @@ const sanitizeMessageContentOnRead = (message: unknown): unknown => {
   }
 }
 
-export function registerDiscussionRoutes(
-  app: Elysia,
+export function registerDiscussionRoutes<T extends Elysia>(
+  app: T,
   discussionService: DiscussionService,
   orchestrationService: DiscussionOrchestrationService
-): Elysia {
-  return (app as unknown as { group: Function }).group(
+): T {
+  ;(app as unknown as { group: Function }).group(
     '/api/v1/discussions',
     (group: {
       get: Function
@@ -431,5 +431,7 @@ export function registerDiscussionRoutes(
           }
         })
     }
-  ) as unknown as Elysia
+  )
+
+  return app
 }

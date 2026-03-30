@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { SemanticMemoryManager } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
@@ -11,14 +11,14 @@ type SemanticMemoryDeps = Pick<
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerAgentMemoryRoutes(
-  app: AnyElysia,
+export function registerAgentMemoryRoutes<T extends Elysia>(
+  app: T,
   semanticMemoryManager: SemanticMemoryDeps
-): AnyElysia {
-  return app.group(
+): T {
+  app.group(
     '/api/v1/agents',
-    (group: AnyElysia) =>
-      withNginxAuth(group)
+    (group: unknown) =>
+      withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0])
         .delete('/:agentId/memory/semantic/:conceptId', async (ctx) => {
           try {
             await semanticMemoryManager.pruneMemory(ctx.params.agentId, ctx.params.conceptId)
@@ -66,4 +66,6 @@ export function registerAgentMemoryRoutes(
           }
         })
   )
+
+  return app
 }

@@ -6,8 +6,8 @@ import { logger } from '@uaip/utils'
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerPersonaRoutes(app: Elysia, personaService: PersonaService): Elysia {
-  return (app as unknown as { group: Function }).group(
+export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: PersonaService): T {
+  ;(app as unknown as { group: Function }).group(
     '/api/v1/personas',
     (group: {
       get: Function
@@ -179,5 +179,7 @@ export function registerPersonaRoutes(app: Elysia, personaService: PersonaServic
           }
         })
     }
-  ) as unknown as Elysia
+  )
+
+  return app
 }

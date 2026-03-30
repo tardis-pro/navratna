@@ -1,34 +1,16 @@
+import { Elysia } from 'elysia';
 import { CapabilityController } from '../controllers/capability_controller.js';
 import { logger } from '@uaip/utils';
 import { withNginxAuth } from '@uaip/middleware';
 
-interface RouteContext {
-  query?: Record<string, unknown>;
-  params?: Record<string, unknown>;
-  body?: unknown;
-  headers?: Record<string, unknown>;
-  set: { status: number };
-}
-
-interface RouteGroup {
-  get: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-  post: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-  put: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-  delete: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-}
-
-interface RouteApp {
-  group: (path: string, handler: (group: RouteGroup) => RouteGroup) => RouteApp;
-}
-
-export function registerCapabilityRoutes(app: unknown, controller?: CapabilityController) {
+export function registerCapabilityRoutes<T extends Elysia>(app: T, controller?: CapabilityController): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Elysia group generics are not statically expressible after withNginxAuth
   const routeApp = app as any;
   const capabilityController = controller ?? new CapabilityController();
 
   logger.info('Registering capability routes');
 
-  return routeApp.group('/api/v1/capabilities', (g: any) =>
+  routeApp.group('/api/v1/capabilities', (g: any) =>
     withNginxAuth(g)
       .get('/search', (ctx: any) => capabilityController.searchCapabilities(ctx))
       .get('/categories', (ctx: any) => capabilityController.getCategories(ctx))
@@ -42,4 +24,6 @@ export function registerCapabilityRoutes(app: unknown, controller?: CapabilityCo
       .put('/:id', (ctx: any) => capabilityController.updateCapability(ctx))
       .delete('/:id', (ctx: any) => capabilityController.deleteCapability(ctx))
   );
+
+  return app;
 }

@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import {
   LLMService,
   ModelBootstrapService,
@@ -104,13 +104,13 @@ function toUserProviderType(value: unknown): UserProviderType | undefined {
   }
 }
 
-export function registerLLMRoutes(
-  app: AnyElysia,
+export function registerLLMRoutes<T extends Elysia>(
+  app: T,
   llmService: LLMService,
   modelBootstrapService: ModelBootstrapService,
   userLLMService: UserLLMService
-): AnyElysia {
-  return (app as { group: Function }).group(
+): T {
+  (app as { group: Function }).group(
     '/api/v1/llm',
     (group: { get: Function; post: Function }) =>
       group
@@ -505,4 +505,6 @@ export function registerLLMRoutes(
           };
         })
   );
+
+  return app;
 }

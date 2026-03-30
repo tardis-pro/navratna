@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
@@ -57,8 +57,8 @@ const connectBodySchema = z.object({
 });
 const optionalOperationSchema = z.object({ operation: z.string().optional() });
 
-export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/oauth', (app: AnyElysia) =>
+export function registerOAuthRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/oauth', (app: any) =>
     withOptionalAuth(app)
       // GET /providers
       .get('/providers', async ({ set, query }) => {
@@ -239,7 +239,7 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
       })
 
       // POST /connect (requires auth)
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
           try {
@@ -282,7 +282,7 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
       )
 
       // Provider-specific operations (require auth)
-      .group('/agent', (g: AnyElysia) =>
+      .group('/agent', (g: any) =>
         withRequiredAuth(g)
           // GitHub operations
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -432,6 +432,8 @@ export function registerOAuthRoutes(elysiaApp: AnyElysia): AnyElysia {
         services: { oauth_provider: 'healthy', auth_service: 'healthy', database: 'healthy' },
       }))
   );
+
+  return elysiaApp;
 }
 
 export default registerOAuthRoutes;

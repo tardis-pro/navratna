@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia'
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import { logger } from '@uaip/utils'
 import { RepoIngestionService } from '../services/repo_ingestion_service.js'
@@ -29,9 +29,9 @@ function isClientInputError(message: string): boolean {
   )
 }
 
-export function registerKnowledgeIngestRoutes(app: AnyElysia): AnyElysia {
-  return app.group('/api/v1/knowledge', (group: AnyElysia) =>
-    withNginxAuth(group).post('/ingest', async (ctx) => {
+export function registerKnowledgeIngestRoutes<T extends Elysia>(app: T): T {
+  app.group('/api/v1/knowledge', (group: unknown) =>
+    withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0]).post('/ingest', async (ctx) => {
       const source = parseSourceFromBody(ctx.body)
       if (!source) {
         ctx.set.status = 400
@@ -58,4 +58,6 @@ export function registerKnowledgeIngestRoutes(app: AnyElysia): AnyElysia {
       }
     })
   )
+
+  return app
 }
