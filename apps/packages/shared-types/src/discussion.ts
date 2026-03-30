@@ -1,6 +1,23 @@
 import { z } from 'zod';
 import { BaseEntitySchema, IDSchema, EntityFilterBaseSchema } from './common.js';
 
+export interface GuardContext {
+  params?: { id?: string }
+  headers?: Record<string, string | undefined>
+  user?: {
+    id?: string
+    role?: string
+  } | null
+  set: {
+    status?: number
+  }
+}
+
+export interface GuardFailure {
+  success: false
+  error: string
+}
+
 // Discussion status
 export enum DiscussionStatus {
   DRAFT = 'draft',

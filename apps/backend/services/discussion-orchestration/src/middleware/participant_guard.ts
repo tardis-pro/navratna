@@ -6,26 +6,10 @@ import {
   eq,
   getIntelligenceDb,
 } from '@uaip/shared-services'
+import type { GuardContext, GuardFailure } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
 type UnknownRecord = Record<string, unknown>
-
-type GuardContext = {
-  params?: { id?: string }
-  headers?: Record<string, string | undefined>
-  user?: {
-    id?: string
-    role?: string
-  } | null
-  set: {
-    status?: number
-  }
-}
-
-type GuardFailure = {
-  success: false
-  error: string
-}
 
 const MODERATOR_ROLES = new Set(['admin', 'moderator'])
 

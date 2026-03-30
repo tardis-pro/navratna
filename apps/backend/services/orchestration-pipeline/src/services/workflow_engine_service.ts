@@ -4,20 +4,9 @@ import {
   workflowDefinitions,
   type WorkflowDefinition,
 } from '@uaip/shared-services/drizzle/control';
+import type { RepeatableJob, RepeatOptions } from '@uaip/types';
 import { logger } from '@uaip/utils';
-
-interface RepeatableJob {
-  key: string;
-  name: string;
-  id?: string | null;
-}
-
-interface RepeatOptions {
-  pattern?: string;
-  every?: number;
-  tz?: string;
-}
-
+// BullMQ queue contract is an EventBusService internal implementation detail.
 interface RepeatableQueue {
   add(
     name: string,
@@ -28,6 +17,7 @@ interface RepeatableQueue {
   removeRepeatableByKey(key: string): Promise<void>;
 }
 
+// Internal queue accessor is intentionally local to avoid leaking transport internals.
 interface EventBusWithInternalQueue {
   getOrCreateQueue(eventType: string): RepeatableQueue;
 }

@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import { withNginxAuth } from '@uaip/middleware';
 import { getControlDb } from '@uaip/shared-services';
 import { eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
@@ -7,12 +7,13 @@ import {
   type NewWorkflowDefinition,
   type WorkflowDefinition,
 } from '@uaip/shared-services/drizzle/control';
+import type {
+  DeliveryType,
+  TriggerKind,
+  WorkflowStepType as StepType,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { WorkflowEngineService } from '../services/workflow_engine_service.js';
-
-type TriggerKind = 'cron' | 'every' | 'webhook' | 'event';
-type StepType = 'agentTurn' | 'bash' | 'httpCall';
-type DeliveryType = 'webhook' | 'email' | 'slack';
 
 type WorkflowTrigger = WorkflowDefinition['trigger'];
 type WorkflowSteps = WorkflowDefinition['steps'];
@@ -175,8 +176,8 @@ function parsePage(queryValue: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function registerWorkflowRoutes(app: AnyElysia, workflowEngine: WorkflowEngineService): AnyElysia {
-  return app.group('/api/v1/workflows', (group: AnyElysia) =>
+export function registerWorkflowRoutes<T extends Elysia>(app: T, workflowEngine: WorkflowEngineService): T {
+  app.group('/api/v1/workflows', (group: any) =>
     withNginxAuth(group)
       .get('/', async (ctx) => {
         try {
@@ -319,4 +320,6 @@ export function registerWorkflowRoutes(app: AnyElysia, workflowEngine: WorkflowE
         }
       })
   );
+
+  return app;
 }

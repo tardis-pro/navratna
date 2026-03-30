@@ -11,7 +11,16 @@ import {
   personas,
   type NewPersona,
 } from '@uaip/shared-services';
-import { LLMProviderStatus, LLMProviderType, PersonaStatus, PersonaVisibility } from '@uaip/types';
+import {
+  LLMProviderStatus,
+  LLMProviderType,
+  PersonaStatus,
+  PersonaVisibility,
+  type AgentRouting,
+  type ImportAgentData,
+  type OpenClawModelDefinition,
+  type OpenClawProviderDefinition,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 const OPENCLAW_AGENTS_DIR = '/home/pronit/workspace/tardis/bmad-navratna/openclaw-infra/agents';
@@ -35,38 +44,6 @@ const OPENCLAW_AGENT_NAMES = [
 ] as const;
 
 type OpenClawAgentName = (typeof OPENCLAW_AGENT_NAMES)[number];
-
-type OpenClawModelDefinition = {
-  id: string;
-  name?: string;
-  reasoning?: boolean;
-  input?: string[];
-  contextWindow?: number;
-  maxTokens?: number;
-  cost?: {
-    input?: number;
-    output?: number;
-    cacheRead?: number;
-    cacheWrite?: number;
-  };
-};
-
-type OpenClawProviderDefinition = {
-  baseUrl: string;
-  api?: string;
-  models: OpenClawModelDefinition[];
-};
-
-type AgentRouting = {
-  providerAlias: string;
-  modelId: string;
-};
-
-type ImportAgentData = {
-  name: OpenClawAgentName;
-  systemPrompt: string;
-  routing?: AgentRouting;
-};
 
 type ProviderAccumulator = {
   providerAlias: string;
