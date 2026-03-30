@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield,
+  ShieldOff,
   ShieldAlert,
   Activity,
   RefreshCw,
@@ -22,10 +23,14 @@ import {
   Minus,
   Pause,
   Lock,
+  Download,
 } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Portal, PortalProps } from '../Portal';
 import { cn } from '@/lib/utils';
 import { ViewportSize } from '@/hooks/use_viewport';
+import { STALE_TIMES } from '@/api/query_config';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SecurityMetric {
   id: string;
@@ -33,7 +38,7 @@ interface SecurityMetric {
   value: number;
   unit: string;
   trend: 'up' | 'down' | 'stable';
-  status: 'good' | 'warning' | 'critical';
+  status: 'healthy' | 'warning' | 'critical';
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -52,123 +57,563 @@ interface SecurityPortalProps extends Omit<PortalProps, 'children' | 'type' | 't
   showAdvanced?: boolean;
 }
 
-const SECURITY_METRICS: SecurityMetric[] = [
+type SecurityStatsRecord = Record<string, unknown>;
+
+const SECURITY_METRIC_DEFS: Array<{
+  id: SecurityMetric['id'];
+  label: string;
+  unit: string;
+  icon: SecurityMetric['icon'];
+  valueKeys: string[];
+  statusKeys: string[];
+  trendKeys: string[];
+}> = [
   {
     id: 'threats_blocked',
     label: 'Threats Blocked',
-    value: 247,
     unit: 'today',
-    trend: 'down',
-    status: 'good',
     icon: ShieldCheck,
+    valueKeys: ['threatsBlocked', 'threats_blocked'],
+    statusKeys: ['threatsBlockedStatus', 'threats_blocked_status'],
+    trendKeys: ['threatsBlockedTrend', 'threats_blocked_trend'],
   },
   {
     id: 'active_sessions',
     label: 'Active Sessions',
-    value: 42,
     unit: 'current',
-    trend: 'stable',
-    status: 'good',
     icon: Users,
+    valueKeys: ['activeSessions', 'active_sessions'],
+    statusKeys: ['activeSessionsStatus', 'active_sessions_status'],
+    trendKeys: ['activeSessionsTrend', 'active_sessions_trend'],
   },
   {
     id: 'failed_logins',
     label: 'Failed Logins',
-    value: 12,
     unit: 'last hour',
-    trend: 'up',
-    status: 'warning',
     icon: Lock,
+    valueKeys: ['failedLogins', 'failed_logins'],
+    statusKeys: ['failedLoginsStatus', 'failed_logins_status'],
+    trendKeys: ['failedLoginsTrend', 'failed_logins_trend'],
   },
   {
     id: 'system_uptime',
     label: 'System Uptime',
-    value: 99.97,
     unit: '%',
-    trend: 'stable',
-    status: 'good',
     icon: Server,
+    valueKeys: ['systemUptime', 'system_uptime', 'uptimePercent', 'uptime_percent'],
+    statusKeys: ['systemUptimeStatus', 'system_uptime_status'],
+    trendKeys: ['systemUptimeTrend', 'system_uptime_trend'],
   },
   {
     id: 'vulnerabilities',
     label: 'Open Vulnerabilities',
-    value: 3,
     unit: 'total',
-    trend: 'down',
-    status: 'warning',
     icon: Bug,
+    valueKeys: ['vulnerabilities', 'openVulnerabilities', 'open_vulnerabilities'],
+    statusKeys: ['vulnerabilitiesStatus', 'vulnerabilities_status'],
+    trendKeys: ['vulnerabilitiesTrend', 'vulnerabilities_trend'],
   },
   {
     id: 'data_encrypted',
     label: 'Data Encrypted',
-    value: 100,
     unit: '%',
-    trend: 'stable',
-    status: 'good',
     icon: Key,
+    valueKeys: ['dataEncrypted', 'data_encrypted', 'encryptionCoverage', 'encryption_coverage'],
+    statusKeys: ['dataEncryptedStatus', 'data_encrypted_status'],
+    trendKeys: ['dataEncryptedTrend', 'data_encrypted_trend'],
   },
 ];
 
-const SECURITY_EVENTS: SecurityEvent[] = [
-  {
-    id: '1',
-    type: 'threat',
-    severity: 'high',
-    message: 'Suspicious login attempt blocked from IP 192.168.1.100',
-    timestamp: new Date(Date.now() - 5 * 60000),
-    source: 'Authentication Service',
-    resolved: true,
-  },
-  {
-    id: '2',
-    type: 'access',
-    severity: 'medium',
-    message: 'Admin user john.doe accessed sensitive data',
-    timestamp: new Date(Date.now() - 15 * 60000),
-    source: 'Audit Trail',
-    resolved: false,
-  },
-  {
-    id: '3',
-    type: 'system',
-    severity: 'low',
-    message: 'Security patch applied to database server',
-    timestamp: new Date(Date.now() - 30 * 60000),
-    source: 'System Updates',
-    resolved: true,
-  },
-  {
-    id: '4',
-    type: 'threat',
-    severity: 'critical',
-    message: 'Potential DDoS attack detected and mitigated',
-    timestamp: new Date(Date.now() - 45 * 60000),
-    source: 'Network Monitor',
-    resolved: true,
-  },
-  {
-    id: '5',
-    type: 'audit',
-    severity: 'medium',
-    message: 'Failed MFA verification attempt',
-    timestamp: new Date(Date.now() - 60 * 60000),
-    source: 'MFA Service',
-    resolved: false,
-  },
-];
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getNestedRecord = (record: Record<string, unknown>, key: string): Record<string, unknown> | null => {
+  const value = record[key];
+  return isRecord(value) ? value : null;
+};
+
+const extractRootRecord = (payload: unknown): SecurityStatsRecord => {
+  if (!isRecord(payload)) {
+    return {};
+  }
+
+  const data = getNestedRecord(payload, 'data');
+  return data ?? payload;
+};
+
+const getNumberFromKeys = (record: Record<string, unknown>, keys: string[]): number | null => {
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const normalizeMetricStatus = (value: unknown): SecurityMetric['status'] | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'healthy' || normalized === 'good') {
+    return 'healthy';
+  }
+  if (normalized === 'warning' || normalized === 'degraded') {
+    return 'warning';
+  }
+  if (normalized === 'critical') {
+    return 'critical';
+  }
+
+  return null;
+};
+
+const normalizeTrend = (value: unknown): SecurityMetric['trend'] | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'up' || normalized === 'increase' || normalized === 'increasing') {
+    return 'up';
+  }
+  if (normalized === 'down' || normalized === 'decrease' || normalized === 'decreasing') {
+    return 'down';
+  }
+  if (normalized === 'stable' || normalized === 'flat') {
+    return 'stable';
+  }
+
+  return null;
+};
+
+const defaultStatusForMetric = (id: SecurityMetric['id'], value: number): SecurityMetric['status'] => {
+  if (id === 'failed_logins') {
+    return value > 20 ? 'critical' : value > 5 ? 'warning' : 'healthy';
+  }
+  if (id === 'vulnerabilities') {
+    return value > 10 ? 'critical' : value > 0 ? 'warning' : 'healthy';
+  }
+  if (id === 'system_uptime') {
+    return value < 95 ? 'critical' : value < 99 ? 'warning' : 'healthy';
+  }
+
+  return 'healthy';
+};
+
+const defaultTrendForMetric = (id: SecurityMetric['id'], value: number): SecurityMetric['trend'] => {
+  if (id === 'failed_logins' || id === 'vulnerabilities') {
+    return value > 0 ? 'up' : 'stable';
+  }
+
+  return 'stable';
+};
+
+const pickMetricStatus = (
+  rootRecord: Record<string, unknown>,
+  metricRecord: Record<string, unknown>,
+  statusKeys: string[],
+  fallbackStatus: SecurityMetric['status']
+): SecurityMetric['status'] => {
+  const statusesRecord = getNestedRecord(rootRecord, 'statuses');
+  const metricStatusesRecord = getNestedRecord(rootRecord, 'metricStatuses');
+
+  const candidatePools: Array<Record<string, unknown>> = [
+    metricRecord,
+    rootRecord,
+    statusesRecord ?? {},
+    metricStatusesRecord ?? {},
+  ];
+
+  for (const pool of candidatePools) {
+    for (const key of statusKeys) {
+      const status = normalizeMetricStatus(pool[key]);
+      if (status) {
+        return status;
+      }
+    }
+  }
+
+  return fallbackStatus;
+};
+
+const pickMetricTrend = (
+  rootRecord: Record<string, unknown>,
+  metricRecord: Record<string, unknown>,
+  trendKeys: string[],
+  fallbackTrend: SecurityMetric['trend']
+): SecurityMetric['trend'] => {
+  const trendsRecord = getNestedRecord(rootRecord, 'trends');
+
+  const candidatePools: Array<Record<string, unknown>> = [metricRecord, rootRecord, trendsRecord ?? {}];
+
+  for (const pool of candidatePools) {
+    for (const key of trendKeys) {
+      const trend = normalizeTrend(pool[key]);
+      if (trend) {
+        return trend;
+      }
+    }
+  }
+
+  return fallbackTrend;
+};
+
+const parseSecurityMetrics = (payload: unknown): SecurityMetric[] => {
+  const root = extractRootRecord(payload);
+  const metricsRecord = getNestedRecord(root, 'metrics') ?? {};
+
+  return SECURITY_METRIC_DEFS.map((definition) => {
+    const metricNode = getNestedRecord(metricsRecord, definition.id) ?? {};
+    const value =
+      getNumberFromKeys(metricNode, [...definition.valueKeys, 'value']) ??
+      getNumberFromKeys(root, definition.valueKeys) ??
+      0;
+
+    const status = pickMetricStatus(
+      root,
+      metricNode,
+      definition.statusKeys,
+      defaultStatusForMetric(definition.id, value)
+    );
+
+    const trend = pickMetricTrend(
+      root,
+      metricNode,
+      definition.trendKeys,
+      defaultTrendForMetric(definition.id, value)
+    );
+
+    return {
+      id: definition.id,
+      label: definition.label,
+      value,
+      unit: definition.unit,
+      trend,
+      status,
+      icon: definition.icon,
+    };
+  });
+};
+
+const getOverallSystemStatus = (
+  payload: unknown,
+  metrics: SecurityMetric[]
+): 'healthy' | 'warning' | 'critical' => {
+  const root = extractRootRecord(payload);
+  const explicitStatus = normalizeMetricStatus(root.status);
+  if (explicitStatus) {
+    return explicitStatus;
+  }
+
+  if (metrics.some((metric) => metric.status === 'critical')) {
+    return 'critical';
+  }
+  if (metrics.some((metric) => metric.status === 'warning')) {
+    return 'warning';
+  }
+
+  return 'healthy';
+};
+
+const getErrorMessage = (payload: unknown, fallback: string): string => {
+  if (!isRecord(payload)) {
+    return fallback;
+  }
+
+  if (typeof payload.message === 'string' && payload.message.length > 0) {
+    return payload.message;
+  }
+
+  const data = getNestedRecord(payload, 'data');
+  if (data && typeof data.message === 'string' && data.message.length > 0) {
+    return data.message;
+  }
+
+  return fallback;
+};
+
+const toEventType = (value: unknown): SecurityEvent['type'] => {
+  if (typeof value !== 'string') {
+    return 'audit';
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'threat') return 'threat';
+  if (normalized === 'access') return 'access';
+  if (normalized === 'system') return 'system';
+  return 'audit';
+};
+
+const toSeverity = (value: unknown): SecurityEvent['severity'] => {
+  if (typeof value !== 'string') {
+    return 'low';
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'critical') return 'critical';
+  if (normalized === 'high') return 'high';
+  if (normalized === 'medium' || normalized === 'warning') return 'medium';
+  return 'low';
+};
+
+const parseTimestamp = (value: unknown): Date => {
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return new Date();
+};
+
+const toResolvedState = (entry: Record<string, unknown>): boolean => {
+  if (typeof entry.resolved === 'boolean') {
+    return entry.resolved;
+  }
+  if (typeof entry.isResolved === 'boolean') {
+    return entry.isResolved;
+  }
+  if (typeof entry.status === 'string') {
+    return entry.status.toLowerCase() === 'resolved';
+  }
+
+  return false;
+};
+
+const parseEventsPayload = (payload: unknown): SecurityEvent[] => {
+  const root = extractRootRecord(payload);
+
+  const listCandidate =
+    (Array.isArray(root.logs) ? root.logs : null) ??
+    (Array.isArray(root.items) ? root.items : null) ??
+    (Array.isArray(root.events) ? root.events : null) ??
+    (Array.isArray(payload) ? payload : null);
+
+  if (!listCandidate) {
+    return [];
+  }
+
+  const events = listCandidate
+    .map((rawEvent): SecurityEvent | null => {
+      if (!isRecord(rawEvent)) {
+        return null;
+      }
+
+      const idValue = rawEvent.id ?? rawEvent.logId ?? rawEvent.auditId;
+      const id = typeof idValue === 'string' ? idValue : typeof idValue === 'number' ? String(idValue) : null;
+      if (!id) {
+        return null;
+      }
+
+      const messageValue =
+        rawEvent.message ?? rawEvent.description ?? rawEvent.summary ?? rawEvent.action ?? 'Audit event';
+      const message = typeof messageValue === 'string' ? messageValue : 'Audit event';
+
+      const sourceValue = rawEvent.source ?? rawEvent.service ?? rawEvent.module ?? rawEvent.actor ?? 'Audit Service';
+      const source = typeof sourceValue === 'string' ? sourceValue : 'Audit Service';
+
+      return {
+        id,
+        type: toEventType(rawEvent.type ?? rawEvent.category ?? rawEvent.eventType),
+        severity: toSeverity(rawEvent.severity ?? rawEvent.level),
+        message,
+        timestamp: parseTimestamp(rawEvent.timestamp ?? rawEvent.createdAt ?? rawEvent.loggedAt),
+        source,
+        resolved: toResolvedState(rawEvent),
+      };
+    })
+    .filter((event): event is SecurityEvent => event !== null);
+
+  return events.sort((a, b) => {
+    const aGroup = a.resolved ? 2 : a.severity === 'critical' ? 0 : 1;
+    const bGroup = b.resolved ? 2 : b.severity === 'critical' ? 0 : 1;
+    if (aGroup !== bGroup) {
+      return aGroup - bGroup;
+    }
+
+    return b.timestamp.getTime() - a.timestamp.getTime();
+  });
+};
+
+const maskIpAddress = (ip: string): string => ip.replace(/\.\d+$/, '.x');
+
+const maskIpAddressesInText = (text: string): string =>
+  text.replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, (ip) => maskIpAddress(ip));
+
+const getExportFileName = (contentDisposition: string | null): string => {
+  if (!contentDisposition) {
+    return `audit-export-${new Date().toISOString()}.json`;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match && utf8Match[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  if (filenameMatch && filenameMatch[1]) {
+    return filenameMatch[1];
+  }
+
+  return `audit-export-${new Date().toISOString()}.json`;
+};
 
 const SecurityPortalContent: React.FC<{
   mode: 'dashboard' | 'monitor' | 'settings';
   showAdvanced: boolean;
   viewport?: ViewportSize;
 }> = ({ mode: _mode, showAdvanced: _showAdvanced, viewport }) => {
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'threats' | 'monitoring' | 'users'>(
     'overview'
   );
   const [realTimeData, setRealTimeData] = useState(true);
   const [_selectedTimeRange, _setSelectedTimeRange] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
-  const [systemStatus, setSystemStatus] = useState<'healthy' | 'warning' | 'critical'>('healthy');
+
+  const isAuthorized = user?.role === 'admin' || user?.role === 'security_auditor';
+  const isAdmin = user?.role === 'admin';
+
+  const securityStatsQuery = useQuery({
+    queryKey: ['security', 'stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/v1/security/stats', { credentials: 'include' });
+      const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload, 'Failed to fetch security stats'));
+      }
+
+      const metrics = parseSecurityMetrics(payload);
+      const overallStatus = getOverallSystemStatus(payload, metrics);
+      return { metrics, overallStatus };
+    },
+    staleTime: STALE_TIMES.DEFAULT,
+    refetchInterval: STALE_TIMES.DEFAULT,
+  });
+
+  const securityEventsQuery = useQuery({
+    queryKey: ['security', 'events'],
+    queryFn: async () => {
+      const response = await fetch('/api/v1/audit/logs?limit=20&sortOrder=DESC', {
+        credentials: 'include',
+      });
+      const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload, 'Failed to fetch security audit events'));
+      }
+
+      return parseEventsPayload(payload);
+    },
+    staleTime: STALE_TIMES.DEFAULT,
+  });
+
+  const resolveEventMutation = useMutation({
+    mutationFn: async (eventId: string) => {
+      const response = await fetch(`/api/v1/audit/logs/${eventId}/resolve`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+
+      let payload: unknown = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(getErrorMessage(payload, 'Failed to resolve audit event'));
+      }
+
+      return eventId;
+    },
+    onMutate: async (eventId) => {
+      await queryClient.cancelQueries({ queryKey: ['security', 'events'] });
+      const previousEvents = queryClient.getQueryData<SecurityEvent[]>(['security', 'events']);
+
+      queryClient.setQueryData<SecurityEvent[]>(['security', 'events'], (currentEvents) => {
+        if (!currentEvents) {
+          return currentEvents;
+        }
+
+        return currentEvents.map((event) =>
+          event.id === eventId ? { ...event, resolved: true } : event
+        );
+      });
+
+      return { previousEvents };
+    },
+    onError: (_error, _eventId, context) => {
+      if (context?.previousEvents) {
+        queryClient.setQueryData(['security', 'events'], context.previousEvents);
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['security', 'events'] });
+    },
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/v1/audit/export', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ format: 'json' }),
+      });
+
+      if (!response.ok) {
+        let payload: unknown = null;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+        throw new Error(getErrorMessage(payload, 'Failed to export audit logs'));
+      }
+
+      const blob = await response.blob();
+      return {
+        blob,
+        fileName: getExportFileName(response.headers.get('content-disposition')),
+      };
+    },
+    onSuccess: ({ blob, fileName }) => {
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    },
+  });
+
+  const metrics = securityStatsQuery.data?.metrics ?? [];
+  const systemStatus = securityStatsQuery.data?.overallStatus ?? 'healthy';
+
+  const prioritizedEvents = useMemo(() => {
+    const events = securityEventsQuery.data ?? [];
+    return [...events].sort((a, b) => {
+      const aGroup = a.resolved ? 2 : a.severity === 'critical' ? 0 : 1;
+      const bGroup = b.resolved ? 2 : b.severity === 'critical' ? 0 : 1;
+      if (aGroup !== bGroup) {
+        return aGroup - bGroup;
+      }
+      return b.timestamp.getTime() - a.timestamp.getTime();
+    });
+  }, [securityEventsQuery.data]);
 
   // Use Portal's viewport management
   const currentViewport = viewport || {
@@ -185,36 +630,18 @@ const SecurityPortalContent: React.FC<{
   const showReducedMetrics = currentViewport.width < 700;
   const isVerySmall = currentViewport.width < 400;
 
-  // Simulate real-time updates
-  useEffect(() => {
-    if (!realTimeData) return;
-
-    const interval = setInterval(() => {
-      // Simulate random system status changes
-      const statuses: ('healthy' | 'warning' | 'critical')[] = [
-        'healthy',
-        'healthy',
-        'healthy',
-        'warning',
-        'healthy',
-      ];
-      setSystemStatus(statuses[Math.floor(Math.random() * statuses.length)]);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [realTimeData]);
-
-  const handleRefresh = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 1500);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([securityStatsQuery.refetch(), securityEventsQuery.refetch()]);
+    setIsRefreshing(false);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'good':
+      case 'healthy':
         return 'text-green-400';
       case 'warning':
-        return 'text-yellow-400';
+        return 'text-amber-400';
       case 'critical':
         return 'text-red-400';
       default:
@@ -224,12 +651,12 @@ const SecurityPortalContent: React.FC<{
 
   const getStatusBgColor = (status: string) => {
     switch (status) {
-      case 'good':
+      case 'healthy':
         return 'bg-green-500/20 border-green-500/30';
       case 'warning':
-        return 'bg-yellow-500/20 border-yellow-500/30';
+        return 'bg-amber-500/20 border-amber-500/30';
       case 'critical':
-        return 'bg-red-500/20 border-red-500/30';
+        return 'bg-red-500/20 border-red-500/30 animate-pulse';
       default:
         return 'bg-slate-500/20 border-slate-500/30';
     }
@@ -349,6 +776,26 @@ const SecurityPortalContent: React.FC<{
     </motion.div>
   );
 
+  if (!isAuthorized) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
+        <div className="h-full flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-slate-900/80 border border-slate-700/60 rounded-2xl p-8 text-center backdrop-blur-sm">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center">
+              <ShieldOff className="w-7 h-7 text-red-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-white mb-2">Access Restricted</h2>
+            <p className="text-slate-300">Security dashboard requires admin access</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const visibleMetrics = showReducedMetrics ? metrics.slice(0, 4) : metrics;
+  const metricsLoadingCount = showReducedMetrics ? 4 : SECURITY_METRIC_DEFS.length;
+  const visibleEvents = prioritizedEvents.slice(0, isCompactMode ? 3 : 5);
+
   return (
     <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
       {/* Enhanced Background Pattern */}
@@ -423,7 +870,7 @@ const SecurityPortalContent: React.FC<{
                       systemStatus === 'healthy'
                         ? 'bg-green-400'
                         : systemStatus === 'warning'
-                          ? 'bg-yellow-400'
+                          ? 'bg-amber-400'
                           : 'bg-red-400'
                     }`}
                     animate={{
@@ -456,16 +903,33 @@ const SecurityPortalContent: React.FC<{
                 )}
               </button>
 
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className={`${isCompactMode ? 'p-1.5' : 'p-2'} rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors disabled:opacity-50`}
-                title="Refresh data"
-              >
-                <RefreshCw
-                  className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'} ${loading ? 'animate-spin' : ''}`}
-                />
-              </button>
+               <button
+                 onClick={handleRefresh}
+                 disabled={isRefreshing}
+                 className={`${isCompactMode ? 'p-1.5' : 'p-2'} rounded-lg bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 text-slate-300 hover:text-white transition-colors disabled:opacity-50`}
+                 title="Refresh data"
+               >
+                 <RefreshCw
+                   className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'} ${isRefreshing ? 'animate-spin' : ''}`}
+                 />
+               </button>
+
+               {!isVerySmall && (
+                 <button
+                   onClick={() => exportMutation.mutate()}
+                   disabled={exportMutation.isPending}
+                   className={cn(
+                     `${isCompactMode ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'} rounded-lg border transition-colors flex items-center gap-2`,
+                     exportMutation.isPending
+                       ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                       : 'bg-slate-800/50 hover:bg-slate-700/50 border-slate-700/50 text-slate-300 hover:text-white'
+                   )}
+                   title="Export audit logs"
+                 >
+                   <Download className={cn(isCompactMode ? 'w-3 h-3' : 'w-4 h-4')} />
+                   <span>{exportMutation.isPending ? 'Exporting...' : 'Export'}</span>
+                 </button>
+               )}
 
               {!isVerySmall && (
                 <button
@@ -506,52 +970,74 @@ const SecurityPortalContent: React.FC<{
                         : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
                 }`}
               >
-                {(showReducedMetrics ? SECURITY_METRICS.slice(0, 4) : SECURITY_METRICS).map(
-                  (metric, index) => {
-                    const Icon = metric.icon;
-                    return (
+                {securityStatsQuery.isLoading
+                  ? new Array(metricsLoadingCount).fill(0).map((_, index) => (
                       <motion.div
-                        key={metric.id}
+                        key={`metric-skeleton-${index}`}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.1 }}
-                        className={`${isCompactMode ? 'p-3' : 'p-6'} rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-105 ${getStatusBgColor(metric.status)}`}
+                        transition={{ delay: index * 0.08 }}
+                        className={`${isCompactMode ? 'p-3' : 'p-6'} rounded-2xl border border-slate-700/40 bg-slate-800/40 backdrop-blur-sm animate-pulse`}
                       >
                         <div
                           className={`flex items-center justify-between ${isCompactMode ? 'mb-2' : 'mb-4'}`}
                         >
                           <div
-                            className={`${isCompactMode ? 'w-8 h-8' : 'w-12 h-12'} rounded-xl flex items-center justify-center ${getStatusBgColor(metric.status)}`}
-                          >
-                            <Icon
-                              className={`${isCompactMode ? 'w-4 h-4' : 'w-6 h-6'} ${getStatusColor(metric.status)}`}
-                            />
-                          </div>
-                          <div
-                            className={`flex items-center gap-1 text-xs ${getStatusColor(metric.trend === 'up' ? (metric.status === 'good' ? 'good' : 'warning') : 'good')}`}
-                          >
-                            {getTrendIcon(metric.trend)}
-                            {!isCompactMode && <span className="capitalize">{metric.trend}</span>}
-                          </div>
+                            className={`${isCompactMode ? 'w-8 h-8' : 'w-12 h-12'} rounded-xl bg-slate-700/60`}
+                          />
+                          <div className="h-3 w-14 rounded bg-slate-700/60" />
                         </div>
-                        <div className="space-y-1">
-                          <p
-                            className={`${isCompactMode ? 'text-lg' : 'text-2xl'} font-bold text-white`}
-                          >
-                            {metric.value}
-                            {metric.unit === '%' ? '%' : ''}
-                          </p>
-                          <p className={`${isCompactMode ? 'text-xs' : 'text-sm'} text-slate-400`}>
-                            {isCompactMode ? metric.label.split(' ')[0] : metric.label}
-                          </p>
-                          {!isCompactMode && metric.unit !== '%' && (
-                            <p className="text-xs text-slate-500">{metric.unit}</p>
-                          )}
+                        <div className="space-y-2">
+                          <div className="h-7 w-20 rounded bg-slate-700/60" />
+                          <div className="h-4 w-28 rounded bg-slate-700/60" />
+                          {!isCompactMode && <div className="h-3 w-20 rounded bg-slate-700/50" />}
                         </div>
                       </motion.div>
-                    );
-                  }
-                )}
+                    ))
+                  : visibleMetrics.map((metric, index) => {
+                      const Icon = metric.icon;
+                      return (
+                        <motion.div
+                          key={metric.id}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.1 }}
+                          className={`${isCompactMode ? 'p-3' : 'p-6'} rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-105 ${getStatusBgColor(metric.status)}`}
+                        >
+                          <div
+                            className={`flex items-center justify-between ${isCompactMode ? 'mb-2' : 'mb-4'}`}
+                          >
+                            <div
+                              className={`${isCompactMode ? 'w-8 h-8' : 'w-12 h-12'} rounded-xl flex items-center justify-center ${getStatusBgColor(metric.status)}`}
+                            >
+                              <Icon
+                                className={`${isCompactMode ? 'w-4 h-4' : 'w-6 h-6'} ${getStatusColor(metric.status)}`}
+                              />
+                            </div>
+                            <div
+                              className={`flex items-center gap-1 text-xs ${getStatusColor(metric.trend === 'up' ? (metric.status === 'healthy' ? 'healthy' : 'warning') : 'healthy')}`}
+                            >
+                              {getTrendIcon(metric.trend)}
+                              {!isCompactMode && <span className="capitalize">{metric.trend}</span>}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p
+                              className={`${isCompactMode ? 'text-lg' : 'text-2xl'} font-bold text-white`}
+                            >
+                              {metric.unit === '%' ? metric.value.toFixed(2) : Math.round(metric.value)}
+                              {metric.unit === '%' ? '%' : ''}
+                            </p>
+                            <p className={`${isCompactMode ? 'text-xs' : 'text-sm'} text-slate-400`}>
+                              {isCompactMode ? metric.label.split(' ')[0] : metric.label}
+                            </p>
+                            {!isCompactMode && metric.unit !== '%' && (
+                              <p className="text-xs text-slate-500">{metric.unit}</p>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
               </div>
 
               {/* Recent Security Events */}
@@ -580,61 +1066,111 @@ const SecurityPortalContent: React.FC<{
                     )}
                   </div>
 
-                  <div className="space-y-3">
-                    {SECURITY_EVENTS.slice(0, isCompactMode ? 3 : 5).map((event, index) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className={`flex items-start gap-3 ${isCompactMode ? 'p-3' : 'p-4'} bg-slate-800/50 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200`}
-                      >
+                   <div className="space-y-3">
+                    {securityEventsQuery.isLoading &&
+                      new Array(5).fill(0).map((_, index) => (
                         <div
-                          className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg flex items-center justify-center flex-shrink-0 ${getSeverityColor(event.severity)}`}
+                          key={`security-event-skeleton-${index}`}
+                          className={`flex items-start gap-3 ${isCompactMode ? 'p-3' : 'p-4'} bg-slate-800/50 rounded-xl border border-slate-700/30 animate-pulse`}
                         >
-                          {renderEventTypeIcon(event.type, isCompactMode ? 'w-3 h-3' : 'w-4 h-4')}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`${isCompactMode ? 'text-xs' : 'text-sm'} text-white font-medium mb-1`}
-                          >
-                            {isCompactMode ? event.message.slice(0, 50) + '...' : event.message}
-                          </p>
-                          <div
-                            className={`flex items-center gap-2 ${isCompactMode ? 'text-xs' : 'text-xs'} text-slate-400`}
-                          >
-                            {!isVerySmall && (
-                              <>
-                                <span>
-                                  {isCompactMode ? event.source.split(' ')[0] : event.source}
-                                </span>
-                                <span>•</span>
-                              </>
-                            )}
-                            <span>{formatTimestamp(event.timestamp)}</span>
-                            <span>•</span>
-                            <span
-                              className={`px-2 py-1 rounded-full ${getSeverityColor(event.severity)} font-medium`}
-                            >
-                              {isCompactMode
-                                ? event.severity.slice(0, 1).toUpperCase()
-                                : event.severity.toUpperCase()}
-                            </span>
+                          <div className="w-8 h-8 rounded-lg bg-slate-700/60 flex-shrink-0" />
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="h-4 w-full rounded bg-slate-700/60" />
+                            <div className="h-3 w-2/3 rounded bg-slate-700/50" />
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {event.resolved ? (
-                            <CheckCircle
-                              className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'} text-green-400`}
-                            />
-                          ) : (
-                            <AlertTriangle
-                              className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'} text-yellow-400`}
-                            />
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
+                      ))}
+
+                    {!securityEventsQuery.isLoading &&
+                      visibleEvents.map((event, index) => {
+                        const maskedMessage = maskIpAddressesInText(event.message);
+                        const maskedSource = maskIpAddressesInText(event.source);
+                        const isResolvingCurrent =
+                          resolveEventMutation.isPending && resolveEventMutation.variables === event.id;
+
+                        return (
+                          <motion.div
+                            key={event.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className={`flex items-start gap-3 ${isCompactMode ? 'p-3' : 'p-4'} bg-slate-800/50 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all duration-200`}
+                          >
+                            <div
+                              className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg flex items-center justify-center flex-shrink-0 ${getSeverityColor(event.severity)}`}
+                            >
+                              {renderEventTypeIcon(event.type, isCompactMode ? 'w-3 h-3' : 'w-4 h-4')}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`${isCompactMode ? 'text-xs' : 'text-sm'} text-white font-medium mb-1`}
+                              >
+                                {isCompactMode
+                                  ? `${maskedMessage.slice(0, 50)}...`
+                                  : maskedMessage}
+                              </p>
+                              <div
+                                className={`flex items-center gap-2 ${isCompactMode ? 'text-xs' : 'text-xs'} text-slate-400`}
+                              >
+                                {!isVerySmall && (
+                                  <>
+                                    <span>{isCompactMode ? maskedSource.split(' ')[0] : maskedSource}</span>
+                                    <span>•</span>
+                                  </>
+                                )}
+                                <span>{formatTimestamp(event.timestamp)}</span>
+                                <span>•</span>
+                                <span
+                                  className={`px-2 py-1 rounded-full ${getSeverityColor(event.severity)} font-medium`}
+                                >
+                                  {isCompactMode
+                                    ? event.severity.slice(0, 1).toUpperCase()
+                                    : event.severity.toUpperCase()}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'px-2 py-1 rounded-full text-[10px] font-medium',
+                                    event.resolved
+                                      ? 'bg-green-500/15 text-green-300 border border-green-500/30'
+                                      : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                  )}
+                                >
+                                  {event.resolved ? 'Resolved' : 'Unresolved'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {event.resolved ? (
+                                <CheckCircle
+                                  className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'} text-green-400`}
+                                />
+                              ) : (
+                                <AlertTriangle
+                                  className={`${isCompactMode ? 'w-3 h-3' : 'w-4 h-4'} text-amber-400`}
+                                />
+                              )}
+                              {!event.resolved && isAdmin && (
+                                <button
+                                  onClick={() => resolveEventMutation.mutate(event.id)}
+                                  disabled={isResolvingCurrent}
+                                  className={cn(
+                                    'text-xs px-2.5 py-1.5 rounded-md border transition-colors',
+                                    isResolvingCurrent
+                                      ? 'bg-green-500/20 border-green-500/40 text-green-200'
+                                      : 'bg-slate-700/50 hover:bg-slate-700 border-slate-600/60 text-slate-200 hover:text-white'
+                                  )}
+                                >
+                                  {isResolvingCurrent ? 'Resolving...' : 'Mark Resolved'}
+                                </button>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+
+                    {!securityEventsQuery.isLoading && visibleEvents.length === 0 && (
+                      <div className="text-sm text-slate-400 px-1 py-3">No recent security events</div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -684,7 +1220,7 @@ const SecurityPortalContent: React.FC<{
                   systemStatus === 'healthy'
                     ? 'bg-green-400'
                     : systemStatus === 'warning'
-                      ? 'bg-yellow-400'
+                      ? 'bg-amber-400'
                       : 'bg-red-400'
                 }`}
                 animate={{
