@@ -30,7 +30,7 @@ COPY apps/backend/services/security-gateway/package.json     ./apps/backend/serv
 COPY apps/backend/services/orchestration-pipeline/package.json ./apps/backend/services/orchestration-pipeline/
 COPY apps/backend/services/capability-registry/package.json  ./apps/backend/services/capability-registry/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 # ── Build shared packages (NX resolves dep order) ────────────────────────────
 RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service

@@ -1,41 +1,48 @@
-# docs/features — Feature Documentation
+# Feature Documentation
 
-Reference docs for implemented features. For architecture/service map, see root `AGENTS.md`.
+**Last Updated**: 2026-03-30
 
-## Documents in this directory
+## Service Architecture
 
-| File                                      | Description |
-| ----------------------------------------- | ----------- |
-| (add feature docs here as markdown files) |             |
+### navratna-core (port 3001) — Feature Modules
 
-## Feature Areas
+| Module | Toggle | Features |
+|---|---|---|
+| agent-intelligence | FEATURE_AGENT | Agent chat, 3-tier memory, persona management, LLM integration, relevance engine, context analysis |
+| discussion-orchestration | FEATURE_DISCUSSION | Real-time WebSocket discussions, turn strategies, participant management, analytics |
+| artifact-service | FEATURE_ARTIFACTS | Artifact generation, versioning, deployment |
+| llm-service | FEATURE_LLM | Multi-provider LLM (OpenAI, Anthropic, Ollama), model routing, token tracking |
 
-| Feature                 | Primary Service                           | Status     |
-| ----------------------- | ----------------------------------------- | ---------- |
-| Agent chat + memory     | agent-intelligence / navratna-core        | ✅ Active  |
-| Real-time discussions   | discussion-orchestration / navratna-core  | ✅ Active  |
-| Artifact generation     | artifact-service / navratna-core          | ✅ Active  |
-| Auth + MFA + OAuth      | security-gateway / navratna-gateway       | ✅ Active  |
-| Tool registry + MCP     | capability-registry / navratna-gateway    | ✅ Active  |
-| Workflow orchestration  | orchestration-pipeline / navratna-gateway | ✅ Active  |
-| Knowledge graph sync    | shared-services/knowledge-graph           | ✅ Active  |
-| Stakeholder discovery   | questionforge (port 3010)                 | 🆕 Active  |
-| Metacognitive benchmark | basebench-meta (port 3009)                | 🆕 Active  |
-| Agent marketplace       | marketplace-service                       | ⚠️ Removal |
+### navratna-gateway (port 3002) — Feature Modules
+
+| Module | Toggle | Features |
+|---|---|---|
+| security-gateway | FEATURE_AUTH | JWT auth, MFA scaffold, 5 OAuth providers, RBAC, audit trails, httpOnly cookies |
+| orchestration-pipeline | FEATURE_ORCHESTRATION | Workflow coordination, operation management, approval workflows, saga patterns |
+| capability-registry | FEATURE_REGISTRY | Tool management, MCP client/server (2100+ lines), tool discovery, sandboxed execution |
+
+### Standalone Services
+
+| Service | Port | Status | Description |
+|---|---|---|---|
+| questionforge | 3010 | Active | 8 specialist personas, council debate, question ranking, stakeholder packs, interview capture |
+| basebench-meta | 3009 | Active | 5 task families, MetaScore scoring (6 components + 2 penalty terms), REST API, seeded test cases |
+| marketplace-service | — | Removal | Scheduled for removal. Do not add features. |
 
 ## Key Architectural Patterns
+
+**FeatureFactory**: Each legacy service directory exports `feature.ts`. Consolidated services register modules via `FeatureFactory.register()`. Env-var toggles (e.g., `FEATURE_AGENT`) control startup loading — default ON.
 
 **Human-in-the-loop approval**: Agent pauses execution, stores `PendingApproval` in memory, waits for `POST /approvals/:id` to resolve/reject. Timeout auto-rejects.
 
 **Specialist huddle**: When `conversation-enhancement.service.ts` detects low response confidence, it auto-creates a multi-agent discussion to improve quality.
 
 **3-tier agent memory**:
-
-- Working memory — in-process context window
-- Episodic memory — Neo4j via `EpisodicMemoryManager`
-- Semantic memory — Qdrant via `SemanticMemoryManager` (1024-dim vectors)
+- Working memory — in-process context window (pressure-based consolidation)
+- Episodic memory — Neo4j via `EpisodicMemoryManager` (significance: importance x novelty x success x impact)
+- Semantic memory — Qdrant via `SemanticMemoryManager` (1024-dim vectors, concept confidence + usage tracking)
 - `MemoryConsolidator` promotes episodic → semantic on interval
 
 **Knowledge UUID consistency**: Every knowledge item has the same UUID across PostgreSQL + Neo4j + Qdrant. `CrossPlaneGuard` enforces this. `KnowledgeBootstrapService.runPostSeedSync()` repairs inconsistencies.
 
-**Socket.IO auth (correlation-ID)**: discussion-orchestration can't use HTTP middleware. It publishes `security.auth.validate` with a UUID, registers a one-time response handler, and awaits `security.auth.response` with matching correlation ID.
+**Socket.IO auth (correlation-ID)**: navratna-core publishes `security.auth.validate` with a UUID, registers a one-time response handler, and awaits `security.auth.response` with matching correlation ID. Fallback: HTTP GET to gateway `/api/v1/auth/validate`.

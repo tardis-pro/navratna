@@ -32,26 +32,8 @@ export class AgentSeed extends BaseSeed {
     return await this.db.select().from(agents);
   }
 
-  private getPersonaIdByRole(agentRole: string): string {
-    const roleMapping: Record<string, string> = {
-      Pro: 'data-scientist',
-      Taniye: 'tech-lead',
-      Prashis: 'software-engineer',
-      Keegan: 'software-engineer',
-      Josh: 'software-engineer',
-      Pankaj: 'software-engineer',
-      Maya: 'creative-director',
-      Zara: 'psychologist',
-      Viktor: 'philosopher',
-      Luna: 'entrepreneur',
-      Kai: 'social-media-manager',
-      Aria: 'qa-engineer',
-      Neo: 'software-architect',
-      Sage: 'code-reviewer',
-      Phoenix: 'devops-engineer',
-      Echo: 'ux-designer',
-    };
-    return roleMapping[agentRole] || this.personas[0]?.id || '00000000-0000-0000-0000-000000000000';
+  private getPersonaIdByRole(_agentRole: string): string {
+    return this.personas[0]?.id ?? '00000000-0000-0000-0000-000000000000';
   }
 
   async getSeedData(): Promise<any[]> {

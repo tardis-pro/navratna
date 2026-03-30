@@ -32,12 +32,12 @@ const numericDecimal = customType<{ data: number; driverData: string }>({
   dataType(params: { precision?: number; scale?: number }) {
     const { precision, scale } = params;
     if (precision !== undefined && scale !== undefined) {
-      return `numericDecimal(${precision},${scale})`;
+      return `numeric(${precision},${scale})`;
     }
     if (precision !== undefined) {
-      return `numericDecimal(${precision})`;
+      return `numeric(${precision})`;
     }
-    return 'decimal';
+    return 'numeric';
   },
   toDriver(value: number): string {
     return String(value);

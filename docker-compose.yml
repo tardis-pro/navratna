@@ -38,6 +38,7 @@ services:
     neo4j:
         image: neo4j:2025.04.0-community-bullseye
         container_name: uaip-neo4j
+        hostname: uaip-neo4j
         environment:
             NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
             NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
@@ -126,7 +127,7 @@ services:
             dockerfile: Dockerfile
         container_name: uaip-navratna-core
         command:
-            ["bun", "run", "apps/backend/services/navratna-core/dist/index.js"]
+            ["bun", "run", "apps/backend/services/navratna-core/dist/navratna-core/src/index.js"]
         environment:
             - NODE_ENV=${NODE_ENV:-development}
             - NAVRATNA_CORE_PORT=3001
@@ -178,7 +179,7 @@ services:
             [
                 "bun",
                 "run",
-                "apps/backend/services/navratna-gateway/dist/index.js",
+                "apps/backend/services/navratna-gateway/dist/navratna-gateway/src/index.js",
             ]
         environment:
             - NODE_ENV=${NODE_ENV:-development}
@@ -209,6 +210,44 @@ services:
             - uaip-network
         healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+            interval: 300s
+            timeout: 10s
+            retries: 3
+
+    # BaseBench-Meta - Metacognitive Reliability Benchmark
+    basebench-meta:
+        image: uaip-backend-base:latest
+        container_name: uaip-basebench-meta
+        environment:
+            - SERVICE_NAME=basebench-meta
+            - SERVICE_PORT=3009
+            - NODE_ENV=development
+            - PORT=3009
+            - POSTGRES_URL=postgresql://${POSTGRES_USER:-uaip_user}:${POSTGRES_PASSWORD:-uaip_password}@postgres:5432/${POSTGRES_DB:-uaip}
+            - REDIS_URL=redis://:${REDIS_PASSWORD:-uaip_redis_password}@redis:6379
+        ports:
+            - "3009:3009"
+        volumes:
+            - ./packages:/app/packages
+            - ./apps/shared:/app/shared
+            - ./backend/services/basebench-meta:/app/backend/services/basebench-meta
+            - /app/node_modules
+            - /app/backend/node_modules
+            - /app/shared/services/node_modules
+            - /app/shared/middleware/node_modules
+            - /app/shared/config/node_modules
+            - /app/backend/services/basebench-meta/node_modules
+            - /app/packages/shared-types/node_modules
+            - /app/packages/shared-utils/node_modules
+        depends_on:
+            postgres:
+                condition: service_started
+            redis:
+                condition: service_started
+        networks:
+            - uaip-network
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3009/health"]
             interval: 300s
             timeout: 10s
             retries: 3
@@ -325,34 +364,7 @@ services:
             - "--web.console.templates=/etc/prometheus/consoles"
             - "--web.enable-lifecycle"
 
-    loki:
-        image: grafana/loki:2.9.8
-        container_name: uaip-loki
-        ports:
-            - "3100:3100"
-        volumes:
-            - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml
-            - loki_data:/loki
-        command:
-            - "--config.file=/etc/loki/loki-config.yml"
-        networks:
-            - uaip-network
-
-    promtail:
-        image: grafana/promtail:3.0.0
-        container_name: uaip-promtail
-        environment:
-            - DOCKER_API_VERSION=1.44
-        volumes:
-            - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
-            - /var/lib/docker/containers:/var/lib/docker/containers:ro
-            - /var/run/docker.sock:/var/run/docker.sock
-        command:
-            - "--config.file=/etc/promtail/promtail-config.yml"
-        networks:
-            - uaip-network
-        depends_on:
-            - loki
+    # Loki + Promtail removed 2026-03-30 — use `docker compose logs` and structured JSON logs instead
 
     # Infrastructure Exporters
     postgres-exporter:
@@ -369,84 +381,7 @@ services:
                 condition: service_started
         restart: unless-stopped
 
-    redis-exporter:
-        image: oliver006/redis_exporter:latest
-        container_name: uaip-redis-exporter
-        environment:
-            REDIS_ADDR: "redis:6379"
-            REDIS_PASSWORD: "${REDIS_PASSWORD:-uaip_redis_password}"
-        ports:
-            - "9121:9121"
-        networks:
-            - uaip-network
-        depends_on:
-            redis:
-                condition: service_started
-        restart: unless-stopped
-
-    node-exporter:
-        image: prom/node-exporter:latest
-        container_name: uaip-node-exporter
-        ports:
-            - "9100:9100"
-        volumes:
-            - /proc:/host/proc:ro
-            - /sys:/host/sys:ro
-        networks:
-            - uaip-network
-        command:
-            - "--path.procfs=/host/proc"
-            - "--path.sysfs=/host/sys"
-            - "--web.listen-address=:9100"
-            # Exclude problematic mount points for WSL2
-            - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|run|mnt|tmp|wsl|snap)($$|/)"
-            - "--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|tmpfs|9p|drvfs)$$"
-            # Disable collectors that don't work well in WSL2/containers
-            - "--no-collector.netstat"
-            - "--no-collector.softnet"
-            - "--no-collector.arp"
-            - "--no-collector.bcache"
-            - "--no-collector.bonding"
-            - "--no-collector.ipvs"
-            - "--no-collector.infiniband"
-            - "--no-collector.powersupplyclass"
-            - "--no-collector.rapl"
-            - "--no-collector.thermal_zone"
-            - "--no-collector.xfs"
-            - "--no-collector.zfs"
-            - "--no-collector.hwmon"
-            - "--no-collector.ntp"
-            - "--no-collector.wifi"
-            - "--no-collector.fibrechannel"
-            - "--no-collector.nvme"
-            - "--no-collector.tapestats"
-        restart: unless-stopped
-
-    nginx-exporter:
-        image: nginx/nginx-prometheus-exporter:latest
-        container_name: uaip-nginx-exporter
-        ports:
-            - "9113:9113"
-        networks:
-            - uaip-network
-        depends_on:
-            api-gateway:
-                condition: service_started
-        command:
-            - "-nginx.scrape-uri=http://api-gateway:80/nginx_status"
-        restart: unless-stopped
-        healthcheck:
-            test:
-                [
-                    "CMD",
-                    "wget",
-                    "-q",
-                    "--spider",
-                    "http://localhost:9113/metrics",
-                ]
-            interval: 300s
-            timeout: 10s
-            retries: 3
+    # redis-exporter, node-exporter, nginx-exporter removed 2026-03-30 — marginal value for dev setup
 
     grafana:
         image: grafana/grafana:latest
@@ -462,7 +397,6 @@ services:
             - uaip-network
         depends_on:
             - prometheus
-            - loki
 
 volumes:
     postgres_data:
@@ -474,7 +408,6 @@ volumes:
     qdrant_data:
     prometheus_data:
     grafana_data:
-    loki_data:
 
 networks:
     uaip-network:

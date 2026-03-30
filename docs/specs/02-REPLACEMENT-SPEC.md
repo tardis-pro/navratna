@@ -1,10 +1,11 @@
 ---
 # Replacement Specification — Navratna v3.0
 ## Document Control
-- **Version**: 2.6
-- **Date**: 2026-03-29
+- **Version**: 2.7
+- **Date**: 2026-03-30
 - **Purpose**: Detail every technology swap, current status, and remaining work
-- **Updated**: 2026-03-29 — Code review v2.6. Oracle-assisted deep review of 179 unstaged files (+3,158/-7,769 lines). **Two critical findings**: (1) new discussion/persona routes have zero auth — anonymous create/update/delete, (2) shared `DiscussionService` doesn't load participants before start/turn flows, breaking lifecycle logic. Participant migration silently drops `displayName`/`permissions`/`turnOrder`/`turnWeight`. R3 status downgraded from ~90% to ~75%. New E-items E6–E9 added. FeatureFactory interface docs corrected to match actual code.
+- **Updated**: 2026-03-30 v2.7 — Hard constraint #4 relaxed: FeatureFactory service-level toggles formally allowed. Violation flag resolved.
+- **Previous**: 2026-03-29 — Code review v2.6. Oracle-assisted deep review of 179 unstaged files (+3,158/-7,769 lines). **Two critical findings**: (1) new discussion/persona routes have zero auth — anonymous create/update/delete, (2) shared `DiscussionService` doesn't load participants before start/turn flows, breaking lifecycle logic. Participant migration silently drops `displayName`/`permissions`/`turnOrder`/`turnWeight`. R3 status downgraded from ~90% to ~75%. New E-items E6–E9 added. FeatureFactory interface docs corrected to match actual code.
 - **Previous**: 2026-03-29 v2.5 — FeatureFactory architecture introduced across all 7 legacy services. All services now have `feature.ts` + FeatureFactory-based `index.ts`. Legacy services are modernized as importable feature modules, not deleted. Type guards replace `as any` casts across routes handlers. DRY refactoring in controllers. Discussion-orchestration local services deleted (2,709 lines). Shared schema base extracted. Hard constraint violation flagged: FeatureFactory env-var toggles (`process.env.FEATURE_X !== 'false'`) contradict the "no feature flags" rule — requires user decision.
 
 ---
@@ -25,7 +26,7 @@ These constraints are locked. They apply retroactively to everything in this spe
 
 3. **No types or interfaces defined outside `apps/packages/`.** Types shared across more than one service or component go to `apps/packages/shared-types`. Types used only within one file may stay local but must not be exported. Dedicated `types/` files within services are the first to migrate. Exception: Drizzle schema inferred types (`$inferSelect`, `$inferInsert`) stay co-located with their schema file. Component-local `interface Props` inside `.tsx` files — keep local, do not export.
 
-4. **No fallbacks. No feature flags. No rollback strategies.** Single-owner system on one machine. Migrations go direct. Old code gets deleted, not preserved. Rollback = git revert.
+4. **No fallback code paths. No runtime feature branching. No rollback strategies.** Migrations go direct. Old code gets deleted, not preserved. Rollback = git revert. **Exception**: service-level FeatureFactory toggles (e.g., `FEATURE_AGENT`, `FEATURE_AUTH`) are allowed — they control module loading at startup, not runtime branching. These toggles default to ON and exist for operational flexibility (e.g., disabling a feature module during debugging).
 
 ### Validation Commands (run after every step)
 
@@ -53,7 +54,7 @@ grep -r "ExpressRequest\|ExpressResponse\|ExpressNextFunction" --include="*.ts" 
 | 8   | Express elimination            | **100%** ✅ | `grep express` → 0 source hits. Transitive only via @modelcontextprotocol/sdk in lockfile.                                                                                                                             |
 | 9   | Types → `@packages/`           | **100%** ✅ | All service type files deleted. Zod schemas moved to @uaip/types pipeline_schemas.ts. frontend/src/types/ reduced to frontend_extensions.ts only.                                                                      |
 
-> ⚠️ **Hard Constraint Violation Flag (2026-03-29)**: FeatureFactory uses env-var toggles (`process.env.FEATURE_X !== 'false'`) in navratna-core and navratna-gateway. This contradicts Hard Constraint #4 ("No fallbacks. No feature flags."). **Requires user decision**: remove the toggles (features always on) or formally relax the constraint.
+> **Resolved (2026-03-30)**: FeatureFactory env-var toggles are formally allowed under updated constraint #4. They control service startup composition, not runtime behavior.
 
 > **Filename Convention Note (2026-03-26)**: The codebase now uses **snake_case** for all filenames. This spec has been updated accordingly. Previous versions referenced camelCase/kebab-case names that no longer exist.
 

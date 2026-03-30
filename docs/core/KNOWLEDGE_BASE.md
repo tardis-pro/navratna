@@ -165,8 +165,8 @@ All core components have been implemented, tested, and verified as production-re
 
 - **✅ KnowledgeGraphService**: Core service managing knowledge storage, retrieval, and relationships
 - **✅ Vector Database (Qdrant)**: Operational with 4 collections, 768-1024 dimensional embeddings
-- **✅ PostgreSQL Storage**: Configured with TypeORM entities for structured knowledge storage
-- **✅ TEI Embedding Service**: Running `mixedbread-ai/mxbai-embed-large-v1` model, generating 1024-dimensional vectors
+- **✅ PostgreSQL Storage**: Configured with Drizzle schema for structured knowledge storage (intelligence_schema.ts)
+- **✅ Embedding Service**: Generating 1024-dimensional vectors (TEI removed — use Ollama with nomic-embed-text or similar)
 - **✅ Redis Cache**: Active for session management and caching
 - **✅ Content Classification**: Automatic categorization into 6 knowledge types (CONCEPTUAL, PROCEDURAL, EXPERIENTIAL, EPISODIC, SEMANTIC, FACTUAL)
 - **✅ Relationship Detection**: Advanced relationship discovery between knowledge items
@@ -344,10 +344,10 @@ interface Episode {
 # All services verified operational ✅
 ✅ PostgreSQL Database: Connected (uaip_user@uaip)
 ✅ Qdrant Vector Database: 4 collections, knowledge_embeddings ready
-✅ TEI Embedding Service: mixedbread-ai/mxbai-embed-large-v1 active
+✅ Embedding Service: Active (Ollama or compatible provider)
 ✅ Redis Cache Service: Running and accessible
 ✅ Service Factory: Dependency injection configured
-✅ Knowledge Repository: TypeORM entities and relationships active
+✅ Knowledge Repository: Drizzle schema and relationships active
 ✅ Content Classifier: 6-type classification system operational
 ✅ Relationship Detector: Pattern-based relationship discovery active
 ```

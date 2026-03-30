@@ -2,10 +2,10 @@
 
 ## Document Control
 
-- **Last Updated**: 2026-03-21
+- **Last Updated**: 2026-03-30
 - **Sprint Cadence**: 2-week sprints
-- **Current Phase**: Phase 1 COMPLETE (Telescope built + integrated), Phase 0 infra NOT STARTED (Sprint 1 begins 2026-03-24)
-- **Note**: Phase 1 Telescope components built AND integrated ahead of sprint schedule (see "Already Complete" below). Remaining Phase 1 work: OpenClaw port completion + httpOnly cookie migration + OpenShell sandbox.
+- **Current Phase**: Service consolidation ~75% via FeatureFactory. TypeORM/RabbitMQ/Express fully removed. DesktopUnified deleted. TelescopeSurface built. httpOnly cookies complete. BaseBench-Meta + QuestionForge MVPs complete.
+- **Note**: Phase 1 Telescope components built AND integrated ahead of sprint schedule. Additional migrations (TypeORM→Drizzle, RabbitMQ→BullMQ, Express→Elysia) completed. Monitoring stack trimmed (kept Prometheus+Grafana, removed Loki/Promtail/exporters).
 
 <!-- STATUS KEY: [x] = done, 🔄 = in progress, [ ] = not started -->
 
@@ -39,6 +39,15 @@
 - 🔄 6 LLM providers / 30+ models not migrated to LLM Service
 - [ ] 21 cron jobs not migrated (planned Q2 2026)
 - [ ] 6 Lobster workflows not converted (planned Sprint 2+)
+
+### Technology Migrations — COMPLETE
+
+- [x] TypeORM → Drizzle ORM (two-plane schema: intelligence + control) — zero TypeORM references remain
+- [x] RabbitMQ → BullMQ on Redis Streams — zero amqplib references remain
+- [x] Express → Elysia — zero Express references remain
+- [x] Auth tokens → httpOnly JWT cookies — no localStorage auth
+- [x] DesktopUnified → TelescopeSurface — DesktopUnified.tsx deleted
+- [x] Service consolidation: 7 services → 2 via FeatureFactory (navratna-core + navratna-gateway) — ~75% complete
 
 ### Integrations — WORKING IN PRODUCTION
 
@@ -117,8 +126,7 @@
 
 <!-- Code splitting already done (19 portals) — moved to Already Complete section above -->
 
-- [x] Migrate auth tokens to httpOnly cookies — **PARTIALLY DONE** (backend sets httpOnly cookies, frontend conversationEnhancement.api.ts now reads from cookies instead of localStorage, credentials: 'include' added)
-- [ ] Complete frontend auth to rely solely on httpOnly cookies (remove any remaining localStorage auth reads)
+- [x] Migrate auth tokens to httpOnly cookies — **COMPLETE** (backend sets httpOnly cookies, frontend uses credentials: 'include', no localStorage auth reads remain)
 - [ ] Create first project config: orthopulse-hq.yaml
 - [ ] Boot Claude Code in OpenShell sandbox with project config
 - [ ] Verify Claude Code can create a PR from sandbox

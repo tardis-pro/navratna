@@ -23,7 +23,7 @@ function getDbUrl(): string {
 }
 
 export default {
-  schema: './src/database/drizzle/schema.ts',
+  schema: ['./src/database/drizzle/schemas/intelligence_schema.ts', './src/database/drizzle/schemas/control_schema.ts'],
   out: './src/database/drizzle/migrations',
   dialect: 'postgresql',
   dbCredentials: {

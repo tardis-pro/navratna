@@ -175,7 +175,7 @@ export const sessions = pgTable(
 );
 
 const userTokenColumns = {
-  userId: varchar('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id').notNull(),
   token: varchar('token', { length: 500 }).notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
 };
@@ -192,7 +192,9 @@ export const refreshTokens = pgTable(
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {
   ...base,
-  ...userTokenColumns,
+  userId: varchar('user_id').notNull(),
+  token: varchar('token', { length: 500 }).notNull().unique('password_reset_tokens_token_unique'),
+  expiresAt: timestamp('expires_at').notNull(),
   usedAt: timestamp('used_at'),
 });
 
