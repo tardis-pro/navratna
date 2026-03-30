@@ -704,6 +704,27 @@ export const tasks = pgTable('tasks', {
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
 
+export const workflowDefinitions = pgTable('workflow_definitions', {
+  ...base,
+  name: text('name').notNull(),
+  description: text('description'),
+  trigger: jsonb('trigger')
+    .$type<{ kind: 'cron' | 'every' | 'webhook' | 'event'; expr: string; tz?: string }>()
+    .notNull(),
+  steps: jsonb('steps')
+    .$type<Array<{ type: 'agentTurn' | 'bash' | 'httpCall'; [key: string]: unknown }>>()
+    .notNull(),
+  delivery: jsonb('delivery').$type<{
+    type: 'webhook' | 'email' | 'slack';
+    target: string;
+    retryPolicy?: object;
+  } | null>(),
+  enabled: boolean('enabled').default(true).notNull(),
+  agentId: text('agent_id'),
+  sessionKey: text('session_key'),
+  model: text('model'),
+});
+
 // ─── SECURITY & AUDIT ──────────────────────────────────────────────────────
 
 export const securityPolicies = pgTable('security_policies', {
@@ -767,6 +788,8 @@ export type ToolDefinition = typeof toolDefinitions.$inferSelect;
 export type NewToolDefinition = typeof toolDefinitions.$inferInsert;
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
+export type WorkflowDefinition = typeof workflowDefinitions.$inferSelect;
+export type NewWorkflowDefinition = typeof workflowDefinitions.$inferInsert;
 export type MCPServer = typeof mcpServers.$inferSelect;
 export type NewMCPServer = typeof mcpServers.$inferInsert;
 export type Project = typeof projects.$inferSelect;
