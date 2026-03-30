@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "clean": "rimraf dist",
     "lint": "oxlint src",
-    "lint:fix": "oxlint --fix src"
+    "lint:fix": "oxlint --fix src",
+    "seed:openclaw-agents": "bun src/seeds/openclaw-agent-import.ts"
   },
   "dependencies": {
     "@socket.io/bun-engine": "^0.0.2",
