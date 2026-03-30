@@ -1,8 +1,8 @@
 type Elysia = { group: Function }
 import { withNginxAuth } from '@uaip/middleware'
+import { DiscussionStatus } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import {
-  and,
   count,
   discussionMessages,
   discussionParticipants,
@@ -166,15 +166,14 @@ export function registerDiscussionRoutes(
               )
             )
 
-            const [activeHuddlesCountRow] = await db
-              .select({ total: count() })
+            const activeHuddleRows = await db
+              .select({ status: discussions.status })
               .from(discussions)
-              .where(
-                and(
-                  eq(discussions.parentDiscussionId, ctx.params.id),
-                  eq(discussions.status, 'active')
-                )
-              )
+              .where(eq(discussions.parentDiscussionId, ctx.params.id))
+
+            const activeHuddles = activeHuddleRows.filter(
+              (row) => row.status === DiscussionStatus.ACTIVE
+            ).length
 
             const currentTurn =
               isRecord(discussionRow.state) && isRecord(discussionRow.state.currentTurn)
@@ -192,7 +191,7 @@ export function registerDiscussionRoutes(
                 messageCount: messageCountRow?.total ?? 0,
                 startedAt: discussionRow.startedAt,
                 endedAt: discussionRow.endedAt,
-                activeHuddles: activeHuddlesCountRow?.total ?? 0,
+                activeHuddles,
               },
             }
           } catch (error) {
