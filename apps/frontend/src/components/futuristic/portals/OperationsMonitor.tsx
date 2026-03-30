@@ -336,13 +336,13 @@ export const OperationsMonitor: React.FC = () => {
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="text-gray-500">Progress</span>
                       <span className="text-gray-900 dark:text-white font-medium">
-                        {operation.progress}%
+                        {operation.progress.percentage}%
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${operation.progress}%` }}
+                        style={{ width: `${operation.progress.percentage}%` }}
                       />
                     </div>
                   </div>
@@ -417,20 +417,23 @@ export const OperationsMonitor: React.FC = () => {
               </div>
 
               {/* Progress */}
-              {selectedOp.progress !== undefined && (
-                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">Progress</h5>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-500">Completion</span>
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {selectedOp.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
-                    <div
-                      className="bg-blue-500 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${selectedOp.progress}%` }}
-                    />
+                {selectedOp.progress !== undefined && (
+                  <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                    <h5 className="font-medium text-gray-900 dark:text-white mb-3">Progress</h5>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-gray-500">Completion</span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {selectedOp.progress.percentage}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                      <span>{selectedOp.progress.completedSteps} / {selectedOp.progress.totalSteps} steps</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
+                      <div
+                        className="bg-blue-500 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${selectedOp.progress.percentage}%` }}
+                      />
                   </div>
                 </div>
               )}
