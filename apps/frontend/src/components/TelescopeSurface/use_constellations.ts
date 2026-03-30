@@ -13,7 +13,90 @@ import type {
   BlockVisibility,
 } from '@/components/MaterializableBlock/materializable_block_types';
 import type { Microexpression } from '@uaip/types';
-import type { ConstellationBlockData } from './telescope_surface_types';
+import type { ConstellationBlockData, ConstellationBlockMetadata } from './telescope_surface_types';
+
+const WELCOME_CONSTELLATIONS: ConstellationBlockData[] = [
+  {
+    id: 'welcome-intent',
+    type: 'artifact' as MaterializableBlockType,
+    expression: 'attentive' as Microexpression,
+    relevanceScore: 0.95,
+    visibility: 'visible' as BlockVisibility,
+    position: { x: 0, y: 0, z: 1 },
+    dimensions: { width: 288, height: 200 },
+    metadata: {
+      constellationId: 'welcome-intent',
+      constellationName: 'Start here',
+      itemCount: 0,
+      health: 'active' as ConstellationHealth,
+      tags: ['onboarding', 'intent'],
+      isExpanded: false,
+      items: [],
+      averageConfidence: 1,
+      description: 'Type anything in the field above. The surface reorganizes around your intent in real time.',
+    } satisfies ConstellationBlockMetadata,
+  },
+  {
+    id: 'welcome-knowledge',
+    type: 'artifact' as MaterializableBlockType,
+    expression: 'calm' as Microexpression,
+    relevanceScore: 0.85,
+    visibility: 'visible' as BlockVisibility,
+    position: { x: 0, y: 0, z: 1 },
+    dimensions: { width: 288, height: 200 },
+    metadata: {
+      constellationId: 'welcome-knowledge',
+      constellationName: 'Add knowledge',
+      itemCount: 0,
+      health: 'stable' as ConstellationHealth,
+      tags: ['knowledge', 'ingestion'],
+      isExpanded: false,
+      items: [],
+      averageConfidence: 1,
+      description: 'Upload documents, paste text, or connect a data source. Constellations form automatically as items cluster.',
+    } satisfies ConstellationBlockMetadata,
+  },
+  {
+    id: 'welcome-agents',
+    type: 'artifact' as MaterializableBlockType,
+    expression: 'calm' as Microexpression,
+    relevanceScore: 0.78,
+    visibility: 'visible' as BlockVisibility,
+    position: { x: 0, y: 0, z: 1 },
+    dimensions: { width: 288, height: 200 },
+    metadata: {
+      constellationId: 'welcome-agents',
+      constellationName: 'Agents are ready',
+      itemCount: 0,
+      health: 'validated' as ConstellationHealth,
+      tags: ['agents', 'intelligence'],
+      isExpanded: false,
+      items: [],
+      averageConfidence: 0.9,
+      description: 'Agents are online and monitoring for patterns. They will surface relevant constellations as context builds.',
+    } satisfies ConstellationBlockMetadata,
+  },
+  {
+    id: 'welcome-discuss',
+    type: 'artifact' as MaterializableBlockType,
+    expression: 'calm' as Microexpression,
+    relevanceScore: 0.70,
+    visibility: 'faded' as BlockVisibility,
+    position: { x: 0, y: 0, z: 1 },
+    dimensions: { width: 288, height: 200 },
+    metadata: {
+      constellationId: 'welcome-discuss',
+      constellationName: 'Start a discussion',
+      itemCount: 0,
+      health: 'stable' as ConstellationHealth,
+      tags: ['discussion', 'collaboration'],
+      isExpanded: false,
+      items: [],
+      averageConfidence: 0.85,
+      description: 'Invite agents into a structured discussion. Their reasoning and outputs feed directly into this surface.',
+    } satisfies ConstellationBlockMetadata,
+  },
+];
 
 export type { ConstellationBlockData } from './telescope_surface_types';
 
@@ -100,10 +183,11 @@ export function useConstellations(options: UseConstellationsOptions = {}) {
         const mapped = response.constellations.map((c, i) =>
           mapConstellationToBlock(c, i, expandedIdsRef.current)
         );
-        setBlocks(mapped);
+        setBlocks(mapped.length > 0 || query ? mapped : WELCOME_CONSTELLATIONS);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch constellations';
         setError(message);
+        setBlocks(WELCOME_CONSTELLATIONS);
       } finally {
         setIsLoading(false);
       }

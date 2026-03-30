@@ -10,8 +10,7 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { TelescopeSurface } from './components/TelescopeSurface';
-import { createInitialBlocks } from './components/TelescopeSurface/portal_registry';
+import { TelescopeKnowledgeSurface } from './components/TelescopeSurface';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
@@ -30,8 +29,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const initialBlocks = createInitialBlocks();
 
 function DesktopApp() {
   return (
@@ -65,11 +62,15 @@ function DesktopApp() {
                                 />
                                 <Route
                                   path="/"
-                                  element={<TelescopeSurface blocks={initialBlocks} />}
+                                  element={
+                                    <TelescopeKnowledgeSurface className="min-h-screen" />
+                                  }
                                 />
                                 <Route
                                   path="*"
-                                  element={<TelescopeSurface blocks={initialBlocks} />}
+                                  element={
+                                    <TelescopeKnowledgeSurface className="min-h-screen" />
+                                  }
                                 />
                               </Routes>
                             </BrowserRouter>

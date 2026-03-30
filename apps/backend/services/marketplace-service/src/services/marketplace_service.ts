@@ -45,7 +45,13 @@ export class MarketplaceService {
 
       const result = await this.pool
         .query<MarketplaceItem>(query, params)
-        .catch(() => ({ rows: [] as MarketplaceItem[] }));
+        .catch((err: unknown) => {
+          logger.error('Marketplace DB query failed', {
+            error: err instanceof Error ? err.message : String(err),
+            filters,
+          });
+          return { rows: [] as MarketplaceItem[] };
+        });
       return result.rows;
     } catch (error) {
       logger.error('Error searching marketplace items', { error, filters });

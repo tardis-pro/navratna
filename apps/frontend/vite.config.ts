@@ -31,6 +31,7 @@ export default defineConfig(({ mode: _mode }) => {
         '/api/v1/approvals':        toGateway,
         '/api/v1/users':            toGateway,
         '/api/v1/audit':            toGateway,
+        '/api/v1/knowledge/constellations': toCore,
         '/api/v1/knowledge':        toGateway,
         '/api/v1/contacts':         toGateway,
         '/api/v1/projects':         toGateway,

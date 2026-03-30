@@ -82,7 +82,7 @@ async function getGraphDatabase(): Promise<ToolGraphDatabase | null> {
     graphDatabase = new ToolGraphDatabase({
       uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
       user: process.env.NEO4J_USER || 'neo4j',
-      password: process.env.NEO4J_PASSWORD || 'uaip_dev_password',
+      password: process.env.NEO4J_PASSWORD ?? '',
       database: process.env.NEO4J_DATABASE || 'neo4j',
       maxConnectionPoolSize: 20,
       connectionTimeout: 5000,

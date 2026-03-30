@@ -2,6 +2,7 @@ import { ArtifactService } from '../artifact_service.js';
 import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
+import { withNginxAuth } from '@uaip/middleware';
 
 const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
 
@@ -62,10 +63,11 @@ export function registerArtifactRoutes(
   app: { group: (path: string, cb: (g: unknown) => unknown) => unknown },
   artifactService: ArtifactService
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- withNginxAuth type flows through Elysia group generics
   return (app as { group: Function }).group(
     '/api/v1/artifacts',
-    (g: { get: Function; post: Function }) =>
-      g
+    (g: any) =>
+      withNginxAuth(g)
         // List all artifacts
         .get(
           '/',

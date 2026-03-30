@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IntentField } from '@/components/IntentField/IntentField';
+import { Search } from 'lucide-react';
 import { WhisperLine } from '@/components/AmbientIntelligence';
 import { AttentionBudget } from '@/components/AttentionBudget';
 import { CrystallizationEffect } from '@/components/PredictiveIntent';
@@ -78,8 +78,8 @@ export function TelescopeKnowledgeSurface({
   const {
     blocks: constellations,
     isLoading,
-    error,
     search,
+    searchQuery,
     toggleExpand,
     constellationCount,
   } = useConstellations({ limit: 12 });
@@ -118,15 +118,16 @@ export function TelescopeKnowledgeSurface({
     isSimulating,
   } = useForceLayout(forceConfig);
 
-  // Update force layout nodes when constellations change
   useEffect(() => {
     if (visibleConstellations.length === 0) return;
+    if (dimensions.width <= 800 && dimensions.height <= 600) return;
 
     const emptyConnections: string[] = [];
+    const safeY = Math.max(300, (dimensions.height - 120) / 2);
     const forceNodes: ForceNode[] = visibleConstellations.map((c, i) => ({
       id: c.id,
-      x: dimensions.width / 2 + (i - visibleConstellations.length / 2) * (NODE_WIDTH + 20),
-      y: (dimensions.height - 120) / 2,
+      x: dimensions.width / 2 + (i - visibleConstellations.length / 2) * (NODE_WIDTH + 60),
+      y: safeY,
       vx: 0,
       vy: 0,
       relevanceScore: c.relevanceScore,
@@ -189,13 +190,39 @@ export function TelescopeKnowledgeSurface({
       role="region"
       aria-label="Telescope Knowledge Surface"
     >
-      {/* IntentField at top */}
       <div className="relative z-20 p-4 pb-2">
-        <IntentField
-          showTrigger={false}
-          placeholder="What are you looking for..."
-          onSelect={(option) => handleIntentSearch(option.title)}
-        />
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+          style={{
+            background: 'oklch(14% 0.01 264 / 0.85)',
+            borderColor: 'oklch(35% 0.04 264 / 0.5)',
+            backdropFilter: 'blur(12px)',
+          }}
+        >
+          <Search className="w-4 h-4 flex-shrink-0" style={{ color: 'oklch(55% 0.04 264)' }} />
+          <input
+            type="text"
+            placeholder="What are you looking for..."
+            value={searchQuery}
+            onChange={(e) => handleIntentSearch(e.target.value)}
+            aria-label="Search constellations"
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{
+              color: 'oklch(88% 0.02 264)',
+              caretColor: 'oklch(65% 0.18 250)',
+            }}
+          />
+          <kbd
+            className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono flex-shrink-0"
+            style={{
+              background: 'oklch(22% 0.02 264 / 0.8)',
+              color: 'oklch(55% 0.04 264)',
+              border: '1px solid oklch(35% 0.04 264 / 0.4)',
+            }}
+          >
+            ⌘K
+          </kbd>
+        </div>
       </div>
 
       {/* WhisperLine */}
@@ -217,11 +244,52 @@ export function TelescopeKnowledgeSurface({
       <div className="relative flex-1 min-h-0">
         <CrystallizationEffect isLoading={isLoading} showShimmer>
           <div className="relative w-full h-full" style={{ padding: SURFACE_PADDING }}>
+
+            {visibleConstellations.length > 1 && (
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                style={{ zIndex: 0 }}
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <defs>
+                  <linearGradient id="tks-conn-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="oklch(65% 0.12 250)" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="oklch(65% 0.12 290)" stopOpacity="0.1" />
+                  </linearGradient>
+                </defs>
+                {visibleConstellations.map((c, i) => {
+                  const next = visibleConstellations[i + 1];
+                  if (!next) return null;
+                  const posA = positions.get(c.id);
+                  const posB = positions.get(next.id);
+                  if (!posA || !posB) return null;
+                  const strength = Math.sqrt(c.relevanceScore * next.relevanceScore);
+                  return (
+                    <motion.line
+                      key={`conn-${c.id}-${next.id}`}
+                      x1={posA.x}
+                      y1={posA.y}
+                      x2={posB.x}
+                      y2={posB.y}
+                      stroke="url(#tks-conn-grad)"
+                      strokeWidth={strength * 2}
+                      strokeDasharray="6 4"
+                      initial={{ opacity: 0, pathLength: 0 }}
+                      animate={{ opacity: strength * 0.6, pathLength: 1 }}
+                      transition={{ duration: 1.2, ease: 'easeOut', delay: i * 0.1 }}
+                    />
+                  );
+                })}
+              </svg>
+            )}
+
             <AnimatePresence mode="popLayout">
               {visibleConstellations.map((constellation) => {
                 const pos = positions.get(constellation.id);
-                const x = pos ? pos.x - NODE_WIDTH / 2 : SURFACE_PADDING;
-                const y = pos ? pos.y - NODE_HEIGHT / 2 : SURFACE_PADDING;
+                const rawX = pos ? pos.x - NODE_WIDTH / 2 : SURFACE_PADDING;
+                const rawY = pos ? pos.y - NODE_HEIGHT / 2 : SURFACE_PADDING;
+                const x = Math.max(SURFACE_PADDING, Math.min(rawX, dimensions.width - NODE_WIDTH - SURFACE_PADDING));
+                const y = Math.max(SURFACE_PADDING, Math.min(rawY, dimensions.height - NODE_HEIGHT - SURFACE_PADDING));
 
                 return (
                   <motion.div
@@ -245,19 +313,11 @@ export function TelescopeKnowledgeSurface({
               })}
             </AnimatePresence>
 
-            {/* Empty state */}
             {!isLoading && visibleConstellations.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center space-y-2" style={{ color: 'oklch(60% 0.02 264)' }}>
-                  <p className="text-sm">No constellations materialized</p>
-                  {error ? (
-                    <p className="text-xs" style={{ color: 'oklch(60% 0.15 25)' }}>
-                      {error}
-                    </p>
-                  ) : (
-                    <p className="text-xs">Add knowledge or type an intent to begin</p>
-                  )}
-                </div>
+                <p className="text-sm" style={{ color: 'oklch(60% 0.02 264)' }}>
+                  The constellation is quiet
+                </p>
               </div>
             )}
           </div>

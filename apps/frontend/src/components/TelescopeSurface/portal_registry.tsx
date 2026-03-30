@@ -33,7 +33,6 @@ const ProviderSettingsPortal = lazy(() =>
     default: m.ProviderSettingsPortal,
   }))
 );
-const ToolsIntegrationsPortal = lazy(() => import('../futuristic/portals/ToolsIntegrationsPortal'));
 const ToolManagementPortal = lazy(() =>
   import('../futuristic/portals/ToolManagementPortal').then((m) => ({
     default: m.ToolManagementPortal,
@@ -95,7 +94,6 @@ const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.Componen
   settings: SettingsPortal,
   security: SecurityPortal,
   'provider-settings': ProviderSettingsPortal,
-  'tools-integrations': ToolsIntegrationsPortal,
   'tool-management': ToolManagementPortal,
   'unified-tool': UnifiedToolPortal,
   'system-config': SystemConfigPortal,
@@ -235,14 +233,6 @@ export function createInitialBlocks(): MaterializableBlockData[] {
       relevanceScore: 0.6,
       visibility: 'faded',
       metadata: { title: 'Provider Settings' },
-    },
-    {
-      id: 'tools-integrations',
-      type: 'portal',
-      expression: 'calm',
-      relevanceScore: 0.6,
-      visibility: 'faded',
-      metadata: { title: 'Tools & Integrations' },
     },
     {
       id: 'tool-management',

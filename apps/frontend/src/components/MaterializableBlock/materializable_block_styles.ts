@@ -17,7 +17,7 @@ export const EXPRESSION_STYLES: Record<Microexpression, CSSProperties> = {
   },
   alarmed: {
     borderColor: MICROEXPRESSION_COLORS.alarmed.border,
-    boxShadow: `0 0 12px ${MICROEXPRESSION_COLORS.alarmed.glow}`,
+    boxShadow: `0 0 20px ${MICROEXPRESSION_COLORS.alarmed.glow}, 0 0 40px ${MICROEXPRESSION_COLORS.alarmed.glow}`,
   },
   confused: {
     borderColor: MICROEXPRESSION_COLORS.confused.border,
@@ -40,7 +40,7 @@ export const VISIBILITY_STYLES: Record<BlockVisibility, CSSProperties> = {
     transform: 'scale(1)',
   },
   faded: {
-    opacity: 0.5,
+    opacity: 0.65,
     pointerEvents: 'auto',
     transform: 'scale(0.98)',
   },
@@ -56,29 +56,29 @@ export const BLOCK_TYPE_COLORS: Record<
   { bg: string; border: string; accent: string }
 > = {
   agent: {
-    bg: 'oklch(20% 0.02 250 / 0.8)',
-    border: 'oklch(55% 0.2 250 / 0.4)',
-    accent: 'oklch(60% 0.2 250)',
+    bg: 'oklch(15% 0.04 248 / 0.85)',
+    border: 'oklch(55% 0.22 248 / 0.5)',
+    accent: 'oklch(65% 0.25 248)',
   },
   portal: {
-    bg: 'oklch(20% 0.02 290 / 0.8)',
-    border: 'oklch(60% 0.2 290 / 0.4)',
-    accent: 'oklch(65% 0.22 290)',
+    bg: 'oklch(15% 0.04 290 / 0.85)',
+    border: 'oklch(65% 0.24 290 / 0.5)',
+    accent: 'oklch(70% 0.26 290)',
   },
   artifact: {
-    bg: 'oklch(20% 0.02 145 / 0.8)',
-    border: 'oklch(60% 0.18 145 / 0.4)',
-    accent: 'oklch(65% 0.2 145)',
+    bg: 'oklch(15% 0.04 145 / 0.85)',
+    border: 'oklch(60% 0.2 145 / 0.5)',
+    accent: 'oklch(68% 0.22 145)',
   },
   discussion: {
-    bg: 'oklch(20% 0.02 50 / 0.8)',
-    border: 'oklch(68% 0.18 50 / 0.4)',
-    accent: 'oklch(72% 0.2 50)',
+    bg: 'oklch(15% 0.04 50 / 0.85)',
+    border: 'oklch(68% 0.2 50 / 0.5)',
+    accent: 'oklch(75% 0.22 50)',
   },
   task: {
-    bg: 'oklch(20% 0.02 75 / 0.8)',
-    border: 'oklch(70% 0.18 75 / 0.4)',
-    accent: 'oklch(75% 0.2 75)',
+    bg: 'oklch(15% 0.04 75 / 0.85)',
+    border: 'oklch(70% 0.2 75 / 0.5)',
+    accent: 'oklch(78% 0.22 75)',
   },
 };
 
@@ -115,6 +115,8 @@ export const CONTAINER_STYLES: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
+  backdropFilter: 'blur(16px) saturate(200%)',
+  willChange: 'transform, opacity',
 };
 
 export const HEADER_STYLES: CSSProperties = {

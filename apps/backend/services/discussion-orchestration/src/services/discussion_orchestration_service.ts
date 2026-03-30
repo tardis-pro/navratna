@@ -42,6 +42,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private turnTimerRetryCounts: Map<string, number> = new Map();
   private participationRateLimits: Map<string, number> = new Map(); // Discussion-level rate limiting
   private cleanupInterval: NodeJS.Timeout | null = null;
+  // Periodic task intervals — stored so they can be cleared in cleanup()
+  private periodicTaskCleanup: NodeJS.Timeout | null = null;
+  private periodicTaskParticipation: NodeJS.Timeout | null = null;
+  private periodicTaskHealthMonitor: NodeJS.Timeout | null = null;
 
   private getParticipantMetadata(participant: { metadata?: Record<string, unknown> }): Record<string, unknown> {
     return participant.metadata ?? {}
@@ -1448,18 +1452,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
   }
 
   private startPeriodicTasks(): void {
-    // Start periodic cleanup and maintenance tasks
-    setInterval(() => {
+    this.periodicTaskCleanup = setInterval(() => {
       this.cleanupExpiredTimers();
-    }, 120000); // Every 2 minutes
+    }, 120000);
 
-    // Check for discussions needing agent participation every 5 seconds (near real-time)
-    setInterval(() => {
+    this.periodicTaskParticipation = setInterval(() => {
       this.checkActiveDiscussionsForParticipation();
     }, 5000);
 
-    // Monitor discussion health every 30 seconds (near real-time)
-    setInterval(() => {
+    this.periodicTaskHealthMonitor = setInterval(() => {
       this.monitorDiscussionHealth();
     }, 30000);
 
@@ -2696,10 +2697,21 @@ export class DiscussionOrchestrationService extends EventEmitter {
   async cleanup(): Promise<void> {
     logger.info('Cleaning up discussion orchestration service');
 
-    // Clear cleanup interval
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
+    }
+    if (this.periodicTaskCleanup) {
+      clearInterval(this.periodicTaskCleanup);
+      this.periodicTaskCleanup = null;
+    }
+    if (this.periodicTaskParticipation) {
+      clearInterval(this.periodicTaskParticipation);
+      this.periodicTaskParticipation = null;
+    }
+    if (this.periodicTaskHealthMonitor) {
+      clearInterval(this.periodicTaskHealthMonitor);
+      this.periodicTaskHealthMonitor = null;
     }
 
     // Clear all timers

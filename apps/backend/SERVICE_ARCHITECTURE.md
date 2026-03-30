@@ -1,6 +1,21 @@
 # Service Architecture & Routing
 
-## Service Boundaries and Responsibilities
+> ⚠️ **STALE REFERENCE DOCUMENT — Pre-v3 architecture (7 standalone services, RabbitMQ, old ports)**
+>
+> This file is kept as a historical reference only. Do NOT use ports or event bus patterns from this file.
+>
+> **Current architecture:**
+> - 2 running services: `navratna-core` (3001) and `navratna-gateway` (3002)
+> - Event bus: **BullMQ on Redis Streams** (RabbitMQ fully removed)
+> - See: `apps/backend/docs/VISION.md` for current vision and architecture
+> - See: `apps/backend/AGENTS.md` for service map
+> - See: `navratna/CLAUDE.md` for definitive port map and architecture
+>
+> **Last verified stale:** 2026-03-30
+
+---
+
+## Legacy Service Boundaries and Responsibilities (pre-v3, historical)
 
 ### 1. Security Gateway (Port 3004)
 

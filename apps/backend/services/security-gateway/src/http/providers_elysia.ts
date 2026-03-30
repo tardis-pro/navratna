@@ -138,7 +138,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
               logger.error('Error creating LLM provider', { error });
               if (error instanceof Error && error.message.includes('already exists')) {
                 set.status = 409;
-                return { success: false, error: error.message };
+                return { success: false, error: 'An LLM provider with this name already exists' };
               }
               set.status = 500;
               return { success: false, error: 'Failed to create LLM provider' };
@@ -388,7 +388,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
               logger.error('Error creating user LLM provider', { error });
               if (error instanceof Error && error.message.includes('already in use')) {
                 set.status = 409;
-                return { success: false, error: error.message };
+                return { success: false, error: 'An LLM provider name is already in use' };
               }
               set.status = 500;
               return { success: false, error: 'Failed to create LLM provider' };
@@ -489,7 +489,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
               logger.error('Error deleting user LLM provider', { error });
               if (error instanceof Error && error.message.includes('Cannot delete provider')) {
                 set.status = 400;
-                return { success: false, error: error.message, code: 'PROVIDER_IN_USE' };
+                return { success: false, error: 'Cannot delete provider — it is currently in use', code: 'PROVIDER_IN_USE' };
               }
               set.status = 500;
               return { success: false, error: 'Failed to delete LLM provider' };

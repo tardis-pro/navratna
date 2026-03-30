@@ -202,9 +202,10 @@ export class EnterpriseToolRegistry {
     } catch (error) {
       logger.error('Tool execution failed', { error, request });
 
-      this.auditToolExecution(this.generateExecutionId(), request, null, false, error.message);
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.auditToolExecution(this.generateExecutionId(), request, null, false, errMsg);
 
-      return { success: false, error: error.message };
+      return { success: false, error: 'Tool execution failed' };
     }
   }
 

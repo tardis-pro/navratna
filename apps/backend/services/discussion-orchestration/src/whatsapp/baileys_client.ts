@@ -180,7 +180,11 @@ export class BaileysClient extends EventEmitter {
           if (statusCode === DisconnectReason.loggedOut) {
             this.setState('disconnected');
             this.emit('disconnected', 'Logged out from WhatsApp');
-            clearRedisAuthState(this.redis).catch(() => {});
+            clearRedisAuthState(this.redis).catch((err: unknown) => {
+              this.logger.error('Failed to clear WhatsApp Redis auth state on logout', {
+                error: err instanceof Error ? err.message : String(err),
+              });
+            });
           } else if (!this.destroyed) {
             this.scheduleReconnect(reason);
           }

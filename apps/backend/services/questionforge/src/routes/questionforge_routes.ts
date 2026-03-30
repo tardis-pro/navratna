@@ -1,5 +1,6 @@
 import { logger } from '@uaip/utils';
 import type { Question } from '@uaip/types';
+import { withNginxAuth } from '@uaip/middleware';
 import { QuestionForgeService } from '../services/question_forge_service.js';
 import { InterviewCaptureService } from '../services/interview_capture_service.js';
 
@@ -18,7 +19,7 @@ export function registerQuestionForgeRoutes(
   interviewService: InterviewCaptureService
 ) {
   return app.group('/api/v1/questionforge', (g: ElysiaApp) =>
-    g
+    withNginxAuth(g)
       // Run the full QuestionForge pipeline
       .post('/forge', async ({ body, set }: RouteContext) => {
         try {

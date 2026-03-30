@@ -4,6 +4,8 @@
 
 Backend workspace root. Contains shared backend config (tsconfig, esbuild, docker), API testing tools, and service orchestration. Individual service AGENTS.md files live in `services/<name>/`.
 
+**Vision & Architecture:** See `docs/VISION.md` for the full backend vision — FeatureFactory pattern, three-product runtime, relevance engine, metacognitive layer, triple-store architecture, and Phase 2 roadmap.
+
 ## STRUCTURE
 
 ```

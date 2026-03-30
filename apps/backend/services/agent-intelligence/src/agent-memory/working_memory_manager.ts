@@ -3,7 +3,7 @@ import { WorkingMemory, WorkingMemoryUpdate, Interaction, EmotionalState } from 
 export class WorkingMemoryManager {
   private redisUrl: string;
 
-  constructor(redisUrl: string = 'redis://:uaip_redis_password@redis:6379') {
+  constructor(redisUrl: string = process.env.REDIS_URL ?? 'redis://redis:6379') {
     this.redisUrl = redisUrl;
   }
 

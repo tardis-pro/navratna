@@ -1,5 +1,6 @@
 import { CapabilityController } from '../controllers/capability_controller.js';
 import { logger } from '@uaip/utils';
+import { withNginxAuth } from '@uaip/middleware';
 
 interface RouteContext {
   query?: Record<string, unknown>;
@@ -26,18 +27,19 @@ export function registerCapabilityRoutes(app: unknown, controller?: CapabilityCo
 
   logger.info('Registering capability routes');
 
-  return routeApp.group('/api/v1/capabilities', (g: RouteGroup) =>
-    g
-      .get('/search', (ctx) => capabilityController.searchCapabilities(ctx))
-      .get('/categories', (ctx) => capabilityController.getCategories(ctx))
-      .get('/recommendations', (ctx) => capabilityController.getRecommendations(ctx))
-      .get('/', (ctx) => capabilityController.listCapabilities(ctx))
-      .get('/:id', (ctx) => capabilityController.getCapability(ctx))
-      .get('/:id/dependencies', (ctx) => capabilityController.getCapabilityDependencies(ctx))
-      .post('/', (ctx) => capabilityController.registerCapability(ctx))
-      .post('/:id/execute', (ctx) => capabilityController.executeCapability(ctx))
-      .post('/:id/validate', (ctx) => capabilityController.validateCapability(ctx))
-      .put('/:id', (ctx) => capabilityController.updateCapability(ctx))
-      .delete('/:id', (ctx) => capabilityController.deleteCapability(ctx))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- withNginxAuth type flows through Elysia group generics
+  return routeApp.group('/api/v1/capabilities', (g: any) =>
+    withNginxAuth(g)
+      .get('/search', (ctx: RouteContext) => capabilityController.searchCapabilities(ctx))
+      .get('/categories', (ctx: RouteContext) => capabilityController.getCategories(ctx))
+      .get('/recommendations', (ctx: RouteContext) => capabilityController.getRecommendations(ctx))
+      .get('/', (ctx: RouteContext) => capabilityController.listCapabilities(ctx))
+      .get('/:id', (ctx: RouteContext) => capabilityController.getCapability(ctx))
+      .get('/:id/dependencies', (ctx: RouteContext) => capabilityController.getCapabilityDependencies(ctx))
+      .post('/', (ctx: RouteContext) => capabilityController.registerCapability(ctx))
+      .post('/:id/execute', (ctx: RouteContext) => capabilityController.executeCapability(ctx))
+      .post('/:id/validate', (ctx: RouteContext) => capabilityController.validateCapability(ctx))
+      .put('/:id', (ctx: RouteContext) => capabilityController.updateCapability(ctx))
+      .delete('/:id', (ctx: RouteContext) => capabilityController.deleteCapability(ctx))
   );
 }
