@@ -79,17 +79,16 @@ export class LLMService {
         this.userLLMProviderRepository = databaseService.userLLMProviderRepository;
       }
 
-      // Get active providers from all users (UserLLMProvider)
-      const userProviders = await this.userLLMProviderRepository!.findMany({ isActive: true });
+      const dbProviders = await this.llmProviderRepository!.findMany({ isActive: true });
 
-      logger.info(`Found ${userProviders.length} active user providers in database`);
+      logger.info(`Found ${dbProviders.length} active providers in database`);
 
       // Clear existing providers
       this.providers.clear();
 
       // Group providers by type to avoid duplicates
       const providersByType = new Map<string, Record<string, unknown>>();
-      for (const userProvider of userProviders) {
+      for (const userProvider of dbProviders) {
         if (!providersByType.has(userProvider.type as string)) {
           providersByType.set(userProvider.type as string, userProvider);
         }
@@ -540,7 +539,7 @@ export class LLMService {
       for (const dbProvider of dbProviders) {
         const providerType = (dbProvider.type as string) || 'custom';
         const providerName = (dbProvider.name as string) || 'Unknown';
-        const providerBaseUrl = (dbProvider.base_url as string) || '';
+        const providerBaseUrl = (dbProvider.baseUrl as string) || '';
         const provider = this.providers.get(providerType);
         if (!provider) {
           logger.warn(`Provider type ${providerType} not initialized, skipping`);
@@ -701,9 +700,9 @@ export class LLMService {
         for (const dbProvider of dbProviders) {
           const providerType = (dbProvider.type as string) || 'custom';
           const providerName = (dbProvider.name as string) || 'Unknown';
-          const providerBaseUrl = (dbProvider.base_url as string) || '';
-          const providerIsActive = (dbProvider.is_active as boolean) || false;
-          const providerDefaultModel = (dbProvider.default_model as string) || undefined;
+          const providerBaseUrl = (dbProvider.baseUrl as string) || '';
+          const providerIsActive = (dbProvider.isActive as boolean) || false;
+          const providerDefaultModel = (dbProvider.defaultModel as string) || undefined;
           const isInitialized = this.providers.has(providerType);
           let modelCount = 0;
 

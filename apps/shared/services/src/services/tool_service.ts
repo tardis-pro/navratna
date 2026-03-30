@@ -83,22 +83,22 @@ export class ToolService extends BaseDomainService {
     return await toolRepo.getTools({ enabled: true });
   }
 
-  public async findToolsByCategory(category: string): Promise<Record<string, unknown>[]> {
+  public async findToolsByCategory(category: ToolCategory): Promise<Record<string, unknown>[]> {
     const toolRepo = this.getToolRepository();
     return await toolRepo.getTools({ category });
   }
 
   public async updateTool(
     id: string,
-    data: Record<string, unknown>
+    data: Parameters<ToolRepository['updateTool']>[1]
   ): Promise<Record<string, unknown> | null> {
     const toolRepo = this.getToolRepository();
-    await toolRepo.update(id, data);
+    await toolRepo.updateTool(id, data);
     return await this.findToolById(id);
   }
 
   public async deactivateTool(id: string): Promise<boolean> {
-    const result = await this.getToolRepository().update(id, { isEnabled: false });
+    const result = await this.getToolRepository().updateTool(id, { isEnabled: false });
     return result !== null;
   }
 
@@ -135,7 +135,7 @@ export class ToolService extends BaseDomainService {
     }
   ): Promise<Record<string, unknown> | null> {
     const executionRepo = this.getToolExecutionRepository();
-    const updates: Record<string, unknown> = {
+    const updates: Parameters<ToolExecutionRepository['updateExecution']>[1] = {
       status: data.status,
       result: data.output,
     };
@@ -161,10 +161,13 @@ export class ToolService extends BaseDomainService {
       data.status === ToolExecutionStatus.COMPLETED ||
       data.status === ToolExecutionStatus.FAILED
     ) {
-      updates.end_time = new Date();
+      updates.metadata = {
+        ...(updates.metadata ?? {}),
+        completedAt: new Date().toISOString(),
+      };
     }
 
-    await executionRepo.update(id, updates);
+    await executionRepo.updateExecution(id, updates);
     return await executionRepo.getToolExecution(id);
   }
 
@@ -286,11 +289,11 @@ export class ToolService extends BaseDomainService {
     return results;
   }
 
-  public async deactivateToolsByCategory(category: string): Promise<number> {
+  public async deactivateToolsByCategory(category: ToolCategory): Promise<number> {
     const tools = await this.getToolRepository().getTools({ category });
     let count = 0;
     for (const tool of tools) {
-      await this.getToolRepository().update(tool.id as string, { isEnabled: false });
+      await this.getToolRepository().updateTool(tool.id, { isEnabled: false });
       count++;
     }
     return count;
@@ -312,10 +315,10 @@ export class ToolService extends BaseDomainService {
 
   public async updateToolExecution(
     executionId: string,
-    updates: Record<string, unknown>
+    updates: Parameters<ToolExecutionRepository['updateExecution']>[1]
   ): Promise<void> {
     const executionRepo = this.getToolExecutionRepository();
-    await executionRepo.update(executionId, updates);
+    await executionRepo.updateExecution(executionId, updates);
   }
 
   public getRedisService(): RedisCacheService {
@@ -332,7 +335,7 @@ export class ToolService extends BaseDomainService {
 
   public async getTools(filters: {
     enabled?: boolean;
-    category?: string;
+    category?: ToolCategory;
   }): Promise<Record<string, unknown>[]> {
     if (filters.category) {
       return this.findToolsByCategory(filters.category);
@@ -394,7 +397,7 @@ export class ToolService extends BaseDomainService {
     return [];
   }
 
-  public async getToolsByCategory(category: string): Promise<Record<string, unknown>[]> {
+  public async getToolsByCategory(category: ToolCategory): Promise<Record<string, unknown>[]> {
     return this.findToolsByCategory(category);
   }
 }

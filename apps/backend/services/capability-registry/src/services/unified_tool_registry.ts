@@ -881,7 +881,9 @@ export class UnifiedToolRegistry {
 
       // Get category-based recommendations
       if (context.category) {
-        const categoryRecs = await this.toolService.getToolsByCategory(context.category);
+        const categoryRecs = await this.toolService.getToolsByCategory(
+          context.category as ToolCategory
+        );
         recommendations.push(
           ...categoryRecs.map((tool: Record<string, unknown>) => ({
             toolId: String(tool.id),

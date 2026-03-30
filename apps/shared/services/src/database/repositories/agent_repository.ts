@@ -1,4 +1,4 @@
-import { eq, desc, and, inArray } from 'drizzle-orm';
+import { eq, desc, and, inArray, ilike, or } from 'drizzle-orm';
 import { getIntelligenceDb } from '../drizzle/clients/index';
 import {
   agents,
@@ -9,6 +9,7 @@ import {
   type NewPersona,
 } from '../drizzle/schemas/intelligence_schema';
 import { logger } from '@uaip/utils';
+import { PersonaStatus, PersonaVisibility } from '@uaip/types';
 
 export class AgentRepository {
   private get db() {
@@ -113,7 +114,6 @@ export class PersonaRepository {
 
   async search(query: string, options: { limit?: number; offset?: number } = {}): Promise<PersonaRow[]> {
     try {
-      const { ilike, or } = await import('drizzle-orm');
       const pattern = `%${query}%`;
       return this.db
         .select()
@@ -179,8 +179,8 @@ export class PersonaRepository {
         systemPrompt: 'You are a helpful AI assistant.',
         traits: [],
         expertise: [],
-        status: 'active',
-        visibility: 'private',
+        status: PersonaStatus.ACTIVE,
+        visibility: PersonaVisibility.PRIVATE,
         createdBy: 'system',
         version: 1,
         tags: [],

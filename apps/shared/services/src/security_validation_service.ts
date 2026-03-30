@@ -241,7 +241,7 @@ export class SecurityValidationService {
         operationId,
         requiredApprovers: approvers,
         status: 'pending',
-        metadata: context,
+        metadata: SecurityValidationService.asRecord(context),
       });
 
       logger.info('Approval workflow created', { workflowId, operationId, approvers });

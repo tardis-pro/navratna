@@ -28,11 +28,11 @@ interface ToolExecutionEntity {
   operationId?: string;
   status: string;
   parameters?: Record<string, unknown>;
-  result?: unknown;
+  result?: Record<string, unknown>;
   error?: string;
   duration?: number;
   tokensUsed?: number;
-  cost?: number;
+  cost?: string;
   metadata?: Record<string, unknown>;
   createdAt?: Date;
   updatedAt?: Date;
@@ -233,7 +233,7 @@ export class ToolExecutionService {
       agentId: execution.agentId,
       parameters: execution.parameters,
       status: execution.status,
-      result: execution.result,
+      result: ToolExecutionService.toRecord(execution.result),
       error: execution.error ? JSON.stringify(execution.error) : undefined,
       metadata: execution.metadata,
     };
@@ -243,7 +243,7 @@ export class ToolExecutionService {
     updates: Partial<ToolExecutionType>
   ): Partial<ToolExecutionEntity> {
     return {
-      result: updates.result,
+      result: ToolExecutionService.toRecord(updates.result),
       error: updates.error ? JSON.stringify(updates.error) : undefined,
     };
   }

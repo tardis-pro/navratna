@@ -11,6 +11,10 @@ import {
   ProjectType,
 } from '@uaip/types';
 import type { NewTask, Task } from './database/drizzle/schemas/control_schema';
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | Date | JsonValue[] | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
 import type {
   CreateProjectData,
   CreateTaskData,
@@ -57,7 +61,7 @@ async function generateUniqueSlug(repo: IRepository<ProjectEntity>): Promise<str
   return tryGenerate(0);
 }
 
-function isRecord(value: object | null): value is Record<string, unknown> {
+function isRecord(value: object | null): value is Record<string, JsonValue> {
   return typeof value === 'object' && value !== null;
 }
 
@@ -302,7 +306,6 @@ export class ProjectManagementService {
     }
   }
 
-  // Keep old name as alias so unknown other callers don't break
   async addProjectAgent(
     projectId: string,
     userId: string,
@@ -384,7 +387,7 @@ export class ProjectManagementService {
       assigneeId: updates.assigneeId ?? null,
       dueAt: updates.dueAt ?? null,
       completedAt: updates.completedAt ?? null,
-      metadata: (updates.metadata as Record<string, unknown> | null) ?? null,
+      metadata: (updates.metadata as JsonObject | null) ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -396,7 +399,7 @@ export class ProjectManagementService {
     userId?: string;
     executionTimeMs?: number;
     success?: boolean;
-    metadata?: Record<string, unknown>;
+    metadata?: JsonObject;
   }): Promise<void> {
     logger.warn('recordToolUsage called but tool usage tracking not yet implemented', { data });
   }

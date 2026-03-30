@@ -11,7 +11,9 @@ export interface TaskTypeContext {
   action?: string;
 }
 
-type AgentPreferenceWithTaskType = Record<string, unknown>;
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
+type AgentPreferenceWithTaskType = { [key: string]: JsonValue };
 
 export class AgentTaskTypeResolver {
   private databaseService: DatabaseService;

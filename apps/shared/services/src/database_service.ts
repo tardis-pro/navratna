@@ -9,7 +9,7 @@ import type {
 import type { Discussion } from './database/drizzle/schemas/intelligence_schema';
 
 type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+type JsonValue = JsonPrimitive | Date | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue };
 type ObjectLiteral = Record<string, JsonValue>;
 type SqlParameter = string | number | boolean | Date | null | JsonObject | JsonValue[];
@@ -95,7 +95,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
   }
 
   async save(entity: Partial<T>): Promise<T> {
-    const rec = entity as Record<string, unknown>;
+    const rec = entity as Record<string, JsonValue>;
     if (rec.id) {
       const keys = Object.keys(rec).filter((k) => k !== 'id');
       const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
@@ -121,7 +121,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
   }
 
   async update(id: string, data: Partial<T>): Promise<void> {
-    const keys = Object.keys(data as Record<string, unknown>);
+    const keys = Object.keys(data as Record<string, JsonValue>);
     if (keys.length === 0) return;
     const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
     const vals: SqlParameter[] = [
@@ -236,7 +236,7 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     return result.rows[0]?.count ?? 0;
   }
 
-  async getRawMany(): Promise<Record<string, unknown>[]> {
+  async getRawMany(): Promise<Record<string, JsonValue>[]> {
     const result = await this.pool.query(this.buildQuery(), this.params);
     return result.rows;
   }
@@ -264,11 +264,11 @@ import { SmartEmbeddingService } from './knowledge-graph/smart_embedding_service
 // Database error handling
 export class DatabaseError extends Error {
   public readonly code?: string;
-  public readonly details?: Record<string, unknown>;
+  public readonly details?: JsonObject;
 
   constructor(
     message: string,
-    options?: { code?: string; details?: Record<string, unknown>; originalError?: string }
+    options?: { code?: string; details?: JsonObject; originalError?: string }
   ) {
     super(message);
     this.name = 'DatabaseError';
@@ -425,7 +425,6 @@ export class DatabaseService {
         smartEmbeddingService
       );
 
-      // This discovers data from unknown source and syncs bidirectionally
       await bootstrapService.runPostSeedSync();
 
       // Get and log statistics
@@ -785,7 +784,7 @@ export class DatabaseService {
         const keys = Object.keys(records[0]);
         const cols = keys.map((k) => `"${k}"`).join(', ');
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        const vals = keys.map((k) => (records[0] as Record<string, unknown>)[k]);
+        const vals = keys.map((k) => (records[0] as Record<string, JsonValue>)[k]);
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`, vals);
       } else {
         const keys = Object.keys(records[0]);
@@ -796,7 +795,7 @@ export class DatabaseService {
             return `(${placeholders})`;
           })
           .join(', ');
-        const vals = records.flatMap((rec) => keys.map((k) => (rec as Record<string, unknown>)[k]));
+        const vals = records.flatMap((rec) => keys.map((k) => (rec as Record<string, JsonValue>)[k]));
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES ${valuesClauses}`, vals);
       }
 
@@ -910,9 +909,10 @@ export class DatabaseService {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<Record<string, unknown> | null> {
+  public async getOperationState(operationId: string): Promise<JsonObject | null> {
     await this.ensureInitialized();
-    return this.operationService.getOperationStateRepository().getOperationState(operationId);
+    const state = await this.operationService.getOperationStateRepository().getOperationState(operationId);
+    return (state as JsonObject | null) ?? null;
   }
 
   /**
@@ -945,24 +945,24 @@ export class DatabaseService {
   public async getCheckpoint(
     operationId: string,
     checkpointId: string
-  ): Promise<Record<string, unknown> | null> {
+  ): Promise<JsonObject | null> {
     await this.ensureInitialized();
     const checkpoints = await this.operationService
       .getOperationCheckpointRepository()
       .listCheckpoints(operationId);
     const checkpoint = checkpoints.find((item) => item.id === checkpointId);
-    return checkpoint?.data ?? null;
+    return (checkpoint?.data as JsonObject | undefined) ?? null;
   }
 
   /**
    * List checkpoints
    */
-  public async listCheckpoints(operationId: string): Promise<Record<string, unknown>[]> {
+  public async listCheckpoints(operationId: string): Promise<JsonObject[]> {
     await this.ensureInitialized();
     const checkpoints = await this.operationService
       .getOperationCheckpointRepository()
       .listCheckpoints(operationId);
-    return checkpoints.map((checkpoint) => checkpoint.data);
+    return checkpoints.map((checkpoint) => checkpoint.data as JsonObject);
   }
 
   /**

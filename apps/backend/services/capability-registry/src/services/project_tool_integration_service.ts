@@ -5,6 +5,9 @@ import { ProjectStatus } from '@uaip/types';
 import { UnifiedToolRegistry } from './unified_tool_registry.js';
 import { logger } from '@uaip/utils';
 
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
 export interface ProjectToolContext {
   projectId: string;
   taskId?: string;
@@ -489,19 +492,19 @@ export class ProjectToolIntegrationService {
     try {
       await this.projectService.recordToolUsage({
         projectId: request.context.projectId,
-        taskId: request.context.taskId,
         toolId: request.toolId,
-        toolName: request.toolId, // Would get from tool definition
-        agentId: request.context.agentId,
         userId: request.context.userId,
-        operation: request.operation,
         success: !errorMessage,
-        executionTime,
-        cost: actualCost,
-        input: this.sanitizeData(request.parameters),
-        output: this.sanitizeData(result),
-        errorMessage,
+        executionTimeMs: executionTime,
         metadata: {
+          taskId: request.context.taskId,
+          toolName: request.toolId,
+          agentId: request.context.agentId,
+          operation: request.operation,
+          cost: actualCost,
+          input: this.sanitizeData(request.parameters),
+          output: this.sanitizeData(result),
+          errorMessage,
           priority: request.priority,
           estimatedCost: request.estimatedCost,
           estimatedDuration: request.estimatedDuration,
@@ -558,28 +561,35 @@ export class ProjectToolIntegrationService {
     return [];
   }
 
-  private sanitizeData(data: unknown): unknown {
-    if (!data) return null;
+  private sanitizeData(data: unknown): JsonValue {
+    if (data === null || data === undefined) {
+      return null;
+    }
 
-    // Remove sensitive information
-    const sanitized = JSON.parse(JSON.stringify(data));
+    if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+      return data;
+    }
 
-    // Remove common sensitive fields
+    if (Array.isArray(data)) {
+      return data.map((item) => this.sanitizeData(item));
+    }
+
+    if (typeof data !== 'object') {
+      return String(data);
+    }
+
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'credential'];
-    const remove = (obj: unknown) => {
-      if (typeof obj === 'object' && obj !== null) {
-        const record = obj as Record<string, unknown>;
-        for (const key in obj) {
-          if (sensitiveFields.some((field) => key.toLowerCase().includes(field))) {
-            record[key] = '[REDACTED]';
-          } else if (typeof record[key] === 'object') {
-            remove(record[key]);
-          }
-        }
-      }
-    };
+    const sanitized: { [key: string]: JsonValue } = {};
+    const record = data as Record<string, unknown>;
 
-    remove(sanitized);
+    for (const [key, value] of Object.entries(record)) {
+      if (sensitiveFields.some((field) => key.toLowerCase().includes(field))) {
+        sanitized[key] = '[REDACTED]';
+        continue;
+      }
+      sanitized[key] = this.sanitizeData(value);
+    }
+
     return sanitized;
   }
 

@@ -328,8 +328,7 @@ export class StateManagerService {
 
       const checkpoints = await this.checkpointRepo.listCheckpoints(operationId);
 
-      // Sort by timestamp (newest first)
-      checkpoints.sort((a, b) => (b.timestamp as Date).getTime() - (a.timestamp as Date).getTime());
+      checkpoints.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       logger.debug('Checkpoints retrieved', {
         operationId,

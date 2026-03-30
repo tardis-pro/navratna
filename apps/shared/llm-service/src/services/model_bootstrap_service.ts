@@ -275,7 +275,7 @@ export class ModelBootstrapService {
     try {
       // Use a simpler approach: query all users and check if they have providers
       const userRepository = this.userService.getUserRepository();
-      const allUsers = await userRepository.findMany();
+      const { users: allUsers } = await userRepository.queryUsers({});
 
       const usersWithProviders: string[] = [];
 

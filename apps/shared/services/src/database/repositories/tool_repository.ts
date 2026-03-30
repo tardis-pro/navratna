@@ -116,6 +116,58 @@ export class ToolRepository {
       throw error;
     }
   }
+
+  async findById(id: string): Promise<ToolDefinitionRow | null> {
+    try {
+      const [row] = await this.db
+        .select()
+        .from(toolDefinitions)
+        .where(eq(toolDefinitions.id, id))
+        .limit(1);
+
+      return row ?? null;
+    } catch (error: unknown) {
+      logger.error('ToolRepository.findById failed', {
+        id,
+        error: getErrorMessage(error),
+      });
+      throw error;
+    }
+  }
+
+  async updateTool(
+    id: string,
+    data: Partial<ToolDefinitionInsert>
+  ): Promise<ToolDefinitionRow | null> {
+    try {
+      const [row] = await this.db
+        .update(toolDefinitions)
+        .set(data)
+        .where(eq(toolDefinitions.id, id))
+        .returning();
+
+      return row ?? null;
+    } catch (error: unknown) {
+      logger.error('ToolRepository.updateTool failed', {
+        id,
+        error: getErrorMessage(error),
+      });
+      throw error;
+    }
+  }
+
+  async deleteTool(id: string): Promise<boolean> {
+    try {
+      const result = await this.db.delete(toolDefinitions).where(eq(toolDefinitions.id, id));
+      return (result.rowCount ?? 0) > 0;
+    } catch (error: unknown) {
+      logger.error('ToolRepository.deleteTool failed', {
+        id,
+        error: getErrorMessage(error),
+      });
+      throw error;
+    }
+  }
 }
 
 export class ToolExecutionRepository {
@@ -211,6 +263,27 @@ export class ToolExecutionRepository {
     } catch (error: unknown) {
       logger.error('ToolExecutionRepository.getToolExecutions failed', {
         filters,
+        error: getErrorMessage(error),
+      });
+      throw error;
+    }
+  }
+
+  async updateExecution(
+    id: string,
+    data: Partial<ToolExecutionInsert>
+  ): Promise<ToolExecutionRow | null> {
+    try {
+      const [row] = await this.db
+        .update(toolExecutions)
+        .set(data)
+        .where(eq(toolExecutions.id, id))
+        .returning();
+
+      return row ?? null;
+    } catch (error: unknown) {
+      logger.error('ToolExecutionRepository.updateExecution failed', {
+        id,
         error: getErrorMessage(error),
       });
       throw error;

@@ -20,6 +20,37 @@ import { logger } from '@uaip/utils';
 import { PersonaRepository } from './database/repositories/agent_repository';
 import type { Persona as PersonaRow, NewPersona } from './database/drizzle/schemas/intelligence_schema';
 
+type QueryParam = string | number | boolean | Date | string[];
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | Date | JsonValue[] | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
+type PersonaHistoryItem = {
+  personaId: string;
+  usedAt: Date;
+  duration: number;
+  messageCount: number;
+};
+type PersonaMetricsSnapshot = {
+  totalSessions: number;
+  totalMessages: number;
+  averageSessionDuration: number;
+  uniqueUsers: number;
+  satisfactionScore: number;
+  completionRate: number;
+  errorRate: number;
+};
+type PersonaTrendSnapshot = {
+  usageGrowth: number;
+  satisfactionTrend: number;
+  popularityRank: number;
+};
+type PersonaInteractionStat = { type: string; count: number; averageDuration: number };
+type PersonaIssueStat = {
+  severity: 'low' | 'medium' | 'high';
+  frequency: number;
+  issue: string;
+};
+
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
   eventBusService: EventBusService;
@@ -116,10 +147,10 @@ export class PersonaService {
         tags: personaData.tags as string[],
         validation: personaData.validation as PersonaValidation | undefined,
         usageStats: personaData.usageStats as PersonaUsageStats | undefined,
-        configuration: personaData.configuration as Record<string, unknown> | undefined,
+        configuration: personaData.configuration as JsonObject | undefined,
         capabilities: personaData.capabilities as string[],
-        restrictions: personaData.restrictions as Record<string, unknown> | undefined,
-        metadata: personaData.metadata as Record<string, unknown> | undefined,
+        restrictions: personaData.restrictions as JsonObject | undefined,
+        metadata: personaData.metadata as JsonObject | undefined,
       } as NewPersona);
       const persona = this.entityToPersona(savedEntity);
 
@@ -174,7 +205,7 @@ export class PersonaService {
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
 
-      const updateData: Record<string, unknown> = { ...updates };
+      const updateData: Record<string, JsonValue> = { ...updates };
       if (updates.expertise) {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
@@ -481,7 +512,7 @@ export class PersonaService {
   async getPersonaTemplates(category?: string): Promise<PersonaTemplate[]> {
     try {
       let query = `SELECT * FROM "personas"`;
-      const params: unknown[] = [];
+      const params: QueryParam[] = [];
 
       if (category) {
         query += ` WHERE tags LIKE $1`;
@@ -490,10 +521,7 @@ export class PersonaService {
 
       query += ` ORDER BY totalInteractions DESC`;
 
-      const entities = (await this.databaseService.executeQuery(query, params)) as Record<
-        string,
-        unknown
-      >[];
+      const entities = await this.databaseService.executeQuery<PersonaRow>(query, params);
 
       return entities.map((entity) => ({
         id: entity.id as string,
@@ -594,11 +622,11 @@ export class PersonaService {
 
   private buildSearchQuery(filters: PersonaSearchFilters): {
     whereClause: string;
-    params: unknown[];
+    params: QueryParam[];
     orderBy: string;
   } {
     const conditions: string[] = [];
-    const params: unknown[] = [];
+    const params: QueryParam[] = [];
     let paramIndex = 1;
 
     if (filters.query) {
@@ -684,12 +712,12 @@ export class PersonaService {
     return 0;
   }
 
-  private async getUserPersonaHistory(_userId: string): Promise<unknown[]> {
+  private async getUserPersonaHistory(_userId: string): Promise<PersonaHistoryItem[]> {
     return [];
   }
 
   private async generateRecommendations(
-    _userHistory: unknown[],
+    _userHistory: PersonaHistoryItem[],
     _context?: string,
     _limit = 10
   ): Promise<PersonaRecommendation[]> {
@@ -717,7 +745,7 @@ export class PersonaService {
   private async calculatePersonaMetrics(
     _personaId: string,
     _timeframe: { start: Date; end: Date }
-  ): Promise<unknown> {
+  ): Promise<PersonaMetricsSnapshot> {
     return {
       totalSessions: 0,
       totalMessages: 0,
@@ -732,7 +760,7 @@ export class PersonaService {
   private async calculatePersonaTrends(
     _personaId: string,
     _timeframe: { start: Date; end: Date }
-  ): Promise<unknown> {
+  ): Promise<PersonaTrendSnapshot> {
     return {
       usageGrowth: 0,
       satisfactionTrend: 0,
@@ -743,14 +771,14 @@ export class PersonaService {
   private async getTopInteractions(
     _personaId: string,
     _timeframe: { start: Date; end: Date }
-  ): Promise<unknown[]> {
+  ): Promise<PersonaInteractionStat[]> {
     return [];
   }
 
   private async getCommonIssues(
     _personaId: string,
     _timeframe: { start: Date; end: Date }
-  ): Promise<unknown[]> {
+  ): Promise<PersonaIssueStat[]> {
     return [];
   }
 
@@ -771,7 +799,7 @@ export class PersonaService {
     return Math.min(score, 100);
   }
 
-  private async safePublishEvent(eventType: string, data: unknown): Promise<void> {
+  private async safePublishEvent(eventType: string, data: Record<string, JsonValue>): Promise<void> {
     try {
       await this.eventBusService.publish(eventType, data);
     } catch (error) {
@@ -787,8 +815,8 @@ export class PersonaService {
     const _traits = (entity.traits as string[]) || [];
     const tags = (entity.tags as string[]) || [];
     const capabilities = (entity.capabilities as string[]) || [];
-    const restrictions = (entity.restrictions as Record<string, unknown>) || {};
-    const configuration = (entity.configuration as Record<string, unknown>) || {};
+    const restrictions = (entity.restrictions as JsonObject) || {};
+    const configuration = (entity.configuration as JsonObject) || {};
     const validation = entity.validation as PersonaValidation | undefined;
     const usageStats = entity.usageStats as PersonaUsageStats | undefined;
 
@@ -833,7 +861,7 @@ export class PersonaService {
       configuration,
       capabilities,
       restrictions,
-      metadata: entity.metadata as Record<string, unknown> | undefined,
+      metadata: entity.metadata as JsonObject | undefined,
       createdAt: entity.createdAt as Date,
       updatedAt: entity.updatedAt as Date,
     };

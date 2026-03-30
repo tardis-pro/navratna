@@ -149,6 +149,33 @@ export class OperationCheckpointRepository {
       throw error;
     }
   }
+
+  async getCheckpoint(
+    operationId: string,
+    checkpointId: string
+  ): Promise<(typeof operationCheckpoints.$inferSelect) | null> {
+    try {
+      const [row] = await this.db
+        .select()
+        .from(operationCheckpoints)
+        .where(
+          and(
+            eq(operationCheckpoints.operationId, operationId),
+            eq(operationCheckpoints.id, checkpointId)
+          )
+        )
+        .limit(1);
+
+      return row ?? null;
+    } catch (error) {
+      logger.error('OperationCheckpointRepository.getCheckpoint failed', {
+        operationId,
+        checkpointId,
+        error: (error as Error).message,
+      });
+      throw error;
+    }
+  }
 }
 
 export class StepResultRepository {

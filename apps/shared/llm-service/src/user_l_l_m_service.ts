@@ -96,29 +96,49 @@ export class UserLLMService {
   ): Promise<UserLLMProvider> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const providerRecord = (await repository.create({
-        user_id: userId,
+      const providerRecord = await repository.create({
+        userId,
+        providerId: data.type,
+        apiKeyEncrypted: data.apiKey,
+        isDefault: false,
+        configuration: {
+          ...(data.configuration ?? {}),
+          name: data.name,
+          description: data.description,
+          type: data.type,
+          baseUrl: data.baseUrl,
+          defaultModel: data.defaultModel,
+          isActive: true,
+          priority: data.priority,
+        },
+      });
+
+      const createdProvider: UserLLMProvider = {
+        id: providerRecord.id,
+        userId: providerRecord.userId,
         name: data.name,
         type: data.type,
         description: data.description,
-        base_url: data.baseUrl,
-        api_key_encrypted: data.apiKey,
-        is_default: false,
-        is_active: true,
-        configuration: data.configuration,
-      })) as unknown as UserLLMProvider;
+        baseUrl: data.baseUrl,
+        apiKeyEncrypted: providerRecord.apiKeyEncrypted ?? undefined,
+        isDefault: providerRecord.isDefault,
+        configuration: providerRecord.configuration,
+        isActive: true,
+        defaultModel: data.defaultModel,
+        modelId: providerRecord.providerId,
+      };
 
       // Clear cache for this user
       this.clearUserCache(userId);
 
       logger.info('Created user LLM provider', {
         userId,
-        providerId: providerRecord.id,
-        type: providerRecord.type,
-        name: providerRecord.name,
+        providerId: createdProvider.id,
+        type: createdProvider.type,
+        name: createdProvider.name,
       });
 
-      return providerRecord;
+      return createdProvider;
     } catch (error) {
       logger.error('Error creating user LLM provider', { userId, data, error });
       throw error;
@@ -162,8 +182,11 @@ export class UserLLMService {
   ): Promise<UserLLMProvider[]> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const providers = await repository.findMany({ user_id: userId, type });
-      return providers as unknown as UserLLMProvider[];
+      const providers = await repository.findByUserId(userId);
+      const filtered = providers.filter(
+        (provider) => (provider as Record<string, unknown>).providerId === type
+      );
+      return filtered as unknown as UserLLMProvider[];
     } catch (error) {
       logger.error('Error getting user LLM providers by type', { userId, type, error });
       throw error;
@@ -204,8 +227,8 @@ export class UserLLMService {
       const updateData: Record<string, unknown> = {};
       if (config.name) updateData.name = config.name;
       if (config.description) updateData.description = config.description;
-      if (config.baseUrl) updateData.base_url = config.baseUrl;
-      if (config.defaultModel) updateData.default_model = config.defaultModel;
+      if (config.baseUrl) updateData.baseUrl = config.baseUrl;
+      if (config.defaultModel) updateData.defaultModel = config.defaultModel;
       if (config.configuration) updateData.configuration = config.configuration;
       await repository.update(providerId, updateData);
 
@@ -234,7 +257,7 @@ export class UserLLMService {
   ): Promise<void> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      await repository.update(providerId, { api_key_encrypted: apiKey });
+      await repository.update(providerId, { apiKeyEncrypted: apiKey });
 
       // Clear cache for this user
       this.clearUserCache(userId);
@@ -659,13 +682,15 @@ export class UserLLMService {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
       if (preferredType) {
-        const filtered = providers.filter((p) => (p.type as string) === preferredType);
+        const filtered = providers.filter(
+          (p) => (p as Record<string, unknown>).providerId === preferredType
+        );
         if (filtered.length > 0) {
           return filtered[0] as unknown as UserLLMProvider;
         }
       }
       const defaultProvider = providers.find(
-        (p) => (p as Record<string, unknown>).is_default === true
+        (p) => (p as Record<string, unknown>).isDefault === true
       );
       return (defaultProvider || providers[0]) as unknown as UserLLMProvider;
     } catch (error) {
@@ -679,8 +704,11 @@ export class UserLLMService {
     providerType: UserLLMProviderType
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
-    const providers = await repository.findMany({ user_id: userId, type: providerType });
-    const selectedProvider = providers[0];
+    const providers = await repository.findByUserId(userId);
+    const filteredProviders = providers.filter(
+      (provider) => (provider as Record<string, unknown>).providerId === providerType
+    );
+    const selectedProvider = filteredProviders[0] ?? providers[0];
 
     if (!selectedProvider) {
       logger.error('Selected provider not found', { providerType });
@@ -692,7 +720,7 @@ export class UserLLMService {
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
     const userProviderRecord = userProvider as unknown as Record<string, unknown>;
-    const cacheKey = `${userProviderRecord.user_id}-${userProviderRecord.id}`;
+    const cacheKey = `${userProviderRecord.userId}-${userProviderRecord.id}`;
 
     if (this.providerCache.has(cacheKey)) {
       return this.providerCache.get(cacheKey)!;
@@ -746,9 +774,9 @@ export class UserLLMService {
     const configuration = prov.configuration as Record<string, unknown> | undefined;
     return {
       type: prov.type as UserLLMProviderType,
-      baseUrl: (prov.base_url as string) || getDefaultBaseUrl(prov.type as UserLLMProviderType),
+      baseUrl: (prov.baseUrl as string) || getDefaultBaseUrl(prov.type as UserLLMProviderType),
       apiKey: getApiKey(),
-      defaultModel: prov.default_model as string | undefined,
+      defaultModel: prov.defaultModel as string | undefined,
       timeout: configuration?.timeout as number | undefined,
       retries: configuration?.retries as number | undefined,
     };

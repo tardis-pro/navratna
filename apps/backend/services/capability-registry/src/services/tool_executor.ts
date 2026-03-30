@@ -129,8 +129,12 @@ export class ToolExecutor {
 
       await this.toolService.updateToolExecution(execution.id, {
         status: execution.status,
-        error: execution.error,
-        endTime: execution.endTime,
+        error:
+          typeof execution.error === 'string' ? execution.error : JSON.stringify(execution.error),
+        metadata: {
+          ...this.asRecord(execution.metadata),
+          endTime: execution.endTime?.toISOString(),
+        },
       });
       await this.recordUsage(execution, false);
 
@@ -169,9 +173,13 @@ export class ToolExecutor {
       await this.toolService.updateToolExecution(execution.id, {
         status: ToolExecutionStatus.COMPLETED,
         result: resultRecord,
-        endTime: execution.endTime,
-        executionTimeMs: executionTime,
-        cost: execution.cost,
+        duration: executionTime,
+        cost: String(execution.cost),
+        metadata: {
+          ...this.asRecord(execution.metadata),
+          endTime: execution.endTime?.toISOString(),
+          executionTimeMs: executionTime,
+        },
       });
 
       // Record successful usage
@@ -199,9 +207,14 @@ export class ToolExecutor {
 
       await this.toolService.updateToolExecution(execution.id, {
         status: ToolExecutionStatus.FAILED,
-        error: execution.error,
-        endTime: execution.endTime,
-        executionTimeMs: executionTime,
+        error:
+          typeof execution.error === 'string' ? execution.error : JSON.stringify(execution.error),
+        duration: executionTime,
+        metadata: {
+          ...this.asRecord(execution.metadata),
+          endTime: execution.endTime?.toISOString(),
+          executionTimeMs: executionTime,
+        },
       });
 
       // Record failed usage
@@ -270,11 +283,14 @@ export class ToolExecutor {
     execution.error = undefined;
 
     await this.toolService.updateToolExecution(executionId, {
-      retryCount: execution.retryCount,
       status: ToolExecutionStatus.PENDING,
-      startTime: execution.startTime,
-      endTime: null,
       error: null,
+      metadata: {
+        ...this.asRecord(execution.metadata),
+        retryCount: execution.retryCount,
+        startTime: execution.startTime.toISOString(),
+        endTime: null,
+      },
     });
 
     logger.info(`Retrying tool execution: ${executionId} (attempt ${execution.retryCount})`);
@@ -303,7 +319,11 @@ export class ToolExecutor {
 
       await this.toolService.updateToolExecution(executionId, {
         status: ToolExecutionStatus.CANCELLED,
-        endTime: new Date(),
+        metadata: {
+          ...this.asRecord(execution.metadata),
+          endTime: new Date().toISOString(),
+          cancelledAt: new Date().toISOString(),
+        },
       });
 
       logger.info(`Tool execution cancelled: ${executionId}`);
@@ -328,9 +348,12 @@ export class ToolExecutor {
 
     // Update approval status
     await this.toolService.updateToolExecution(executionId, {
-      approvedBy,
-      approvedAt: new Date(),
       status: ToolExecutionStatus.PENDING,
+      metadata: {
+        ...this.asRecord(execution.metadata),
+        approvedBy,
+        approvedAt: new Date().toISOString(),
+      },
     });
 
     execution.approvedBy = approvedBy;

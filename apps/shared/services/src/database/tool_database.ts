@@ -101,7 +101,7 @@ export class ToolDatabase {
 
   async searchTools(query: string): Promise<ToolDefinition[]> {
     try {
-      const entities = await this.databaseService.tools.findToolsByCategory(query);
+      const entities = await this.databaseService.tools.searchTools(query);
       return entities.map((entity) => this.convertEntityToTool(entity));
     } catch (error) {
       logger.error('Error searching tools', { query, error: (error as Error).message });

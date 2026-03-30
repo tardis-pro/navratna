@@ -390,12 +390,14 @@ export class KnowledgeGraphService {
     if (syncResult.success) {
       await this.repository.createRelationships([
         {
-          sourceItemId: feedback.entityId,
-          targetItemId: syncResult.knowledgeItemId,
+          sourceId: feedback.entityId,
+          targetId: syncResult.knowledgeItemId,
           relationshipType: 'HAS_FEEDBACK',
-          confidence: 0.9,
-          userId: feedback.userId,
-          summary: `Feedback linked: ${feedback.feedbackType}`,
+          strength: 0.9,
+          metadata: {
+            userId: feedback.userId,
+            summary: `Feedback linked: ${feedback.feedbackType}`,
+          },
         },
       ]);
     } else {
@@ -437,13 +439,15 @@ export class KnowledgeGraphService {
     if (syncResult.success && interaction?.entityId) {
       await this.repository.createRelationships([
         {
-          sourceItemId: interaction.entityId as string,
-          targetItemId: syncResult.knowledgeItemId,
+          sourceId: interaction.entityId as string,
+          targetId: syncResult.knowledgeItemId,
           relationshipType: 'HAS_INTERACTION',
-          confidence: 0.85,
-          userId: interaction?.userId as string | undefined,
-          agentId: interaction?.agentId as string | undefined,
-          summary: `Interaction linked: ${interactionType}`,
+          strength: 0.85,
+          metadata: {
+            userId: interaction?.userId as string | undefined,
+            agentId: interaction?.agentId as string | undefined,
+            summary: `Interaction linked: ${interactionType}`,
+          },
         },
       ]);
     } else if (!syncResult.success) {
@@ -533,13 +537,15 @@ export class KnowledgeGraphService {
     if (context?.baseKnowledgeItemId) {
       await this.repository.createRelationships([
         {
-          sourceItemId: context.baseKnowledgeItemId as string,
-          targetItemId: syncResult.knowledgeItemId,
+          sourceId: context.baseKnowledgeItemId as string,
+          targetId: syncResult.knowledgeItemId,
           relationshipType: 'INITIALIZES_CONTEXT',
-          confidence: 0.8,
-          userId: context?.userId as string | undefined,
-          agentId,
-          summary: `Initial context for agent ${agentId}`,
+          strength: 0.8,
+          metadata: {
+            userId: context?.userId as string | undefined,
+            agentId,
+            summary: `Initial context for agent ${agentId}`,
+          },
         },
       ]);
     }

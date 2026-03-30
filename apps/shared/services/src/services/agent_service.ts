@@ -7,31 +7,40 @@ import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 import { EventBusService } from '../event_bus_service';
 import type { Agent, NewAgent } from '../database/drizzle/schemas/intelligence_schema';
 
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
+
 interface Capability {
   id: string;
   name: string;
   description?: string;
   type: string;
-  configuration?: Record<string, unknown>;
+  configuration?: JsonObject;
   isEnabled: boolean;
-  metadata?: Record<string, unknown>;
+  metadata?: JsonObject;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const toCapability = (row: Record<string, unknown>): Capability => ({
+const toCapability = (
+  row: Record<
+    string,
+    JsonValue | Date | Record<string, string | number | boolean | null>
+  >
+): Capability => ({
   id: String(row.id ?? ''),
   name: String(row.name ?? ''),
   description: typeof row.description === 'string' ? row.description : undefined,
   type: String(row.type ?? ''),
   configuration:
     row.configuration && typeof row.configuration === 'object'
-      ? (row.configuration as Record<string, unknown>)
+      ? (row.configuration as JsonObject)
       : undefined,
   isEnabled: Boolean(row.isEnabled),
   metadata:
     row.metadata && typeof row.metadata === 'object'
-      ? (row.metadata as Record<string, unknown>)
+      ? (row.metadata as JsonObject)
       : undefined,
   createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(),
   updatedAt: row.updatedAt instanceof Date ? row.updatedAt : new Date(),
@@ -78,8 +87,8 @@ export class AgentService extends BaseDomainService {
     securityLevel?: SecurityLevel;
     status?: AgentStatus;
     personaId?: string;
-    intelligenceConfig?: Record<string, unknown>;
-    securityContext?: Record<string, unknown>;
+    intelligenceConfig?: Agent['intelligenceConfig'];
+    securityContext?: Agent['securityContext'];
     createdBy?: string;
   }): Promise<Agent> {
     const agentRepo = this.getAgentRepository();
@@ -215,12 +224,21 @@ export class AgentService extends BaseDomainService {
       isEnabled: data.isActive ?? true,
       metadata: {},
     });
-    return toCapability(result);
+    return toCapability(
+      result as Record<string, JsonValue | Date | Record<string, string | number | boolean | null>>
+    );
   }
 
   public async findCapabilityById(id: string): Promise<Capability | null> {
     const result = await this.getCapabilityRepository().findById(id);
-    return result ? toCapability(result) : null;
+    return result
+      ? toCapability(
+          result as Record<
+            string,
+            JsonValue | Date | Record<string, string | number | boolean | null>
+          >
+        )
+      : null;
   }
 
   public async assignCapabilityToAgent(agentId: string, capabilityId: string): Promise<void> {
