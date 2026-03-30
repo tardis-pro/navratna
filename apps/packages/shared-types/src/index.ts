@@ -96,3 +96,5 @@ export type {
   RegisterRequest,
   RegisterResponse,
 } from './frontend_auth.js';
+export * from './board-provider';
+export * from './repo-context';
