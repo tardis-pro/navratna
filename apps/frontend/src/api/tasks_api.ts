@@ -1,4 +1,5 @@
 import { APIClient } from './client';
+import { STALE_TIMES } from './query_config';
 import type {
   TaskFilters,
   CreateTaskRequest,
@@ -118,6 +119,7 @@ export const useTaskStatisticsQuery = (projectId: string) => {
     queryKey: ['taskStatistics', projectId],
     queryFn: () => tasksApi.getTaskStatistics(projectId),
     enabled: !!projectId,
+    staleTime: STALE_TIMES.SLOW,
   };
 };
 

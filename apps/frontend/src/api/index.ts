@@ -26,6 +26,7 @@ export * from './mcp_api';
 export * from './tasks_api';
 export * from './conversation_enhancement_api';
 export * from './user_persona_api';
+export * from './query_config';
 
 // Convenience namespace exports
 import { authAPI } from './auth_api';

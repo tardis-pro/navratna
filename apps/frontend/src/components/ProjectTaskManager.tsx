@@ -20,6 +20,7 @@ import {
 } from '../api/tasks_api';
 import { projectsAPI } from '../api/projects_api';
 import { agentsAPI } from '../api/agents_api';
+import { STALE_TIMES } from '../api/query_config';
 import {
   BarChart3,
   Users,
@@ -112,6 +113,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsAPI.get(projectId),
+    staleTime: STALE_TIMES.SLOW,
   });
 
   // Mutations
