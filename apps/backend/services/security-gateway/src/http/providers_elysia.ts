@@ -205,8 +205,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
             const limit = ROLE_LIMITS[role] ?? 0;
             const providers = await UserService.getInstance()
               .getUserLLMProviderRepository()
-              // @ts-expect-error -- Property does not exist on inferred type
-              .findAllProvidersByUser(user!.id);
+              .findByUserId(user!.id);
             const current = providers.length;
             return {
               success: true,
@@ -225,8 +224,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
             try {
               const providers = await UserService.getInstance()
                 .getUserLLMProviderRepository()
-                // @ts-expect-error -- Property does not exist on inferred type
-                .findAllProvidersByUser(user!.id);
+                .findByUserId(user!.id);
               return { success: true, data: providers.map(toSafeProvider) };
             } catch (error) {
               logger.error('Error getting user LLM providers', { error });
@@ -238,20 +236,25 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
           // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
           .get('/my-providers/active', async ({ user, set }) => {
             try {
-              const providers = await UserService.getInstance()
+              const userProviders = await UserService.getInstance()
                 .getUserLLMProviderRepository()
-                // @ts-expect-error -- Property does not exist on inferred type
-                .findActiveProvidersByUser(user!.id);
-              const active = providers
-                .filter((p) => p.isActive && (p.status === 'active' || p.status === 'testing'))
-                .map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  type: p.type,
-                  defaultModel: p.defaultModel,
-                  priority: p.priority,
-                  hasApiKey: p.hasApiKey(),
-                }));
+                .findActiveByUserId(user!.id);
+              const llmProviderRepo = UserService.getInstance().getLLMProviderRepository();
+              const active = await Promise.all(
+                userProviders.map(async (up) => {
+                  const provider = await llmProviderRepo.findById(up.providerId);
+                  return {
+                    id: up.id,
+                    providerId: up.providerId,
+                    name: provider?.name ?? 'Unknown',
+                    type: provider?.type ?? 'custom',
+                    defaultModel: provider?.defaultModel ?? null,
+                    priority: provider?.priority ?? 0,
+                    hasApiKey: Boolean(up.apiKeyEncrypted),
+                    isDefault: up.isDefault,
+                  };
+                })
+              );
               return { success: true, data: active };
             } catch (error) {
               logger.error('Error getting active user LLM providers', { error });

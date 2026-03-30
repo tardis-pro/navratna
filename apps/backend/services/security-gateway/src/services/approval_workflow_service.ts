@@ -274,12 +274,16 @@ export class ApprovalWorkflowService {
     status?: ApprovalStatus
   ): Promise<ApprovalWorkflowType[]> {
     try {
-      const workflows = await this.securityService
-        .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
-        .getUserApprovalWorkflows(userId, status);
+      const repo = this.securityService.getApprovalWorkflowRepository();
+      const { workflows } = await repo.findMany({ status });
 
-      return workflows.map(this.mapEntityToWorkflow);
+      const filtered = userId
+        ? workflows.filter((w) =>
+            w.requiredApprovers?.includes(userId) || w.currentApprovers?.includes(userId)
+          )
+        : workflows;
+
+      return filtered.map(this.mapEntityToWorkflow);
     } catch (error) {
       logger.error('Failed to get user workflows', {
         userId,
