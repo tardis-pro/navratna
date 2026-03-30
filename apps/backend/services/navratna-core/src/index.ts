@@ -4,11 +4,17 @@ import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as BunEngine } from '@socket.io/bun-engine'
 import { logger } from '@uaip/utils'
 import type { EventBusMessage } from '@uaip/types'
+import { requestTimingPlugin, requestTimingBuffer } from './request_timing.js'
 
 import { agentIntelligenceFeature } from '../../agent-intelligence/src/feature.js'
 import { discussionFeature } from '../../discussion-orchestration/src/feature.js'
 import { artifactFeature } from '../../artifact-service/src/feature.js'
 import { llmFeature } from '../../llm-service/src/feature.js'
+
+const DEGRADED_P95_THRESHOLD_MS = 1000 as const
+
+const roundToTwo = (value: number): number => Number(value.toFixed(2))
+const toMegabytes = (bytes: number): number => roundToTwo(bytes / (1024 * 1024))
 
 class NavratnaCoreService extends BaseService {
   private factory = new FeatureFactory()
@@ -56,6 +62,8 @@ class NavratnaCoreService extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
+    this.app.use(requestTimingPlugin())
+
     this.factory.mountRoutes(this.app)
 
     this.app.all('/socket.io/*', ({ request, server }: { request: Request; server: unknown }) => {
@@ -74,6 +82,38 @@ class NavratnaCoreService extends BaseService {
       service: 'navratna-core',
       features: this.factory.activeFeatureNames,
     }))
+
+    this.app.get('/health/detailed', () => {
+      const timingStats = requestTimingBuffer.getStats()
+      const memoryUsage = process.memoryUsage()
+      const cpuUsage = process.cpuUsage()
+      const status =
+        timingStats.count > 0 && timingStats.p95 > DEGRADED_P95_THRESHOLD_MS ? 'degraded' : 'ok'
+
+      return {
+        status,
+        service: 'navratna-core',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        features: this.factory.activeFeatureNames,
+        timing: {
+          p95: timingStats.p95,
+          p50: timingStats.p50,
+          avg: timingStats.avg,
+          sampleCount: timingStats.count,
+        },
+        memory: {
+          heapUsed: toMegabytes(memoryUsage.heapUsed),
+          heapTotal: toMegabytes(memoryUsage.heapTotal),
+          rss: toMegabytes(memoryUsage.rss),
+          external: toMegabytes(memoryUsage.external),
+        },
+        cpu: {
+          user: cpuUsage.user,
+          system: cpuUsage.system,
+        },
+      }
+    })
 
     logger.info('navratna-core routes configured')
   }
