@@ -13,7 +13,8 @@ export { SecurityLevel } from '@uaip/types';
 // =============================================================================
 
 // Base Service Classes for all microservices
-export { BaseService, ServiceConfig, createService } from './base_service';
+export { BaseService, createService } from './base_service';
+export type { ServiceConfig } from './base_service';
 
 // HTTP Server (Elysia)
 export { createAppServer } from './http_app';

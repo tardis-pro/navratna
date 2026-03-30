@@ -5,8 +5,8 @@ import {
   ilike,
   or,
   sql,
-} from '@uaip/shared-services/database/drizzle/clients/index';
-import { shortLinks } from '@uaip/shared-services/database/drizzle/schemas/intelligence_schema';
+} from '@uaip/shared-services/drizzle/clients';
+import { shortLinks } from '@uaip/shared-services/drizzle/intelligence';
 import { logger } from '@uaip/utils';
 import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';

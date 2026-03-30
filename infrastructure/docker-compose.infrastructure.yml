@@ -97,7 +97,7 @@ services:
     ports:
       - '9090:9090'
     volumes:
-      - ./monitoring:/etc/prometheus/config
+      - ../monitoring:/etc/prometheus/config
       - prometheus_data:/prometheus
     networks:
       - uaip-network
@@ -117,7 +117,7 @@ services:
       - '3000:3000'
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     networks:

@@ -1,5 +1,6 @@
 import type { AnyElysia } from 'elysia';
-import { BaseService, ServiceConfig } from '@uaip/shared-services';
+import { BaseService } from '@uaip/shared-services';
+import type { ServiceConfig } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
 

@@ -115,14 +115,14 @@ catalogs:
 
 ignoredBuiltDependencies:
   - baileys
+  - better-sqlite3
+  - cpu-features
   - sharp
 
 onlyBuiltDependencies:
   - '@swc/core'
   - '@tailwindcss/oxide'
   - bcrypt
-  - better-sqlite3
-  - cpu-features
   - esbuild
   - koffi
   - msgpackr-extract

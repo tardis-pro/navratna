@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.git
+**/.nx
+**/coverage
+**/*.log
+**/tmp
+infrastructure
+monitoring
+docs
+deploy
+database
+scripts
+.env
+sample.env

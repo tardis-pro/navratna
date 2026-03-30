@@ -4,32 +4,51 @@ import { config } from '@uaip/config';
 import * as crypto from 'crypto';
 import type { ErrorContext } from '@uaip/types';
 
+// Helper to get-or-create metrics — prevents duplicate registration on hot-reload / multiple imports
+function getOrCreateCounter(opts: ConstructorParameters<typeof Counter>[0]): Counter {
+  const existing = register.getSingleMetric(opts.name as string);
+  if (existing) return existing as Counter;
+  return new Counter(opts);
+}
+
+function getOrCreateHistogram(opts: ConstructorParameters<typeof Histogram>[0]): Histogram {
+  const existing = register.getSingleMetric(opts.name as string);
+  if (existing) return existing as Histogram;
+  return new Histogram(opts);
+}
+
+function getOrCreateGauge(opts: ConstructorParameters<typeof Gauge>[0]): Gauge {
+  const existing = register.getSingleMetric(opts.name as string);
+  if (existing) return existing as Gauge;
+  return new Gauge(opts);
+}
+
 // Create metrics
-const httpRequestsTotal = new Counter({
+const httpRequestsTotal = getOrCreateCounter({
   name: 'http_requests_total',
   help: 'Total number of HTTP requests',
   labelNames: ['method', 'route', 'status_code'],
 });
 
-const httpRequestDuration = new Histogram({
+const httpRequestDuration = getOrCreateHistogram({
   name: 'http_request_duration_seconds',
   help: 'Duration of HTTP requests in seconds',
   labelNames: ['method', 'route', 'status_code'],
   buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
 });
 
-const activeConnections = new Gauge({
+const activeConnections = getOrCreateGauge({
   name: 'active_connections',
   help: 'Number of active connections',
 });
 
-const agentAnalysisTotal = new Counter({
+const agentAnalysisTotal = getOrCreateCounter({
   name: 'agent_analysis_total',
   help: 'Total number of agent analyses performed',
   labelNames: ['agent_id', 'analysis_type', 'status'],
 });
 
-const agentAnalysisDuration = new Histogram({
+const agentAnalysisDuration = getOrCreateHistogram({
   name: 'agent_analysis_duration_seconds',
   help: 'Duration of agent analyses in seconds',
   labelNames: ['agent_id', 'analysis_type'],
@@ -37,43 +56,43 @@ const agentAnalysisDuration = new Histogram({
 });
 
 // Error tracking metrics
-const errorLogsTotal = new Counter({
+const errorLogsTotal = getOrCreateCounter({
   name: 'error_logs_total',
   help: 'Total error logs by type and severity',
   labelNames: ['service', 'error_type', 'severity', 'endpoint', 'user_id'],
 });
 
-const errorContextInfo = new Gauge({
+const errorContextInfo = getOrCreateGauge({
   name: 'error_context_info',
   help: 'Error context information with metadata',
   labelNames: ['service', 'error_id', 'error_type', 'message_hash', 'endpoint'],
 });
 
-const errorPatternFrequency = new Counter({
+const errorPatternFrequency = getOrCreateCounter({
   name: 'error_pattern_frequency_total',
   help: 'Frequency of error patterns by stack trace hash',
   labelNames: ['service', 'stack_trace_hash', 'error_type'],
 });
 
-const unhandledErrorsTotal = new Counter({
+const unhandledErrorsTotal = getOrCreateCounter({
   name: 'unhandled_errors_total',
   help: 'Total unhandled errors and exceptions',
   labelNames: ['service', 'error_type', 'source'],
 });
 
-const llmRequestsTotal = new Counter({
+const llmRequestsTotal = getOrCreateCounter({
   name: 'llm_requests_total',
   help: 'Total number of LLM requests',
   labelNames: ['agent_id', 'provider', 'model', 'request_type', 'status'],
 });
 
-const llmTokensUsedTotal = new Counter({
+const llmTokensUsedTotal = getOrCreateCounter({
   name: 'llm_tokens_used_total',
   help: 'Total tokens used by LLM requests',
   labelNames: ['agent_id', 'provider', 'model', 'request_type'],
 });
 
-const llmRequestLatency = new Histogram({
+const llmRequestLatency = getOrCreateHistogram({
   name: 'llm_request_latency_seconds',
   help: 'LLM request latency in seconds',
   labelNames: ['agent_id', 'provider', 'model', 'request_type', 'status'],

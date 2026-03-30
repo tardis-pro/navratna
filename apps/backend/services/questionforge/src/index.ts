@@ -1,4 +1,5 @@
-import { BaseService, ServiceConfig } from '@uaip/shared-services';
+import { BaseService } from '@uaip/shared-services';
+import type { ServiceConfig } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ForgeRequest } from '@uaip/types';

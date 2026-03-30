@@ -4,8 +4,11 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode: _mode }) => {
-  // Use environment variable for API target, fallback to localhost for local dev
-  const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8081';
+  const CORE = process.env.VITE_CORE_URL || 'http://localhost:3001';
+  const GATEWAY = process.env.VITE_GATEWAY_URL || 'http://localhost:3002';
+
+  const toCore = { target: CORE, changeOrigin: true, secure: false };
+  const toGateway = { target: GATEWAY, changeOrigin: true, secure: false };
 
   return {
     server: {
@@ -14,28 +17,29 @@ export default defineConfig(({ mode: _mode }) => {
       allowedHosts: true,
       origin: 'http://localhost:5173',
       proxy: {
-        '/api': {
-          target: apiTarget,
-          changeOrigin: true,
-          secure: false,
-          rewrite: (requestPath) => requestPath.replace(/^\/api/, '/api'),
-          configure: (proxy, _options) => {
-            proxy.on('error', (_err, _req, _res) => {});
-            proxy.on('proxyReq', (_proxyReq, _req, _res) => {});
-            proxy.on('proxyRes', (_proxyRes, _req, _res) => {});
-          },
-        },
-        '/health': {
-          target: apiTarget,
-          changeOrigin: true,
-          secure: false,
-        },
-        '/socket.io': {
-          target: apiTarget,
-          changeOrigin: true,
-          secure: false,
-          ws: true,
-        },
+        '/api/v1/agents':           toCore,
+        '/api/v1/personas':         toCore,
+        '/api/v1/discussions':      toCore,
+        '/api/v1/artifacts':        toCore,
+        '/api/v1/info':             toCore,
+        '/api/v1/user/llm':         toCore,
+        '/api/v1/llm/my-providers': toGateway,
+        '/api/v1/llm':              toCore,
+        '/api/v1/questionforge':    toCore,
+        '/api/v1/auth':             toGateway,
+        '/api/v1/security':         toGateway,
+        '/api/v1/approvals':        toGateway,
+        '/api/v1/users':            toGateway,
+        '/api/v1/audit':            toGateway,
+        '/api/v1/knowledge':        toGateway,
+        '/api/v1/contacts':         toGateway,
+        '/api/v1/projects':         toGateway,
+        '/api/v1/operations':       toGateway,
+        '/api/v1/capabilities':     toGateway,
+        '/api/v1/tools':            toGateway,
+        '/api/v1/mcp':              toGateway,
+        '/socket.io':               { ...toCore, ws: true },
+        '/health':                  toCore,
       },
     },
     plugins: [react()].filter(Boolean),

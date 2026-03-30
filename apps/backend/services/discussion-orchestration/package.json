@@ -22,6 +22,7 @@
     "@hapi/boom": "catalog:backend",
     "@types/ws": "catalog:backend",
     "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
     "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
