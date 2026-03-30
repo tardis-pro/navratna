@@ -263,11 +263,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setState(CLEARED_AUTH_STATE);
     };
 
-    // Listen for the auth:unauthorized event from the API client
+    const handleRateLimit = (e: Event) => {
+      const retryAfter = (e as CustomEvent<{ retryAfter: number }>).detail?.retryAfter ?? 60;
+      window.dispatchEvent(
+        new CustomEvent('toast', {
+          detail: {
+            title: 'Rate limit reached',
+            description: `Too many requests. Please wait ${retryAfter}s before trying again.`,
+            variant: 'destructive',
+          },
+        })
+      );
+    };
+
     window.addEventListener('auth:unauthorized', handleAuthFailure);
+    window.addEventListener('api:rate-limited', handleRateLimit);
 
     return () => {
       window.removeEventListener('auth:unauthorized', handleAuthFailure);
+      window.removeEventListener('api:rate-limited', handleRateLimit);
     };
   }, [checkAuthStatus]);
 

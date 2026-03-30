@@ -73,6 +73,16 @@ class APIClientClass {
           window.dispatchEvent(new CustomEvent('auth:unauthorized'));
         }
 
+        if (error.response?.status === 429) {
+          const retryAfter = parseInt(
+            (error.response.headers as Record<string, string>)['retry-after'] ?? '60',
+            10
+          );
+          window.dispatchEvent(
+            new CustomEvent('api:rate-limited', { detail: { retryAfter } })
+          );
+        }
+
         if (error.response?.status === 403 && error.response?.data?.['error']?.includes('CSRF')) {
           await csrfService.refreshToken();
           return this.client.request(error.config!);

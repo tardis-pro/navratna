@@ -900,6 +900,12 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
             >
               Model: {getModelDisplayName(agentState.modelId)}
             </div>
+
+            {agentState.createdBy && (
+              <div className="text-xs text-slate-600 truncate mt-0.5">
+                Owner: {agentState.createdBy.slice(0, 8)}
+              </div>
+            )}
           </div>
 
           {/* Chat Action Buttons */}
