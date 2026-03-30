@@ -4,6 +4,7 @@ import { config } from '@uaip/config';
 import { metricsEndpoint, metricsMiddleware } from '@uaip/middleware';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
 import { DatabaseService } from '@uaip/infra/database';
+import { drizzleService } from './drizzle_service';
 import { EventBusService } from './event_bus_service';
 import { UnifiedModelSelectionFacade } from './services/unified_model_selection_facade';
 import type {
@@ -160,6 +161,7 @@ export abstract class BaseService {
   protected async initializeDatabase(): Promise<void> {
     try {
       await this.databaseService.isHealthy();
+      await drizzleService.initialize();
       logger.info(`${this.config.name}: Database initialized`);
 
       // Initialize unified model selection facade

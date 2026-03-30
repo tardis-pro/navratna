@@ -35,11 +35,10 @@ cd navratna
 # Install dependencies
 pnpm install
 
-# Start Docker infrastructure (RabbitMQ and minio are no longer in the stack)
+# Start Docker infrastructure
 docker-compose up -d postgres redis neo4j qdrant
 
 # Start backend services (with proper environment)
-export RABBITMQ_URL="amqp://uaip_user:uaip_password@localhost:5672"
 export POSTGRES_URL="postgresql://uaip_user:uaip_password@localhost:5432/uaip"
 export REDIS_URL="redis://:uaip_redis_password@localhost:6379"
 
@@ -76,10 +75,8 @@ chmod +x scripts/start-backend.sh
 # docker-compose.yml services
 postgres: # Primary database (5432)
 neo4j: # Graph database (7474/7687)
-redis: # Cache & sessions (6379)
-rabbitmq: # Event bus (5672/15672)
+redis: # Cache + BullMQ event bus (6379)
 qdrant: # Vector storage (6333/6334)
-minio: # Object storage (9000/9001)
 ```
 
 ### Starting Infrastructure
@@ -89,7 +86,7 @@ minio: # Object storage (9000/9001)
 docker-compose up -d
 
 # Start specific services
-docker-compose up -d postgres redis rabbitmq
+docker-compose up -d postgres redis neo4j qdrant
 
 # Check status
 docker-compose ps
@@ -110,11 +107,6 @@ POSTGRES_DB=uaip
 
 # Redis
 REDIS_PASSWORD=uaip_redis_password
-
-# RabbitMQ
-RABBITMQ_DEFAULT_USER=uaip_user
-RABBITMQ_DEFAULT_PASS=uaip_password
-RABBITMQ_URL=amqp://uaip_user:uaip_password@localhost:5672
 
 # Neo4j
 NEO4J_USER=neo4j
@@ -151,7 +143,7 @@ ANTHROPIC_API_KEY=...
          │                    │                    │
     ┌────┴────────────────────┴────────────────────┴────┐
     │              Shared Infrastructure                  │
-    │  PostgreSQL │ Redis │ RabbitMQ │ Neo4j │ Qdrant   │
+    │  PostgreSQL │ Redis/BullMQ │ Neo4j │ Qdrant      │
     └────────────────────────────────────────────────────┘
 ```
 
@@ -248,7 +240,7 @@ pnpm test:integration:setup
 # This creates:
 # - Test PostgreSQL database (port 5433)
 # - Test Redis instance (port 6380)
-# - Test RabbitMQ instance (port 5673)
+# - Test Redis/BullMQ instance (port 6380)
 ```
 
 ### Current Test Status
@@ -445,21 +437,22 @@ const securityHeaders = {
 
 ### Common Issues
 
-#### 1. RabbitMQ Connection Failures
+#### 1. BullMQ/Redis Connection Issues
 
-**Symptom:** `ACCESS_REFUSED - Login was refused using authentication mechanism PLAIN`
+**Symptom:** Event bus publish/subscribe failures, timeout errors.
 
 **Solution:**
 
 ```bash
-# Reset RabbitMQ user password
-docker exec uaip-rabbitmq rabbitmqctl change_password uaip_user uaip_password
+# Check Redis connectivity
+docker exec uaip-redis redis-cli ping
+# Expected: PONG
 
-# Verify user exists
-docker exec uaip-rabbitmq rabbitmqctl list_users
+# Check Redis memory usage
+docker exec uaip-redis redis-cli info memory | grep used_memory_human
 
-# Check permissions
-docker exec uaip-rabbitmq rabbitmqctl list_permissions -p /
+# Check BullMQ queues
+docker exec uaip-redis redis-cli keys "bull:*" | head -20
 ```
 
 #### 2. PostgreSQL Permission Errors
@@ -520,7 +513,7 @@ docker-compose ps
 # Check database connections
 docker exec uaip-postgres pg_isready -U uaip_user
 docker exec uaip-redis redis-cli ping
-docker exec uaip-rabbitmq rabbitmq-diagnostics ping
+docker exec uaip-neo4j cypher-shell -u neo4j -p uaip_dev_password "RETURN 1"
 ```
 
 ---

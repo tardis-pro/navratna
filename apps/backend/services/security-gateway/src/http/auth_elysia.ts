@@ -43,7 +43,7 @@ const parseExpiryToSeconds = (value?: string | number): number | undefined => {
 const getAuthCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  sameSite: 'lax' as const,
   path: '/',
 });
 

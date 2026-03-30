@@ -13,12 +13,12 @@
 ## Vision Statement
 
 <!-- This vision describes v3.0 — the personal sovereign OS.
-     The platform is ALSO expanding beyond personal use into a three-product strategy:
+     The platform is a multi-user system with three convergent products:
      UAIP Core (this), BaseBench-Meta (benchmark), QuestionForge (discovery council).
      See docs/specs/07-STRATEGIC-VISION-2026.md for the full multi-product vision.
      See docs/specs/06-TELESCOPE-KNOWLEDGE-SURFACE-PRD.md for the Telescope knowledge surface spec. -->
 
-Navratna is a personal sovereign agent operating system that runs perpetually on local hardware, acts on behalf of its owner with explicit approval gates, connects to everything in read-only mode by default, and encodes its owner's judgment as policy — creating a digital continuity vessel that persists beyond any single session.
+Navratna is a multi-user metacognitive agent platform with a sovereign, local-first architecture. It acts on behalf of users with explicit approval gates, connects to everything in read-only mode by default, and encodes judgment as policy — creating a digital continuity vessel that persists beyond any single session.
 
 **Core Principle**: THOUGHT TO ACTION — the gap between thinking something and the system responding should be imperceptible.
 
@@ -261,14 +261,14 @@ Total: ~$93-220/month
 
 ### Stack Decisions
 
-| Current                      | Target                                   | Rationale                                         |
-| ---------------------------- | ---------------------------------------- | ------------------------------------------------- |
-| TypeORM                      | Drizzle ORM                              | 10x faster, 0 runtime overhead, SQL at build time |
-| RabbitMQ                     | BullMQ on Redis Streams                  | Eliminates 512MB container, Redis already running |
-| 7 microservices              | 2 consolidated services (Core + Gateway) | 3.5GB → 1GB RAM, zero inter-service latency       |
-| DesktopUnified (portal grid) | TelescopeSurface                         | Telescope vision replaces window manager entirely |
-| 28 Docker containers         | 9 containers                             | 10GB+ → 5GB RAM                                   |
-| Express remnants             | Full Elysia                              | Already mostly there, complete the migration      |
+| Migration                    | Target                                   | Status                                                    |
+| ---------------------------- | ---------------------------------------- | --------------------------------------------------------- |
+| TypeORM                      | Drizzle ORM                              | **COMPLETE** — zero TypeORM references in source          |
+| RabbitMQ                     | BullMQ on Redis Streams                  | **COMPLETE** — zero amqplib references in source          |
+| 7 microservices              | 2 consolidated services (Core + Gateway) | **~75%** — FeatureFactory architecture done, integration gaps remain |
+| DesktopUnified (portal grid) | TelescopeSurface                         | **COMPLETE** — DesktopUnified.tsx deleted                 |
+| 28 Docker containers         | ~13 containers                           | **~70%** — monitoring stack trimmed 2026-03-30            |
+| Express remnants             | Full Elysia                              | **COMPLETE** — zero Express references in source          |
 
 ### Service Consolidation
 
@@ -282,19 +282,21 @@ Service B: "GATEWAY" (single process ~512MB)
   Capability Registry
 ```
 
+**Status (2026-03-30)**: FeatureFactory architecture operational. Both consolidated services running. Legacy service directories exist as feature modules, not independent processes. ~75% complete — some integration gaps remain (see 02-REPLACEMENT-SPEC.md R3).
+
 ### Infrastructure Cuts
 
-- MinIO → R2/S3 direct (saves 256MB)
-- TEI Embeddings → Ollama (already needed for local LLM)
-- Prometheus/Loki/Grafana stack → Grafana Cloud free tier
+- MinIO → removed (use R2/S3 or local filesystem)
+- TEI Embeddings → removed (use Ollama for embeddings)
+- Loki/Promtail/exporters → removed (kept Prometheus + Grafana + postgres-exporter)
 - Marketplace Service → not needed for personal OS
 - Enterprise compose → sovereign, not SOC2
 
 ## Build Phases
 
-<!-- STATUS AS OF 2026-03-21:
-     Phase 0: NOT STARTED (Sprint 1 begins 2026-03-24)
-     Phase 1: Telescope components BUILT + FULLY INTEGRATED. OpenClaw port in progress. httpOnly cookies partially done.
+<!-- STATUS AS OF 2026-03-30:
+     Phase 0: PARTIAL — Service consolidation ~75% via FeatureFactory. TypeORM/RabbitMQ/Express fully removed. Monitoring trimmed.
+     Phase 1: Telescope components BUILT + INTEGRATED. DesktopUnified DELETED. TelescopeSurface exists. httpOnly cookies COMPLETE.
      Phase 2-5: NOT STARTED
 
      NOTE: IntentField, MaterializableBlock, Microexpressions, and relevance() were built

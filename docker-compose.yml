@@ -127,7 +127,11 @@ services:
             dockerfile: Dockerfile
         container_name: uaip-navratna-core
         command:
-            ["bun", "run", "apps/backend/services/navratna-core/dist/navratna-core/src/index.js"]
+            [
+                "bun",
+                "run",
+                "apps/backend/services/navratna-core/dist/navratna-core/src/index.js",
+            ]
         environment:
             - NODE_ENV=${NODE_ENV:-development}
             - NAVRATNA_CORE_PORT=3001
@@ -305,7 +309,9 @@ services:
         container_name: council-frontend
         environment:
             - NODE_ENV=development
-            - VITE_API_URL=http://192.168.29.70:8081
+            - VITE_API_URL=
+            - VITE_API_BASE_URL=
+            - VITE_WS_URL=
             - VITE_API_TARGET=http://api-gateway:80
             - CHOKIDAR_USEPOLLING=true
             - WATCHPACK_POLLING=true

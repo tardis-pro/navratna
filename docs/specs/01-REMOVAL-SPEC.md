@@ -220,11 +220,11 @@ Every removal is driven by one of three principles:
 | 1   | MinIO                       | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
 | 2   | TEI Embeddings GPU          | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
 | 3   | TEI Reranker                | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
-| 4   | Prometheus                  | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 291)                                                                                         |
-| 5   | Loki                        | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 308)                                                                                         |
-| 6   | Grafana (Local)             | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 424)                                                                                         |
-| 7   | Promtail                    | 0     | **NOT DONE** ❌ | Still in docker-compose.yml (line 321)                                                                                         |
-| 8   | Exporter Containers         | 0     | **PARTIAL** ⚠️  | neo4j-exporter removed; postgres-exporter (338), redis-exporter (352), node-exporter (367), nginx-exporter (405) still present |
+| 4   | Prometheus                  | 0     | **KEPT** ✅     | Kept for service metrics — Prometheus + Grafana are the observability stack (decision 2026-03-30)                              |
+| 5   | Loki                        | 0     | **DONE** ✅     | Removed from docker-compose.yml 2026-03-30                                                                                     |
+| 6   | Grafana (Local)             | 0     | **KEPT** ✅     | Kept alongside Prometheus for dashboards (decision 2026-03-30)                                                                 |
+| 7   | Promtail                    | 0     | **DONE** ✅     | Removed from docker-compose.yml 2026-03-30                                                                                     |
+| 8   | Exporter Containers         | 0     | **PARTIAL** ⚠️  | postgres-exporter kept; redis-exporter, node-exporter, nginx-exporter removed 2026-03-30                                       |
 | 9   | RabbitMQ                    | 1     | **PARTIAL** ⚠️  | Removed from main compose; still in test/enterprise/infra compose + scripts + monitoring                                       |
 | 10  | TEI Embeddings CPU          | 0     | **DONE** ✅     | Removed from docker-compose.yml                                                                                                |
 | 11  | Marketplace Service         | 0     | **NOT DONE** ❌ | Directory still exists at apps/backend/services/marketplace-service/                                                           |
@@ -240,12 +240,9 @@ Every removal is driven by one of three principles:
 | 21  | amqplib / RabbitMQ Client   | 1     | **DONE** ✅     | Zero in source, zero in package.json                                                                                           |
 | 22  | OpenClaw Infrastructure     | 3     | **DONE** ✅     | /openclaw-infra/ directory does not exist                                                                                      |
 
-**Scorecard**: 8 DONE ✅ | 2 PARTIAL ⚠️ | 11 NOT DONE ❌ | 1 INFO ℹ️
+**Scorecard (2026-03-30)**: 10 DONE ✅ | 2 KEPT ✅ | 1 PARTIAL ⚠️ | 8 NOT DONE ❌ | 1 INFO ℹ️
 
-**Undocumented containers still in docker-compose.yml** (not in original removal spec):
-
-- `node-exporter` (line 367) — not mentioned in spec, should be evaluated
-- `nginx-exporter` (line 405) — not mentioned in spec, should be evaluated
+**Resolved (2026-03-30)**: Monitoring stack decision — kept Prometheus + Grafana + postgres-exporter. Removed Loki, Promtail, redis-exporter, node-exporter, nginx-exporter. Use structured JSON logs + `docker compose logs` instead of log aggregation.
 
 ---
 
@@ -282,14 +279,9 @@ Based on the audit, the following removals are overdue (were planned for Phase 0
 
 **HIGH PRIORITY** (Phase 0 items still pending):
 
-1. Remove monitoring stack from docker-compose.yml: prometheus, loki, grafana, promtail, postgres-exporter, redis-exporter (#4–8)
+1. ~~Remove monitoring stack~~ — **Resolved 2026-03-30**: Loki/Promtail/redis-exporter/node-exporter/nginx-exporter removed. Prometheus+Grafana+postgres-exporter kept.
 2. Delete frontend stubs: ChatPortal, MultiChatManager, MindMap, KnowledgeGraphVisualization (#16–19) — and update portal_registry.tsx
 3. Delete DashboardPortal (mock data) and MiniBrowserPortal (#14–15) — and update portal_registry.tsx
 4. Delete marketplace-service directory (#11)
 
 **MEDIUM PRIORITY** (Phase 1 items with residual): 5. Clean RabbitMQ from infrastructure compose files, scripts, monitoring configs (see 02-REPLACEMENT-SPEC.md D3–D8)
-
-**Decision needed**:
-
-- node-exporter and nginx-exporter: remove with monitoring stack or keep for basic health monitoring?
-- Portal components: some are lazy-loaded and functional — confirm they should be deleted vs kept as Telescope content

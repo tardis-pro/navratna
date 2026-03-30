@@ -15,7 +15,6 @@ export default defineConfig(({ mode: _mode }) => {
       host: '::',
       port: 5173,
       allowedHosts: true,
-      origin: 'http://localhost:5173',
       proxy: {
         '/api/v1/agents':           toCore,
         '/api/v1/personas':         toCore,
