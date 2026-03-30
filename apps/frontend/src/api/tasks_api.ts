@@ -37,63 +37,63 @@ function buildFilterParams(filters?: TaskFilters): string {
 
 export const tasksApi = {
   async getProjectTasks(projectId: string, filters?: TaskFilters) {
-    return APIClient.get(`/projects/${projectId}/tasks${buildFilterParams(filters)}`);
+    return APIClient.get(`/api/v1/projects/${projectId}/tasks${buildFilterParams(filters)}`);
   },
 
   // Get a specific task
   async getTask(taskId: string) {
-    const response = await APIClient.get(`/tasks/${taskId}`);
+    const response = await APIClient.get(`/api/v1/tasks/${taskId}`);
     return response;
   },
 
   // Create a new task
   async createTask(projectId: string, taskData: CreateTaskRequest) {
-    const response = await APIClient.post(`/projects/${projectId}/tasks`, taskData);
+    const response = await APIClient.post(`/api/v1/projects/${projectId}/tasks`, taskData);
     return response;
   },
 
   // Update a task
   async updateTask(taskId: string, updates: UpdateTaskRequest) {
-    const response = await APIClient.put(`/tasks/${taskId}`, updates);
+    const response = await APIClient.put(`/api/v1/tasks/${taskId}`, updates);
     return response;
   },
 
   // Delete a task
   async deleteTask(taskId: string) {
-    const response = await APIClient.delete(`/tasks/${taskId}`);
+    const response = await APIClient.delete(`/api/v1/tasks/${taskId}`);
     return response;
   },
 
   // Assign a task
   async assignTask(taskId: string, assignment: TaskAssignmentRequest) {
-    const response = await APIClient.post(`/tasks/${taskId}/assign`, assignment);
+    const response = await APIClient.post(`/api/v1/tasks/${taskId}/assign`, assignment);
     return response;
   },
 
   // Get assignment suggestions
   async getAssignmentSuggestions(taskId: string) {
-    const response = await APIClient.get(`/tasks/${taskId}/assignment-suggestions`);
+    const response = await APIClient.get(`/api/v1/tasks/${taskId}/assignment-suggestions`);
     return response;
   },
 
   // Update task progress
   async updateTaskProgress(taskId: string, progress: TaskProgressUpdate) {
-    const response = await APIClient.put(`/tasks/${taskId}/progress`, progress);
+    const response = await APIClient.put(`/api/v1/tasks/${taskId}/progress`, progress);
     return response;
   },
 
   // Get task statistics for a project
   async getTaskStatistics(projectId: string) {
-    const response = await APIClient.get(`/projects/${projectId}/tasks/statistics`);
+    const response = await APIClient.get(`/api/v1/projects/${projectId}/tasks/statistics`);
     return response;
   },
 
   async getUserTasks(userId: string, filters?: TaskFilters) {
-    return APIClient.get(`/users/${userId}/tasks${buildFilterParams(filters)}`);
+    return APIClient.get(`/api/v1/users/${userId}/tasks${buildFilterParams(filters)}`);
   },
 
   async getAgentTasks(agentId: string, filters?: TaskFilters) {
-    return APIClient.get(`/agents/${agentId}/tasks${buildFilterParams(filters)}`);
+    return APIClient.get(`/api/v1/agents/${agentId}/tasks${buildFilterParams(filters)}`);
   },
 };
 

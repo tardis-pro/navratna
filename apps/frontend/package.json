@@ -84,9 +84,11 @@
     "uuid": "catalog:backend",
     "vaul": "^1.1.2",
     "zod": "catalog:",
-    "@uaip/contracts": "workspace:*"
+    "@uaip/contracts": "workspace:*",
+    "@elysiajs/eden": "catalog:frontend"
   },
   "devDependencies": {
+    "elysia": "catalog:backend",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

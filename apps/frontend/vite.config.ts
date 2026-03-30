@@ -16,6 +16,10 @@ export default defineConfig(({ mode: _mode }) => {
       host: '::',
       port: 5173,
       allowedHosts: true,
+      fs: {
+        // Allow imports from backend source directories for Eden Treaty type inference
+        allow: ['..'],
+      },
       proxy: {
         '/api/v1/agents':           toCore,
         '/api/v1/personas':         toCore,
@@ -61,6 +65,9 @@ export default defineConfig(({ mode: _mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@uaip/navratna-core': path.resolve(__dirname, '../backend/services/navratna-core/src'),
+        '@uaip/navratna-gateway': path.resolve(__dirname, '../backend/services/navratna-gateway/src'),
+        '@uaip/shared-services': path.resolve(__dirname, '../shared/services/src'),
       },
       conditions: [],
     },
