@@ -47,6 +47,9 @@ export interface UICapability extends Capability {
   agentName?: string;
   category?: string;
   version?: string;
+  tags?: string[];
+  successRate?: number;
+  avgDuration?: number;
 }
 
 export interface UIApprovalWorkflow extends SharedApprovalWorkflow {

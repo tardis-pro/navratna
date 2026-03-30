@@ -158,7 +158,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
   onNodeSelect,
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<KnowledgeNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<KnowledgeEdge>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
@@ -321,6 +321,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
         graphData = {
           nodes: [],
           edges: [],
+          metadata: { totalNodes: 0, totalEdges: 0 },
         };
       }
 
@@ -384,11 +385,13 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
     // Filter nodes based on search term
     const allNodes = getNodes();
     if (term) {
-      const _filteredNodes = allNodes.filter(
-        (node) =>
-          node.data.label.toLowerCase().includes(term.toLowerCase()) ||
-          node.data.tags.some((tag) => tag.toLowerCase().includes(term.toLowerCase()))
-      );
+      const _filteredNodes = allNodes.filter((node) => {
+        const d = (node as KnowledgeNode).data;
+        return (
+          d.label.toLowerCase().includes(term.toLowerCase()) ||
+          d.tags.some((tag: string) => tag.toLowerCase().includes(term.toLowerCase()))
+        );
+      });
       // Highlight matching nodes (you could implement highlighting logic here)
     }
   };
@@ -572,9 +575,11 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
                     className="ml-2"
                     style={{
                       backgroundColor:
-                        KNOWLEDGE_NODE_STYLES[
-                          selectedNode.data.knowledgeType as keyof typeof KNOWLEDGE_NODE_STYLES
-                        ]?.backgroundColor || '#64748b',
+                        (
+                          KNOWLEDGE_NODE_STYLES[
+                            selectedNode.data.knowledgeType as keyof typeof KNOWLEDGE_NODE_STYLES
+                          ] as { backgroundColor?: string } | undefined
+                        )?.backgroundColor ?? '#64748b',
                     }}
                   >
                     {selectedNode.data.knowledgeType}

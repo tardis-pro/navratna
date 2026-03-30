@@ -229,6 +229,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     name: '',
     role: 'assistant' as AgentRole,
     modelId: '',
+    providerId: '',
     personaId: '',
     description: '',
     isActive: true,
@@ -463,6 +464,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       name: '',
       role: 'assistant' as AgentRole,
       modelId: '',
+      providerId: '',
       personaId: '',
       description: '',
       isActive: true,
@@ -524,6 +526,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         name: agentForm.name.trim(),
         role: agentForm.role,
         modelId: agentForm.modelId,
+        providerId: agentForm.providerId || undefined,
         personaId: selectedPersona.id,
         description: agentForm.description.trim(),
         isActive: agentForm.isActive,
@@ -580,6 +583,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           name: '',
           role: 'assistant' as AgentRole,
           modelId: '',
+          providerId: '',
           personaId: '',
           description: '',
           isActive: true,
@@ -1455,7 +1459,14 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Language Model</label>
           <select
             value={agentForm.modelId}
-            onChange={(e) => setAgentForm((prev) => ({ ...prev, modelId: e.target.value }))}
+            onChange={(e) => {
+              const selected = availableModels.find((m) => m.id === e.target.value);
+              setAgentForm((prev) => ({
+                ...prev,
+                modelId: e.target.value,
+                providerId: selected?.providerId ?? prev.providerId,
+              }));
+            }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
             disabled={modelsLoading}
           >

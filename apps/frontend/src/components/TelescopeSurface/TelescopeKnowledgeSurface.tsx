@@ -13,6 +13,7 @@ import type { ForceNode } from './use_force_layout';
 import type { BlockVisibility } from '@/components/MaterializableBlock/materializable_block_types';
 import type { AttentionItem } from '@/components/AttentionBudget';
 import { Portal } from '@/components/futuristic/Portal';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { PORTAL_COMPONENTS, PORTAL_LABELS } from './portal_registry';
 import { MapWallpaper } from '@/components/futuristic/desktop/MapWallpaper';
 import { cn } from '@/lib/utils';
@@ -455,14 +456,21 @@ export function TelescopeKnowledgeSurface({
               }}
               initialSize={{ width: 720, height: 520 }}
             >
-              <Suspense fallback={
+              <ErrorBoundary fallback={
                 <div className="flex items-center justify-center h-full text-sm"
-                  style={{ color: 'oklch(55% 0.04 264)' }}>
-                  Loading...
+                  style={{ color: 'oklch(65% 0.15 25)' }}>
+                  Portal unavailable
                 </div>
               }>
-                <PortalComponent />
-              </Suspense>
+                <Suspense fallback={
+                  <div className="flex items-center justify-center h-full text-sm"
+                    style={{ color: 'oklch(55% 0.04 264)' }}>
+                    Loading...
+                  </div>
+                }>
+                  <PortalComponent />
+                </Suspense>
+              </ErrorBoundary>
             </Portal>
           );
         })}
