@@ -219,7 +219,7 @@ export class ToolRegistry {
       if (validatedUpdates.securityLevel)
         entityUpdates.securityLevel = validatedUpdates.securityLevel as SecurityLevel;
 
-      await toolRepo.update(validatedId, entityUpdates);
+      await toolRepo.updateTool(validatedId, entityUpdates);
 
       logger.info(`Tool updated successfully: ${validatedId}`);
     } catch (error) {
@@ -241,7 +241,7 @@ export class ToolRegistry {
 
       // Remove tool via ToolService
       const toolRepo = this.toolService.getToolRepository();
-      await toolRepo.delete(validatedId);
+      await toolRepo.deleteTool(validatedId);
 
       logger.info(`Tool unregistered successfully: ${validatedId}`);
     } catch (error) {
@@ -303,7 +303,7 @@ export class ToolRegistry {
     logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
 
     if (category) {
-      const entities = await this.toolService.findToolsByCategory(category);
+      const entities = await this.toolService.findToolsByCategory(category as ToolCategory);
       const tools = entities.map((e) => this.transformEntityToInterface(e));
       if (enabled !== undefined) {
         return tools.filter((tool) => tool.isEnabled === enabled);
@@ -447,7 +447,7 @@ export class ToolRegistry {
     if (toolId) filters.toolId = toolId;
     // Use ToolService for usage stats
     const usageRepo = this.toolService.getToolUsageRepository();
-    return (await usageRepo.getToolUsageStats(filters)) as unknown[];
+    return [await usageRepo.getToolUsageStats(filters)];
   }
 
   async getToolUsageAnalytics(_toolId?: string, _agentId?: string): Promise<unknown[]> {
@@ -507,7 +507,7 @@ export class ToolRegistry {
       let postgresqlHealth = false;
       try {
         // Use ToolService for health check
-        const tools = await this.toolService.getToolRepository().findMany({});
+        const tools = await this.toolService.getToolRepository().getTools({});
         postgresqlHealth = Array.isArray(tools);
       } catch {
         postgresqlHealth = false;

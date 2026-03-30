@@ -2,13 +2,8 @@ import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/audit_service.js';
-import {
-  ContactStatus as RepoContactStatus,
-  ContactType,
-  UserService,
-} from '@uaip/shared-services';
+import { UserService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
-import { ContactStatus as _ContactStatus } from '@uaip/shared-services';
 
 let auditServiceSingleton: AuditService | null = null;
 let userServiceSingleton: UserService | null = null;
@@ -40,6 +35,15 @@ const contactQuerySchema = z.object({
   type: z.enum(['FRIEND', 'COLLEAGUE', 'PUBLIC']).optional(),
   search: z.string().max(100).optional(),
 });
+
+function getContactMeta(contact: { metadata?: Record<string, unknown> | null }) {
+  return (contact.metadata ?? {}) as Record<string, unknown>;
+}
+
+function getContactStatus(contact: { metadata?: Record<string, unknown> | null }): string {
+  const status = getContactMeta(contact)['status'];
+  return typeof status === 'string' ? status : 'PENDING';
+}
 
 export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
   return elysiaApp.group('/api/v1/contacts', (app: AnyElysia) =>
@@ -73,25 +77,30 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
           return { success: false, error: 'User Not Found', message: 'Target user not found' };
         }
         const contactRepo = userService.getUserContactRepository();
-        // @ts-expect-error -- Property does not exist on inferred type
-        const existing = await contactRepo.findContactByUsers(userId, targetUserId);
+        const directContacts = await contactRepo.findByUserId(userId);
+        const reverseContacts = await contactRepo.findByUserId(targetUserId);
+        const existing =
+          directContacts.find((c) => c.contactUserId === targetUserId) ??
+          reverseContacts.find((c) => c.contactUserId === userId);
         if (existing) {
           set.status = 409;
           return {
             success: false,
             error: 'Contact Already Exists',
-            message: `Contact relationship already exists with status: ${existing.status}`,
+            message: `Contact relationship already exists with status: ${getContactStatus(existing)}`,
           };
         }
-        // @ts-expect-error -- Value used as type
-        const typeEnum = String(type).toLowerCase() as ContactType;
         const contactRequest = await contactRepo.create({
-          requesterId: userId,
-          targetId: targetUserId,
-          // @ts-expect-error -- Property does not exist on inferred type
-          status: RepoContactStatus.PENDING,
-          type: typeEnum,
-          message,
+          userId,
+          contactUserId: targetUserId,
+          relationship: type.toLowerCase(),
+          metadata: {
+            status: 'PENDING',
+            type,
+            message,
+            requesterId: userId,
+            targetUserId,
+          },
         });
         await auditService.logSecurityEvent({
           eventType: AuditEventType.USER_ACTION,
@@ -107,8 +116,8 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
           data: {
             id: contactRequest.id,
             targetUserId,
-            status: contactRequest.status,
-            type: contactRequest.type,
+            status: getContactStatus(contactRequest),
+            type,
             createdAt: contactRequest.createdAt,
           },
         };
@@ -126,16 +135,15 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
             details: parsed.error.issues.map((i) => i.message),
           };
         }
-        // @ts-expect-error -- Property does not exist on inferred type
-        const { page, limit, status } = parsed.data as unknown;
+        const { page, limit, status } = parsed.data;
         const userId = user!.id;
         const _offset = (page - 1) * limit;
         const { userService } = await getServices();
         const contactRepo = userService.getUserContactRepository();
-        // @ts-expect-error -- Value used as type
-        const statusEnum = status ? (String(status).toLowerCase() as RepoContactStatus) : undefined;
-        // @ts-expect-error -- Property does not exist on inferred type
-        const contacts = await contactRepo.findUserContacts(userId, statusEnum as unknown);
+        const allContacts = await contactRepo.findByUserId(userId);
+        const contacts = status
+          ? allContacts.filter((c) => getContactStatus(c) === status)
+          : allContacts;
         const total = contacts.length;
         return {
           success: true,
@@ -143,13 +151,24 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
           data: {
             contacts: contacts.map((c) => ({
               id: c.id,
-              user: c.requesterId === userId ? c.target : c.requester,
-              status: c.status,
-              type: c.type,
-              message: c.message,
-              isInitiator: c.requesterId === userId,
+              user: {
+                id: c.contactUserId,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+              },
+              status: getContactStatus(c),
+              type:
+                typeof getContactMeta(c)['type'] === 'string'
+                  ? String(getContactMeta(c)['type'])
+                  : c.relationship,
+              message:
+                typeof getContactMeta(c)['message'] === 'string'
+                  ? String(getContactMeta(c)['message'])
+                  : undefined,
+              isInitiator: c.userId === userId,
               createdAt: c.createdAt,
-              acceptedAt: c.acceptedAt,
+              acceptedAt: getContactMeta(c)['acceptedAt'],
             })),
             pagination: { page, limit, total, pages: Math.ceil(total / limit) },
           },
@@ -168,10 +187,8 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
             details: parsed.error.issues.map((i) => i.message),
           };
         }
-        // @ts-expect-error -- Property does not exist on inferred type
-        const { contactId } = params as unknown;
-        // @ts-expect-error -- Property does not exist on inferred type
-        const { action, message } = parsed.data as unknown;
+        const { contactId } = params;
+        const { action, message } = parsed.data;
         const userId = user!.id;
         const { userService, auditService } = await getServices();
         const contactRepo = userService.getUserContactRepository();
@@ -184,8 +201,8 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
             message: 'Contact request not found',
           };
         }
-        const isTarget = contact.targetId === userId;
-        const isRequester = contact.requesterId === userId;
+        const isTarget = contact.contactUserId === userId;
+        const isRequester = contact.userId === userId;
         if (!isTarget && !isRequester) {
           set.status = 403;
           return {
@@ -194,8 +211,8 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
             message: 'You are not authorized to perform this action',
           };
         }
-        // @ts-expect-error -- Property does not exist on inferred type
-        if (action === 'accept' && (!isTarget || contact.status !== RepoContactStatus.PENDING)) {
+        const currentStatus = getContactStatus(contact);
+        if (action === 'accept' && (!isTarget || currentStatus !== 'PENDING')) {
           set.status = 400;
           return {
             success: false,
@@ -203,8 +220,7 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
             message: 'Can only accept pending requests as the target user',
           };
         }
-        // @ts-expect-error -- Property does not exist on inferred type
-        if (action === 'reject' && (!isTarget || contact.status !== RepoContactStatus.PENDING)) {
+        if (action === 'reject' && (!isTarget || currentStatus !== 'PENDING')) {
           set.status = 400;
           return {
             success: false,
@@ -212,40 +228,62 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
             message: 'Can only reject pending requests as the target user',
           };
         }
-        let updated: Record<string, unknown> | null = null;
+        let updated = contact;
+        const baseMeta = getContactMeta(contact);
         switch (action) {
           case 'accept':
-            // @ts-expect-error -- Property does not exist on inferred type
-            updated = await contactRepo.updateStatus(contactId, RepoContactStatus.ACCEPTED);
+            updated =
+              (await contactRepo.update(contactId, {
+                metadata: {
+                  ...baseMeta,
+                  status: 'ACCEPTED',
+                  acceptedAt: new Date().toISOString(),
+                },
+              })) ?? contact;
             break;
           case 'reject':
-            // @ts-expect-error -- Property does not exist on inferred type
-            updated = await contactRepo.updateStatus(contactId, RepoContactStatus.REJECTED);
+            updated =
+              (await contactRepo.update(contactId, {
+                metadata: {
+                  ...baseMeta,
+                  status: 'REJECTED',
+                  rejectedAt: new Date().toISOString(),
+                },
+              })) ?? contact;
             break;
           case 'block':
-            // @ts-expect-error -- Property does not exist on inferred type
-            updated = await contactRepo.blockContact(
-              userId,
-              contact.requesterId === userId ? contact.targetId : contact.requesterId
-            );
+            updated =
+              (await contactRepo.update(contactId, {
+                metadata: {
+                  ...baseMeta,
+                  status: 'BLOCKED',
+                  blockedBy: userId,
+                  blockedAt: new Date().toISOString(),
+                },
+              })) ?? contact;
             break;
           case 'unblock':
-            // @ts-expect-error -- Property does not exist on inferred type
-            await contactRepo.unblockContact(
-              userId,
-              contact.requesterId === userId ? contact.targetId : contact.requesterId
-            );
+            updated =
+              (await contactRepo.update(contactId, {
+                metadata: {
+                  ...baseMeta,
+                  status: 'ACTIVE',
+                  unblockedBy: userId,
+                  unblockedAt: new Date().toISOString(),
+                },
+              })) ?? contact;
             break;
         }
+        const updatedMeta = getContactMeta(updated);
         await auditService.logSecurityEvent({
           eventType: AuditEventType.USER_ACTION,
           userId,
           details: {
             action: `contact_${action}`,
             contactId,
-            otherUserId: isTarget ? contact.requesterId : contact.targetId,
-            previousStatus: contact.status,
-            newStatus: updated?.status,
+            otherUserId: isTarget ? contact.userId : contact.contactUserId,
+            previousStatus: currentStatus,
+            newStatus: getContactStatus(updated),
             message,
           },
           ipAddress: request.headers.get('x-forwarded-for') || '',
@@ -257,9 +295,9 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
           data: updated
             ? {
                 id: updated.id,
-                status: updated.status,
-                acceptedAt: updated.acceptedAt,
-                blockedAt: updated.blockedAt,
+                status: getContactStatus(updated),
+                acceptedAt: updatedMeta['acceptedAt'],
+                blockedAt: updatedMeta['blockedAt'],
               }
             : null,
         };
@@ -271,17 +309,28 @@ export function registerContactRoutes(elysiaApp: AnyElysia): AnyElysia {
         const userId = user!.id;
         const { userService } = await getServices();
         const contactRepo = userService.getUserContactRepository();
-        // @ts-expect-error -- Property does not exist on inferred type
-        const pending = await contactRepo.findPendingRequests(userId);
+        const pending = (await contactRepo.findByUserId(userId)).filter(
+          (c) => getContactStatus(c) === 'PENDING'
+        );
         return {
           success: true,
           message: 'Pending contact requests retrieved successfully',
           data: {
             requests: pending.map((c) => ({
               id: c.id,
-              requester: c.requester,
-              type: c.type,
-              message: c.message,
+              requester: {
+                id: c.userId,
+                name: c.name,
+                email: c.email,
+              },
+              type:
+                typeof getContactMeta(c)['type'] === 'string'
+                  ? String(getContactMeta(c)['type'])
+                  : c.relationship,
+              message:
+                typeof getContactMeta(c)['message'] === 'string'
+                  ? String(getContactMeta(c)['message'])
+                  : undefined,
               createdAt: c.createdAt,
             })),
           },
