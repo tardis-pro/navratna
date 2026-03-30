@@ -1,6 +1,5 @@
 import type { AnyElysia } from 'elysia';
 import { z } from 'zod';
-import { logger } from '@uaip/utils';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -35,8 +34,7 @@ async function getServices() {
 async function getSecurityServices() {
   const { securityService, auditService, domainAuditService } = await getServices();
   if (!notificationServiceSingleton) notificationServiceSingleton = new NotificationService();
-  // @ts-expect-error -- Wrong number of arguments
-  if (!eventBusServiceSingleton) eventBusServiceSingleton = new EventBusService(logger);
+  if (!eventBusServiceSingleton) eventBusServiceSingleton = EventBusService.getInstance();
   if (!approvalWorkflowServiceSingleton)
     approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       eventBusServiceSingleton,
@@ -114,6 +112,14 @@ const securityPolicySchema = z.object({
   }),
 });
 const updatePolicySchema = securityPolicySchema.partial({ name: true });
+
+type RiskStats = {
+  totalAssessments: number;
+  totalRiskScore: number;
+  highRiskCount: number;
+  mediumRiskCount: number;
+  lowRiskCount: number;
+};
 
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
@@ -414,7 +420,6 @@ export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
               }
               const { domainAuditService, securityService } = await getServices();
               const auditRepo = domainAuditService!.getAuditRepository();
-              // @ts-expect-error -- Property does not exist on inferred type
               const eventStats = await auditRepo.queryAuditEvents({
                 startDate,
                 endDate,
@@ -422,22 +427,32 @@ export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
               });
               const eventsByType = eventStats.reduce(
                 (acc: Record<string, number>, event: Record<string, unknown>) => {
-                  // @ts-expect-error -- Unknown used as index type
-                  acc[event.eventType] = acc[event.eventType] + 1;
+                  const eventType = typeof event.eventType === 'string' ? event.eventType : 'unknown';
+                  acc[eventType] = (acc[eventType] ?? 0) + 1;
                   return acc;
                 },
-                {} as Record<string, number>
+                {}
               );
-              // @ts-expect-error -- Property does not exist on inferred type
               const riskEvents = await auditRepo.queryAuditEvents({
                 eventTypes: [AuditEventType.RISK_ASSESSMENT],
                 startDate,
                 endDate,
                 limit: 1000,
               });
-              const riskStats = riskEvents.reduce(
-                (acc, event) => {
-                  const score = event.details?.riskScore;
+              const initialRiskStats: RiskStats = {
+                totalAssessments: 0,
+                totalRiskScore: 0,
+                highRiskCount: 0,
+                mediumRiskCount: 0,
+                lowRiskCount: 0,
+              };
+              const riskStats: RiskStats = riskEvents.reduce<RiskStats>(
+                (acc, event: Record<string, unknown>) => {
+                  const details =
+                    event.details && typeof event.details === 'object'
+                      ? (event.details as Record<string, unknown>)
+                      : undefined;
+                  const score = details?.riskScore;
                   if (typeof score === 'number') {
                     acc.totalAssessments++;
                     acc.totalRiskScore += score;
@@ -447,13 +462,7 @@ export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
                   }
                   return acc;
                 },
-                {
-                  totalAssessments: 0,
-                  totalRiskScore: 0,
-                  highRiskCount: 0,
-                  mediumRiskCount: 0,
-                  lowRiskCount: 0,
-                }
+                initialRiskStats
               );
               const policyStats = await securityService!
                 .getSecurityPolicyRepository()

@@ -12,8 +12,6 @@ export async function seedDatabase(): Promise<void> {
   }
 }
 
-seedDatabase().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
-
 export { DatabaseSeeder } from './database_seeder';
 export { BaseSeed } from './base_seed';
 export { UserSeed } from './user_seed';

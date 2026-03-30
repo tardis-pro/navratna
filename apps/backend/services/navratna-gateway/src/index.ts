@@ -7,6 +7,8 @@ import { orchestrationFeature } from '../../orchestration-pipeline/src/feature.j
 import { capabilityFeature } from '../../capability-registry/src/feature.js'
 
 class NavratnaGatewayService extends BaseService {
+  private keepAliveTimer?: ReturnType<typeof setInterval>
+
   private factory = new FeatureFactory()
     .register(process.env.FEATURE_AUTH !== 'false' && securityFeature)
     .register(process.env.FEATURE_ORCHESTRATION !== 'false' && orchestrationFeature)
@@ -48,6 +50,20 @@ class NavratnaGatewayService extends BaseService {
 
   protected async checkServiceHealth(): Promise<boolean> {
     return true
+  }
+
+  public override async start(): Promise<void> {
+    await super.start()
+    if (!this.keepAliveTimer) {
+      this.keepAliveTimer = setInterval(() => {}, 60_000)
+    }
+  }
+
+  protected override async cleanup(): Promise<void> {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer)
+      this.keepAliveTimer = undefined
+    }
   }
 }
 

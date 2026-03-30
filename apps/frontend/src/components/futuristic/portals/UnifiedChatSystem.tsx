@@ -241,6 +241,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Track which agents have open windows to ensure uniqueness
   const openAgentWindows = useRef<Set<string>>(new Set());
 
+  function openChatWindow(agentId: string, agentName: string): void {
+    void openChatWindowImpl(agentId, agentName);
+  }
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const agentList = Object.values(agents);
   const selectedAgent = agentList.find((agent) => agent.id === selectedAgentId);
@@ -487,7 +491,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   );
 
   // Define openChatWindow function before it's used
-  const openChatWindow = useCallback(
+  const openChatWindowImpl = useCallback(
     async (agentId: string, agentName: string) => {
       // Check if chat window already exists for this agent
       if (openAgentWindows.current.has(agentId)) {

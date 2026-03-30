@@ -313,6 +313,8 @@ services:
             - VITE_API_BASE_URL=
             - VITE_WS_URL=
             - VITE_API_TARGET=http://api-gateway:80
+            - VITE_CORE_URL=http://navratna-core:3001
+            - VITE_GATEWAY_URL=http://navratna-gateway:3002
             - CHOKIDAR_USEPOLLING=true
             - WATCHPACK_POLLING=true
         ports:
@@ -323,6 +325,10 @@ services:
             - ./apps/frontend/public:/app/apps/frontend/public
             - ./apps/frontend/index.html:/app/apps/frontend/index.html
             - ./apps/frontend/vite.config.ts:/app/apps/frontend/vite.config.ts
+            - ./apps/frontend/tsconfig.json:/app/apps/frontend/tsconfig.json
+            - ./apps/frontend/tsconfig.app.json:/app/apps/frontend/tsconfig.app.json
+            - ./apps/frontend/tsconfig.node.json:/app/apps/frontend/tsconfig.node.json
+            - ./apps/frontend/.env.local:/app/apps/frontend/.env.local:ro
             - ./apps/frontend/tailwind.config.ts:/app/apps/frontend/tailwind.config.ts
             - ./apps/frontend/postcss.config.js:/app/apps/frontend/postcss.config.js
             - ./packages:/app/packages

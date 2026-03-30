@@ -164,11 +164,13 @@ export function MaterializableBlock({
       ...CONTAINER_STYLES,
       width: block.dimensions.width,
       height: block.dimensions.height,
+      left: block.position.x,
+      top: block.position.y,
       zIndex: localZIndex,
       ...baseStyle,
       ...style,
     }),
-    [block.dimensions.width, block.dimensions.height, localZIndex, baseStyle, style]
+    [block.dimensions.width, block.dimensions.height, block.position.x, block.position.y, localZIndex, baseStyle, style]
   );
 
   if (block.visibility === 'hidden') {

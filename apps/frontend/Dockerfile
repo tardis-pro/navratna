@@ -1,5 +1,6 @@
 FROM node:20-alpine AS development
 
+RUN apk add --no-cache curl
 RUN npm install -g pnpm
 
 WORKDIR /app
@@ -39,6 +40,7 @@ CMD ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5173"]
 
 FROM node:20-alpine AS production
 
+RUN apk add --no-cache curl
 RUN npm install -g pnpm
 
 WORKDIR /app

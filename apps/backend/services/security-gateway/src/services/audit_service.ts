@@ -134,7 +134,6 @@ export class AuditService {
   public async queryEvents(query: AuditQuery): Promise<AuditEvent[]> {
     try {
       const auditRepository = this.auditService.getAuditRepository();
-      // @ts-expect-error -- Property does not exist on inferred type
       const events = await auditRepository.queryAuditEvents({
         eventTypes: query.eventTypes,
         userId: query.userId,
@@ -295,11 +294,9 @@ export class AuditService {
 
       // Archive logs older than compression threshold (mark as archived)
       const auditRepository = this.auditService.getAuditRepository();
-      // @ts-expect-error -- Property does not exist on inferred type
       const archivedCount = await auditRepository.archiveOldAuditEvents(compressionDate);
 
       // Delete logs older than retention period (only archived ones)
-      // @ts-expect-error -- Property does not exist on inferred type
       const deletedCount = await auditRepository.deleteOldArchivedAuditEvents(cutoffDate);
 
       logger.info('Audit log archival completed', {
@@ -383,13 +380,12 @@ export class AuditService {
     detailsFilter?: Record<string, unknown>
   ): Promise<number> {
     const auditRepository = this.auditService.getAuditRepository();
-    // @ts-expect-error -- Property does not exist on inferred type
-    return await auditRepository.countRecentAuditEvents(
+    return await auditRepository.countRecentAuditEvents({
       eventType,
       userId,
       minutesBack,
-      detailsFilter
-    );
+      detailsFilter,
+    });
   }
 
   /**
@@ -679,7 +675,6 @@ export class AuditService {
   private async saveAuditEvent(event: Omit<AuditEvent, 'id'>): Promise<AuditEvent> {
     // Let the database auto-generate the UUID for the ID
     const auditRepository = this.auditService.getAuditRepository();
-    // @ts-expect-error -- Property does not exist on inferred type
     const savedEvent = await auditRepository.createAuditEvent({
       eventType: event.eventType,
       userId: event.userId,
@@ -936,7 +931,6 @@ export class AuditService {
       const oneHourAgo = new Date();
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-      // @ts-expect-error -- Property does not exist on inferred type
       const events = await auditRepository.queryAuditEvents({
         agentId,
         startDate: oneHourAgo,
@@ -961,7 +955,6 @@ export class AuditService {
       const oneDayAgo = new Date();
       oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-      // @ts-expect-error -- Property does not exist on inferred type
       const events = await auditRepository.queryAuditEvents({
         agentId,
         startDate: oneDayAgo,

@@ -17,8 +17,7 @@ async function getServices() {
   if (!approvalWorkflowServiceSingleton) {
     auditServiceSingleton = new AuditService();
     notificationServiceSingleton = new NotificationService();
-    // @ts-expect-error -- Wrong number of arguments
-    const eventBusService = new EventBusService(logger);
+    const eventBusService = EventBusService.getInstance();
     approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       eventBusService,
       notificationServiceSingleton,

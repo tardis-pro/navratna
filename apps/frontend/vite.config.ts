@@ -4,11 +4,12 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode: _mode }) => {
+  const API_TARGET = process.env.VITE_API_TARGET;
   const CORE = process.env.VITE_CORE_URL || 'http://localhost:3001';
   const GATEWAY = process.env.VITE_GATEWAY_URL || 'http://localhost:3002';
 
-  const toCore = { target: CORE, changeOrigin: true, secure: false };
-  const toGateway = { target: GATEWAY, changeOrigin: true, secure: false };
+  const toCore = { target: API_TARGET || CORE, changeOrigin: true, secure: false };
+  const toGateway = { target: API_TARGET || GATEWAY, changeOrigin: true, secure: false };
 
   return {
     server: {
