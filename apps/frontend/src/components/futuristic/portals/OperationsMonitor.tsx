@@ -159,7 +159,6 @@ export const OperationsMonitor: React.FC = () => {
       <div className="space-y-6">
         <PortalLoadingState
           message="Loading operations..."
-          icon={<RefreshCw className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />}
         />
       </div>
     );
@@ -170,27 +169,30 @@ export const OperationsMonitor: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+          <h2 className="text-xl font-bold text-slate-100 flex items-center">
             <Settings className="w-6 h-6 mr-2 text-blue-500" />
             Operations Monitor
           </h2>
           <div className="flex items-center space-x-4">
             <PortalConnectionBadge
               isConnected={isWebSocketConnected}
-              onRefresh={refreshData}
-              refreshTitle="Refresh operations"
-              refreshIcon={refreshIcon}
             />
+            <button
+              onClick={refreshData}
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors"
+              title="Refresh operations"
+            >
+              {refreshIcon}
+            </button>
           </div>
         </div>
 
         {/* Empty State */}
         <PortalEmptyState
-          icon={<Settings className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
-          message="No operations to monitor"
-          subMessage="Operations will appear here when agents start working"
-          onRefresh={refreshData}
-          refreshLabel="Refresh"
+          icon={<Settings className="w-8 h-8 text-slate-500 mx-auto mb-2" />}
+          title="No operations to monitor"
+          description="Operations will appear here when agents start working"
+          action={{ label: 'Refresh', onClick: refreshData }}
         />
       </div>
     );
@@ -200,19 +202,23 @@ export const OperationsMonitor: React.FC = () => {
     <div className="space-y-6">
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+        <h2 className="text-xl font-bold text-slate-100 flex items-center">
           <Settings className="w-6 h-6 mr-2 text-blue-500" />
           Operations Monitor
         </h2>
         <div className="flex items-center space-x-4">
           <PortalConnectionBadge
             isConnected={isWebSocketConnected}
-            onRefresh={refreshData}
-            refreshTitle="Refresh operations"
-            refreshIcon={refreshIcon}
           />
+          <button
+            onClick={refreshData}
+            className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors"
+            title="Refresh operations"
+          >
+            {refreshIcon}
+          </button>
           {operations.lastUpdated && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-slate-500">
               Updated: {operations.lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -221,23 +227,23 @@ export const OperationsMonitor: React.FC = () => {
 
       {/* Operations Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              <p className="text-sm font-medium text-blue-400">
                 Total Operations
               </p>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{metrics.total}</p>
+              <p className="text-2xl font-bold text-blue-100">{metrics.total}</p>
             </div>
             <Settings className="w-8 h-8 text-blue-500" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600 dark:text-green-400">Active</p>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+              <p className="text-sm font-medium text-green-400">Active</p>
+              <p className="text-2xl font-bold text-green-100">
                 {metrics.active}
               </p>
             </div>
@@ -245,11 +251,11 @@ export const OperationsMonitor: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Completed</p>
-              <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+              <p className="text-sm font-medium text-purple-400">Completed</p>
+              <p className="text-2xl font-bold text-purple-100">
                 {metrics.completed}
               </p>
             </div>
@@ -257,13 +263,13 @@ export const OperationsMonitor: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+              <p className="text-sm font-medium text-orange-400">
                 Success Rate
               </p>
-              <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+              <p className="text-2xl font-bold text-orange-100">
                 {(metrics.successRate * 100).toFixed(1)}%
               </p>
             </div>
@@ -274,8 +280,8 @@ export const OperationsMonitor: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Operations List */}
-        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+        <div className="bg-slate-900/40 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-xl">
+          <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center">
             <Zap className="w-5 h-5 mr-2 text-green-500" />
             Recent Operations ({operations.data.length})
           </h3>
@@ -284,10 +290,10 @@ export const OperationsMonitor: React.FC = () => {
             {operations.data.slice(0, 10).map((operation) => (
               <div
                 key={operation.id}
-                className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
+                className={`bg-slate-800/40 rounded-xl p-4 border cursor-pointer transition-all backdrop-blur-xl ${
                   selectedOperation === operation.id
                     ? 'border-blue-500 ring-2 ring-blue-500/20'
-                    : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
+                    : 'border-slate-700/50 hover:border-blue-400/50'
                 }`}
                 onClick={() => setSelectedOperation(operation.id)}
               >
@@ -300,10 +306,10 @@ export const OperationsMonitor: React.FC = () => {
                       />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                      <h4 className="font-semibold text-slate-100">
                         {operation.name || `Operation ${operation.id.slice(0, 8)}`}
                       </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-sm text-slate-400 mt-1">
                         {operation.description || 'No description available'}
                       </p>
                     </div>
@@ -317,14 +323,14 @@ export const OperationsMonitor: React.FC = () => {
 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-4">
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-slate-500">
                       Type: {operation.type || 'Unknown'}
                     </span>
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-slate-500">
                       Priority: {operation.priority || 'Normal'}
                     </span>
                   </div>
-                  <span className="text-gray-500 dark:text-gray-400">
+                  <span className="text-slate-500">
                     {operation.createdAt
                       ? new Date(operation.createdAt).toLocaleTimeString()
                       : 'Unknown time'}
@@ -334,12 +340,12 @@ export const OperationsMonitor: React.FC = () => {
                 {operation.progress !== undefined && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-gray-500">Progress</span>
-                      <span className="text-gray-900 dark:text-white font-medium">
+                      <span className="text-slate-500">Progress</span>
+                      <span className="text-slate-100 font-medium">
                         {operation.progress.percentage}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                    <div className="w-full bg-slate-700/50 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${operation.progress.percentage}%` }}
@@ -353,8 +359,8 @@ export const OperationsMonitor: React.FC = () => {
         </div>
 
         {/* Operation Details */}
-        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+        <div className="bg-slate-900/40 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-xl">
+          <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center">
             <Eye className="w-5 h-5 mr-2 text-blue-500" />
             Operation Details
           </h3>
@@ -362,13 +368,13 @@ export const OperationsMonitor: React.FC = () => {
           {selectedOp ? (
             <div className="space-y-6">
               {/* Header */}
-              <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+              <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                    <h4 className="font-semibold text-slate-100">
                       {selectedOp.name || `Operation ${selectedOp.id.slice(0, 8)}`}
                     </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedOp.id}</p>
+                    <p className="text-sm text-slate-400">ID: {selectedOp.id}</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(selectedOp.status)}
@@ -380,34 +386,34 @@ export const OperationsMonitor: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-slate-300 mb-4">
                   {selectedOp.description || 'No description available'}
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Type</span>
-                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                    <span className="text-slate-500">Type</span>
+                    <p className="font-medium text-slate-100 capitalize">
                       {selectedOp.type || 'Unknown'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Priority</span>
-                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                    <span className="text-slate-500">Priority</span>
+                    <p className="font-medium text-slate-100 capitalize">
                       {selectedOp.priority || 'Normal'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Created</span>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <span className="text-slate-500">Created</span>
+                    <p className="font-medium text-slate-100">
                       {selectedOp.createdAt
                         ? new Date(selectedOp.createdAt).toLocaleString()
                         : 'Unknown'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Duration</span>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <span className="text-slate-500">Duration</span>
+                    <p className="font-medium text-slate-100">
                       {selectedOp.actualDuration
                         ? formatDuration(selectedOp.actualDuration)
                         : 'N/A'}
@@ -418,18 +424,18 @@ export const OperationsMonitor: React.FC = () => {
 
               {/* Progress */}
                 {selectedOp.progress !== undefined && (
-                  <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <h5 className="font-medium text-gray-900 dark:text-white mb-3">Progress</h5>
+                  <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
+                    <h5 className="font-medium text-slate-100 mb-3">Progress</h5>
                     <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-gray-500">Completion</span>
-                      <span className="text-gray-900 dark:text-white font-medium">
+                      <span className="text-slate-500">Completion</span>
+                      <span className="text-slate-100 font-medium">
                         {selectedOp.progress.percentage}%
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
                       <span>{selectedOp.progress.completedSteps} / {selectedOp.progress.totalSteps} steps</span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
+                    <div className="w-full bg-slate-700/50 rounded-full h-3">
                       <div
                         className="bg-blue-500 h-3 rounded-full transition-all duration-300"
                         style={{ width: `${selectedOp.progress.percentage}%` }}
@@ -440,9 +446,9 @@ export const OperationsMonitor: React.FC = () => {
 
               {/* Additional metadata if available */}
               {selectedOp.metadata && (
-                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">Metadata</h5>
-                  <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded overflow-auto">
+                <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
+                  <h5 className="font-medium text-slate-100 mb-3">Metadata</h5>
+                  <pre className="text-xs text-slate-400 bg-slate-900/50 p-3 rounded overflow-auto">
                     {JSON.stringify(selectedOp.metadata, null, 2)}
                   </pre>
                 </div>
@@ -451,8 +457,8 @@ export const OperationsMonitor: React.FC = () => {
           ) : (
             <div className="flex items-center justify-center h-32">
               <div className="text-center">
-                <Eye className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 dark:text-gray-400">
+                <Eye className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                <p className="text-slate-400">
                   Select an operation to view details
                 </p>
               </div>

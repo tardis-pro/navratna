@@ -19,7 +19,7 @@ import { uaipAPI } from '@/utils/uaip_api';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 import {
   PortalHeader,
-  PortalSearchFilter,
+  PortalSearchBar,
   PortalErrorState,
   PortalLoadingState,
   PortalDetailCard,
@@ -278,10 +278,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
   if (capabilities.isLoading || toolIntegrations.isLoading || agents.isLoading) {
     return (
       <div className="space-y-6">
-        <PortalLoadingState
-          message="Loading tools..."
-          icon={<RefreshCw className="w-8 h-8 text-purple-400 mx-auto mb-2 animate-spin" />}
-        />
+        <PortalLoadingState message="Loading tools..." />
       </div>
     );
   }
@@ -297,9 +294,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         title="Tool Management"
         isConnected={isWebSocketConnected}
         onRefresh={refreshData}
-        refreshTitle="Refresh tools"
-        lastUpdated={capabilities.lastUpdated || toolIntegrations.lastUpdated || agents.lastUpdated}
-        extraControls={
+        actions={
           <button
             onClick={() => setShowCreateForm(true)}
             className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all flex items-center space-x-2"
@@ -311,15 +306,22 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         }
       />
 
-      <PortalSearchFilter
+      <PortalSearchBar
         value={searchQuery}
         onChange={setSearchQuery}
         placeholder="Search tools..."
-        searchIcon={<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />}
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+        searchIcon={<Search className="w-3.5 h-3.5" />}
+      >
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="bg-slate-900/50 border border-slate-700/60 text-slate-200 text-sm rounded-xl px-3 py-2 min-w-[110px] focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+        >
+          {categories.map((cat: string) => (
+            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+          ))}
+        </select>
+      </PortalSearchBar>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Tools List */}
@@ -674,16 +676,21 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
 
               {selectedToolData ? (
                 <div className="space-y-6">
-                  <PortalDetailCard
-                    name={selectedToolData.name}
-                    subtitle={`ID: ${selectedToolData.id} • Category: ${selectedToolData.category || 'api'}`}
-                    badge={
+                  <PortalDetailCard>
+                    <div className="flex items-start justify-between mb-2 gap-3">
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-medium text-slate-100 truncate">{selectedToolData.name}</h4>
+                        <p className="text-xs text-slate-400 truncate">
+                          ID: {selectedToolData.id} • Category: {selectedToolData.category || 'api'}
+                        </p>
+                      </div>
                       <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getSecurityColor(selectedToolData.securityLevel)}`}>
                         {(selectedToolData.securityLevel || 'safe').toUpperCase()}
                       </span>
-                    }
-                    description={selectedToolData.description || 'No description available'}
-                  >
+                    </div>
+                    <p className="text-xs text-slate-400 mb-3">
+                      {selectedToolData.description || 'No description available'}
+                    </p>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500 dark:text-gray-400">Version</span>

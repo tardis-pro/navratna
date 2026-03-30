@@ -1,56 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
-  Upload as _Upload,
   Database,
   Brain,
   FileText,
   Tag,
   TrendingUp,
   Link,
-  Filter as _Filter,
   Download,
   Trash2,
-  Edit3,
   Eye,
-  Plus as _Plus,
   MessageSquare,
   Copy,
 } from 'lucide-react';
-import {
-  Card as _Card,
-  CardContent as _CardContent,
-  CardDescription as _CardDescription,
-  CardHeader as _CardHeader,
-  CardTitle as _CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress as _Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog as _Dialog,
-  DialogContent as _DialogContent,
-  DialogDescription as _DialogDescription,
-  DialogHeader as _DialogHeader,
-  DialogTitle as _DialogTitle,
-  DialogTrigger as _DialogTrigger,
-} from '@/components/ui/dialog';
-import { Textarea as _Textarea } from '@/components/ui/textarea';
-import {
-  Select as _Select,
-  SelectContent as _SelectContent,
-  SelectItem as _SelectItem,
-  SelectTrigger as _SelectTrigger,
-  SelectValue as _SelectValue,
-} from '@/components/ui/select';
-import { Separator as _Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll_area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import type { KnowledgeItem, KnowledgeIngestRequest as _KnowledgeIngestRequest } from '@uaip/types';
-import { KnowledgeType, SourceType } from '@uaip/types';
+import type { KnowledgeItem } from '@uaip/types';
 import KnowledgeGraphVisualization from './KnowledgeGraphVisualization';
 import { AtomicKnowledgeViewer } from './AtomicKnowledgeViewer';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
@@ -58,29 +28,6 @@ import { DiscussionTrigger } from '@/components/DiscussionTrigger';
 interface KnowledgePortalProps {
   className?: string;
 }
-
-const _KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactNode }[] = [
-  { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
-  { value: KnowledgeType.PROCEDURAL, label: 'Procedural', icon: <Brain className="w-4 h-4" /> },
-  { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
-  {
-    value: KnowledgeType.EXPERIENTIAL,
-    label: 'Experiential',
-    icon: <TrendingUp className="w-4 h-4" />,
-  },
-  { value: KnowledgeType.EPISODIC, label: 'Episodic', icon: <Link className="w-4 h-4" /> },
-  { value: KnowledgeType.SEMANTIC, label: 'Semantic', icon: <Tag className="w-4 h-4" /> },
-];
-
-const _SOURCE_TYPES: { value: SourceType; label: string }[] = [
-  { value: SourceType.USER_INPUT, label: 'User Input' },
-  { value: SourceType.FILE_SYSTEM, label: 'File System' },
-  { value: SourceType.GIT_REPOSITORY, label: 'Git Repository' },
-  { value: SourceType.AGENT_INTERACTION, label: 'Agent Interaction' },
-  { value: SourceType.DISCUSSION, label: 'Discussion' },
-  { value: SourceType.OPERATION, label: 'Operation' },
-  { value: SourceType.EXTERNAL_API, label: 'External API' },
-];
 
 // Knowledge type color classes for list badges
 const KNOWLEDGE_TYPE_COLORS: Record<string, string> = {
@@ -139,20 +86,12 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
   const {
     items,
     searchResults,
-    activeItemId: _activeItemId,
-    isLoading: _isLoading,
-    isUploading: _isUploading,
     isSearching,
     error: knowledgeError,
-    stats: _stats,
-    uploadProgress: _uploadProgress,
-    uploadKnowledge: _uploadKnowledge,
     searchKnowledge,
     updateKnowledge,
     deleteKnowledge,
     getRelatedKnowledge,
-    getKnowledgeByTag: _getKnowledgeByTag,
-    setActiveItem: _setActiveItem,
     clearSearchResults,
     clearError,
     refreshStats,
@@ -222,7 +161,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search knowledge..."
               className="pl-10 bg-black/20 border-blue-500/30 text-white placeholder-gray-400"
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
             />
           </div>
           <Button onClick={handleSearch} disabled={isSearching || !searchQuery.trim()} size="sm">

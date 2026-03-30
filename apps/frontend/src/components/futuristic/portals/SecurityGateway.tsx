@@ -207,7 +207,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   // Show error state
   if (approvals.error) {
     return (
-      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalContainer className={className}>
         <PortalErrorState
           message="Failed to load security data"
           detail={approvals.error.message}
@@ -219,7 +219,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
 
   if (approvals.isLoading) {
     return (
-      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalContainer className={className}>
         <PortalLoadingState message="Loading security data..." />
       </PortalContainer>
     );
@@ -227,34 +227,30 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
 
   if (approvals.data.length === 0) {
     return (
-      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalContainer className={className}>
         <PortalHeader
           icon={<ShieldCheck className="w-6 h-6 mr-2 text-green-500" />}
           title="Security Gateway"
           isConnected={isWebSocketConnected}
           onRefresh={refreshData}
-          refreshTitle="Refresh security data"
-          lastUpdated={approvals.lastUpdated}
         />
         <PortalEmptyState
           icon={<ShieldCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
-          message="No security approvals pending"
-          subMessage="All operations are within approved security parameters"
+          title="No security approvals pending"
+          description="All operations are within approved security parameters"
         />
       </PortalContainer>
     );
   }
 
   return (
-    <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+    <PortalContainer className={className}>
       {/* Header with Connection Status */}
       <PortalHeader
         icon={<ShieldCheck className="w-6 h-6 mr-2 text-red-500" />}
         title="Security Gateway"
         isConnected={isWebSocketConnected}
         onRefresh={refreshData}
-        refreshTitle="Refresh security data"
-        lastUpdated={approvals.lastUpdated}
       />
 
       {/* Security Overview */}

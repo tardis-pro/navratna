@@ -616,13 +616,12 @@ const SecurityPortalContent: React.FC<{
   }, [securityEventsQuery.data]);
 
   // Use Portal's viewport management
-  const currentViewport = viewport || {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  const currentViewport = viewport ?? {
+    width: 1024,
+    height: 768,
+    isMobile: false,
+    isTablet: false,
+    isDesktop: true,
   };
 
   // Determine layout based on viewport size
@@ -656,7 +655,7 @@ const SecurityPortalContent: React.FC<{
       case 'warning':
         return 'bg-amber-500/20 border-amber-500/30';
       case 'critical':
-        return 'bg-red-500/20 border-red-500/30 animate-pulse';
+        return 'bg-red-500/20 border-red-500/30';
       default:
         return 'bg-slate-500/20 border-slate-500/30';
     }
@@ -721,25 +720,23 @@ const SecurityPortalContent: React.FC<{
         {TAB_ITEMS.map((tab) => {
           const Icon = tab.icon;
           return (
-            <motion.button
+            <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`${
+              className={cn(
                 compact
                   ? 'flex items-center justify-center p-2'
-                  : 'flex items-center gap-2 px-4 py-2 font-medium'
-              } rounded-lg transition-all duration-200 ${
+                  : 'flex items-center gap-2 px-4 py-2 font-medium',
+                'rounded-lg transition-colors',
                 activeTab === tab.id
                   ? 'bg-slate-700/50 text-white border border-slate-600/50'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/30'
-              }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/30',
+              )}
               {...(compact ? { title: tab.compactLabel } : {})}
             >
               <Icon className={compact ? 'w-3 h-3' : 'w-4 h-4'} />
               {!compact && (showReducedMetrics ? tab.label.slice(0, 4) : tab.label)}
-            </motion.button>
+            </button>
           );
         })}
       </div>
@@ -798,23 +795,6 @@ const SecurityPortalContent: React.FC<{
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
-      {/* Enhanced Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-            radial-gradient(circle at 20% 20%, rgba(239, 68, 68, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 80% 80%, rgba(34, 197, 94, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
-            radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.3) 0%, transparent 50%)
-          `,
-            backgroundSize: '100% 100%',
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/50 to-transparent" />
-      </div>
-
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -828,28 +808,14 @@ const SecurityPortalContent: React.FC<{
             <div
               className={`flex items-center ${isCompactMode ? 'flex-col text-center gap-2' : 'gap-4'}`}
             >
-              <motion.div
-                className={`${isCompactMode ? 'w-8 h-8' : 'w-12 h-12'} bg-gradient-to-br from-red-500/30 to-orange-500/30 rounded-xl flex items-center justify-center border border-red-500/30`}
-                animate={{
-                  boxShadow:
-                    systemStatus === 'critical'
-                      ? [
-                          '0 0 0 rgba(239, 68, 68, 0)',
-                          '0 0 20px rgba(239, 68, 68, 0.5)',
-                          '0 0 0 rgba(239, 68, 68, 0)',
-                        ]
-                      : systemStatus === 'warning'
-                        ? [
-                            '0 0 0 rgba(245, 158, 11, 0)',
-                            '0 0 15px rgba(245, 158, 11, 0.4)',
-                            '0 0 0 rgba(245, 158, 11, 0)',
-                          ]
-                        : '0 0 10px rgba(34, 197, 94, 0.3)',
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
+              <div
+                className={cn(
+                  isCompactMode ? 'w-8 h-8' : 'w-12 h-12',
+                  'bg-gradient-to-br from-red-500/30 to-orange-500/30 rounded-xl flex items-center justify-center border border-red-500/30',
+                )}
               >
-                <Shield className={`${isCompactMode ? 'w-4 h-4' : 'w-6 h-6'} text-red-400`} />
-              </motion.div>
+                <Shield className={cn(isCompactMode ? 'w-4 h-4' : 'w-6 h-6', 'text-red-400')} />
+              </div>
               <div>
                 <h1 className={`${isCompactMode ? 'text-lg' : 'text-2xl'} font-bold text-white`}>
                   {isVerySmall ? 'Security' : 'Security Center'}
@@ -865,19 +831,15 @@ const SecurityPortalContent: React.FC<{
             <div className={`flex items-center ${isCompactMode ? 'gap-2' : 'gap-3'}`}>
               {!isVerySmall && (
                 <div className="flex items-center gap-2">
-                  <motion.div
-                    className={`w-3 h-3 rounded-full ${
-                      systemStatus === 'healthy'
-                        ? 'bg-green-400'
-                        : systemStatus === 'warning'
-                          ? 'bg-amber-400'
-                          : 'bg-red-400'
-                    }`}
-                    animate={{
-                      scale: systemStatus === 'critical' ? [1, 1.2, 1] : 1,
-                      opacity: systemStatus === 'critical' ? [1, 0.7, 1] : 1,
-                    }}
-                    transition={{ duration: 1, repeat: systemStatus === 'critical' ? Infinity : 0 }}
+                  <div
+                    className={cn(
+                      'w-3 h-3 rounded-full',
+                      systemStatus === 'healthy' ? 'bg-green-400'
+                        : systemStatus === 'warning' ? 'bg-amber-400'
+                        : 'bg-red-400',
+                      systemStatus === 'critical' && 'animate-pulse',
+                    )}
+                    aria-label={`System status: ${systemStatus}`}
                   />
                   <span
                     className={`${isCompactMode ? 'text-xs' : 'text-sm'} text-slate-300 capitalize`}
@@ -1002,7 +964,7 @@ const SecurityPortalContent: React.FC<{
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: index * 0.1 }}
-                          className={`${isCompactMode ? 'p-3' : 'p-6'} rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-105 ${getStatusBgColor(metric.status)}`}
+                          className={cn(isCompactMode ? 'p-3' : 'p-6', 'rounded-2xl border backdrop-blur-sm transition-colors', getStatusBgColor(metric.status))}
                         >
                           <div
                             className={`flex items-center justify-between ${isCompactMode ? 'mb-2' : 'mb-4'}`}
@@ -1203,54 +1165,7 @@ const SecurityPortalContent: React.FC<{
         </AnimatePresence>
       </div>
 
-      {/* Enhanced Status Indicator */}
-      {!isVerySmall && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5 }}
-          className={`absolute ${isCompactMode ? 'bottom-3 right-3' : 'bottom-6 right-6'} z-20`}
-        >
-          <div
-            className={`flex items-center gap-2 ${isCompactMode ? 'px-3 py-2' : 'px-4 py-3'} bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl`}
-          >
-            <div className="flex items-center gap-2">
-              <motion.div
-                className={`w-3 h-3 rounded-full ${
-                  systemStatus === 'healthy'
-                    ? 'bg-green-400'
-                    : systemStatus === 'warning'
-                      ? 'bg-amber-400'
-                      : 'bg-red-400'
-                }`}
-                animate={{
-                  scale: realTimeData ? [1, 1.2, 1] : 1,
-                  opacity: realTimeData ? [1, 0.7, 1] : 1,
-                }}
-                transition={{ duration: 2, repeat: realTimeData ? Infinity : 0 }}
-              />
-              <span
-                className={`${isCompactMode ? 'text-xs' : 'text-sm'} text-slate-300 font-medium`}
-              >
-                {isCompactMode ? systemStatus.slice(0, 4) : `Security ${systemStatus}`}
-              </span>
-            </div>
-            {!isCompactMode && (
-              <>
-                <div className="w-px h-4 bg-slate-600"></div>
-                <div className="flex items-center gap-2">
-                  {realTimeData ? (
-                    <Radio className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <Pause className="w-4 h-4 text-slate-400" />
-                  )}
-                  <span className="text-sm text-slate-300">{realTimeData ? 'Live' : 'Paused'}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </motion.div>
-      )}
+
     </div>
   );
 };

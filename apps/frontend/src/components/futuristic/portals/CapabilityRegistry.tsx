@@ -17,7 +17,7 @@ import {
   PortalEmptyState,
   PortalErrorState,
   PortalHeader,
-  PortalSearchFilter,
+  PortalSearchBar,
 } from './portal-shared-components';
 
 interface CapabilityRegistryPortalProps {
@@ -83,7 +83,7 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   if (capabilities.error) {
     return (
-      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalContainer className={className}>
         <PortalErrorState
           message="Failed to load capabilities"
           detail={capabilities.error.message}
@@ -95,7 +95,7 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   if (capabilities.isLoading) {
     return (
-      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalContainer className={className}>
         <PortalLoadingState message="Loading capabilities..." />
       </PortalContainer>
     );
@@ -103,40 +103,50 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   if (capabilities.data.length === 0) {
     return (
-      <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+      <PortalContainer className={className}>
         <PortalEmptyState
           icon={<PuzzlePieceIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
-          message="No capabilities available"
-          subMessage="Capabilities will appear here when agents register them"
-          onRefresh={refreshData}
-          refreshLabel="Refresh"
+          title="No capabilities available"
+          description="Capabilities will appear here when agents register them"
+          action={{ label: 'Refresh', onClick: refreshData }}
         />
       </PortalContainer>
     );
   }
 
   return (
-    <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+    <PortalContainer className={className}>
       <PortalHeader
         icon={<PuzzlePieceIcon className="w-6 h-6 mr-2 text-purple-500" />}
         title="Capability Registry"
         isConnected={isWebSocketConnected}
         onRefresh={refreshData}
-        refreshTitle="Refresh capabilities"
-        lastUpdated={capabilities.lastUpdated}
       />
 
-      <PortalSearchFilter
+      <PortalSearchBar
         value={searchQuery}
         onChange={setSearchQuery}
         placeholder="Search capabilities..."
         searchIcon={
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
         }
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+      >
+        <div className="flex gap-2 flex-wrap">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                selectedCategory === cat
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </PortalSearchBar>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Capabilities List */}

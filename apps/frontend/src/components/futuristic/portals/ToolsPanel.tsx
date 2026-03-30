@@ -23,14 +23,14 @@ import {
   Loader2,
   AlertCircle as _AlertCircle,
 } from 'lucide-react';
-import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { ViewportSize } from '@/hooks/use_viewport';
 import {
   PortalContainer,
   PortalLoadingState,
   PortalEmptyState,
   PortalErrorState,
   PortalHeader,
-  PortalSearchFilter,
+  PortalSearchBar,
   PortalDetailCard,
 } from './portal-shared-components';
 
@@ -77,8 +77,6 @@ interface MCPServer {
 }
 
 export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewport }) => {
-  const currentViewport = useViewport(viewport);
-
   const { agents, toolIntegrations, capabilities, refreshData, isWebSocketConnected } = useUAIP();
   const [tools, setTools] = useState<Tool[]>([]);
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
@@ -432,27 +430,25 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           title="Tools Panel"
           isConnected={isWebSocketConnected}
           onRefresh={refreshData}
-          refreshTitle="Refresh tools"
         />
         <PortalEmptyState
           icon={<WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
-          message="No tools available"
-          subMessage="Tools will appear here when agents register capabilities"
+          title="No tools available"
+          description="Tools will appear here when agents register capabilities"
         />
       </div>
     );
   }
 
   return (
-    <PortalContainer className={className} isMobile={currentViewport.isMobile}>
+    <PortalContainer className={className}>
       {/* Header with Connection Status and Install Button */}
       <PortalHeader
         icon={<WrenchScrewdriverIcon className="w-6 h-6 mr-2 text-blue-500" />}
         title="Tools & Integrations"
         isConnected={isWebSocketConnected}
         onRefresh={refreshData}
-        refreshTitle="Refresh tools"
-        extraControls={
+        actions={
           <button
             onClick={handleInstall}
             disabled={isInstalling}
@@ -493,17 +489,22 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
       </div>
 
       {/* Search and Filter */}
-      <PortalSearchFilter
+      <PortalSearchBar
         value={searchQuery}
         onChange={setSearchQuery}
         placeholder="Search tools..."
-        searchIcon={
-          <WrenchScrewdriverIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-        }
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+        searchIcon={<WrenchScrewdriverIcon className="w-3.5 h-3.5" />}
+      >
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="bg-slate-900/50 border border-slate-700/60 text-slate-200 text-sm rounded-xl px-3 py-2 min-w-[110px] focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+        >
+          {categories.map((cat: string) => (
+            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+          ))}
+        </select>
+      </PortalSearchBar>
 
       {/* Tab Content */}
       {activeTab === 'runtime' ? (
@@ -585,19 +586,20 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
 
             {selectedToolData ? (
               <div className="space-y-4">
-                <PortalDetailCard
-                  name={selectedToolData.name}
-                  subtitle={`ID: ${selectedToolData.id}`}
-                  badge={
+                <PortalDetailCard>
+                  <div className="flex items-start justify-between mb-2 gap-3">
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-100">{selectedToolData.name}</h4>
+                      <p className="text-xs text-slate-400">ID: {selectedToolData.id}</p>
+                    </div>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(selectedToolData.status)}
                       <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(selectedToolData.status)}`}>
                         {selectedToolData.status.toUpperCase()}
                       </span>
                     </div>
-                  }
-                  description={selectedToolData.description}
-                >
+                  </div>
+                  <p className="text-xs text-slate-400 mb-3">{selectedToolData.description}</p>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600 dark:text-gray-400">Agent:</span>

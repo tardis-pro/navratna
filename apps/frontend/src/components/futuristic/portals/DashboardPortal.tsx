@@ -1,8 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo } from 'react';
 import {
   Home,
-  Activity,
   Users,
   MessageSquare,
   Brain,
@@ -21,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { STALE_TIMES } from '@/api/query_config';
 import { useDashboardStats, type DashboardStats } from '@/hooks/use_dashboard_stats';
+import { cn } from '@/lib/utils';
 
 interface ViewportSize {
   width: number;
@@ -120,7 +119,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
     return `${diffHours}h ago`;
   };
 
-  const quickStats: QuickStat[] = [
+  const quickStats: QuickStat[] = useMemo(() => [
     {
       id: 'active_agents',
       title: 'Active Agents',
@@ -177,9 +176,9 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
       icon: Package,
       color: 'text-purple-400',
     },
-  ];
+  ], [statsData]);
 
-  const systemMetrics: SystemMetric[] = [
+  const systemMetrics: SystemMetric[] = useMemo(() => [
     {
       id: 'cpu',
       name: 'CPU Usage',
@@ -221,7 +220,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
       trend: 'stable',
       icon: Shield,
     },
-  ];
+  ], [statsData]);
 
   const systemStatus = statsData?.system?.status ?? 'critical';
   const systemStatusColor =
@@ -263,7 +262,7 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
       case 'critical':
         return XCircle;
       default:
-        return Activity;
+        return AlertTriangle;
     }
   };
 
@@ -282,20 +281,25 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
 
   return (
     <div
-      className={`h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 ${className}`}
+      className={cn("h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900", className)}
     >
       {/* Header */}
       <div className="p-6 border-b border-blue-500/20 bg-black/20 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Home className="w-8 h-8 text-blue-400" />
+            <div className="w-9 h-9 rounded-xl bg-slate-800/80 flex items-center justify-center">
+              <Home className="w-5 h-5 text-blue-400" />
+            </div>
             <div>
               <h2 className="text-2xl font-bold text-white">System Dashboard</h2>
               <p className="text-blue-300">Navratna Overview</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${systemStatusColor}`} />
+            <div 
+              className={cn("w-3 h-3 rounded-full", systemStatusColor)} 
+              aria-label={`System status: ${systemStatus}`}
+            />
             <span className="text-white font-medium capitalize">{systemStatus}</span>
             {secondsSinceFetch !== null && (
               <span className="text-xs text-slate-300">Last updated: {secondsSinceFetch}s ago</span>
@@ -320,11 +324,11 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
           {/* Quick Stats */}
           {isLoading
             ? new Array(4).fill(0).map((_, index) => (
-                <motion.div
+                <div
                   key={`quick-stat-skeleton-${index}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  className="animate-fade-in"
+                  role="status"
+                  aria-live="polite"
                 >
                   <Card className="bg-slate-800/50 border-slate-700/50">
                     <CardContent className="p-4 animate-pulse">
@@ -338,16 +342,14 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               ))
-            : quickStats.map((stat, index) => {
+            : quickStats.map((stat) => {
                 const IconComponent = stat.icon;
                 return (
-                  <motion.div
+                  <div
                     key={stat.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    className="animate-fade-in"
                   >
                     <Card className="bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/50 transition-colors">
                       <CardContent className="p-4">
@@ -356,26 +358,30 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                             <p className="text-slate-400 text-sm">{stat.title}</p>
                             <p className="text-2xl font-bold text-white">{stat.value}</p>
                             <p
-                              className={`text-xs ${
+                              className={cn(
+                                "text-xs",
                                 stat.changeType === 'positive'
                                   ? 'text-green-400'
                                   : stat.changeType === 'negative'
                                     ? 'text-red-400'
                                     : 'text-slate-400'
-                              }`}
+                              )}
                             >
                               {stat.change}
                             </p>
                           </div>
                           <div
-                            className={`w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center ${stat.color}`}
+                            className={cn(
+                              "w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center",
+                              stat.color
+                            )}
                           >
                             <IconComponent size={24} />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 );
               })}
         </div>
@@ -396,6 +402,8 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                       <div
                         key={`system-metric-skeleton-${index}`}
                         className="flex items-center justify-between animate-pulse"
+                        role="status"
+                        aria-live="polite"
                       >
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-slate-700/70 rounded-lg" />
@@ -461,6 +469,8 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                       <div
                         key={`activity-skeleton-${index}`}
                         className="flex items-center space-x-3 p-2 bg-slate-700/30 rounded-lg animate-pulse"
+                        role="status"
+                        aria-live="polite"
                       >
                         <div className="w-2 h-2 rounded-full bg-slate-600" />
                         <div className="flex-1 space-y-2">
@@ -489,9 +499,9 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
                           key={activity.id}
                           className="flex items-center space-x-3 p-2 bg-slate-700/30 rounded-lg"
                         >
-                          <div className={`w-2 h-2 rounded-full ${severityClass}`} />
-                          <div className="flex-1">
-                            <p className="text-white text-sm">{activity.summary}</p>
+                          <div className={cn("w-2 h-2 rounded-full", severityClass)} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm truncate">{activity.summary}</p>
                             <p className="text-slate-400 text-xs">{formatTimeAgo(activity.timestamp)}</p>
                           </div>
                         </div>
@@ -504,47 +514,6 @@ export const DashboardPortal: React.FC<DashboardPortalProps> = ({
             </CardContent>
           </Card>
         </div>
-
-        {/* Quick Actions */}
-        <Card className="bg-slate-800/50 border-slate-700/50">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center space-x-2">
-              <Zap className="w-5 h-5 text-yellow-400" />
-              <span>Quick Actions</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: 'Create Agent', icon: Users, color: 'bg-cyan-500/20 text-cyan-400' },
-                {
-                  label: 'Start Discussion',
-                  icon: MessageSquare,
-                  color: 'bg-green-500/20 text-green-400',
-                },
-                { label: 'Add Knowledge', icon: Brain, color: 'bg-orange-500/20 text-orange-400' },
-                {
-                  label: 'View Analytics',
-                  icon: BarChart3,
-                  color: 'bg-purple-500/20 text-purple-400',
-                },
-              ].map((action) => {
-                const IconComponent = action.icon;
-                return (
-                  <motion.button
-                    key={action.label}
-                    className={`p-3 rounded-lg ${action.color} hover:bg-opacity-80 transition-colors`}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <IconComponent size={20} className="mx-auto mb-2" />
-                    <p className="text-xs font-medium">{action.label}</p>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

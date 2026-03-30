@@ -465,7 +465,7 @@ export const UnifiedToolPortal: React.FC = () => {
         ) : (
           <PortalEmptyState
             icon={<Server className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
-            message="No MCP servers configured"
+            title="No MCP servers configured"
           />
         )}
       </div>
@@ -628,8 +628,8 @@ export const UnifiedToolPortal: React.FC = () => {
       {filteredTools.length === 0 && (
         <PortalEmptyState
           icon={<Wrench className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
-          message="No tools found"
-          subMessage={
+          title="No tools found"
+          description={
             searchQuery ? 'Try adjusting your search or filters' : 'Add your first tool to get started'
           }
         />
@@ -895,11 +895,11 @@ export const UnifiedToolPortal: React.FC = () => {
             </div>
 
             {agents.length === 0 && (
-              <PortalEmptyState
-                icon={<Users className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
-                message="No agents available"
-              />
-            )}
+        <PortalEmptyState
+          icon={<Users className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+          title="No agents available"
+        />
+      )}
           </div>
         </div>
       )}
