@@ -1,22 +1,43 @@
-import { getIntelligenceDb, getIntelligencePool } from '../drizzle/clients/index';
+import type { KnowledgeIngestRequest, KnowledgeRelationship, KnowledgeType } from '@uaip/types';
+import { getIntelligenceDb } from '../drizzle/clients/index';
 import { knowledgeItems, knowledgeRelationships } from '../drizzle/schemas/intelligence_schema';
 import { eq, and, inArray, desc, sql, gte } from 'drizzle-orm';
 
 export type KnowledgeRow = typeof knowledgeItems.$inferSelect;
 export type RelationshipRow = typeof knowledgeRelationships.$inferSelect;
 
+interface KnowledgeFilters {
+  type?: KnowledgeType;
+  agentId?: string;
+  userId?: string;
+  accessLevel?: string;
+  limit?: number;
+  offset?: number;
+}
+
+type KnowledgeCreateRequest =
+  | typeof knowledgeItems.$inferInsert
+  | (KnowledgeIngestRequest & {
+      userId?: string;
+      agentId?: string;
+      summary?: string;
+    })
+  | object;
+
+type RelationshipCreateRequest =
+  | typeof knowledgeRelationships.$inferInsert
+  | Pick<KnowledgeRelationship, 'sourceItemId' | 'targetItemId' | 'relationshipType' | 'confidence'>;
+
 export class KnowledgeRepository {
   private get db() {
     return getIntelligenceDb();
   }
-  private get pool() {
-    return getIntelligencePool();
-  }
 
-  async create(request: Record<string, unknown>): Promise<KnowledgeRow> {
+  async create(request: KnowledgeCreateRequest): Promise<KnowledgeRow> {
+    const normalizedRequest = this.normalizeCreateRequest(request);
     const [row] = await this.db
       .insert(knowledgeItems)
-      .values(request as typeof knowledgeItems.$inferInsert)
+      .values(normalizedRequest)
       .returning();
     return row;
   }
@@ -43,20 +64,18 @@ export class KnowledgeRepository {
     return row ?? null;
   }
 
-  async findByFilters(filters: Record<string, unknown>): Promise<KnowledgeRow[]> {
+  async findByFilters(filters: KnowledgeFilters): Promise<KnowledgeRow[]> {
     return this.applyFilters(filters);
   }
 
-  async applyFilters(filters: Record<string, unknown>): Promise<KnowledgeRow[]> {
+  async applyFilters(filters: KnowledgeFilters): Promise<KnowledgeRow[]> {
     const conditions = [];
-    if (filters.type)
-      conditions.push(eq(knowledgeItems.type, filters.type as import('@uaip/types').KnowledgeType));
-    if (filters.agentId) conditions.push(eq(knowledgeItems.agentId, filters.agentId as string));
-    if (filters.userId) conditions.push(eq(knowledgeItems.userId, filters.userId as string));
-    if (filters.accessLevel)
-      conditions.push(eq(knowledgeItems.accessLevel, filters.accessLevel as string));
-    const limit = typeof filters.limit === 'number' ? filters.limit : 100;
-    const offset = typeof filters.offset === 'number' ? filters.offset : 0;
+    if (filters.type) conditions.push(eq(knowledgeItems.type, filters.type));
+    if (filters.agentId) conditions.push(eq(knowledgeItems.agentId, filters.agentId));
+    if (filters.userId) conditions.push(eq(knowledgeItems.userId, filters.userId));
+    if (filters.accessLevel) conditions.push(eq(knowledgeItems.accessLevel, filters.accessLevel));
+    const limit = filters.limit ?? 100;
+    const offset = filters.offset ?? 0;
     const query = this.db.select().from(knowledgeItems);
     if (conditions.length > 0) {
       return query
@@ -73,24 +92,26 @@ export class KnowledgeRepository {
     userId?: string;
     accessLevel?: string;
   }): Promise<KnowledgeRow[]> {
-    return this.applyFilters(scope as Record<string, unknown>);
+    return this.applyFilters(scope);
   }
 
   async findByDomain(domain: string, limit = 50): Promise<KnowledgeRow[]> {
-    const rows = await this.pool.query<KnowledgeRow>(
-      `SELECT * FROM "knowledge_items" WHERE tags @> ARRAY[$1] OR type = $1 ORDER BY created_at DESC LIMIT $2`,
-      [domain, limit]
-    );
-    return rows.rows;
+    return this.db
+      .select()
+      .from(knowledgeItems)
+      .where(sql`${knowledgeItems.tags} @> ARRAY[${domain}] OR ${knowledgeItems.type} = ${domain}`)
+      .orderBy(desc(knowledgeItems.createdAt))
+      .limit(limit);
   }
 
   async findByTags(tags: string[], limit = 20): Promise<KnowledgeRow[]> {
     if (tags.length === 0) return [];
-    const rows = await this.pool.query<KnowledgeRow>(
-      `SELECT * FROM "knowledge_items" WHERE tags && $1 ORDER BY created_at DESC LIMIT $2`,
-      [tags, limit]
-    );
-    return rows.rows;
+    return this.db
+      .select()
+      .from(knowledgeItems)
+      .where(sql`${knowledgeItems.tags} && ${tags}`)
+      .orderBy(desc(knowledgeItems.createdAt))
+      .limit(limit);
   }
 
   async findRecentItems(limit = 20, since?: Date): Promise<KnowledgeRow[]> {
@@ -131,21 +152,66 @@ export class KnowledgeRepository {
     return ((result as { rowCount?: number }).rowCount ?? 0) > 0;
   }
 
-  async createRelationship(data: Record<string, unknown>): Promise<RelationshipRow> {
+  async createRelationship(data: RelationshipCreateRequest): Promise<RelationshipRow> {
+    const normalizedData = this.normalizeRelationshipRequest(data);
     const [row] = await this.db
       .insert(knowledgeRelationships)
-      .values(data as typeof knowledgeRelationships.$inferInsert)
+      .values(normalizedData)
       .returning();
     return row;
   }
 
-  async createRelationships(items: Record<string, unknown>[]): Promise<RelationshipRow[]> {
+  async createRelationships(items: RelationshipCreateRequest[]): Promise<RelationshipRow[]> {
     if (items.length === 0) return [];
+    const normalizedItems = items.map((item) => this.normalizeRelationshipRequest(item));
     const rows = await this.db
       .insert(knowledgeRelationships)
-      .values(items as (typeof knowledgeRelationships.$inferInsert)[])
+      .values(normalizedItems)
       .returning();
     return rows;
+  }
+
+  private normalizeCreateRequest(request: KnowledgeCreateRequest): typeof knowledgeItems.$inferInsert {
+    if (typeof request === 'object' && request !== null && 'source' in request) {
+      const ingestRequest = request as KnowledgeIngestRequest & {
+        userId?: string;
+        agentId?: string;
+        summary?: string;
+      };
+      return {
+        content: ingestRequest.content,
+        type: ingestRequest.type,
+        sourceType: ingestRequest.source.type,
+        sourceIdentifier: ingestRequest.source.identifier,
+        sourceUrl: ingestRequest.source.url,
+        tags: ingestRequest.tags ?? [],
+        confidence: ingestRequest.confidence ?? 0.8,
+        metadata: ingestRequest.source.metadata ?? {},
+        createdBy: ingestRequest.createdBy,
+        organizationId: ingestRequest.organizationId,
+        accessLevel: ingestRequest.accessLevel,
+        userId: ingestRequest.userId,
+        agentId: ingestRequest.agentId,
+        summary: ingestRequest.summary,
+      };
+    }
+
+    return request as typeof knowledgeItems.$inferInsert;
+  }
+
+  private normalizeRelationshipRequest(
+    request: RelationshipCreateRequest
+  ): typeof knowledgeRelationships.$inferInsert {
+    if ('sourceItemId' in request) {
+      return {
+        sourceId: request.sourceItemId,
+        targetId: request.targetItemId,
+        relationshipType: request.relationshipType,
+        strength: request.confidence,
+      };
+    }
+
+    return request;
   }
 
   async findRelationships(sourceId: string): Promise<RelationshipRow[]> {

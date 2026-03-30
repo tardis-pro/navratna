@@ -83,9 +83,52 @@ const DiscussionControlsPortal = lazy(() =>
 const DiscussionPortal = lazy(() =>
   import('../DiscussionPortal').then((m) => ({ default: m.DiscussionPortal }))
 );
+const AtomicKnowledgeViewer = lazy(() =>
+  import('../futuristic/portals/AtomicKnowledgeViewer').then((m) => ({
+    default: m.AtomicKnowledgeViewer,
+  }))
+);
+const CapabilityRegistry = lazy(() =>
+  import('../futuristic/portals/CapabilityRegistry').then((m) => ({
+    default: m.CapabilityRegistry,
+  }))
+);
+const EventStreamMonitor = lazy(() =>
+  import('../futuristic/portals/EventStreamMonitor').then((m) => ({
+    default: m.EventStreamMonitor,
+  }))
+);
+const InsightsPanel = lazy(() =>
+  import('../futuristic/portals/InsightsPanel').then((m) => ({ default: m.InsightsPanel }))
+);
+const KnowledgeGraphVisualization = lazy(() =>
+  import('../futuristic/portals/KnowledgeGraphVisualization')
+);
+const MindMap = lazy(() => import('../futuristic/portals/MindMap'));
+const MultiChatManager = lazy(() =>
+  import('../futuristic/portals/MultiChatManager').then((m) => ({
+    default: m.MultiChatManager,
+  }))
+);
+const OperationsMonitor = lazy(() =>
+  import('../futuristic/portals/OperationsMonitor').then((m) => ({
+    default: m.OperationsMonitor,
+  }))
+);
+const ProjectOnboardingFlow = lazy(() =>
+  import('../futuristic/portals/ProjectOnboardingFlow').then((m) => ({
+    default: m.ProjectOnboardingFlow,
+  }))
+);
+const SecurityGateway = lazy(() =>
+  import('../futuristic/portals/SecurityGateway').then((m) => ({ default: m.SecurityGateway }))
+);
+const ToolsPanel = lazy(() =>
+  import('../futuristic/portals/ToolsPanel').then((m) => ({ default: m.ToolsPanel }))
+);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
+export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
   chat: ChatPortal,
   'agent-manager': AgentManagerPortal,
   knowledge: KnowledgePortal,
@@ -106,6 +149,51 @@ const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.Componen
   'discussion-log': DiscussionLogPortal,
   'discussion-controls': DiscussionControlsPortal,
   discussion: DiscussionPortal,
+  'atomic-knowledge': AtomicKnowledgeViewer,
+  'capability-registry': CapabilityRegistry,
+  'event-stream': EventStreamMonitor,
+  'insights-panel': InsightsPanel,
+  'knowledge-graph': KnowledgeGraphVisualization,
+  'mind-map': MindMap,
+  'multi-chat': MultiChatManager,
+  'operations-monitor': OperationsMonitor,
+  'project-onboarding': ProjectOnboardingFlow,
+  'security-gateway': SecurityGateway,
+  'tools-panel': ToolsPanel,
+};
+
+export const PORTAL_LABELS: Record<string, string> = {
+  chat: 'Chat',
+  'agent-manager': 'Agent Manager',
+  knowledge: 'Knowledge',
+  artifacts: 'Artifacts',
+  'project-management': 'Projects',
+  settings: 'Settings',
+  security: 'Security',
+  'provider-settings': 'Providers',
+  'tool-management': 'Tools',
+  'unified-tool': 'Tools',
+  'system-config': 'System Config',
+  'general-settings': 'General Settings',
+  dashboard: 'Dashboard',
+  'intelligence-panel': 'Intelligence',
+  'user-chat': 'User Chat',
+  'consolidated-user-chat': 'Chat',
+  'mini-browser': 'Browser',
+  'discussion-log': 'Discussion Log',
+  'discussion-controls': 'Discussion Controls',
+  discussion: 'Discussion',
+  'atomic-knowledge': 'Knowledge Viewer',
+  'capability-registry': 'Capabilities',
+  'event-stream': 'Event Stream',
+  'insights-panel': 'Insights',
+  'knowledge-graph': 'Knowledge Graph',
+  'mind-map': 'Mind Map',
+  'multi-chat': 'Multi Chat',
+  'operations-monitor': 'Operations',
+  'project-onboarding': 'Project Setup',
+  'security-gateway': 'Security Gateway',
+  'tools-panel': 'Tools Panel',
 };
 
 type RawBlock = Omit<MaterializableBlockData, 'position' | 'dimensions' | 'visibility'> & {
@@ -273,6 +361,94 @@ export function createInitialBlocks(): MaterializableBlockData[] {
       relevanceScore: 0.4,
       visibility: 'hidden',
       metadata: { title: 'Mini Browser' },
+    },
+    {
+      id: 'insights-panel',
+      type: 'portal',
+      expression: 'attentive',
+      relevanceScore: 0.75,
+      visibility: 'visible',
+      metadata: { title: 'Insights' },
+    },
+    {
+      id: 'operations-monitor',
+      type: 'portal',
+      expression: 'working',
+      relevanceScore: 0.7,
+      visibility: 'faded',
+      metadata: { title: 'Operations' },
+    },
+    {
+      id: 'event-stream',
+      type: 'portal',
+      expression: 'working',
+      relevanceScore: 0.65,
+      visibility: 'faded',
+      metadata: { title: 'Event Stream' },
+    },
+    {
+      id: 'security-gateway',
+      type: 'portal',
+      expression: 'attentive',
+      relevanceScore: 0.65,
+      visibility: 'faded',
+      metadata: { title: 'Security Gateway' },
+    },
+    {
+      id: 'capability-registry',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.6,
+      visibility: 'faded',
+      metadata: { title: 'Capabilities' },
+    },
+    {
+      id: 'knowledge-graph',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.6,
+      visibility: 'faded',
+      metadata: { title: 'Knowledge Graph' },
+    },
+    {
+      id: 'tools-panel',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.6,
+      visibility: 'faded',
+      metadata: { title: 'Tools Panel' },
+    },
+    {
+      id: 'atomic-knowledge',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.55,
+      visibility: 'faded',
+      metadata: { title: 'Knowledge Viewer' },
+    },
+    {
+      id: 'mind-map',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.5,
+      visibility: 'faded',
+      metadata: { title: 'Mind Map' },
+    },
+    {
+      id: 'multi-chat',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.5,
+      visibility: 'faded',
+      metadata: { title: 'Multi Chat' },
+    },
+    {
+      id: 'project-onboarding',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.45,
+      visibility: 'hidden',
+      metadata: { title: 'Project Setup' },
     },
   ];
 

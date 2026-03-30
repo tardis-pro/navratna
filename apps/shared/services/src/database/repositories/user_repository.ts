@@ -1,7 +1,11 @@
-import { eq, and, lt, isNull } from 'drizzle-orm';
-import { users, refreshTokens, passwordResetTokens } from '../drizzle/schemas/control_schema';
+import { eq, and, lt, isNull, isNotNull, ilike, or, count, sql, gte, desc } from 'drizzle-orm';
+import {
+  users,
+  refreshTokens,
+  passwordResetTokens,
+  auditEvents,
+} from '../drizzle/schemas/control_schema';
 import { getControlDb, getControlPool } from '../drizzle/clients/index';
-import { BaseRepository } from '../base/base_repository';
 import { logger } from '@uaip/utils';
 import type { SecurityLevel } from '@uaip/types';
 import type { User, RefreshToken } from '../drizzle/schemas/control_schema';
@@ -17,14 +21,7 @@ type PasswordResetToken = Omit<
   updatedAt: Date;
 };
 
-export class UserRepository extends BaseRepository<Record<string, unknown>> {
-  protected get tableName(): string {
-    return 'users';
-  }
-
-  protected get plane(): 'control' {
-    return 'control';
-  }
+export class UserRepository {
 
   /**
    * Create a new user
@@ -60,6 +57,16 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
     const db = getControlDb();
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
     return result[0] ?? null;
+  }
+
+  public async findById(id: string): Promise<User | null> {
+    return this.findUserById(id);
+  }
+
+  public async delete(id: string): Promise<boolean> {
+    const db = getControlDb();
+    const result = await db.delete(users).where(eq(users.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   /**
@@ -142,57 +149,50 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
     limit?: number;
     offset?: number;
   }): Promise<{ users: User[]; total: number }> {
-    const pool = getControlPool();
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-    let paramIndex = 1;
+    const db = getControlDb();
+    const conditions = [];
 
     if (filters.search) {
+      const searchTerm = `%${filters.search}%`;
       conditions.push(
-        `(email ILIKE $${paramIndex} OR first_name ILIKE $${paramIndex} OR last_name ILIKE $${paramIndex})`
+        or(
+          ilike(users.email, searchTerm),
+          ilike(users.firstName, searchTerm),
+          ilike(users.lastName, searchTerm)
+        )
       );
-      params.push(`%${filters.search}%`);
-      paramIndex++;
     }
 
     if (filters.role) {
-      conditions.push(`role = $${paramIndex}`);
-      params.push(filters.role);
-      paramIndex++;
+      conditions.push(eq(users.role, filters.role));
     }
 
     if (filters.isActive !== undefined) {
-      conditions.push(`is_active = $${paramIndex}`);
-      params.push(filters.isActive);
-      paramIndex++;
+      conditions.push(eq(users.isActive, filters.isActive));
     }
 
     if (filters.department) {
-      conditions.push(`department = $${paramIndex}`);
-      params.push(filters.department);
-      paramIndex++;
+      conditions.push(eq(users.department, filters.department));
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Get total count
-    const countResult = await pool.query<{ cnt: number }>(
-      `SELECT COUNT(*)::int as cnt FROM users ${whereClause}`,
-      params
-    );
-    const total = countResult.rows[0]?.cnt ?? 0;
+    const countQuery = db.select({ total: count() }).from(users);
+    const [{ total }] = whereClause ? await countQuery.where(whereClause) : await countQuery;
 
-    // Get paginated results
-    let query = `SELECT * FROM users ${whereClause} ORDER BY created_at DESC`;
-    if (filters.limit) {
-      query += ` LIMIT ${filters.limit}`;
-    }
-    if (filters.offset) {
-      query += ` OFFSET ${filters.offset}`;
-    }
+    const userQuery = db.select().from(users);
+    const usersResult = whereClause
+      ? await userQuery
+          .where(whereClause)
+          .orderBy(desc(users.createdAt))
+          .limit(filters.limit ?? 100)
+          .offset(filters.offset ?? 0)
+      : await userQuery
+          .orderBy(desc(users.createdAt))
+          .limit(filters.limit ?? 100)
+          .offset(filters.offset ?? 0);
 
-    const result = await pool.query<User>(query, params);
-    return { users: result.rows, total };
+    return { users: usersResult, total: Number(total) };
   }
 
   /**
@@ -272,47 +272,62 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
     departmentStats: Array<{ department: string; count: number }>;
     recentActivity: Array<{ date: string; loginCount: number }>;
   }> {
-    const pool = getControlPool();
+    const db = getControlDb();
 
     // Get total and active counts
     const [totalResult, activeResult] = await Promise.all([
-      pool.query<{ cnt: number }>('SELECT COUNT(*)::int as cnt FROM users'),
-      pool.query<{ cnt: number }>('SELECT COUNT(*)::int as cnt FROM users WHERE is_active = true'),
+      db.select({ cnt: count() }).from(users),
+      db.select({ cnt: count() }).from(users).where(eq(users.isActive, true)),
     ]);
 
-    const totalUsers = totalResult.rows[0]?.cnt ?? 0;
-    const activeUsers = activeResult.rows[0]?.cnt ?? 0;
+    const totalUsers = Number(totalResult[0]?.cnt ?? 0);
+    const activeUsers = Number(activeResult[0]?.cnt ?? 0);
     const inactiveUsers = totalUsers - activeUsers;
 
     // Get role statistics
-    const roleStatsResult = await pool.query<{ role: string; count: string }>(
-      `SELECT role, COUNT(*)::int as count FROM users WHERE is_active = true GROUP BY role ORDER BY count DESC`
-    );
-    const roleStats = roleStatsResult.rows.map((stat) => ({
+    const roleStatsResult = await db
+      .select({
+        role: users.role,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(users)
+      .where(eq(users.isActive, true))
+      .groupBy(users.role)
+      .orderBy(desc(sql`count(*)`));
+    const roleStats = roleStatsResult.map((stat) => ({
       role: stat.role,
-      count: parseInt(stat.count),
+      count: stat.count,
     }));
 
     // Get department statistics
-    const departmentStatsResult = await pool.query<{ department: string; count: string }>(
-      `SELECT department, COUNT(*)::int as count FROM users WHERE is_active = true AND department IS NOT NULL GROUP BY department ORDER BY count DESC`
-    );
-    const departmentStats = departmentStatsResult.rows.map((stat) => ({
+    const departmentStatsResult = await db
+      .select({
+        department: users.department,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(users)
+      .where(and(eq(users.isActive, true), isNotNull(users.department)))
+      .groupBy(users.department)
+      .orderBy(desc(sql`count(*)`));
+    const departmentStats = departmentStatsResult.map((stat) => ({
       department: stat.department,
-      count: parseInt(stat.count),
+      count: stat.count,
     }));
 
     // Get recent activity (last 7 days)
-    const recentActivityResult = await pool.query<{ date: Date; loginCount: string }>(
-      `SELECT DATE(last_login_at) as date, COUNT(*)::int as loginCount 
-       FROM users 
-       WHERE last_login_at >= NOW() - INTERVAL '7 days' 
-       GROUP BY DATE(last_login_at) 
-       ORDER BY date DESC`
-    );
-    const recentActivity = recentActivityResult.rows.map((activity) => ({
-      date: activity.date.toISOString().split('T')[0],
-      loginCount: parseInt(activity.loginCount),
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentActivityResult = await db
+      .select({
+        date: sql<string>`to_char(date(${users.lastLoginAt}), 'YYYY-MM-DD')`,
+        loginCount: sql<number>`count(*)::int`,
+      })
+      .from(users)
+      .where(and(isNotNull(users.lastLoginAt), gte(users.lastLoginAt, weekAgo)))
+      .groupBy(sql`date(${users.lastLoginAt})`)
+      .orderBy(desc(sql`date(${users.lastLoginAt})`));
+    const recentActivity = recentActivityResult.map((activity) => ({
+      date: activity.date,
+      loginCount: activity.loginCount,
     }));
 
     return {
@@ -393,24 +408,25 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
       `;
 
       const [roleResults, directResults] = await Promise.all([
-        pool.query<{ role_name: string; permission_type: string; operations: unknown }>(
+        pool.query<{ role_name: string; permission_type: string; operations: string[] | null }>(
           rolePermissionsQuery,
           [userId]
         ),
-        pool.query<{ permission_type: string; operations: unknown }>(directPermissionsQuery, [
-          userId,
-        ]),
+        pool.query<{ permission_type: string; operations: string[] | null }>(
+          directPermissionsQuery,
+          [userId]
+        ),
       ]);
 
       return {
         rolePermissions: roleResults.rows.map((row) => ({
           roleName: row.role_name,
           permissionType: row.permission_type,
-          operations: (row.operations as string[]) || [],
+          operations: row.operations ?? [],
         })),
         directPermissions: directResults.rows.map((row) => ({
           permissionType: row.permission_type,
-          operations: (row.operations as string[]) || [],
+          operations: row.operations ?? [],
         })),
       };
     } catch (error) {
@@ -430,39 +446,37 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
     recentActivityCount: number;
   } | null> {
     try {
-      const pool = getControlPool();
+      const db = getControlDb();
+      const recentActivityCountSubquery = sql<number>`(
+        select count(*)::int
+        from ${auditEvents}
+        where ${auditEvents.actorId} = ${userId}
+          and ${auditEvents.createdAt} > now() - interval '24 hours'
+      )`;
 
-      // Get user data with recent activity count
-      const query = `
-        SELECT 
-          u.security_clearance,
-          u.role,
-          u.last_login_at,
-          u.created_at,
-          (SELECT COUNT(*) FROM audit_events WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '24 hours') as recent_activity_count
-        FROM users u
-        WHERE u.id = $1
-      `;
+      const result = await db
+        .select({
+          securityClearance: users.securityClearance,
+          role: users.role,
+          lastLoginAt: users.lastLoginAt,
+          createdAt: users.createdAt,
+          recentActivityCount: recentActivityCountSubquery,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
-      const result = await pool.query<{
-        security_clearance: SecurityLevel | null;
-        role: string;
-        last_login_at: Date | null;
-        created_at: Date;
-        recent_activity_count: string;
-      }>(query, [userId]);
-
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return null;
       }
 
-      const row = result.rows[0];
+      const row = result[0];
       return {
-        securityClearance: row.security_clearance ?? undefined,
+        securityClearance: row.securityClearance ?? undefined,
         role: row.role,
-        lastLoginAt: row.last_login_at ?? undefined,
-        createdAt: row.created_at,
-        recentActivityCount: parseInt(row.recent_activity_count),
+        lastLoginAt: row.lastLoginAt ?? undefined,
+        createdAt: row.createdAt,
+        recentActivityCount: row.recentActivityCount,
       };
     } catch (error) {
       logger.error('Error getting user risk data', { userId, error: (error as Error).message });
@@ -502,14 +516,7 @@ export class UserRepository extends BaseRepository<Record<string, unknown>> {
   }
 }
 
-export class RefreshTokenRepository extends BaseRepository<Record<string, unknown>> {
-  protected get tableName(): string {
-    return 'refresh_tokens';
-  }
-
-  protected get plane(): 'control' {
-    return 'control';
-  }
+export class RefreshTokenRepository {
 
   /**
    * Create refresh token
@@ -586,14 +593,7 @@ export class RefreshTokenRepository extends BaseRepository<Record<string, unknow
   }
 }
 
-export class PasswordResetTokenRepository extends BaseRepository<Record<string, unknown>> {
-  protected get tableName(): string {
-    return 'password_reset_tokens';
-  }
-
-  protected get plane(): 'control' {
-    return 'control';
-  }
+export class PasswordResetTokenRepository {
 
   /**
    * Create password reset token

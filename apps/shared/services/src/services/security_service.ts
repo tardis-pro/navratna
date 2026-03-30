@@ -4,7 +4,6 @@ import {
   ApprovalWorkflowRepository,
   ApprovalDecisionRepository,
 } from '../database/repositories/security_repository';
-// Entity types used by repositories: SecurityPolicy, ApprovalWorkflow, ApprovalDecision
 
 export class SecurityService extends BaseDomainService {
   protected constructor() {

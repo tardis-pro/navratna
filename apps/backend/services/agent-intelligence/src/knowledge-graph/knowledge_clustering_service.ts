@@ -2,6 +2,7 @@ import { QdrantService } from './qdrant_service.js';
 import { KnowledgeItemEntity } from '@uaip/shared-services';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service.js';
+import { logger } from '@uaip/utils';
 
 export interface KnowledgeCluster {
   clusterId: string;
@@ -45,8 +46,13 @@ export interface ClusteringResult {
 }
 
 export class KnowledgeClusteringService {
-  private readonly minClusterSize = 20;
-  private readonly similarityThreshold = 0.85;
+  private readonly minClusterSize = parseInt(
+    process.env.KNOWLEDGE_CLUSTER_MIN_SIZE ?? '3',
+    10
+  );
+  private readonly similarityThreshold = parseFloat(
+    process.env.KNOWLEDGE_CLUSTER_SIMILARITY_THRESHOLD ?? '0.65'
+  );
   private readonly maxClusterSize = 100;
 
   constructor(
@@ -142,7 +148,7 @@ export class KnowledgeClusteringService {
         };
       });
     } catch (error) {
-      console.error('Error finding similar chunks:', error);
+      logger.error('Error finding similar chunks', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }
@@ -205,7 +211,7 @@ export class KnowledgeClusteringService {
         },
       }));
     } catch (error) {
-      console.error('Error getting Qdrant points:', error);
+      logger.error('Error getting Qdrant points', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }

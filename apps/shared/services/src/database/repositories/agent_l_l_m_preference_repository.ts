@@ -1,29 +1,94 @@
-import { BaseRepository } from '../base/base_repository';
+import { eq } from 'drizzle-orm';
+import { getIntelligenceDb } from '../drizzle/clients/index';
+import { agentLLMPreferences } from '../drizzle/schemas/intelligence_schema';
+import { logger } from '@uaip/utils';
 
-export class AgentLLMPreferenceRepository extends BaseRepository<Record<string, unknown>> {
-  get tableName() {
-    return 'agent_llm_preferences';
-  }
-  get plane(): 'intelligence' {
-    return 'intelligence';
+type AgentLLMPreferenceRow = typeof agentLLMPreferences.$inferSelect;
+type NewAgentLLMPreference = typeof agentLLMPreferences.$inferInsert;
+
+export class AgentLLMPreferenceRepository {
+  private get db() {
+    return getIntelligenceDb();
   }
 
-  async findByAgentId(agentId: string): Promise<Record<string, unknown>[]> {
-    return this.findMany({ agent_id: agentId });
+  async findById(id: string): Promise<AgentLLMPreferenceRow | null> {
+    try {
+      const [row] = await this.db
+        .select()
+        .from(agentLLMPreferences)
+        .where(eq(agentLLMPreferences.id, id))
+        .limit(1);
+      return row ?? null;
+    } catch (error: unknown) {
+      logger.error('AgentLLMPreferenceRepository.findById failed', {
+        id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async findByAgentId(agentId: string): Promise<AgentLLMPreferenceRow[]> {
+    try {
+      return this.db
+        .select()
+        .from(agentLLMPreferences)
+        .where(eq(agentLLMPreferences.agentId, agentId));
+    } catch (error: unknown) {
+      logger.error('AgentLLMPreferenceRepository.findByAgentId failed', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   async upsertForAgent(
     agentId: string,
-    data: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const existing = await this.findMany({ agent_id: agentId }, { limit: 1 });
-    if (existing[0]) return (await this.update(existing[0].id as string, data)) ?? existing[0];
-    return this.create({ agent_id: agentId, ...data });
+    data: Partial<NewAgentLLMPreference>
+  ): Promise<AgentLLMPreferenceRow> {
+    try {
+      const [existing] = await this.db
+        .select()
+        .from(agentLLMPreferences)
+        .where(eq(agentLLMPreferences.agentId, agentId))
+        .limit(1);
+
+      if (existing) {
+        const [updated] = await this.db
+          .update(agentLLMPreferences)
+          .set(data)
+          .where(eq(agentLLMPreferences.id, existing.id))
+          .returning();
+        return updated ?? existing;
+      }
+
+      const [created] = await this.db
+        .insert(agentLLMPreferences)
+        .values({ ...data, agentId })
+        .returning();
+      return created;
+    } catch (error: unknown) {
+      logger.error('AgentLLMPreferenceRepository.upsertForAgent failed', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   async deleteByAgentId(agentId: string): Promise<boolean> {
-    const existing = await this.findMany({ agent_id: agentId }, { limit: 1 });
-    if (!existing[0]) return false;
-    return this.delete(existing[0].id as string);
+    try {
+      const result = await this.db
+        .delete(agentLLMPreferences)
+        .where(eq(agentLLMPreferences.agentId, agentId));
+      return (result.rowCount ?? 0) > 0;
+    } catch (error: unknown) {
+      logger.error('AgentLLMPreferenceRepository.deleteByAgentId failed', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 }

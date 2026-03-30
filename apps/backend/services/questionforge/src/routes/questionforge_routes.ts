@@ -21,9 +21,9 @@ export function registerQuestionForgeRoutes(
   return app.group('/api/v1/questionforge', (g: ElysiaApp) =>
     withNginxAuth(g)
       // Run the full QuestionForge pipeline
-      .post('/forge', async ({ body, set }: RouteContext) => {
+      .post('/forge', async ({ body, set }) => {
         try {
-          const { projectBriefText, inputType, stakeholderRoles, agentPersonaIds } = body;
+          const { projectBriefText, inputType, stakeholderRoles, agentPersonaIds } = body as Record<string, unknown>;
 
           if (!projectBriefText || typeof projectBriefText !== 'string') {
             set.status = 400;
@@ -59,9 +59,9 @@ export function registerQuestionForgeRoutes(
       })
 
       // Create an interview session from a forge result
-      .post('/interviews', async ({ body, set }: RouteContext) => {
+      .post('/interviews', async ({ body, set }) => {
         try {
-          const { projectBriefId: _pbId, stakeholderRole: _sr, questions: _q } = body;
+          const { projectBriefId: _pbId, stakeholderRole: _sr, questions: _q } = body as Record<string, unknown>;
           const projectBriefId = _pbId as string;
           const stakeholderRole = _sr as string;
           const questions = _q as string[];
@@ -94,7 +94,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Get interview session
-      .get('/interviews/:sessionId', async ({ params, set }: RouteContext) => {
+      .get('/interviews/:sessionId', async ({ params, set }) => {
         try {
           const session = interviewService.getSession(params.sessionId);
           if (!session) {
@@ -116,9 +116,9 @@ export function registerQuestionForgeRoutes(
       })
 
       // Record an answer in an interview session
-      .post('/interviews/:sessionId/answers', async ({ params, body, set }: RouteContext) => {
+      .post('/interviews/:sessionId/answers', async ({ params, body, set }) => {
         try {
-          const { questionId, answer } = body;
+          const { questionId, answer } = body as Record<string, unknown>;
 
           if (!questionId || !answer) {
             set.status = 400;
@@ -145,7 +145,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Get next question in interview
-      .get('/interviews/:sessionId/next', async ({ params, set }: RouteContext) => {
+      .get('/interviews/:sessionId/next', async ({ params, set }) => {
         try {
           const question = interviewService.nextQuestion(params.sessionId);
           if (!question) {
@@ -167,7 +167,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Complete interview session
-      .post('/interviews/:sessionId/complete', async ({ params, set }: RouteContext) => {
+      .post('/interviews/:sessionId/complete', async ({ params, set }) => {
         try {
           const result = await interviewService.completeSession(params.sessionId);
           return { success: true, data: result };
@@ -182,7 +182,7 @@ export function registerQuestionForgeRoutes(
       })
 
       // Pause/resume interview
-      .post('/interviews/:sessionId/pause', async ({ params, set }: RouteContext) => {
+      .post('/interviews/:sessionId/pause', async ({ params, set }) => {
         try {
           interviewService.pauseSession(params.sessionId);
           return { success: true, message: 'Interview paused' };
@@ -196,7 +196,7 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      .post('/interviews/:sessionId/resume', async ({ params, set }: RouteContext) => {
+      .post('/interviews/:sessionId/resume', async ({ params, set }) => {
         try {
           interviewService.resumeSession(params.sessionId);
           return { success: true, message: 'Interview resumed' };

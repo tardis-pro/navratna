@@ -1,6 +1,5 @@
 import { BaseDomainService } from './base_domain_service';
 import { AuditRepository } from '../database/repositories/audit_repository';
-// AuditEvent entity type used by AuditRepository
 
 export class AuditService extends BaseDomainService {
   protected constructor() {

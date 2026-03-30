@@ -1,7 +1,34 @@
 import { logger } from '@uaip/utils';
 import { getControlPool, getIntelligencePool } from './database/drizzle/clients/index';
+import type { AgentSkill, ExecutionPlan, UserEntity } from '@uaip/types';
+import type {
+  ApprovalWorkflow,
+  Operation,
+  User,
+} from './database/drizzle/schemas/control_schema';
+import type { Discussion } from './database/drizzle/schemas/intelligence_schema';
 
-type ObjectLiteral = Record<string, unknown>;
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
+type JsonObject = { [key: string]: JsonValue };
+type ObjectLiteral = Record<string, JsonValue>;
+type SqlParameter = string | number | boolean | Date | null | JsonObject | JsonValue[];
+type OperationStateRecord = JsonObject;
+type AgentCapabilitiesState = Record<string, AgentSkill[]>;
+type AgentActivityRecord = {
+  activityType: string;
+  duration?: number;
+  success?: boolean;
+  metadata?: JsonObject;
+  occurredAt?: Date;
+};
+type LearningRecord = {
+  category?: string;
+  summary: string;
+  metadata?: JsonObject;
+  recordedAt?: Date;
+};
+type TimeRange = { start: Date; end: Date };
 type Repository<T extends ObjectLiteral> = DrizzleRepository<T>;
 
 const INTELLIGENCE_TABLES = new Set([
@@ -43,7 +70,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
     skip?: number;
   }): Promise<T[]> {
     const keys = Object.keys(opts?.where ?? {});
-    const vals: unknown[] = Object.values(opts?.where ?? {});
+    const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
     let q = `SELECT * FROM "${this.table}"`;
     if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
     if (opts?.order) {
@@ -60,7 +87,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
 
   async count(opts?: { where?: Partial<T> }): Promise<number> {
     const keys = Object.keys(opts?.where ?? {});
-    const vals: unknown[] = Object.values(opts?.where ?? {});
+    const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
     let q = `SELECT COUNT(*)::int AS cnt FROM "${this.table}"`;
     if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
     const result = await this.pool.query<{ cnt: number }>(q, vals);
@@ -72,7 +99,10 @@ class DrizzleRepository<T extends ObjectLiteral> {
     if (rec.id) {
       const keys = Object.keys(rec).filter((k) => k !== 'id');
       const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-      const vals: unknown[] = [rec.id, ...keys.map((k) => rec[k])];
+      const vals: SqlParameter[] = [
+        rec.id as SqlParameter,
+        ...keys.map((k) => rec[k] as SqlParameter),
+      ];
       const result = await this.pool.query<T>(
         `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1 RETURNING *`,
         vals
@@ -94,7 +124,10 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const keys = Object.keys(data as Record<string, unknown>);
     if (keys.length === 0) return;
     const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-    const vals: unknown[] = [id, ...keys.map((k) => (data as Record<string, unknown>)[k])];
+    const vals: SqlParameter[] = [
+      id,
+      ...keys.map((k) => (data as Record<string, JsonValue>)[k] as SqlParameter),
+    ];
     await this.pool.query(
       `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1`,
       vals
@@ -112,7 +145,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
 
 class DrizzleQueryBuilder<T extends ObjectLiteral> {
   private conditions: string[] = [];
-  private params: unknown[] = [];
+  private params: SqlParameter[] = [];
   private orderClauses: string[] = [];
   private limitVal?: number;
   private offsetVal?: number;
@@ -123,11 +156,11 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     private readonly pool: import('pg').Pool
   ) {}
 
-  where(condition: string, params?: Record<string, unknown>): this {
+  where(condition: string, params?: Record<string, SqlParameter | SqlParameter[]>): this {
     this.conditions = [this.substituteParams(condition, params)];
     return this;
   }
-  andWhere(condition: string, params?: Record<string, unknown>): this {
+  andWhere(condition: string, params?: Record<string, SqlParameter | SqlParameter[]>): this {
     this.conditions.push(this.substituteParams(condition, params));
     return this;
   }
@@ -152,10 +185,13 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     return this;
   }
 
-  private substituteParams(cond: string, params?: Record<string, unknown>): string {
+  private substituteParams(
+    cond: string,
+    params?: Record<string, SqlParameter | SqlParameter[]>
+  ): string {
     if (!params) return cond;
     let result = cond;
-    for (const [key, val] of Object.entries(params)) {
+      for (const [key, val] of Object.entries(params)) {
       const idx = this.params.length + 1;
       if (Array.isArray(val)) {
         const placeholders = val.map((_v, i) => `$${idx + i}`);
@@ -499,7 +535,7 @@ export class DatabaseService {
     return this.agentService.getAgentRepository();
   }
 
-  public getPersonaRepository(): Repository<Record<string, unknown>> {
+  public getPersonaRepository(): Repository<ObjectLiteral> {
     return new DrizzleRepository('personas');
   }
 
@@ -507,7 +543,7 @@ export class DatabaseService {
     return this.agentService.getCapabilityRepository();
   }
 
-  public getAgentCapabilityMetricRepository(): Repository<Record<string, unknown>> {
+  public getAgentCapabilityMetricRepository(): Repository<ObjectLiteral> {
     return new DrizzleRepository('agent_capability_metrics');
   }
 
@@ -665,8 +701,11 @@ export class DatabaseService {
       const { EventBusService } = await import('./event_bus_service');
       const { PersonaService } = await import('./persona_service');
 
+      const { DatabaseService: InfraDatabaseService } = await import('@uaip/infra/database');
+      const infraDatabaseService = InfraDatabaseService.getInstance();
+
       const personaService = new PersonaService({
-        databaseService: this as unknown as import('@uaip/infra/database').DatabaseService,
+        databaseService: infraDatabaseService,
         eventBusService: EventBusService.getInstance(),
         enableAnalytics: false,
         enableRecommendations: false,
@@ -674,7 +713,7 @@ export class DatabaseService {
       });
 
       this.discussionService = new DiscussionService({
-        databaseService: this as unknown as import('@uaip/infra/database').DatabaseService,
+        databaseService: infraDatabaseService,
         eventBusService: EventBusService.getInstance(),
         personaService: personaService,
         enableRealTimeEvents: true,
@@ -699,7 +738,11 @@ export class DatabaseService {
   }
 
   // Health check method
-  public async healthCheck(): Promise<unknown> {
+  public async healthCheck(): Promise<{
+    status: 'healthy' | 'unhealthy';
+    timestamp: string;
+    error?: string;
+  }> {
     try {
       const pool = getIntelligencePool();
       await pool.query('SELECT 1');
@@ -833,7 +876,10 @@ export class DatabaseService {
   /**
    * Execute raw SQL query (use with caution)
    */
-  public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
+  public async executeQuery<T extends Record<string, JsonValue> = Record<string, JsonValue>>(
+    query: string,
+    parameters?: SqlParameter[]
+  ): Promise<T[]> {
     await this.ensureInitialized();
     try {
       const pool = getControlPool();
@@ -854,17 +900,17 @@ export class DatabaseService {
   /**
    * Save operation state
    */
-  public async saveOperationState(operationId: string, state: unknown): Promise<void> {
+  public async saveOperationState(operationId: string, state: OperationStateRecord): Promise<void> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationStateRepository()
-      .saveOperationState(operationId, state as Record<string, unknown>);
+      .saveOperationState(operationId, state);
   }
 
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<unknown> {
+  public async getOperationState(operationId: string): Promise<Record<string, unknown> | null> {
     await this.ensureInitialized();
     return this.operationService.getOperationStateRepository().getOperationState(operationId);
   }
@@ -874,45 +920,49 @@ export class DatabaseService {
    */
   public async updateOperationState(
     operationId: string,
-    state: unknown,
-    updates: unknown
+    state: OperationStateRecord,
+    updates: OperationStateRecord
   ): Promise<void> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationStateRepository()
-      .updateOperationState(
-        operationId,
-        state as Record<string, unknown>,
-        updates as Record<string, unknown>
-      );
+      .updateOperationState(operationId, state, updates);
   }
 
   /**
    * Save checkpoint
    */
-  public async saveCheckpoint(operationId: string, checkpoint: unknown): Promise<void> {
+  public async saveCheckpoint(operationId: string, checkpoint: OperationStateRecord): Promise<void> {
     await this.ensureInitialized();
     return this.operationService
       .getOperationCheckpointRepository()
-      .saveCheckpoint(operationId, checkpoint as Record<string, unknown>);
+      .saveCheckpoint(operationId, checkpoint);
   }
 
   /**
    * Get checkpoint
    */
-  public async getCheckpoint(operationId: string, checkpointId: string): Promise<unknown> {
+  public async getCheckpoint(
+    operationId: string,
+    checkpointId: string
+  ): Promise<Record<string, unknown> | null> {
     await this.ensureInitialized();
-    return this.operationService
+    const checkpoints = await this.operationService
       .getOperationCheckpointRepository()
-      .getCheckpoint(operationId, checkpointId);
+      .listCheckpoints(operationId);
+    const checkpoint = checkpoints.find((item) => item.id === checkpointId);
+    return checkpoint?.data ?? null;
   }
 
   /**
    * List checkpoints
    */
-  public async listCheckpoints(operationId: string): Promise<unknown[]> {
+  public async listCheckpoints(operationId: string): Promise<Record<string, unknown>[]> {
     await this.ensureInitialized();
-    return this.operationService.getOperationCheckpointRepository().listCheckpoints(operationId);
+    const checkpoints = await this.operationService
+      .getOperationCheckpointRepository()
+      .listCheckpoints(operationId);
+    return checkpoints.map((checkpoint) => checkpoint.data);
   }
 
   /**
@@ -943,17 +993,17 @@ export class DatabaseService {
     return await repository.save(data);
   }
 
-  public async findById<T extends ObjectLiteral>(
+  public async findById<T extends ObjectLiteral & { id: string }>(
     tableName: string,
     id: string,
     _relations?: string[]
   ): Promise<T | null> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
-    return await repository.findOne({ where: { id } as unknown as Partial<T> });
+    return await repository.findOne({ where: { id } as Partial<T> });
   }
 
-  public async update<T extends ObjectLiteral>(
+  public async update<T extends ObjectLiteral & { id: string }>(
     tableName: string,
     id: string,
     data: Partial<T>
@@ -961,7 +1011,7 @@ export class DatabaseService {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     await repository.update(id, data);
-    return await repository.findOne({ where: { id } as unknown as Partial<T> });
+    return await repository.findOne({ where: { id } as Partial<T> });
   }
 
   public async delete<T extends ObjectLiteral>(tableName: string, id: string): Promise<boolean> {
@@ -973,7 +1023,7 @@ export class DatabaseService {
 
   public async findMany<T extends ObjectLiteral>(
     tableName: string,
-    conditions: Partial<Record<string, unknown>>,
+    conditions: Partial<ObjectLiteral>,
     options?: { order?: Partial<Record<string, string>>; take?: number; skip?: number }
   ): Promise<T[]> {
     await this.ensureInitialized();
@@ -988,7 +1038,7 @@ export class DatabaseService {
 
   public async count(
     tableName: string,
-    conditions?: Partial<Record<string, unknown>>
+    conditions?: Partial<ObjectLiteral>
   ): Promise<number> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository(tableName);
@@ -996,8 +1046,8 @@ export class DatabaseService {
   }
 
   public async searchDiscussions(
-    _filters: unknown
-  ): Promise<{ discussions: unknown[]; total: number }> {
+    _filters: Record<string, JsonValue>
+  ): Promise<{ discussions: Discussion[]; total: number }> {
     await this.ensureInitialized();
     // Delegate to discussion repository if it exists
     if (this.discussionService) {
@@ -1008,24 +1058,32 @@ export class DatabaseService {
   }
 
   // Security validation methods (placeholders until implemented)
-  public async createApprovalWorkflow(data: Record<string, unknown>): Promise<unknown> {
+  public async createApprovalWorkflow(
+    data: import('./database/drizzle/schemas/control_schema').NewApprovalWorkflow
+  ): Promise<ApprovalWorkflow> {
     await this.ensureInitialized();
     const repo = this.security.getApprovalWorkflowRepository();
-    return repo.create(data);
+    return repo.createApprovalWorkflow(data);
   }
 
-  public async getUserAuthDetails(userId: string): Promise<unknown> {
+  public async getUserAuthDetails(userId: string): Promise<UserEntity | null> {
     await this.ensureInitialized();
     return this.users.findUserById(userId);
   }
 
-  public async getUserPermissions(_userId: string): Promise<unknown> {
+  public async getUserPermissions(_userId: string): Promise<{
+    rolePermissions: Array<{ roleName: string; permissionType: string; operations: string[] }>;
+    directPermissions: Array<{ permissionType: string; operations: string[] }>;
+  }> {
     await this.ensureInitialized();
     // TODO: Implement proper permissions lookup
     return { rolePermissions: [], directPermissions: [] };
   }
 
-  public async getUserRiskData(_userId: string): Promise<unknown> {
+  public async getUserRiskData(_userId: string): Promise<{
+    riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    factors: string[];
+  }> {
     await this.ensureInitialized();
     // TODO: Implement risk data lookup
     return { riskLevel: 'low', factors: [] };
@@ -1040,52 +1098,61 @@ export class DatabaseService {
   // Agent Intelligence Service placeholders - to be migrated to domain services
   // TODO: Migrate these to AgentService and AuditService per Technical Plan Phase 1.2
 
-  public async storeAgentState(agentId: string, _state: unknown): Promise<void> {
+  public async storeAgentState(agentId: string, _state: OperationStateRecord): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent state (placeholder)', { agentId });
     // TODO: Delegate to AgentService
   }
 
-  public async storeAgentCapabilities(agentId: string, _capabilities: unknown): Promise<void> {
+  public async storeAgentCapabilities(
+    agentId: string,
+    _capabilities: AgentCapabilitiesState
+  ): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent capabilities (placeholder)', { agentId });
     // TODO: Delegate to AgentService
   }
 
-  public async storeLearningRecord(agentId: string, _record: unknown): Promise<void> {
+  public async storeLearningRecord(agentId: string, _record: LearningRecord): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing learning record (placeholder)', { agentId });
     // TODO: Delegate to AuditService
   }
 
-  public async getOperationById(operationId: string): Promise<unknown> {
+  public async getOperationById(operationId: string): Promise<Operation | null> {
     await this.ensureInitialized();
     logger.debug('Getting operation (placeholder)', { operationId });
     // TODO: Delegate to OperationService
     return this.operations.getOperationRepository().findById(operationId);
   }
 
-  public async storeAgentActivity(agentId: string, _activity: unknown): Promise<void> {
+  public async storeAgentActivity(agentId: string, _activity: AgentActivityRecord): Promise<void> {
     await this.ensureInitialized();
     logger.debug('Storing agent activity (placeholder)', { agentId });
     // TODO: Delegate to AuditService
   }
 
-  public async getAgentActivities(agentId: string, timeRange?: unknown): Promise<unknown[]> {
+  public async getAgentActivities(
+    agentId: string,
+    timeRange?: TimeRange
+  ): Promise<AgentActivityRecord[]> {
     await this.ensureInitialized();
     logger.debug('Getting agent activities (placeholder)', { agentId, timeRange });
     // TODO: Delegate to AuditService
     return [];
   }
 
-  public async getLearningRecords(agentId: string, timeRange?: unknown): Promise<unknown[]> {
+  public async getLearningRecords(
+    agentId: string,
+    timeRange?: TimeRange
+  ): Promise<LearningRecord[]> {
     await this.ensureInitialized();
     logger.debug('Getting learning records (placeholder)', { agentId, timeRange });
     // TODO: Delegate to AuditService
     return [];
   }
 
-  public async storeExecutionPlan(plan: unknown): Promise<void> {
+  public async storeExecutionPlan(plan: ExecutionPlan): Promise<void> {
     await this.ensureInitialized();
     const planId =
       typeof plan === 'object' && plan !== null && 'id' in plan ? String(plan.id) : 'unknown';

@@ -10,6 +10,7 @@ import {
   MemberStatus,
   ProjectType,
 } from '@uaip/types';
+import type { NewTask, Task } from './database/drizzle/schemas/control_schema';
 import type {
   CreateProjectData,
   CreateTaskData,
@@ -56,7 +57,7 @@ async function generateUniqueSlug(repo: IRepository<ProjectEntity>): Promise<str
   return tryGenerate(0);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: object | null): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
@@ -100,7 +101,7 @@ export class ProjectManagementService {
         ownerId: data.ownerId,
         type: data.type ?? ProjectType.GENERAL,
         status: ProjectStatus.ACTIVE,
-        visibility: (data.visibility as unknown as ProjectVisibility) ?? ProjectVisibility.PRIVATE,
+        visibility: data.visibility ?? ProjectVisibility.PRIVATE,
         slug,
         tags: data.tags,
         settings: {
@@ -371,12 +372,32 @@ export class ProjectManagementService {
     return { id: `task-${Date.now()}`, projectId: data.projectId, title: data.title };
   }
 
-  async updateTask(id: string, updates: unknown): Promise<unknown> {
+  async updateTask(id: string, updates: Partial<NewTask>): Promise<Task> {
     logger.warn('updateTask called but TaskEntity integration not yet implemented', { id });
-    return { id, ...(isRecord(updates) ? updates : {}) };
+    return {
+      id,
+      projectId: String(updates.projectId ?? ''),
+      title: String(updates.title ?? ''),
+      description: typeof updates.description === 'string' ? updates.description : null,
+      status: String(updates.status ?? 'pending'),
+      priority: String(updates.priority ?? 'medium'),
+      assigneeId: updates.assigneeId ?? null,
+      dueAt: updates.dueAt ?? null,
+      completedAt: updates.completedAt ?? null,
+      metadata: (updates.metadata as Record<string, unknown> | null) ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   }
 
-  async recordToolUsage(data: unknown): Promise<void> {
+  async recordToolUsage(data: {
+    toolId: string;
+    projectId: string;
+    userId?: string;
+    executionTimeMs?: number;
+    success?: boolean;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
     logger.warn('recordToolUsage called but tool usage tracking not yet implemented', { data });
   }
 

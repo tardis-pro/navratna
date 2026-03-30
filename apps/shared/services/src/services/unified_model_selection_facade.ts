@@ -1,14 +1,29 @@
 import { ModelSelectionOrchestrator } from './model_selection_orchestrator';
 import type { ModelSelectionRequest, ModelSelectionResult, FallbackChain } from '@uaip/types';
 import { LLMTaskType, RoutingRequest } from '@uaip/types';
-
-type Repository<_T> = unknown;
-type Agent = Record<string, unknown>;
-type UserLLMPreference = Record<string, unknown>;
-type AgentLLMPreference = Record<string, unknown>;
-type LLMProvider = Record<string, unknown>;
-type UserLLMProvider = Record<string, unknown>;
 import { logger } from '@uaip/utils';
+import { AgentRepository } from '../database/repositories/agent_repository';
+import { UserLLMPreferenceRepository } from '../database/repositories/user_l_l_m_preference_repository';
+import { AgentLLMPreferenceRepository } from '../database/repositories/agent_l_l_m_preference_repository';
+import { LLMProviderRepository } from '../database/repositories/l_l_m_provider_repository';
+import type { UserLLMProvider } from '../database/drizzle/schemas/control_schema';
+
+type OrchestratorAgentRepository = AgentRepository & {
+  findOne: (query: { where: { id: string }; select?: string[] }) => Promise<{ createdBy?: string } | null>;
+};
+
+type OrchestratorUserPreferenceRepository = UserLLMPreferenceRepository & {
+  findOne: (query: {
+    where: { userId?: string; agentId?: string; taskType: LLMTaskType; isActive: boolean };
+  }) => Promise<null>;
+};
+
+type OrchestratorAgentPreferenceRepository = AgentLLMPreferenceRepository & {
+  findOne: (query: {
+    where: { userId?: string; agentId?: string; taskType: LLMTaskType; isActive: boolean };
+  }) => Promise<null>;
+  find: (query: { where: { agentId: string; taskType: LLMTaskType } }) => Promise<[]>;
+};
 
 // =============================================================================
 // UNIFIED FACADE INTERFACES
@@ -70,16 +85,40 @@ export class UnifiedModelSelectionFacade {
   private metrics: SelectionMetrics;
 
   constructor(
-    agentRepository?: Repository<Agent>,
-    userLLMPreferenceRepository?: Repository<UserLLMPreference>,
-    agentLLMPreferenceRepository?: Repository<AgentLLMPreference>,
-    llmProviderRepository?: Repository<LLMProvider>
+    agentRepository?: AgentRepository,
+    userLLMPreferenceRepository?: UserLLMPreferenceRepository,
+    agentLLMPreferenceRepository?: AgentLLMPreferenceRepository,
+    llmProviderRepository?: LLMProviderRepository
   ) {
+    const resolvedAgentRepository =
+      (agentRepository as OrchestratorAgentRepository) ??
+      Object.assign(new AgentRepository(), {
+        findOne: async ({ where }: { where: { id: string } }) => {
+          const agent = await new AgentRepository().findById(where.id);
+          return agent ? { createdBy: agent.createdBy } : null;
+        },
+      });
+
+    const resolvedUserPrefRepository =
+      (userLLMPreferenceRepository as OrchestratorUserPreferenceRepository) ??
+      Object.assign(new UserLLMPreferenceRepository(), {
+        findOne: async () => null,
+      });
+
+    const resolvedAgentPrefRepository =
+      (agentLLMPreferenceRepository as OrchestratorAgentPreferenceRepository) ??
+      Object.assign(new AgentLLMPreferenceRepository(), {
+        findOne: async () => null,
+        find: async () => [],
+      });
+
+    const resolvedProviderRepository = llmProviderRepository ?? new LLMProviderRepository();
+
     this.orchestrator = new ModelSelectionOrchestrator(
-      agentRepository as Repository<Agent>,
-      userLLMPreferenceRepository as Repository<UserLLMPreference>,
-      agentLLMPreferenceRepository as Repository<AgentLLMPreference>,
-      llmProviderRepository as Repository<LLMProvider>
+      resolvedAgentRepository,
+      resolvedUserPrefRepository,
+      resolvedAgentPrefRepository,
+      resolvedProviderRepository
     );
 
     this.metrics = {

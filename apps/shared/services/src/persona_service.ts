@@ -17,6 +17,8 @@ import {
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { logger } from '@uaip/utils';
+import { PersonaRepository } from './database/repositories/agent_repository';
+import type { Persona as PersonaRow, NewPersona } from './database/drizzle/schemas/intelligence_schema';
 
 export interface PersonaServiceConfig {
   databaseService: DatabaseService;
@@ -40,10 +42,12 @@ export class PersonaService {
   private enableCaching: boolean;
   private cacheTimeout: number;
   private personaCache: Map<string, { persona: Persona; timestamp: number }>;
+  private personaRepo: PersonaRepository;
 
   constructor(config: PersonaServiceConfig) {
     this.databaseService = config.databaseService;
     this.eventBusService = config.eventBusService;
+    this.personaRepo = new PersonaRepository();
     this.enableAnalytics = config.enableAnalytics ?? true;
     this.enableRecommendations = config.enableRecommendations ?? true;
     this.enableCaching = config.enableCaching ?? true;
@@ -93,10 +97,30 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
-      const savedEntity = (await this.databaseService.create('personas', personaData)) as Record<
-        string,
-        unknown
-      >;
+      const savedEntity = await this.personaRepo.createPersona({
+        name: personaData.name,
+        role: personaData.role,
+        description: personaData.description,
+        traits: personaData.traits as _PersonaTrait[],
+        expertise: personaData.expertise as string[],
+        background: personaData.background,
+        systemPrompt: personaData.systemPrompt,
+        conversationalStyle: personaData.conversationalStyle as ConversationalStyle,
+        status: personaData.status as PersonaStatus,
+        visibility: personaData.visibility as PersonaVisibility,
+        createdBy: personaData.createdBy,
+        organizationId: personaData.organizationId as string | undefined,
+        teamId: personaData.teamId as string | undefined,
+        version: personaData.version,
+        parentPersonaId: personaData.parentPersonaId as string | undefined,
+        tags: personaData.tags as string[],
+        validation: personaData.validation as PersonaValidation | undefined,
+        usageStats: personaData.usageStats as PersonaUsageStats | undefined,
+        configuration: personaData.configuration as Record<string, unknown> | undefined,
+        capabilities: personaData.capabilities as string[],
+        restrictions: personaData.restrictions as Record<string, unknown> | undefined,
+        metadata: personaData.metadata as Record<string, unknown> | undefined,
+      } as NewPersona);
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -123,10 +147,7 @@ export class PersonaService {
         return cached;
       }
 
-      const entity = (await this.databaseService.findById('personas', id)) as Record<
-        string,
-        unknown
-      > | null;
+      const entity = await this.personaRepo.findById(id);
 
       if (!entity) {
         return null;
@@ -158,12 +179,11 @@ export class PersonaService {
         updateData.expertise = this.extractExpertiseNames(updates.expertise);
       }
 
-      const updatedEntity = (await this.databaseService.update('personas', id, {
-        ...updateData,
-        validation,
+      const updatedEntity = await this.personaRepo.updatePersona(id, {
+        ...(updateData as Partial<NewPersona>),
+        validation: validation as PersonaValidation | undefined,
         version: existingPersona.version + 1,
-        updatedAt: new Date(),
-      })) as Record<string, unknown> | null;
+      });
 
       if (!updatedEntity) {
         throw new Error(`Failed to update persona: ${id}`);
@@ -206,7 +226,7 @@ export class PersonaService {
         return;
       }
 
-      await this.databaseService.delete('personas', id);
+      await this.personaRepo.deletePersona(id);
 
       this.personaCache.delete(id);
 
@@ -247,10 +267,7 @@ export class PersonaService {
       // Get paginated results
       const dataQuery = `SELECT * FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''} ORDER BY ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
       const dataParams = [...params, limit, offset];
-      const entities = (await this.databaseService.executeQuery(dataQuery, dataParams)) as Record<
-        string,
-        unknown
-      >[];
+      const entities = await this.databaseService.executeQuery<PersonaRow>(dataQuery, dataParams);
       const personas = entities.map((entity) => this.entityToPersona(entity));
 
       return {
@@ -765,7 +782,7 @@ export class PersonaService {
   /**
    * Convert entity record to Persona type
    */
-  private entityToPersona(entity: Record<string, unknown>): Persona {
+  private entityToPersona(entity: PersonaRow): Persona {
     const expertise = (entity.expertise as string[]) || [];
     const _traits = (entity.traits as string[]) || [];
     const tags = (entity.tags as string[]) || [];

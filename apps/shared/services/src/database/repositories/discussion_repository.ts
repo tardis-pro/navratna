@@ -45,7 +45,7 @@ export class DiscussionRepository {
     return this.db
       .select()
       .from(discussions)
-      .where(eq(discussions.createdBy, userId as unknown as string))
+      .where(eq(discussions.createdBy, userId))
       .orderBy(desc(discussions.createdAt));
   }
 }

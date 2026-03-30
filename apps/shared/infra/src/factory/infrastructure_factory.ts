@@ -100,7 +100,7 @@ export class InfrastructureFactory {
     logger.info('Initializing Qdrant...');
     try {
       const qdrantConfig = config.database?.qdrant;
-      const useTEI = false; // Default to false since embeddings config not available
+      const vectorDim = parseInt(process.env.QDRANT_VECTOR_DIM ?? '768', 10);
 
       this.qdrantService = new QdrantService({
         host: qdrantConfig?.url ? new URL(qdrantConfig.url).hostname : 'localhost',
@@ -111,13 +111,13 @@ export class InfrastructureFactory {
           : 6333,
         // apiKey: not supported in current config
         collection: qdrantConfig?.collectionName ?? 'knowledge',
-        dimension: useTEI ? 768 : 1024, // TEI uses 768, default is 1024
+        dimension: vectorDim,
         waitUntilReady: true,
       });
 
       await this.qdrantService.initialize();
       logger.info('Qdrant initialized successfully', {
-        dimension: useTEI ? 768 : 1024,
+        dimension: vectorDim,
         collection: qdrantConfig?.collectionName ?? 'knowledge',
       });
     } catch (error) {

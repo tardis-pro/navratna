@@ -200,8 +200,8 @@ export class KnowledgeGraphService {
         },
       };
     } catch (error) {
-      console.error('Knowledge search error:', error);
-      throw new Error(`Knowledge search failed: ${error.message}`, { cause: error });
+      logger.error('Knowledge search error', { error: error instanceof Error ? error.message : String(error) });
+      throw new Error(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 
@@ -238,6 +238,17 @@ export class KnowledgeGraphService {
         // Store embeddings in vector database with scope metadata
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.vectorDb.store(knowledgeItem.id, embeddings);
+
+        // Sync to Qdrant + Neo4j immediately so constellations reflect new data
+        this.knowledgeSync
+          .syncKnowledgeItem(knowledgeItem as Parameters<typeof this.knowledgeSync.syncKnowledgeItem>[0])
+          .catch((syncErr: unknown) => {
+            logger.warn('Post-ingest Qdrant sync failed (item still saved to Postgres)', {
+              itemId: knowledgeItem.id,
+              error: syncErr instanceof Error ? syncErr.message : String(syncErr),
+            });
+          });
+
         // Detect and create relationships
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const relationships = await this.relationshipDetector.detectRelationships(
@@ -256,8 +267,11 @@ export class KnowledgeGraphService {
 
         results.push(knowledgeItem as unknown as KnowledgeItem);
       } catch (error) {
-        console.error(`Failed to ingest item: ${item.content.substring(0, 100)}...`, error);
-        errors.push(`Ingestion failed: ${error.message}`);
+        logger.error('Failed to ingest knowledge item', {
+          preview: item.content.substring(0, 100),
+          error: error instanceof Error ? error.message : String(error),
+        });
+        errors.push(`Ingestion failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 

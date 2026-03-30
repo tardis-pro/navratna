@@ -71,7 +71,7 @@ export function registerArtifactRoutes(
         // List all artifacts
         .get(
           '/',
-          async ({ query, set }: { query: Record<string, string>; set: { status: number } }) => {
+          async ({ query, set }) => {
             try {
               const databaseService = DatabaseService.getInstance();
               const artifactRepo = databaseService.getArtifactRepository();
@@ -110,7 +110,7 @@ export function registerArtifactRoutes(
         // Get artifact by ID
         .get(
           '/:id',
-          async ({ params, set }: { params: Record<string, string>; set: { status: number } }) => {
+          async ({ params, set }) => {
             try {
               const { id } = params;
               const databaseService = DatabaseService.getInstance();
@@ -141,7 +141,7 @@ export function registerArtifactRoutes(
 
         .post(
           '/generate',
-          async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+          async ({ body, set }) => {
             try {
               const request = buildArtifactGenerationRequest(body);
 
@@ -203,7 +203,7 @@ export function registerArtifactRoutes(
 
         .get(
           '/templates',
-          async ({ query, set }: { query: Record<string, string>; set: { status: number } }) => {
+          async ({ query, set }) => {
             try {
               const { type, language, framework } = query;
               const templates = await artifactService.listTemplates(
@@ -235,7 +235,7 @@ export function registerArtifactRoutes(
 
         .get(
           '/templates/:id',
-          async ({ params, set }: { params: Record<string, string>; set: { status: number } }) => {
+          async ({ params, set }) => {
             try {
               const { id } = params;
               const template = await artifactService.getTemplate(id);
@@ -260,7 +260,7 @@ export function registerArtifactRoutes(
 
         .post(
           '/validate',
-          async ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+          async ({ body, set }) => {
             try {
               const { content, type } = body as Record<string, unknown>;
               if (typeof content !== 'string' || !isArtifactType(type)) {

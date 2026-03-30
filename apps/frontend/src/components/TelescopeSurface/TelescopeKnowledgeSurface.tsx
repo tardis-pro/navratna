@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { WhisperLine } from '@/components/AmbientIntelligence';
@@ -12,6 +12,9 @@ import { useForceLayout } from './use_force_layout';
 import type { ForceNode } from './use_force_layout';
 import type { BlockVisibility } from '@/components/MaterializableBlock/materializable_block_types';
 import type { AttentionItem } from '@/components/AttentionBudget';
+import { Portal } from '@/components/futuristic/Portal';
+import { PORTAL_COMPONENTS, PORTAL_LABELS } from './portal_registry';
+import { MapWallpaper } from '@/components/futuristic/desktop/MapWallpaper';
 import { cn } from '@/lib/utils';
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -47,12 +50,20 @@ function deriveVisibility(score: number, index: number): BlockVisibility {
 
 // ─── Component ──────────────────────────────────────────────────────
 
+interface OpenPortal {
+  id: string;
+  zIndex: number;
+}
+
+let _zCounter = 1000;
+
 export function TelescopeKnowledgeSurface({
   className,
   onConstellationSelect,
 }: TelescopeKnowledgeSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [openPortals, setOpenPortals] = useState<OpenPortal[]>([]);
   const [whisper, setWhisper] = useState<WhisperState | null>(null);
 
   // Measure container
@@ -164,9 +175,35 @@ export function TelescopeKnowledgeSurface({
   const handleConstellationClick = useCallback(
     (id: string) => {
       onConstellationSelect?.(id);
+      const WELCOME_MAP: Record<string, string> = {
+        'welcome-intent': 'chat',
+        'welcome-knowledge': 'knowledge',
+        'welcome-agents': 'agent-manager',
+        'welcome-discuss': 'discussion',
+      };
+      const portalId = id in PORTAL_COMPONENTS ? id : WELCOME_MAP[id] ?? null;
+      if (!portalId) return;
+      setOpenPortals((prev) => {
+        if (prev.some((p) => p.id === portalId)) {
+          return prev.map((p) =>
+            p.id === portalId ? { ...p, zIndex: ++_zCounter } : p
+          );
+        }
+        return [...prev, { id: portalId, zIndex: ++_zCounter }];
+      });
     },
     [onConstellationSelect]
   );
+
+  const handleClosePortal = useCallback((id: string) => {
+    setOpenPortals((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const handleFocusPortal = useCallback((id: string) => {
+    setOpenPortals((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, zIndex: ++_zCounter } : p))
+    );
+  }, []);
 
   // Attention items for the gauge
   const attentionItems: AttentionItem[] = useMemo(
@@ -184,12 +221,12 @@ export function TelescopeKnowledgeSurface({
       ref={containerRef}
       className={cn(
         'relative w-full h-full min-h-[400px] flex flex-col overflow-hidden',
-        'bg-gradient-to-b from-black/95 to-black/98',
         className
       )}
       role="region"
       aria-label="Telescope Knowledge Surface"
     >
+      <MapWallpaper theme="dark" interactive={false} className="pointer-events-none" />
       <div className="relative z-20 p-4 pb-2">
         <div
           className="flex items-center gap-3 px-4 py-3 rounded-xl border"
@@ -332,7 +369,6 @@ export function TelescopeKnowledgeSurface({
         position="right"
       />
 
-      {/* Simulation indicator */}
       {isSimulating && (
         <div
           className="absolute bottom-2 left-2 text-[9px]"
@@ -342,6 +378,38 @@ export function TelescopeKnowledgeSurface({
           settling...
         </div>
       )}
+
+      <AnimatePresence>
+        {openPortals.map((op) => {
+          const PortalComponent = PORTAL_COMPONENTS[op.id];
+          if (!PortalComponent) return null;
+          return (
+            <Portal
+              key={op.id}
+              id={op.id}
+              type={op.id}
+              title={PORTAL_LABELS[op.id] ?? op.id}
+              zIndex={op.zIndex}
+              onClose={() => handleClosePortal(op.id)}
+              onFocus={() => handleFocusPortal(op.id)}
+              initialPosition={{
+                x: 80 + (openPortals.indexOf(op) % 4) * 40,
+                y: 80 + (openPortals.indexOf(op) % 4) * 30,
+              }}
+              initialSize={{ width: 720, height: 520 }}
+            >
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-full text-sm"
+                  style={{ color: 'oklch(55% 0.04 264)' }}>
+                  Loading...
+                </div>
+              }>
+                <PortalComponent />
+              </Suspense>
+            </Portal>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

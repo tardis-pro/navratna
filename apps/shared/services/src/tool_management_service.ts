@@ -1,5 +1,36 @@
 import { getIntelligencePool, getControlPool, checkDatabaseHealth } from './database/index';
 import { createLogger } from '@uaip/utils';
+import type {
+  NewToolDefinition,
+  ToolDefinition,
+} from './database/drizzle/schemas/control_schema';
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
+
+type ToolUsageStats = {
+  toolId: string;
+  period: string;
+  totalUsage: number;
+  successfulUsage: number;
+  successRate: number;
+  totalCost: number;
+  averageExecutionTime: number;
+  uniqueAgents: number;
+};
+
+type AgentCapabilityMetricRow = {
+  id: string;
+  agent_id: string;
+  tool_id: string;
+  total_executions: number;
+  successful_executions: number;
+  total_execution_time: number;
+  average_execution_time: number;
+  success_rate: number;
+  last_used: Date;
+};
 
 export class ToolManagementService {
   private logger = createLogger({
@@ -8,11 +39,11 @@ export class ToolManagementService {
     logLevel: process.env.LOG_LEVEL || 'info',
   });
 
-  async createTool(toolData: unknown): Promise<unknown> {
+  async createTool(toolData: NewToolDefinition): Promise<ToolDefinition> {
     try {
       const pool = getControlPool();
-      const keys = Object.keys(toolData as Record<string, unknown>);
-      const values = Object.values(toolData as Record<string, unknown>);
+      const keys = Object.keys(toolData) as Array<keyof NewToolDefinition>;
+      const values = keys.map((key) => toolData[key]);
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
       const queryStr = `INSERT INTO "tool_definitions" (${cols}) VALUES (${placeholders}) RETURNING *`;
@@ -24,10 +55,10 @@ export class ToolManagementService {
     }
   }
 
-  async updateTool(toolId: string, updates: unknown): Promise<unknown> {
+  async updateTool(toolId: string, updates: Partial<NewToolDefinition>): Promise<ToolDefinition | null> {
     try {
       const pool = getControlPool();
-      const data = updates as Record<string, unknown>;
+      const data = updates;
       const keys = Object.keys(data);
       if (keys.length === 0) {
         const rows = await pool.query(`SELECT * FROM "tool_definitions" WHERE id = $1 LIMIT 1`, [
@@ -36,7 +67,7 @@ export class ToolManagementService {
         return rows.rows[0] ?? null;
       }
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-      const values: unknown[] = [toolId, ...Object.values(data)];
+      const values = [toolId, ...Object.values(data)];
       const result = await pool.query(
         `UPDATE "tool_definitions" SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
         values
@@ -59,7 +90,7 @@ export class ToolManagementService {
     }
   }
 
-  async getTool(toolId: string): Promise<unknown> {
+  async getTool(toolId: string): Promise<ToolDefinition | null> {
     try {
       const pool = getControlPool();
       const rows = await pool.query(`SELECT * FROM "tool_definitions" WHERE id = $1 LIMIT 1`, [
@@ -72,7 +103,7 @@ export class ToolManagementService {
     }
   }
 
-  async getTools(_filters?: unknown): Promise<unknown[]> {
+  async getTools(_filters?: { category?: string; isEnabled?: boolean }): Promise<ToolDefinition[]> {
     try {
       const pool = getControlPool();
       const result = await pool.query(`SELECT * FROM "tool_definitions" ORDER BY created_at DESC`);
@@ -86,11 +117,11 @@ export class ToolManagementService {
   async recordToolUsage(usageData: {
     toolId: string;
     agentId: string;
-    executionTime: number;
-    success: boolean;
-    cost?: number;
-    metadata?: unknown;
-  }): Promise<void> {
+      executionTime: number;
+      success: boolean;
+      cost?: number;
+      metadata?: JsonObject;
+    }): Promise<void> {
     try {
       const pool = getControlPool();
       const data = {
@@ -117,7 +148,7 @@ export class ToolManagementService {
     }
   }
 
-  async getToolUsageStats(toolId: string, days = 30): Promise<unknown> {
+  async getToolUsageStats(toolId: string, days = 30): Promise<ToolUsageStats> {
     try {
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -207,7 +238,7 @@ export class ToolManagementService {
     }
   }
 
-  async getAgentCapabilityMetrics(agentId: string): Promise<unknown[]> {
+  async getAgentCapabilityMetrics(agentId: string): Promise<AgentCapabilityMetricRow[]> {
     try {
       const pool = getIntelligencePool();
       const result = await pool.query(

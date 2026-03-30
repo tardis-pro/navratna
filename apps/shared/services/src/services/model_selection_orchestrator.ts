@@ -4,9 +4,48 @@ import type {
   ModelSelectionResult,
   FallbackChain,
   ModelSelectionStrategy,
-  ModelSelectionContext,
+  LLMSettings,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
+import { AgentRepository } from '../database/repositories/agent_repository';
+import { UserLLMPreferenceRepository } from '../database/repositories/user_l_l_m_preference_repository';
+import { AgentLLMPreferenceRepository } from '../database/repositories/agent_l_l_m_preference_repository';
+import { LLMProviderRepository } from '../database/repositories/l_l_m_provider_repository';
+
+type AgentOwnerRecord = { createdBy?: string };
+type PreferenceQuery = {
+  where: { agentId?: string; userId?: string; taskType: LLMTaskType; isActive: boolean };
+};
+
+type LLMPreferenceRecord = {
+  id?: string;
+  isActive: boolean;
+  preferredProvider: LLMProviderType;
+  preferredModel: string;
+  fallbackModel?: string;
+  reasoning?: string;
+  description?: string;
+  getEffectiveSettings: () => LLMSettings;
+  getPerformanceScore: () => number;
+  updateUsageStats: (responseTime: number, success: boolean, quality?: number) => void;
+};
+
+type ModelSelectionContext = {
+  agentRepository: AgentRepository & {
+    findOne: (query: { where: { id: string }; select?: string[] }) => Promise<AgentOwnerRecord | null>;
+  };
+  userLLMPreferenceRepository: UserLLMPreferenceRepository & {
+    findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
+    update: (id: string, data: Record<string, string | number | boolean | null>) => Promise<Record<string, string | number | boolean | null> | null>;
+  };
+  agentLLMPreferenceRepository: AgentLLMPreferenceRepository & {
+    findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
+    find: (query: { where: { agentId: string; taskType: LLMTaskType } }) => Promise<LLMPreferenceRecord[]>;
+    update: (id: string, data: Record<string, string | number | boolean | null>) => Promise<Record<string, string | number | boolean | null> | null>;
+  };
+  llmProviderRepository: LLMProviderRepository;
+  systemDefaults: Record<LLMTaskType, ModelSelectionResult>;
+};
 
 // =============================================================================
 // SYSTEM DEFAULTS CONFIGURATION
@@ -138,9 +177,7 @@ export class AgentSpecificStrategy implements ModelSelectionStrategy {
       throw new Error('Agent ID required for AgentSpecificStrategy');
     }
 
-    const agentPreference = await (
-      context.agentLLMPreferenceRepository as { findOne: Function }
-    ).findOne({
+    const agentPreference = await context.agentLLMPreferenceRepository.findOne({
       where: { agentId: request.agentId, taskType: request.taskType, isActive: true },
     });
 
@@ -187,20 +224,18 @@ export class UserSpecificStrategy implements ModelSelectionStrategy {
 
     // If agentId provided, get user from agent
     if (!userId && request.agentId) {
-      const agent = await (context.agentRepository as { findOne: Function }).findOne({
+      const agent = await context.agentRepository.findOne({
         where: { id: request.agentId },
         select: ['createdBy'],
       });
-      userId = (agent as { createdBy?: string })?.createdBy;
+      userId = agent?.createdBy;
     }
 
     if (!userId) {
       throw new Error('User ID required for UserSpecificStrategy');
     }
 
-    const userPreference = await (
-      context.userLLMPreferenceRepository as { findOne: Function }
-    ).findOne({
+    const userPreference = await context.userLLMPreferenceRepository.findOne({
       where: { userId, taskType: request.taskType, isActive: true },
     });
 
@@ -270,14 +305,9 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
     taskType: LLMTaskType,
     context: ModelSelectionContext
   ) {
-    const repo = context.agentLLMPreferenceRepository as { find: Function };
-    const preferences = (await repo.find({
+    const preferences = await context.agentLLMPreferenceRepository.find({
       where: { agentId, taskType },
-    })) as Array<{
-      getPerformanceScore: Function;
-      preferredProvider: LLMProviderType;
-      preferredModel: string;
-    }>;
+    });
 
     if (preferences.length === 0) return null;
 
@@ -415,10 +445,10 @@ export class ModelSelectionOrchestrator {
   private context: ModelSelectionContext;
 
   constructor(
-    agentRepository: unknown,
-    userLLMPreferenceRepository: unknown,
-    agentLLMPreferenceRepository: unknown,
-    llmProviderRepository: unknown
+    agentRepository: ModelSelectionContext['agentRepository'],
+    userLLMPreferenceRepository: ModelSelectionContext['userLLMPreferenceRepository'],
+    agentLLMPreferenceRepository: ModelSelectionContext['agentLLMPreferenceRepository'],
+    llmProviderRepository: ModelSelectionContext['llmProviderRepository']
   ) {
     this.context = {
       agentRepository,
@@ -525,14 +555,8 @@ export class ModelSelectionOrchestrator {
     quality?: number
   ): Promise<void> {
     try {
-      const agentPrefRepo = this.context.agentLLMPreferenceRepository as {
-        findOne: Function;
-        save: Function;
-      };
-      const userPrefRepo = this.context.userLLMPreferenceRepository as {
-        findOne: Function;
-        save: Function;
-      };
+      const agentPrefRepo = this.context.agentLLMPreferenceRepository;
+      const userPrefRepo = this.context.userLLMPreferenceRepository;
 
       // Update agent-specific stats if applicable
       if (request.agentId && result.source === 'agent') {
@@ -541,12 +565,10 @@ export class ModelSelectionOrchestrator {
         });
 
         if (agentPreference) {
-          (agentPreference as { updateUsageStats: Function }).updateUsageStats(
-            responseTime,
-            success,
-            quality
-          );
-          await agentPrefRepo.save(agentPreference);
+          agentPreference.updateUsageStats(responseTime, success, quality);
+          if (agentPreference.id) {
+            await agentPrefRepo.update(agentPreference.id, {});
+          }
         }
       }
 
@@ -557,11 +579,10 @@ export class ModelSelectionOrchestrator {
         });
 
         if (userPreference) {
-          (userPreference as { updateUsageStats: Function }).updateUsageStats(
-            responseTime,
-            success
-          );
-          await userPrefRepo.save(userPreference);
+          userPreference.updateUsageStats(responseTime, success);
+          if (userPreference.id) {
+            await userPrefRepo.update(userPreference.id, {});
+          }
         }
       }
 

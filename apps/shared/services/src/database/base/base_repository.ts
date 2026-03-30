@@ -1,10 +1,9 @@
 import {
   getControlDb,
   getIntelligenceDb,
-  getControlPool,
-  getIntelligencePool,
 } from '../drizzle/clients/index';
-import { sql } from 'drizzle-orm';
+import { sql, and } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { IRepository, FindManyOptions } from '@uaip/types';
@@ -19,22 +18,21 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     >;
   }
 
-  protected async rawQuery<R = Record<string, unknown>>(
-    query: string,
-    params: unknown[] = []
-  ): Promise<R[]> {
-    const pool = this.plane === 'intelligence' ? getIntelligencePool() : getControlPool();
-    const result = await pool.query<R>(query, params);
-    return result.rows;
+  private buildWhere(conditions: Record<string, unknown>): SQL | undefined {
+    const clauses: SQL[] = Object.entries(conditions).map(
+      ([col, val]) => sql`${sql.identifier(col)} = ${val}`
+    );
+    if (clauses.length === 0) return undefined;
+    if (clauses.length === 1) return clauses[0];
+    return and(...(clauses as [SQL, ...SQL[]]));
   }
 
   async findById(id: string): Promise<T | null> {
     try {
-      const rows = await this.rawQuery<T>(
-        `SELECT * FROM "${this.tableName}" WHERE id = $1 LIMIT 1`,
-        [id]
+      const result = await this.db.execute(
+        sql`SELECT * FROM ${sql.identifier(this.tableName)} WHERE id = ${id} LIMIT 1`
       );
-      return rows[0] ?? null;
+      return (result.rows[0] as T) ?? null;
     } catch (error) {
       logger.error(`BaseRepository.findById failed for ${this.tableName}`, {
         id,
@@ -44,33 +42,26 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     }
   }
 
-  private buildWhereClause(
-    conditions: Record<string, unknown>
-  ): { whereSql: string; values: unknown[] } {
-    const keys = Object.keys(conditions);
-    return {
-      whereSql: keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND '),
-      values: Object.values(conditions),
-    };
-  }
-
   async findMany(
     conditions: Record<string, unknown> = {},
     options: FindManyOptions = {}
   ): Promise<T[]> {
     try {
-      const { whereSql, values } = this.buildWhereClause(conditions);
-      let query = `SELECT * FROM "${this.tableName}"`;
-      if (whereSql) query += ` WHERE ${whereSql}`;
+      const where = this.buildWhere(conditions);
+      let query: SQL = sql`SELECT * FROM ${sql.identifier(this.tableName)}`;
+      if (where) query = sql`${query} WHERE ${where}`;
+
       if (options.orderBy) {
-        const orderClauses = Object.entries(options.orderBy)
-          .map(([col, dir]) => `"${col}" ${dir}`)
-          .join(', ');
-        query += ` ORDER BY ${orderClauses}`;
+        const orderParts = Object.entries(options.orderBy).map(
+          ([col, dir]) => sql`${sql.identifier(col)} ${dir === 'DESC' ? sql`DESC` : sql`ASC`}`
+        );
+        query = sql`${query} ORDER BY ${sql.join(orderParts, sql`, `)}`;
       }
-      if (options.limit) query += ` LIMIT ${options.limit}`;
-      if (options.offset) query += ` OFFSET ${options.offset}`;
-      return this.rawQuery<T>(query, values);
+      if (options.limit != null) query = sql`${query} LIMIT ${options.limit}`;
+      if (options.offset != null) query = sql`${query} OFFSET ${options.offset}`;
+
+      const result = await this.db.execute(query);
+      return result.rows as T[];
     } catch (error) {
       logger.error(`BaseRepository.findMany failed for ${this.tableName}`, {
         conditions,
@@ -82,14 +73,19 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
 
   async create(data: Record<string, unknown>): Promise<T> {
     try {
-      const keys = Object.keys(data);
-      const cols = keys.map((k) => `"${k}"`).join(', ');
-      const params = keys.map((_, i) => `$${i + 1}`).join(', ');
-      const rows = await this.rawQuery<T>(
-        `INSERT INTO "${this.tableName}" (${cols}) VALUES (${params}) RETURNING *`,
-        Object.values(data)
+      const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+      const cols = sql.join(
+        entries.map(([col]) => sql.identifier(col)),
+        sql`, `
       );
-      return rows[0];
+      const vals = sql.join(
+        entries.map(([, val]) => sql`${val}`),
+        sql`, `
+      );
+      const result = await this.db.execute(
+        sql`INSERT INTO ${sql.identifier(this.tableName)} (${cols}) VALUES (${vals}) RETURNING *`
+      );
+      return result.rows[0] as T;
     } catch (error) {
       logger.error(`BaseRepository.create failed for ${this.tableName}`, {
         error: (error as Error).message,
@@ -100,13 +96,16 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
 
   async update(id: string, data: Record<string, unknown>): Promise<T | null> {
     try {
-      const keys = Object.keys(data);
-      const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-      const rows = await this.rawQuery<T>(
-        `UPDATE "${this.tableName}" SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
-        [id, ...Object.values(data)]
+      const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+      if (entries.length === 0) return this.findById(id);
+      const setClauses = sql.join(
+        entries.map(([col, val]) => sql`${sql.identifier(col)} = ${val}`),
+        sql`, `
       );
-      return rows[0] ?? null;
+      const result = await this.db.execute(
+        sql`UPDATE ${sql.identifier(this.tableName)} SET ${setClauses}, updated_at = NOW() WHERE id = ${id} RETURNING *`
+      );
+      return (result.rows[0] as T) ?? null;
     } catch (error) {
       logger.error(`BaseRepository.update failed for ${this.tableName}`, {
         id,
@@ -133,11 +132,11 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
 
   async count(conditions: Record<string, unknown> = {}): Promise<number> {
     try {
-      const { whereSql, values } = this.buildWhereClause(conditions);
-      let query = `SELECT COUNT(*)::int as cnt FROM "${this.tableName}"`;
-      if (whereSql) query += ` WHERE ${whereSql}`;
-      const rows = await this.rawQuery<{ cnt: number }>(query, values);
-      return rows[0]?.cnt ?? 0;
+      const where = this.buildWhere(conditions);
+      let query: SQL = sql`SELECT COUNT(*)::int AS cnt FROM ${sql.identifier(this.tableName)}`;
+      if (where) query = sql`${query} WHERE ${where}`;
+      const result = await this.db.execute(query);
+      return (result.rows[0] as { cnt: number }).cnt ?? 0;
     } catch (error) {
       logger.error(`BaseRepository.count failed for ${this.tableName}`, {
         conditions,

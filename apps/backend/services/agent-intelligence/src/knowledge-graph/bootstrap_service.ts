@@ -64,14 +64,13 @@ export class KnowledgeBootstrapService {
       useSimplifiedSync: true,
     }
   ) {
-    // Initialize smart embedding service with TEI preference
     this.smartEmbeddingService = new SmartEmbeddingService({
-      preferTEI: true,
-      fallbackToOpenAI: false, // Only use TEI
+      preferTEI: process.env.EMBEDDING_PREFER_TEI !== 'false',
+      fallbackToOpenAI: process.env.EMBEDDING_FALLBACK_OPENAI !== 'false',
       teiUrls: {
-        embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-        reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
-        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
+        embedding: process.env.TEI_EMBEDDING_URL ?? 'http://localhost:8080',
+        reranker: process.env.TEI_RERANKER_URL ?? 'http://localhost:8083',
+        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL ?? 'http://localhost:8082',
       },
     });
 
@@ -548,7 +547,7 @@ export class KnowledgeBootstrapService {
       const conflicts = await this.reconciliationService.detectConflicts(
         (await this.knowledgeRepository.findRecentItems(200)) as unknown as KnowledgeItem[],
         {
-          similarityThreshold: 0.85,
+          similarityThreshold: parseFloat(process.env.KNOWLEDGE_CLUSTER_SIMILARITY_THRESHOLD ?? '0.65'),
           maxConflictsPerBatch: 50,
           autoResolve: false,
         }

@@ -8,6 +8,7 @@ import {
   AgentRole,
   ExecutionPlan,
   LearningResult,
+  OperationStatus,
   Persona,
   PersonaStatus,
   PersonaVisibility,
@@ -415,24 +416,16 @@ export class AgentIntelligenceService {
       }
 
       const createPayload = {
-        ...(agentId && { id: agentId }),
         name: agentData.name as string,
-        displayName: (agentData.displayName || agentData.name) as string | undefined,
         description: agentData.description as string | undefined,
-        type: (agentData.type as string) || 'general',
         role: role as AgentRole,
-        modelProvider: (agentData.modelProvider as string) || 'openai',
-        modelName: (agentData.modelName as string) || 'gpt-4',
+        instructions: agentData.systemPrompt as string | undefined,
+        modelId: (agentData.modelId || agentData.modelName) as string | undefined,
         temperature: agentData.temperature as number | undefined,
         maxTokens: agentData.maxTokens as number | undefined,
-        systemPrompt: agentData.systemPrompt as string | undefined,
-        configuration,
-        metadata: {
-          persona: agentData.persona || {},
-          intelligenceConfig,
-          securityContext,
-          createdBy,
-        },
+        intelligenceConfig: intelligenceConfig as Record<string, unknown>,
+        securityContext: securityContext as Record<string, unknown>,
+        createdBy: createdBy || 'system',
       };
 
       const savedAgent = await this.databaseService.agents.createAgent(createPayload);
@@ -917,9 +910,11 @@ export class AgentIntelligenceService {
       id: plan.id,
       type: plan.type,
       agentId: plan.agentId,
-      executionPlan: plan,
-      context: plan.metadata,
-      createdAt: plan.created_at,
+      userId: plan.agentId,
+      name: plan.type || 'execution-plan',
+      status: 'pending' as OperationStatus,
+      executionPlan: plan as unknown as ExecutionPlan,
+      context: plan.metadata as Record<string, unknown>,
     });
   }
 

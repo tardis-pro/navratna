@@ -93,8 +93,8 @@ const transformAgentToEnhanced = (agent: unknown): EnhancedAgentState => ({
         ? agent.toolUsageHistory.filter((usage: unknown) => usage.success).length /
           agent.toolUsageHistory.length
         : 0,
-    averageResponseTime: 250, // Default value, would come from actual metrics
-    uptime: 0.95, // Default value, would come from actual metrics
+    averageResponseTime: agent.averageResponseTime ?? 0,
+    uptime: agent.uptime ?? 0,
   },
   configuration: {
     modelId: agent.modelId || 'default',
@@ -106,10 +106,10 @@ const transformAgentToEnhanced = (agent: unknown): EnhancedAgentState => ({
   capabilities: agent.availableTools || [],
   securityLevel: 'medium',
   intelligenceMetrics: {
-    decisionAccuracy: 0.85,
-    contextUnderstanding: 0.9,
-    adaptationRate: 0.75,
-    learningProgress: 0.6,
+    decisionAccuracy: agent.decisionAccuracy ?? 0,
+    contextUnderstanding: agent.contextUnderstanding ?? 0,
+    adaptationRate: agent.adaptationRate ?? 0,
+    learningProgress: agent.learningProgress ?? 0,
   },
 });
 

@@ -1,11 +1,4 @@
-/**
- * Conversation Enhancement API Client
- *
- * Provides frontend access to backend conversation enhancement services
- * including persona selection, contextual responses, and conversation analysis.
- */
-
-import { API_BASE_URL } from '../config/api_config';
+import { APIClient } from './client';
 import type {
   ConversationEnhancementRequest,
   ConversationEnhancementResult,
@@ -22,142 +15,73 @@ export type {
   ContextualResponseRequest,
 };
 
-class ConversationEnhancementAPI {
-  private baseUrl: string;
+const BASE = '/api/v1/conversation';
 
-  constructor() {
-    this.baseUrl = `${API_BASE_URL}/agent-intelligence/api/v1/conversation`;
-  }
-
-  private async makeRequest<T>(
-    endpoint: string,
-    method: 'GET' | 'POST' = 'GET',
-    data?: unknown
-  ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
-
-    const config: RequestInit = {
-      method,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    };
-
-    if (method === 'POST' && data) {
-      config.body = JSON.stringify(data);
-    }
-
-    try {
-      const response = await fetch(url, config);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`ConversationEnhancement API Error (${method} ${endpoint}):`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get enhanced conversation contribution from available agents
-   */
+export const conversationEnhancementAPI = {
   async getEnhancedContribution(
     request: ConversationEnhancementRequest
   ): Promise<ConversationEnhancementResult> {
-    return this.makeRequest<ConversationEnhancementResult>('/enhance', 'POST', request);
-  }
+    return APIClient.post<ConversationEnhancementResult>(`${BASE}/enhance`, request);
+  },
 
-  /**
-   * Analyze conversation patterns, flow, and health
-   */
   async analyzeConversation(request: ConversationAnalysisRequest): Promise<unknown> {
-    return this.makeRequest('/analyze', 'POST', request);
-  }
+    return APIClient.post(`${BASE}/analyze`, request);
+  },
 
-  /**
-   * Create a hybrid persona by cross-breeding two existing personas
-   */
   async createHybridPersona(request: HybridPersonaRequest): Promise<unknown> {
-    return this.makeRequest('/hybrid-persona', 'POST', request);
-  }
+    return APIClient.post(`${BASE}/hybrid-persona`, request);
+  },
 
-  /**
-   * Generate a contextual response for a specific agent/persona
-   */
   async generateContextualResponse(request: ContextualResponseRequest): Promise<unknown> {
-    return this.makeRequest('/contextual-response', 'POST', request);
-  }
+    return APIClient.post(`${BASE}/contextual-response`, request);
+  },
 
-  /**
-   * Get available personas for a specific agent
-   */
   async getAgentPersonas(agentId: string): Promise<unknown> {
-    return this.makeRequest(`/personas/${agentId}`);
-  }
+    return APIClient.get(`${BASE}/personas/${agentId}`);
+  },
 
-  /**
-   * Get conversation health metrics for a discussion
-   */
   async getConversationHealth(discussionId: string): Promise<unknown> {
-    return this.makeRequest(`/health/${discussionId}`);
-  }
+    return APIClient.get(`${BASE}/health/${discussionId}`);
+  },
 
-  /**
-   * Get conversation flow analysis with suggestions
-   */
   async getFlowAnalysis(
     discussionId: string,
     messageHistory: unknown[],
     conversationState: unknown
   ): Promise<unknown> {
-    return this.analyzeConversation({
+    return APIClient.post(`${BASE}/analyze`, {
       discussionId,
       messageHistory,
       conversationState,
       analysisType: 'flow',
-    });
-  }
+    } as ConversationAnalysisRequest);
+  },
 
-  /**
-   * Get conversation insights and metrics
-   */
   async getConversationInsights(
     discussionId: string,
     messageHistory: unknown[],
     conversationState: unknown
   ): Promise<unknown> {
-    return this.analyzeConversation({
+    return APIClient.post(`${BASE}/analyze`, {
       discussionId,
       messageHistory,
       conversationState,
       analysisType: 'insights',
-    });
-  }
+    } as ConversationAnalysisRequest);
+  },
 
-  /**
-   * Get conversation pattern analysis
-   */
   async getConversationPatterns(
     discussionId: string,
     messageHistory: unknown[],
     conversationState: unknown
   ): Promise<unknown> {
-    return this.analyzeConversation({
+    return APIClient.post(`${BASE}/analyze`, {
       discussionId,
       messageHistory,
       conversationState,
       analysisType: 'patterns',
-    });
-  }
-}
+    } as ConversationAnalysisRequest);
+  },
+};
 
-// Export singleton instance
-export const conversationEnhancementAPI = new ConversationEnhancementAPI();
-
-// Export for use in React hooks
 export default conversationEnhancementAPI;
