@@ -25,3 +25,6 @@ export { useViewport, getDefaultViewport } from './use_viewport';
 export type { ViewportSize } from './use_viewport';
 
 export { useKnowledgeUpload, filterFilesByType, generateFileId } from './use_knowledge_upload';
+
+export { useDashboardStats } from './use_dashboard_stats';
+export type { DashboardStats } from './use_dashboard_stats';
