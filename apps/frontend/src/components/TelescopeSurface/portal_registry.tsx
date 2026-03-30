@@ -345,8 +345,7 @@ export function createInitialBlocks(): MaterializableBlockData[] {
       type: 'portal',
       expression: 'calm',
       relevanceScore: 0.6,
-      // TODO(SPEC-05/FE-05.4): Set to 'faded' once GeneralSettingsPortal has real content
-      visibility: 'hidden',
+      visibility: 'faded',
       metadata: { title: 'General Settings' },
     },
     {
