@@ -11,6 +11,8 @@ import { PersonaSeed } from './persona_seed';
 import { AgentSeed } from './agent_seed';
 import { ToolDefinitionSeed } from './tool_definition_seed';
 import { ProjectSeed } from './project_seed';
+import { LLMProviderSeed } from './llm_provider_seed';
+import { CapabilitySeed } from './capability_seed';
 
 export class DatabaseSeeder {
   private controlDb = getControlDb();
@@ -19,6 +21,8 @@ export class DatabaseSeeder {
   async seedAll(): Promise<void> {
     const results = {
       users: false,
+      llmProviders: false,
+      capabilities: false,
       userLLMProviders: false,
       llmPreferences: false,
       securityPolicies: false,
@@ -33,6 +37,20 @@ export class DatabaseSeeder {
       results.users = true;
     } catch (error) {
       console.error('   ❌ User seeding failed:', error);
+    }
+
+    try {
+      await this.seedLLMProviders();
+      results.llmProviders = true;
+    } catch (error) {
+      console.error('   ❌ LLM provider seeding failed:', error);
+    }
+
+    try {
+      await this.seedCapabilities();
+      results.capabilities = true;
+    } catch (error) {
+      console.error('   ❌ Capability seeding failed:', error);
     }
 
     try {
@@ -98,6 +116,16 @@ export class DatabaseSeeder {
   private async seedUsers(): Promise<void> {
     const userSeed = new UserSeed();
     await userSeed.seed();
+  }
+
+  private async seedLLMProviders(): Promise<void> {
+    const llmProviderSeed = new LLMProviderSeed();
+    await llmProviderSeed.seed();
+  }
+
+  private async seedCapabilities(): Promise<void> {
+    const capabilitySeed = new CapabilitySeed();
+    await capabilitySeed.seed();
   }
 
   private async seedUserLLMProviders(): Promise<void> {

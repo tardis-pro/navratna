@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search } from 'lucide-react';
+import { Search, LayoutGrid, X } from 'lucide-react';
 import { WhisperLine } from '@/components/AmbientIntelligence';
 import { AttentionBudget } from '@/components/AttentionBudget';
 import { CrystallizationEffect } from '@/components/PredictiveIntent';
@@ -65,6 +65,7 @@ export function TelescopeKnowledgeSurface({
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [openPortals, setOpenPortals] = useState<OpenPortal[]>([]);
   const [whisper, setWhisper] = useState<WhisperState | null>(null);
+  const [launcherOpen, setLauncherOpen] = useState(false);
 
   // Measure container
   useEffect(() => {
@@ -249,18 +250,74 @@ export function TelescopeKnowledgeSurface({
               caretColor: 'oklch(65% 0.18 250)',
             }}
           />
-          <kbd
-            className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono flex-shrink-0"
+          <button
+            onClick={() => setLauncherOpen((v) => !v)}
+            aria-label="All portals"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs flex-shrink-0 transition-colors"
             style={{
-              background: 'oklch(22% 0.02 264 / 0.8)',
-              color: 'oklch(55% 0.04 264)',
-              border: '1px solid oklch(35% 0.04 264 / 0.4)',
+              background: launcherOpen ? 'oklch(45% 0.12 250 / 0.3)' : 'oklch(22% 0.02 264 / 0.6)',
+              color: launcherOpen ? 'oklch(75% 0.15 250)' : 'oklch(55% 0.04 264)',
+              border: `1px solid ${launcherOpen ? 'oklch(55% 0.12 250 / 0.5)' : 'oklch(35% 0.04 264 / 0.4)'}`,
             }}
           >
-            ⌘K
-          </kbd>
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Portals</span>
+          </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {launcherOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="relative z-30 mx-4 mb-2 rounded-xl border overflow-hidden"
+            style={{
+              background: 'oklch(12% 0.01 264 / 0.96)',
+              borderColor: 'oklch(30% 0.04 264 / 0.6)',
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            <div className="flex items-center justify-between px-4 py-2 border-b"
+              style={{ borderColor: 'oklch(25% 0.03 264 / 0.5)' }}>
+              <span className="text-xs font-medium" style={{ color: 'oklch(65% 0.04 264)' }}>
+                All Portals
+              </span>
+              <button onClick={() => setLauncherOpen(false)} aria-label="Close launcher"
+                style={{ color: 'oklch(50% 0.04 264)' }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 p-3">
+              {Object.entries(PORTAL_LABELS).map(([id, label]) => {
+                const isOpen = openPortals.some((p) => p.id === id);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      handleConstellationClick(id);
+                      setLauncherOpen(false);
+                    }}
+                    className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-center transition-all"
+                    style={{
+                      background: isOpen ? 'oklch(35% 0.1 250 / 0.3)' : 'oklch(18% 0.02 264 / 0.6)',
+                      color: isOpen ? 'oklch(75% 0.15 250)' : 'oklch(72% 0.04 264)',
+                      border: `1px solid ${isOpen ? 'oklch(50% 0.12 250 / 0.4)' : 'oklch(28% 0.03 264 / 0.4)'}`,
+                    }}
+                  >
+                    <span className="text-[10px] leading-tight font-medium">{label}</span>
+                    {isOpen && (
+                      <span className="text-[8px]" style={{ color: 'oklch(60% 0.12 250)' }}>open</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* WhisperLine */}
       <AnimatePresence>

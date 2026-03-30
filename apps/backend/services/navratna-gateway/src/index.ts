@@ -32,13 +32,13 @@ class NavratnaGatewayService extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
-    this.factory.mountRoutes(this.app)
-
     this.app.get('/health', () => ({
       status: 'ok',
       service: 'navratna-gateway',
       features: this.factory.activeFeatureNames,
     }))
+
+    this.factory.mountRoutes(this.app)
 
     logger.info('navratna-gateway routes configured')
   }

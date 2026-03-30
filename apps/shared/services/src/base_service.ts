@@ -164,7 +164,9 @@ export abstract class BaseService {
       await drizzleService.initialize();
       logger.info(`${this.config.name}: Database initialized`);
 
-      // Initialize unified model selection facade
+      const { seedDatabase } = await import('./database/seeders/index');
+      await seedDatabase();
+
       await this.initializeModelSelection();
     } catch (error) {
       logger.error(`${this.config.name}: Database initialization failed:`, error);

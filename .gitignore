@@ -37,3 +37,7 @@ sprint/
 .nx/polygraph
 .claude/worktrees
 .claude/settings.local.json
+
+# Story files — live in Jira only, not in git
+**/.stories/
+docs/stories/
