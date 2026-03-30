@@ -4,8 +4,19 @@ import { existsSync, readFileSync, readdirSync, rmSync, statSync, type Stats } f
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
-import { SourceType, type EnvVarSchema, type RepoContext, type ServiceDefinition } from '@uaip/types'
+import {
+  SourceType,
+  type EnvVarSchema,
+  type OperationalAnalysis,
+  type RepoContext,
+  type RepoDocument,
+  type ServiceDefinition,
+  type StructuralAnalysis,
+} from '@uaip/types'
 import { logger } from '@uaip/utils'
+import { AstSymbolExtractor } from './ast_symbol_extractor'
+import { ImportGraphService } from './import_graph_service'
+import { SemanticIndexService } from './semantic_index_service'
 
 const MAX_WALK_DEPTH = 5
 const TODO_LIMIT = 20
@@ -39,21 +50,6 @@ const TEXT_FILE_EXTENSIONS = new Set([
   '.toml',
   '.ini',
 ])
-
-type StructuralAnalysis = {
-  scripts: Record<string, string>
-  services: ServiceDefinition[]
-  ports: number[]
-  envVars: EnvVarSchema[]
-  docs: Array<{ file: string; content: string }>
-}
-
-type OperationalAnalysis = {
-  scripts: Record<string, string>
-  commitFormat?: string
-  techDebt: string[]
-  makeTargets: string[]
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -293,9 +289,9 @@ function parseEnvVars(repoPath: string): EnvVarSchema[] {
   return Array.from(envVarMap.values())
 }
 
-function parseDocs(repoPath: string): Array<{ file: string; content: string }> {
+function parseDocs(repoPath: string): RepoDocument[] {
   const docFileNames = ['AGENTS.md', 'CLAUDE.md', 'README.md']
-  const docs: Array<{ file: string; content: string }> = []
+  const docs: RepoDocument[] = []
 
   for (const fileName of docFileNames) {
     const content = readFileSafe(join(repoPath, fileName))
@@ -513,6 +509,29 @@ export class RepoIngestionService {
         commitFormat: layer3.commitFormat,
         techDebt: layer3.techDebt,
         branches: repoMode === 'greenfield' ? [] : listBranches(repoPath),
+      }
+
+      try {
+        const extractor = new AstSymbolExtractor()
+        const layer2 = await extractor.extractFromDirectory(repoPath)
+        const indexService = new SemanticIndexService()
+        await indexService.indexSymbols(layer2.symbols, repoContext.id)
+        const graphService = new ImportGraphService()
+        await graphService.buildGraph(layer2.imports, repoPath)
+
+        logger.info('Layer 2 ingestion completed', {
+          source: trimmedSource,
+          repoPath,
+          fileCount: layer2.fileCount,
+          symbolCount: layer2.symbols.length,
+          importCount: layer2.imports.length,
+        })
+      } catch (layer2Error) {
+        logger.error('Layer 2 ingestion failed; continuing without semantic graph data', {
+          source: trimmedSource,
+          repoPath,
+          error: layer2Error instanceof Error ? layer2Error.message : String(layer2Error),
+        })
       }
 
       const intelligenceDb = getIntelligenceDb()

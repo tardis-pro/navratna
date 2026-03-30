@@ -1,28 +1,10 @@
 import type { AnyElysia } from 'elysia';
+import type { SecurityStatsResponse, UserRateLimitState } from '@uaip/types';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService as DomainAuditService, getControlDb } from '@uaip/shared-services';
 import { sql } from '@uaip/shared-services/drizzle/clients';
 import { auditEvents } from '@uaip/shared-services/drizzle/control';
 import { logger } from '@uaip/utils';
-
-type SecurityStatsResponse = {
-  activeSessions: number;
-  failedLoginsLastHour: number;
-  criticalEventsUnresolved: number;
-  openVulnerabilities: number;
-  dataEncryptedPercent: number;
-  systemStatus: 'healthy' | 'warning' | 'critical';
-  trends: {
-    failedLoginsVsPreviousHour: number;
-    criticalEventsVsPreviousDay: number;
-  };
-  fetchedAt: string;
-};
-
-type UserRateLimitState = {
-  count: number;
-  resetAt: number;
-};
 
 let domainAuditServiceSingleton: DomainAuditService | null = null;
 

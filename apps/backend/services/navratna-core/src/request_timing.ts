@@ -1,13 +1,7 @@
 import { Elysia } from 'elysia'
+import type { RequestTimingStats, TimingStore } from '@uaip/types'
 
 const TIMING_BUFFER_SIZE = 100 as const
-
-type RequestTimingStats = {
-  p95: number
-  p50: number
-  avg: number
-  count: number
-}
 
 export class RequestTimingBuffer {
   private readonly samples = new Float64Array(TIMING_BUFFER_SIZE)
@@ -70,10 +64,6 @@ export class RequestTimingBuffer {
 }
 
 export const requestTimingBuffer = new RequestTimingBuffer()
-
-type TimingStore = {
-  requestStart?: number
-}
 
 export function requestTimingPlugin(): Elysia {
   return new Elysia({ name: 'request-timing' })

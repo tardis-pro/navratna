@@ -1,52 +1,16 @@
 import type { AnyElysia, Elysia } from 'elysia';
+import type {
+  ActivityType,
+  AuthUser,
+  DashboardActivitySeverity,
+  DashboardHealthStatus,
+  DashboardStats,
+  RateLimitEntry,
+} from '@uaip/types';
 import { desc, getControlDb, getIntelligenceDb, agents, artifacts, auditEvents, discussions, knowledgeItems, sql } from '@uaip/shared-services';
 import { withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import os from 'node:os';
-
-type HealthStatus = 'healthy' | 'degraded' | 'critical';
-type ActivityType =
-  | 'agent_created'
-  | 'discussion_started'
-  | 'discussion_ended'
-  | 'knowledge_added'
-  | 'artifact_generated'
-  | 'security_event';
-
-interface DashboardStats {
-  system: {
-    cpuUsage: number | null;
-    memoryUsage: number | null;
-    responseTimeMs: number | null;
-    uptimePercent: number | null;
-    status: HealthStatus;
-  };
-  counts: {
-    activeAgents: number | null;
-    activeDiscussions: number | null;
-    knowledgeItems: number | null;
-    artifacts: number | null;
-    deltaSinceYesterday: {
-      agents: number | null;
-      discussions: number | null;
-      knowledge: number | null;
-      artifacts: number | null;
-    };
-  };
-  recentActivity: Array<{
-    id: string;
-    type: ActivityType;
-    summary: string;
-    timestamp: string;
-    severity: 'info' | 'warning' | 'error';
-  }> | null;
-  fetchedAt: string;
-}
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
 
 const RATE_LIMIT_MAX_REQUESTS = 12;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -183,7 +147,7 @@ async function fetchCoreP95ResponseTime(): Promise<number | null> {
   }
 }
 
-function deriveSystemStatus(system: DashboardStats['system']): HealthStatus {
+function deriveSystemStatus(system: DashboardStats['system']): DashboardHealthStatus {
   if (system.cpuUsage !== null && system.cpuUsage >= 90) {
     return 'critical';
   }
@@ -230,7 +194,7 @@ function mapAuditEventType(eventType: string, action: string): ActivityType {
   return 'security_event';
 }
 
-function mapSeverity(outcome: string): 'info' | 'warning' | 'error' {
+function mapSeverity(outcome: string): DashboardActivitySeverity {
   const normalized = outcome.toLowerCase();
   if (normalized.includes('fail') || normalized.includes('error') || normalized.includes('deny')) {
     return 'error';
@@ -251,10 +215,6 @@ async function safeQuery<T>(label: string, queryFn: () => Promise<T>): Promise<T
     });
     return null;
   }
-}
-
-interface AuthUser {
-  id: string;
 }
 
 function getAuthUser(value: unknown): AuthUser | null {

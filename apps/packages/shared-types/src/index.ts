@@ -98,3 +98,7 @@ export type {
 } from './frontend_auth.js';
 export * from './board-provider';
 export * from './repo-context';
+export * from './ast-extraction';
+export * from './dashboard';
+export * from './security-stats';
+export * from './request-timing';
