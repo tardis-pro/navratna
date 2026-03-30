@@ -21,8 +21,17 @@ export function registerAgentCrudRoutes(
       withNginxAuth(group)
         .get('/', async (ctx) => {
           try {
+            const page = Math.max(1, parseInt(String(ctx.query?.page ?? '1'), 10) || 1)
+            const limit = Math.min(100, Math.max(1, parseInt(String(ctx.query?.limit ?? '12'), 10) || 12))
             const agents = (await agentIntelligenceService.getAgents()) ?? []
-            return { success: true, data: agents, total: agents.length }
+            const total = agents.length
+            const start = (page - 1) * limit
+            const paged = agents.slice(start, start + limit)
+            return {
+              success: true,
+              data: paged,
+              pagination: { page, limit, total, hasMore: start + limit < total },
+            }
           } catch (error) {
             logger.error('Failed to list agents', { error })
             ctx.set.status = 500
