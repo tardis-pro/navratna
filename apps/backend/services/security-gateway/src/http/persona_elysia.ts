@@ -6,6 +6,23 @@ import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
 
 const userService = UserService.getInstance();
 
+const defaultOnboardingProgress = {
+  isCompleted: false,
+  currentStep: 0,
+  completedSteps: [],
+  responses: {},
+};
+
+const defaultBehavioralPatterns = {
+  sessionDuration: 0,
+  activeHours: [],
+  frequentlyUsedTools: [],
+  preferredAgents: [],
+  workflowPatterns: [],
+  interactionStyle: 'methodical' as const,
+  feedbackPreference: 'summary' as const,
+};
+
 const UserPersonaSchema = z.object({
   workStyle: z.enum(['collaborative', 'independent', 'hybrid']),
   communicationPreference: z.enum(['brief', 'detailed', 'visual']),
@@ -112,21 +129,24 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
           }
           const { personaData, onboardingProgress, behavioralPatterns } = validation.data;
           if (personaData)
-            // @ts-expect-error -- Spread from non-object type
-            entity.userPersona = { ...entity.userPersona, ...personaData } as unknown;
+            entity.userPersona = { ...entity.userPersona, ...personaData };
           if (onboardingProgress)
             entity.onboardingProgress = {
-              // @ts-expect-error -- Spread from non-object type
+              ...defaultOnboardingProgress,
               ...entity.onboardingProgress,
               ...onboardingProgress,
-            } as unknown;
+            };
           if (behavioralPatterns)
             entity.behavioralPatterns = {
-              // @ts-expect-error -- Spread from non-object type
+              ...defaultBehavioralPatterns,
               ...entity.behavioralPatterns,
               ...behavioralPatterns,
-            } as unknown;
-          await repo.update(user!.id, entity);
+            };
+          await repo.updateUser(user!.id, {
+            userPersona: entity.userPersona,
+            onboardingProgress: entity.onboardingProgress,
+            behavioralPatterns: entity.behavioralPatterns,
+          });
           logger.info('User persona updated', {
             userId: user!.id,
             updatedFields: Object.keys(body as unknown),
@@ -163,30 +183,30 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
             return { error: 'User not found' };
           }
           const { personaData, onboardingProgress } = validation.data;
-          entity.userPersona = personaData as unknown;
+          entity.userPersona = { ...entity.userPersona, ...personaData };
           entity.onboardingProgress = {
+            ...defaultOnboardingProgress,
             ...onboardingProgress,
             isCompleted: true,
             completedAt: new Date(),
             currentStep: onboardingProgress.currentStep || 0,
             completedSteps: onboardingProgress.completedSteps || [],
             responses: onboardingProgress.responses || {},
-          } as unknown;
+          };
           entity.behavioralPatterns = {
-            sessionDuration: 0,
-            activeHours: [],
-            frequentlyUsedTools: [],
-            preferredAgents: [],
-            workflowPatterns: [],
+            ...defaultBehavioralPatterns,
             interactionStyle: 'methodical',
             feedbackPreference:
               personaData.communicationPreference === 'brief' ? 'immediate' : 'summary',
-          } as unknown;
-          await repo.update(user!.id, entity);
+          };
+          await repo.updateUser(user!.id, {
+            userPersona: entity.userPersona,
+            onboardingProgress: entity.onboardingProgress,
+            behavioralPatterns: entity.behavioralPatterns,
+          });
           try {
             const providerRepo = UserService.getInstance().getUserLLMProviderRepository();
-            // @ts-expect-error -- Property does not exist on inferred type
-            const providers = await providerRepo.findAllProvidersByUser(user!.id);
+            const providers = await providerRepo.findByUserId(user!.id);
             if (providers.length === 0)
               await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(user!.id);
           } catch (e) {
@@ -224,11 +244,13 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
             return { error: 'User not found' };
           }
           entity.behavioralPatterns = {
-            // @ts-expect-error -- Spread from non-object type
+            ...defaultBehavioralPatterns,
             ...entity.behavioralPatterns,
             ...validation.data,
-          } as unknown;
-          await repo.update(user!.id, entity);
+          };
+          await repo.updateUser(user!.id, {
+            behavioralPatterns: entity.behavioralPatterns,
+          });
           return {
             id: entity.id,
             email: entity.email,
@@ -274,10 +296,8 @@ export function registerPersonaRoutes(elysiaApp: AnyElysia): AnyElysia {
           return { error: 'Invalid interaction data', details: validation.error.errors };
         }
         try {
-          // @ts-expect-error -- Property does not exist on inferred type
-          const { type, data, timestamp } = validation.data as unknown;
-          // @ts-expect-error -- Argument type mismatch
-          await processUserInteraction(user!.id, type, data, timestamp as unknown);
+          const { type, data, timestamp } = validation.data;
+          await processUserInteraction(user!.id, type, data, timestamp);
           return { success: true };
         } catch {
           set.status = 500;

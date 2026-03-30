@@ -111,9 +111,7 @@ export class LLMProviderManagementService {
       const providers = await this.llmProviderRepository.findMany();
       return Promise.all(
         providers.map(async (provider) => {
-          // @ts-expect-error -- Property does not exist on inferred type
           const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-          // @ts-expect-error -- Argument type mismatch
           return this.mapToResponse(provider, stats);
         })
       );
@@ -130,11 +128,9 @@ export class LLMProviderManagementService {
     try {
       await this.ensureInitialized();
 
-      // @ts-expect-error -- Property does not exist on inferred type
       const providers = await this.llmProviderRepository.findActiveProviders();
       return Promise.all(
         providers.map(async (provider) => {
-          // @ts-expect-error -- Property does not exist on inferred type
           const stats = await this.llmProviderRepository.getProviderStats(provider.id);
           return this.mapToResponse(provider, stats);
         })
@@ -157,9 +153,7 @@ export class LLMProviderManagementService {
         return null;
       }
 
-      // @ts-expect-error -- Property does not exist on inferred type
       const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-      // @ts-expect-error -- Argument type mismatch
       return this.mapToResponse(provider, stats);
     } catch (error) {
       logger.error('Error getting LLM provider by ID', { id, error });
@@ -196,7 +190,6 @@ export class LLMProviderManagementService {
       // Notify LLM service to refresh providers and cache
       await this.notifyProviderChange('provider.created', provider.id, provider.type);
 
-      // @ts-expect-error -- Property does not exist on inferred type
       const stats = await this.llmProviderRepository.getProviderStats(provider.id);
       return this.mapToResponse(provider, stats);
     } catch (error) {
@@ -246,12 +239,9 @@ export class LLMProviderManagementService {
       }
 
       // Notify LLM service to refresh providers and cache
-      // @ts-expect-error -- Argument type mismatch
       await this.notifyProviderChange('provider.updated', id, provider.type);
 
-      // @ts-expect-error -- Property does not exist on inferred type
       const stats = await this.llmProviderRepository.getProviderStats(id);
-      // @ts-expect-error -- Argument type mismatch
       return this.mapToResponse(updatedProvider, stats);
     } catch (error) {
       logger.error('Error updating LLM provider', { id, request, error });
@@ -271,7 +261,6 @@ export class LLMProviderManagementService {
       await this.llmProviderRepository.softDelete(id, deletedBy);
 
       // Notify LLM service to refresh providers and cache
-      // @ts-expect-error -- Argument type mismatch
       await this.notifyProviderChange('provider.deleted', id, provider?.type);
 
       logger.info('LLM provider deleted', { id, deletedBy });
@@ -301,15 +290,11 @@ export class LLMProviderManagementService {
       let result: { success: boolean; latency?: number; error?: string };
 
       try {
-        // Create a simple test request based on provider type
-        // @ts-expect-error -- Argument type mismatch
         const testEndpoint = this.getTestEndpoint(provider);
-        // @ts-expect-error -- Argument type mismatch
         const testPayload = this.getTestPayload(provider);
 
         const response = await fetch(testEndpoint, {
           method: 'POST',
-          // @ts-expect-error -- Argument type mismatch
           headers: this.getTestHeaders(provider),
           body: JSON.stringify(testPayload),
           signal: AbortSignal.timeout(10000), // 10 second timeout
@@ -398,11 +383,8 @@ export class LLMProviderManagementService {
       let totalErrors = BigInt(0);
 
       for (const provider of allProviders) {
-        // @ts-expect-error -- Argument type mismatch
         totalRequests += BigInt(provider.totalRequests);
-        // @ts-expect-error -- Argument type mismatch
         totalTokensUsed += BigInt(provider.totalTokensUsed);
-        // @ts-expect-error -- Argument type mismatch
         totalErrors += BigInt(provider.totalErrors);
       }
 
@@ -424,27 +406,30 @@ export class LLMProviderManagementService {
   }
 
   // Private helper methods
-  private mapToResponse(provider: LLMProvider, stats: unknown): LLMProviderResponse {
+  private mapToResponse(
+    provider: LLMProvider,
+    stats: {
+      totalRequests: string;
+      totalTokensUsed: string;
+      totalErrors: string;
+      errorRate: number;
+      lastUsedAt?: Date;
+      healthStatus?: string;
+    },
+  ): LLMProviderResponse {
     return {
       id: provider.id,
       name: provider.name,
       description: provider.description,
       type: provider.type,
       baseUrl: provider.baseUrl,
-      // @ts-expect-error -- Property does not exist on inferred type
-      hasApiKey: provider.hasApiKey(),
+      hasApiKey: Boolean(provider.apiKeyEncrypted),
       defaultModel: provider.defaultModel,
       configuration: provider.configuration,
       status: provider.status,
       isActive: provider.isActive,
       priority: provider.priority,
-      // @ts-expect-error -- TS TS2739
-      stats: stats || {
-        totalRequests: '0',
-        totalTokensUsed: '0',
-        totalErrors: '0',
-        errorRate: 0,
-      },
+      stats,
       createdAt: provider.createdAt,
       updatedAt: provider.updatedAt,
     };
@@ -496,8 +481,7 @@ export class LLMProviderManagementService {
       'Content-Type': 'application/json',
     };
 
-    // @ts-expect-error -- Property does not exist on inferred type
-    const apiKey = provider.getApiKey();
+    const apiKey = provider.apiKeyEncrypted;
     if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }

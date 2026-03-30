@@ -441,7 +441,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
                   await getEventBusService().publish('llm.provider.changed', {
                     eventType: 'provider.updated',
                     providerId: updatedProvider.id,
-                    providerType: updatedProvider.type,
+                    providerType: updatedProvider.providerId,
                     userId: user!.id,
                   });
                 } catch (eventError) {
@@ -475,7 +475,7 @@ export function registerProviderRoutes(elysiaApp: AnyElysia): AnyElysia {
                 await getEventBusService().publish('llm.provider.changed', {
                   eventType: 'provider.deleted',
                   providerId: provider.id,
-                  providerType: provider.type,
+                  providerType: provider.providerId,
                   userId: user!.id,
                 });
               } catch (eventError) {

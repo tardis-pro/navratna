@@ -67,7 +67,6 @@ export class ApprovalWorkflowService {
       // Create workflow using DatabaseService
       const savedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .createApprovalWorkflow({
           id: request.operationId,
           operationId: request.operationId,

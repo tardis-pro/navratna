@@ -93,6 +93,39 @@ export class LLMProviderRepository {
     }
   }
 
+  async getProviderStats(providerId: string): Promise<{
+    totalRequests: string;
+    totalTokensUsed: string;
+    totalErrors: string;
+    errorRate: number;
+    lastUsedAt?: Date;
+    healthStatus?: string;
+  }> {
+    try {
+      const provider = await this.findById(providerId);
+      if (!provider) {
+        return { totalRequests: '0', totalTokensUsed: '0', totalErrors: '0', errorRate: 0 };
+      }
+      const totalReqs = provider.totalRequests ?? 0;
+      const totalErrs = provider.totalErrors ?? 0;
+      const errorRate = totalReqs > 0 ? totalErrs / totalReqs : 0;
+      return {
+        totalRequests: String(totalReqs),
+        totalTokensUsed: String(provider.totalTokensUsed ?? 0),
+        totalErrors: String(totalErrs),
+        errorRate,
+        lastUsedAt: provider.lastUsedAt ?? undefined,
+        healthStatus: provider.healthCheckResult?.status,
+      };
+    } catch (error: unknown) {
+      logger.error('LLMProviderRepository.getProviderStats failed', {
+        providerId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }
+
   async count(): Promise<number> {
     try {
       const [result] = await this.db.select({ total: count() }).from(llmProviders);

@@ -90,7 +90,6 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             const { domainAuditService } = await getServices();
             const offset = (value.page - 1) * value.limit;
             const repo = domainAuditService.getAuditRepository();
-            // @ts-expect-error -- Property does not exist on inferred type
             const result = await repo.searchAuditLogs({
               ...value,
               offset,

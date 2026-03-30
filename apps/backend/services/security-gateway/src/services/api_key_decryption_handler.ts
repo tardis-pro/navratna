@@ -64,14 +64,6 @@ export class ApiKeyDecryptionHandler {
       }
 
       if (!provider) {
-        const rows = await providerRepo.findMany({
-          name: request.providerName,
-          api_key_encrypted: request.encryptedApiKey,
-        });
-        provider = rows[0] ?? null;
-      }
-
-      if (!provider) {
         response.error = `Provider not found: ${request.providerName}`;
         logger.warn('Provider not found for decryption request', {
           requestId: request.requestId,
@@ -79,7 +71,7 @@ export class ApiKeyDecryptionHandler {
         });
       } else {
         const decryptedKey =
-          typeof provider.api_key_encrypted === 'string' ? provider.api_key_encrypted : undefined;
+          typeof provider.apiKeyEncrypted === 'string' ? provider.apiKeyEncrypted : undefined;
 
         if (decryptedKey) {
           response.success = true;

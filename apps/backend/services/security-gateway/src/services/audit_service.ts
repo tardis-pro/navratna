@@ -685,9 +685,8 @@ export class AuditService {
       ipAddress: event.ipAddress,
       userAgent: event.userAgent,
       riskLevel: event.riskLevel,
-      timestamp: event.timestamp,
     });
-    return savedEvent;
+    return this.mapEntityToAuditEvent(savedEvent);
   }
 
   /**
