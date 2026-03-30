@@ -24,6 +24,22 @@ export function registerDiscussionRoutes(
       const authedGroup = applyNginxAuth(group)
 
       return authedGroup
+        .get('/', async (ctx) => {
+          try {
+            const { limit = '20', offset = '0', ...filters } = ctx.query
+            const result = await discussionService.searchDiscussions(
+              filters as Parameters<typeof discussionService.searchDiscussions>[0],
+              parseInt(limit, 10),
+              parseInt(offset, 10)
+            )
+            return { success: true, ...result }
+          } catch (error) {
+            logger.error('Failed to list discussions', { error })
+            ctx.set.status = 500
+            return { success: false, error: 'Failed to list discussions' }
+          }
+        })
+
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}

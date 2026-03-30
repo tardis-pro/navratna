@@ -296,7 +296,55 @@ export class PersonaService {
       const total = countResult[0]?.cnt ?? 0;
 
       // Get paginated results
-      const dataQuery = `SELECT * FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''} ORDER BY ${orderBy} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      const dataQuery = `
+        SELECT
+          id,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt",
+          name,
+          role,
+          description,
+          background,
+          system_prompt AS "systemPrompt",
+          traits,
+          expertise,
+          tone,
+          style,
+          energy_level AS "energyLevel",
+          chattiness,
+          empathy_level AS "empathyLevel",
+          parent_personas AS "parentPersonas",
+          hybrid_traits AS "hybridTraits",
+          dominant_expertise AS "dominantExpertise",
+          personality_blend AS "personalityBlend",
+          conversational_style AS "conversationalStyle",
+          status,
+          visibility,
+          created_by AS "createdBy",
+          organization_id AS "organizationId",
+          team_id AS "teamId",
+          version,
+          parent_persona_id AS "parentPersonaId",
+          tags,
+          validation,
+          usage_stats AS "usageStats",
+          configuration,
+          capabilities,
+          restrictions,
+          metadata,
+          quality_score AS "qualityScore",
+          consistency_score AS "consistencyScore",
+          user_satisfaction AS "userSatisfaction",
+          total_interactions AS "totalInteractions",
+          successful_interactions AS "successfulInteractions",
+          last_used_at AS "lastUsedAt",
+          last_updated_by AS "lastUpdatedBy"
+        FROM "personas"
+        ${whereClause ? `WHERE ${whereClause}` : ''}
+        ORDER BY ${orderBy}
+        LIMIT $${params.length + 1}
+        OFFSET $${params.length + 2}
+      `;
       const dataParams = [...params, limit, offset];
       const entities = await this.databaseService.executeQuery<PersonaRow>(dataQuery, dataParams);
       const personas = entities.map((entity) => this.entityToPersona(entity));
@@ -659,17 +707,17 @@ export class PersonaService {
 
     if (filters.createdBy && filters.createdBy.length > 0) {
       const createdByList = filters.createdBy.map(() => `$${paramIndex++}`).join(', ');
-      conditions.push(`createdBy IN (${createdByList})`);
+      conditions.push(`created_by IN (${createdByList})`);
       params.push(...filters.createdBy);
     }
 
     if (filters.organizationId) {
-      conditions.push(`organizationId = $${paramIndex++}`);
+      conditions.push(`organization_id = $${paramIndex++}`);
       params.push(filters.organizationId);
     }
 
     if (filters.teamId) {
-      conditions.push(`teamId = $${paramIndex++}`);
+      conditions.push(`team_id = $${paramIndex++}`);
       params.push(filters.teamId);
     }
 
@@ -682,29 +730,29 @@ export class PersonaService {
     }
 
     if (filters.minUsageCount !== undefined) {
-      conditions.push(`totalInteractions >= $${paramIndex++}`);
+      conditions.push(`total_interactions >= $${paramIndex++}`);
       params.push(filters.minUsageCount);
     }
 
     if (filters.minFeedbackScore !== undefined) {
-      conditions.push(`userSatisfaction >= $${paramIndex++}`);
+      conditions.push(`user_satisfaction >= $${paramIndex++}`);
       params.push(filters.minFeedbackScore);
     }
 
     if (filters.createdAfter) {
-      conditions.push(`createdAt >= $${paramIndex++}`);
+      conditions.push(`created_at >= $${paramIndex++}`);
       params.push(filters.createdAfter);
     }
 
     if (filters.createdBefore) {
-      conditions.push(`createdAt <= $${paramIndex++}`);
+      conditions.push(`created_at <= $${paramIndex++}`);
       params.push(filters.createdBefore);
     }
 
     return {
       whereClause: conditions.join(' AND '),
       params,
-      orderBy: 'createdAt DESC',
+      orderBy: 'created_at DESC',
     };
   }
 

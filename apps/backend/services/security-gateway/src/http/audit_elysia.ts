@@ -143,8 +143,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
           try {
             const { domainAuditService } = await getServices();
             const repo = domainAuditService.getAuditRepository();
-            // @ts-expect-error -- Property does not exist on inferred type
-            const eventTypes = await repo.getAuditEventTypes();
+            const eventTypes = await repo.getEventTypes();
             return { message: 'Event types retrieved successfully', eventTypes };
           } catch {
             set.status = 500;
@@ -159,8 +158,7 @@ export function registerAuditRoutes(elysiaApp: AnyElysia): AnyElysia {
             const selected = parsedQuery.success ? (parsedQuery.data.timeframe ?? '24h') : '24h';
             const { domainAuditService } = await getServices();
             const repo = domainAuditService.getAuditRepository();
-            // @ts-expect-error -- Property does not exist on inferred type
-            const statistics = await repo.getAuditStatistics(selected);
+            const statistics = await repo.getStats(selected);
             return {
               message: 'Audit statistics retrieved successfully',
               timeframe: selected,

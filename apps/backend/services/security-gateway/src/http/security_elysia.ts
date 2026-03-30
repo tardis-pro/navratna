@@ -255,8 +255,14 @@ export function registerSecurityRoutes(elysiaApp: AnyElysia): AnyElysia {
               if (active !== undefined) filters.active = active === 'true';
               if (search) filters.search = String(search);
               const repo = securityService!.getSecurityPolicyRepository();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const { policies, total } = await repo.querySecurityPolicies(filters);
+              const allPolicies = filters.active === true
+                ? await repo.findEnabled()
+                : await repo.findAll();
+              const filtered = filters.search
+                ? allPolicies.filter(p => p.name.toLowerCase().includes(String(filters.search).toLowerCase()))
+                : allPolicies;
+              const total = filtered.length;
+              const policies = filtered.slice(Number(filters.offset) || 0, (Number(filters.offset) || 0) + (Number(filters.limit) || 20));
               return {
                 message: 'Security policies retrieved successfully',
                 policies,

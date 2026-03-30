@@ -46,6 +46,22 @@ const INTELLIGENCE_TABLES = new Set([
   'llm_models',
 ]);
 
+const camelToSnake = (value: string): string =>
+  value
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/-/g, '_')
+    .toLowerCase();
+
+const snakeToCamel = (value: string): string => value.replace(/_([a-z])/g, (_m, letter) => letter.toUpperCase());
+
+const mapRowToCamelCase = <TRow extends Record<string, unknown>>(row: TRow): TRow => {
+  const mappedEntries = Object.entries(row).map(([key, val]) => [snakeToCamel(key), val] as const);
+  return Object.fromEntries(mappedEntries) as TRow;
+};
+
+const mapRowsToCamelCase = <TRow extends Record<string, unknown>>(rows: TRow[]): TRow[] =>
+  rows.map((row) => mapRowToCamelCase(row));
+
 class DrizzleRepository<T extends ObjectLiteral> {
   constructor(private readonly table: string) {}
 
@@ -56,11 +72,23 @@ class DrizzleRepository<T extends ObjectLiteral> {
   async findOne(opts: { where?: Partial<T>; select?: (keyof T)[] }): Promise<T | null> {
     const keys = Object.keys(opts.where ?? {});
     const vals = Object.values(opts.where ?? {});
-    let q = `SELECT * FROM "${this.table}"`;
-    if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
+    const selects =
+      opts.select && opts.select.length > 0
+        ? opts.select
+            .map((key) => {
+              const camelKey = String(key);
+              const snakeKey = camelToSnake(camelKey);
+              return `"${snakeKey}" AS "${camelKey}"`;
+            })
+            .join(', ')
+        : '*';
+    let q = `SELECT ${selects} FROM "${this.table}"`;
+    if (keys.length > 0)
+      q += ` WHERE ${keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ')}`;
     q += ' LIMIT 1';
     const result = await this.pool.query<T>(q, vals);
-    return result.rows[0] ?? null;
+    const row = result.rows[0];
+    return row ? mapRowToCamelCase(row as Record<string, unknown>) as T : null;
   }
 
   async find(opts?: {
@@ -72,24 +100,26 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const keys = Object.keys(opts?.where ?? {});
     const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
     let q = `SELECT * FROM "${this.table}"`;
-    if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
+    if (keys.length > 0)
+      q += ` WHERE ${keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ')}`;
     if (opts?.order) {
       const clauses = Object.entries(opts.order)
-        .map(([c, d]) => `"${c}" ${d}`)
+        .map(([c, d]) => `"${camelToSnake(c)}" ${d}`)
         .join(', ');
       q += ` ORDER BY ${clauses}`;
     }
     if (opts?.take) q += ` LIMIT ${opts.take}`;
     if (opts?.skip) q += ` OFFSET ${opts.skip}`;
     const result = await this.pool.query<T>(q, vals);
-    return result.rows;
+    return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as T[];
   }
 
   async count(opts?: { where?: Partial<T> }): Promise<number> {
     const keys = Object.keys(opts?.where ?? {});
     const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
     let q = `SELECT COUNT(*)::int AS cnt FROM "${this.table}"`;
-    if (keys.length > 0) q += ` WHERE ${keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ')}`;
+    if (keys.length > 0)
+      q += ` WHERE ${keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ')}`;
     const result = await this.pool.query<{ cnt: number }>(q, vals);
     return result.rows[0]?.cnt ?? 0;
   }
@@ -98,7 +128,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const rec = entity as Record<string, JsonValue>;
     if (rec.id) {
       const keys = Object.keys(rec).filter((k) => k !== 'id');
-      const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
+       const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
       const vals: SqlParameter[] = [
         rec.id as SqlParameter,
         ...keys.map((k) => rec[k] as SqlParameter),
@@ -107,23 +137,23 @@ class DrizzleRepository<T extends ObjectLiteral> {
         `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1 RETURNING *`,
         vals
       );
-      return result.rows[0];
+      return mapRowToCamelCase(result.rows[0] as Record<string, unknown>) as T;
     }
     const keys = Object.keys(rec);
-    const cols = keys.map((k) => `"${k}"`).join(', ');
+    const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
     const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
     const vals = keys.map((k) => rec[k]);
     const result = await this.pool.query<T>(
       `INSERT INTO "${this.table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
       vals
     );
-    return result.rows[0];
+    return mapRowToCamelCase(result.rows[0] as Record<string, unknown>) as T;
   }
 
   async update(id: string, data: Partial<T>): Promise<void> {
     const keys = Object.keys(data as Record<string, JsonValue>);
     if (keys.length === 0) return;
-    const set = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
+    const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
     const vals: SqlParameter[] = [
       id,
       ...keys.map((k) => (data as Record<string, JsonValue>)[k] as SqlParameter),
@@ -165,7 +195,8 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     return this;
   }
   orderBy(col: string, dir: string): this {
-    this.orderClauses.push(`"${col.replace(/^[^.]+\./, '')}" ${dir}`);
+    const normalizedColumn = col.replace(/^[^.]+\./, '');
+    this.orderClauses.push(`"${camelToSnake(normalizedColumn)}" ${dir}`);
     return this;
   }
   skip(n: number): this {
@@ -190,8 +221,8 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
     params?: Record<string, SqlParameter | SqlParameter[]>
   ): string {
     if (!params) return cond;
-    let result = cond;
-      for (const [key, val] of Object.entries(params)) {
+    let result = cond.replace(/(\w+)\.(\w+)/g, (_m, _alias, col) => `"${camelToSnake(col)}"`);
+    for (const [key, val] of Object.entries(params)) {
       const idx = this.params.length + 1;
       if (Array.isArray(val)) {
         const placeholders = val.map((_v, i) => `$${idx + i}`);
@@ -222,13 +253,14 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
 
   async getMany(): Promise<T[]> {
     const result = await this.pool.query<T>(this.buildQuery(), this.params);
-    return result.rows;
+    return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as T[];
   }
 
   async getOne(): Promise<T | null> {
     this.limitVal = 1;
     const result = await this.pool.query<T>(this.buildQuery(), this.params);
-    return result.rows[0] ?? null;
+    const row = result.rows[0];
+    return row ? (mapRowToCamelCase(row as Record<string, unknown>) as T) : null;
   }
 
   async getCount(): Promise<number> {
@@ -238,7 +270,7 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
 
   async getRawMany(): Promise<Record<string, JsonValue>[]> {
     const result = await this.pool.query(this.buildQuery(), this.params);
-    return result.rows;
+    return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as Record<string, JsonValue>[];
   }
 }
 import { UserService } from './services/user_service';
@@ -782,13 +814,13 @@ export class DatabaseService {
 
       if (records.length === 1) {
         const keys = Object.keys(records[0]);
-        const cols = keys.map((k) => `"${k}"`).join(', ');
+        const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
         const vals = keys.map((k) => (records[0] as Record<string, JsonValue>)[k]);
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`, vals);
       } else {
         const keys = Object.keys(records[0]);
-        const cols = keys.map((k) => `"${k}"`).join(', ');
+        const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
         const valuesClauses = records
           .map((rec, idx) => {
             const placeholders = keys.map((_, i) => `$${idx * keys.length + i + 1}`).join(', ');
@@ -881,9 +913,11 @@ export class DatabaseService {
   ): Promise<T[]> {
     await this.ensureInitialized();
     try {
-      const pool = getControlPool();
+      const tableMatch = query.match(/FROM\s+"?(\w+)"?/i);
+      const tableName = tableMatch?.[1] ?? '';
+      const pool = INTELLIGENCE_TABLES.has(tableName) ? getIntelligencePool() : getControlPool();
       const result = await pool.query(query, parameters);
-      return result.rows as T[];
+      return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as T[];
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Query execution failed', { query, error: errorMessage });
