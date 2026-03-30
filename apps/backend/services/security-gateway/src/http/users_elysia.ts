@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 // Elysia's type system cannot infer the 'user' property through nested .group() calls combined with middleware wrappers.
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
@@ -88,11 +88,11 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   return safeUser;
 };
 
-export function registerUserRoutes(elysiaApp: AnyElysia): AnyElysia {
-  return elysiaApp.group('/api/v1/users', (app: AnyElysia) =>
+export function registerUserRoutes<T extends Elysia>(elysiaApp: T): T {
+  elysiaApp.group('/api/v1/users', (app: any) =>
     withOptionalAuth(app)
       // GET /api/v1/users (admin)
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withAdminGuard(g).get('/', async ({ set, query }) => {
           const parsed = userQuerySchema.safeParse(query);
           if (!parsed.success) {
@@ -183,7 +183,7 @@ export function registerUserRoutes(elysiaApp: AnyElysia): AnyElysia {
       })
 
       // GET /api/v1/users/llm-preferences
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withRequiredAuth(g)
           // @ts-expect-error -- Property does not exist on inferred type
           .get('/llm-preferences', async ({ set, user }) => {
@@ -242,7 +242,7 @@ export function registerUserRoutes(elysiaApp: AnyElysia): AnyElysia {
       )
 
       // GET /api/v1/users/:userId (admin)
-      .group('', (g: AnyElysia) =>
+      .group('', (g: any) =>
         withAdminGuard(g)
           .get('/:userId', async ({ set, params }) => {
             try {
@@ -421,6 +421,8 @@ export function registerUserRoutes(elysiaApp: AnyElysia): AnyElysia {
           })
       )
   );
+
+  return elysiaApp;
 }
 
 export default registerUserRoutes;
