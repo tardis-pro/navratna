@@ -83,39 +83,57 @@ class NavratnaCoreService extends BaseService {
       features: this.factory.activeFeatureNames,
     }))
 
-    this.app.get('/health/detailed', () => {
-      const timingStats = requestTimingBuffer.getStats()
-      const memoryUsage = process.memoryUsage()
-      const cpuUsage = process.cpuUsage()
-      const status =
-        timingStats.count > 0 && timingStats.p95 > DEGRADED_P95_THRESHOLD_MS ? 'degraded' : 'ok'
+    this.app.get('/health/detailed', () => this.buildHealthPayload())
 
-      return {
-        status,
-        service: 'navratna-core',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        features: this.factory.activeFeatureNames,
-        timing: {
-          p95: timingStats.p95,
-          p50: timingStats.p50,
-          avg: timingStats.avg,
-          sampleCount: timingStats.count,
-        },
-        memory: {
-          heapUsed: toMegabytes(memoryUsage.heapUsed),
-          heapTotal: toMegabytes(memoryUsage.heapTotal),
-          rss: toMegabytes(memoryUsage.rss),
-          external: toMegabytes(memoryUsage.external),
-        },
-        cpu: {
-          user: cpuUsage.user,
-          system: cpuUsage.system,
-        },
+    this.app.get('/api/v1/core/health', ({ request, set }) => {
+      const forwardedFor = request.headers.get('x-forwarded-for')
+      const host = request.headers.get('host') || ''
+      const isInternal =
+        host.startsWith('localhost') ||
+        host.startsWith('127.0.0.1') ||
+        host.startsWith('navratna-core') ||
+        host.includes(':3001') ||
+        !forwardedFor
+      if (!isInternal) {
+        set.status = 403
+        return { error: 'Forbidden' }
       }
+      return this.buildHealthPayload()
     })
 
     logger.info('navratna-core routes configured')
+  }
+
+  private buildHealthPayload() {
+    const timingStats = requestTimingBuffer.getStats()
+    const memoryUsage = process.memoryUsage()
+    const cpuUsage = process.cpuUsage()
+    const status =
+      timingStats.count > 0 && timingStats.p95 > DEGRADED_P95_THRESHOLD_MS ? 'degraded' : 'ok'
+
+    return {
+      status,
+      service: 'navratna-core',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      features: this.factory.activeFeatureNames,
+      timing: {
+        p95: timingStats.p95,
+        p50: timingStats.p50,
+        avg: timingStats.avg,
+        sampleCount: timingStats.count,
+      },
+      memory: {
+        heapUsed: toMegabytes(memoryUsage.heapUsed),
+        heapTotal: toMegabytes(memoryUsage.heapTotal),
+        rss: toMegabytes(memoryUsage.rss),
+        external: toMegabytes(memoryUsage.external),
+      },
+      cpu: {
+        user: cpuUsage.user,
+        system: cpuUsage.system,
+      },
+    }
   }
 
   protected async setupEventSubscriptions(): Promise<void> {
