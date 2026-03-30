@@ -12,6 +12,7 @@ import { registerPersonaRoutes } from './http/persona_elysia.js'
 import { registerKnowledgeRoutes } from './http/knowledge_elysia.js'
 import { registerContactRoutes } from './http/contacts_elysia.js'
 import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
+import { registerDashboardRoutes } from './http/dashboard_elysia.js'
 
 export const securityFeature: Feature = {
   name: 'security-gateway',
@@ -28,6 +29,7 @@ export const securityFeature: Feature = {
     registerKnowledgeRoutes(app)
     registerContactRoutes(app)
     registerToolPreferenceRoutes(app)
+    registerDashboardRoutes(app)
     return app as TApp
   },
 }
