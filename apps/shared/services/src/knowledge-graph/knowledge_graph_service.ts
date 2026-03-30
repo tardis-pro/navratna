@@ -242,10 +242,18 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
               ? 'episodic'
               : 'semantic';
 
-        // oxlint-disable-next-line no-await-in-loop
-        await this.vectorDb.store(knowledgeItem.id, embeddings, {
-          collection: collectionType,
-        });
+        try {
+          // oxlint-disable-next-line no-await-in-loop
+          await this.vectorDb.store(knowledgeItem.id, embeddings, {
+            collection: collectionType,
+          });
+        } catch (qdrantError) {
+          logger.warn('Qdrant sync failed for knowledge item — item saved to Postgres only', {
+            itemId: knowledgeItem.id,
+            error: qdrantError instanceof Error ? qdrantError.message : String(qdrantError),
+          });
+        }
+
         // Detect and create relationships
         // oxlint-disable-next-line no-await-in-loop
         const relationships = await this.relationshipDetector.detectRelationships(knowledgeItem);

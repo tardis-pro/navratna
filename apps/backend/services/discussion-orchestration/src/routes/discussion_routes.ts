@@ -1,11 +1,37 @@
 type Elysia = { group: Function }
 import { withNginxAuth } from '@uaip/middleware'
 import { DiscussionService } from '@uaip/shared-services/discussion'
+import {
+  and,
+  count,
+  discussionMessages,
+  discussionParticipants,
+  discussions,
+  eq,
+  getIntelligenceDb,
+} from '@uaip/shared-services'
 import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js'
+import { participantGuard } from '../middleware/participant_guard.js'
 import { logger } from '@uaip/utils'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const normalizeRole = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim().toLowerCase() : null
+
+const stripHtmlTags = (input: string): string => input.replace(/<[^>]*>/g, '').trim()
+
+const sanitizeMessageContentOnRead = (message: unknown): unknown => {
+  if (!isRecord(message) || typeof message.content !== 'string') {
+    return message
+  }
+
+  return {
+    ...message,
+    content: stripHtmlTags(message.content),
+  }
+}
 
 export function registerDiscussionRoutes(
   app: Elysia,
@@ -90,6 +116,89 @@ export function registerDiscussionRoutes(
             logger.error('Failed to get discussion', { error, id: ctx.params.id })
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion' }
+          }
+        })
+
+        .get('/:id/summary', async (ctx) => {
+          try {
+            const guardFailure = await participantGuard(ctx)
+            if (guardFailure) {
+              return guardFailure
+            }
+
+            const db = getIntelligenceDb()
+            const [discussionRow] = await db
+              .select({
+                id: discussions.id,
+                title: discussions.title,
+                status: discussions.status,
+                state: discussions.state,
+                startedAt: discussions.startedAt,
+                endedAt: discussions.endedAt,
+              })
+              .from(discussions)
+              .where(eq(discussions.id, ctx.params.id))
+              .limit(1)
+
+            if (!discussionRow) {
+              ctx.set.status = 404
+              return { success: false, error: 'Discussion not found' }
+            }
+
+            const [messageCountRow] = await db
+              .select({ total: count() })
+              .from(discussionMessages)
+              .where(eq(discussionMessages.discussionId, ctx.params.id))
+
+            const participantRows = await db
+              .select({
+                userId: discussionParticipants.userId,
+                participantId: discussionParticipants.id,
+              })
+              .from(discussionParticipants)
+              .where(eq(discussionParticipants.discussionId, ctx.params.id))
+
+            const participants = Array.from(
+              new Set(
+                participantRows
+                  .map((row) => row.userId ?? row.participantId)
+                  .filter((id): id is string => typeof id === 'string' && id.length > 0)
+              )
+            )
+
+            const [activeHuddlesCountRow] = await db
+              .select({ total: count() })
+              .from(discussions)
+              .where(
+                and(
+                  eq(discussions.parentDiscussionId, ctx.params.id),
+                  eq(discussions.status, 'active')
+                )
+              )
+
+            const currentTurn =
+              isRecord(discussionRow.state) && isRecord(discussionRow.state.currentTurn)
+                ? discussionRow.state.currentTurn
+                : null
+
+            return {
+              success: true,
+              data: {
+                id: discussionRow.id,
+                title: discussionRow.title,
+                status: discussionRow.status,
+                participants,
+                currentTurn,
+                messageCount: messageCountRow?.total ?? 0,
+                startedAt: discussionRow.startedAt,
+                endedAt: discussionRow.endedAt,
+                activeHuddles: activeHuddlesCountRow?.total ?? 0,
+              },
+            }
+          } catch (error) {
+            logger.error('Failed to get discussion summary', { error, id: ctx.params.id })
+            ctx.set.status = 500
+            return { success: false, error: 'Failed to get discussion summary' }
           }
         })
 
@@ -179,10 +288,11 @@ export function registerDiscussionRoutes(
         .post('/:id/participants/:pid/messages', async (ctx) => {
           try {
             const body = ctx.body as { content: string; messageType?: string; metadata?: Record<string, unknown> }
+            const sanitizedContent = stripHtmlTags(body.content)
             const result = await orchestrationService.sendMessage(
               ctx.params.id,
               ctx.params.pid,
-              body.content,
+              sanitizedContent,
               body.messageType || 'message',
               body.metadata
             )
@@ -209,7 +319,10 @@ export function registerDiscussionRoutes(
               limit: parseInt(limit, 10),
               offset: parseInt(offset, 10),
             })
-            return { success: true, data: messages }
+            return {
+              success: true,
+              data: messages.map((message) => sanitizeMessageContentOnRead(message)),
+            }
           } catch (error) {
             logger.error('Failed to get messages', { error, id: ctx.params.id })
             ctx.set.status = 500
@@ -219,6 +332,12 @@ export function registerDiscussionRoutes(
 
         .post('/:id/advance-turn', async (ctx) => {
           try {
+            const role = normalizeRole(ctx.user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
+            if (role !== 'admin' && role !== 'moderator') {
+              ctx.set.status = 403
+              return { success: false, error: 'Only moderators can force-advance turns' }
+            }
+
             const forcedBy = ctx.user.id
             await discussionService.advanceTurn(ctx.params.id, forcedBy)
             return { success: true, message: 'Turn advanced' }

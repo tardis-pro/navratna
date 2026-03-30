@@ -15,7 +15,7 @@ export class QdrantService {
   constructor(
     qdrantUrl?: string,
     collectionName: string = 'knowledge_embeddings',
-    embeddingDimensions: number = 1024
+    embeddingDimensions: number = parseInt(process.env.QDRANT_VECTOR_DIM ?? '768', 10)
   ) {
     this.qdrantUrl = qdrantUrl || config.database.qdrant.url;
     this.embeddingDimensions = embeddingDimensions;

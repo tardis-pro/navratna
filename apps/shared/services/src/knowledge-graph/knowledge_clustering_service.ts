@@ -22,8 +22,10 @@ type RawQdrantPoint = {
 };
 
 export class KnowledgeClusteringService {
-  private readonly minClusterSize = 20;
-  private readonly similarityThreshold = 0.85;
+  private readonly minClusterSize = parseInt(process.env.KNOWLEDGE_CLUSTER_MIN_SIZE ?? '3', 10);
+  private readonly similarityThreshold = parseFloat(
+    process.env.KNOWLEDGE_CLUSTER_SIMILARITY ?? '0.65'
+  );
   private readonly maxClusterSize = 100;
 
   constructor(

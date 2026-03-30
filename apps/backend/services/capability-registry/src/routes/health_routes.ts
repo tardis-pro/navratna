@@ -11,7 +11,7 @@ interface HealthRouteApp {
 export function registerHealthRoutes(app: unknown) {
   const routeApp = app as HealthRouteApp;
   logger.info('Registering Capability Registry health routes');
-  return routeApp.group('/health', (g: HealthRouteGroup) =>
+  return routeApp.group('/health/capability-registry', (g: HealthRouteGroup) =>
     g
       .get('/', () => ({ status: 'healthy', service: 'capability-registry' }))
       .get('/ready', () => ({ status: 'ready', service: 'capability-registry' }))
