@@ -239,8 +239,7 @@ export function createInitialBlocks(): MaterializableBlockData[] {
       type: 'portal',
       expression: 'calm',
       relevanceScore: 0.8,
-      // TODO(SPEC-02): Set to 'visible' once DiscussionLogPortal is implemented
-      visibility: 'hidden',
+      visibility: 'faded',
       metadata: { title: 'Discussion Log' },
     },
     {
@@ -248,8 +247,7 @@ export function createInitialBlocks(): MaterializableBlockData[] {
       type: 'portal',
       expression: 'calm',
       relevanceScore: 0.8,
-      // TODO(SPEC-02): Set to 'visible' once DiscussionControlsPortal is implemented
-      visibility: 'hidden',
+      visibility: 'faded',
       metadata: { title: 'Discussion Controls' },
     },
     {
