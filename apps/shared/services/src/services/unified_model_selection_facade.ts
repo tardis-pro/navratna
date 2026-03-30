@@ -6,7 +6,8 @@ import { AgentRepository } from '../database/repositories/agent_repository';
 import { UserLLMPreferenceRepository } from '../database/repositories/user_l_l_m_preference_repository';
 import { AgentLLMPreferenceRepository } from '../database/repositories/agent_l_l_m_preference_repository';
 import { LLMProviderRepository } from '../database/repositories/l_l_m_provider_repository';
-import type { UserLLMProvider } from '../database/drizzle/schemas/control_schema';
+
+type UserLLMProvider = Record<string, string | number | boolean | null>;
 
 type OrchestratorAgentRepository = AgentRepository & {
   findOne: (query: { where: { id: string }; select?: string[] }) => Promise<{ createdBy?: string } | null>;
@@ -93,7 +94,7 @@ export class UnifiedModelSelectionFacade {
     const resolvedAgentRepository =
       (agentRepository as OrchestratorAgentRepository) ??
       Object.assign(new AgentRepository(), {
-        findOne: async ({ where }: { where: { id: string } }) => {
+        findOne: async ({ where }: { where: { id: string } }): Promise<{ createdBy?: string } | null> => {
           const agent = await new AgentRepository().findById(where.id);
           return agent ? { createdBy: agent.createdBy } : null;
         },
@@ -102,14 +103,14 @@ export class UnifiedModelSelectionFacade {
     const resolvedUserPrefRepository =
       (userLLMPreferenceRepository as OrchestratorUserPreferenceRepository) ??
       Object.assign(new UserLLMPreferenceRepository(), {
-        findOne: async () => null,
+        findOne: async (): Promise<null> => null,
       });
 
     const resolvedAgentPrefRepository =
       (agentLLMPreferenceRepository as OrchestratorAgentPreferenceRepository) ??
       Object.assign(new AgentLLMPreferenceRepository(), {
-        findOne: async () => null,
-        find: async () => [],
+        findOne: async (): Promise<null> => null,
+        find: async (): Promise<[]> => [],
       });
 
     const resolvedProviderRepository = llmProviderRepository ?? new LLMProviderRepository();

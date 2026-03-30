@@ -36,12 +36,10 @@ type ModelSelectionContext = {
   };
   userLLMPreferenceRepository: UserLLMPreferenceRepository & {
     findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
-    update: (id: string, data: Record<string, string | number | boolean | null>) => Promise<Record<string, string | number | boolean | null> | null>;
   };
   agentLLMPreferenceRepository: AgentLLMPreferenceRepository & {
     findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
     find: (query: { where: { agentId: string; taskType: LLMTaskType } }) => Promise<LLMPreferenceRecord[]>;
-    update: (id: string, data: Record<string, string | number | boolean | null>) => Promise<Record<string, string | number | boolean | null> | null>;
   };
   llmProviderRepository: LLMProviderRepository;
   systemDefaults: Record<LLMTaskType, ModelSelectionResult>;
@@ -566,9 +564,6 @@ export class ModelSelectionOrchestrator {
 
         if (agentPreference) {
           agentPreference.updateUsageStats(responseTime, success, quality);
-          if (agentPreference.id) {
-            await agentPrefRepo.update(agentPreference.id, {});
-          }
         }
       }
 
@@ -580,9 +575,6 @@ export class ModelSelectionOrchestrator {
 
         if (userPreference) {
           userPreference.updateUsageStats(responseTime, success);
-          if (userPreference.id) {
-            await userPrefRepo.update(userPreference.id, {});
-          }
         }
       }
 

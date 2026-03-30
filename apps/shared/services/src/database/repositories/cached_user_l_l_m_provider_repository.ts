@@ -1,20 +1,23 @@
 import { UserLLMProviderRepository } from './user_l_l_m_provider_repository';
 import { redisCacheService } from '../../redis_cache_service';
+import type { userLLMProviders } from '../drizzle/schemas/control_schema';
+
+type UserLLMProviderRow = typeof userLLMProviders.$inferSelect;
 
 export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   private readonly CACHE_TTL = { ACTIVE_PROVIDERS: 300, PROVIDER_BY_ID: 600, USER_PROVIDERS: 300 };
 
-  async findById(id: string) {
+  async findById(id: string): Promise<UserLLMProviderRow | null> {
     const key = `user_llm_provider:${id}`;
     try {
       const cached = await redisCacheService.get(key);
-      if (typeof cached === 'string') return JSON.parse(cached);
-    } catch {}
+      if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow;
+    } catch { /* cache miss */ }
     const result = await super.findById(id);
     if (result) {
       try {
         await redisCacheService.set(key, JSON.stringify(result), this.CACHE_TTL.PROVIDER_BY_ID);
-      } catch {}
+      } catch { /* cache write failed */ }
     }
     return result;
   }
@@ -22,7 +25,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
   async invalidate(id: string): Promise<void> {
     try {
       await redisCacheService.del(`user_llm_provider:${id}`);
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   private async invalidateUserProviderIds(userId: string): Promise<void> {
@@ -31,7 +34,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
       if (provider.id) {
         try {
           await redisCacheService.del(`user_llm_provider:${provider.id}`);
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
   }
@@ -42,7 +45,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     for (const key of keys) {
       try {
         await redisCacheService.del(key);
-      } catch {}
+      } catch { /* ignore */ }
     }
     await this.invalidateUserProviderIds(userId);
   }
@@ -51,20 +54,20 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     const key = `user_llm_provider:${providerId}:${userId}`;
     try {
       await redisCacheService.del(key);
-    } catch {}
+    } catch { /* ignore */ }
     await this.invalidateUserProviderIds(userId);
   }
 
   async findActiveProvidersByUser(
     userId: string,
     useCache = true
-  ): Promise<Record<string, unknown>[]> {
+  ): Promise<UserLLMProviderRow[]> {
     const cacheKey = `user_llm_providers:active:${userId}`;
     if (useCache) {
       try {
         const cached = await redisCacheService.get(cacheKey);
-        if (typeof cached === 'string') return JSON.parse(cached);
-      } catch {}
+        if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow[];
+      } catch { /* cache miss */ }
     }
     const result = await this.findActiveByUserId(userId);
     if (useCache && result.length > 0) {
@@ -74,7 +77,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
           JSON.stringify(result),
           this.CACHE_TTL.ACTIVE_PROVIDERS
         );
-      } catch {}
+      } catch { /* cache write failed */ }
     }
     return result;
   }

@@ -36,7 +36,6 @@ export {
 } from './drizzle/clients/index';
 
 export { DatabaseService, DatabaseError } from '../database_service';
-export { BaseRepository } from './base/base_repository';
 export { RepositoryFactory, repositoryFactory } from './base/repository_factory';
 export * from './repositories/index';
 export * from './drizzle/schemas/intelligence_schema';

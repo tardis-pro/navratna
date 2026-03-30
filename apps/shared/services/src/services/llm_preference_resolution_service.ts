@@ -32,18 +32,10 @@ type AgentOwnerRepository = AgentRepository & {
 
 type UserPreferenceRepository = UserLLMPreferenceRepository & {
   findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
-  update: (
-    id: string,
-    data: Record<string, string | number | boolean | null>
-  ) => Promise<Record<string, string | number | boolean | null> | null>;
 };
 
 type AgentPreferenceRepository = AgentLLMPreferenceRepository & {
   findOne: (query: PreferenceQuery) => Promise<LLMPreferenceRecord | null>;
-  update: (
-    id: string,
-    data: Record<string, string | number | boolean | null>
-  ) => Promise<Record<string, string | number | boolean | null> | null>;
 };
 
 // System defaults for different task types - Updated to use available models
@@ -277,9 +269,6 @@ export class LLMPreferenceResolutionService {
     const agentPreference = await this.getAgentPreference(agentId, taskType);
     if (agentPreference) {
       agentPreference.updateUsageStats(responseTime, success, quality);
-      if (agentPreference.id) {
-        await agentPrefRepo.update(agentPreference.id, {});
-      }
     }
 
     const createdBy = await this.getAgentOwner(agentRepo, agentId);
@@ -287,9 +276,6 @@ export class LLMPreferenceResolutionService {
       const userPreference = await this.getUserPreference(createdBy, taskType);
       if (userPreference) {
         userPreference.updateUsageStats(responseTime, success);
-        if (userPreference.id) {
-          await userPrefRepo.update(userPreference.id, {});
-        }
       }
     }
   }
