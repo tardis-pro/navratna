@@ -17,7 +17,13 @@ async function getServices() {
   if (!approvalWorkflowServiceSingleton) {
     auditServiceSingleton = new AuditService();
     notificationServiceSingleton = new NotificationService();
-    const eventBusService = EventBusService.getInstance();
+    let eventBusService: EventBusService;
+    try {
+      eventBusService = EventBusService.getInstance();
+    } catch {
+      const { config } = await import('@uaip/config');
+      eventBusService = EventBusService.getInstance({ ...config, serviceName: 'navratna-gateway' }, logger);
+    }
     approvalWorkflowServiceSingleton = new ApprovalWorkflowService(
       eventBusService,
       notificationServiceSingleton,
@@ -255,7 +261,7 @@ export function registerApprovalRoutes(elysiaApp: AnyElysia): AnyElysia {
           const pending = await approvalWorkflowService.getUserWorkflows(
             user!.id,
             ApprovalStatus.PENDING
-          );
+          ).catch((err: Error) => { logger.error('getUserWorkflows failed in /pending', { error: err.message, stack: err.stack }); throw err; });
           const detailed = await Promise.all(
             pending.map(async (wf) => {
               const status = await approvalWorkflowService!.getWorkflowStatus(wf.id);
