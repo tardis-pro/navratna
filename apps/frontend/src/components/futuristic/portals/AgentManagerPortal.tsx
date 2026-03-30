@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback as _useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams as _useSearchParams } from 'react-router-dom';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useAgents } from '../../../contexts/AgentContext';
 import { PersonaSelector } from '../../PersonaSelector';
 import { AgentEditModal } from '../../AgentEditModal';
@@ -34,8 +35,6 @@ import {
   Eye as _Eye,
   Search,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   EyeOff as _EyeOff,
   Activity,
   Network as _Network,
@@ -62,6 +61,7 @@ import {
 import type { ModelOption } from '@uaip/types/models';
 import { useToast } from '@/components/ui/use_toast';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { STALE_TIMES } from '@/api/query_config';
 
 interface AgentManagerPortalProps {
   className?: string;
@@ -72,6 +72,20 @@ interface AgentManagerPortalProps {
 
 type ViewMode = 'grid' | 'list' | 'settings' | 'create' | 'create-persona';
 type ActionMode = 'view' | 'edit' | 'create' | 'create-persona' | 'delete';
+
+const AGENTS_PAGE_SIZE = 12;
+
+interface AgentsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+}
+
+interface AgentsListPage {
+  data: AgentState[];
+  pagination: AgentsPagination;
+}
 
 const getModels = async (): Promise<ModelOption[]> => {
   try {
@@ -295,9 +309,23 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     visibility: 'public' as const,
   });
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = viewMode === 'grid' ? 12 : 10;
+  const {
+    data,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    refetch: refetchAgents,
+  } = useInfiniteQuery({
+    queryKey: ['agents', 'portal', AGENTS_PAGE_SIZE],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      APIClient.get<AgentsListPage>(`/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`),
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined,
+    staleTime: STALE_TIMES.DEFAULT,
+  });
+
+  const fetchedAgents = useMemo(() => data?.pages?.flatMap((p) => p.data) ?? [], [data?.pages]);
 
   // Load MCP tools
   const loadMCPTools = async () => {
@@ -385,60 +413,11 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     }
   };
 
-  // Load existing agents
-  const loadExistingAgents = _useCallback(async () => {
-    try {
-      const response = await uaipAPI.agents.list();
-
-      // Handle response properly - the API returns {agents: Array(7), total: 7, filters: {...}}
-      let agentsArray = [];
-      if (Array.isArray(response.agents)) {
-        agentsArray = response.agents;
-      } else if (response.success && response.data && Array.isArray(response.data.agents)) {
-        agentsArray = response.data.agents;
-      } else if (Array.isArray(response)) {
-        // Fallback for direct array response
-        agentsArray = response;
-      } else {
-        return;
-      }
-
-      if (agentsArray.length > 0) {
-        // Instead of clearing and re-adding, let's just add missing agents
-        // and update existing ones
-        const currentAgentIds = new Set(Object.keys(agents || {}));
-        const incomingAgentIds = new Set(agentsArray.map((agent) => agent.id));
-
-        // Add or update agents from the API
-        for (const agentData of agentsArray) {
-          try {
-            const agentState = createAgentStateFromBackend(agentData);
-
-            addAgent(agentState);
-          } catch (error) {
-            console.error(`❌ Failed to process agent ${agentData.id}:`, error);
-          }
-        }
-
-        // Remove agents that no longer exist in the API
-        for (const agentId of currentAgentIds) {
-          if (!incomingAgentIds.has(agentId)) {
-            removeAgent(agentId);
-          }
-        }
-      } else {
-      }
-    } catch (error) {
-      console.error('❌ Failed to load existing agents:', error);
-    }
-  }, [agents, addAgent, removeAgent]);
-
   // Initialize data
   useEffect(() => {
     loadModels();
-    loadExistingAgents();
     loadMCPTools();
-  }, [loadExistingAgents]);
+  }, []);
 
   // Edit modal handlers
   const handleEditAgent = (agentId: string) => {
@@ -576,7 +555,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         });
 
         // Refresh the agents list to ensure UI is updated
-        await loadExistingAgents();
+        await refetchAgents();
 
         // Reset form and navigate back
         setAgentForm({
@@ -690,6 +669,8 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
       if (selectedAgentId === agentId) {
         navigateToView();
       }
+
+      await refetchAgents();
     } catch (error) {
       console.error('Failed to delete agent:', error);
     }
@@ -697,7 +678,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
   // Filter and search logic
   const filteredAgents = useMemo(() => {
-    let filtered = Object.values(agents || {});
+    let filtered = fetchedAgents;
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -746,19 +727,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     });
 
     return sorted;
-  }, [agents, searchQuery, filterRole, filterStatus, sortBy]);
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredAgents.length / itemsPerPage);
-  const paginatedAgents = filteredAgents.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, filterRole, filterStatus, sortBy, viewMode]);
+  }, [fetchedAgents, searchQuery, filterRole, filterStatus, sortBy]);
 
   const renderAgentCard = (agentState: AgentState, cardIndex: number) => {
     const isSelected = selectedAgentId === agentState.id;
@@ -1283,7 +1252,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         <button
           onClick={() => {
             setRefreshing(true);
-            Promise.all([loadModels(), loadExistingAgents(), loadMCPTools()])
+              Promise.all([loadModels(), refetchAgents(), loadMCPTools()])
               .then(() => {})
               .catch((error) => {
                 console.error('❌ Manual refresh failed:', error);
@@ -2027,50 +1996,21 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     </motion.div>
   );
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
+  const renderLoadMore = () => {
+    if (!hasNextPage) return null;
 
     return (
-      <div className="flex items-center justify-between mt-6">
-        <div className="text-sm text-slate-400">
-          Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-          {Math.min(currentPage * itemsPerPage, filteredAgents.length)} of {filteredAgents.length}{' '}
-          agents
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-            className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 rounded-md text-sm transition-colors ${
-                  currentPage === page
-                    ? 'bg-blue-500/20 text-blue-400'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-            className="p-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="flex justify-center mt-6">
+        <button
+          onClick={() => {
+            void fetchNextPage();
+          }}
+          disabled={isFetchingNextPage}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 rounded-lg text-slate-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700/50"
+        >
+          {isFetchingNextPage && <RefreshCw className="w-4 h-4 animate-spin" />}
+          {isFetchingNextPage ? 'Loading...' : 'Load more'}
+        </button>
       </div>
     );
   };
@@ -2091,7 +2031,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         <button
           onClick={() => {
             loadModels();
-            loadExistingAgents();
+            refetchAgents();
           }}
           disabled={modelsLoading}
           className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg transition-colors disabled:opacity-50"
@@ -2306,7 +2246,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                 `}
                 >
                   <AnimatePresence>
-                    {paginatedAgents.map((agent, index) => renderAgentCard(agent, index))}
+                    {filteredAgents.map((agent, index) => renderAgentCard(agent, index))}
                   </AnimatePresence>
                 </div>
 
@@ -2397,7 +2337,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
                   </motion.div>
                 )}
 
-                {renderPagination()}
+                {renderLoadMore()}
               </>
             )}
           </div>
