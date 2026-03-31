@@ -15,6 +15,10 @@ import {
 import { MaterializableBlock } from '@/components/MaterializableBlock';
 import { renderPortalContent } from './portal_registry';
 import { cn } from '@/lib/utils';
+import { IntentField } from '@/components/IntentField/IntentField';
+import type { IntentOption } from '@/components/IntentField/intent_field_types';
+import { AttentionBudget } from '@/components/AttentionBudget/AttentionBudget';
+import { WhisperLine } from '@/components/AmbientIntelligence/WhisperLine';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -423,6 +427,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
 export interface TelescopeSurfaceProps {
   blocks: MaterializableBlockData[];
   onBlockSelect?: (id: string) => void;
+  onIntentSelect?: (option: IntentOption) => void;
   maxVisibleBlocks?: number;
   className?: string;
 }
@@ -430,6 +435,7 @@ export interface TelescopeSurfaceProps {
 export function TelescopeSurface({
   blocks,
   onBlockSelect,
+  onIntentSelect,
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
 }: TelescopeSurfaceProps) {
@@ -502,26 +508,48 @@ export function TelescopeSurface({
       <CosmicBackground />
       <ConstellationLines centers={blockCenters} containerRef={containerRef} />
 
-      <div className="relative z-10 grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-[1600px] mx-auto">
-        <AnimatePresence mode="popLayout">
-          {visibleBlocks.map((block, index) =>
-            block.type === 'portal' ? (
-              <div key={block.id} data-block-id={block.id}>
-                <MaterializableBlock block={block}>
-                  {renderPortalContent(block.id)}
-                </MaterializableBlock>
-              </div>
-            ) : (
-              <div key={block.id} data-block-id={block.id}>
-                <TelescopeBlock
-                  block={block}
-                  onClick={onBlockSelect}
-                  isTopRanked={index === 0 && block.relevanceScore > 0.8}
-                />
-              </div>
-            )
-          )}
-        </AnimatePresence>
+      <AttentionBudget
+        activeCount={visibleBlocks.length}
+        maxBudget={maxVisibleBlocks}
+        items={visibleBlocks.map((b) => ({
+          id: b.id,
+          label: (b.metadata?.title as string) ?? b.id,
+          type: b.type,
+        }))}
+        className="absolute top-4 right-4 z-20"
+        position="right"
+      />
+
+      <div className="relative z-10 max-w-[1600px] mx-auto">
+        <div className="mb-6">
+          <IntentField
+            onSelect={onIntentSelect}
+            placeholder="Search agents, portals, knowledge..."
+            showTrigger={true}
+          />
+        </div>
+
+        <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <AnimatePresence mode="popLayout">
+            {visibleBlocks.map((block, index) =>
+              block.type === 'portal' ? (
+                <div key={block.id} data-block-id={block.id}>
+                  <MaterializableBlock block={block}>
+                    {renderPortalContent(block.id)}
+                  </MaterializableBlock>
+                </div>
+              ) : (
+                <div key={block.id} data-block-id={block.id}>
+                  <TelescopeBlock
+                    block={block}
+                    onClick={onBlockSelect}
+                    isTopRanked={index === 0 && block.relevanceScore > 0.8}
+                  />
+                </div>
+              )
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {visibleBlocks.length === 0 && (
@@ -545,6 +573,16 @@ export function TelescopeSurface({
             Agents and artifacts will surface here automatically as they become relevant to your current context.
           </p>
         </motion.div>
+      )}
+
+      {visibleBlocks.length > 0 && (
+        <WhisperLine
+          message={`Showing ${visibleBlocks.length} constellation${visibleBlocks.length !== 1 ? 's' : ''} — sorted by context relevance`}
+          context={`Top: ${(visibleBlocks[0]?.metadata?.title as string) ?? visibleBlocks[0]?.id ?? ''}`}
+          relevanceScore={visibleBlocks[0]?.relevanceScore}
+          position="bottom"
+          className="absolute bottom-0 left-0 right-0 z-20"
+        />
       )}
     </div>
   );
