@@ -1,12 +1,20 @@
 import { useCallback } from 'react';
 import { TelescopeSurface, useTelescopeSurface } from '@/components/TelescopeSurface';
 import { createInitialBlocks } from '@/components/TelescopeSurface/portal_registry';
+import { WelcomeConstellation } from '@/components/TelescopeSurface/WelcomeConstellation';
+import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { IntentOption } from '@/components/IntentField/intent_field_types';
 
 const initialBlocks = createInitialBlocks();
 
 export default function TelescopeSurfacePage() {
   const surface = useTelescopeSurface(initialBlocks);
+  const { showOnboarding, completeOnboarding, skipOnboarding } = useOnboarding();
+  const { items } = useKnowledge();
+
+  const hasKnowledgeItems = Object.keys(items).length > 0;
+  const showWelcome = showOnboarding && !hasKnowledgeItems;
 
   const handleBlockSelect = useCallback(
     (id: string) => {
@@ -26,6 +34,46 @@ export default function TelescopeSurfacePage() {
     },
     [surface]
   );
+
+  const handleConnectTools = useCallback(() => {
+    surface.updateRelevance('settings', 1.0);
+  }, [surface]);
+
+  const handleMeetAgent = useCallback(() => {
+    surface.updateRelevance('chat', 1.0);
+    window.dispatchEvent(
+      new CustomEvent('openAgentChat', {
+        detail: { agentId: Object.keys(surface.blocks)[0] ?? '', agentName: 'Assistant' },
+      })
+    );
+  }, [surface]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    void completeOnboarding({});
+  }, [completeOnboarding]);
+
+  if (showWelcome) {
+    return (
+      <div className="relative min-h-screen bg-background flex flex-col items-center justify-center p-8">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">Welcome to Navratna</h1>
+        <p className="text-muted-foreground mb-12 text-center max-w-lg">
+          Set up your cognitive shell in three steps. Each step builds your constellation.
+        </p>
+        <WelcomeConstellation
+          onConnectTools={handleConnectTools}
+          onMeetAgent={handleMeetAgent}
+          onAllComplete={handleOnboardingComplete}
+        />
+        <button
+          type="button"
+          onClick={skipOnboarding}
+          className="mt-8 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Skip for now
+        </button>
+      </div>
+    );
+  }
 
   return (
     <TelescopeSurface
