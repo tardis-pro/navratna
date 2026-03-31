@@ -22,6 +22,8 @@ import { registerMCPRoutes } from '../../capability-registry/src/routes/mcp_rout
 import { registerHealthRoutes } from '../../capability-registry/src/routes/health_routes.js'
 import { registerToolRoutes } from '../../capability-registry/src/routes/tool_routes.js'
 import { registerWorkspaceRoutes } from '../../capability-registry/src/routes/workspace_routes.js'
+import { registerGitHubWebhookRoutes } from '../../orchestration-pipeline/src/routes/github_webhook_routes.js'
+import { registerJiraWebhookRoutes } from '../../orchestration-pipeline/src/routes/jira_webhook_routes.js'
 
 export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .get('/health', () => ({ status: 'ok' as 'ok' | 'degraded', service: 'navratna-gateway', features: [] as string[] }))
@@ -47,5 +49,7 @@ export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .use(registerHealthRoutes(new Elysia()))
   .use(registerToolRoutes(new Elysia()))
   .use(registerWorkspaceRoutes(new Elysia()))
+  .use(registerGitHubWebhookRoutes(new Elysia()))
+  .use(registerJiraWebhookRoutes(new Elysia()))
 
 export type NavratnaGatewayApp = typeof gatewayApp

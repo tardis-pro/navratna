@@ -13,6 +13,7 @@ import { registerShortLinkRoutes } from '../../artifact-service/src/routes/short
 import { registerLLMRoutes } from '../../llm-service/src/routes/llm_routes.js'
 import { registerUserLLMRoutes } from '../../llm-service/src/routes/user_llm_routes.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
+import { registerCognitivePortraitRoutes } from '../../agent-intelligence/src/routes/cognitive_portrait_routes.js'
 
 export const coreApp = new Elysia({ name: 'navratna-core' })
   .get('/health', () => ({ status: 'ok' as 'ok' | 'degraded', service: 'navratna-core', features: [] as string[] }))
@@ -30,5 +31,6 @@ export const coreApp = new Elysia({ name: 'navratna-core' })
   .use(registerLLMRoutes(new Elysia(), null as never, null as never, null as never))
   .use(registerUserLLMRoutes(new Elysia(), null as never))
   .use(registerKnowledgeIngestRoutes(new Elysia()))
+  .use(registerCognitivePortraitRoutes(new Elysia()))
 
 export type NavratnaCoreApp = typeof coreApp
