@@ -138,7 +138,7 @@ const convertDiscussionMessagesToChatMessages = (messages: DiscussionMessage[]):
     content: msg.content,
     sender: msg.metadata?.sender || (msg.metadata?.agentId ? 'agent' : 'user'),
     senderName: msg.metadata?.senderName || 'Unknown',
-    timestamp: msg.createdAt || new Date().toISOString(),
+    timestamp: (msg.createdAt instanceof Date ? msg.createdAt.toISOString() : msg.createdAt) || new Date().toISOString(),
     agentId: msg.metadata?.agentId,
     messageType: msg.messageType,
     confidence: msg.metadata?.confidence,
@@ -263,6 +263,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }>({});
   const loadingTimeouts = useRef<{ [windowId: string]: NodeJS.Timeout }>({});
 
+  const wsFallbackTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  const WS_FALLBACK_TIMEOUT_MS = 30_000;
+
   // Conversation Intelligence for portal mode
   const _portalConversationIntelligence = useConversationIntelligence({
     agentId: selectedAgentId,
@@ -297,16 +301,20 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Listen for WebSocket agent responses
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'agent_response') {
-      const {
-        agentId,
-        response,
-        agentName,
-        confidence,
-        memoryEnhanced,
-        knowledgeUsed,
-        toolsExecuted,
-        messageId,
-      } = lastEvent.payload;
+      const wsPayload = lastEvent.payload as Record<string, unknown>;
+      const agentId = wsPayload.agentId as string;
+      const response = wsPayload.response as string;
+      const agentName = wsPayload.agentName as string;
+      const confidence = wsPayload.confidence as number | undefined;
+      const memoryEnhanced = wsPayload.memoryEnhanced as boolean | undefined;
+      const knowledgeUsed = wsPayload.knowledgeUsed as number | undefined;
+      const toolsExecuted = wsPayload.toolsExecuted as ChatMessage['toolsExecuted'];
+      const messageId = wsPayload.messageId as string | undefined;
+
+      if (agentId && wsFallbackTimeouts.current[agentId]) {
+        clearTimeout(wsFallbackTimeouts.current[agentId]);
+        delete wsFallbackTimeouts.current[agentId];
+      }
 
       // Prevent duplicate processing of the same message
       if (messageId && processedMessageIds.current.has(messageId)) {
@@ -724,108 +732,103 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         }
       }
 
-      try {
-        if (isWebSocketConnected) {
-          const chatMessage = {
-            agentId: window.agentId,
-            message: trimmedMessage,
-            conversationHistory: window.messages.slice(-10).map((m) => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp,
-            })),
-            context: { intent },
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-          };
+      const snapshotMsgs = window.messages.slice(-10).map((m) => ({
+        content: m.content,
+        sender: m.sender === 'user' ? 'user' : m.senderName,
+        timestamp: m.timestamp,
+      }));
 
-          // Send directly as 'agent_chat' event instead of wrapped message
-          sendWebSocketMessage('agent_chat', chatMessage);
-        } else {
-          const response = await uaipAPI.client.agents.chat(window.agentId, {
-            message: trimmedMessage,
-            conversationHistory: window.messages.slice(-10).map((m) => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp,
-            })),
-            context: { intent },
-          });
-
-          if (response.success && response.data) {
-            const agentMessage: ChatMessage = {
-              id: `msg-${Date.now()}-agent`,
-              content: response.data.response,
-              sender: 'agent',
-              senderName: response.data.agentName || window.agentName,
-              timestamp: new Date().toISOString(),
-              messageType: MessageType.MESSAGE,
-              confidence: response.data.confidence,
-              memoryEnhanced: response.data.memoryEnhanced,
-              knowledgeUsed: response.data.knowledgeUsed,
-              toolsExecuted: response.data.toolsExecuted,
-              agentId: window.agentId,
-            };
-
-            setChatWindows((prev) =>
-              prev.map((w) =>
-                w.id === windowId
-                  ? {
-                      ...w,
-                      messages: [...w.messages, agentMessage],
-                      isLoading: false,
-                      error: null,
-                    }
-                  : w
-              )
-            );
-
-            // Clear loading states
-            if (loadingTimeouts.current[windowId]) {
-              clearInterval(loadingTimeouts.current[windowId]);
-              delete loadingTimeouts.current[windowId];
-            }
-            setLoadingStates((prev) => {
-              const newStates = { ...prev };
-              delete newStates[windowId];
-              return newStates;
-            });
-            setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
-
-            if (window.discussionId) {
-              try {
-                await addMessageToDiscussion(window.discussionId, agentMessage);
-              } catch (error) {
-                console.error('Failed to persist agent message to discussion:', error);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Chat error:', error);
-        setChatWindows((prev) =>
-          prev.map((w) =>
-            w.id === windowId
-              ? {
-                  ...w,
-                  isLoading: false,
-                  error: 'Failed to send message. Please try again.',
-                }
-              : w
-          )
-        );
-
-        // Clear loading states on error
+      const clearFloatingLoadingState = () => {
         if (loadingTimeouts.current[windowId]) {
           clearInterval(loadingTimeouts.current[windowId]);
           delete loadingTimeouts.current[windowId];
         }
         setLoadingStates((prev) => {
-          const newStates = { ...prev };
-          delete newStates[windowId];
-          return newStates;
+          const copy = { ...prev };
+          delete copy[windowId];
+          return copy;
         });
         setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
+      };
+
+      const appendFloatingMsg = async (restResponse: Awaited<ReturnType<typeof uaipAPI.agents.chat>>) => {
+        const agentMessage: ChatMessage = {
+          id: `msg-${Date.now()}-agent`,
+          content: restResponse.response,
+          sender: 'agent',
+          senderName: restResponse.agentName || window.agentName,
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+          confidence: restResponse.confidence,
+          memoryEnhanced: restResponse.memoryEnhanced,
+          knowledgeUsed: restResponse.knowledgeUsed,
+          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+          agentId: window.agentId,
+        };
+
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.id === windowId ? { ...w, messages: [...w.messages, agentMessage], isLoading: false, error: null } : w
+          )
+        );
+        clearFloatingLoadingState();
+
+        if (window.discussionId) {
+          try {
+            await addMessageToDiscussion(window.discussionId, agentMessage);
+          } catch (error) {
+            console.error('Failed to persist agent message to discussion:', error);
+          }
+        }
+      };
+
+      try {
+        if (isWebSocketConnected) {
+          sendWebSocketMessage('agent_chat', {
+            agentId: window.agentId,
+            message: trimmedMessage,
+            conversationHistory: snapshotMsgs,
+            context: { intent },
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+          });
+
+          if (wsFallbackTimeouts.current[windowId]) {
+            clearTimeout(wsFallbackTimeouts.current[windowId]);
+          }
+          wsFallbackTimeouts.current[windowId] = setTimeout(() => {
+            delete wsFallbackTimeouts.current[windowId];
+            uaipAPI.agents.chat(window.agentId, {
+              message: trimmedMessage,
+              conversationHistory: snapshotMsgs,
+              context: { intent },
+            }).then(appendFloatingMsg).catch(() => {
+              clearFloatingLoadingState();
+              setChatWindows((prev) =>
+                prev.map((w) =>
+                  w.id === windowId ? { ...w, isLoading: false, error: 'Failed to get agent response.' } : w
+                )
+              );
+            });
+          }, WS_FALLBACK_TIMEOUT_MS);
+        } else {
+          const restResponse = await uaipAPI.agents.chat(window.agentId, {
+            message: trimmedMessage,
+            conversationHistory: snapshotMsgs,
+            context: { intent },
+          });
+          await appendFloatingMsg(restResponse);
+        }
+      } catch (error) {
+        console.error('Chat error:', error);
+        clearFloatingLoadingState();
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.id === windowId
+              ? { ...w, isLoading: false, error: 'Failed to send message. Please try again.' }
+              : w
+          )
+        );
       }
     },
     [chatWindows, isWebSocketConnected, sendWebSocketMessage]
@@ -885,64 +888,72 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
       loadingTimeouts.current[portalWindowId] = progressInterval;
 
+      const clearPortalLoadingState = () => {
+        if (loadingTimeouts.current[portalWindowId]) {
+          clearInterval(loadingTimeouts.current[portalWindowId]);
+          delete loadingTimeouts.current[portalWindowId];
+        }
+        setLoadingStates((prev) => {
+          const copy = { ...prev };
+          delete copy[portalWindowId];
+          return copy;
+        });
+        setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
+      };
+
+      const appendPortalAgentMessage = (restResponse: Awaited<ReturnType<typeof uaipAPI.agents.chat>>) => {
+        const agentMessage: ChatMessage = {
+          id: `msg-${Date.now()}-agent`,
+          content: restResponse.response,
+          sender: 'agent',
+          senderName: restResponse.agentName || selectedAgent?.name || 'Assistant',
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+          confidence: restResponse.confidence,
+          memoryEnhanced: restResponse.memoryEnhanced,
+          knowledgeUsed: restResponse.knowledgeUsed,
+          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+        };
+        setPortalMessages((prev) => [...prev, agentMessage]);
+        setConversationHistory((prev) => [
+          ...prev,
+          { content: restResponse.response, sender: 'agent', timestamp: new Date().toISOString() },
+        ]);
+        clearPortalLoadingState();
+      };
+
       try {
         if (isWebSocketConnected) {
-          const chatMessage = {
-            type: 'agent_chat',
-            payload: {
-              agentId: selectedAgentId,
-              message: trimmedMessage,
-              conversationHistory: conversationHistory.slice(-10),
-              context: { intent },
-              messageId: `msg-${Date.now()}`,
-              timestamp: new Date().toISOString(),
-            },
-          };
+          sendWebSocketMessage('agent_chat', {
+            agentId: selectedAgentId,
+            message: trimmedMessage,
+            conversationHistory: conversationHistory.slice(-10),
+            context: { intent },
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+          });
 
-          sendWebSocketMessage(chatMessage);
+          if (wsFallbackTimeouts.current[selectedAgentId]) {
+            clearTimeout(wsFallbackTimeouts.current[selectedAgentId]);
+          }
+          const snapshotHistory = conversationHistory.slice(-10);
+          wsFallbackTimeouts.current[selectedAgentId] = setTimeout(() => {
+            delete wsFallbackTimeouts.current[selectedAgentId];
+            uaipAPI.agents.chat(selectedAgentId, {
+              message: trimmedMessage,
+              conversationHistory: snapshotHistory,
+              context: { intent },
+            }).then(appendPortalAgentMessage).catch(() => {
+              clearPortalLoadingState();
+            });
+          }, WS_FALLBACK_TIMEOUT_MS);
         } else {
-          const response = await uaipAPI.client.agents.chat(selectedAgentId, {
+          const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
             message: trimmedMessage,
             conversationHistory: conversationHistory.slice(-10),
             context: { intent },
           });
-
-          if (response.success && response.data) {
-            const agentMessage: ChatMessage = {
-              id: `msg-${Date.now()}-agent`,
-              content: response.data.response,
-              sender: 'agent',
-              senderName: response.data.agentName || 'Assistant',
-              timestamp: new Date().toISOString(),
-              messageType: MessageType.MESSAGE,
-              confidence: response.data.confidence,
-              memoryEnhanced: response.data.memoryEnhanced,
-              knowledgeUsed: response.data.knowledgeUsed,
-              toolsExecuted: response.data.toolsExecuted,
-            };
-
-            setPortalMessages((prev) => [...prev, agentMessage]);
-            setConversationHistory((prev) => [
-              ...prev,
-              {
-                content: response.data.response,
-                sender: 'agent',
-                timestamp: new Date().toISOString(),
-              },
-            ]);
-
-            // Clear loading states for direct API response
-            if (loadingTimeouts.current[portalWindowId]) {
-              clearInterval(loadingTimeouts.current[portalWindowId]);
-              delete loadingTimeouts.current[portalWindowId];
-            }
-            setLoadingStates((prev) => {
-              const newStates = { ...prev };
-              delete newStates[portalWindowId];
-              return newStates;
-            });
-            setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
-          }
+          appendPortalAgentMessage(restResponse);
         }
       } catch (error) {
         console.error('Portal chat error:', error);
@@ -1088,10 +1099,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         return newResizing;
       });
 
-      // Clear any ongoing loading timeouts
       if (loadingTimeouts.current[windowId]) {
         clearInterval(loadingTimeouts.current[windowId]);
         delete loadingTimeouts.current[windowId];
+      }
+      if (wsFallbackTimeouts.current[windowId]) {
+        clearTimeout(wsFallbackTimeouts.current[windowId]);
+        delete wsFallbackTimeouts.current[windowId];
       }
 
       // Clean up conversation intelligence data
@@ -1205,75 +1219,77 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         }
       }
 
+      const snapshotMessages = window.messages.slice(-10).map((m) => ({
+        content: m.content,
+        sender: m.sender === 'user' ? 'user' : m.senderName,
+        timestamp: m.timestamp,
+      }));
+
+      const appendFloatingAgentMessage = async (restResponse: Awaited<ReturnType<typeof uaipAPI.agents.chat>>) => {
+        const agentMessage: ChatMessage = {
+          id: `msg-${Date.now()}-agent`,
+          content: restResponse.response,
+          sender: 'agent',
+          senderName: restResponse.agentName || window.agentName,
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+          confidence: restResponse.confidence,
+          memoryEnhanced: restResponse.memoryEnhanced,
+          knowledgeUsed: restResponse.knowledgeUsed,
+          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+          agentId: window.agentId,
+        };
+
+        setChatWindows((prev) =>
+          prev.map((w) =>
+            w.id === windowId ? { ...w, messages: [...w.messages, agentMessage], isLoading: false, error: null } : w
+          )
+        );
+
+        if (window.discussionId) {
+          try {
+            await addMessageToDiscussion(window.discussionId, agentMessage);
+          } catch (error) {
+            console.error('Failed to persist agent message to discussion:', error);
+          }
+        }
+      };
+
       try {
         if (isWebSocketConnected) {
-          // Try WebSocket first
-          const chatMessage = {
-            type: 'agent_chat',
-            payload: {
-              agentId: window.agentId,
-              message: messageText,
-              conversationHistory: window.messages.slice(-10).map((m) => ({
-                content: m.content,
-                sender: m.sender === 'user' ? 'user' : m.senderName,
-                timestamp: m.timestamp,
-              })),
-              context: {},
-              messageId: `msg-${Date.now()}`,
-              timestamp: new Date().toISOString(),
-            },
-          };
-
-          sendWebSocketMessage(chatMessage);
-        } else {
-          // Fallback to direct API call
-          const response = await uaipAPI.client.agents.chat(window.agentId, {
+          sendWebSocketMessage('agent_chat', {
+            agentId: window.agentId,
             message: messageText,
-            conversationHistory: window.messages.slice(-10).map((m) => ({
-              content: m.content,
-              sender: m.sender === 'user' ? 'user' : m.senderName,
-              timestamp: m.timestamp,
-            })),
+            conversationHistory: snapshotMessages,
             context: {},
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString(),
           });
 
-          if (response.success && response.data) {
-            const agentMessage: ChatMessage = {
-              id: `msg-${Date.now()}-agent`,
-              content: response.data.response,
-              sender: 'agent',
-              senderName: response.data.agentName || window.agentName,
-              timestamp: new Date().toISOString(),
-              messageType: MessageType.MESSAGE,
-              confidence: response.data.confidence,
-              memoryEnhanced: response.data.memoryEnhanced,
-              knowledgeUsed: response.data.knowledgeUsed,
-              toolsExecuted: response.data.toolsExecuted,
-              agentId: window.agentId,
-            };
-
-            setChatWindows((prev) =>
-              prev.map((w) =>
-                w.id === windowId
-                  ? {
-                      ...w,
-                      messages: [...w.messages, agentMessage],
-                      isLoading: false,
-                      error: null,
-                    }
-                  : w
-              )
-            );
-
-            // Persist agent message if session exists
-            if (window.discussionId) {
-              try {
-                await addMessageToDiscussion(window.discussionId, agentMessage);
-              } catch (error) {
-                console.error('Failed to persist agent message to discussion:', error);
-              }
-            }
+          if (wsFallbackTimeouts.current[windowId]) {
+            clearTimeout(wsFallbackTimeouts.current[windowId]);
           }
+          wsFallbackTimeouts.current[windowId] = setTimeout(() => {
+            delete wsFallbackTimeouts.current[windowId];
+            uaipAPI.agents.chat(window.agentId, {
+              message: messageText,
+              conversationHistory: snapshotMessages,
+              context: {},
+            }).then(appendFloatingAgentMessage).catch(() => {
+              setChatWindows((prev) =>
+                prev.map((w) =>
+                  w.id === windowId ? { ...w, isLoading: false, error: 'Failed to get agent response.' } : w
+                )
+              );
+            });
+          }, WS_FALLBACK_TIMEOUT_MS);
+        } else {
+          const restResponse = await uaipAPI.agents.chat(window.agentId, {
+            message: messageText,
+            conversationHistory: snapshotMessages,
+            context: {},
+          });
+          await appendFloatingAgentMessage(restResponse);
         }
       } catch (error) {
         console.error('Chat error:', error);
@@ -1339,45 +1355,37 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
         sendWebSocketMessage('agent_chat', chatMessage);
       } else {
-        // Fallback to direct API call
-        const response = await uaipAPI.client.agents.chat(selectedAgentId, {
+        const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
           message: messageText,
           conversationHistory: conversationHistory.slice(-10),
           context: {},
         });
 
-        if (response.success && response.data) {
-          const agentMessage: ChatMessage = {
-            id: `msg-${Date.now()}-agent`,
-            content: response.data.response,
-            sender: 'agent',
-            senderName: response.data.agentName || 'Assistant',
-            timestamp: new Date().toISOString(),
-            messageType: MessageType.MESSAGE,
-            confidence: response.data.confidence,
-            memoryEnhanced: response.data.memoryEnhanced,
-            knowledgeUsed: response.data.knowledgeUsed,
-            toolsExecuted: response.data.toolsExecuted,
-          };
+        const agentMessage: ChatMessage = {
+          id: `msg-${Date.now()}-agent`,
+          content: restResponse.response,
+          sender: 'agent',
+          senderName: restResponse.agentName || selectedAgent?.name || 'Assistant',
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+          confidence: restResponse.confidence,
+          memoryEnhanced: restResponse.memoryEnhanced,
+          knowledgeUsed: restResponse.knowledgeUsed,
+          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+        };
 
-          setPortalMessages((prev) => [...prev, agentMessage]);
-          setConversationHistory((prev) => [
-            ...prev,
-            {
-              content: response.data.response,
-              sender: 'agent',
-              timestamp: new Date().toISOString(),
-            },
-          ]);
+        setPortalMessages((prev) => [...prev, agentMessage]);
+        setConversationHistory((prev) => [
+          ...prev,
+          { content: restResponse.response, sender: 'agent', timestamp: new Date().toISOString() },
+        ]);
 
-          // Clear loading states for direct API response
-          setLoadingStates((prev) => {
-            const newStates = { ...prev };
-            delete newStates[portalWindowId];
-            return newStates;
-          });
-          setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
-        }
+        setLoadingStates((prev) => {
+          const newStates = { ...prev };
+          delete newStates[portalWindowId];
+          return newStates;
+        });
+        setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
       }
     } catch (error) {
       console.error('Portal chat error:', error);
