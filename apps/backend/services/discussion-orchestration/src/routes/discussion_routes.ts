@@ -1,5 +1,5 @@
 type Elysia = { group: Function }
-import { withNginxAuth } from '@uaip/middleware'
+import { withNginxAuth, t } from '@uaip/middleware'
 import { DiscussionStatus } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import {
@@ -86,6 +86,18 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to create discussion',
             }
           }
+        }, {
+          body: t.Object({
+            title: t.String(),
+            topic: t.Optional(t.String()),
+            description: t.Optional(t.String()),
+            initialParticipants: t.Optional(t.Array(t.Object({
+              agentId: t.String(),
+              role: t.Optional(t.String()),
+            }))),
+            settings: t.Optional(t.Record(t.String(), t.Unknown())),
+            turnStrategy: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
         })
 
         .get('/search', async (ctx) => {
@@ -250,23 +262,28 @@ export function registerDiscussionRoutes<T extends Elysia>(
         })
 
         .post('/:id/participants', async (ctx) => {
-            try {
-              const addedBy = ctx.user.id
-              const result = await orchestrationService.addParticipant(
-                ctx.params.id,
-                ctx.body as Parameters<typeof orchestrationService.addParticipant>[1],
-                addedBy
-              )
-              ctx.set.status = 201
-              return { success: true, data: result }
-            } catch (error) {
-              logger.error('Failed to add participant', { error, id: ctx.params.id })
-              ctx.set.status = 400
-              return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to add participant',
-              }
+          try {
+            const addedBy = ctx.user.id
+            const result = await orchestrationService.addParticipant(
+              ctx.params.id,
+              ctx.body as Parameters<typeof orchestrationService.addParticipant>[1],
+              addedBy
+            )
+            ctx.set.status = 201
+            return { success: true, data: result }
+          } catch (error) {
+            logger.error('Failed to add participant', { error, id: ctx.params.id })
+            ctx.set.status = 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to add participant',
             }
+          }
+        }, {
+          body: t.Object({
+            agentId: t.String(),
+            role: t.Optional(t.String()),
+          }),
         })
 
         .delete('/:id/participants/:pid', async (ctx) => {
@@ -309,6 +326,12 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to send message',
             }
           }
+        }, {
+          body: t.Object({
+            content: t.String(),
+            messageType: t.Optional(t.String()),
+            metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
         })
 
         .get('/:id/messages', async (ctx) => {

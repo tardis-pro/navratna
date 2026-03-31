@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
@@ -265,6 +265,12 @@ export function registerAuthRoutes<T extends Elysia>(elysiaApp: T): T {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'An error occurred during login' };
       }
+    }, {
+      body: t.Object({
+        email: t.String({ format: 'email' }),
+        password: t.String({ minLength: 6 }),
+        rememberMe: t.Optional(t.Boolean({ default: false })),
+      }),
     })
   
     // POST /refresh
@@ -423,6 +429,11 @@ export function registerAuthRoutes<T extends Elysia>(elysiaApp: T): T {
           message: 'An error occurred while changing password',
         };
       }
+    }, {
+      body: t.Object({
+        currentPassword: t.String({ minLength: 1 }),
+        newPassword: t.String({ minLength: 8 }),
+      }),
     })
     )
   
@@ -582,6 +593,11 @@ export function registerAuthRoutes<T extends Elysia>(elysiaApp: T): T {
           },
         };
       }
+    }, {
+      body: t.Object({
+        serviceName: t.String({ minLength: 1 }),
+        apiKey: t.String({ minLength: 1 }),
+      }),
     })
   );
 

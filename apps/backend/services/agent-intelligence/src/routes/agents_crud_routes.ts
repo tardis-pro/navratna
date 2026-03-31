@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import { getIntelligenceDb, eq, ilike, and, sql, count, asc } from '@uaip/shared-services/drizzle/clients'
@@ -104,6 +104,16 @@ export function registerAgentCrudRoutes<T extends Elysia>(
             error: error instanceof Error ? error.message : 'Failed to create agent',
           }
         }
+      }, {
+        body: t.Object({
+          name: t.String(),
+          description: t.Optional(t.String()),
+          type: t.Optional(t.String()),
+          systemPrompt: t.Optional(t.String()),
+          model: t.Optional(t.String()),
+          capabilities: t.Optional(t.Array(t.String())),
+          metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+        }),
       })
     
       .get('/:agentId', async (ctx) => {
@@ -154,6 +164,16 @@ export function registerAgentCrudRoutes<T extends Elysia>(
             error: error instanceof Error ? error.message : 'Failed to update agent',
           }
         }
+      }, {
+        body: t.Partial(t.Object({
+          name: t.String(),
+          description: t.String(),
+          type: t.String(),
+          systemPrompt: t.String(),
+          model: t.String(),
+          capabilities: t.Array(t.String()),
+          metadata: t.Record(t.String(), t.Unknown()),
+        })),
       })
     
       .delete('/:agentId', async (ctx) => {
