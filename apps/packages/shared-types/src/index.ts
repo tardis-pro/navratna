@@ -110,4 +110,5 @@ export type {
   RepeatableJob,
   RepeatOptions,
 } from './workflow';
+export * from './complexity';
 export * from './openclaw';
