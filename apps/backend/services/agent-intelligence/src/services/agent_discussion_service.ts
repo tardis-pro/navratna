@@ -480,7 +480,13 @@ export class AgentDiscussionService {
           if (conversationHistory.length >= 6) {
             this.macrodataMemoryService
               .distillEpisodes(agentId, userId, macroCtx.journal)
-              .catch(() => {}); // fire and forget
+              .catch((err) => {
+                logger.warn('Background episode distillation failed', {
+                  agentId,
+                  userId,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              });
           }
         } catch (macroErr) {
           logger.warn('Macrodata memory failed (non-fatal)', {

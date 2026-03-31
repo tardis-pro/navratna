@@ -309,7 +309,13 @@ export class DevLoopOrchestrator {
           const boardConfig = state.repoContext?.boardConfig ?? { type: 'internal' as const }
           const adapter = this.boardRegistry.resolveAdapter(boardConfig)
           for (const storyId of state.storyIds) {
-            await adapter.updateStatus(storyId, 'blocked').catch(() => {})
+            await adapter.updateStatus(storyId, 'blocked').catch((err) => {
+              logger.warn('Failed to set story status to blocked during saga compensation', {
+                storyId,
+                loopId: state.id,
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
           }
         }
         break

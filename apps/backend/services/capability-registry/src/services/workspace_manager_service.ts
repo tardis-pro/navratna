@@ -133,7 +133,13 @@ export class WorkspaceManager extends EventEmitter {
       const errMsg = error instanceof Error ? error.message : String(error);
       logger.error('Failed to provision workspace', { workspaceId, error: errMsg });
       this.emit('workspace:error', { workspaceId, error: errMsg });
-      await execAsync(`docker rm -f ${containerName}`).catch(() => {});
+      await execAsync(`docker rm -f ${containerName}`).catch((rmErr) => {
+        logger.warn('Docker cleanup failed after provision error', {
+          workspaceId,
+          containerName,
+          error: rmErr instanceof Error ? rmErr.message : String(rmErr),
+        });
+      });
       throw error;
     }
   }
@@ -181,7 +187,12 @@ export class WorkspaceManager extends EventEmitter {
 
   async stopWorkspace(workspaceId: string): Promise<void> {
     const containerName = `uaip-workspace-${workspaceId}`;
-    await execAsync(`docker stop ${containerName}`).catch(() => {});
+    await execAsync(`docker stop ${containerName}`).catch((err) => {
+      logger.warn('Docker stop failed during workspace teardown', {
+        workspaceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
     const info = this.workspaces.get(workspaceId);
     if (info) {
       info.status = 'stopped';
@@ -192,7 +203,12 @@ export class WorkspaceManager extends EventEmitter {
 
   async destroyWorkspace(workspaceId: string): Promise<void> {
     const containerName = `uaip-workspace-${workspaceId}`;
-    await execAsync(`docker rm -f ${containerName}`).catch(() => {});
+    await execAsync(`docker rm -f ${containerName}`).catch((err) => {
+      logger.warn('Docker rm failed during workspace destroy', {
+        workspaceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
     this.workspaces.delete(workspaceId);
     this.emit('workspace:destroyed', { workspaceId });
   }
