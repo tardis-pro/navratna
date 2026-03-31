@@ -2,6 +2,7 @@ import type { BoardConfig, BoardProvider } from '@uaip/types'
 import { InternalBoardAdapter } from '../adapters/internal_board_adapter.js'
 import { GitHubBoardAdapter } from '../adapters/github_board_adapter.js'
 import { JiraBoardAdapter } from '../adapters/jira_board_adapter.js'
+import { LinearBoardAdapter } from '../adapters/linear_board_adapter.js'
 
 export class BoardProviderRegistry {
   resolveAdapter(config: BoardConfig): BoardProvider {
@@ -32,6 +33,16 @@ export class BoardProviderRegistry {
           )
         }
         return new JiraBoardAdapter({ baseUrl, email, apiToken, projectKey })
+      }
+
+      case 'linear': {
+        const creds = config.credentials ?? {}
+        const apiKey = creds.apiKey as string | undefined
+        const teamId = creds.teamId as string | undefined
+        if (!apiKey) {
+          throw new Error('Linear board adapter requires credentials.apiKey')
+        }
+        return new LinearBoardAdapter({ apiKey, teamId })
       }
 
       default:
