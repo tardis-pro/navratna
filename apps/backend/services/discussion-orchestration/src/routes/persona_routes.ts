@@ -119,6 +119,20 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
 
         .put('/:id', async (ctx) => {
           try {
+            const userId: string = ctx.user.id
+            const userRole: string = ctx.user.role ?? ''
+
+            const existing = await personaService.getPersona(ctx.params.id)
+            if (!existing) {
+              ctx.set.status = 404
+              return { success: false, error: 'Persona not found' }
+            }
+
+            if (existing.createdBy !== userId && userRole !== 'admin') {
+              ctx.set.status = 403
+              return { success: false, error: 'Forbidden: you do not own this persona' }
+            }
+
             const persona = await personaService.updatePersona(
               ctx.params.id,
               ctx.body as Parameters<typeof personaService.updatePersona>[1]
@@ -136,8 +150,21 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
 
         .delete('/:id', async (ctx) => {
           try {
-            const deletedBy = ctx.user.id
-            await personaService.deletePersona(ctx.params.id, deletedBy)
+            const userId: string = ctx.user.id
+            const userRole: string = ctx.user.role ?? ''
+
+            const existing = await personaService.getPersona(ctx.params.id)
+            if (!existing) {
+              ctx.set.status = 404
+              return { success: false, error: 'Persona not found' }
+            }
+
+            if (existing.createdBy !== userId && userRole !== 'admin') {
+              ctx.set.status = 403
+              return { success: false, error: 'Forbidden: you do not own this persona' }
+            }
+
+            await personaService.deletePersona(ctx.params.id, userId)
             return { success: true, message: 'Persona deleted' }
           } catch (error) {
             logger.error('Failed to delete persona', { error, id: ctx.params.id })
