@@ -1,15 +1,39 @@
 import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
+import { getIntelligenceDb, eq, ilike, and, sql, count, asc } from '@uaip/shared-services/drizzle/clients'
+import { agents } from '@uaip/shared-services/drizzle/intelligence'
 import { logger } from '@uaip/utils'
 
 type AgentCrudDeps = Pick<
   AgentIntelligenceService,
-  'getAgents' | 'createAgent' | 'getAgent' | 'updateAgent' | 'deleteAgent'
+  'getAgent' | 'createAgent' | 'updateAgent' | 'deleteAgent'
 >
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const AGENT_LIST_DEFAULT_LIMIT = 12
+const AGENT_LIST_MAX_LIMIT = 100
+const AGENT_LIST_DEFAULT_PAGE = 1
+
+function parsePaginationParams(query: Record<string, string | undefined>): {
+  page: number
+  limit: number
+  search: string | null
+} {
+  const page = Math.max(
+    AGENT_LIST_DEFAULT_PAGE,
+    parseInt(String(query.page ?? String(AGENT_LIST_DEFAULT_PAGE)), 10) || AGENT_LIST_DEFAULT_PAGE
+  )
+  const limit = Math.min(
+    AGENT_LIST_MAX_LIMIT,
+    Math.max(1, parseInt(String(query.limit ?? String(AGENT_LIST_DEFAULT_LIMIT)), 10) || AGENT_LIST_DEFAULT_LIMIT)
+  )
+  const rawSearch = typeof query.search === 'string' ? query.search.trim() : null
+  const search = rawSearch && rawSearch.length > 0 ? rawSearch : null
+  return { page, limit, search }
+}
 
 export function registerAgentCrudRoutes<T extends Elysia>(
   app: T,
@@ -21,16 +45,39 @@ export function registerAgentCrudRoutes<T extends Elysia>(
       withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0])
         .get('/', async (ctx) => {
           try {
-            const page = Math.max(1, parseInt(String(ctx.query?.page ?? '1'), 10) || 1)
-            const limit = Math.min(100, Math.max(1, parseInt(String(ctx.query?.limit ?? '12'), 10) || 12))
-            const agents = (await agentIntelligenceService.getAgents()) ?? []
-            const total = agents.length
-            const start = (page - 1) * limit
-            const paged = agents.slice(start, start + limit)
+            const { page, limit, search } = parsePaginationParams(
+              (ctx.query ?? {}) as Record<string, string | undefined>
+            )
+
+            const db = getIntelligenceDb()
+            const whereClause = search
+              ? and(eq(agents.isActive, true), ilike(agents.name, `%${search}%`))
+              : eq(agents.isActive, true)
+
+            const [countRow] = await db
+              .select({ total: count() })
+              .from(agents)
+              .where(whereClause)
+
+            const total = Number(countRow?.total ?? 0)
+
+            const rows = await db
+              .select()
+              .from(agents)
+              .where(whereClause)
+              .orderBy(asc(agents.createdAt))
+              .limit(limit)
+              .offset((page - 1) * limit)
+
             return {
               success: true,
-              data: paged,
-              pagination: { page, limit, total, hasMore: start + limit < total },
+              data: rows,
+              pagination: {
+                page,
+                limit,
+                total,
+                hasMore: page * limit < total,
+              },
             }
           } catch (error) {
             logger.error('Failed to list agents', { error })
@@ -78,9 +125,23 @@ export function registerAgentCrudRoutes<T extends Elysia>(
 
         .put('/:agentId', async (ctx) => {
           try {
-            const body = isRecord(ctx.body) ? ctx.body : {}
             // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-            const userId = ctx.user.id
+            const userId: string = ctx.user.id
+            // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+            const userRole: string = ctx.user.role ?? ''
+
+            const existing = await agentIntelligenceService.getAgent(ctx.params.agentId)
+            if (!existing) {
+              ctx.set.status = 404
+              return { success: false, error: 'Agent not found' }
+            }
+
+            if (existing.createdBy !== userId && userRole !== 'admin') {
+              ctx.set.status = 403
+              return { success: false, error: 'Forbidden: you do not own this agent' }
+            }
+
+            const body = isRecord(ctx.body) ? ctx.body : {}
             const agent = await agentIntelligenceService.updateAgent(ctx.params.agentId, {
               ...body,
               updatedBy: userId,
@@ -98,6 +159,22 @@ export function registerAgentCrudRoutes<T extends Elysia>(
 
         .delete('/:agentId', async (ctx) => {
           try {
+            // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+            const userId: string = ctx.user.id
+            // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+            const userRole: string = ctx.user.role ?? ''
+
+            const existing = await agentIntelligenceService.getAgent(ctx.params.agentId)
+            if (!existing) {
+              ctx.set.status = 404
+              return { success: false, error: 'Agent not found' }
+            }
+
+            if (existing.createdBy !== userId && userRole !== 'admin') {
+              ctx.set.status = 403
+              return { success: false, error: 'Forbidden: you do not own this agent' }
+            }
+
             await agentIntelligenceService.deleteAgent(ctx.params.agentId)
             return { success: true, message: 'Agent deleted' }
           } catch (error) {
