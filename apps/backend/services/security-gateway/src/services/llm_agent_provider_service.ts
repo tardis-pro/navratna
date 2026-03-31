@@ -65,7 +65,7 @@ export class LLMAgentProviderService {
   ): Promise<LLMProviderCredentialRecord> {
     const key = `${userId}:${provider}`;
     const record: LLMProviderCredentialRecord = {
-      id: `llmcred_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      id: `llmcred_${crypto.randomUUID()}`,
       userId,
       provider,
       credentialType: 'api_key',
@@ -90,7 +90,7 @@ export class LLMAgentProviderService {
   ): Promise<LLMProviderCredentialRecord> {
     const key = `${userId}:${provider}`;
     const record: LLMProviderCredentialRecord = {
-      id: `llmcred_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      id: `llmcred_${crypto.randomUUID()}`,
       userId,
       provider,
       credentialType: 'oauth',

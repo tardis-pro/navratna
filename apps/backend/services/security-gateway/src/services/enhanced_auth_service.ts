@@ -320,13 +320,11 @@ export class EnhancedAuthService {
     let challenge: string;
     switch (method) {
       case MFAMethod.TOTP:
-        // Generate TOTP challenge - simplified for now
-        challenge = Math.floor(100000 + Math.random() * 900000).toString();
+        challenge = crypto.randomInt(100000, 1000000).toString();
         break;
       case MFAMethod.SMS:
       case MFAMethod.EMAIL:
-        // Generate 6-digit code
-        challenge = Math.floor(100000 + Math.random() * 900000).toString();
+        challenge = crypto.randomInt(100000, 1000000).toString();
         break;
       default:
         throw new Error(`Unsupported MFA method: ${method}`);
