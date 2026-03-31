@@ -114,4 +114,5 @@ export * from './complexity';
 export * from './dev-loop';
 export * from './solution-design';
 export * from './healing';
+export * from './drift-detection';
 export * from './openclaw';

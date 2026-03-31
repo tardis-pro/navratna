@@ -91,6 +91,19 @@ const OPENCLAW_WORKFLOWS = [
     delivery: { type: 'webhook' as const, target: 'internal' },
     enabled: true,
   },
+  {
+    name: 'drift-detection-weekly',
+    description: 'Weekly KB refresh: re-ingests repos, diffs against stored snapshots, generates tech debt stories for new TODOs, growing files, and dead exports.',
+    agentId: 'system',
+    sessionKey: 'rdlo:drift-detection',
+    model: 'default',
+    trigger: { kind: 'cron' as const, expr: '0 3 * * 1' },
+    steps: [
+      { type: 'bash' as const, id: 'run_drift_detection', command: 'curl -s -X POST http://localhost:3002/api/v1/rdlo/drift-detection/run' },
+    ],
+    delivery: { type: 'webhook' as const, target: 'internal' },
+    enabled: true,
+  },
 ] as const
 
 export class WorkflowDefinitionSeed extends BaseSeed {
