@@ -8,7 +8,7 @@
 
 // Import the backend API client
 export * from './api';
-import { APIClient, api } from '@/api';
+import { APIClient, api, coreClient, gatewayClient, unwrapEden, edenWithCSRFRetry } from '@/api';
 import {
   _API_CONFIG,
   getEffectiveAPIBaseURL,
@@ -1336,6 +1336,13 @@ export const uaipAPI = {
         throw error;
       }
     },
+  },
+
+  eden: {
+    core: coreClient,
+    gateway: gatewayClient,
+    unwrap: unwrapEden,
+    withCSRFRetry: edenWithCSRFRetry,
   },
 };
 

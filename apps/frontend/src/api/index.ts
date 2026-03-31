@@ -6,6 +6,17 @@
 // Core client
 export { APIClient, APIClientError, type APIError } from './client';
 
+// Eden treaty clients
+export {
+  coreClient,
+  gatewayClient,
+  unwrapEden,
+  edenWithCSRFRetry,
+  EdenClientError,
+  type NavratnaCoreApp,
+  type NavratnaGatewayApp,
+} from './eden';
+
 // Domain APIs
 export * from './auth_api';
 export * from './agents_api';

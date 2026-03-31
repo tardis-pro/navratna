@@ -1,8 +1,27 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import type { Plugin } from 'vite';
 
-// https://vitejs.dev/config/
+const BACKEND_PACKAGES = ['@uaip/navratna-core', '@uaip/navratna-gateway'];
+
+function backendLeakGuard(): Plugin {
+  return {
+    name: 'backend-leak-guard',
+    enforce: 'pre',
+    resolveId(id, importer) {
+      const leaking = BACKEND_PACKAGES.find((pkg) => id === pkg || id.startsWith(pkg + '/'));
+      if (leaking) {
+        throw new Error(
+          `[backend-leak-guard] Runtime import of "${id}" from "${importer ?? 'unknown'}" detected. ` +
+            `Backend packages must only be referenced with 'import type'. ` +
+            `This import would bundle backend (Bun/Node) code into the browser build.`,
+        );
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode: _mode }) => {
   const API_TARGET = process.env.VITE_API_TARGET;
   const CORE = process.env.VITE_CORE_URL || 'http://localhost:3001';
@@ -17,7 +36,6 @@ export default defineConfig(({ mode: _mode }) => {
       port: 5173,
       allowedHosts: true,
       fs: {
-        // Allow imports from backend source directories for Eden Treaty type inference
         allow: ['..'],
       },
       proxy: {
@@ -47,7 +65,10 @@ export default defineConfig(({ mode: _mode }) => {
         '/health':                  toCore,
       },
     },
-    plugins: [react()].filter(Boolean),
+    optimizeDeps: {
+      exclude: ['elysia', ...BACKEND_PACKAGES],
+    },
+    plugins: [backendLeakGuard(), react()].filter(Boolean),
     build: {
       rolldownOptions: {
         output: {
