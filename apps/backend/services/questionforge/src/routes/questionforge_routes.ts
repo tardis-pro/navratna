@@ -1,3 +1,4 @@
+import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import type { Question } from '@uaip/types';
 import { withNginxAuth } from '@uaip/middleware';
@@ -10,15 +11,12 @@ interface RouteContext {
   params: Record<string, string>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Elysia app/group types are dynamic
-type ElysiaApp = any;
-
-export function registerQuestionForgeRoutes(
-  app: ElysiaApp,
+export function registerQuestionForgeRoutes<T extends Elysia>(
+  app: T,
   forgeService: QuestionForgeService,
   interviewService: InterviewCaptureService
-) {
-  return app.group('/api/v1/questionforge', (g: ElysiaApp) =>
+): T {
+  return app.group('/api/v1/questionforge', (g) =>
     withNginxAuth(g)
       // Run the full QuestionForge pipeline
       .post('/forge', async ({ body, set }) => {
@@ -209,5 +207,5 @@ export function registerQuestionForgeRoutes(
           };
         }
       })
-  );
+  ) as unknown as T;
 }

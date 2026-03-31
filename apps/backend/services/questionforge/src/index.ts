@@ -1,5 +1,6 @@
 import { BaseService } from '@uaip/shared-services';
 import type { ServiceConfig } from '@uaip/shared-services';
+import type { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ForgeRequest } from '@uaip/types';
@@ -68,7 +69,7 @@ class QuestionForgeApp extends BaseService {
 
   protected async setupRoutes(): Promise<void> {
     registerQuestionForgeRoutes(
-      this.app as unknown as { group: (path: string, cb: (g: unknown) => unknown) => unknown },
+      this.app as unknown as Elysia,
       this.forgeService,
       this.interviewService
     );

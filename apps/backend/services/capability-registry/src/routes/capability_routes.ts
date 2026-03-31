@@ -48,54 +48,53 @@ export function registerCapabilityRoutes<T extends Elysia>(app: T, controller?: 
 
   logger.info('Registering capability routes');
 
-  routeApp.group('/api/v1/capabilities', (g: any) =>
-    withNginxAuth(g)
-      .get('/search', (ctx: any) => capabilityController.searchCapabilities(ctx))
-      .get('/categories', (ctx: any) => capabilityController.getCategories(ctx))
-      .get('/recommendations', (ctx: any) => capabilityController.getRecommendations(ctx))
-      .get('/', (ctx: any) => capabilityController.listCapabilities(ctx))
-      .get('/:id', (ctx: any) => capabilityController.getCapability(ctx))
-      .get('/:id/dependencies', (ctx: any) => capabilityController.getCapabilityDependencies(ctx))
-      .post('/', (ctx: any) => capabilityController.registerCapability(ctx))
-      .post('/inject', async (ctx: any) => {
-        const validationError = validateMcpToolSchema(ctx.body);
-        if (validationError) {
-          ctx.set.status = 400;
-          return { success: false, error: validationError };
-        }
-
-        try {
-          const result = await capabilityController.registerCapability(ctx);
-          const eventBus = EventBusService.getInstance();
-          const body = ctx.body as Record<string, unknown>;
-
-          await eventBus.publish(CAPABILITY_INJECTED_EVENT, {
-            name: body.name,
-            description: body.description,
-            inputSchema: body.inputSchema,
-            injectedAt: new Date().toISOString(),
-          });
-
-          logger.info('Capability hot-injected and broadcast to agents', {
-            name: body.name,
-          });
-
-          return result;
-        } catch (error) {
-          logger.error('Capability hot-inject failed', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          ctx.set.status = 500;
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Hot-inject failed',
-          };
-        }
-      })
-      .post('/:id/execute', (ctx: any) => capabilityController.executeCapability(ctx))
-      .post('/:id/validate', (ctx: any) => capabilityController.validateCapability(ctx))
-      .put('/:id', (ctx: any) => capabilityController.updateCapability(ctx))
-      .delete('/:id', (ctx: any) => capabilityController.deleteCapability(ctx))
+  routeApp.group('/api/v1/capabilities', (g) => withNginxAuth(g)
+    .get('/search', (ctx) => capabilityController.searchCapabilities(ctx))
+    .get('/categories', (ctx) => capabilityController.getCategories(ctx))
+    .get('/recommendations', (ctx) => capabilityController.getRecommendations(ctx))
+    .get('/', (ctx) => capabilityController.listCapabilities(ctx))
+    .get('/:id', (ctx) => capabilityController.getCapability(ctx))
+    .get('/:id/dependencies', (ctx) => capabilityController.getCapabilityDependencies(ctx))
+    .post('/', (ctx) => capabilityController.registerCapability(ctx))
+    .post('/inject', async (ctx) => {
+      const validationError = validateMcpToolSchema(ctx.body);
+      if (validationError) {
+        ctx.set.status = 400;
+        return { success: false, error: validationError };
+      }
+      
+      try {
+        const result = await capabilityController.registerCapability(ctx);
+        const eventBus = EventBusService.getInstance();
+        const body = ctx.body as Record<string, unknown>;
+      
+        await eventBus.publish(CAPABILITY_INJECTED_EVENT, {
+          name: body.name,
+          description: body.description,
+          inputSchema: body.inputSchema,
+          injectedAt: new Date().toISOString(),
+        });
+      
+        logger.info('Capability hot-injected and broadcast to agents', {
+          name: body.name,
+        });
+      
+        return result;
+      } catch (error) {
+        logger.error('Capability hot-inject failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        ctx.set.status = 500;
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Hot-inject failed',
+        };
+      }
+    })
+    .post('/:id/execute', (ctx) => capabilityController.executeCapability(ctx))
+    .post('/:id/validate', (ctx) => capabilityController.validateCapability(ctx))
+    .put('/:id', (ctx) => capabilityController.updateCapability(ctx))
+    .delete('/:id', (ctx) => capabilityController.deleteCapability(ctx))
   );
 
   return app;

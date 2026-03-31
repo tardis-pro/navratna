@@ -89,337 +89,333 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
 };
 
 export function registerUserRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/users', (app: any) =>
-    withOptionalAuth(app)
-      // GET /api/v1/users (admin)
-      .group('', (g: any) =>
-        withAdminGuard(g).get('/', async ({ set, query }) => {
-          const parsed = userQuerySchema.safeParse(query);
-          if (!parsed.success) {
-            set.status = 400;
-            return { error: 'Validation Error', details: parsed.error.flatten() };
-          }
-          const { page, limit, role, isActive, search } = parsed.data;
-          const offset = (page - 1) * limit;
-          try {
-            const { userService } = await getServices();
-            const repo = userService.getUserRepository();
-            const result = await repo.searchUsers({
-              search,
-              role: searchRoleSchema.parse(role),
-              isActive,
+  elysiaApp.group('/api/v1/users', (app) => withOptionalAuth(app)
+    // GET /api/v1/users (admin)
+    .group('', (g) => withAdminGuard(g).get('/', async ({ set, query }) => {
+      const parsed = userQuerySchema.safeParse(query);
+      if (!parsed.success) {
+        set.status = 400;
+        return { error: 'Validation Error', details: parsed.error.flatten() };
+      }
+      const { page, limit, role, isActive, search } = parsed.data;
+      const offset = (page - 1) * limit;
+      try {
+        const { userService } = await getServices();
+        const repo = userService.getUserRepository();
+        const result = await repo.searchUsers({
+          search,
+          role: searchRoleSchema.parse(role),
+          isActive,
+          limit,
+          offset,
+        });
+        return {
+          message: 'Users retrieved successfully',
+          users: result.users,
+          pagination: {
+            page,
+            limit,
+            total: result.total,
+            pages: Math.ceil(result.total / limit),
+          },
+          filters: { role, isActive, search },
+        };
+      } catch (error) {
+        logger.error('Get users error', { error });
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'Failed to retrieve users' };
+      }
+    })
+    )
+  
+    // GET /api/v1/users/public
+    .get('/public', async ({ set, query }) => {
+      const parsed = publicUserQuerySchema.safeParse(query);
+      if (!parsed.success) {
+        set.status = 400;
+        return { error: 'Validation Error', details: parsed.error.flatten() };
+      }
+      const { page, limit, search } = parsed.data;
+      const offset = (page - 1) * limit;
+      try {
+        const { userService } = await getServices();
+        const repo = userService.getUserRepository();
+        const result = await repo.searchUsers({
+          search,
+          role: 'user',
+          isActive: true,
+          limit,
+          offset,
+        });
+        const publicUsers = result.users.map((u) => ({
+          id: u.id,
+          email: u.email,
+          displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
+          firstName: u.firstName,
+          lastName: u.lastName,
+          department: u.department,
+          createdAt: u.createdAt,
+          lastLoginAt: u.lastLoginAt,
+        }));
+        return {
+          success: true,
+          message: 'Public users retrieved successfully',
+          data: {
+            users: publicUsers,
+            pagination: {
+              page,
               limit,
-              offset,
-            });
-            return {
-              message: 'Users retrieved successfully',
-              users: result.users,
-              pagination: {
-                page,
-                limit,
-                total: result.total,
-                pages: Math.ceil(result.total / limit),
-              },
-              filters: { role, isActive, search },
-            };
-          } catch (error) {
-            logger.error('Get users error', { error });
-            set.status = 500;
-            return { error: 'Internal Server Error', message: 'Failed to retrieve users' };
-          }
-        })
-      )
-
-      // GET /api/v1/users/public
-      .get('/public', async ({ set, query }) => {
-        const parsed = publicUserQuerySchema.safeParse(query);
+              total: result.total,
+              pages: Math.ceil(result.total / limit),
+            },
+          },
+        };
+      } catch {
+        set.status = 500;
+        return {
+          success: false,
+          error: 'Internal Server Error',
+          message: 'Failed to retrieve public users',
+        };
+      }
+    })
+  
+    // GET /api/v1/users/llm-preferences
+    .group('', (g) => withRequiredAuth(g)
+      // @ts-expect-error -- Property does not exist on inferred type
+      .get('/llm-preferences', async ({ set, user }) => {
+        try {
+          const { userService } = await getServices();
+          const repo = userService.getUserLLMPreferenceRepository();
+          // @ts-expect-error -- Property not found
+          const prefs = await repo.findByUser(user.id);
+          return prefs;
+        } catch {
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to retrieve preferences' };
+        }
+      })
+      
+      // PUT /api/v1/users/llm-preferences
+      // @ts-expect-error -- Property does not exist on inferred type
+      .put('/llm-preferences', async ({ set, user, body }) => {
+        const parsed = updateUserLLMPreferencesSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
           return { error: 'Validation Error', details: parsed.error.flatten() };
         }
-        const { page, limit, search } = parsed.data;
-        const offset = (page - 1) * limit;
         try {
           const { userService } = await getServices();
-          const repo = userService.getUserRepository();
-          const result = await repo.searchUsers({
-            search,
-            role: 'user',
-            isActive: true,
-            limit,
-            offset,
+          const repo = userService.getUserLLMPreferenceRepository();
+          // @ts-expect-error -- Property not found
+          await repo.bulkUpsert(
+            parsed.data.preferences.map(
+              ({
+                taskType,
+                preferredProvider,
+                preferredModel,
+                fallbackModel,
+                settings,
+                description,
+                priority,
+              }) => ({
+                userId: user.id,
+                taskType,
+                preferredProvider,
+                preferredModel,
+                fallbackModel,
+                settings,
+                description,
+                priority,
+              })
+            )
+          );
+          return { message: 'Preferences updated' };
+        } catch {
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to update preferences' };
+        }
+      })
+    )
+  
+    // GET /api/v1/users/:userId (admin)
+    .group('', (g) => withAdminGuard(g)
+      .get('/:userId', async ({ set, params }) => {
+        try {
+          const { userService } = await getServices();
+          const user = await userService.findUserById(params.userId);
+          if (!user) {
+            set.status = 404;
+            return { error: 'User Not Found', message: 'User not found' };
+          }
+          const userResponse = omitPasswordHash(user);
+          return { message: 'User retrieved successfully', user: userResponse };
+        } catch {
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to retrieve user' };
+        }
+      })
+      
+      // POST /api/v1/users (admin)
+      // @ts-expect-error -- Property does not exist on inferred type
+      .post('/', async ({ set, body, user }) => {
+        const parsed = createUserSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { error: 'Validation Error', details: parsed.error.flatten() };
+        }
+        try {
+          const { userService, auditService } = await getServices();
+          const existing = await userService.findUserByEmail(parsed.data.email);
+          if (existing) {
+            set.status = 409;
+            return {
+              error: 'User Already Exists',
+              message: 'A user with this email already exists',
+            };
+          }
+          const created = await userService.createUser({
+            email: parsed.data.email,
+            password: parsed.data.password,
+            role: parsed.data.role,
+            firstName: parsed.data.firstName,
+            lastName: parsed.data.lastName,
+            department: parsed.data.department,
           });
-          const publicUsers = result.users.map((u) => ({
-            id: u.id,
-            email: u.email,
-            displayName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email.split('@')[0],
-            firstName: u.firstName,
-            lastName: u.lastName,
-            department: u.department,
-            createdAt: u.createdAt,
-            lastLoginAt: u.lastLoginAt,
-          }));
+          if (parsed.data.isActive === false) {
+            await userService.getUserRepository().deactivateUser(created.id);
+          } else if (parsed.data.isActive === true) {
+            await userService.getUserRepository().activateUser(created.id);
+          }
+          await auditService.logSecurityEvent({
+            eventType: AuditEventType.USER_CREATED,
+            userId: user.id,
+            details: {
+              createdUserId: created.id,
+              createdUserEmail: created.email,
+              createdUserRole: created.role,
+              isActive: created.isActive,
+            },
+            ipAddress: '',
+            userAgent: '',
+          });
+          const userResponse = omitPasswordHash(created);
+          set.status = 201;
+          return { message: 'User created successfully', user: userResponse };
+        } catch (error) {
+          logger.error('Create user error', { error });
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to create user' };
+        }
+      })
+      
+      // PUT /api/v1/users/:userId (admin)
+      .put('/:userId', async ({ set, body, params }) => {
+        const parsed = updateUserSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { error: 'Validation Error', details: parsed.error.flatten() };
+        }
+        try {
+          const { userService, auditService } = await getServices();
+          const current = await userService.findUserById(params.userId);
+          if (!current) {
+            set.status = 404;
+            return { error: 'User Not Found', message: 'User not found' };
+          }
+          if (parsed.data.email && parsed.data.email !== current.email) {
+            const emailCheck = await userService.findUserByEmail(parsed.data.email);
+            if (emailCheck && emailCheck.id !== params.userId) {
+              set.status = 409;
+              return {
+                error: 'Email Already Exists',
+                message: 'Another user with this email already exists',
+              };
+            }
+          }
+          const repo = userService.getUserRepository();
+          const updated = await repo.updateUserProfile(params.userId, {
+            firstName: parsed.data.firstName,
+            lastName: parsed.data.lastName,
+            department: parsed.data.department,
+            role: parsed.data.role,
+            isActive: parsed.data.isActive,
+          });
+          if (!updated) {
+            set.status = 500;
+            return { error: 'Update Failed', message: 'Failed to update user' };
+          }
+          if (parsed.data.email && parsed.data.email !== current.email) {
+            await userService.updateUser(params.userId, { email: parsed.data.email });
+          }
+          await auditService.logSecurityEvent({
+            eventType: AuditEventType.USER_UPDATED,
+            userId: undefined,
+            details: {
+              updatedUserId: updated.id,
+              updatedUserEmail: updated.email,
+              updatedFields: Object.keys(parsed.data),
+              previousRole: current.role,
+              newRole: updated.role,
+              previousActive: current.isActive,
+              newActive: updated.isActive,
+            },
+            ipAddress: '',
+            userAgent: '',
+          });
+          return { message: 'User updated successfully', user: updated };
+        } catch {
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to update user' };
+        }
+      })
+      
+      // DELETE /api/v1/users/:userId (admin)
+      .delete('/:userId', async ({ set, params }) => {
+        try {
+          const { userService, auditService } = await getServices();
+          const ok = await userService.deleteUser(params.userId);
+          if (!ok) {
+            set.status = 404;
+            return { error: 'User Not Found', message: 'User not found' };
+          }
+          await auditService.logSecurityEvent({
+            eventType: AuditEventType.USER_DELETED,
+            userId: undefined,
+            details: { deletedUserId: params.userId },
+            ipAddress: '',
+            userAgent: '',
+          });
+          return { message: 'User deleted successfully' };
+        } catch {
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to delete user' };
+        }
+      })
+      
+      // GET /api/v1/users/stats (admin)
+      .get('/stats', async ({ set }) => {
+        try {
+          const { userService } = await getServices();
+          const statistics = await userService.getUserRepository().getUserStats();
           return {
-            success: true,
-            message: 'Public users retrieved successfully',
-            data: {
-              users: publicUsers,
-              pagination: {
-                page,
-                limit,
-                total: result.total,
-                pages: Math.ceil(result.total / limit),
+            message: 'User statistics retrieved successfully',
+            statistics: {
+              roleDistribution: statistics.roleStats,
+              departmentDistribution: statistics.departmentStats,
+              summary: {
+                totalUsers: statistics.totalUsers,
+                activeUsers: statistics.activeUsers,
+                inactiveUsers: statistics.inactiveUsers,
               },
             },
           };
         } catch {
           set.status = 500;
-          return {
-            success: false,
-            error: 'Internal Server Error',
-            message: 'Failed to retrieve public users',
-          };
+          return { error: 'Internal Server Error', message: 'Failed to load stats' };
         }
       })
-
-      // GET /api/v1/users/llm-preferences
-      .group('', (g: any) =>
-        withRequiredAuth(g)
-          // @ts-expect-error -- Property does not exist on inferred type
-          .get('/llm-preferences', async ({ set, user }) => {
-            try {
-              const { userService } = await getServices();
-              const repo = userService.getUserLLMPreferenceRepository();
-              // @ts-expect-error -- Property not found
-              const prefs = await repo.findByUser(user.id);
-              return prefs;
-            } catch {
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to retrieve preferences' };
-            }
-          })
-
-          // PUT /api/v1/users/llm-preferences
-          // @ts-expect-error -- Property does not exist on inferred type
-          .put('/llm-preferences', async ({ set, user, body }) => {
-            const parsed = updateUserLLMPreferencesSchema.safeParse(body);
-            if (!parsed.success) {
-              set.status = 400;
-              return { error: 'Validation Error', details: parsed.error.flatten() };
-            }
-            try {
-              const { userService } = await getServices();
-              const repo = userService.getUserLLMPreferenceRepository();
-              // @ts-expect-error -- Property not found
-              await repo.bulkUpsert(
-                parsed.data.preferences.map(
-                  ({
-                    taskType,
-                    preferredProvider,
-                    preferredModel,
-                    fallbackModel,
-                    settings,
-                    description,
-                    priority,
-                  }) => ({
-                    userId: user.id,
-                    taskType,
-                    preferredProvider,
-                    preferredModel,
-                    fallbackModel,
-                    settings,
-                    description,
-                    priority,
-                  })
-                )
-              );
-              return { message: 'Preferences updated' };
-            } catch {
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to update preferences' };
-            }
-          })
-      )
-
-      // GET /api/v1/users/:userId (admin)
-      .group('', (g: any) =>
-        withAdminGuard(g)
-          .get('/:userId', async ({ set, params }) => {
-            try {
-              const { userService } = await getServices();
-              const user = await userService.findUserById(params.userId);
-              if (!user) {
-                set.status = 404;
-                return { error: 'User Not Found', message: 'User not found' };
-              }
-              const userResponse = omitPasswordHash(user);
-              return { message: 'User retrieved successfully', user: userResponse };
-            } catch {
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to retrieve user' };
-            }
-          })
-
-          // POST /api/v1/users (admin)
-          // @ts-expect-error -- Property does not exist on inferred type
-          .post('/', async ({ set, body, user }) => {
-            const parsed = createUserSchema.safeParse(body);
-            if (!parsed.success) {
-              set.status = 400;
-              return { error: 'Validation Error', details: parsed.error.flatten() };
-            }
-            try {
-              const { userService, auditService } = await getServices();
-              const existing = await userService.findUserByEmail(parsed.data.email);
-              if (existing) {
-                set.status = 409;
-                return {
-                  error: 'User Already Exists',
-                  message: 'A user with this email already exists',
-                };
-              }
-              const created = await userService.createUser({
-                email: parsed.data.email,
-                password: parsed.data.password,
-                role: parsed.data.role,
-                firstName: parsed.data.firstName,
-                lastName: parsed.data.lastName,
-                department: parsed.data.department,
-              });
-              if (parsed.data.isActive === false) {
-                await userService.getUserRepository().deactivateUser(created.id);
-              } else if (parsed.data.isActive === true) {
-                await userService.getUserRepository().activateUser(created.id);
-              }
-              await auditService.logSecurityEvent({
-                eventType: AuditEventType.USER_CREATED,
-                userId: user.id,
-                details: {
-                  createdUserId: created.id,
-                  createdUserEmail: created.email,
-                  createdUserRole: created.role,
-                  isActive: created.isActive,
-                },
-                ipAddress: '',
-                userAgent: '',
-              });
-              const userResponse = omitPasswordHash(created);
-              set.status = 201;
-              return { message: 'User created successfully', user: userResponse };
-            } catch (error) {
-              logger.error('Create user error', { error });
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to create user' };
-            }
-          })
-
-          // PUT /api/v1/users/:userId (admin)
-          .put('/:userId', async ({ set, body, params }) => {
-            const parsed = updateUserSchema.safeParse(body);
-            if (!parsed.success) {
-              set.status = 400;
-              return { error: 'Validation Error', details: parsed.error.flatten() };
-            }
-            try {
-              const { userService, auditService } = await getServices();
-              const current = await userService.findUserById(params.userId);
-              if (!current) {
-                set.status = 404;
-                return { error: 'User Not Found', message: 'User not found' };
-              }
-              if (parsed.data.email && parsed.data.email !== current.email) {
-                const emailCheck = await userService.findUserByEmail(parsed.data.email);
-                if (emailCheck && emailCheck.id !== params.userId) {
-                  set.status = 409;
-                  return {
-                    error: 'Email Already Exists',
-                    message: 'Another user with this email already exists',
-                  };
-                }
-              }
-              const repo = userService.getUserRepository();
-              const updated = await repo.updateUserProfile(params.userId, {
-                firstName: parsed.data.firstName,
-                lastName: parsed.data.lastName,
-                department: parsed.data.department,
-                role: parsed.data.role,
-                isActive: parsed.data.isActive,
-              });
-              if (!updated) {
-                set.status = 500;
-                return { error: 'Update Failed', message: 'Failed to update user' };
-              }
-              if (parsed.data.email && parsed.data.email !== current.email) {
-                await userService.updateUser(params.userId, { email: parsed.data.email });
-              }
-              await auditService.logSecurityEvent({
-                eventType: AuditEventType.USER_UPDATED,
-                userId: undefined,
-                details: {
-                  updatedUserId: updated.id,
-                  updatedUserEmail: updated.email,
-                  updatedFields: Object.keys(parsed.data),
-                  previousRole: current.role,
-                  newRole: updated.role,
-                  previousActive: current.isActive,
-                  newActive: updated.isActive,
-                },
-                ipAddress: '',
-                userAgent: '',
-              });
-              return { message: 'User updated successfully', user: updated };
-            } catch {
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to update user' };
-            }
-          })
-
-          // DELETE /api/v1/users/:userId (admin)
-          .delete('/:userId', async ({ set, params }) => {
-            try {
-              const { userService, auditService } = await getServices();
-              const ok = await userService.deleteUser(params.userId);
-              if (!ok) {
-                set.status = 404;
-                return { error: 'User Not Found', message: 'User not found' };
-              }
-              await auditService.logSecurityEvent({
-                eventType: AuditEventType.USER_DELETED,
-                userId: undefined,
-                details: { deletedUserId: params.userId },
-                ipAddress: '',
-                userAgent: '',
-              });
-              return { message: 'User deleted successfully' };
-            } catch {
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to delete user' };
-            }
-          })
-
-          // GET /api/v1/users/stats (admin)
-          .get('/stats', async ({ set }) => {
-            try {
-              const { userService } = await getServices();
-              const statistics = await userService.getUserRepository().getUserStats();
-              return {
-                message: 'User statistics retrieved successfully',
-                statistics: {
-                  roleDistribution: statistics.roleStats,
-                  departmentDistribution: statistics.departmentStats,
-                  summary: {
-                    totalUsers: statistics.totalUsers,
-                    activeUsers: statistics.activeUsers,
-                    inactiveUsers: statistics.inactiveUsers,
-                  },
-                },
-              };
-            } catch {
-              set.status = 500;
-              return { error: 'Internal Server Error', message: 'Failed to load stats' };
-            }
-          })
-      )
+    )
   );
 
   return elysiaApp;

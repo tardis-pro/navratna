@@ -1141,6 +1141,9 @@ importers:
       '@uaip/utils':
         specifier: workspace:*
         version: link:../../../packages/shared-utils
+      elysia:
+        specifier: catalog:backend
+        version: 1.4.28(@sinclair/typebox@0.34.48)(exact-mirror@0.2.7(@sinclair/typebox@0.34.48))(file-type@21.3.4)(openapi-types@12.1.3)(typescript@6.0.2)
       zod:
         specifier: 'catalog:'
         version: 3.25.67

@@ -27,7 +27,7 @@ const relevanceSchema = z.object({
 
 export function registerAgentRoutes<T extends Elysia>(app: T): T {
   app.group('/api/v1/agents', (group) =>
-    withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0]).post('/relevance', async (ctx) => {
+    withNginxAuth(group).post('/relevance', async (ctx) => {
       const parsed = relevanceSchema.safeParse(ctx.body)
 
       if (!parsed.success) {
