@@ -112,4 +112,5 @@ export type {
 } from './workflow';
 export * from './complexity';
 export * from './dev-loop';
+export * from './solution-design';
 export * from './openclaw';
