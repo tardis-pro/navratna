@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
-import { userPersonaAPI } from '../api/user-persona.api';
+import { userPersonaAPI } from '../api/user_persona_api';
 
 interface OnboardingState {
   isFirstTime: boolean;
@@ -40,32 +40,22 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   const detectFirstTimeUser = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
 
-    // For testing - always show onboarding for now
+    try {
+      const onboardingStatus = await userPersonaAPI.checkOnboardingStatus();
+      if (onboardingStatus && !onboardingStatus.isCompleted) {
+        return true;
+      }
 
-    return true;
+      const hasPreferences = localStorage.getItem('user-preferences') !== null;
+      const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
 
-    // try {
-    //   // Check onboarding status via API (most reliable)
-    //   const onboardingStatus = await userPersonaAPI.checkOnboardingStatus();
-    //   if (onboardingStatus && !onboardingStatus.isCompleted) {
-    //     return true;
-    //   }
+      return !hasPreferences && !hasDesktopCustomizations;
+    } catch {
+      const hasPreferences = localStorage.getItem('user-preferences') !== null;
+      const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
 
-    //   // Check if user has any preferences set (secondary indicator)
-    //   const hasPreferences = localStorage.getItem('user-preferences') !== null;
-    //   const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
-
-    //   // If no onboarding completion AND no customizations, likely first-time
-    //   return !hasPreferences && !hasDesktopCustomizations;
-    // } catch (error) {
-    //   console.warn('Error checking onboarding status:', error);
-
-    //   // Fallback to local storage indicators
-    //   const hasPreferences = localStorage.getItem('user-preferences') !== null;
-    //   const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
-
-    //   return !hasPreferences && !hasDesktopCustomizations;
-    // }
+      return !hasPreferences && !hasDesktopCustomizations;
+    }
   }, [user]);
 
   // Main onboarding status check

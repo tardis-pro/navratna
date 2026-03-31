@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Configuration
 TEST_ENV_FILE=".env.integration-test"
 LOCAL_ENV_FILE=".env.local"
-DOCKER_COMPOSE_FILE="docker-compose.test.yml"
+DOCKER_COMPOSE_FILE="infrastructure/docker-compose.test.yml"
 TEST_DB_NAME="council_integration_test"
 REQUIRED_SERVICES=("postgres" "redis" "rabbitmq")
 

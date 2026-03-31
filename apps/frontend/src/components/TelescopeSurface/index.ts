@@ -1,10 +1,5 @@
 // Original TelescopeSurface (generic block surface)
-export {
-  TelescopeSurface,
-  TelescopeBlock,
-  useTelescopeSurface,
-  isTelescopeEnabled,
-} from './TelescopeSurface';
+export { TelescopeSurface, TelescopeBlock, useTelescopeSurface } from './TelescopeSurface';
 
 export type {
   TelescopeSurfaceProps,
@@ -19,11 +14,11 @@ export type { TelescopeKnowledgeSurfaceProps } from './TelescopeKnowledgeSurface
 export { ConstellationNode } from './ConstellationNode';
 export type { ConstellationNodeProps } from './ConstellationNode';
 
-export { useConstellations } from './useConstellations';
-export type { ConstellationBlockData } from './useConstellations';
+export { useConstellations } from './use_constellations';
+export type { ConstellationBlockData } from './use_constellations';
 
-export { useForceLayout } from './useForceLayout';
-export type { ForceNode } from './useForceLayout';
+export { useForceLayout } from './use_force_layout';
+export type { ForceNode } from './use_force_layout';
 
 // Shared types
-export type { ConstellationBlockMetadata } from './TelescopeSurface.types';
+export type { ConstellationBlockMetadata } from './telescope_surface_types';

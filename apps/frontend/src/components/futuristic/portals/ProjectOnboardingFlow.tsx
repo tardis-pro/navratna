@@ -29,8 +29,8 @@ import {
   Plus as _Plus,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { projectsAPI, type ProjectCreate } from '../../../api/projects.api';
-import { toolsAPI } from '../../../api/tools.api';
+import { projectsAPI, type ProjectCreate } from '../../../api/projects_api';
+import { toolsAPI } from '../../../api/tools_api';
 
 interface ProjectTemplate {
   id: string;

@@ -2,9 +2,25 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Navigation, Layers, RotateCcw, ZoomIn, ZoomOut, Eye, EyeOff } from 'lucide-react';
 
+interface MaplibreMap {
+  on(event: string, cb: () => void): void;
+  addSource(id: string, source: object): void;
+  addLayer(layer: object): void;
+  setStyle(style: string): void;
+  zoomIn(): void;
+  zoomOut(): void;
+  flyTo(opts: object): void;
+  rotateTo(bearing: number): void;
+  remove(): void;
+}
+
+interface MaplibreGL {
+  Map: new (opts: object) => MaplibreMap;
+}
+
 declare global {
   interface Window {
-    maplibregl: unknown;
+    maplibregl: MaplibreGL | undefined;
   }
 }
 
@@ -22,33 +38,35 @@ interface BasemapOption {
   preview?: string;
 }
 
+const MAPS_GURU_KEY = 'mapx_xKOdebykHcOcdzyTpBDAlyGBKmtEphiuXNHuKsTRkaQTmCXEybnyEOwVndGclpxL';
+
 const BASEMAP_OPTIONS: BasemapOption[] = [
   {
     id: 'dark',
     name: 'Dark',
-    style: 'https://tiles.olamaps.io/styles/default-dark-standard/style.json',
+    style: `https://maps.guru/api/v1/styles/standard/dark/style.json?key=${MAPS_GURU_KEY}`,
   },
   {
     id: 'light',
     name: 'Light',
-    style: 'https://tiles.olamaps.io/styles/default-light-standard/style.json',
+    style: `https://maps.guru/api/v1/styles/standard/light/style.json?key=${MAPS_GURU_KEY}`,
   },
   {
     id: 'satellite',
     name: 'Satellite',
-    style: 'https://tiles.olamaps.io/styles/satellite/style.json',
+    style: `https://maps.guru/api/v1/styles/satellite/style.json?key=${MAPS_GURU_KEY}`,
   },
   {
     id: 'terrain',
     name: 'Terrain',
-    style: 'https://tiles.olamaps.io/styles/terrain/style.json',
+    style: `https://maps.guru/api/v1/styles/terrain/style.json?key=${MAPS_GURU_KEY}`,
   },
 ];
 
 export const MapWallpaper: React.FC<MapWallpaperProps> = React.memo(
   ({ userLocation, theme = 'dark', interactive = false, className = '' }) => {
     const mapContainer = useRef<HTMLDivElement>(null);
-    const map = useRef<unknown>(null);
+    const map = useRef<MaplibreMap | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const [isInteractive, setIsInteractive] = useState(interactive);
     const [showControls, setShowControls] = useState(false);

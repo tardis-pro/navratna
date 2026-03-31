@@ -1,13 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Portal, PortalProps } from './Portal';
+import { Portal } from './Portal';
 import { CommandPalette } from './CommandPalette';
 import { Plus, _Layout, Zap, Database, _MessageSquare, BarChart3 } from 'lucide-react';
-
-export interface PortalConfig extends Omit<PortalProps, 'children'> {
-  component: React.ComponentType<unknown>;
-  props?: unknown;
-}
+import type { PortalConfig } from './portal_types';
 
 interface PortalInstance extends PortalConfig {
   id: string;

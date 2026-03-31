@@ -1,18 +1,16 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { motion, _AnimatePresence } from 'framer-motion';
 import {
-  Eye,
-  _EyeOff,
-  Activity,
-  AlertTriangle,
-  HelpCircle,
-  CheckCircle,
-  Zap,
-  Minus,
-} from 'lucide-react';
-import type { Microexpression } from '@/types/microexpression';
+  motion,
+  AnimatePresence,
+  type Variants,
+  useMotionValue,
+  useTransform,
+  useSpring,
+} from 'framer-motion';
+import { Eye, Activity, AlertTriangle, HelpCircle, CheckCircle, Zap, Minus } from 'lucide-react';
+import type { Microexpression } from '@uaip/types';
 import type {
   MaterializableBlockData,
   MaterializableBlockProps,
@@ -20,7 +18,7 @@ import type {
   BlockVisibility,
   WithMaterializableBlockConfig,
   MaterializableBlockContextValue,
-} from './MaterializableBlock.types';
+} from './materializable_block_types';
 import {
   getBlockBaseStyle,
   getExpressionColor,
@@ -30,7 +28,73 @@ import {
   SCORE_BADGE_STYLES,
   KEYFRAME_ANIMATIONS,
   cn,
-} from './MaterializableBlock.styles';
+} from './materializable_block_styles';
+
+const MICROEXPRESSION_VARIANTS: Variants = {
+  initial: { opacity: 0, scale: 0.9, y: 10, filter: 'brightness(1)' },
+  exit: { opacity: 0, scale: 0.9, y: 0, filter: 'brightness(1)' },
+  calm: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    filter: 'brightness(1)',
+    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+  },
+  attentive: {
+    opacity: 1,
+    scale: 1.005,
+    y: 0,
+    filter: 'brightness(1.03)',
+    transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
+  },
+  working: {
+    opacity: [1, 0.72, 1],
+    scale: 1,
+    y: 0,
+    filter: 'brightness(1)',
+    transition: {
+      opacity: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+      scale: { duration: 0.3 },
+      y: { duration: 0.3 },
+    },
+  },
+  alarmed: {
+    opacity: 1,
+    scale: [1, 1.018, 1],
+    y: 0,
+    filter: 'brightness(1.08)',
+    transition: {
+      scale: { duration: 0.5, repeat: Infinity, ease: 'easeInOut' },
+      opacity: { duration: 0.3 },
+      y: { duration: 0.3 },
+    },
+  },
+  confused: {
+    opacity: [1, 0.55, 1],
+    scale: 0.997,
+    y: 0,
+    filter: 'brightness(0.95)',
+    transition: {
+      opacity: { duration: 1, repeat: Infinity, ease: 'easeInOut' },
+      scale: { duration: 0.3 },
+      y: { duration: 0.3 },
+    },
+  },
+  satisfied: {
+    opacity: 1,
+    scale: 1.005,
+    y: 0,
+    filter: 'brightness(1.06)',
+    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+  },
+  strained: {
+    opacity: 1,
+    scale: 0.997,
+    y: 0,
+    filter: 'brightness(0.85)',
+    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+  },
+};
 
 const EXPRESSION_ICONS: Record<Microexpression, React.ReactNode> = {
   calm: <Minus className="w-3 h-3" />,
@@ -45,41 +109,48 @@ const EXPRESSION_ICONS: Record<Microexpression, React.ReactNode> = {
 export function MaterializableBlock({
   block,
   onPositionChange,
-  _onVisibilityChange,
-  _onExpressionChange,
-  _isDraggable = false,
+  onVisibilityChange: _onVisibilityChange,
+  onExpressionChange: _onExpressionChange,
+  isDraggable = false,
   children,
   className,
   style,
 }: MaterializableBlockProps) {
-  const [isHovered, setIsHovered] = useState(false);
   const [localZIndex, setLocalZIndex] = useState(block.position.z);
   const blockRef = useRef<HTMLDivElement>(null);
+
+  const relevanceMotion = useMotionValue(block.relevanceScore);
+  const springRelevance = useSpring(relevanceMotion, { stiffness: 100, damping: 18 });
+  const relevanceOpacity = useTransform(springRelevance, [0, 0.5, 1], [0.3, 0.6, 1]);
 
   useEffect(() => {
     setLocalZIndex(block.position.z);
   }, [block.position.z]);
+
+  useEffect(() => {
+    relevanceMotion.set(block.relevanceScore);
+  }, [block.relevanceScore, relevanceMotion]);
 
   const handleFocus = useCallback(() => {
     setLocalZIndex(999);
     onPositionChange?.(block.id, { x: block.position.x, y: block.position.y });
   }, [block.id, block.position.x, block.position.y, onPositionChange]);
 
-  const handleMouseEnter = useCallback(() => {
-    setIsHovered(true);
-    handleFocus();
-  }, [handleFocus]);
+  const handleMouseLeave = useCallback(() => {}, []);
 
-  const handleMouseLeave = useCallback(() => {
-    setIsHovered(false);
-  }, []);
+  const handleDragEnd = useCallback(
+    (_: unknown, info: { offset: { x: number; y: number } }) => {
+      onPositionChange?.(block.id, {
+        x: block.position.x + info.offset.x,
+        y: block.position.y + info.offset.y,
+      });
+    },
+    [block.id, block.position.x, block.position.y, onPositionChange]
+  );
 
   const effectiveVisibility = useMemo((): BlockVisibility => {
-    if (block.visibility === 'faded' && isHovered) {
-      return 'visible';
-    }
     return block.visibility;
-  }, [block.visibility, isHovered]);
+  }, [block.visibility]);
 
   const baseStyle = useMemo(
     () => getBlockBaseStyle(block.type, block.expression, effectiveVisibility),
@@ -91,23 +162,15 @@ export function MaterializableBlock({
   const containerStyle: React.CSSProperties = useMemo(
     () => ({
       ...CONTAINER_STYLES,
-      left: block.position.x,
-      top: block.position.y,
       width: block.dimensions.width,
       height: block.dimensions.height,
+      left: block.position.x,
+      top: block.position.y,
       zIndex: localZIndex,
       ...baseStyle,
       ...style,
     }),
-    [
-      block.position.x,
-      block.position.y,
-      block.dimensions.width,
-      block.dimensions.height,
-      localZIndex,
-      baseStyle,
-      style,
-    ]
+    [block.dimensions.width, block.dimensions.height, block.position.x, block.position.y, localZIndex, baseStyle, style]
   );
 
   if (block.visibility === 'hidden') {
@@ -115,49 +178,58 @@ export function MaterializableBlock({
   }
 
   return (
-    <motion.div
-      ref={blockRef}
-      initial={{ opacity: 0, scale: 0.9, y: 10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      style={containerStyle}
-      className={cn('materializable-block', className)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocus={handleFocus}
-      tabIndex={0}
-      role="region"
-      aria-label={`${block.type} block: ${block.id}`}
-    >
-      <div
-        style={{
-          ...EXPRESSION_INDICATOR_STYLES,
-          backgroundColor: expressionColor,
-          boxShadow: `0 0 6px ${expressionColor}`,
-        }}
-        title={`${block.expression} state`}
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={block.id}
+        ref={blockRef}
+        layoutId={block.id}
+        variants={MICROEXPRESSION_VARIANTS}
+        initial="initial"
+        animate={block.expression}
+        exit="exit"
+        drag={isDraggable}
+        onDragEnd={handleDragEnd}
+        whileHover={{ boxShadow: `0 0 20px ${expressionColor}` }}
+        whileTap={{ scale: 0.98 }}
+        style={{ ...containerStyle, opacity: relevanceOpacity }}
+        className={cn('materializable-block', className)}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleFocus}
+        tabIndex={0}
+        role="region"
+        aria-label={`${block.type} block: ${block.id}`}
       >
-        <span style={{ opacity: 0 }}>{EXPRESSION_ICONS[block.expression]}</span>
-      </div>
-
-      <div style={CONTENT_STYLES} className="materializable-block__content">
-        {children}
-      </div>
-
-      {block.relevanceScore !== undefined && (
         <div
           style={{
-            ...SCORE_BADGE_STYLES,
-            backgroundColor: `oklch(30% 0.02 264 / 0.8)`,
-            color: `oklch(80% 0.02 264)`,
+            ...EXPRESSION_INDICATOR_STYLES,
+            backgroundColor: expressionColor,
+            boxShadow: `0 0 6px ${expressionColor}`,
           }}
-          className="materializable-block__score"
+          title={`${block.expression} state`}
         >
-          {Math.round(block.relevanceScore * 100)}%
+          <span style={{ opacity: 0 }}>
+            {(EXPRESSION_ICONS as Record<string, React.ReactNode>)[block.expression]}
+          </span>
         </div>
-      )}
-    </motion.div>
+
+        <div style={CONTENT_STYLES} className="materializable-block__content">
+          {children}
+        </div>
+
+        {block.relevanceScore !== undefined && (
+          <div
+            style={{
+              ...SCORE_BADGE_STYLES,
+              backgroundColor: `oklch(30% 0.02 264 / 0.8)`,
+              color: `oklch(80% 0.02 264)`,
+            }}
+            className="materializable-block__score"
+          >
+            {Math.round(block.relevanceScore * 100)}%
+          </div>
+        )}
+      </motion.div>
+    </AnimatePresence>
   );
 }
 

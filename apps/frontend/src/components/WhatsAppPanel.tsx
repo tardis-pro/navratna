@@ -18,12 +18,12 @@ import {
   type WAConnectionState,
   type WAIncomingMessage,
   type WAContactBinding,
-} from '@/hooks/useWhatsApp';
+} from '@/hooks/use_whats_app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll_area';
 import {
   Select,
   SelectContent,

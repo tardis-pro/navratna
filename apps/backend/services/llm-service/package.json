@@ -1,0 +1,50 @@
+{
+  "name": "@uaip/llm-service-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "UAIP LLM Service API - Centralized LLM Provider Management and Request Handling",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun --hot src/index.ts",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/llm-service": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "compression": "catalog:backend",
+    "cors": "catalog:backend",
+    "elysia": "catalog:backend",
+    "helmet": "catalog:backend"
+  },
+  "devDependencies": {
+    "@types/compression": "catalog:backend",
+    "@types/cors": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "nodemon": "catalog:backend",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "llm",
+    "ai",
+    "language-model",
+    "api"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "consolidated-into-navratna-core"
+    ]
+  }
+}

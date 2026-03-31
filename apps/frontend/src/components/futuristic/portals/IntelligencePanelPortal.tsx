@@ -32,7 +32,7 @@ import {
 import { LightBulbIcon } from '@heroicons/react/24/outline';
 import { useAgents } from '../../../contexts/AgentContext';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 
 interface IntelligencePanelPortalProps {
   className?: string;
@@ -104,6 +104,47 @@ interface IntelligenceMetrics {
   contextualUnderstanding: number;
 }
 
+const AnalysisCard: React.FC<{
+  motionKey: string;
+  index: number;
+  hoverBorderClass: string;
+  children: React.ReactNode;
+}> = ({ motionKey, index, hoverBorderClass, children }) => (
+  <motion.div
+    key={motionKey}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: index * 0.2 }}
+    className={`bg-gradient-to-r from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 ${hoverBorderClass} transition-all duration-300`}
+    whileHover={{ scale: 1.02 }}
+  >
+    {children}
+  </motion.div>
+);
+
+const AnalysisSection: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  slideFrom: 'left' | 'right';
+  children: React.ReactNode;
+}> = ({ icon, title, slideFrom, children }) => (
+  <motion.div
+    initial={{ opacity: 0, x: slideFrom === 'left' ? -20 : 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
+  >
+    <motion.h3
+      className="text-lg font-bold text-white mb-4 flex items-center"
+      animate={{ x: slideFrom === 'left' ? [0, 2, 0] : [0, -2, 0] }}
+      transition={{ duration: 3, repeat: Infinity }}
+    >
+      {icon}
+      {title}
+    </motion.h3>
+    <div className="space-y-4">{children}</div>
+  </motion.div>
+);
+
 export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = ({
   className,
   mode = 'analysis',
@@ -166,7 +207,13 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         agentCapabilities: agentList.map((agent) => agent.capabilities || []).flat(),
       };
 
-      const contextAnalysis = await uaipAPI.ai.analyzeContext(analysisRequest);
+      type ContextAnalysisResult = {
+        engagementScore: number;
+        confidence: number;
+        processingTime: number;
+        patterns?: unknown[];
+      };
+      const contextAnalysis = await uaipAPI.llm.analyzeContext(analysisRequest) as ContextAnalysisResult | null;
 
       if (contextAnalysis) {
         // Generate advanced insights from the analysis
@@ -692,30 +739,13 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/*  Context Analyses */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-        >
-          <motion.h3
-            className="text-lg font-bold text-white mb-4 flex items-center"
-            animate={{ x: [0, 2, 0] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <ChartBarIcon className="w-5 h-5 mr-3 text-blue-400" />
-            Context Analysis
-          </motion.h3>
-
-          <div className="space-y-4">
+        <AnalysisSection slideFrom="left" icon={<ChartBarIcon className="w-5 h-5 mr-3 text-blue-400" />} title="Context Analysis">
             {contextAnalyses.map((analysis, index) => (
-              <motion.div
+              <AnalysisCard
                 key={`${analysis.conversationId}-${analysis.timestamp.toISOString()}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.2 }}
-                className="bg-gradient-to-r from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 hover:border-blue-500/50 transition-all duration-300"
-                whileHover={{ scale: 1.02 }}
+                motionKey={`${analysis.conversationId}-${analysis.timestamp.toISOString()}`}
+                index={index}
+                hoverBorderClass="hover:border-blue-500/50"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -771,35 +801,17 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     </span>
                   </span>
                 </div>
-              </motion.div>
+              </AnalysisCard>
             ))}
-          </div>
-        </motion.div>
+        </AnalysisSection>
 
-        {/* Cognitive Insights */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50"
-        >
-          <motion.h3
-            className="text-lg font-bold text-white mb-4 flex items-center"
-            animate={{ x: [0, -2, 0] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <LightBulbIcon className="w-5 h-5 mr-3 text-yellow-400" />
-            Cognitive Insights
-          </motion.h3>
-
-          <div className="space-y-4">
+        <AnalysisSection slideFrom="right" icon={<LightBulbIcon className="w-5 h-5 mr-3 text-yellow-400" />} title="Cognitive Insights">
             {cognitiveInsights.map((insight, index) => (
-              <motion.div
+              <AnalysisCard
                 key={insight.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.2 }}
-                className="bg-gradient-to-r from-slate-700/50 to-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-600/50 hover:border-purple-500/50 transition-all duration-300"
-                whileHover={{ scale: 1.02 }}
+                motionKey={insight.id}
+                index={index}
+                hoverBorderClass="hover:border-purple-500/50"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-start space-x-3">
@@ -848,10 +860,9 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
                     {insight.timestamp.toLocaleTimeString()}
                   </span>
                 </div>
-              </motion.div>
+              </AnalysisCard>
             ))}
-          </div>
-        </motion.div>
+        </AnalysisSection>
       </div>
 
       {/* Agent Intelligence Matrix */}

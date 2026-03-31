@@ -2,7 +2,7 @@ import { useState, useEffect, _useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { io, Socket } from 'socket.io-client';
-import { getWebSocketURL } from '@/config/apiConfig';
+import { getWebSocketURL } from '@/config/api_config';
 import {
   RotateCcw,
   SkipForward,

@@ -6,7 +6,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
+.nx/cache
+.nx/workspace-data
 node_modules
 dist
 dist-ssr
@@ -32,3 +33,11 @@ sprint/
 *.d.ts
 *.d.ts.map
 **/**/*.tsbuildinfo
+
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json
+
+# Story files — live in Jira only, not in git
+**/.stories/
+docs/stories/

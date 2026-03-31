@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { DismissXIcon } from '@/components/ui/DismissXIcon';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -206,18 +207,7 @@ function ItemList({
                 className="ml-1 shrink-0 rounded p-0.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white/80"
                 aria-label={`Dismiss ${item.label}`}
               >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                >
-                  <line x1="2" y1="2" x2="8" y2="8" />
-                  <line x1="8" y1="2" x2="2" y2="8" />
-                </svg>
+                <DismissXIcon />
               </button>
             )}
           </motion.div>

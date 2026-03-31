@@ -1,0 +1,35 @@
+{
+  "name": "@uaip/utils",
+  "version": "1.0.0",
+  "description": "Shared utilities for Navratna frontend and backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@uaip/types": "workspace:*",
+    "winston": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "rimraf": "catalog:",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  }
+}

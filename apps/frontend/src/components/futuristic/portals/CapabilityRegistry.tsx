@@ -1,6 +1,5 @@
 import React, { useState, useEffect as _useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
 import {
   PuzzlePieceIcon,
   MagnifyingGlassIcon,
@@ -10,18 +9,16 @@ import {
   WrenchScrewdriverIcon,
   DocumentIcon,
   TagIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
-
-// Shared viewport type
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalContainer,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+  PortalHeader,
+  PortalSearchBar,
+} from './portal-shared-components';
 
 interface CapabilityRegistryPortalProps {
   className?: string;
@@ -37,19 +34,8 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCapability, setSelectedCapability] = useState<string | null>(null);
 
-  // Determine viewport if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
+  const currentViewport = useViewport(viewport);
 
-  const currentViewport = viewport || defaultViewport;
-
-  // Extract categories from real capabilities data
   const categories: string[] = [
     'all',
     ...(Array.from(
@@ -95,126 +81,72 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   const selectedCapabilityData = capabilities.data.find((cap) => cap.id === selectedCapability);
 
-  // Show error state
   if (capabilities.error) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load capabilities</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {capabilities.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className}>
+        <PortalErrorState
+          message="Failed to load capabilities"
+          detail={capabilities.error.message}
+          onRetry={refreshData}
+        />
+      </PortalContainer>
     );
   }
 
-  // Show loading state
   if (capabilities.isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading capabilities...</p>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className}>
+        <PortalLoadingState message="Loading capabilities..." />
+      </PortalContainer>
     );
   }
 
-  // Show empty state
   if (capabilities.data.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <PuzzlePieceIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No capabilities available</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              Capabilities will appear here when agents register them
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className}>
+        <PortalEmptyState
+          icon={<PuzzlePieceIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          title="No capabilities available"
+          description="Capabilities will appear here when agents register them"
+          action={{ label: 'Refresh', onClick: refreshData }}
+        />
+      </PortalContainer>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
-      {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <PuzzlePieceIcon className="w-6 h-6 mr-2 text-purple-500" />
-          Capability Registry
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh capabilities"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-          {capabilities.lastUpdated && (
-            <span className="text-xs text-gray-400">
-              Updated: {capabilities.lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+    <PortalContainer className={className}>
+      <PortalHeader
+        icon={<PuzzlePieceIcon className="w-6 h-6 mr-2 text-purple-500" />}
+        title="Capability Registry"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+      />
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
+      <PortalSearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search capabilities..."
+        searchIcon={
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search capabilities..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          {categories.map((categoryStr) => (
-            <option key={categoryStr} value={categoryStr}>
-              {categoryStr.charAt(0).toUpperCase() + categoryStr.slice(1)}
-            </option>
+        }
+      >
+        <div className="flex gap-2 flex-wrap">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                selectedCategory === cat
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {cat}
+            </button>
           ))}
-        </select>
-      </div>
+        </div>
+      </PortalSearchBar>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Capabilities List */}
@@ -406,6 +338,6 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
           )}
         </div>
       </div>
-    </motion.div>
+    </PortalContainer>
   );
 };

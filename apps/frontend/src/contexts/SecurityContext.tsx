@@ -8,6 +8,7 @@ import React, {
   useMemo,
 } from 'react';
 import { RiskLevel, MFAMethod, OAuthProviderType } from '@uaip/types';
+import { securityAPI } from '@/api/security_api';
 
 export interface SecurityPermissions {
   canManageAgents: boolean;
@@ -166,36 +167,55 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setIsLoading(true);
       setError(null);
 
-      // In a real implementation, these would be API calls
-      // For now, using mock data to establish the structure
+      const [stats, events] = await Promise.all([
+        securityAPI.getStats(30).catch((): null => null),
+        securityAPI.getEvents({ limit: 50 }).catch((): Awaited<ReturnType<typeof securityAPI.getEvents>> => []),
+      ]);
 
-      // Mock permissions based on user role
-      const mockPermissions: SecurityPermissions = {
+      if (stats) {
+        const riskCounts = stats.riskDistribution ?? {};
+        const highRisk = (riskCounts['high'] ?? 0) + (riskCounts['critical'] ?? 0);
+        const total = stats.totalEvents || 1;
+        const riskLevel =
+          highRisk / total > 0.2
+            ? RiskLevel.HIGH
+            : highRisk / total > 0.05
+              ? RiskLevel.MEDIUM
+              : RiskLevel.LOW;
+
+        setMetrics({
+          riskLevel,
+          securityScore: Math.max(0, 100 - Math.round((stats.deniedEvents / total) * 100)),
+          recentIncidents: stats.deniedEvents,
+          blockedAttempts: stats.deniedEvents,
+          lastSecurityScan: new Date(),
+        });
+      }
+
+      if (Array.isArray(events) && events.length > 0) {
+        setAuditLog(
+          events.map((e) => ({
+            id: e.id,
+            timestamp: new Date(e.timestamp),
+            userId: e.userId ?? '',
+            action: e.action,
+            resource: e.resourceType,
+            outcome: e.result === 'allowed' ? 'success' : e.result === 'denied' ? 'blocked' : 'failure',
+            ipAddress: (e.metadata?.ipAddress as string) ?? '',
+            userAgent: (e.metadata?.userAgent as string) ?? '',
+            details: e.metadata,
+          }))
+        );
+      }
+
+      setPermissions({
         canManageAgents: true,
         canModifySettings: true,
         canAccessSensitiveData: true,
         canExecuteTools: true,
         canManageUsers: false,
         canViewAuditLogs: true,
-      };
-
-      const mockMfaStatus: MFAStatus = {
-        enabled: false,
-        methods: [],
-        backupCodesRemaining: 0,
-      };
-
-      const mockMetrics: SecurityMetrics = {
-        riskLevel: RiskLevel.MEDIUM,
-        securityScore: 78,
-        recentIncidents: 2,
-        blockedAttempts: 5,
-        lastSecurityScan: new Date(),
-      };
-
-      setPermissions(mockPermissions);
-      setMfaStatus(mockMfaStatus);
-      setMetrics(mockMetrics);
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load security data');
     } finally {

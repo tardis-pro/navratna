@@ -17,6 +17,7 @@ import {
 import Dagre from '@dagrejs/dagre';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Loader2, Plus, Copy, Trash2, Edit } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
@@ -28,7 +29,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 
 // Use ReactFlow's built-in types
 type ReactFlowNode = Node<{ label: string }>;
@@ -333,6 +333,9 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
           panOnScroll={true}
           preventScrolling={false}
           nodeOrigin={[0.5, 0.5]}
+          snapToGrid={true}
+          snapGrid={[15, 15]}
+          deleteKeyCode="Backspace"
         >
           <Background color="#334155" gap={16} />
           <Controls className="rounded-lg border border-gray-700 bg-gray-800 p-2 [&>button:hover]:bg-gray-600 [&>button]:border-0 [&>button]:bg-gray-700 [&>button]:text-white" />

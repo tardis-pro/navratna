@@ -29,14 +29,14 @@ import {
   Eye,
 } from 'lucide-react';
 
-import { artifactFactory } from '@/services/artifact/ArtifactFactory';
-import {
+import { artifactFactory } from '@/services/artifact/artifact_factory';
+import type {
   Artifact,
-  ConversationContext,
+  FrontendArtifactContext as ConversationContext,
   ArtifactType,
-  Participant,
-  GenerationResult,
-} from '@/types/artifact';
+  ArtifactParticipant as Participant,
+  ArtifactGenerationResult as GenerationResult,
+} from '@uaip/types';
 
 interface ArtifactGenerationPanelProps {
   conversationId: string;

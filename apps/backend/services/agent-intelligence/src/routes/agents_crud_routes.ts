@@ -1,0 +1,115 @@
+import { Elysia } from 'elysia'
+import { withNginxAuth } from '@uaip/middleware'
+import type { AgentIntelligenceService } from '@uaip/shared-services'
+import { logger } from '@uaip/utils'
+
+type AgentCrudDeps = Pick<
+  AgentIntelligenceService,
+  'getAgents' | 'createAgent' | 'getAgent' | 'updateAgent' | 'deleteAgent'
+>
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+export function registerAgentCrudRoutes<T extends Elysia>(
+  app: T,
+  agentIntelligenceService: AgentCrudDeps
+): T {
+  app.group(
+    '/api/v1/agents',
+    (group: unknown) =>
+      withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0])
+        .get('/', async (ctx) => {
+          try {
+            const page = Math.max(1, parseInt(String(ctx.query?.page ?? '1'), 10) || 1)
+            const limit = Math.min(100, Math.max(1, parseInt(String(ctx.query?.limit ?? '12'), 10) || 12))
+            const agents = (await agentIntelligenceService.getAgents()) ?? []
+            const total = agents.length
+            const start = (page - 1) * limit
+            const paged = agents.slice(start, start + limit)
+            return {
+              success: true,
+              data: paged,
+              pagination: { page, limit, total, hasMore: start + limit < total },
+            }
+          } catch (error) {
+            logger.error('Failed to list agents', { error })
+            ctx.set.status = 500
+            return { success: false, error: 'Failed to list agents' }
+          }
+        })
+
+        .post('/', async (ctx) => {
+          try {
+            const body = isRecord(ctx.body) ? ctx.body : {}
+            // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+            const userId = ctx.user.id
+            const agent = await agentIntelligenceService.createAgent({
+              ...body,
+              createdBy: userId,
+            })
+            ctx.set.status = 201
+            return { success: true, data: agent }
+          } catch (error) {
+            logger.error('Failed to create agent', { error })
+            ctx.set.status = 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to create agent',
+            }
+          }
+        })
+
+        .get('/:agentId', async (ctx) => {
+          try {
+            const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
+            if (!agent) {
+              ctx.set.status = 404
+              return { success: false, error: 'Agent not found' }
+            }
+
+            return { success: true, data: agent }
+          } catch (error) {
+            logger.error('Failed to get agent', { error, agentId: ctx.params.agentId })
+            ctx.set.status = 500
+            return { success: false, error: 'Failed to get agent' }
+          }
+        })
+
+        .put('/:agentId', async (ctx) => {
+          try {
+            const body = isRecord(ctx.body) ? ctx.body : {}
+            // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+            const userId = ctx.user.id
+            const agent = await agentIntelligenceService.updateAgent(ctx.params.agentId, {
+              ...body,
+              updatedBy: userId,
+            })
+            return { success: true, data: agent }
+          } catch (error) {
+            logger.error('Failed to update agent', { error, agentId: ctx.params.agentId })
+            ctx.set.status = error instanceof Error && error.message.includes('not found') ? 404 : 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to update agent',
+            }
+          }
+        })
+
+        .delete('/:agentId', async (ctx) => {
+          try {
+            await agentIntelligenceService.deleteAgent(ctx.params.agentId)
+            return { success: true, message: 'Agent deleted' }
+          } catch (error) {
+            logger.error('Failed to delete agent', { error, agentId: ctx.params.agentId })
+            ctx.set.status = error instanceof Error && error.message.includes('not found') ? 404 : 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to delete agent',
+            }
+          }
+        })
+  )
+
+  return app
+}

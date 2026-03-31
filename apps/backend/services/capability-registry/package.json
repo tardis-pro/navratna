@@ -1,0 +1,72 @@
+{
+  "name": "@uaip/capability-registry",
+  "version": "1.0.0",
+  "description": "UAIP Capability Registry Service - Manages agent capabilities and their relationships",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun --hot src/index.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "^0.55.3",
+    "@mariozechner/pi-ai": "^0.55.3",
+    "@mariozechner/pi-coding-agent": "^0.55.3",
+    "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "axios": "catalog:backend",
+    "bcrypt": "catalog:backend",
+    "compression": "catalog:backend",
+    "cors": "catalog:backend",
+    "dotenv": "catalog:backend",
+    "helmet": "catalog:backend",
+    "morgan": "^1.10.0",
+    "multer": "^2.1.1",
+    "neo4j-driver": "catalog:backend",
+    "pg": "catalog:backend",
+    "prom-client": "catalog:backend",
+    "elysia": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "catalog:backend",
+    "@types/compression": "catalog:backend",
+    "@types/cors": "catalog:backend",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^1.4.12",
+    "@types/node": "catalog:backend",
+    "@types/pg": "catalog:backend",
+    "concurrently": "catalog:dev",
+    "vitest": "catalog:backend",
+    "@vitest/coverage-v8": "catalog:backend",
+    "nodemon": "catalog:backend",
+    "ts-node-dev": "^2.0.0",
+    "tsc-alias": "catalog:backend",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "capability",
+    "registry",
+    "microservice"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "legacy-service"
+    ]
+  }
+}

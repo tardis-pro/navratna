@@ -1,0 +1,69 @@
+{
+  "name": "@uaip/discussion-orchestration",
+  "version": "1.0.0",
+  "description": "UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc --build && tsc-alias",
+    "dev": "bun --hot src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage",
+    "lint": "oxlint src/**/*.ts",
+    "lint:fix": "oxlint --fix src/**/*.ts",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@socket.io/bun-engine": "^0.0.2",
+    "baileys": "catalog:backend",
+    "@hapi/boom": "catalog:backend",
+    "@types/ws": "catalog:backend",
+    "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "compression": "catalog:backend",
+    "cors": "catalog:backend",
+    "dotenv": "catalog:backend",
+    "helmet": "catalog:backend",
+    "ioredis": "catalog:backend",
+    "jsonwebtoken": "catalog:backend",
+    "socket.io": "catalog:backend",
+    "winston": "catalog:backend",
+    "ws": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/compression": "catalog:backend",
+    "@types/cors": "catalog:backend",
+    "@types/jsonwebtoken": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "concurrently": "catalog:dev",
+    "supertest": "^7.0.0",
+    "vitest": "catalog:backend",
+    "@vitest/coverage-v8": "catalog:backend",
+    "tsc-alias": "catalog:backend",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "discussion",
+    "orchestration",
+    "real-time",
+    "websocket",
+    "turn-management"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "legacy-service"
+    ]
+  }
+}

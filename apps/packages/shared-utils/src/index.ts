@@ -1,0 +1,36 @@
+// Logging utilities
+export {
+  createLogger,
+  logger,
+  logError,
+  logSecurityEvent,
+  logAudit,
+  logMetric,
+  logRequest,
+  logPerformance,
+  createLoggerStream,
+  createLogContext,
+  logWithContext,
+} from './loggers';
+
+// Error handling utilities
+export {
+  ApiError,
+  ValidationError,
+  DatabaseError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  RateLimitError,
+  InternalServerError,
+  ExternalServiceError,
+  SecurityError,
+} from './errors';
+
+// Widget system utilities
+export { WidgetRegistry, globalWidgetRegistry } from './widget_registry';
+
+export type { UserContext, WidgetRegistryOptions } from './widget_registry';
+
+// Agent transformation utilities

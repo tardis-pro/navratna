@@ -1,28 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
 import {
-  ShieldCheckIcon,
-  LightBulbIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  DocumentTextIcon,
-  UserIcon as _UserIcon,
-  LockClosedIcon,
-  EyeIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
-
-interface SecurityMetrics {
-  totalApprovals: number;
-  pendingApprovals: number;
-  approved: number;
-  rejected: number;
-  averageApprovalTime: number;
-  riskLevel: 'low' | 'medium' | 'high' | 'critical';
-}
+  ShieldCheck,
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  FileText,
+  Lock,
+  Eye,
+} from 'lucide-react';
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalContainer,
+  PortalErrorState,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalHeader,
+} from './portal-shared-components';
 
 interface AuditEntry {
   id: string;
@@ -35,13 +30,13 @@ interface AuditEntry {
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
-// Portal sizing interface shared across futuristic portals
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
+interface SecurityMetrics {
+  totalApprovals: number;
+  pendingApprovals: number;
+  approved: number;
+  rejected: number;
+  averageApprovalTime: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
 interface SecurityGatewayPortalProps {
@@ -62,17 +57,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   const [selectedApproval, setSelectedApproval] = useState<string | null>(null);
   const [actionsInProgress, setActionsInProgress] = useState<Set<string>>(new Set());
 
-  // Determine viewport characteristics if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   // Calculate metrics from real approval data
   const metrics: SecurityMetrics = React.useMemo(() => {
@@ -194,26 +179,26 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved':
-        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'rejected':
-        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-red-500" />;
       case 'pending':
-        return <ClockIcon className="w-4 h-4 text-yellow-500" />;
+        return <Clock className="w-4 h-4 text-yellow-500" />;
       default:
-        return <ClockIcon className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
 
   const getResultIcon = (result: string) => {
     switch (result) {
       case 'success':
-        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'failure':
-        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-red-500" />;
       case 'denied':
-        return <LightBulbIcon className="w-4 h-4 text-orange-500" />;
+        return <Lightbulb className="w-4 h-4 text-orange-500" />;
       default:
-        return <ClockIcon className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
 
@@ -222,122 +207,51 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
   // Show error state
   if (approvals.error) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load security data</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {approvals.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className}>
+        <PortalErrorState
+          message="Failed to load security data"
+          detail={approvals.error.message}
+          onRetry={refreshData}
+        />
+      </PortalContainer>
     );
   }
 
-  // Show loading state
   if (approvals.isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading security data...</p>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className}>
+        <PortalLoadingState message="Loading security data..." />
+      </PortalContainer>
     );
   }
 
-  // Show empty state
   if (approvals.data.length === 0) {
     return (
-      <div className="space-y-6">
-        {/* Header with Connection Status */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <ShieldCheckIcon className="w-6 h-6 mr-2 text-green-500" />
-            Security Gateway
-          </h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <button
-              onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title="Refresh security data"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-            </button>
-            {approvals.lastUpdated && (
-              <span className="text-xs text-gray-400">
-                Updated: {approvals.lastUpdated.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ShieldCheckIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No security approvals pending</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              All operations are within approved security parameters
-            </p>
-          </div>
-        </div>
-      </div>
+      <PortalContainer className={className}>
+        <PortalHeader
+          icon={<ShieldCheck className="w-6 h-6 mr-2 text-green-500" />}
+          title="Security Gateway"
+          isConnected={isWebSocketConnected}
+          onRefresh={refreshData}
+        />
+        <PortalEmptyState
+          icon={<ShieldCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          title="No security approvals pending"
+          description="All operations are within approved security parameters"
+        />
+      </PortalContainer>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
+    <PortalContainer className={className}>
       {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <ShieldCheckIcon className="w-6 h-6 mr-2 text-red-500" />
-          Security Gateway
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh security data"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-          {approvals.lastUpdated && (
-            <span className="text-xs text-gray-400">
-              Updated: {approvals.lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+      <PortalHeader
+        icon={<ShieldCheck className="w-6 h-6 mr-2 text-red-500" />}
+        title="Security Gateway"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+      />
 
       {/* Security Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -349,7 +263,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
                 {metrics.riskLevel}
               </p>
             </div>
-            <ShieldCheckIcon className="w-8 h-8 text-red-500" />
+            <ShieldCheck className="w-8 h-8 text-red-500" />
           </div>
         </div>
 
@@ -361,7 +275,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
                 {metrics.pendingApprovals}
               </p>
             </div>
-            <ClockIcon className="w-8 h-8 text-yellow-500" />
+            <Clock className="w-8 h-8 text-yellow-500" />
           </div>
         </div>
 
@@ -373,7 +287,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
                 {metrics.approved}
               </p>
             </div>
-            <CheckCircleIcon className="w-8 h-8 text-green-500" />
+            <CheckCircle2 className="w-8 h-8 text-green-500" />
           </div>
         </div>
 
@@ -385,7 +299,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
                 {metrics.totalApprovals}
               </p>
             </div>
-            <DocumentTextIcon className="w-8 h-8 text-blue-500" />
+            <FileText className="w-8 h-8 text-blue-500" />
           </div>
         </div>
       </div>
@@ -394,7 +308,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
         {/* Pending Approvals */}
         <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <LockClosedIcon className="w-5 h-5 mr-2 text-orange-500" />
+            <Lock className="w-5 h-5 mr-2 text-orange-500" />
             Pending Approvals ({metrics.pendingApprovals})
           </h3>
 
@@ -462,7 +376,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
 
             {metrics.pendingApprovals === 0 && (
               <div className="text-center py-8">
-                <CheckCircleIcon className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-2" />
                 <p className="text-green-500 dark:text-green-400">All approvals processed</p>
               </div>
             )}
@@ -472,7 +386,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
         {/* Audit Log */}
         <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <DocumentTextIcon className="w-5 h-5 mr-2 text-blue-500" />
+            <FileText className="w-5 h-5 mr-2 text-blue-500" />
             Recent Audit Log
           </h3>
 
@@ -515,7 +429,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
       {selectedApprovalData && (
         <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <EyeIcon className="w-5 h-5 mr-2 text-purple-500" />
+            <Eye className="w-5 h-5 mr-2 text-purple-500" />
             Approval Details
           </h3>
 
@@ -585,6 +499,6 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
           </div>
         </div>
       )}
-    </motion.div>
+    </PortalContainer>
   );
 };

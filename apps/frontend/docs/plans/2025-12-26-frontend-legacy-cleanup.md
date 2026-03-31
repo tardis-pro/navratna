@@ -4,7 +4,9 @@
 
 **Goal:** Remove ~10,000 lines of dead code, fix broken imports, and reduce technical debt in the frontend codebase.
 
-**Context:** The codebase contains significant "drift" from a shift in architecture (e.g., from `Desktop.tsx` to `DesktopUnified.tsx`, and from experimental "Futuristic" workspaces to a consolidated layout). This plan targets these orphaned components.
+**Context:** The codebase has undergone a paradigm shift: `Desktop.tsx` → `DesktopUnified.tsx` → **TelescopeSurface** (current primary interface). `DesktopUnified.tsx` has been **deleted** (2026-03-21). The Telescope paradigm — intent-driven, spatial, relevance-scored — replaces all traditional navigation. This plan targets orphaned components from earlier architectures. See `apps/frontend/docs/VISION.md` for the current frontend vision.
+
+**Updated:** 2026-03-30 — Reflects DesktopUnified deletion and TelescopeSurface as primary UI.
 
 **Verification Protocol:**
 Before ANY deletion, the agent must execute the **Proof Command** listed for the task.
@@ -24,9 +26,11 @@ Before ANY deletion, the agent must execute the **Proof Command** listed for the
 | **Sprint 3** | Duplicate Portal Cleanup        | MEDIUM | 7               | ~2,500        |
 | **Sprint 4** | Unused Feature Components       | MEDIUM | 11              | ~3,500        |
 | **Sprint 5** | Fix Broken Import (DebateArena) | HIGH   | 1               | N/A           |
-| **Sprint 6** | Superseded Component Removal    | MEDIUM | 2               | ~2,400        |
+| **Sprint 6** | Superseded Component Removal    | MEDIUM | 2 (1 done)      | ~2,400        |
 
 **Total Estimated Removal:** ~10,100 lines of dead code
+
+> **Note (2026-03-30):** Task 6.1 (Desktop.tsx removal) is COMPLETED — both Desktop.tsx and DesktopUnified.tsx were deleted when TelescopeSurface became the primary UI. Verify remaining tasks against `portal_registry.tsx` for current active components.
 
 ---
 
@@ -206,7 +210,7 @@ grep -r "DiscussionStarter" apps/frontend/src --include="*.tsx" --include="*.ts"
 ## Sprint 3: Duplicate Portal Cleanup (MEDIUM RISK)
 
 **Goal:** Remove duplicate portal implementations.
-**Logic:** Many portals have `Unified*` or `*Portal` versions. We are keeping the ones integrated into `DesktopUnified.tsx`.
+**Logic:** Many portals have `Unified*` or `*Portal` versions. With DesktopUnified deleted, the active portals are those wrapped as MaterializableBlocks and registered in `portal_registry.tsx` for lazy-loading into TelescopeSurface.
 
 ### Task 3.1: Remove ConsolidatedUserChatPortal.tsx
 
@@ -432,22 +436,9 @@ grep -r "EnhancedChatManager" apps/frontend/src
 
 **Goal:** Remove major components that have been fully replaced.
 
-### Task 6.1: Remove Desktop.tsx (Superseded by DesktopUnified)
+### Task 6.1: ~~Remove Desktop.tsx~~ — COMPLETED
 
-**Proof of Obsolescence:**
-
-1. `DesktopApp.tsx` imports: `import { Desktop } from './components/DesktopUnified';`
-2. `DesktopUnified.tsx` exists and is ~1900 lines (rich feature set).
-3. `Desktop.tsx` is ~600 lines (subset of features).
-4. `grep` check:
-   ```bash
-   grep -r "import.*Desktop.*from" apps/frontend/src | grep -v "DesktopUnified" | grep -v "DesktopWorkspace"
-   ```
-   _Expected: No imports of the raw `Desktop.tsx` file._
-
-**Files:**
-
-- Delete: `apps/frontend/src/components/Desktop.tsx`
+> **Status**: COMPLETED (2026-03-21). Both `Desktop.tsx` and `DesktopUnified.tsx` have been deleted. `TelescopeSurface` is now the primary interface. `DesktopApp.tsx` routes to TelescopeSurface. No action needed.
 
 ### Task 6.2: Remove chat/EnhancedChatInterface.tsx
 
@@ -487,4 +478,5 @@ If a build fails or a runtime error occurs:
 
 1. **Full Build:** `cd apps/frontend && pnpm build` (MUST PASS).
 2. **Lint:** `pnpm lint` (No new errors).
-3. **Dev Server:** `pnpm dev` (Manual check of Desktop and Chat).
+3. **Dev Server:** `pnpm dev` (Manual check of TelescopeSurface and Chat).
+4. **Portal Registry:** Verify `portal_registry.tsx` has no broken imports after deletions.

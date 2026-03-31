@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
-import type { QuestionPack, Question, Contradiction } from '@/api/questionforge.api';
+import type { QuestionPack, Question, Contradiction } from '@/api/questionforge_api';
 
 interface QuestionPackViewProps {
   questionPacks: Record<string, QuestionPack>;

@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { useFocusManager } from '../hooks/useFocusManager';
+import { useFocusManager } from '../hooks/use_focus_manager';
 import { FocusPreview } from '../components/FocusPreview';
 
 interface FocusContextType {

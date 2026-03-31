@@ -3,20 +3,24 @@ import { useUAIP } from '@/contexts/UAIPContext';
 import { motion as _motion } from 'framer-motion';
 import { OperationStatus, OperationPriority } from '@uaip/types';
 import {
-  CogIcon,
-  PlayIcon,
-  PauseIcon,
-  StopIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  LightBulbIcon as _LightBulbIcon,
-  ChartBarIcon,
-  BoltIcon,
-  ArrowPathIcon,
-  EyeIcon,
-  ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
+  Settings,
+  Play,
+  Pause,
+  Square,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  BarChart2,
+  Zap,
+  RefreshCw,
+  Eye,
+} from 'lucide-react';
+import {
+  PortalConnectionBadge,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+} from './portal-shared-components';
 
 interface OperationMetrics {
   total: number;
@@ -67,21 +71,21 @@ export const OperationsMonitor: React.FC = () => {
     switch (status) {
       case OperationStatus.RUNNING:
       case 'running':
-        return <PlayIcon className="w-4 h-4 text-blue-500" />;
+        return <Play className="w-4 h-4 text-blue-500" />;
       case OperationStatus.PAUSED:
       case 'paused':
-        return <PauseIcon className="w-4 h-4 text-yellow-500" />;
+        return <Pause className="w-4 h-4 text-yellow-500" />;
       case OperationStatus.COMPLETED:
       case 'completed':
-        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case OperationStatus.FAILED:
       case 'failed':
-        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-red-500" />;
       case OperationStatus.CANCELLED:
       case 'cancelled':
-        return <StopIcon className="w-4 h-4 text-gray-500" />;
+        return <Square className="w-4 h-4 text-gray-500" />;
       default:
-        return <ClockIcon className="w-4 h-4 text-gray-400" />;
+        return <Clock className="w-4 h-4 text-gray-400" />;
     }
   };
 
@@ -136,88 +140,60 @@ export const OperationsMonitor: React.FC = () => {
 
   const selectedOp = operations.data.find((op) => op.id === selectedOperation);
 
-  // Show error state
+  const refreshIcon = <RefreshCw className="w-4 h-4" />;
+
   if (operations.error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load operations</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {operations.error.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <PortalErrorState
+          message="Failed to load operations"
+          detail={operations.error.message}
+          onRetry={refreshData}
+        />
       </div>
     );
   }
 
-  // Show loading state
   if (operations.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading operations...</p>
-          </div>
-        </div>
+        <PortalLoadingState
+          message="Loading operations..."
+        />
       </div>
     );
   }
 
-  // Show empty state
   if (operations.data.length === 0) {
     return (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <CogIcon className="w-6 h-6 mr-2 text-blue-500" />
+          <h2 className="text-xl font-bold text-slate-100 flex items-center">
+            <Settings className="w-6 h-6 mr-2 text-blue-500" />
             Operations Monitor
           </h2>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
+            <PortalConnectionBadge
+              isConnected={isWebSocketConnected}
+            />
             <button
               onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors"
               title="Refresh operations"
             >
-              <ArrowPathIcon className="w-4 h-4" />
+              {refreshIcon}
             </button>
           </div>
         </div>
 
         {/* Empty State */}
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <CogIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No operations to monitor</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              Operations will appear here when agents start working
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
+        <PortalEmptyState
+          icon={<Settings className="w-8 h-8 text-slate-500 mx-auto mb-2" />}
+          title="No operations to monitor"
+          description="Operations will appear here when agents start working"
+          action={{ label: 'Refresh', onClick: refreshData }}
+        />
       </div>
     );
   }
@@ -226,28 +202,23 @@ export const OperationsMonitor: React.FC = () => {
     <div className="space-y-6">
       {/* Header with Connection Status */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <CogIcon className="w-6 h-6 mr-2 text-blue-500" />
+        <h2 className="text-xl font-bold text-slate-100 flex items-center">
+          <Settings className="w-6 h-6 mr-2 text-blue-500" />
           Operations Monitor
         </h2>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
+          <PortalConnectionBadge
+            isConnected={isWebSocketConnected}
+          />
           <button
             onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="p-1.5 rounded-md text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-colors"
             title="Refresh operations"
           >
-            <ArrowPathIcon className="w-4 h-4" />
+            {refreshIcon}
           </button>
           {operations.lastUpdated && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-slate-500">
               Updated: {operations.lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -256,62 +227,62 @@ export const OperationsMonitor: React.FC = () => {
 
       {/* Operations Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              <p className="text-sm font-medium text-blue-400">
                 Total Operations
               </p>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{metrics.total}</p>
+              <p className="text-2xl font-bold text-blue-100">{metrics.total}</p>
             </div>
-            <CogIcon className="w-8 h-8 text-blue-500" />
+            <Settings className="w-8 h-8 text-blue-500" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600 dark:text-green-400">Active</p>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+              <p className="text-sm font-medium text-green-400">Active</p>
+              <p className="text-2xl font-bold text-green-100">
                 {metrics.active}
               </p>
             </div>
-            <BoltIcon className="w-8 h-8 text-green-500" />
+            <Zap className="w-8 h-8 text-green-500" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Completed</p>
-              <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+              <p className="text-sm font-medium text-purple-400">Completed</p>
+              <p className="text-2xl font-bold text-purple-100">
                 {metrics.completed}
               </p>
             </div>
-            <CheckCircleIcon className="w-8 h-8 text-purple-500" />
+            <CheckCircle2 className="w-8 h-8 text-purple-500" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
+              <p className="text-sm font-medium text-orange-400">
                 Success Rate
               </p>
-              <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+              <p className="text-2xl font-bold text-orange-100">
                 {(metrics.successRate * 100).toFixed(1)}%
               </p>
             </div>
-            <ChartBarIcon className="w-8 h-8 text-orange-500" />
+            <BarChart2 className="w-8 h-8 text-orange-500" />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Operations List */}
-        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <BoltIcon className="w-5 h-5 mr-2 text-green-500" />
+        <div className="bg-slate-900/40 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-xl">
+          <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center">
+            <Zap className="w-5 h-5 mr-2 text-green-500" />
             Recent Operations ({operations.data.length})
           </h3>
 
@@ -319,10 +290,10 @@ export const OperationsMonitor: React.FC = () => {
             {operations.data.slice(0, 10).map((operation) => (
               <div
                 key={operation.id}
-                className={`bg-white dark:bg-slate-700 rounded-xl p-4 border cursor-pointer transition-all ${
+                className={`bg-slate-800/40 rounded-xl p-4 border cursor-pointer transition-all backdrop-blur-xl ${
                   selectedOperation === operation.id
                     ? 'border-blue-500 ring-2 ring-blue-500/20'
-                    : 'border-slate-200 dark:border-slate-600 hover:border-blue-300'
+                    : 'border-slate-700/50 hover:border-blue-400/50'
                 }`}
                 onClick={() => setSelectedOperation(operation.id)}
               >
@@ -335,10 +306,10 @@ export const OperationsMonitor: React.FC = () => {
                       />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                      <h4 className="font-semibold text-slate-100">
                         {operation.name || `Operation ${operation.id.slice(0, 8)}`}
                       </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-sm text-slate-400 mt-1">
                         {operation.description || 'No description available'}
                       </p>
                     </div>
@@ -352,14 +323,14 @@ export const OperationsMonitor: React.FC = () => {
 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-4">
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-slate-500">
                       Type: {operation.type || 'Unknown'}
                     </span>
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-slate-500">
                       Priority: {operation.priority || 'Normal'}
                     </span>
                   </div>
-                  <span className="text-gray-500 dark:text-gray-400">
+                  <span className="text-slate-500">
                     {operation.createdAt
                       ? new Date(operation.createdAt).toLocaleTimeString()
                       : 'Unknown time'}
@@ -369,15 +340,15 @@ export const OperationsMonitor: React.FC = () => {
                 {operation.progress !== undefined && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-gray-500">Progress</span>
-                      <span className="text-gray-900 dark:text-white font-medium">
-                        {operation.progress}%
+                      <span className="text-slate-500">Progress</span>
+                      <span className="text-slate-100 font-medium">
+                        {operation.progress.percentage}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                    <div className="w-full bg-slate-700/50 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${operation.progress}%` }}
+                        style={{ width: `${operation.progress.percentage}%` }}
                       />
                     </div>
                   </div>
@@ -388,22 +359,22 @@ export const OperationsMonitor: React.FC = () => {
         </div>
 
         {/* Operation Details */}
-        <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <EyeIcon className="w-5 h-5 mr-2 text-blue-500" />
+        <div className="bg-slate-900/40 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-xl">
+          <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center">
+            <Eye className="w-5 h-5 mr-2 text-blue-500" />
             Operation Details
           </h3>
 
           {selectedOp ? (
             <div className="space-y-6">
               {/* Header */}
-              <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+              <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                    <h4 className="font-semibold text-slate-100">
                       {selectedOp.name || `Operation ${selectedOp.id.slice(0, 8)}`}
                     </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedOp.id}</p>
+                    <p className="text-sm text-slate-400">ID: {selectedOp.id}</p>
                   </div>
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(selectedOp.status)}
@@ -415,34 +386,34 @@ export const OperationsMonitor: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-slate-300 mb-4">
                   {selectedOp.description || 'No description available'}
                 </p>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Type</span>
-                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                    <span className="text-slate-500">Type</span>
+                    <p className="font-medium text-slate-100 capitalize">
                       {selectedOp.type || 'Unknown'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Priority</span>
-                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                    <span className="text-slate-500">Priority</span>
+                    <p className="font-medium text-slate-100 capitalize">
                       {selectedOp.priority || 'Normal'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Created</span>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <span className="text-slate-500">Created</span>
+                    <p className="font-medium text-slate-100">
                       {selectedOp.createdAt
                         ? new Date(selectedOp.createdAt).toLocaleString()
                         : 'Unknown'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Duration</span>
-                    <p className="font-medium text-gray-900 dark:text-white">
+                    <span className="text-slate-500">Duration</span>
+                    <p className="font-medium text-slate-100">
                       {selectedOp.actualDuration
                         ? formatDuration(selectedOp.actualDuration)
                         : 'N/A'}
@@ -452,29 +423,32 @@ export const OperationsMonitor: React.FC = () => {
               </div>
 
               {/* Progress */}
-              {selectedOp.progress !== undefined && (
-                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">Progress</h5>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-500">Completion</span>
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {selectedOp.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
-                    <div
-                      className="bg-blue-500 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${selectedOp.progress}%` }}
-                    />
+                {selectedOp.progress !== undefined && (
+                  <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
+                    <h5 className="font-medium text-slate-100 mb-3">Progress</h5>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-slate-500">Completion</span>
+                      <span className="text-slate-100 font-medium">
+                        {selectedOp.progress.percentage}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                      <span>{selectedOp.progress.completedSteps} / {selectedOp.progress.totalSteps} steps</span>
+                    </div>
+                    <div className="w-full bg-slate-700/50 rounded-full h-3">
+                      <div
+                        className="bg-blue-500 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${selectedOp.progress.percentage}%` }}
+                      />
                   </div>
                 </div>
               )}
 
               {/* Additional metadata if available */}
               {selectedOp.metadata && (
-                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">Metadata</h5>
-                  <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded overflow-auto">
+                <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/50">
+                  <h5 className="font-medium text-slate-100 mb-3">Metadata</h5>
+                  <pre className="text-xs text-slate-400 bg-slate-900/50 p-3 rounded overflow-auto">
                     {JSON.stringify(selectedOp.metadata, null, 2)}
                   </pre>
                 </div>
@@ -483,8 +457,8 @@ export const OperationsMonitor: React.FC = () => {
           ) : (
             <div className="flex items-center justify-center h-32">
               <div className="text-center">
-                <EyeIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 dark:text-gray-400">
+                <Eye className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                <p className="text-slate-400">
                   Select an operation to view details
                 </p>
               </div>

@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { downloadJson } from '@/utils/download_utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { chatPersistenceService, ChatSession } from '../services/ChatPersistenceService';
+import { chatPersistenceService, ChatSession } from '../services/chat_persistence_service';
 import {
   History,
   MessageSquare,
-  _User,
+  User as _User,
   Clock,
   Search,
-  _Filter,
+  Filter as _Filter,
   Download,
   Trash2,
   ChevronDown,
   ChevronRight,
-  _Calendar,
+  Calendar as _Calendar,
   Bot,
 } from 'lucide-react';
 
@@ -77,15 +78,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenCh
         })),
       };
 
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `chat-${session.agentName}-${session.createdAt.split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadJson(exportData, `chat-${session.agentName}-${session.createdAt.split('T')[0]}.json`);
     } catch (error) {
       console.error('Failed to export session:', error);
     }

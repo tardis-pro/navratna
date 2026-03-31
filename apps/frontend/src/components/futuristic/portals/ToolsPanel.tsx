@@ -6,8 +6,6 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
   EyeIcon,
   PlusIcon,
   ChevronDownIcon,
@@ -25,14 +23,16 @@ import {
   Loader2,
   AlertCircle as _AlertCircle,
 } from 'lucide-react';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { ViewportSize } from '@/hooks/use_viewport';
+import {
+  PortalContainer,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+  PortalHeader,
+  PortalSearchBar,
+  PortalDetailCard,
+} from './portal-shared-components';
 
 interface ToolsPanelPortalProps {
   /** Optional additional class names for root container */
@@ -77,18 +77,6 @@ interface MCPServer {
 }
 
 export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewport }) => {
-  // Derive viewport information if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
-
   const { agents, toolIntegrations, capabilities, refreshData, isWebSocketConnected } = useUAIP();
   const [tools, setTools] = useState<Tool[]>([]);
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
@@ -183,7 +171,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           agentId: 'system',
           agentName: 'System Integration',
           category: `${integration.type.toUpperCase()} Integration`,
-          version: integration.configuration?.version || '1.0.0',
+          version: (() => { const v = integration.configuration?.version; return typeof v === 'string' ? v : '1.0.0'; })(),
         });
       });
 
@@ -411,23 +399,15 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
   if (agents.error || toolIntegrations.error || capabilities.error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load tools data</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-              {agents.error?.message ||
-                toolIntegrations.error?.message ||
-                capabilities.error?.message}
-            </p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
+        <PortalErrorState
+          message="Failed to load tools data"
+          detail={
+            agents.error?.message ||
+            toolIntegrations.error?.message ||
+            capabilities.error?.message
+          }
+          onRetry={refreshData}
+        />
       </div>
     );
   }
@@ -436,12 +416,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
   if (agents.isLoading || toolIntegrations.isLoading || capabilities.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading tools...</p>
-          </div>
-        </div>
+        <PortalLoadingState message="Loading tools..." />
       </div>
     );
   }
@@ -450,66 +425,30 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
   if (tools.length === 0) {
     return (
       <div className="space-y-6">
-        {/* Header with Connection Status */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <WrenchScrewdriverIcon className="w-6 h-6 mr-2 text-blue-500" />
-            Tools Panel
-          </h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <button
-              onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title="Refresh tools"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No tools available</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Tools will appear here when agents register capabilities
-            </p>
-          </div>
-        </div>
+        <PortalHeader
+          icon={<WrenchScrewdriverIcon className="w-6 h-6 mr-2 text-blue-500" />}
+          title="Tools Panel"
+          isConnected={isWebSocketConnected}
+          onRefresh={refreshData}
+        />
+        <PortalEmptyState
+          icon={<WrenchScrewdriverIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />}
+          title="No tools available"
+          description="Tools will appear here when agents register capabilities"
+        />
       </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
+    <PortalContainer className={className}>
       {/* Header with Connection Status and Install Button */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <WrenchScrewdriverIcon className="w-6 h-6 mr-2 text-blue-500" />
-          Tools & Integrations
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-
+      <PortalHeader
+        icon={<WrenchScrewdriverIcon className="w-6 h-6 mr-2 text-blue-500" />}
+        title="Tools & Integrations"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+        actions={
           <button
             onClick={handleInstall}
             disabled={isInstalling}
@@ -522,16 +461,8 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
             )}
             {isInstalling ? 'Installing...' : 'Install'}
           </button>
-
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh tools"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
@@ -558,29 +489,22 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <WrenchScrewdriverIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search tools..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+      <PortalSearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search tools..."
+        searchIcon={<WrenchScrewdriverIcon className="w-3.5 h-3.5" />}
+      >
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="bg-slate-900/50 border border-slate-700/60 text-slate-200 text-sm rounded-xl px-3 py-2 min-w-[110px] focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         >
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category.charAt(0).toUpperCase() + category.slice(1)}
-            </option>
+          {categories.map((cat: string) => (
+            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
           ))}
         </select>
-      </div>
+      </PortalSearchBar>
 
       {/* Tab Content */}
       {activeTab === 'runtime' ? (
@@ -662,30 +586,20 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
 
             {selectedToolData ? (
               <div className="space-y-4">
-                <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <div className="flex items-start justify-between mb-3">
+                <PortalDetailCard>
+                  <div className="flex items-start justify-between mb-2 gap-3">
                     <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        {selectedToolData.name}
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        ID: {selectedToolData.id}
-                      </p>
+                      <h4 className="text-sm font-medium text-slate-100">{selectedToolData.name}</h4>
+                      <p className="text-xs text-slate-400">ID: {selectedToolData.id}</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(selectedToolData.status)}
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(selectedToolData.status)}`}
-                      >
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getStatusColor(selectedToolData.status)}`}>
                         {selectedToolData.status.toUpperCase()}
                       </span>
                     </div>
                   </div>
-
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    {selectedToolData.description}
-                  </p>
-
+                  <p className="text-xs text-slate-400 mb-3">{selectedToolData.description}</p>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600 dark:text-gray-400">Agent:</span>
@@ -720,7 +634,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
                       </div>
                     )}
                   </div>
-                </div>
+                </PortalDetailCard>
 
                 {/* Usage Statistics */}
                 <div className="bg-white dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
@@ -915,6 +829,6 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
           )}
         </div>
       )}
-    </motion.div>
+    </PortalContainer>
   );
 };

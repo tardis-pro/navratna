@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DismissXIcon } from '@/components/ui/DismissXIcon';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -139,19 +140,7 @@ export function WhisperLine({
             }}
             aria-label="Dismiss explanation"
           >
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <line x1="2" y1="2" x2="8" y2="8" />
-              <line x1="8" y1="2" x2="2" y2="8" />
-            </svg>
+            <DismissXIcon />
           </button>
         </motion.div>
       )}

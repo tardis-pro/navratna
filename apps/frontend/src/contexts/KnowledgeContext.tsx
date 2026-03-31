@@ -8,7 +8,7 @@ import type {
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
-import { uaipAPI } from '@/utils/uaip-api';
+import { uaipAPI } from '@/utils/uaip_api';
 
 interface KnowledgeContextState {
   // Knowledge items

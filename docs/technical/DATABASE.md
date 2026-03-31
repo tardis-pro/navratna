@@ -1,369 +1,106 @@
 # Database Architecture
 
+**Last Updated**: 2026-03-30
+
 ## Overview
 
-The UAIP uses a hybrid database approach combining PostgreSQL for relational data, Neo4j for graph relationships, and Redis for caching and real-time data.
+Navratna uses a triple-store strategy: PostgreSQL for structured data, Neo4j for graph relationships, Qdrant for vector embeddings, and Redis for caching and the BullMQ event bus. The ORM is Drizzle with a two-plane schema architecture.
 
-## PostgreSQL Architecture
+## Two-Plane Drizzle Schema
 
-### Core Schema
+Schema files at `apps/shared/services/src/database/drizzle/schemas/`:
 
-#### Users and Authentication
+### Intelligence Plane — `intelligence_schema.ts`
 
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(50) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+Used by **navratna-core** (port 3001). Contains entities for:
 
-CREATE TABLE sessions (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  token VARCHAR(255) NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
+- Agents and agent configuration
+- Discussions, messages, participants
+- Knowledge items and relationships
+- Artifacts and artifact metadata
+- LLM providers and model configurations
+- Agent learning records and memory
 
-#### Operations and Execution
+### Control Plane — `control_schema.ts`
 
-```sql
-CREATE TABLE operations (
-  id UUID PRIMARY KEY,
-  type VARCHAR(50) NOT NULL,
-  status VARCHAR(50) NOT NULL,
-  agent_id UUID NOT NULL,
-  user_id UUID REFERENCES users(id),
-  context JSONB,
-  results JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+Used by **navratna-gateway** (port 3002). Contains entities for:
 
-CREATE TABLE execution_steps (
-  id UUID PRIMARY KEY,
-  operation_id UUID REFERENCES operations(id),
-  step_number INTEGER NOT NULL,
-  status VARCHAR(50) NOT NULL,
-  details JSONB,
-  started_at TIMESTAMP WITH TIME ZONE,
-  completed_at TIMESTAMP WITH TIME ZONE
-);
-```
+- Users, authentication, sessions
+- Roles, permissions, RBAC
+- Tools, capabilities, MCP servers
+- Operations and workflow state
+- Audit logs and security events
+- Approval workflows
 
-#### Audit and Logging
+### Base — `schema_base.ts`
 
-```sql
-CREATE TABLE audit_logs (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  action VARCHAR(100) NOT NULL,
-  resource_type VARCHAR(50) NOT NULL,
-  resource_id UUID NOT NULL,
-  details JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
+Shared Drizzle configuration and base column definitions used by both planes.
 
-### Indexes and Performance
+## Cross-Plane References
 
-```sql
--- User lookups
-CREATE INDEX idx_users_email ON users(email);
+The intelligence and control planes are in the **same PostgreSQL database** but logically separated. Cross-plane references (e.g., an agent referencing a user) use `CrossPlaneGuard.verify()` — application-level validation, not DB-level foreign key constraints.
 
--- Operation queries
-CREATE INDEX idx_operations_status ON operations(status);
-CREATE INDEX idx_operations_type ON operations(type);
-CREATE INDEX idx_operations_agent ON operations(agent_id);
+This allows:
+- Independent schema evolution per plane
+- No cascading FK issues across service boundaries
+- Explicit cross-plane queries that are auditable
 
--- Audit trail searches
-CREATE INDEX idx_audit_resource ON audit_logs(resource_type, resource_id);
-CREATE INDEX idx_audit_user ON audit_logs(user_id);
-```
+## Triple-Store UUID Consistency
 
-## Neo4j Architecture
+Every knowledge item has the **same UUID** across all three stores:
 
-### Graph Model
+| Store | What It Holds | Access Pattern |
+|---|---|---|
+| PostgreSQL | Structured metadata, relationships, audit | Drizzle queries |
+| Neo4j | Graph relationships, knowledge graph edges | Cypher queries |
+| Qdrant | Vector embeddings for semantic search | Vector similarity |
 
-#### Agent Relationships
+`KnowledgeBootstrapService.runPostSeedSync()` detects and repairs inconsistencies across stores.
 
-```cypher
-CREATE (a:Agent {
-  id: string,
-  name: string,
-  type: string
-});
+## Schema Management
 
-CREATE (a:Agent)-[:CAN_USE]->(t:Tool {
-  id: string,
-  name: string,
-  capability: string
-});
-
-CREATE (a:Agent)-[:PARTICIPATES_IN]->(d:Discussion {
-  id: string,
-  title: string,
-  status: string
-});
-```
-
-#### Knowledge Graph
-
-```cypher
-CREATE (c:Concept {
-  id: string,
-  name: string,
-  category: string
-});
-
-CREATE (c:Concept)-[:RELATES_TO {
-  strength: float,
-  type: string
-}]->(c2:Concept);
-
-CREATE (c:Concept)-[:APPEARS_IN]->(d:Discussion);
-```
-
-### Query Patterns
-
-#### Agent Capability Discovery
-
-```cypher
-MATCH (a:Agent)-[:CAN_USE]->(t:Tool)
-WHERE a.id = $agentId
-RETURN t.id, t.name, t.capability;
-
-MATCH (a:Agent)-[:PARTICIPATES_IN]->(d:Discussion)
-WHERE d.status = 'active'
-RETURN a.id, d.id, d.title;
-```
-
-#### Knowledge Navigation
-
-```cypher
-MATCH (c:Concept)-[r:RELATES_TO]->(c2:Concept)
-WHERE c.id = $conceptId
-RETURN c2.id, c2.name, r.strength
-ORDER BY r.strength DESC
-LIMIT 10;
-```
-
-## Redis Architecture
-
-### Data Structures
-
-#### Session Management
-
-```typescript
-interface SessionCache {
-  key: `session:${string}`; // session:userId
-  value: {
-    token: string;
-    userData: object;
-    permissions: string[];
-  };
-  expiry: number; // TTL in seconds
-}
-```
-
-#### Real-time State
-
-```typescript
-interface OperationState {
-  key: `operation:${string}`; // operation:operationId
-  value: {
-    status: string;
-    progress: number;
-    lastUpdate: string;
-  };
-  expiry: 3600; // 1 hour TTL
-}
-```
-
-### Caching Patterns
-
-#### Request Caching
-
-```typescript
-class RequestCache {
-  async getCached(key: string): Promise<any> {
-    const cached = await redis.get(`cache:${key}`);
-    if (cached) {
-      metrics.increment('cache.hit');
-      return JSON.parse(cached);
-    }
-    metrics.increment('cache.miss');
-    return null;
-  }
-
-  async setCached(key: string, value: any, ttl: number): Promise<void> {
-    await redis.set(`cache:${key}`, JSON.stringify(value), 'EX', ttl);
-  }
-}
-```
-
-#### Rate Limiting
-
-```typescript
-class RateLimiter {
-  async checkLimit(key: string, limit: number, window: number): Promise<boolean> {
-    const current = await redis.incr(`ratelimit:${key}`);
-    if (current === 1) {
-      await redis.expire(`ratelimit:${key}`, window);
-    }
-    return current <= limit;
-  }
-}
-```
-
-## Data Management
-
-### Backup Strategy
-
-#### PostgreSQL Backups
+**No migration files exist.** Schema is applied directly via:
 
 ```bash
-# Full backup
-pg_dump -Fc -f backup.dump uaip_database
-
-# Incremental backup
-pg_dump -Fc --delta -f incremental.dump uaip_database
-
-# Restore
-pg_restore -d uaip_database backup.dump
+drizzle-kit push
 ```
 
-#### Neo4j Backups
+To generate migration files (if needed for production):
 
 ```bash
-# Full backup
-neo4j-admin backup --backup-dir=/backups --database=neo4j
-
-# Restore
-neo4j-admin restore --from=/backups --database=neo4j
+pnpm --filter @uaip/shared-services drizzle:generate
 ```
 
-### Data Migration
+Drizzle schema files ARE the source of truth — not SQL files or migration snapshots.
 
-#### Schema Migrations
+## Database Infrastructure
 
-```typescript
-interface Migration {
-  id: string;
-  name: string;
-  up: () => Promise<void>;
-  down: () => Promise<void>;
-}
+| Database | Version | Port(s) | Memory | Purpose |
+|---|---|---|---|---|
+| PostgreSQL | 18-alpine | 5432 | ~256MB | Primary ACID store |
+| Neo4j | 2025.04.0-community | 7474 (HTTP), 7687 (Bolt) | ~512MB | Graph relationships |
+| Qdrant | 1.14.1 | 6333 (HTTP), 6334 (gRPC) | ~512MB | Vector embeddings |
+| Redis | 8-alpine | 6379 | ~256MB | Cache + BullMQ event bus |
 
-class MigrationRunner {
-  async runMigration(migration: Migration): Promise<void> {
-    await this.beginTransaction();
-    try {
-      await migration.up();
-      await this.commitTransaction();
-    } catch (error) {
-      await this.rollbackTransaction();
-      throw error;
-    }
-  }
-}
+## Redis Usage
+
+Redis serves dual purposes:
+
+1. **Caching** — session storage, API response caching, relevance score caching
+2. **BullMQ Event Bus** — all inter-service async communication uses BullMQ queues on Redis Streams (see `apps/shared/infra/src/event_bus.ts`)
+
+## Connection Configuration
+
+All database connections configured via environment variables:
+
+```
+POSTGRES_URL=postgresql://user:pass@host:5432/dbname
+NEO4J_URL=bolt://host:7687
+NEO4J_USER / NEO4J_PASSWORD
+QDRANT_URL=http://host:6333
+REDIS_URL=redis://:pass@host:6379
 ```
 
-#### Data Transformations
+## Monitoring
 
-```typescript
-interface DataTransform {
-  sourceSchema: string;
-  targetSchema: string;
-  transformations: {
-    [key: string]: (value: any) => any;
-  };
-}
-
-class DataTransformer {
-  async transform(data: any[], transform: DataTransform): Promise<any[]> {
-    return data.map((item) => {
-      const transformed = {};
-      for (const [key, fn] of Object.entries(transform.transformations)) {
-        transformed[key] = fn(item[key]);
-      }
-      return transformed;
-    });
-  }
-}
-```
-
-## Monitoring and Maintenance
-
-### Health Checks
-
-```typescript
-interface DatabaseHealth {
-  postgres: {
-    status: 'healthy' | 'degraded' | 'failed';
-    connectionPool: {
-      active: number;
-      idle: number;
-      waiting: number;
-    };
-    replicationLag?: number;
-  };
-  neo4j: {
-    status: 'healthy' | 'degraded' | 'failed';
-    connections: number;
-    queryTime: number;
-  };
-  redis: {
-    status: 'healthy' | 'degraded' | 'failed';
-    usedMemory: number;
-    hitRate: number;
-  };
-}
-```
-
-### Performance Monitoring
-
-```typescript
-interface DatabaseMetrics {
-  queryLatency: {
-    avg: number;
-    p95: number;
-    p99: number;
-  };
-  connectionPool: {
-    utilization: number;
-    waitTime: number;
-  };
-  cacheEfficiency: {
-    hitRate: number;
-    missRate: number;
-    evictionRate: number;
-  };
-}
-```
-
-### Maintenance Tasks
-
-```typescript
-class DatabaseMaintenance {
-  async runVacuum(): Promise<void> {
-    await this.postgres.query('VACUUM ANALYZE');
-  }
-
-  async updateStatistics(): Promise<void> {
-    await this.postgres.query('ANALYZE');
-  }
-
-  async compactNeo4j(): Promise<void> {
-    await this.neo4j.run('CALL db.compact()');
-  }
-
-  async flushRedis(): Promise<void> {
-    await this.redis.flushdb();
-  }
-}
-```
+PostgreSQL metrics exported via `postgres-exporter` to Prometheus (port 9187). Dashboard available in Grafana at port 3000.

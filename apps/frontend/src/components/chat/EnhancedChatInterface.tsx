@@ -6,7 +6,7 @@ import { InfoIcon, BrainIcon } from 'lucide-react';
 import { SmartInputField } from './SmartInputField';
 import { PromptSuggestions } from './PromptSuggestions';
 import { ConversationTopicDisplay } from './ConversationTopicDisplay';
-import { useConversationIntelligence } from '@/hooks/useConversationIntelligence';
+import { useConversationIntelligence } from '@/hooks/use_conversation_intelligence';
 import { Intent } from '@uaip/types';
 
 interface Message {

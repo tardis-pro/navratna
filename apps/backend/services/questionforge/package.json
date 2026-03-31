@@ -1,0 +1,45 @@
+{
+  "name": "@uaip/questionforge",
+  "version": "1.0.0",
+  "description": "QuestionForge - Stakeholder Discovery Council Service",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && tsc-alias",
+    "dev": "bun --hot src/index.ts",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "nodemon": "catalog:backend",
+    "ts-node": "catalog:backend",
+    "tsc-alias": "catalog:backend",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "questionforge",
+    "stakeholder-discovery",
+    "microservice"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "legacy-service"
+    ]
+  }
+}

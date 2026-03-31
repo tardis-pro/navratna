@@ -1,7 +1,8 @@
 ---
 title: 'UAIP Strategic Vision — From Agent Platform to Metacognitive Business OS'
 date: 2026-03-21
-status: draft
+status: active
+last-verified: 2026-03-30
 sources:
   - brainstorming-session-2026-03-21-111555.md (362 ideas)
   - Telescope/Cognitive Shell session (88 ideas)
@@ -48,7 +49,7 @@ UAIP is a metacognitive business intelligence that knows what it knows, knows wh
 
 **What exists (10 months built):**
 
-- 9 production microservices, 57 database entities, 17 migrations
+- 3 running services (navratna-core, navratna-gateway, questionforge) consolidating 7 legacy feature modules via FeatureFactory; 57 database entities
 - Relevance engine (4-factor scoring, 383 lines)
 - MCP client/server (2,100+ lines, 10 transport types)
 - Orchestration pipeline (saga, checkpoints, rollback, approval gates)
@@ -56,7 +57,7 @@ UAIP is a metacognitive business intelligence that knows what it knows, knows wh
 - Discussion orchestration (WebSocket, turn strategies, consensus)
 - MaterializableBlock + 7-state microexpression system
 - IntentField (5 categories, fuzzy match, WebSocket suggestions)
-- 29 portal components, 50 shadcn/ui components, Framer Motion
+- Portals lazy-loaded via TelescopeSurface (DesktopUnified deleted), 50 shadcn/ui components, Framer Motion
 - Knowledge graph with triple-store sync
 
 **What's next:** See Roadmap below.
@@ -136,7 +137,7 @@ All items built. Item 0.5 deferred to Phase 2 by design. Updated 2026-03-22.
 ### 0.4 Unified Event Ledger
 
 - **Status:** ✅ Built. 22 event types defined in `packages/shared-types/src/events.ts` with Zod-based schema registry. UAIP Event Envelope includes actor, tenant, correlationId, version. Categories: Agent (2), Operation (5), Capability (2), Security (2), Approval (3), User (1), Audit (1), plus domain-specific types.
-- **Decision:** Resolved — extended existing event bus (not rebuilt). Event schema registry implemented via Zod validation.
+- **Decision:** Resolved — BullMQ on Redis Streams. RabbitMQ fully removed from source. Event schema registry implemented via Zod validation.
 - **Remaining:** Immutable ledger deferred to Phase 2.
 
 ### 0.5 Composable Block Primitive ("Cell")
@@ -147,6 +148,8 @@ All items built. Item 0.5 deferred to Phase 2 by design. Updated 2026-03-22.
 ## Phase 1: Beachhead (Months 3-6) — The "I Can't Go Back" Moment — ✅ COMPLETE
 
 All 5 items built 2026-03-22. Integration testing and wiring into production flows remains.
+
+**Note (2026-03-30)**: The `_bmad-output/strategic/uaip-platform-vision-2026.md` file shows Phase 1 items as "0% built" — that file is a stale brainstorm artifact frozen before implementation and should be ignored. This file (07-STRATEGIC-VISION-2026.md) is the canonical source.
 
 ### 1.1 Ambient Intelligence Layer
 

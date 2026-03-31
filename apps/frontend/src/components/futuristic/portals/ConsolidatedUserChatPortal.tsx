@@ -39,18 +39,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAgents } from '../../../contexts/AgentContext';
-import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
+import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 import {
   chatPersistenceService,
   ChatSession as _ChatSession,
   PersistentChatMessage as _PersistentChatMessage,
-} from '../../../services/ChatPersistenceService';
+} from '../../../services/chat_persistence_service';
 import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions as _PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay as _ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
@@ -195,10 +195,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
       try {
         // Load user's contacts
         const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
         });
 
         let userContacts: UserContact[] = [];
@@ -236,10 +234,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         // Update online status for user contacts
         try {
           const onlineResponse = await fetch('/api/v1/presence/online', {
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
           });
 
           if (onlineResponse.ok) {
@@ -266,10 +262,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         // If no user contacts, load some public users for demo
         if (userContacts.length === 0) {
           const publicResponse = await fetch('/api/v1/users/public?limit=10', {
-            headers: {
-              Authorization: `Bearer ${user.token}`,
-              'Content-Type': 'application/json',
-            },
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
           });
 
           if (publicResponse.ok) {
@@ -923,10 +917,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
     setIsLoadingUsers(true);
     try {
       const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (response.ok) {
@@ -960,10 +952,8 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
     try {
       const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${user.token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           targetUserId: targetUserId,
           type: 'FRIEND',

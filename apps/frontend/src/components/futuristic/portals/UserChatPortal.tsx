@@ -25,8 +25,7 @@ import {
   Loader,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -76,16 +75,6 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     socket,
   } = useEnhancedWebSocket();
 
-  // Helper to get auth token
-  const getAuthToken = () => {
-    const token = uaipAPI.client.getAuthToken();
-    if (!token) {
-      console.error('No authentication token available');
-      return null;
-    }
-    return token;
-  };
-
   // State Management
   const [contacts, setContacts] = useState<UserContact[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -118,15 +107,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     const loadContacts = async () => {
       try {
-        // Load user's contacts
-        const token = getAuthToken();
-        if (!token) return;
-
         const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
         });
 
         if (contactsResponse.ok) {
@@ -146,10 +129,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           // Load online users to update status (if endpoint exists)
           try {
             const onlineResponse = await fetch('/api/v1/presence/online', {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
             });
 
             if (onlineResponse.ok) {
@@ -174,10 +155,8 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           // If no contacts, load some public users for demo
           if (userContacts.length === 0) {
             const publicResponse = await fetch('/api/v1/users/public?limit=10', {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
             });
 
             if (publicResponse.ok) {
@@ -222,14 +201,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     const loadConversation = async () => {
       try {
-        const token = getAuthToken();
-        if (!token) return;
-
         const response = await fetch(`/api/conversations/${activeChat}?limit=50`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
         });
 
         if (response.ok) {
@@ -502,16 +476,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     setCurrentMessage('');
 
     try {
-      // Send message via API
-      const token = getAuthToken();
-      if (!token) return;
-
       const response = await fetch('/api/messages', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           receiverId: activeChat,
           content: messageContent,
@@ -573,14 +541,9 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     setIsLoadingUsers(true);
     try {
-      const token = getAuthToken();
-      if (!token) return;
-
       const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (response.ok) {
@@ -613,15 +576,10 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     if (!user) return;
 
     try {
-      const token = getAuthToken();
-      if (!token) return;
-
       const response = await fetch('/api/v1/contacts/request', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           targetUserId: targetUserId,
           type: 'FRIEND',

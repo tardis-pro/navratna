@@ -1,63 +1,71 @@
-FROM node:20 AS development
+FROM node:20-alpine AS development
 
-# Install pnpm globally
+RUN apk add --no-cache curl
 RUN npm install -g pnpm
 
-# Set working directory
 WORKDIR /app
+RUN addgroup -g 1001 nodejs && \
+    adduser -u 1001 -G nodejs -D frontend
 
-# Create non-root user for security
-RUN addgroup -gid 1001 nodejs && \
-    adduser -u 1001 -ingroup nodejs -disabled-login frontend
-
-# Copy root workspace files first (as root)
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
 COPY tsconfig.json ./
+COPY tsconfig.base.json ./
+COPY nx.json ./
 
-# Copy shared packages
-COPY packages/ ./packages/
+COPY apps/packages/ ./apps/packages/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/frontend/tsconfig.json ./apps/frontend/
+COPY apps/frontend/tsconfig.app.json ./apps/frontend/
+COPY apps/frontend/vite.config.ts ./apps/frontend/
+COPY apps/frontend/index.html ./apps/frontend/
 
-# Copy frontend app
-COPY apps/frontend/ ./apps/frontend/
-
-# Change ownership to frontend user
 RUN chown -R frontend:nodejs /app
-
-# Switch to frontend user
 USER frontend
 
-# Install all dependencies (this will install workspace dependencies)
-RUN echo "Installing dependencies..." && \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
-# Build shared packages first (required for frontend)
-RUN echo "Building shared packages..." && \
-    pnpm build:shared
+RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/contracts
 
-# Verify shared packages are built correctly
-RUN echo "Verifying shared packages..." && \
-    ls -la packages/shared-types/dist/ && \
-    ls -la packages/shared-utils/dist/ && \
-    echo "Shared packages verification complete"
-
-# Change to frontend directory
 WORKDIR /app/apps/frontend
 
-# Verify frontend dependencies
-RUN echo "Verifying frontend setup..." && \
-    ls -la package.json && \
-    ls -la src/main.tsx && \
-    ls -la index.html && \
-    echo "Frontend verification complete"
-
-# Expose port
 EXPOSE 5173
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:5173 || exit 1
 
-# Start development server with hot reloading
-CMD ["sh", "-c", "echo 'Starting frontend development server...' && pnpm dev --host 0.0.0.0 --port 5173"] 
+CMD ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5173"]
+
+
+FROM node:20-alpine AS production
+
+RUN apk add --no-cache curl
+RUN npm install -g pnpm
+
+WORKDIR /app
+RUN addgroup -g 1001 nodejs && \
+    adduser -u 1001 -G nodejs -D frontend
+
+COPY pnpm-workspace.yaml ./
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
+COPY tsconfig.base.json ./
+COPY nx.json ./
+
+COPY apps/packages/ ./apps/packages/
+COPY apps/frontend/ ./apps/frontend/
+
+RUN chown -R frontend:nodejs /app
+USER frontend
+
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/contracts
+RUN pnpm nx run @council/frontend:build
+
+FROM nginx:alpine AS production-serve
+COPY --from=production /app/apps/frontend/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

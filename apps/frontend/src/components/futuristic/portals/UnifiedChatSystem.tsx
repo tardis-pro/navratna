@@ -2,15 +2,14 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAgents } from '../../../contexts/AgentContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import { uaipAPI } from '../../../utils/uaip-api';
+import { uaipAPI } from '../../../utils/uaip_api';
 import { DiscussionTrigger } from '../../DiscussionTrigger';
-import { useEnhancedWebSocket } from '../../../hooks/useEnhancedWebSocket';
-import { discussionsAPI } from '../../../api/discussions.api';
+import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
+import { discussionsAPI } from '../../../api/discussions_api';
 import { SmartInputField } from '../../chat/SmartInputField';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
-import { useConversationIntelligence } from '../../../hooks/useConversationIntelligence';
-import '../../../styles/ai-sidekick.css';
+import { useConversationIntelligence } from '../../../hooks/use_conversation_intelligence';
 import {
   MessageSquare,
   Bot,
@@ -241,6 +240,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   // Track which agents have open windows to ensure uniqueness
   const openAgentWindows = useRef<Set<string>>(new Set());
+
+  function openChatWindow(agentId: string, agentName: string): void {
+    void openChatWindowImpl(agentId, agentName);
+  }
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const agentList = Object.values(agents);
@@ -488,7 +491,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   );
 
   // Define openChatWindow function before it's used
-  const openChatWindow = useCallback(
+  const openChatWindowImpl = useCallback(
     async (agentId: string, agentName: string) => {
       // Check if chat window already exists for this agent
       if (openAgentWindows.current.has(agentId)) {

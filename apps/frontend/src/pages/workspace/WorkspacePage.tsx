@@ -5,8 +5,9 @@ import { GitBranch, Github, Plus, RefreshCw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { APIClient } from '@/api/client';
-import { llmAPI } from '@/api/llm.api';
-import { projectsAPI } from '@/api/projects.api';
+import { llmAPI } from '@/api/llm_api';
+import { projectsAPI } from '@/api/projects_api';
+import { STALE_TIMES } from '@/api/query_config';
 import { useAuth } from '@/contexts/AuthContext';
 import { LLMProviderType } from '@uaip/types';
 
@@ -94,6 +95,7 @@ export default function WorkspacePage() {
   } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsAPI.get(projectId),
+    staleTime: STALE_TIMES.SLOW,
   });
 
   const {
@@ -103,6 +105,7 @@ export default function WorkspacePage() {
   } = useQuery({
     queryKey: ['llmProviders', 'user'],
     queryFn: () => llmAPI.userLLM.listProviders(),
+    staleTime: STALE_TIMES.STATIC,
   });
 
   const providerCatalog = useMemo(() => {

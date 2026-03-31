@@ -1,0 +1,71 @@
+{
+  "name": "@uaip/orchestration-pipeline",
+  "version": "1.0.0",
+  "description": "UAIP Orchestration Pipeline Service - Operation execution and workflow coordination",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "bun --hot src/index.ts",
+    "clean": "rimraf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage",
+    "lint": "oxlint src/**/*.ts",
+    "lint:fix": "oxlint --fix src/**/*.ts",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "axios": "catalog:backend",
+    "bcryptjs": "^3.0.2",
+    "bull": "^4.16.5",
+    "compression": "catalog:backend",
+    "cors": "catalog:backend",
+    "elysia": "catalog:backend",
+    "events": "^3.3.0",
+    "gray-matter": "^4.0.3",
+    "helmet": "catalog:backend",
+    "node-cron": "^4.1.0",
+    "prom-client": "catalog:backend",
+    "ws": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/compression": "catalog:backend",
+    "@types/cors": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "@types/ws": "catalog:backend",
+    "concurrently": "catalog:dev",
+    "nodemon": "catalog:backend",
+    "supertest": "^7.0.0",
+    "vitest": "catalog:backend",
+    "@vitest/coverage-v8": "catalog:backend",
+    "ts-node": "catalog:backend",
+    "tsc-alias": "catalog:backend",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "orchestration",
+    "pipeline",
+    "workflow",
+    "microservice"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "legacy-service"
+    ]
+  }
+}

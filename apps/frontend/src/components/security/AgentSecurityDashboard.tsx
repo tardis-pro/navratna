@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/components/ui/use-toast';
+import { ScrollArea } from '@/components/ui/scroll_area';
+import { useToast } from '@/components/ui/use_toast';
 import { useSecurity } from '@/contexts/SecurityContext';
 import {
   Shield,
@@ -39,6 +39,7 @@ import {
   Legend,
 } from 'recharts';
 import { RiskLevel, AgentCapability, AuditEventType } from '@uaip/types';
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 
 interface _SecurityMetrics {
   overallScore: number;
@@ -86,14 +87,6 @@ const RISK_COLORS = {
 
 const _CHART_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899'];
 
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
-
 interface AgentSecurityDashboardProps {
   className?: string;
   viewport?: ViewportSize;
@@ -116,23 +109,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
   const [selectedTab, setSelectedTab] = useState('overview');
   const { toast } = useToast();
 
-  // Default viewport if not provided - memoized to prevent infinite re-renders
-  const _currentViewport = useMemo(() => {
-    if (viewport) return viewport;
-
-    const defaultViewport: ViewportSize = {
-      width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-      height: typeof window !== 'undefined' ? window.innerHeight : 768,
-      isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-      isTablet:
-        typeof window !== 'undefined'
-          ? window.innerWidth >= 768 && window.innerWidth < 1024
-          : false,
-      isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-    };
-
-    return defaultViewport;
-  }, [viewport]);
+  const _currentViewport = useViewport(viewport);
 
   const fetchSecurityData = useCallback(async () => {
     try {
@@ -520,6 +497,29 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
     );
   };
 
+  const renderTimeRangeButtons = (variant: 'dashboard' | 'portal') => {
+    const containerCls =
+      variant === 'portal'
+        ? 'flex items-center gap-1 bg-slate-800/50 border border-slate-700/50 rounded-lg p-1'
+        : 'flex items-center gap-1 border rounded-lg';
+    const btnCls = variant === 'portal' ? 'text-xs' : '';
+    return (
+      <div className={containerCls}>
+        {(['24h', '7d', '30d'] as const).map((range) => (
+          <Button
+            key={range}
+            variant={timeRange === range ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setTimeRange(range)}
+            className={btnCls}
+          >
+            {range}
+          </Button>
+        ))}
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -545,29 +545,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 border rounded-lg">
-              <Button
-                variant={timeRange === '24h' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('24h')}
-              >
-                24h
-              </Button>
-              <Button
-                variant={timeRange === '7d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('7d')}
-              >
-                7d
-              </Button>
-              <Button
-                variant={timeRange === '30d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('30d')}
-              >
-                30d
-              </Button>
-            </div>
+            {renderTimeRangeButtons('dashboard')}
 
             <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
@@ -590,32 +568,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           className="flex items-center justify-between mb-4"
         >
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-800/50 border border-slate-700/50 rounded-lg p-1">
-              <Button
-                variant={timeRange === '24h' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('24h')}
-                className="text-xs"
-              >
-                24h
-              </Button>
-              <Button
-                variant={timeRange === '7d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('7d')}
-                className="text-xs"
-              >
-                7d
-              </Button>
-              <Button
-                variant={timeRange === '30d' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTimeRange('30d')}
-                className="text-xs"
-              >
-                30d
-              </Button>
-            </div>
+            {renderTimeRangeButtons('portal')}
           </div>
 
           <div className="flex items-center gap-2">

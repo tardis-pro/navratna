@@ -1,14 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
-import { X, Maximize2, Minimize2, Move, _Settings } from 'lucide-react';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+import { motion, useMotionValue, useTransform, AnimatePresence, type PanInfo } from 'framer-motion';
+import { X, Maximize2, Minimize2, Move } from 'lucide-react';
+import { type ViewportSize, useViewport } from '@/hooks/use_viewport';
 
 export interface PortalProps {
   id: string;
@@ -85,7 +78,7 @@ const portalTypeStyles: Record<
 };
 
 export const Portal: React.FC<PortalProps> = ({
-  _id,
+  id: _id,
   type,
   title,
   children,
@@ -99,17 +92,7 @@ export const Portal: React.FC<PortalProps> = ({
   className = '',
   viewport,
 }) => {
-  // Default viewport if not provided
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   const [state, setState] = useState<PortalState>({
     position: initialPosition,
@@ -161,7 +144,7 @@ export const Portal: React.FC<PortalProps> = ({
     onFocus?.();
   };
 
-  const _handleDragEnd = (event: unknown, info: unknown) => {
+  const handleDragEnd = (_event: unknown, info: PanInfo) => {
     setState((prev) => ({
       ...prev,
       isDragging: false,
@@ -179,18 +162,6 @@ export const Portal: React.FC<PortalProps> = ({
     onFocus?.();
   };
 
-  const handleHeaderDragEnd = (event: unknown, info: unknown) => {
-    setState((prev) => ({
-      ...prev,
-      isDragging: false,
-      position: {
-        x: info.point.x - info.offset.x,
-        y: info.point.y - info.offset.y,
-      },
-    }));
-    setIsDragFromHeader(false);
-  };
-
   const handleResizeStart = () => {
     setState((prev) => ({ ...prev, isResizing: true, isActive: true }));
     onFocus?.();
@@ -200,31 +171,125 @@ export const Portal: React.FC<PortalProps> = ({
     setState((prev) => ({ ...prev, isResizing: false }));
   };
 
-  const handleResize = (event: unknown, info: unknown) => {
-    if (!info || !info.delta) return;
-
+  const handleResize = (_event: unknown, info: PanInfo) => {
     const minWidth = currentViewport.isMobile ? 300 : 350;
     const minHeight = currentViewport.isMobile ? 200 : 250;
     const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
     const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
+    setState((prev) => ({ ...prev, size: { width: newWidth, height: newHeight } }));
+  };
 
-    const newWidth = Math.max(
-      minWidth,
-      Math.min(maxWidth, (state.size?.width || 400) + info.delta.x)
-    );
-    const newHeight = Math.max(
-      minHeight,
-      Math.min(maxHeight, (state.size?.height || 300) + info.delta.y)
-    );
+  const shiftedPosition = (prev: PortalState, dx: number, dy: number) => ({
+    x: (prev.position?.x || 0) + dx,
+    y: (prev.position?.y || 0) + dy,
+  });
 
+  const handleRightEdgeDrag = (_event: unknown, info: PanInfo) => {
+    const minWidth = 350;
+    const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+    setState((prev) => ({ ...prev, size: { ...prev.size, width: newWidth } }));
+  };
+
+  const handleBottomEdgeDrag = (_event: unknown, info: PanInfo) => {
+    const minHeight = 250;
+    const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
+    setState((prev) => ({ ...prev, size: { ...prev.size, height: newHeight } }));
+  };
+
+  const applyCornerDrag = (newWidth: number, newHeight: number, dx: number, dy: number) => {
     setState((prev) => ({
       ...prev,
-      size: {
-        width: newWidth,
-        height: newHeight,
-      },
+      size: { width: newWidth, height: newHeight },
+      position: shiftedPosition(prev, dx, dy),
     }));
   };
+
+  const handleTopRightCornerDrag = (_event: unknown, info: PanInfo) => {
+    const minWidth = 350;
+    const minHeight = 250;
+    const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
+    const newWidth = Math.max(minWidth, Math.min(maxWidth, (state.size?.width || 400) + info.delta.x));
+    const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
+    applyCornerDrag(newWidth, newHeight, 0, info.delta.y);
+  };
+
+  const handleBottomLeftCornerDrag = (_event: unknown, info: PanInfo) => {
+    const minWidth = 350;
+    const minHeight = 250;
+    const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
+    const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, (state.size?.height || 300) + info.delta.y));
+    applyCornerDrag(newWidth, newHeight, info.delta.x, 0);
+  };
+
+  const handleTopLeftCornerDrag = (_event: unknown, info: PanInfo) => {
+    const minWidth = 350;
+    const minHeight = 250;
+    const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+    const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
+    applyCornerDrag(newWidth, newHeight, info.delta.x, info.delta.y);
+  };
+
+  const handleLeftEdgeDrag = (_event: unknown, info: PanInfo) => {
+    const minWidth = 350;
+    const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
+    setState((prev) => ({
+      ...prev,
+      size: { ...prev.size, width: newWidth },
+      position: shiftedPosition(prev, info.delta.x, 0),
+    }));
+  };
+
+  const handleTopEdgeDrag = (_event: unknown, info: PanInfo) => {
+    const minHeight = 250;
+    const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
+    setState((prev) => ({
+      ...prev,
+      size: { ...prev.size, height: newHeight },
+      position: shiftedPosition(prev, 0, info.delta.y),
+    }));
+  };
+
+  const renderCornerHandleContent = (roundedClass: string) => (
+    <div className={`w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 ${roundedClass} border-2 border-white/40 shadow-md backdrop-blur-sm`} />
+  );
+
+  const renderEdgeHandleContent = (edge: 'right' | 'bottom' | 'left' | 'top') => {
+    const cfg = {
+      right:  { border: 'border-r-2 border-white/40', bg: 'bg-white/20', hover: 'group-hover:bg-blue-500/60', shadow: 'shadow-md', rounded: 'rounded-l-sm' },
+      bottom: { border: 'border-b-2 border-white/40', bg: 'bg-white/20', hover: 'group-hover:bg-blue-500/60', shadow: 'shadow-md', rounded: 'rounded-t-sm' },
+      left:   { border: 'border-l-2 border-white/30', bg: 'bg-white/15', hover: 'group-hover:bg-blue-500/40', shadow: 'shadow-sm', rounded: 'rounded-r-sm' },
+      top:    { border: 'border-t-2 border-white/30', bg: 'bg-white/15', hover: 'group-hover:bg-blue-500/40', shadow: 'shadow-sm', rounded: 'rounded-b-sm' },
+    }[edge];
+    return <div className={`w-full h-full ${cfg.bg} ${cfg.hover} transition-all duration-200 ${cfg.border} ${cfg.shadow} backdrop-blur-sm ${cfg.rounded}`} />;
+  };
+
+  const renderResizeHandle = (
+    drag: boolean | 'x' | 'y',
+    onDrag: (event: unknown, info: unknown) => void,
+    className: string,
+    children: React.ReactNode,
+    whileHover?: { scale?: number }
+  ) => (
+    <motion.div
+      drag={drag}
+      dragMomentum={false}
+      dragConstraints={false}
+      dragElastic={0}
+      onDragStart={handleResizeStart}
+      onDragEnd={handleResizeEnd}
+      onDrag={onDrag}
+      className={className}
+      style={{ touchAction: 'none' }}
+      whileHover={whileHover}
+    >
+      {children}
+    </motion.div>
+  );
 
   const handleMaximize = () => {
     const padding = currentViewport.isMobile ? 10 : 50;
@@ -356,7 +421,7 @@ export const Portal: React.FC<PortalProps> = ({
             dragElastic={0}
             dragPropagation={true}
             onDragStart={handleHeaderDragStart}
-            onDragEnd={handleHeaderDragEnd}
+            onDragEnd={handleDragEnd}
             onDrag={(event, info) => {
               if (!info || !info.point || !info.offset) return;
               setState((prev) => ({
@@ -381,7 +446,7 @@ export const Portal: React.FC<PortalProps> = ({
                 className={`font-semibold ${styles.accent} ${currentViewport.isMobile ? 'text-sm' : 'text-base'}`}
               >
                 {title}
-                {process.env.NODE_ENV === 'development' && (
+                {import.meta.env.DEV && (
                   <span className="ml-2 text-xs text-slate-500 bg-slate-800 px-1 rounded">
                     z:{state.zIndex}
                   </span>
@@ -482,241 +547,39 @@ export const Portal: React.FC<PortalProps> = ({
               className="h-full overflow-auto p-4 md:p-6"
               onClick={(e) => {
                 e.stopPropagation();
-                handlePortalFocus(e as unknown);
+                handlePortalFocus(e);
               }}
             >
               {children}
             </div>
           </div>
 
-          {/* Enhanced Resize Handle (Desktop only) */}
-          {!currentViewport.isMobile && !state.isMaximized && (
-            <motion.div
-              drag
-              dragMomentum={false}
-              dragConstraints={false}
-              dragElastic={0}
-              onDragStart={handleResizeStart}
-              onDragEnd={handleResizeEnd}
-              onDrag={handleResize}
-              className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize z-20 group"
-              whileHover={{ scale: 1.15 }}
-              style={{ touchAction: 'none' }}
-            >
-              <div
-                className={`w-full h-full bg-gradient-to-br ${styles.gradient} rounded-tl-xl opacity-60 group-hover:opacity-90 transition-all duration-200 flex items-center justify-center border-t border-l ${styles.border} shadow-xl backdrop-blur-sm`}
-              >
-                <div className="flex flex-col items-center justify-center space-y-0.5">
-                  <div className="flex space-x-0.5">
-                    <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                    <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                  </div>
-                  <div className="flex space-x-0.5">
-                    <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                    <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Additional Resize Handles for better UX */}
           {!currentViewport.isMobile && !state.isMaximized && (
             <>
-              {/* Right edge resize handle */}
-              <motion.div
-                drag="x"
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
-                  const newWidth = Math.max(
-                    minWidth,
-                    Math.min(maxWidth, (state.size?.width || 400) + info.delta.x)
-                  );
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, width: newWidth },
-                  }));
-                }}
-                className="absolute top-4 right-0 bottom-4 w-4 cursor-ew-resize z-10 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/20 group-hover:bg-blue-500/60 transition-all duration-200 border-r-2 border-white/40 shadow-md backdrop-blur-sm rounded-l-sm" />
-              </motion.div>
-
-              {/* Bottom edge resize handle */}
-              <motion.div
-                drag="y"
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minHeight = 250;
-                  const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
-                  const newHeight = Math.max(
-                    minHeight,
-                    Math.min(maxHeight, (state.size?.height || 300) + info.delta.y)
-                  );
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, height: newHeight },
-                  }));
-                }}
-                className="absolute bottom-0 left-4 right-4 h-4 cursor-ns-resize z-10 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/20 group-hover:bg-blue-500/60 transition-all duration-200 border-b-2 border-white/40 shadow-md backdrop-blur-sm rounded-t-sm" />
-              </motion.div>
-
-              {/* Additional corner resize handles */}
-              {/* Top-right corner */}
-              <motion.div
-                drag
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const minHeight = 250;
-                  const maxWidth = currentViewport.width - (state.position?.x || 0) - 20;
-                  const newWidth = Math.max(
-                    minWidth,
-                    Math.min(maxWidth, (state.size?.width || 400) + info.delta.x)
-                  );
-                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
-
-                  setState((prev) => ({
-                    ...prev,
-                    size: { width: newWidth, height: newHeight },
-                    position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y },
-                  }));
-                }}
-                className="absolute top-0 right-0 w-5 h-5 cursor-ne-resize z-15 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 rounded-bl-lg border-2 border-white/40 shadow-md backdrop-blur-sm" />
-              </motion.div>
-
-              {/* Bottom-left corner */}
-              <motion.div
-                drag
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const minHeight = 250;
-                  const maxHeight = currentViewport.height - (state.position?.y || 0) - 20;
-                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
-                  const newHeight = Math.max(
-                    minHeight,
-                    Math.min(maxHeight, (state.size?.height || 300) + info.delta.y)
-                  );
-
-                  setState((prev) => ({
-                    ...prev,
-                    size: { width: newWidth, height: newHeight },
-                    position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x },
-                  }));
-                }}
-                className="absolute bottom-0 left-0 w-5 h-5 cursor-sw-resize z-15 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 rounded-tr-lg border-2 border-white/40 shadow-md backdrop-blur-sm" />
-              </motion.div>
-
-              {/* Top-left corner */}
-              <motion.div
-                drag
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const minHeight = 250;
-                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
-                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
-
-                  setState((prev) => ({
-                    ...prev,
-                    size: { width: newWidth, height: newHeight },
-                    position: {
-                      x: (prev.position?.x || 0) + info.delta.x,
-                      y: (prev.position?.y || 0) + info.delta.y,
-                    },
-                  }));
-                }}
-                className="absolute top-0 left-0 w-5 h-5 cursor-nw-resize z-15 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/25 group-hover:bg-blue-500/50 transition-all duration-200 rounded-br-lg border-2 border-white/40 shadow-md backdrop-blur-sm" />
-              </motion.div>
-
-              {/* Left edge resize handle */}
-              <motion.div
-                drag="x"
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minWidth = 350;
-                  const newWidth = Math.max(minWidth, (state.size?.width || 400) - info.delta.x);
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, width: newWidth },
-                    position: { ...prev.position, x: (prev.position?.x || 0) + info.delta.x },
-                  }));
-                }}
-                className="absolute top-4 left-0 bottom-4 w-3 cursor-ew-resize z-10 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/15 group-hover:bg-blue-500/40 transition-all duration-200 border-l-2 border-white/30 shadow-sm backdrop-blur-sm rounded-r-sm" />
-              </motion.div>
-
-              {/* Top edge resize handle */}
-              <motion.div
-                drag="y"
-                dragMomentum={false}
-                dragConstraints={false}
-                dragElastic={0}
-                onDragStart={handleResizeStart}
-                onDragEnd={handleResizeEnd}
-                onDrag={(event: unknown, info: unknown) => {
-                  if (!info || !info.delta) return;
-                  const minHeight = 250;
-                  const newHeight = Math.max(minHeight, (state.size?.height || 300) - info.delta.y);
-                  setState((prev) => ({
-                    ...prev,
-                    size: { ...prev.size, height: newHeight },
-                    position: { ...prev.position, y: (prev.position?.y || 0) + info.delta.y },
-                  }));
-                }}
-                className="absolute top-0 left-4 right-4 h-3 cursor-ns-resize z-10 group"
-                style={{ touchAction: 'none' }}
-              >
-                <div className="w-full h-full bg-white/15 group-hover:bg-blue-500/40 transition-all duration-200 border-t-2 border-white/30 shadow-sm backdrop-blur-sm rounded-b-sm" />
-              </motion.div>
+              {renderResizeHandle(
+                true, handleResize,
+                'absolute bottom-0 right-0 w-6 h-6 cursor-se-resize z-20 group',
+                <div className={`w-full h-full bg-gradient-to-br ${styles.gradient} rounded-tl-xl opacity-60 group-hover:opacity-90 transition-all duration-200 flex items-center justify-center border-t border-l ${styles.border} shadow-xl backdrop-blur-sm`}>
+                  <div className="flex flex-col items-center justify-center space-y-0.5">
+                    <div className="flex space-x-0.5">
+                      <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
+                      <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
+                    </div>
+                    <div className="flex space-x-0.5">
+                      <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
+                      <div className="w-0.5 h-0.5 bg-white/80 rounded-full" />
+                    </div>
+                  </div>
+                </div>,
+                { scale: 1.15 }
+              )}
+              {renderResizeHandle('x', handleRightEdgeDrag,  'absolute top-4 right-0 bottom-4 w-4 cursor-ew-resize z-10 group', renderEdgeHandleContent('right'))}
+              {renderResizeHandle('y', handleBottomEdgeDrag, 'absolute bottom-0 left-4 right-4 h-4 cursor-ns-resize z-10 group', renderEdgeHandleContent('bottom'))}
+              {renderResizeHandle('x', handleLeftEdgeDrag,   'absolute top-4 left-0 bottom-4 w-3 cursor-ew-resize z-10 group', renderEdgeHandleContent('left'))}
+              {renderResizeHandle('y', handleTopEdgeDrag,    'absolute top-0 left-4 right-4 h-3 cursor-ns-resize z-10 group', renderEdgeHandleContent('top'))}
+              {renderResizeHandle(true, handleTopRightCornerDrag,   'absolute top-0 right-0 w-5 h-5 cursor-ne-resize z-15 group', renderCornerHandleContent('rounded-bl-lg'))}
+              {renderResizeHandle(true, handleBottomLeftCornerDrag, 'absolute bottom-0 left-0 w-5 h-5 cursor-sw-resize z-15 group', renderCornerHandleContent('rounded-tr-lg'))}
+              {renderResizeHandle(true, handleTopLeftCornerDrag,    'absolute top-0 left-0 w-5 h-5 cursor-nw-resize z-15 group', renderCornerHandleContent('rounded-br-lg'))}
             </>
           )}
         </motion.div>

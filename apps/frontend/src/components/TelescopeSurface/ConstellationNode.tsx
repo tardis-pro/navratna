@@ -4,11 +4,11 @@ import { useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, ChevronDown, ChevronRight, Tag } from 'lucide-react';
 import type { ConstellationHealth, ConstellationItem } from '@uaip/types';
-import type { BlockVisibility } from '@/components/MaterializableBlock/MaterializableBlock.types';
+import type { BlockVisibility } from '@/components/MaterializableBlock/materializable_block_types';
 import { MicroexpressionIndicator } from '@/components/Microexpression/Microexpression';
-import { useKnowledgeMicroexpression } from '@/hooks/useKnowledgeMicroexpression';
+import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpression';
 import { cn } from '@/lib/utils';
-import type { ConstellationBlockData } from './TelescopeSurface.types';
+import type { ConstellationBlockData } from './telescope_surface_types';
 
 export interface ConstellationNodeProps {
   block: ConstellationBlockData;
@@ -75,7 +75,7 @@ const HEALTH_COLORS: Record<
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function getRelevanceScale(relevanceScore: number): number {
-  return 0.3 + relevanceScore * 1.2;
+  return 0.75 + relevanceScore * 0.25;
 }
 
 function getRelevanceBlur(relevanceScore: number): number {
@@ -184,6 +184,16 @@ export function ConstellationNode({
     onClick?.(constellationId);
   }, [onClick, constellationId]);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick?.(constellationId);
+      }
+    },
+    [onClick, constellationId]
+  );
+
   const handleExpand = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
@@ -220,6 +230,7 @@ export function ConstellationNode({
       }}
       transition={SPRING_TRANSITION}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       className={cn(
         'relative flex flex-col rounded-xl border-2 cursor-pointer overflow-hidden',
         'w-72 select-none',
@@ -229,7 +240,7 @@ export function ConstellationNode({
         backgroundColor: healthColors.bg,
         borderColor: healthColors.border,
         boxShadow: `0 0 16px ${healthColors.glow}`,
-        transformOrigin: 'center center',
+        transformOrigin: 'top left',
       }}
       role="article"
       aria-label={`Constellation: ${constellationName}`}

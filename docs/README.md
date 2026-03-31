@@ -52,7 +52,7 @@
 
 - `project/ROADMAP.md` - Long-term roadmap
 - `project/NEXT_PHASES.md` - Near-term sprint plan
-- `project/WORK_LOG.md` - Work log and delivery notes
+- ~~`project/WORK_LOG.md`~~ - Deleted 2026-03-30 (stale)
 - `project/CHANGELOG.md` - Versioned changelog
 - `project/CONTRIBUTING.md` - Contribution guidelines
 - `project/MIGRATION_GUIDE.md` - Migration notes

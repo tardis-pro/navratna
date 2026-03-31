@@ -2,13 +2,12 @@
   "files": [],
   "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@uaip/types": ["../../packages/shared-types/src"],
-      "@uaip/types/*": ["../../packages/shared-types/src/*"],
-      "@uaip/utils": ["../../packages/shared-utils/src"],
-      "@uaip/utils/*": ["../../packages/shared-utils/src/*"]
+      "@uaip/types": ["../packages/shared-types/src"],
+      "@uaip/types/*": ["../packages/shared-types/src/*"],
+      "@uaip/utils": ["../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../packages/shared-utils/src/*"]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,

@@ -36,6 +36,15 @@ export interface UseRedlineGaugeReturn {
 const PORTAL_OPEN_EVENT = 'uaip:portal:open';
 const PORTAL_CLOSE_EVENT = 'uaip:portal:close';
 
+function bindPortalListeners(onOpen: (e: Event) => void, onClose: (e: Event) => void): () => void {
+  window.addEventListener(PORTAL_OPEN_EVENT, onOpen);
+  window.addEventListener(PORTAL_CLOSE_EVENT, onClose);
+  return () => {
+    window.removeEventListener(PORTAL_OPEN_EVENT, onOpen);
+    window.removeEventListener(PORTAL_CLOSE_EVENT, onClose);
+  };
+}
+
 export interface PortalOpenDetail {
   id: string;
   label: string;
@@ -44,6 +53,22 @@ export interface PortalOpenDetail {
 
 export interface PortalCloseDetail {
   id: string;
+}
+
+function appendUniquePortal(
+  current: PortalInfo[],
+  incoming: Omit<PortalInfo, 'timestamp'>,
+  maxBudget?: number
+): PortalInfo[] {
+  if (current.some((portal) => portal.id === incoming.id)) {
+    return current;
+  }
+
+  if (typeof maxBudget === 'number' && current.length >= maxBudget) {
+    return current;
+  }
+
+  return [...current, { ...incoming, timestamp: Date.now() }];
 }
 
 /** Dispatch a custom event to open a portal. */
@@ -145,10 +170,7 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
       };
       const accepted = budget.requestSlot(item);
       if (accepted) {
-        setPortals((prev) => {
-          if (prev.some((p) => p.id === portal.id)) return prev;
-          return [...prev, { ...portal, timestamp: Date.now() }];
-        });
+        setPortals((prev) => appendUniquePortal(prev, portal));
       }
     },
     [budget]
@@ -174,13 +196,7 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
       removePortal(detail.id);
     };
 
-    window.addEventListener(PORTAL_OPEN_EVENT, handleOpen);
-    window.addEventListener(PORTAL_CLOSE_EVENT, handleClose);
-
-    return () => {
-      window.removeEventListener(PORTAL_OPEN_EVENT, handleOpen);
-      window.removeEventListener(PORTAL_CLOSE_EVENT, handleClose);
-    };
+    return bindPortalListeners(handleOpen, handleClose);
   }, [syncPortalToBudget, removePortal]);
 
   // Cleanup toast timer
@@ -256,9 +272,7 @@ export function useRedlineGauge(maxBudget: number = 4): UseRedlineGaugeReturn {
     const handleOpen = (e: Event) => {
       const detail = (e as CustomEvent<PortalOpenDetail>).detail;
       setPortals((prev) => {
-        if (prev.some((p) => p.id === detail.id)) return prev;
-        if (prev.length >= maxBudget) return prev;
-        return [...prev, { ...detail, timestamp: Date.now() }];
+        return appendUniquePortal(prev, detail, maxBudget);
       });
     };
 
@@ -267,13 +281,7 @@ export function useRedlineGauge(maxBudget: number = 4): UseRedlineGaugeReturn {
       setPortals((prev) => prev.filter((p) => p.id !== detail.id));
     };
 
-    window.addEventListener(PORTAL_OPEN_EVENT, handleOpen);
-    window.addEventListener(PORTAL_CLOSE_EVENT, handleClose);
-
-    return () => {
-      window.removeEventListener(PORTAL_OPEN_EVENT, handleOpen);
-      window.removeEventListener(PORTAL_CLOSE_EVENT, handleClose);
-    };
+    return bindPortalListeners(handleOpen, handleClose);
   }, [maxBudget]);
 
   return {

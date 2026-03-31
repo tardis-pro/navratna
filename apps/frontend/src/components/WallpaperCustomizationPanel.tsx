@@ -16,12 +16,12 @@ import {
   Monitor,
   Shuffle,
   Timer,
-  _ChevronLeft,
-  _ChevronRight,
   Info,
 } from 'lucide-react';
-import { useWallpaper } from '../hooks/useWallpaper';
-import { LocationData } from '../services/LocationService';
+import { useWallpaper } from '../hooks/use_wallpaper';
+import { LocationData } from '../services/location_service';
+import { DESIGN_TOKENS } from './TaskDesignTokens';
+import { Button } from './TaskButton';
 
 interface WallpaperCustomizationPanelProps {
   useMapWallpaper: boolean;
@@ -32,68 +32,6 @@ interface WallpaperCustomizationPanelProps {
   onRefreshWeather: () => void;
   onClose: () => void;
 }
-
-const DESIGN_TOKENS = {
-  colors: {
-    primary: 'from-blue-400 to-cyan-400',
-    surface: 'bg-slate-900/90',
-    surfaceHover: 'hover:bg-slate-700/50',
-    border: 'border-slate-700/50',
-    text: 'text-white',
-    textSecondary: 'text-slate-300',
-    textMuted: 'text-slate-400',
-  },
-  radius: {
-    sm: 'rounded-lg',
-    md: 'rounded-xl',
-    lg: 'rounded-2xl',
-  },
-  padding: {
-    sm: 'p-1',
-    md: 'p-2',
-    lg: 'p-4',
-  },
-  backdrop: 'backdrop-blur-xl',
-  transition: 'transition-all duration-200',
-  shadow: 'shadow-xl',
-};
-
-const Button: React.FC<{
-  children: React.ReactNode;
-  onClick?: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-  disabled?: boolean;
-}> = ({ children, onClick, variant = 'ghost', size = 'md', className = '', disabled = false }) => {
-  const variants = {
-    primary: `bg-gradient-to-r ${DESIGN_TOKENS.colors.primary} text-white hover:scale-105`,
-    secondary: `${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.text}`,
-    ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
-    danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
-  };
-
-  const sizes = {
-    sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
-    md: `${DESIGN_TOKENS.padding.md} text-sm`,
-    lg: `${DESIGN_TOKENS.padding.lg} text-base`,
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`
-        ${variants[variant]} ${sizes[size]} ${DESIGN_TOKENS.radius.md} 
-        ${DESIGN_TOKENS.transition} flex items-center gap-2
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        ${className}
-      `}
-    >
-      {children}
-    </button>
-  );
-};
 
 export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelProps> = ({
   useMapWallpaper,
@@ -111,7 +49,6 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
     preferences,
     isLoading,
     setTheme,
-    _setImage,
     nextImage,
     previousImage,
     toggleSlideshow,
@@ -139,7 +76,7 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
         id: 'custom',
         name: 'Custom Image',
         description: 'User-provided wallpaper',
-        category: 'custom' as const,
+        category: 'abstract' as const,
         slideshow: false,
         interval: 0,
         images: [
@@ -186,9 +123,10 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90]" onClick={onClose} />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        exit={{ opacity: 0, scale: 0.96, y: 16 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
         className={`
           fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] 
           ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.radius.lg} 

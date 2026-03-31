@@ -1,0 +1,150 @@
+{
+  "name": "@uaip/shared-services",
+  "version": "1.0.0",
+  "description": "Shared services for UAIP backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage",
+    "test:integration": "vitest run --reporter=verbose src/**/__tests__/**/integration/**",
+    "test:unit": "vitest run --reporter=verbose src/**/__tests__/**/unit/**",
+    "test:e2e": "vitest run --reporter=verbose src/**/__tests__/**/e2e/**",
+    "seed": "tsx src/database/seeders/index.ts",
+    "seed:build": "tsc && node dist/database/seeders/index.js",
+    "drizzle:studio": "drizzle-kit studio --config drizzle.config.ts",
+    "drizzle:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "drizzle:check": "drizzle-kit check --config drizzle.config.ts"
+  },
+  "dependencies": {
+    "@types/uuid": "^10.0.0",
+    "@uaip/config": "workspace:*",
+    "drizzle-orm": "catalog:backend",
+    "@uaip/infra": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "compression": "catalog:backend",
+    "elysia": "catalog:backend",
+    "helmet": "catalog:backend",
+    "ioredis": "catalog:backend",
+    "morgan": "^1.10.0",
+    "neo4j-driver": "catalog:backend",
+    "pg": "catalog:backend",
+    "uuid": "^11.1.0",
+    "winston": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "drizzle-kit": "catalog:dev",
+    "@types/compression": "catalog:backend",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "catalog:backend",
+    "@types/pg": "catalog:backend",
+    "@types/supertest": "^6.0.2",
+    "vitest": "catalog:dev",
+    "@vitest/coverage-v8": "catalog:dev",
+    "rimraf": "catalog:",
+    "supertest": "^7.0.0",
+    "testcontainers": "^11.10.0",
+    "ts-node": "catalog:",
+    "tsc-alias": "catalog:backend",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./drizzle": {
+      "@uaip/source": "./src/database/drizzle/index.ts",
+      "types": "./dist/database/drizzle/index.d.ts",
+      "import": "./dist/database/drizzle/index.js"
+    },
+    "./drizzle/intelligence": {
+      "@uaip/source": "./src/database/drizzle/schemas/intelligence_schema.ts",
+      "types": "./dist/database/drizzle/schemas/intelligence_schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/intelligence_schema.js"
+    },
+    "./drizzle/control": {
+      "@uaip/source": "./src/database/drizzle/schemas/control_schema.ts",
+      "types": "./dist/database/drizzle/schemas/control_schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/control_schema.js"
+    },
+    "./drizzle/clients": {
+      "@uaip/source": "./src/database/drizzle/clients/index.ts",
+      "types": "./dist/database/drizzle/clients/index.d.ts",
+      "import": "./dist/database/drizzle/clients/index.js"
+    },
+    "./base-service": {
+      "@uaip/source": "./src/base_service.ts",
+      "types": "./dist/base_service.d.ts",
+      "import": "./dist/base_service.js"
+    },
+    "./persona": {
+      "@uaip/source": "./src/persona_service.ts",
+      "types": "./dist/persona_service.d.ts",
+      "import": "./dist/persona_service.js"
+    },
+    "./discussion": {
+      "@uaip/source": "./src/discussion_service.ts",
+      "types": "./dist/discussion_service.d.ts",
+      "import": "./dist/discussion_service.js"
+    },
+    "./participant": {
+      "@uaip/source": "./src/participant_management_service.ts",
+      "types": "./dist/participant_management_service.d.ts",
+      "import": "./dist/participant_management_service.js"
+    },
+    "./agent-state": {
+      "@uaip/source": "./src/agent-state/agent_state_machine.ts",
+      "types": "./dist/agent-state/agent_state_machine.d.ts",
+      "import": "./dist/agent-state/agent_state_machine.js"
+    },
+    "./agent-memory": {
+      "@uaip/source": "./src/agent-memory/index.ts",
+      "types": "./dist/agent-memory/index.d.ts",
+      "import": "./dist/agent-memory/index.js"
+    },
+    "./decision-engine": {
+      "@uaip/source": "./src/agent/agent-intelligence/decision_engine.ts",
+      "types": "./dist/agent/agent-intelligence/decision_engine.d.ts",
+      "import": "./dist/agent/agent-intelligence/decision_engine.js"
+    },
+    "./cognitive": {
+      "@uaip/source": "./src/cognitive/index.ts",
+      "types": "./dist/cognitive/index.d.ts",
+      "import": "./dist/cognitive/index.js"
+    },
+    "./event-bus": {
+      "@uaip/source": "./src/event_bus_service.ts",
+      "types": "./dist/event_bus_service.d.ts",
+      "import": "./dist/event_bus_service.js"
+    },
+    "./database": {
+      "@uaip/source": "./src/database_service.ts",
+      "types": "./dist/database_service.d.ts",
+      "import": "./dist/database_service.js"
+    },
+    "./feature-factory": {
+      "@uaip/source": "./src/feature_factory.ts",
+      "types": "./dist/feature_factory.d.ts",
+      "import": "./dist/feature_factory.js"
+    }
+  }
+}

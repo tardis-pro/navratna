@@ -3,16 +3,12 @@
  * Provides core HTTP client functionality with authentication, CSRF protection, and error handling
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, _AxiosResponse, AxiosError } from 'axios';
-import { csrfService } from '@/services/CSRFService';
-import { buildAPIURL } from '@/config/apiConfig';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
+import { csrfService } from '@/services/c_s_r_f_service';
+import { buildAPIURL } from '@/config/api_config';
+import type { APIError } from '@uaip/types';
 
-export interface APIError {
-  message: string;
-  code?: string;
-  details?: unknown;
-  statusCode?: number;
-}
+export type { APIError };
 
 export class APIClientError extends Error {
   public code?: string;
@@ -30,7 +26,6 @@ export class APIClientError extends Error {
 
 class APIClientClass {
   private client: AxiosInstance;
-  private authToken: string | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -48,10 +43,6 @@ class APIClientClass {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       async (config) => {
-        if (this.authToken) {
-          config.headers['Authorization'] = `Bearer ${this.authToken}`;
-        }
-
         if (config.data instanceof FormData) {
           delete config.headers['Content-Type'];
         }
@@ -80,6 +71,16 @@ class APIClientClass {
         if (error.response?.status === 401) {
           this.clearAuthToken();
           window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
+
+        if (error.response?.status === 429) {
+          const retryAfter = parseInt(
+            (error.response.headers as Record<string, string>)['retry-after'] ?? '60',
+            10
+          );
+          window.dispatchEvent(
+            new CustomEvent('api:rate-limited', { detail: { retryAfter } })
+          );
         }
 
         if (error.response?.status === 403 && error.response?.data?.['error']?.includes('CSRF')) {
@@ -122,16 +123,12 @@ class APIClientClass {
     };
   }
 
-  public setAuthToken(token: string | null): void {
-    this.authToken = token;
-  }
+  public setAuthToken(_token: string | null): void {}
 
-  public clearAuthToken(): void {
-    this.authToken = null;
-  }
+  public clearAuthToken(): void {}
 
   public getAuthToken(): string | null {
-    return this.authToken;
+    return null;
   }
 
   private transformResponse<T>(responseData: unknown): T {
@@ -199,3 +196,9 @@ class APIClientClass {
 
 // Export singleton instance
 export const APIClient = new APIClientClass();
+
+export function createFileUpload(file: File): FormData {
+  const form = new FormData();
+  form.append('file', file);
+  return form;
+}

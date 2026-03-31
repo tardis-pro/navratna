@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { createConversationIntelligenceSocket } from './conversation-socket-utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,23 +45,18 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
   useEffect(() => {
     if (!user?.token) return;
 
-    const newSocket = io('/conversation-intelligence', {
-      auth: { token: user.token },
-      query: { agentId },
-    });
+    const newSocket = createConversationIntelligenceSocket(user.token, agentId);
 
-    newSocket.on('connected', (_data) => {
-      // Request initial suggestions
+    newSocket.on('connected', () => {
       requestSuggestions(newSocket);
     });
 
-    newSocket.on(ConversationWebSocketEventType.SUGGESTIONS_UPDATED, (data) => {
+    newSocket.on(ConversationWebSocketEventType.SUGGESTIONS_UPDATED, (data: { prompts: PromptSuggestion[] }) => {
       setSuggestions(data.prompts);
       setLoading(false);
     });
 
-    newSocket.on('error', (error) => {
-      console.error('Conversation intelligence error:', error);
+    newSocket.on('error', () => {
       setLoading(false);
     });
 
@@ -69,7 +65,6 @@ export const PromptSuggestions: React.FC<PromptSuggestionsProps> = ({
     return () => {
       newSocket.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.token, agentId]);
 
   const requestSuggestions = (socketInstance?: Socket) => {

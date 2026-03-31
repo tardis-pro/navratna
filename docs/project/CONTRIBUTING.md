@@ -24,13 +24,13 @@ cd uaip
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
-# Set up databases
-docker-compose up -d
+# Set up databases (Postgres, Neo4j, Redis, Qdrant)
+docker-compose up -d postgres neo4j redis qdrant
 
-# Run development server
-npm run dev
+# Run development server (NX orchestrates all services)
+pnpm dev
 ```
 
 ### Branch Naming Convention
@@ -45,17 +45,17 @@ npm run dev
 
 ### Code Style
 
-The project uses ESLint and Prettier for code formatting:
+The project uses **oxlint** (not ESLint) and **oxfmt** (not Prettier). Configs: `.oxlintrc.json` / `.oxfmtrc.json`.
 
 ```bash
 # Check code style
-npm run lint
+pnpm lint
 
 # Fix code style issues
-npm run lint:fix
+pnpm lint:fix
 
 # Format code
-npm run format
+pnpm format
 ```
 
 ### TypeScript Guidelines

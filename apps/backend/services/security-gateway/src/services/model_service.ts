@@ -1,0 +1,98 @@
+import { LLMModelRepository, getControlPool } from '@uaip/shared-services';
+import { logger } from '@uaip/utils';
+
+export interface ModelForUser {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint?: string;
+  apiType?: string;
+  provider: string;
+  providerId: string;
+  isAvailable: boolean;
+  isDefault: boolean;
+}
+
+export class ModelService {
+  private llmModelRepository = new LLMModelRepository();
+
+  async getModelsForUser(userId: string): Promise<ModelForUser[]> {
+    try {
+      const userProviderIds = await this.getUserProviderIds(userId);
+      if (userProviderIds.length === 0) {
+        logger.warn('No LLM providers found for user', { userId });
+        return [];
+      }
+      const models = await this.llmModelRepository.findByUserProviders(userProviderIds);
+      logger.info('Retrieved models for user from database', { userId, modelCount: models.length });
+      return models.map((model) => this.transformToLegacyFormat(model));
+    } catch (error) {
+      logger.error('Error getting models for user', { error, userId });
+      throw error;
+    }
+  }
+
+  async getAllAvailableModels(): Promise<ModelForUser[]> {
+    try {
+      const models = await this.llmModelRepository.findAvailableModels();
+      logger.info('Retrieved all available models from database', { modelCount: models.length });
+      return models.map((model) => this.transformToLegacyFormat(model));
+    } catch (error) {
+      logger.error('Error getting all available models', { error });
+      throw error;
+    }
+  }
+
+  async getModelsForProvider(providerId: string): Promise<ModelForUser[]> {
+    try {
+      const models = await this.llmModelRepository.findByProviderId(providerId);
+      logger.info('Retrieved models for provider', { providerId, modelCount: models.length });
+      return models.map((model) => this.transformToLegacyFormat(model));
+    } catch (error) {
+      logger.error('Error getting models for provider', { error, providerId });
+      throw error;
+    }
+  }
+
+  private async getUserProviderIds(userId: string): Promise<string[]> {
+    try {
+      const pool = getControlPool();
+      const result = await pool.query<{ id: string }>(
+        `SELECT DISTINCT id FROM "user_llm_providers" WHERE "user_id" = $1 AND "is_active" = true AND "status" IN ('active', 'testing')`,
+        [userId]
+      );
+      return result.rows.map((row) => row.id);
+    } catch (error) {
+      logger.error('Error getting user provider IDs', { error, userId });
+      return [];
+    }
+  }
+
+  private transformToLegacyFormat(model: Record<string, unknown>): ModelForUser {
+    const providerName = (model.apiType as string) || 'unknown';
+    return {
+      id: `${providerName}-${model.name}`,
+      name: model.name as string,
+      description: (model.description as string) || `${model.name} from ${providerName}`,
+      source: providerName,
+      apiEndpoint: model.apiEndpoint as string | undefined,
+      apiType: model.apiType as string | undefined,
+      provider: providerName,
+      providerId: model.providerId as string,
+      isAvailable: (model.isEnabled as boolean) ?? true,
+      isDefault: false,
+    };
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      const pool = getControlPool();
+      await pool.query('SELECT 1');
+      return true;
+    } catch (error) {
+      logger.error('Model service health check failed', { error });
+      return false;
+    }
+  }
+}

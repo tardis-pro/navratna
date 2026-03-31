@@ -5,28 +5,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  WrenchScrewdriverIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  ClockIcon,
-  CheckCircleIcon as _CheckCircleIcon,
-  DocumentIcon as _DocumentIcon,
-  TagIcon as _TagIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-  XMarkIcon,
-  CloudIcon,
-  CodeBracketIcon as _CodeBracketIcon,
-  CubeIcon as _CubeIcon,
-  UserGroupIcon,
-  ServerStackIcon,
-  ChartBarIcon,
-  CogIcon as _CogIcon,
-  BoltIcon as _BoltIcon,
-  LinkIcon,
-} from '@heroicons/react/24/outline';
-import { uaipAPI } from '@/utils/uaip-api';
+  Wrench,
+  Search,
+  Plus,
+  Clock,
+  RefreshCw,
+  AlertTriangle,
+  X,
+  Cloud,
+  Users,
+  Server,
+  BarChart2,
+  Link,
+} from 'lucide-react';
+import { uaipAPI } from '@/utils/uaip_api';
 import MCPConfigUpload from '@/components/MCPConfigUpload';
+import { PortalLoadingState, PortalEmptyState } from './portal-shared-components';
 
 interface Agent {
   id: string;
@@ -124,17 +118,19 @@ export const UnifiedToolPortal: React.FC = () => {
   const loadTools = async () => {
     try {
       // Load regular tools
-      const regularResult = await uaipAPI.tools.list();
+      const regularResult = await uaipAPI.tools.list() as unknown;
       const regularTools = Array.isArray(regularResult)
         ? regularResult
-        : regularResult?.data?.tools && Array.isArray(regularResult.data.tools)
-          ? regularResult.data.tools
-          : regularResult?.tools && Array.isArray(regularResult.tools)
-            ? regularResult.tools
+        : (regularResult as { data?: { tools?: Tool[] }; tools?: Tool[] })?.data?.tools &&
+            Array.isArray((regularResult as { data?: { tools?: Tool[] } }).data?.tools)
+          ? (regularResult as { data: { tools: Tool[] } }).data.tools
+          : (regularResult as { tools?: Tool[] })?.tools &&
+              Array.isArray((regularResult as { tools?: Tool[] }).tools)
+            ? (regularResult as { tools: Tool[] }).tools
             : [];
 
       // Load MCP tools
-      let mcpTools = [];
+      let mcpTools: Tool[] = [];
       try {
         const mcpResult = await uaipAPI.mcp.getTools();
         if (mcpResult?.tools) {
@@ -174,16 +170,20 @@ export const UnifiedToolPortal: React.FC = () => {
 
   const loadAgents = async () => {
     try {
-      const result = await uaipAPI.agents.list();
+      const result = await uaipAPI.agents.list() as unknown;
       // Handle different response structures
+      type AgentResult = { data?: { agents?: Agent[] }; agents?: Agent[]; } | Agent[];
       const agentsArray = Array.isArray(result)
         ? result
-        : result?.data?.agents && Array.isArray(result.data.agents)
-          ? result.data.agents
-          : result?.agents && Array.isArray(result.agents)
-            ? result.agents
-            : result?.data && Array.isArray(result.data)
-              ? result.data
+        : (result as AgentResult & { data?: { agents?: Agent[] } })?.data?.agents &&
+            Array.isArray((result as { data?: { agents?: Agent[] } }).data?.agents)
+          ? (result as { data: { agents: Agent[] } }).data.agents
+          : (result as AgentResult & { agents?: Agent[] })?.agents &&
+              Array.isArray((result as { agents?: Agent[] }).agents)
+            ? (result as { agents: Agent[] }).agents
+            : (result as AgentResult & { data?: Agent[] })?.data &&
+                Array.isArray((result as { data?: Agent[] }).data)
+              ? (result as { data: Agent[] }).data
               : [];
 
       setAgents(agentsArray);
@@ -205,8 +205,8 @@ export const UnifiedToolPortal: React.FC = () => {
             status: mcpData.configExists ? 'active' : 'inactive',
             totalServers: mcpData.servers?.length || 0,
             runningServers:
-              mcpData.servers?.filter((s: unknown) => s.status === 'running').length || 0,
-            errorServers: mcpData.servers?.filter((s: unknown) => s.status === 'error').length || 0,
+              mcpData.servers?.filter((s: { status?: string }) => s.status === 'running').length || 0,
+            errorServers: mcpData.servers?.filter((s: { status?: string }) => s.status === 'error').length || 0,
             totalTools: 0, // Will be calculated from actual tools
             servers: mcpData.servers || [],
           },
@@ -294,7 +294,7 @@ export const UnifiedToolPortal: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gray-800 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <ServerStackIcon className="w-5 h-5 text-blue-400" />
+            <Server className="w-5 h-5 text-blue-400" />
             <span className="text-sm text-gray-400">MCP Servers</span>
           </div>
           <div className="text-2xl font-bold text-white">{systemStatus?.mcp.totalServers || 0}</div>
@@ -305,7 +305,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
         <div className="bg-gray-800 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <WrenchScrewdriverIcon className="w-5 h-5 text-green-400" />
+            <Wrench className="w-5 h-5 text-green-400" />
             <span className="text-sm text-gray-400">Available Tools</span>
           </div>
           <div className="text-2xl font-bold text-white">
@@ -318,7 +318,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
         <div className="bg-gray-800 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <UserGroupIcon className="w-5 h-5 text-purple-400" />
+            <Users className="w-5 h-5 text-purple-400" />
             <span className="text-sm text-gray-400">Active Agents</span>
           </div>
           <div className="text-2xl font-bold text-white">
@@ -334,7 +334,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
         <div className="bg-gray-800 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <CloudIcon className="w-5 h-5 text-orange-400" />
+            <Cloud className="w-5 h-5 text-orange-400" />
             <span className="text-sm text-gray-400">OAuth Providers</span>
           </div>
           <div className="text-2xl font-bold text-white">
@@ -356,7 +356,7 @@ export const UnifiedToolPortal: React.FC = () => {
               }}
               className="text-blue-400 hover:text-blue-300"
             >
-              <ArrowPathIcon className="w-5 h-5" />
+              <RefreshCw className="w-5 h-5" />
             </button>
             <button
               onClick={() => {
@@ -463,10 +463,10 @@ export const UnifiedToolPortal: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <ServerStackIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-            <p className="text-gray-400 mb-4">No MCP servers configured</p>
-          </div>
+          <PortalEmptyState
+            icon={<Server className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+            title="No MCP servers configured"
+          />
         )}
       </div>
 
@@ -489,7 +489,7 @@ export const UnifiedToolPortal: React.FC = () => {
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
-          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search tools..."
@@ -517,7 +517,7 @@ export const UnifiedToolPortal: React.FC = () => {
           onClick={() => setShowToolForm(true)}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
         >
-          <PlusIcon className="w-5 h-5" />
+          <Plus className="w-5 h-5" />
           Add Tool
         </button>
       </div>
@@ -535,7 +535,7 @@ export const UnifiedToolPortal: React.FC = () => {
           >
             <div className="flex justify-between items-start mb-3">
               <div className="flex items-center gap-2">
-                <WrenchScrewdriverIcon className="w-5 h-5 text-blue-400" />
+                <Wrench className="w-5 h-5 text-blue-400" />
                 <h3 className="font-semibold text-white">{tool.name}</h3>
               </div>
               <div className="flex items-center gap-2">
@@ -585,7 +585,7 @@ export const UnifiedToolPortal: React.FC = () => {
                 }}
                 className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors flex items-center gap-1"
               >
-                <UserGroupIcon className="w-3 h-3" />
+                <Users className="w-3 h-3" />
                 Add to Agent
               </button>
             </div>
@@ -608,7 +608,7 @@ export const UnifiedToolPortal: React.FC = () => {
             ) && (
               <div className="mt-3 pt-3 border-t border-gray-700">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <LinkIcon className="w-3 h-3" />
+                  <Link className="w-3 h-3" />
                   <span>
                     Used by:{' '}
                     {agents
@@ -626,15 +626,13 @@ export const UnifiedToolPortal: React.FC = () => {
       </div>
 
       {filteredTools.length === 0 && (
-        <div className="text-center py-12">
-          <WrenchScrewdriverIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-          <p className="text-gray-400 mb-2">No tools found</p>
-          <p className="text-gray-500 text-sm">
-            {searchQuery
-              ? 'Try adjusting your search or filters'
-              : 'Add your first tool to get started'}
-          </p>
-        </div>
+        <PortalEmptyState
+          icon={<Wrench className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+          title="No tools found"
+          description={
+            searchQuery ? 'Try adjusting your search or filters' : 'Add your first tool to get started'
+          }
+        />
       )}
     </div>
   );
@@ -645,7 +643,7 @@ export const UnifiedToolPortal: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gray-800 p-6 rounded-lg">
           <div className="flex items-center gap-3 mb-4">
-            <ChartBarIcon className="w-6 h-6 text-green-400" />
+            <BarChart2 className="w-6 h-6 text-green-400" />
             <h3 className="text-lg font-semibold text-white">Execution Stats</h3>
           </div>
           <div className="space-y-3">
@@ -678,7 +676,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
         <div className="bg-gray-800 p-6 rounded-lg">
           <div className="flex items-center gap-3 mb-4">
-            <ClockIcon className="w-6 h-6 text-blue-400" />
+            <Clock className="w-6 h-6 text-blue-400" />
             <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
           </div>
           <div className="space-y-2">
@@ -700,7 +698,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
         <div className="bg-gray-800 p-6 rounded-lg">
           <div className="flex items-center gap-3 mb-4">
-            <ExclamationTriangleIcon className="w-6 h-6 text-yellow-400" />
+            <AlertTriangle className="w-6 h-6 text-yellow-400" />
             <h3 className="text-lg font-semibold text-white">Alerts</h3>
           </div>
           <div className="space-y-2 text-sm">
@@ -748,10 +746,7 @@ export const UnifiedToolPortal: React.FC = () => {
   if (loading) {
     return (
       <div className="bg-gray-900 text-white p-8 rounded-lg">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          <span className="ml-3">Loading unified tool portal...</span>
-        </div>
+        <PortalLoadingState message="Loading unified tool portal..." />
       </div>
     );
   }
@@ -771,7 +766,7 @@ export const UnifiedToolPortal: React.FC = () => {
             onClick={loadData}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
           >
-            <ArrowPathIcon className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
         </div>
@@ -779,29 +774,31 @@ export const UnifiedToolPortal: React.FC = () => {
 
       {/* Tab Navigation */}
       <div className="flex space-x-4 mb-6 border-b border-gray-700">
-        {[
-          {
-            id: 'discover',
-            label: 'Discover',
-            icon: ServerStackIcon,
-            description: 'MCP servers & integrations',
-          },
-          {
-            id: 'manage',
-            label: 'Manage',
-            icon: WrenchScrewdriverIcon,
-            description: 'Tool CRUD operations',
-          },
-          {
-            id: 'monitor',
-            label: 'Monitor',
-            icon: ChartBarIcon,
-            description: 'Performance & analytics',
-          },
-        ].map((tab) => (
+        {(
+          [
+            {
+              id: 'discover' as const,
+              label: 'Discover',
+              icon: Server,
+              description: 'MCP servers & integrations',
+            },
+            {
+              id: 'manage' as const,
+              label: 'Manage',
+              icon: Wrench,
+              description: 'Tool CRUD operations',
+            },
+            {
+              id: 'monitor' as const,
+              label: 'Monitor',
+              icon: BarChart2,
+              description: 'Performance & analytics',
+            },
+          ] as const
+        ).map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as unknown)}
+            onClick={() => setActiveTab(tab.id)}
             className={`px-6 py-3 font-medium text-sm transition-colors flex items-center gap-2 ${
               activeTab === tab.id
                 ? 'text-white border-b-2 border-blue-500'
@@ -845,7 +842,7 @@ export const UnifiedToolPortal: React.FC = () => {
                 }}
                 className="text-gray-400 hover:text-white"
               >
-                <XMarkIcon className="w-6 h-6" />
+                <X className="w-6 h-6" />
               </button>
             </div>
 
@@ -898,11 +895,11 @@ export const UnifiedToolPortal: React.FC = () => {
             </div>
 
             {agents.length === 0 && (
-              <div className="text-center py-8">
-                <UserGroupIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-                <p className="text-gray-400">No agents available</p>
-              </div>
-            )}
+        <PortalEmptyState
+          icon={<Users className="w-8 h-8 text-gray-500 mx-auto mb-2" />}
+          title="No agents available"
+        />
+      )}
           </div>
         </div>
       )}
@@ -917,7 +914,7 @@ export const UnifiedToolPortal: React.FC = () => {
                 onClick={() => setSelectedTool(null)}
                 className="text-gray-400 hover:text-white"
               >
-                <XMarkIcon className="w-6 h-6" />
+                <X className="w-6 h-6" />
               </button>
             </div>
 
@@ -968,7 +965,7 @@ export const UnifiedToolPortal: React.FC = () => {
                 }}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                <UserGroupIcon className="w-4 h-4" />
+                <Users className="w-4 h-4" />
                 Add to Agent
               </button>
 

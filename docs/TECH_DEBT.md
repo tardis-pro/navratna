@@ -88,8 +88,8 @@ This document tracks technical debt, known issues, and system limitations across
 - [x] **Docker Build Duplication Eliminated** - 7 identical builds → 1 shared base image
 - [x] **85% Build Time Reduction** - Optimized multi-stage Dockerfile approach
 - [x] **Dependency Catalog Standardization** - 20+ missing catalog entries added
-- [x] **TypeORM Dependency Resolution** - Fixed missing dependencies across services
-- [x] **Express Rate Limiting Fixed** - Resolved module resolution errors
+- [x] **TypeORM Dependency Resolution** - Fixed missing dependencies across services _(TypeORM since fully removed — migrated to Drizzle)_
+- [x] **Express Rate Limiting Fixed** - Resolved module resolution errors _(Express since fully removed — migrated to Elysia)_
 - [x] **Hot Reloading Maintained** - Preserved development workflow efficiency
 
 **Infrastructure Achievement**:
@@ -151,9 +151,9 @@ securityLevel: 'standard';
 
 **Problem**:
 
-- Some TypeORM queries not optimized
+- ~~Some TypeORM queries not optimized~~ _(TypeORM removed — now using Drizzle)_
 - Missing indexes on frequently queried fields
-- N+1 query problems in relationship loading
+- N+1 query problems in relationship loading _(less likely with Drizzle but still possible)_
 
 **Resolution Plan**:
 

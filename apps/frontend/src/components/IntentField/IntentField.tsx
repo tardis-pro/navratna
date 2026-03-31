@@ -12,10 +12,10 @@ import {
   CommandItem,
   CommandSeparator,
 } from '@/components/ui/command';
-import { useIntentDetection } from './useIntentDetection';
-import { AGENT_ACTIVITY_EVENT, type AgentActivityEventDetail } from '@/types/microexpression';
-import type { IntentFieldProps, IntentOption } from './IntentField.types';
-import { INTENT_ICONS } from './IntentField.types';
+import { useIntentDetection } from './use_intent_detection';
+import { AGENT_ACTIVITY_EVENT, type AgentActivityEventDetail } from '@uaip/types';
+import type { IntentFieldProps, IntentOption } from './intent_field_types';
+import { INTENT_ICONS } from './intent_field_types';
 
 const CATEGORY_COLORS: Record<IntentOption['type'], string> = {
   agent: 'text-blue-400 bg-blue-500/10 border-blue-500/20',

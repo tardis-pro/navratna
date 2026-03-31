@@ -1,0 +1,45 @@
+{
+  "name": "@uaip/types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for Navratna frontend and backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "rimraf": "catalog:",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./operation": {
+      "@uaip/source": "./src/operation.ts",
+      "import": "./dist/operation.js",
+      "require": "./dist/operation.js",
+      "types": "./dist/operation.d.ts"
+    },
+    "./*": {
+      "@uaip/source": "./src/*.ts",
+      "import": "./dist/*.js",
+      "require": "./dist/*.js",
+      "types": "./dist/*.d.ts"
+    }
+  },
+  "sideEffects": false
+}

@@ -1,0 +1,399 @@
+/**
+ * Knowledge Graph API Client
+ * Handles knowledge management, search, and relations
+ */
+
+import { APIClient, createFileUpload } from './client';
+import { API_ROUTES } from '@/config/api_config';
+import type {
+  KnowledgeItem,
+  KnowledgeUploadRequest,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResult,
+  KnowledgeRelation,
+  KnowledgeStats,
+  KnowledgeGraph,
+} from '@uaip/contracts/api';
+
+export type {
+  KnowledgeItem,
+  KnowledgeUploadRequest,
+  KnowledgeSearchRequest,
+  KnowledgeSearchResult,
+  KnowledgeRelation,
+  KnowledgeStats,
+  KnowledgeGraph,
+};
+
+export const knowledgeAPI = {
+  async upload(request: KnowledgeUploadRequest): Promise<KnowledgeItem> {
+    return APIClient.post<KnowledgeItem>(API_ROUTES.KNOWLEDGE.UPLOAD, request);
+  },
+
+  async bulkUpload(items: KnowledgeUploadRequest[]): Promise<{
+    uploaded: number;
+    failed: number;
+    errors?: string[];
+  }> {
+    return APIClient.post(`${API_ROUTES.KNOWLEDGE.UPLOAD}/bulk`, { items });
+  },
+
+  async search(request: KnowledgeSearchRequest): Promise<KnowledgeSearchResult[]> {
+    // Convert to query parameters to match backend GET /api/v1/knowledge/search
+    const params = new URLSearchParams();
+    params.append('q', request.query);
+
+    if (request.type) params.append('types', request.type);
+    if (request.tags && request.tags.length > 0) params.append('tags', request.tags.join(','));
+    if (request.limit) params.append('limit', request.limit.toString());
+    if (request.similarityThreshold)
+      params.append('confidence', request.similarityThreshold.toString());
+
+    const url = `${API_ROUTES.KNOWLEDGE.SEARCH}?${params.toString()}`;
+
+    // Backend returns {success: true, data: {items: [], ...}} OR {items: [], totalCount: number, searchMetadata: {}}
+    const response = await APIClient.get<unknown>(url);
+
+    // Handle both wrapped and unwrapped response formats
+    let searchData = response;
+    if (response.success && response.data) {
+      searchData = response.data;
+    }
+
+    // Validate response structure
+    if (!searchData || !searchData.items || !Array.isArray(searchData.items)) {
+      console.warn('Invalid search response structure:', response);
+      return [];
+    }
+
+    // Transform backend response to expected format
+    return searchData.items.map((item: unknown) => ({
+      item: {
+        id: item.id,
+        title: item.content?.substring(0, 100) + '...' || 'Untitled',
+        content: item.content,
+        type: 'document' as const,
+        tags: item.tags || [],
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        metadata: item.metadata,
+      },
+      score: item.confidence || 0.8,
+      highlights: [],
+      relatedItems: [],
+    }));
+  },
+
+  async get(id: string): Promise<KnowledgeItem> {
+    return APIClient.get<KnowledgeItem>(`${API_ROUTES.KNOWLEDGE.GET}/${id}`);
+  },
+
+  async list(options?: { limit?: number; offset?: number }): Promise<KnowledgeItem[]> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.append('limit', options.limit.toString());
+    if (options?.offset) params.append('offset', options.offset.toString());
+
+    const url = `${API_ROUTES.KNOWLEDGE.BASE}?${params.toString()}`;
+    const response = await APIClient.get<unknown>(url);
+
+    // Handle wrapped response format: { success: true, data: [...], meta: {...} }
+    let items = response;
+    if (response.success && response.data) {
+      items = response.data;
+    }
+
+    if (!Array.isArray(items)) {
+      console.warn('Knowledge list response is not an array:', response);
+      return [];
+    }
+
+    return items;
+  },
+
+  async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {
+    return APIClient.put<KnowledgeItem>(`${API_ROUTES.KNOWLEDGE.UPDATE}/${id}`, updates);
+  },
+
+  async delete(id: string): Promise<void> {
+    return APIClient.delete(`${API_ROUTES.KNOWLEDGE.DELETE}/${id}`);
+  },
+
+  async getStats(): Promise<KnowledgeStats> {
+    try {
+      // Backend returns {success: true, data: {totalItems, itemsByType, recentActivity, generalKnowledge}}
+      const response = await APIClient.get<{ success: boolean; data: unknown }>(
+        API_ROUTES.KNOWLEDGE.STATS
+      );
+
+      // Safely access nested properties with defaults
+      const stats = response.data || {};
+      const userStats = {
+        totalItems: stats.totalItems || 0,
+        itemsByType: stats.itemsByType || {},
+        recentActivity: stats.recentActivity || {},
+      };
+      const generalStats = stats.generalKnowledge || {};
+
+      return {
+        totalItems: userStats.totalItems + (generalStats.totalItems || 0),
+        itemsByType: {
+          ...userStats.itemsByType,
+          ...generalStats.itemsByType,
+        },
+        itemsByCategory: {},
+        totalRelations: 0,
+        recentUploads: userStats.recentActivity.itemsThisWeek || 0,
+        storageUsed: 0,
+        topTags: [], // TODO: Add top tags when backend provides them
+      };
+    } catch (error) {
+      console.warn('Knowledge stats API error:', error);
+      // Return fallback stats
+      return {
+        totalItems: 0,
+        itemsByType: {},
+        itemsByCategory: {},
+        totalRelations: 0,
+        recentUploads: 0,
+        storageUsed: 0,
+        topTags: [],
+      };
+    }
+  },
+
+  async getRelations(itemId: string): Promise<KnowledgeRelation[]> {
+    return APIClient.get<KnowledgeRelation[]>(
+      `${API_ROUTES.KNOWLEDGE.RELATIONS}/${itemId}/relations`
+    );
+  },
+
+  async createRelation(
+    relation: Omit<KnowledgeRelation, 'id' | 'createdAt'>
+  ): Promise<KnowledgeRelation> {
+    return APIClient.post<KnowledgeRelation>(API_ROUTES.KNOWLEDGE.RELATIONS, relation);
+  },
+
+  async deleteRelation(relationId: string): Promise<void> {
+    return APIClient.delete(`${API_ROUTES.KNOWLEDGE.RELATIONS}/${relationId}`);
+  },
+
+  async getGraph(options?: {
+    rootId?: string;
+    depth?: number;
+    types?: string[];
+    limit?: number;
+  }): Promise<KnowledgeGraph> {
+    try {
+      // Convert to query parameters to match backend GET /api/v1/knowledge/graph
+      const params = new URLSearchParams();
+
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.types && options.types.length > 0)
+        params.append('types', options.types.join(','));
+      params.append('includeRelationships', 'true');
+
+      const url = `${API_ROUTES.KNOWLEDGE.GRAPH}?${params.toString()}`;
+
+      // APIClient.get() already unwraps {success:true, data:...} via transformResponse()
+      // so response IS the inner data object: { nodes: [], edges: [], metadata: {} }
+      const response = await APIClient.get<{
+        nodes: unknown[];
+        edges: unknown[];
+        metadata?: unknown;
+      }>(url);
+
+      // Safely access with defaults
+      const nodes = response?.nodes || [];
+      const edges = response?.edges || [];
+
+      return {
+        nodes: nodes.map((node: unknown) => ({
+          id: node.id,
+          label: node.data?.label || node.id,
+          type: node.data?.knowledgeType || 'knowledge',
+          properties: node.data,
+        })),
+        edges: edges.map((edge: unknown) => ({
+          source: edge.source,
+          target: edge.target,
+          type: edge.data?.relationshipType || 'related',
+          properties: edge.data,
+        })),
+      };
+    } catch (error) {
+      console.warn('Knowledge graph API error:', error);
+      // Return empty graph as fallback
+      return {
+        nodes: [],
+        edges: [],
+      };
+    }
+  },
+
+  async findSimilar(id: string, limit: number = 10): Promise<KnowledgeSearchResult[]> {
+    return APIClient.get<KnowledgeSearchResult[]>(`${API_ROUTES.KNOWLEDGE.GET}/${id}/similar`, {
+      params: { limit },
+    });
+  },
+
+  async getCategories(): Promise<
+    Array<{
+      name: string;
+      count: number;
+    }>
+  > {
+    return APIClient.get(API_ROUTES.KNOWLEDGE.CATEGORIES);
+  },
+
+  async getTags(): Promise<
+    Array<{
+      name: string;
+      count: number;
+    }>
+  > {
+    return APIClient.get(API_ROUTES.KNOWLEDGE.TAGS);
+  },
+
+  async export(format: 'json' | 'csv' = 'json', filters?: unknown): Promise<Blob> {
+    const response = await APIClient.get(API_ROUTES.KNOWLEDGE.EXPORT, {
+      params: { format, ...filters },
+      responseType: 'blob',
+    });
+    return response;
+  },
+
+  async import(file: File): Promise<{ imported: number; updated: number; errors?: string[] }> {
+    return APIClient.post(API_ROUTES.KNOWLEDGE.IMPORT, createFileUpload(file));
+  },
+
+  async reindex(): Promise<{
+    indexed: number;
+    duration: number;
+  }> {
+    return APIClient.post(API_ROUTES.KNOWLEDGE.REINDEX);
+  },
+
+  // Chat ingestion methods
+  async importChatFile(
+    file: File,
+    options?: {
+      extractWorkflows?: boolean;
+      generateQA?: boolean;
+      analyzeExpertise?: boolean;
+      detectLearning?: boolean;
+    }
+  ): Promise<{
+    jobId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    message?: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (options) {
+      formData.append('options', JSON.stringify(options));
+    }
+    return APIClient.post(API_ROUTES.KNOWLEDGE.CHAT_IMPORT, formData);
+  },
+
+  async getChatJobStatus(jobId: string): Promise<{
+    id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    filesProcessed: number;
+    totalFiles: number;
+    extractedItems: number;
+    error?: string;
+    results?: {
+      knowledgeItems: number;
+      qaPairs: number;
+      workflows: number;
+      expertiseProfiles: number;
+      learningMoments: number;
+    };
+  }> {
+    return APIClient.get(`${API_ROUTES.KNOWLEDGE.CHAT_JOBS}/${jobId}`);
+  },
+
+  async generateQAFromKnowledge(
+    domain?: string,
+    limit?: number
+  ): Promise<{
+    qaPairs: Array<{
+      question: string;
+      answer: string;
+      source: string;
+      confidence: number;
+      topic: string;
+    }>;
+    generated: number;
+  }> {
+    const params = new URLSearchParams();
+    if (domain) params.append('domain', domain);
+    if (limit) params.append('limit', limit.toString());
+
+    const url = `${API_ROUTES.KNOWLEDGE.GENERATE_QA}?${params.toString()}`;
+    return APIClient.post(url);
+  },
+
+  async extractWorkflows(conversationIds?: string[]): Promise<{
+    workflows: Array<{
+      name: string;
+      steps: Array<{
+        action: string;
+        description: string;
+        order: number;
+      }>;
+      prerequisites: string[];
+      outcomes: string[];
+      confidence: number;
+      source: string;
+    }>;
+    extracted: number;
+  }> {
+    const body = conversationIds ? { conversationIds } : {};
+    return APIClient.post(API_ROUTES.KNOWLEDGE.EXTRACT_WORKFLOWS, body);
+  },
+
+  async getExpertiseProfile(participant: string): Promise<{
+    participant: string;
+    domains: Array<{
+      domain: string;
+      confidence: number;
+      topics: string[];
+      evidenceCount: number;
+    }>;
+    overallConfidence: number;
+    totalInteractions: number;
+    knowledgeAreas: string[];
+  }> {
+    return APIClient.get(`${API_ROUTES.KNOWLEDGE.EXPERTISE}/${encodeURIComponent(participant)}`);
+  },
+
+  async getLearningInsights(participant?: string): Promise<{
+    insights: Array<{
+      learner: string;
+      teacher: string;
+      topic: string;
+      content: string;
+      timestamp: string;
+      confidence: number;
+    }>;
+    progressions: Array<{
+      learner: string;
+      topic: string;
+      progression: Array<{
+        timestamp: string;
+        level: string;
+        evidence: string;
+      }>;
+    }>;
+    totalLearningMoments: number;
+    activeTopics: string[];
+  }> {
+    const params = new URLSearchParams();
+    if (participant) params.append('participant', participant);
+
+    const url = `${API_ROUTES.KNOWLEDGE.LEARNING_INSIGHTS}?${params.toString()}`;
+    return APIClient.get(url);
+  },
+};

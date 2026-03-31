@@ -1,0 +1,48 @@
+{
+  "name": "@uaip/basebench-meta",
+  "version": "1.0.0",
+  "description": "BaseBench-Meta metacognitive benchmark service",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun --hot src/index.ts",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src",
+    "test": "tsx --test src/__tests__/*.test.ts",
+    "test:watch": "tsx --test --watch src/__tests__/*.test.ts"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "elysia": "^1.4.28",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "nodemon": "catalog:backend",
+    "rimraf": "catalog:",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "basebench",
+    "benchmark",
+    "metacognition",
+    "evaluation"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "legacy-service"
+    ]
+  }
+}

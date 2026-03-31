@@ -1,4 +1,4 @@
-import type { NormalizedBrief } from '@/api/questionforge.api';
+import type { NormalizedBrief } from '@/api/questionforge_api';
 
 import {
   Accordion,

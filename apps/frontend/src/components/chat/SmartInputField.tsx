@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { createConversationIntelligenceSocket } from './conversation-socket-utils';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  CommandIcon,
-  FileTextIcon,
-  SearchIcon,
-  MessageSquareIcon,
-  HelpCircleIcon,
-} from 'lucide-react';
+import { AutocompleteSuggestionItems } from '@/components/ui/AutocompleteSuggestionItems';
+import { handleSuggestionArrowKeys } from '@/components/ui/suggestion-icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useAutocompleteState } from '@/hooks/use_autocomplete_state';
+import { useDebounce } from '@/hooks/use_debounce';
 import { AutocompleteSuggestion, ConversationWebSocketEventType } from '@uaip/types';
 
 interface SmartInputFieldProps {
@@ -22,14 +19,6 @@ interface SmartInputFieldProps {
   className?: string;
 }
 
-const SUGGESTION_ICONS = {
-  command: <CommandIcon className="w-4 h-4" />,
-  tool: <FileTextIcon className="w-4 h-4" />,
-  previous: <SearchIcon className="w-4 h-4" />,
-  common: <MessageSquareIcon className="w-4 h-4" />,
-  question: <HelpCircleIcon className="w-4 h-4" />,
-};
-
 export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   agentId,
   conversationId,
@@ -38,39 +27,46 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   className,
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const {
+    suggestions,
+    selectedIndex,
+    showSuggestions,
+    setSelectedIndex,
+    setSuggestionResults,
+    hideSuggestions,
+    clearSuggestions,
+  } = useAutocompleteState<AutocompleteSuggestion>();
   const [detectedIntent, setDetectedIntent] = useState<unknown>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const userRecord = user as unknown as Record<string, unknown> | null;
+  const authToken =
+    userRecord && typeof userRecord.token === 'string'
+      ? (userRecord.token as string)
+      : '';
   const debouncedValue = useDebounce(inputValue, 300);
+  const intentCategory =
+    detectedIntent &&
+    typeof detectedIntent === 'object' &&
+    'category' in detectedIntent &&
+    typeof (detectedIntent as { category?: unknown }).category === 'string'
+      ? (detectedIntent as { category: string }).category
+      : null;
 
-  // Initialize WebSocket connection
   useEffect(() => {
-    if (!user?.token) return;
+    if (!authToken) return;
 
-    const newSocket = io('/conversation-intelligence', {
-      auth: { token: user.token },
-      query: { agentId, conversationId },
+    const newSocket = createConversationIntelligenceSocket(authToken, agentId, conversationId);
+
+    newSocket.on(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, (data: { suggestions: AutocompleteSuggestion[] }) => {
+      setSuggestionResults(data.suggestions);
     });
 
-    newSocket.on('connected', (_data) => {});
-
-    newSocket.on(ConversationWebSocketEventType.AUTOCOMPLETE_RESULTS, (data) => {
-      setSuggestions(data.suggestions);
-      setShowSuggestions(data.suggestions.length > 0);
-    });
-
-    newSocket.on(ConversationWebSocketEventType.INTENT_DETECTED, (data) => {
+    newSocket.on(ConversationWebSocketEventType.INTENT_DETECTED, (data: { intent: unknown }) => {
       setDetectedIntent(data.intent);
-    });
-
-    newSocket.on('error', (error) => {
-      console.error('Conversation intelligence error:', error);
     });
 
     setSocket(newSocket);
@@ -78,13 +74,12 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
     return () => {
       newSocket.close();
     };
-  }, [user?.token, agentId, conversationId]);
+  }, [authToken, agentId, conversationId, setSuggestionResults]);
 
   // Request autocomplete suggestions
   useEffect(() => {
     if (!socket || !debouncedValue || debouncedValue.length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
+      clearSuggestions();
       return;
     }
 
@@ -93,7 +88,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
       context: { conversationId },
       limit: 5,
     });
-  }, [socket, debouncedValue, conversationId]);
+  }, [socket, debouncedValue, conversationId, clearSuggestions]);
 
   // Request intent detection on input change
   useEffect(() => {
@@ -123,17 +118,9 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
       return;
     }
 
+    if (handleSuggestionArrowKeys(e, suggestions.length, setSelectedIndex)) return;
+
     switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
-        break;
-
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
-        break;
-
       case 'Tab':
       case 'Enter':
         e.preventDefault();
@@ -145,16 +132,14 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
         break;
 
       case 'Escape':
-        setShowSuggestions(false);
-        setSelectedIndex(-1);
+        hideSuggestions();
         break;
     }
   };
 
   const selectSuggestion = (suggestion: AutocompleteSuggestion) => {
     setInputValue(suggestion.text);
-    setShowSuggestions(false);
-    setSelectedIndex(-1);
+    hideSuggestions();
     inputRef.current?.focus();
   };
 
@@ -164,8 +149,7 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
     onSubmit(inputValue.trim(), detectedIntent);
     setInputValue('');
     setDetectedIntent(null);
-    setSuggestions([]);
-    setShowSuggestions(false);
+    clearSuggestions();
   };
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
@@ -174,9 +158,9 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
       !suggestionsRef.current.contains(e.target as Node) &&
       !inputRef.current?.contains(e.target as Node)
     ) {
-      setShowSuggestions(false);
+      hideSuggestions();
     }
-  }, []);
+  }, [hideSuggestions]);
 
   useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);
@@ -199,10 +183,10 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
         />
 
         {/* Intent indicator */}
-        {detectedIntent && (
+        {intentCategory && (
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
             <Badge variant="secondary" className="text-xs">
-              {detectedIntent.category}
+              {intentCategory}
             </Badge>
           </div>
         )}
@@ -212,30 +196,11 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
       {showSuggestions && suggestions.length > 0 && (
         <Card ref={suggestionsRef} className="absolute z-50 w-full mt-1 shadow-lg">
           <CardContent className="p-0">
-            {suggestions.map((suggestion, index) => (
-              <div
-                key={`suggestion-${suggestion.text.substring(0, 20)}`}
-                className={`
-                  flex items-center gap-2 px-3 py-2 cursor-pointer
-                  ${index === selectedIndex ? 'bg-muted' : 'hover:bg-muted/50'}
-                  ${index !== suggestions.length - 1 ? 'border-b' : ''}
-                `}
-                onClick={() => selectSuggestion(suggestion)}
-              >
-                <span className="text-muted-foreground">
-                  {SUGGESTION_ICONS[suggestion.type] || SUGGESTION_ICONS.common}
-                </span>
-                <span className="flex-1">{suggestion.text}</span>
-                {suggestion.metadata?.description && (
-                  <span className="text-xs text-muted-foreground">
-                    {suggestion.metadata.description}
-                  </span>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {Math.round(suggestion.score * 100)}%
-                </span>
-              </div>
-            ))}
+            <AutocompleteSuggestionItems
+              suggestions={suggestions}
+              selectedIndex={selectedIndex}
+              onSelectSuggestion={selectSuggestion}
+            />
           </CardContent>
         </Card>
       )}

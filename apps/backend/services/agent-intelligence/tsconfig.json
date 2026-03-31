@@ -1,0 +1,42 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "composite": true,
+    // relative to package root
+    "rootDir": "src",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@uaip/knowledge-graph": ["./src/knowledge-graph/index.ts"],
+      "@uaip/knowledge-graph/*": ["./src/knowledge-graph/*"],
+      "@uaip/agent-memory": ["./src/agent-memory/index.ts"],
+      "@uaip/agent-memory/*": ["./src/agent-memory/*"],
+      "@uaip/types": ["../../../packages/shared-types/src"],
+      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
+      "@uaip/utils": ["../../../packages/shared-utils/src"],
+      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
+      "@uaip/config": ["../../../shared/config/src"],
+      "@uaip/config/*": ["../../../shared/config/src/*"],
+      "@uaip/shared-services": ["../../../shared/services/src"],
+      "@uaip/shared-services/*": ["../../../shared/services/src/*"],
+      "@uaip/middleware": ["../../../shared/middleware/src"],
+      "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
+      "@uaip/llm-service": ["../../../shared/llm-service/src"],
+      "@uaip/llm-service/*": ["../../../shared/llm-service/src/*"],
+      "@uaip/infra": ["../../../shared/infra/src"],
+      "@uaip/infra/*": ["../../../shared/infra/src/*"]
+    },
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo" // enables clean import paths within the package
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "src/**/*.old*.ts"],
+  "references": [
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../../../shared/config" },
+    { "path": "../../../shared/services" },
+    { "path": "../../../shared/llm-service" },
+    { "path": "../../../shared/middleware" },
+    { "path": "../../../shared/infra" }
+  ]
+}

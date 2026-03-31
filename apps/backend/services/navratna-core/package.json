@@ -1,0 +1,42 @@
+{
+  "name": "@uaip/navratna-core",
+  "version": "3.0.0",
+  "description": "Navratna Core — consolidated service (agent-intelligence + discussion-orchestration + artifact-service + llm-service)",
+  "main": "./dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun --hot src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "seed:openclaw-agents": "bun src/seeds/openclaw-agent-import.ts"
+  },
+  "dependencies": {
+    "@socket.io/bun-engine": "^0.0.2",
+    "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
+    "@uaip/llm-service": "workspace:*",
+    "@uaip/middleware": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "dotenv": "catalog:backend",
+    "elysia": "catalog:backend",
+    "socket.io": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "nodemon": "catalog:backend",
+    "rimraf": "^6.1.2",
+    "tsx": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "backend-service"
+    ]
+  }
+}

@@ -1,20 +1,88 @@
 {
   "files": [],
   "references": [
-    { "path": "./apps/frontend" },
-    { "path": "./packages/shared-types" },
-    { "path": "./packages/shared-utils" },
-    { "path": "./backend" }
+    {
+      "path": "./apps/packages/contracts"
+    },
+    {
+      "path": "./apps/packages/shared-types"
+    },
+    {
+      "path": "./apps/packages/shared-utils"
+    },
+    {
+      "path": "./apps/backend"
+    },
+    {
+      "path": "./apps/backend/services/discussion-orchestration"
+    },
+    {
+      "path": "./apps/backend/services/orchestration-pipeline"
+    },
+    {
+      "path": "./apps/backend/services/capability-registry"
+    },
+    {
+      "path": "./apps/backend/services/marketplace-service"
+    },
+    {
+      "path": "./apps/backend/services/agent-intelligence"
+    },
+    {
+      "path": "./apps/backend/services/artifact-service"
+    },
+    {
+      "path": "./apps/backend/services/navratna-gateway"
+    },
+    {
+      "path": "./apps/backend/services/security-gateway"
+    },
+    {
+      "path": "./apps/backend/services/basebench-meta"
+    },
+    {
+      "path": "./apps/backend/services/questionforge"
+    },
+    {
+      "path": "./apps/backend/services/llm-service"
+    },
+    {
+      "path": "./apps/shared/llm-service"
+    },
+    {
+      "path": "./apps/shared/middleware"
+    },
+    {
+      "path": "./apps/shared/services"
+    },
+    {
+      "path": "./apps/shared/config"
+    },
+    {
+      "path": "./apps/shared/infra"
+    }
   ],
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@uaip/types": ["./packages/shared-types/src"],
-      "@uaip/types/*": ["./packages/shared-types/src/*"],
-      "@uaip/utils": ["./packages/shared-utils/src"],
-      "@uaip/utils/*": ["./packages/shared-utils/src/*"],
-      "@/*": ["./src/*"]
+      "@uaip/types": ["./apps/packages/shared-types/src"],
+      "@uaip/types/*": ["./apps/packages/shared-types/src/*"],
+      "@uaip/contracts": ["./apps/packages/contracts/src"],
+      "@uaip/contracts/*": ["./apps/packages/contracts/src/*"],
+      "@uaip/utils": ["./apps/packages/shared-utils/src"],
+      "@uaip/utils/*": ["./apps/packages/shared-utils/src/*"],
+      "@uaip/config": ["./apps/shared/config/src"],
+      "@uaip/config/*": ["./apps/shared/config/src/*"],
+      "@uaip/infra": ["./apps/shared/infra/src"],
+      "@uaip/infra/*": ["./apps/shared/infra/src/*"],
+      "@uaip/middleware": ["./apps/shared/middleware/src"],
+      "@uaip/middleware/*": ["./apps/shared/middleware/src/*"],
+      "@uaip/shared-services": ["./apps/shared/services/src"],
+      "@uaip/shared-services/*": ["./apps/shared/services/src/*"],
+      "@uaip/llm-service": ["./apps/shared/llm-service/src"],
+      "@uaip/llm-service/*": ["./apps/shared/llm-service/src/*"]
     },
+    "types": ["node"],
+    "lib": ["es2022"],
     "composite": true,
     "declaration": true,
     "declarationMap": true,

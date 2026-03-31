@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority';
-import type { Microexpression } from '@/types/microexpression';
-import { MICROEXPRESSION_STYLES, MICROEXPRESSION_LABELS } from '@/types/microexpression';
+import type { Microexpression } from '@uaip/types';
+import { MICROEXPRESSION_STYLES, MICROEXPRESSION_LABELS } from '@uaip/types';
 import { MicroexpressionIcon } from './MicroexpressionIcon';
 import { cn } from '@/lib/utils';
 

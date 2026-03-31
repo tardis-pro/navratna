@@ -12,6 +12,7 @@
     "dist",
     "node_modules",
     "*.d.ts",
+    "*.test.ts",
     "*.tsbuildinfo",
     "pnpm-lock.yaml",
     "coverage",

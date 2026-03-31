@@ -1,4 +1,3 @@
-import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
@@ -11,22 +10,20 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Desktop } from './components/DesktopUnified';
+import { TelescopeKnowledgeSurface } from './components/TelescopeSurface';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
 import QuestionForgeLanding from './pages/questionforge/QuestionForgeLanding';
 import QuestionForgeResults from './pages/questionforge/QuestionForgeResults';
-import './App.css';
-import './styles/agent-manager.css';
 
-// Create QueryClient instance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnWindowFocus: false,
+      retry: 2,
+      staleTime: 30_000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
     },
     mutations: {
       retry: 1,
@@ -64,8 +61,18 @@ function DesktopApp() {
                                   path="/projects/:id/workspace/session/:sessionId"
                                   element={<CodingSessionPage />}
                                 />
-                                <Route path="/" element={<Desktop />} />
-                                <Route path="*" element={<Desktop />} />
+                                <Route
+                                  path="/"
+                                  element={
+                                    <TelescopeKnowledgeSurface className="min-h-screen" />
+                                  }
+                                />
+                                <Route
+                                  path="*"
+                                  element={
+                                    <TelescopeKnowledgeSurface className="min-h-screen" />
+                                  }
+                                />
                               </Routes>
                             </BrowserRouter>
                           </ErrorBoundary>

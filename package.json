@@ -1,36 +1,32 @@
 {
-  "name": "Navratna",
+  "name": "navratna",
   "private": true,
   "version": "1.0.0",
   "description": "Navratna - Unified Frontend/Backend Monorepo",
   "type": "module",
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "backend/services/*",
-    "backend/shared/*"
-  ],
   "scripts": {
+    "build": "nx run-many -t build",
+    "build:shared": "nx run-many -t build --projects=@uaip/config,@uaip/types,@uaip/utils,@uaip/contracts,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service",
+    "build:backend": "nx run-many -t build --projects=tag:backend",
+    "build:frontend": "nx run @council/frontend:build",
     "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
-    "dev:frontend": "cd apps/frontend && pnpm dev",
-    "dev:backend": "cd backend && pnpm dev",
-    "build": "pnpm build:shared && pnpm build:backend && pnpm build:frontend",
-    "build:shared": "pnpm --filter \"@uaip/types\" build && pnpm --filter \"@uaip/utils\" --filter \"@uaip/contracts\" build",
-    "build:backend": "cd backend && pnpm build-services",
-    "build:frontend": "cd apps/frontend && pnpm build",
-    "build:dev": "pnpm build:shared && pnpm build:backend && cd apps/frontend && pnpm build:dev",
-    "generate:sdk": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts",
-    "generate:sdk:watch": "cd backend && pnpm build:sdk-generator && tsx scripts/generate-sdk.ts --watch",
-    "lint": "oxlint .",
+    "dev:frontend": "nx run @council/frontend:dev",
+    "dev:backend": "nx run-many -t dev --projects=tag:backend-service",
+    "typecheck": "nx run-many -t typecheck",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "graph": "nx graph",
+    "watch": "nx watch --all -- nx run \\$NX_PROJECT_NAME:build",
+    "affected:build": "nx affected -t build",
+    "clean": "nx run-many -t clean && find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
+    "lint:filenames": "node scripts/lint-filenames.mjs",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "clean": "pnpm -r clean",
     "clean:tsbuildinfo": "find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
-    "test": "pnpm -r test",
-    "test:artifacts": "cd backend && tsx services/artifact-service/src/test/run-demo.ts",
-    "test:artifacts:prd": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --prd-only",
-    "test:artifacts:code": "cd backend && tsx services/artifact-service/src/test/run-demo.ts -- --artifact-only",
+    "test:artifacts": "cd apps/backend && tsx services/artifact-service/src/test/run-demo.ts",
+    "test:artifacts:prd": "cd apps/backend && tsx services/artifact-service/src/test/run-demo.ts -- --prd-only",
+    "test:artifacts:code": "cd apps/backend && tsx services/artifact-service/src/test/run-demo.ts -- --artifact-only",
     "test:integration": "./scripts/run-integration-tests.sh test",
     "test:integration:setup": "./scripts/run-integration-tests.sh setup",
     "test:integration:oauth": "./scripts/run-integration-tests.sh oauth",
@@ -39,22 +35,23 @@
     "test:integration:cleanup": "./scripts/run-integration-tests.sh cleanup"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
-    "oxlint": "^1.56.0",
-    "oxfmt": "^0.41.0",
-    "rimraf": "^6.1.2",
+    "@nx/js": "^22.6.1",
+    "@types/node": "^25.5.0",
+    "concurrently": "catalog:dev",
+    "dependency-cruiser": "^17.3.9",
+    "jscpd": "^4.0.8",
+    "knip": "^6.0.6",
+    "nx": "22.6.1",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "rev-dep": "^2.12.0",
+    "rimraf": "catalog:",
     "tsx": "catalog:backend",
-    "typescript": "^5.9.3"
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "pnpm": ">=10.0.0"
   },
-  "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac",
-  "dependencies": {
-    "@tanstack/ai": "^0.0.3",
-    "@types/nodemailer": "^7.0.4",
-    "jest-mock": "^30.2.0",
-    "zod": "catalog:"
-  }
+  "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac"
 }

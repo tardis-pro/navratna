@@ -1,4 +1,4 @@
-import React, { useState, _useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -26,47 +25,15 @@ import {
   Calendar,
   AlertTriangle,
   CheckCircle,
-  _Circle,
-  _Pause,
-  _X,
-  _GripVertical,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-// Design System Tokens - matching DesktopUnified
-const DESIGN_TOKENS = {
-  colors: {
-    primary: 'from-blue-400 to-cyan-400',
-    surface: 'bg-slate-900/90',
-    surfaceHover: 'hover:bg-slate-700/50',
-    border: 'border-slate-700/50',
-    text: 'text-white',
-    textSecondary: 'text-slate-300',
-    textMuted: 'text-slate-400',
-  },
-  spacing: {
-    xs: 'gap-2',
-    sm: 'gap-3',
-    md: 'gap-4',
-    lg: 'gap-6',
-  },
-  radius: {
-    sm: 'rounded-lg',
-    md: 'rounded-xl',
-    lg: 'rounded-2xl',
-  },
-  padding: {
-    sm: 'p-1',
-    md: 'p-2',
-    lg: 'p-4',
-  },
-  backdrop: 'backdrop-blur-xl',
-  transition: 'transition-all duration-200',
-  shadow: 'shadow-xl',
-};
+import { DESIGN_TOKENS, PRIORITY_OPTION_VALUES as _PRIORITY_OPTION_VALUES, TYPE_OPTION_VALUES as _TYPE_OPTION_VALUES } from './TaskDesignTokens';
+import { Button } from './TaskButton';
+import { TaskCreateForm } from './TaskCreateForm';
+import { PrioritySelectOptions, TypeSelectOptions } from './TaskSelectOptions';
 
 // Types
-interface Task {
+export interface Task {
   id: string;
   taskNumber: string;
   title: string;
@@ -137,49 +104,13 @@ const typeIcons = {
   maintenance: '⚙️',
 };
 
-const Button: React.FC<{
-  children: React.ReactNode;
-  onClick?: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-  type?: 'button' | 'submit' | 'reset';
-}> = ({ children, onClick, variant = 'ghost', size = 'md', className = '', type = 'button' }) => {
-  const variants = {
-    primary: `bg-gradient-to-r ${DESIGN_TOKENS.colors.primary} text-white hover:scale-105`,
-    secondary: `${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.text}`,
-    ghost: `${DESIGN_TOKENS.colors.surfaceHover} ${DESIGN_TOKENS.colors.textSecondary}`,
-    danger: 'bg-red-500/20 hover:bg-red-500/30 text-red-400',
-  };
-
-  const sizes = {
-    sm: `${DESIGN_TOKENS.padding.sm} text-xs`,
-    md: `${DESIGN_TOKENS.padding.md} text-sm`,
-    lg: `${DESIGN_TOKENS.padding.lg} text-base`,
-  };
-
-  return (
-    <button
-      type={type}
-      onClick={onClick}
-      className={`
-        ${variants[variant]} ${sizes[size]} ${DESIGN_TOKENS.radius.md} 
-        ${DESIGN_TOKENS.transition} flex items-center ${DESIGN_TOKENS.spacing.sm}
-        ${className}
-      `}
-    >
-      {children}
-    </button>
-  );
-};
-
 export const TaskBoard: React.FC<TaskBoardProps> = ({
   projectId,
   tasks,
   onTaskUpdate,
   onTaskCreate,
-  _onTaskDelete,
-  _onTaskAssign,
+  onTaskDelete: _onTaskDelete,
+  onTaskAssign: _onTaskAssign,
   isLoading = false,
 }) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -397,141 +328,41 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
     </div>
   );
 
-  const CreateTaskDialog: React.FC = () => {
-    const [formData, setFormData] = useState({
-      title: '',
-      description: '',
-      priority: 'medium',
-      type: 'feature',
-      dueDate: '',
-      estimatedHours: '',
-      tags: '',
-    });
-
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-
-      await onTaskCreate({
-        ...formData,
-        projectId,
-        dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
-        estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
-        tags: formData.tags ? formData.tags.split(',').map((tag) => tag.trim()) : undefined,
-      });
-
-      setFormData({
-        title: '',
-        description: '',
-        priority: 'medium',
-        type: 'feature',
-        dueDate: '',
-        estimatedHours: '',
-        tags: '',
-      });
-      setIsCreateDialogOpen(false);
-    };
-
-    return (
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogTrigger asChild>
-          <Button className="mb-4">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Task
-          </Button>
-        </DialogTrigger>
-        <DialogContent
-          className={`max-w-md ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+  const CreateTaskDialog: React.FC = () => (
+    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <DialogTrigger asChild>
+        <Button className="mb-4">
+          <Plus className="w-4 h-4 mr-2" />
+          Create Task
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        className={`max-w-md ${DESIGN_TOKENS.colors.surface} ${DESIGN_TOKENS.backdrop} ${DESIGN_TOKENS.colors.border} border`}
+      >
+        <DialogHeader>
+          <DialogTitle className={DESIGN_TOKENS.colors.text}>Create New Task</DialogTitle>
+        </DialogHeader>
+        <TaskCreateForm
+          projectId={projectId}
+          onSubmit={onTaskCreate}
+          onClose={() => setIsCreateDialogOpen(false)}
         >
-          <DialogHeader>
-            <DialogTitle className={DESIGN_TOKENS.colors.text}>Create New Task</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              placeholder="Task title"
-              value={formData.title}
-              onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-              required
-            />
-            <Textarea
-              placeholder="Description (optional)"
-              value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-              rows={3}
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={formData.type}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="feature">Feature</SelectItem>
-                  <SelectItem value="bug">Bug</SelectItem>
-                  <SelectItem value="enhancement">Enhancement</SelectItem>
-                  <SelectItem value="research">Research</SelectItem>
-                  <SelectItem value="documentation">Documentation</SelectItem>
-                  <SelectItem value="testing">Testing</SelectItem>
-                  <SelectItem value="deployment">Deployment</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                type="date"
-                placeholder="Due date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
-              />
-              <Input
-                type="number"
-                placeholder="Estimated hours"
-                value={formData.estimatedHours}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, estimatedHours: e.target.value }))
-                }
-                min="0"
-                step="0.5"
-              />
-            </div>
-            <Input
-              placeholder="Tags (comma-separated)"
-              value={formData.tags}
-              onChange={(e) => setFormData((prev) => ({ ...prev, tags: e.target.value }))}
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsCreateDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary">
-                Create Task
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-    );
-  };
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsCreateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary">
+              Create Task
+            </Button>
+          </div>
+        </TaskCreateForm>
+      </DialogContent>
+    </Dialog>
+  );
 
   return (
     <div className="h-full flex flex-col">
@@ -574,10 +405,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
+              <PrioritySelectOptions />
             </SelectContent>
           </Select>
           <Select
@@ -589,14 +417,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="feature">Feature</SelectItem>
-              <SelectItem value="bug">Bug</SelectItem>
-              <SelectItem value="enhancement">Enhancement</SelectItem>
-              <SelectItem value="research">Research</SelectItem>
-              <SelectItem value="documentation">Documentation</SelectItem>
-              <SelectItem value="testing">Testing</SelectItem>
-              <SelectItem value="deployment">Deployment</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <TypeSelectOptions />
             </SelectContent>
           </Select>
         </div>

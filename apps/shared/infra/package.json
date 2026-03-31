@@ -1,0 +1,77 @@
+{
+  "name": "@uaip/infra",
+  "version": "1.0.0",
+  "description": "Infrastructure services for UAIP backend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist",
+    "lint": "oxlint src"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "@qdrant/js-client-rest": "^1.13.0",
+    "bullmq": "catalog:backend",
+    "ioredis": "catalog:backend",
+    "jsonwebtoken": "catalog:backend",
+    "neo4j-driver": "^5.28.0",
+    "pg": "catalog:backend",
+    "winston": "catalog:backend",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "catalog:backend",
+    "@types/node": "catalog:backend",
+    "@types/pg": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./eventBus": {
+      "@uaip/source": "./src/event_bus.ts",
+      "import": "./dist/event_bus.js",
+      "require": "./dist/event_bus.js",
+      "types": "./dist/event_bus.d.ts"
+    },
+    "./event_bus": {
+      "@uaip/source": "./src/event_bus.ts",
+      "import": "./dist/event_bus.js",
+      "require": "./dist/event_bus.js",
+      "types": "./dist/event_bus.d.ts"
+    },
+    "./database": {
+      "@uaip/source": "./src/database/index.ts",
+      "import": "./dist/database/index.js",
+      "require": "./dist/database/index.js",
+      "types": "./dist/database/index.d.ts"
+    },
+    "./cache": {
+      "@uaip/source": "./src/cache/index.ts",
+      "import": "./dist/cache/index.js",
+      "require": "./dist/cache/index.js",
+      "types": "./dist/cache/index.d.ts"
+    },
+    "./logger": {
+      "@uaip/source": "./src/logger.ts",
+      "import": "./dist/logger.js",
+      "require": "./dist/logger.js",
+      "types": "./dist/logger.d.ts"
+    },
+    "./factory": {
+      "@uaip/source": "./src/factory/index.ts",
+      "import": "./dist/factory/index.js",
+      "require": "./dist/factory/index.js",
+      "types": "./dist/factory/index.d.ts"
+    }
+  }
+}

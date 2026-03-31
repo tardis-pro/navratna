@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { uaipAPI } from '../utils/uaip-api';
+import { uaipAPI } from '../utils/uaip_api';
 
 export interface User {
   id: string;
@@ -40,6 +40,24 @@ interface SystemOperationsFlow {
   backupSystem: () => Promise<unknown>;
   monitorSystem: () => Promise<unknown>;
   discoverServices: () => Promise<unknown>;
+}
+
+const CLEARED_AUTH_STATE: AuthState = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+};
+
+function parseUser(userData: { id?: string; email?: string; name?: string; role?: string }): User {
+  return {
+    id: userData.id ?? '',
+    email: userData.email ?? '',
+    firstName: userData.name?.split(' ')[0] || '',
+    lastName: userData.name?.split(' ').slice(1).join(' ') || '',
+    role: userData.role ?? '',
+    permissions: [],
+  };
 }
 
 interface AuthContextType extends AuthState {
@@ -127,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const executeSecurityFlow = async (flow: string, params: unknown) => {
     switch (flow) {
       case 'login':
-        return await uaipAPI.client.auth.login(params);
+        return await uaipAPI.client.auth.login(params as { email: string; password: string });
       case 'logout':
         return await uaipAPI.client.auth.logout();
       case 'refreshToken':
@@ -189,8 +207,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const security: SecurityFlow = useMemo(
     () => ({
       login: (credentials) => executeFlow('security', 'login', credentials),
-      logout: () => executeFlow('security', 'logout'),
-      refreshToken: () => executeFlow('security', 'refreshToken'),
+      logout: async () => { await executeFlow('security', 'logout'); },
+      refreshToken: async () => {
+        const token = await executeFlow('security', 'refreshToken');
+        return typeof token === 'string' ? token : '';
+      },
       validatePermissions: (resource) =>
         executeFlow('security', 'validatePermissions', { resource }),
       assessRisk: (operation) => executeFlow('security', 'assessRisk', operation),
@@ -206,7 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       getSystemMetrics: () => executeFlow('systemOperations', 'getSystemMetrics'),
       getSystemConfig: () => executeFlow('systemOperations', 'getSystemConfig'),
       migrateDatabase: () => executeFlow('systemOperations', 'migrateDatabase'),
-      clearCache: (layer) => executeFlow('systemOperations', 'clearCache', { layer }),
+      clearCache: async (layer) => { await executeFlow('systemOperations', 'clearCache', { layer }); },
       getSystemLogs: (filters) => executeFlow('systemOperations', 'getSystemLogs', filters),
       backupSystem: () => executeFlow('systemOperations', 'backupSystem'),
       monitorSystem: () => executeFlow('systemOperations', 'monitorSystem'),
@@ -222,36 +243,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
       if (userData) {
-        setState({
-          user: {
-            id: userData.id,
-            email: userData.email,
-            firstName: userData.name?.split(' ')[0] || '',
-            lastName: userData.name?.split(' ').slice(1).join(' ') || '',
-            role: userData.role,
-            permissions: [],
-          },
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        });
+        setState({ user: parseUser(userData), isAuthenticated: true, isLoading: false, error: null });
       } else {
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        setState(CLEARED_AUTH_STATE);
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
       uaipAPI.client.clearAuth();
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     }
   }, []);
 
@@ -261,19 +260,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen for auth failures from the API client
     const handleAuthFailure = () => {
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     };
 
-    // Listen for the auth:unauthorized event from the API client
+    const handleRateLimit = (e: Event) => {
+      const retryAfter = (e as CustomEvent<{ retryAfter: number }>).detail?.retryAfter ?? 60;
+      window.dispatchEvent(
+        new CustomEvent('toast', {
+          detail: {
+            title: 'Rate limit reached',
+            description: `Too many requests. Please wait ${retryAfter}s before trying again.`,
+            variant: 'destructive',
+          },
+        })
+      );
+    };
+
     window.addEventListener('auth:unauthorized', handleAuthFailure);
+    window.addEventListener('api:rate-limited', handleRateLimit);
 
     return () => {
       window.removeEventListener('auth:unauthorized', handleAuthFailure);
+      window.removeEventListener('api:rate-limited', handleRateLimit);
     };
   }, [checkAuthStatus]);
 
@@ -284,11 +292,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const loginData = await uaipAPI.client.auth.login({ email, password });
 
       if (loginData && loginData.user) {
-        const { user, token } = loginData;
-
-        if (token) {
-          uaipAPI.client.setAuthToken(token);
-        }
+        const { user } = loginData;
 
         setState({
           user: {
@@ -332,13 +336,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // WebSocket client reset removed - using useWebSocket hook instead
 
-      // Clear auth state
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     } catch (error) {
       console.error('Logout failed:', error);
 
@@ -347,12 +345,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // WebSocket client reset removed - using useWebSocket hook instead
 
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      setState(CLEARED_AUTH_STATE);
     }
   }, []);
 
@@ -363,40 +356,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
       if (userData) {
-        setState((prev) => ({
-          ...prev,
-          user: {
-            id: userData.id,
-            email: userData.email,
-            firstName: userData.name?.split(' ')[0] || '',
-            lastName: userData.name?.split(' ').slice(1).join(' ') || '',
-            role: userData.role,
-            permissions: [], // Will be populated from role
-          },
-          error: null,
-        }));
+        setState((prev) => ({ ...prev, user: parseUser(userData), error: null }));
       } else {
-        // If user refresh fails, it might mean the token is invalid
         console.warn('User refresh failed, clearing auth');
         uaipAPI.client.clearAuth();
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        setState(CLEARED_AUTH_STATE);
       }
     } catch (error) {
       console.error('Failed to refresh user data:', error);
-      // Don't clear auth on network errors, only on auth failures
       if (error instanceof Error && error.message.includes('Authentication failed')) {
         uaipAPI.client.clearAuth();
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
+        setState(CLEARED_AUTH_STATE);
       }
     }
   }, [state.isAuthenticated]);

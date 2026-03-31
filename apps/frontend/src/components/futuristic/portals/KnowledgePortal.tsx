@@ -1,56 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
-  Upload as _Upload,
   Database,
   Brain,
   FileText,
   Tag,
   TrendingUp,
   Link,
-  Filter as _Filter,
   Download,
   Trash2,
-  Edit3,
   Eye,
-  Plus as _Plus,
   MessageSquare,
   Copy,
 } from 'lucide-react';
-import {
-  Card as _Card,
-  CardContent as _CardContent,
-  CardDescription as _CardDescription,
-  CardHeader as _CardHeader,
-  CardTitle as _CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress as _Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog as _Dialog,
-  DialogContent as _DialogContent,
-  DialogDescription as _DialogDescription,
-  DialogHeader as _DialogHeader,
-  DialogTitle as _DialogTitle,
-  DialogTrigger as _DialogTrigger,
-} from '@/components/ui/dialog';
-import { Textarea as _Textarea } from '@/components/ui/textarea';
-import {
-  Select as _Select,
-  SelectContent as _SelectContent,
-  SelectItem as _SelectItem,
-  SelectTrigger as _SelectTrigger,
-  SelectValue as _SelectValue,
-} from '@/components/ui/select';
-import { Separator as _Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll_area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
-import type { KnowledgeItem, KnowledgeIngestRequest as _KnowledgeIngestRequest } from '@uaip/types';
-import { KnowledgeType, SourceType } from '@uaip/types';
+import type { KnowledgeItem } from '@uaip/types';
 import KnowledgeGraphVisualization from './KnowledgeGraphVisualization';
 import { AtomicKnowledgeViewer } from './AtomicKnowledgeViewer';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
@@ -58,29 +28,6 @@ import { DiscussionTrigger } from '@/components/DiscussionTrigger';
 interface KnowledgePortalProps {
   className?: string;
 }
-
-const _KNOWLEDGE_TYPES: { value: KnowledgeType; label: string; icon: React.ReactNode }[] = [
-  { value: KnowledgeType.FACTUAL, label: 'Factual', icon: <FileText className="w-4 h-4" /> },
-  { value: KnowledgeType.PROCEDURAL, label: 'Procedural', icon: <Brain className="w-4 h-4" /> },
-  { value: KnowledgeType.CONCEPTUAL, label: 'Conceptual', icon: <Database className="w-4 h-4" /> },
-  {
-    value: KnowledgeType.EXPERIENTIAL,
-    label: 'Experiential',
-    icon: <TrendingUp className="w-4 h-4" />,
-  },
-  { value: KnowledgeType.EPISODIC, label: 'Episodic', icon: <Link className="w-4 h-4" /> },
-  { value: KnowledgeType.SEMANTIC, label: 'Semantic', icon: <Tag className="w-4 h-4" /> },
-];
-
-const _SOURCE_TYPES: { value: SourceType; label: string }[] = [
-  { value: SourceType.USER_INPUT, label: 'User Input' },
-  { value: SourceType.FILE_SYSTEM, label: 'File System' },
-  { value: SourceType.GIT_REPOSITORY, label: 'Git Repository' },
-  { value: SourceType.AGENT_INTERACTION, label: 'Agent Interaction' },
-  { value: SourceType.DISCUSSION, label: 'Discussion' },
-  { value: SourceType.OPERATION, label: 'Operation' },
-  { value: SourceType.EXTERNAL_API, label: 'External API' },
-];
 
 // Knowledge type color classes for list badges
 const KNOWLEDGE_TYPE_COLORS: Record<string, string> = {
@@ -93,7 +40,6 @@ const KNOWLEDGE_TYPE_COLORS: Record<string, string> = {
   document: 'bg-slate-500/20 text-slate-300 border-slate-500/40',
 };
 
-/** Extract a readable one-line title from raw knowledge content */
 const getContentTitle = (content: string): string => {
   if (!content) return 'No content';
   const first = content.split('\n').find((l) => l.trim().length > 0) || content;
@@ -104,24 +50,48 @@ const getKnowledgeItemType = (item: KnowledgeItem): string | null => {
   return typeof item.type === 'string' && item.type.length > 0 ? item.type : null;
 };
 
+const KnowledgeItemMeta: React.FC<{ item: KnowledgeItem }> = ({ item }) => (
+  <div className="flex-1 min-w-0">
+    <p className="text-white text-sm font-medium truncate mb-1">
+      {getContentTitle(item.content || '')}
+    </p>
+    <div className="flex items-center gap-2 flex-wrap">
+      {getKnowledgeItemType(item) && getKnowledgeItemType(item) !== 'document' ? (
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
+        >
+          {getKnowledgeItemType(item)}
+        </span>
+      ) : null}
+      <span className="text-xs text-gray-500">
+        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date'}
+      </span>
+      {(item.tags || []).slice(0, 3).map((tag) => (
+        <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
+          {tag}
+        </Badge>
+      ))}
+    </div>
+  </div>
+);
+
+const KnowledgeItemRow: React.FC<{ item: KnowledgeItem; actions: React.ReactNode }> = ({ item, actions }) => (
+  <div className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors">
+    <KnowledgeItemMeta item={item} />
+    {actions}
+  </div>
+);
+
 export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) => {
   const {
     items,
     searchResults,
-    activeItemId: _activeItemId,
-    isLoading: _isLoading,
-    isUploading: _isUploading,
     isSearching,
     error: knowledgeError,
-    stats: _stats,
-    uploadProgress: _uploadProgress,
-    uploadKnowledge: _uploadKnowledge,
     searchKnowledge,
     updateKnowledge,
     deleteKnowledge,
     getRelatedKnowledge,
-    getKnowledgeByTag: _getKnowledgeByTag,
-    setActiveItem: _setActiveItem,
     clearSearchResults,
     clearError,
     refreshStats,
@@ -140,7 +110,29 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
     fetchAllItems();
   }, [refreshStats, fetchAllItems]);
 
-  // Handle search
+  const renderDeleteExamineActions = (item: KnowledgeItem) => (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => deleteKnowledge(item.id)}
+        className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
+        title="Delete"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => { setSelectedItemForAtomic(item); setActiveTab('atomic'); }}
+        className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
+        title="Examine"
+      >
+        <Eye className="w-4 h-4" />
+      </Button>
+    </>
+  );
+
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) return;
 
@@ -169,7 +161,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search knowledge..."
               className="pl-10 bg-black/20 border-blue-500/30 text-white placeholder-gray-400"
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
             />
           </div>
           <Button onClick={handleSearch} disabled={isSearching || !searchQuery.trim()} size="sm">
@@ -220,114 +212,41 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               <ScrollArea className="h-full">
                 <div className="space-y-2">
                   {searchResults.map((item) => (
-                    <div
+                    <KnowledgeItemRow
                       key={item.id}
-                      className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate mb-1">
-                          {getContentTitle(item.content || '')}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {getKnowledgeItemType(item) &&
-                          getKnowledgeItemType(item) !== 'document' ? (
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
-                            >
-                              {getKnowledgeItemType(item)}
-                            </span>
-                          ) : null}
-                          <span className="text-xs text-gray-500">
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'No date'}
-                          </span>
-                          {(item.tags || []).slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
-                              {tag}
-                            </Badge>
-                          ))}
+                      item={item}
+                      actions={
+                        <div className="flex items-center space-x-1 ml-3">
+                          <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(item.content || '')} className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Copy">
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            onClick={() => {
+                              const blob = new Blob([item.content || ''], { type: 'text/plain' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `knowledge-${item.id}.txt`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Download"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <DiscussionTrigger
+                            trigger={<Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Discuss"><MessageSquare className="w-4 h-4" /></Button>}
+                            contextType="knowledge"
+                            contextData={{ knowledgeItem: { id: item.id, content: item.content || '', type: item.type, tags: item.tags || [] } }}
+                          />
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Edit">
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          {renderDeleteExamineActions(item)}
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-1 ml-3">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => navigator.clipboard.writeText(item.content || '')}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Copy"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const blob = new Blob([item.content || ''], { type: 'text/plain' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `knowledge-${item.id}.txt`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          }}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Download"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        <DiscussionTrigger
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                              title="Discuss"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                          }
-                          contextType="knowledge"
-                          contextData={{
-                            knowledgeItem: {
-                              id: item.id,
-                              content: item.content || '',
-                              type: item.type,
-                              tags: item.tags || [],
-                            },
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteKnowledge(item.id)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedItemForAtomic(item);
-                            setActiveTab('atomic');
-                          }}
-                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
-                          title="Examine"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+                      }
+                    />
                   ))}
                 </div>
               </ScrollArea>
@@ -339,59 +258,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
               <ScrollArea className="h-full">
                 <div className="space-y-2">
                   {Object.values(items).map((item) => (
-                    <div
+                    <KnowledgeItemRow
                       key={item.id}
-                      className="flex items-center justify-between p-3 bg-black/20 border border-blue-500/20 rounded hover:bg-blue-500/10 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate mb-1">
-                          {getContentTitle(item.content || '')}
-                        </p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {getKnowledgeItemType(item) &&
-                          getKnowledgeItemType(item) !== 'document' ? (
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
-                            >
-                              {getKnowledgeItemType(item)}
-                            </span>
-                          ) : null}
-                          <span className="text-xs text-gray-500">
-                            {item.createdAt
-                              ? new Date(item.createdAt).toLocaleDateString()
-                              : 'No date'}
-                          </span>
-                          {(item.tags || []).slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs py-0 h-4">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => deleteKnowledge(item.id)}
-                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-400"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedItemForAtomic(item);
-                            setActiveTab('atomic');
-                          }}
-                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-300"
-                          title="Examine"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+                      item={item}
+                      actions={<div className="flex items-center gap-1">{renderDeleteExamineActions(item)}</div>}
+                    />
                   ))}
                 </div>
               </ScrollArea>

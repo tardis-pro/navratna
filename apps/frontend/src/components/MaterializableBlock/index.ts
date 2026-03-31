@@ -21,7 +21,7 @@ export {
   SCORE_BADGE_STYLES,
   KEYFRAME_ANIMATIONS,
   cn,
-} from './MaterializableBlock.styles';
+} from './materializable_block_styles';
 
 export type {
   MaterializableBlockType,
@@ -33,6 +33,6 @@ export type {
   AutoArrangeConfig,
   MaterializableBlockContextValue,
   WithMaterializableBlockConfig,
-} from './MaterializableBlock.types';
+} from './materializable_block_types';
 
-export { DEFAULT_AUTO_ARRANGE_CONFIG } from './MaterializableBlock.types';
+export { DEFAULT_AUTO_ARRANGE_CONFIG } from './materializable_block_types';

@@ -4,14 +4,14 @@ import { AlertTriangle, Loader2, Square, Send, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { APIClient } from '@/api/client';
-import { buildAPIURL } from '@/config/apiConfig';
+import { buildAPIURL } from '@/config/api_config';
 import { PRPanel } from '@/components/workspace/PRPanel';
 import { ToolCallCard } from '@/components/workspace/ToolCallCard';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll_area';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, MessageSquare, Clock, Users, Eye, _Download, _Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDiscussion } from '@/contexts/DiscussionContext';
-import { discussionsAPI } from '@/api/discussions.api';
+import { discussionsAPI } from '@/api/discussions_api';
 import { cn } from '@/lib/utils';
 import type { Discussion } from '@uaip/types';
 

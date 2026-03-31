@@ -3,9 +3,10 @@
 ## Document Control
 
 - **Last Updated**: 2026-03-21
-- **Version**: 3.1 (Sovereign Shell Evolution + Platform Expansion Vision)
-- **Previous**: v2.0 (UAIP Platform) — archived
-- **Status**: Phase 1 Telescope components BUILT, OpenClaw port IN PROGRESS, 362-idea expansion brainstormed, BaseBench-Meta + QuestionForge specs drafted
+- **Version**: 3.2 (Multi-User Metacognitive Agent Platform)
+- **Previous**: v3.1 — v2.0 (UAIP Platform) archived
+- **Last Verified**: 2026-03-30
+- **Status**: Service consolidation ~75% via FeatureFactory. TypeORM + RabbitMQ + Express fully removed. DesktopUnified deleted. TelescopeSurface built. BaseBench-Meta + QuestionForge MVPs complete.
 
 ## Current State: v2.0 → v3.0 Transition
 
@@ -18,20 +19,20 @@
 - ✅ MCP protocol support (2,075 LoC client)
 - ✅ Enterprise security foundation (JWT, RBAC, MFA scaffold, OAuth)
 - ✅ React 19 frontend with 30+ portal components
-- ✅ 132 passing middleware tests
 - ✅ Elysia framework (performance-first)
 
 ### What v3.0 Changes
 
-The platform evolves from a multi-user enterprise tool to a **personal sovereign agent operating system**:
+The platform evolves into a **multi-user metacognitive agent platform** with sovereign, local-first architecture:
 
-- Single-owner, multi-agent, multi-machine
-- Local-first with cloud burst
-- OpenShell sandboxed execution
+- 7 services → 2 consolidated (navratna-core + navratna-gateway) via FeatureFactory, plus standalone QuestionForge + BaseBench-Meta
+- TypeORM → Drizzle (✅ complete), RabbitMQ → BullMQ (✅ complete), Express → Elysia (✅ complete)
+- DesktopUnified → TelescopeSurface (✅ deleted/replaced)
+- Auth tokens → httpOnly cookies (✅ complete)
 - Telescope intent-driven UI replacing portal grid
 - 14 agents ported from OpenClaw
-- Project-based auth with provider fallback chains
-- Tauri native shell
+- OpenShell sandboxed execution
+- Tauri native shell (planned)
 
 ## Q1 2026 (March-April): Foundation
 
@@ -41,7 +42,7 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 - [ ] Per-machine Docker Compose configs
 - [ ] Fix: .env template, Docker version pins, database init scripts
 - [ ] Install NVIDIA OpenShell on PC-B + Mac
-- [ ] Service consolidation: 7 services → 2 (Core + Gateway)
+- [x] Service consolidation: 7 services → 2 via FeatureFactory (~75% complete — architecture done, some integration gaps remain)
 
 ### Phase 1: Telescope Foundation + Agent Port (Week 1-2)
 
@@ -103,26 +104,28 @@ The platform evolves from a multi-user enterprise tool to a **personal sovereign
 
 ## Q2-Q3 2026 (May-July): Replacements
 
-### ORM Migration
+### ORM Migration — ✅ COMPLETE
 
-- [ ] Drizzle schema definitions (parallel to TypeORM)
-- [ ] Service-by-service migration (Artifact → LLM → Capability → Agent → Discussion → Orchestration → Security)
-- [ ] Performance benchmarks (every query must be faster)
-- [ ] TypeORM removal after validation
+- [x] Drizzle schema definitions (two-plane: intelligence + control)
+- [x] All services migrated to Drizzle
+- [x] TypeORM fully removed — zero source references
+- [x] Verified: `grep -ri "typeorm" apps/ → 0 hits`
 
-### Message Bus Migration
+### Message Bus Migration — ✅ COMPLETE
 
-- [ ] BullMQ EventBus implementation (parallel to RabbitMQ)
-- [ ] Service-by-service consumer migration
-- [ ] Scheduled job migration (21 cron jobs)
-- [ ] RabbitMQ removal after validation
+- [x] BullMQ EventBus implementation on Redis Streams
+- [x] All event consumers migrated to BullMQ
+- [x] amqplib/RabbitMQ client fully removed from source
+- [ ] Scheduled job migration (21 cron jobs — planned Q2 2026)
+- [x] RabbitMQ container removed from main docker-compose
 
-### Infrastructure Trimming
+### Infrastructure Trimming — PARTIAL
 
-- [ ] Remove MinIO, TEI, monitoring stack containers
-- [ ] Remove stub components (ChatPortal, MultiChatManager, MindMap)
-- [ ] Remove DashboardPortal (mock data)
-- [ ] Remove Marketplace Service
+- [x] MinIO, TEI GPU, TEI CPU, TEI Reranker removed from docker-compose
+- [x] Loki, Promtail, redis-exporter, node-exporter, nginx-exporter removed (2026-03-30)
+- [x] Prometheus + Grafana + postgres-exporter kept for observability
+- [ ] Remove stub components (ChatPortal, MultiChatManager, MindMap, DashboardPortal, MiniBrowserPortal, KnowledgeGraphVisualization)
+- [ ] Remove Marketplace Service directory
 
 ## Q3 2026 (July-September): Maturity
 

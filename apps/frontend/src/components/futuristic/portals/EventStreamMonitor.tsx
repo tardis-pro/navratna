@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useUAIP } from '@/contexts/UAIPContext';
-import { motion } from 'framer-motion';
 import {
-  BoltIcon,
-  InformationCircleIcon,
-  LightBulbIcon,
-  CheckCircleIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-  XCircleIcon,
-  ClockIcon as _ClockIcon,
-} from '@heroicons/react/24/outline';
-
-interface ViewportSize {
-  width: number;
-  height: number;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-}
+  Zap,
+  Info,
+  Lightbulb,
+  CheckCircle,
+  XCircle,
+  Clock as _Clock,
+} from 'lucide-react';
+import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import {
+  PortalContainer,
+  PortalLoadingState,
+  PortalEmptyState,
+  PortalErrorState,
+  PortalHeader,
+} from './portal-shared-components';
 
 interface EventStreamMonitorPortalProps {
   className?: string;
@@ -43,17 +40,7 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [maxEvents, setMaxEvents] = useState<number>(50);
 
-  // Default viewport setup
-  const defaultViewport: ViewportSize = {
-    width: typeof window !== 'undefined' ? window.innerWidth : 1024,
-    height: typeof window !== 'undefined' ? window.innerHeight : 768,
-    isMobile: typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    isTablet:
-      typeof window !== 'undefined' ? window.innerWidth >= 768 && window.innerWidth < 1024 : false,
-    isDesktop: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
-  };
-
-  const currentViewport = viewport || defaultViewport;
+  const currentViewport = useViewport(viewport);
 
   useEffect(() => {
     // Transform events from UAIPContext to display format
@@ -120,13 +107,13 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
   const getEventIcon = (type: string) => {
     switch (type) {
       case 'success':
-        return <CheckCircleIcon className="w-4 h-4 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'warning':
-        return <LightBulbIcon className="w-4 h-4 text-yellow-500" />;
+        return <Lightbulb className="w-4 h-4 text-yellow-500" />;
       case 'error':
-        return <XCircleIcon className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-red-500" />;
       default:
-        return <InformationCircleIcon className="w-4 h-4 text-blue-500" />;
+        return <Info className="w-4 h-4 text-blue-500" />;
     }
   };
 
@@ -165,130 +152,53 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
     error: displayEvents.filter((e) => e.type === 'error').length,
   };
 
-  // Show error state
   if (events.error) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-      >
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ExclamationTriangleIcon className="w-8 h-8 text-red-400 mx-auto mb-2" />
-            <p className="text-red-500 dark:text-red-400">Failed to load events</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">{events.error.message}</p>
-            <button
-              onClick={refreshData}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </motion.div>
+      <PortalContainer className={className}>
+        <PortalErrorState
+          message="Failed to load events"
+          detail={events.error.message}
+          onRetry={refreshData}
+        />
+      </PortalContainer>
     );
   }
 
-  // Show loading state
   if (events.isLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-      >
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <ArrowPathIcon className="w-8 h-8 text-blue-400 mx-auto mb-2 animate-spin" />
-            <p className="text-gray-500 dark:text-gray-400">Loading events...</p>
-          </div>
-        </div>
-      </motion.div>
+      <PortalContainer className={className}>
+        <PortalLoadingState message="Loading events..." />
+      </PortalContainer>
     );
   }
 
-  // Show empty state
   if (displayEvents.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-      >
-        {/* Header with Connection Status */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-            <BoltIcon className="w-6 h-6 mr-2 text-gray-400" />
-            Event Stream Monitor
-          </h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-              />
-              <span className="text-sm text-gray-500">
-                {isWebSocketConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <button
-              onClick={refreshData}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title="Refresh events"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+      <PortalContainer className={className}>
+        <PortalHeader
+          icon={<Zap className="w-6 h-6 mr-2 text-slate-400" />}
+          title="Event Stream Monitor"
+          isConnected={isWebSocketConnected}
+          onRefresh={refreshData}
+        />
 
-        <div className="flex items-center justify-center h-32">
-          <div className="text-center">
-            <BoltIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400">No events to display</p>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Events will appear here as they occur
-            </p>
-          </div>
-        </div>
-      </motion.div>
+        <PortalEmptyState
+          icon={<Zap className="w-8 h-8 text-slate-400 mx-auto mb-2" />}
+          title="No events to display"
+          description="Events will appear here as they occur"
+        />
+      </PortalContainer>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`space-y-6 ${className ?? ''} ${currentViewport.isMobile ? 'px-2' : ''}`}
-    >
-      {/* Header with Connection Status */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-          <BoltIcon className="w-6 h-6 mr-2 text-green-500" />
-          Event Stream Monitor
-        </h2>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-            />
-            <span className="text-sm text-gray-500">
-              {isWebSocketConnected ? 'Live' : 'Offline'} ({eventCounts.all})
-            </span>
-          </div>
-          <button
-            onClick={refreshData}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            title="Refresh events"
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-          </button>
-          {events.lastUpdated && (
-            <span className="text-xs text-gray-400">
-              Updated: {events.lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-      </div>
+    <PortalContainer className={className}>
+      <PortalHeader
+        icon={<Zap className="w-6 h-6 mr-2 text-green-500" />}
+        title="Event Stream Monitor"
+        isConnected={isWebSocketConnected}
+        onRefresh={refreshData}
+      />
 
       {/* Event Type Filters */}
       <div className="flex flex-wrap gap-2">
@@ -299,7 +209,7 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
               filterType === type
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
             }`}
           >
             {type.charAt(0).toUpperCase() + type.slice(1)} (
@@ -310,11 +220,11 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
 
       {/* Event Count Selector */}
       <div className="flex items-center space-x-4">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Show last:</label>
+        <label className="text-sm font-medium text-slate-300">Show last:</label>
         <select
           value={maxEvents}
           onChange={(e) => setMaxEvents(Number(e.target.value))}
-          className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-1 border border-slate-700/60 rounded-lg bg-slate-900/50 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent backdrop-blur-xl"
         >
           <option value={25}>25 events</option>
           <option value={50}>50 events</option>
@@ -328,14 +238,14 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
         {displayEvents.map((event) => (
           <div
             key={event.id}
-            className={`bg-white dark:bg-slate-700 rounded-lg p-3 border-l-4 border border-slate-200 dark:border-slate-600 ${getEventTypeColor(event.type)} hover:shadow-md transition-shadow`}
+            className={`bg-slate-900/40 rounded-lg p-3 border-l-4 border border-slate-700/50 backdrop-blur-xl ${getEventTypeColor(event.type)} hover:shadow-md transition-shadow`}
           >
             <div className="flex items-start space-x-3">
               {getEventIcon(event.type)}
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    <span className="text-sm font-medium text-slate-100">
                       {event.source}
                     </span>
                     <span
@@ -344,18 +254,18 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
                       {event.type.toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-slate-500">
                     {event.timestamp.toLocaleTimeString()}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{event.message}</p>
+                <p className="text-sm text-slate-300 mb-1">{event.message}</p>
                 {event.correlationId && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-blue-600 dark:text-blue-400">
+                    <span className="text-xs text-blue-400">
                       ID: {event.correlationId}
                     </span>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-slate-600">•</span>
+                    <span className="text-xs text-slate-500">
                       {event.timestamp.toLocaleDateString()}
                     </span>
                   </div>
@@ -367,27 +277,27 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
       </div>
 
       {/* Event Statistics */}
-      <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Event Statistics</h3>
+      <div className="bg-slate-900/40 rounded-2xl p-6 border border-slate-700/50 backdrop-blur-xl mt-4">
+        <h3 className="text-lg font-bold text-slate-100 mb-4">Event Statistics</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">{eventCounts.info}</div>
-            <div className="text-sm text-gray-500">Info</div>
+            <div className="text-2xl font-bold text-blue-500">{eventCounts.info}</div>
+            <div className="text-sm text-slate-400">Info</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{eventCounts.success}</div>
-            <div className="text-sm text-gray-500">Success</div>
+            <div className="text-2xl font-bold text-green-500">{eventCounts.success}</div>
+            <div className="text-sm text-slate-400">Success</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-600">{eventCounts.warning}</div>
-            <div className="text-sm text-gray-500">Warning</div>
+            <div className="text-2xl font-bold text-yellow-500">{eventCounts.warning}</div>
+            <div className="text-sm text-slate-400">Warning</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-red-600">{eventCounts.error}</div>
-            <div className="text-sm text-gray-500">Error</div>
+            <div className="text-2xl font-bold text-red-500">{eventCounts.error}</div>
+            <div className="text-sm text-slate-400">Error</div>
           </div>
         </div>
       </div>
-    </motion.div>
+    </PortalContainer>
   );
 };

@@ -2,9 +2,10 @@
 
 ## Document Control
 
-- **Version**: 1.0
+- **Version**: 1.1
 - **Date**: 2026-03-21
-- **Status**: DISTILLED FROM PARTY MODE STRATEGIC SESSION
+- **Last Verified**: 2026-03-30
+- **Status**: ACTIVE — TelescopeSurface built, DesktopUnified deleted
 - **Source**: BMAD Party Mode with 9 agents + Karpathy/Elon/Pichai/Zuckerberg mental models
 - **Inputs**: 88-idea Telescope brainstorm, 362-idea platform expansion brainstorm, product brief, content language strategy, user stories, test traceability report, full codebase audit
 - **Related Specs**: 00 (Sovereign Shell PRD), 07 (Strategic Vision), 08 (BaseBench-Meta), 09 (QuestionForge)
@@ -21,7 +22,7 @@
      For the broader platform vision (three products, metacognitive agents, business OS expansion),
      see docs/specs/07-STRATEGIC-VISION-2026.md. -->
 
-Navratna is a 50K LOC, 10-month-old AI Operating System with 20 active users, 57 database entities, 9 production microservices (consolidating to 2), a triple-store knowledge graph (PG/Neo4j/Qdrant), 4 working OAuth adapters (Jira/Confluence/GitHub/Slack), full MCP protocol support, a 685-line agent learning system, 3-tier cognitive memory, and a conversation intelligence engine. The backend is ~90% complete. The frontend is a portal grid (DesktopUnified.tsx) that doesn't match the intelligence of the backend.
+Navratna is a 50K LOC, 10-month-old multi-user metacognitive agent platform with 20 active users, 57 database entities, 3 running services (navratna-core, navratna-gateway, questionforge — consolidating 7 legacy modules via FeatureFactory), a triple-store knowledge graph (PG/Neo4j/Qdrant), 4 working OAuth adapters (Jira/Confluence/GitHub/Slack), full MCP protocol support, a 685-line agent learning system, 3-tier cognitive memory, and a conversation intelligence engine. The backend is ~90% complete. DesktopUnified.tsx has been **deleted** — TelescopeSurface is now the primary frontend.
 
 The platform is expanding into three convergent products: **UAIP Core** (agent platform + Telescope UX), **BaseBench-Meta** (metacognitive benchmark), and **QuestionForge** (stakeholder discovery council). See `docs/specs/07-STRATEGIC-VISION-2026.md` for full vision.
 
@@ -63,7 +64,7 @@ Plans created in Navratna leave for Jira/Notion. Financial models leave for spre
 
 The product brief defines: _"Intent replaces navigation. No pages, no routes, no menus. One intent field, one rendering surface."_
 
-The current UI has 30+ portals in a window manager. Knowledge is a tab. Discussions are a tab. Agents are a tab. This is the opposite of the Telescope vision.
+The previous UI (DesktopUnified, now deleted) had 30+ portals in a window manager. DesktopUnified has been replaced by TelescopeSurface, but the portal-as-tab paradigm persists in lazy-loaded portal components. The Telescope vision demands intent-driven surfacing, not tab navigation.
 
 ---
 
