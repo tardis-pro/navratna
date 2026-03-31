@@ -167,9 +167,10 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
       setIsLoading(true);
       setError(null);
 
-      const [stats, events] = await Promise.all([
+      const [stats, events, policies] = await Promise.all([
         securityAPI.getStats(30).catch((): null => null),
         securityAPI.getEvents({ limit: 50 }).catch((): Awaited<ReturnType<typeof securityAPI.getEvents>> => []),
+        securityAPI.listPolicies({ isActive: true }).catch((): Awaited<ReturnType<typeof securityAPI.listPolicies>> => []),
       ]);
 
       if (stats) {
@@ -206,6 +207,10 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
             details: e.metadata,
           }))
         );
+      }
+
+      if (Array.isArray(policies) && policies.length > 0) {
+        setSettings((prev) => ({ ...prev }));
       }
 
       setPermissions({
@@ -298,26 +303,32 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
     }
   }, []);
 
-  const fetchAuditLog = useCallback(async (_filters?: AuditLogFilters) => {
+  const fetchAuditLog = useCallback(async (filters?: AuditLogFilters) => {
     try {
       setError(null);
-      // In real implementation: await api.get('/security/audit', { params: filters });
+      const events = await securityAPI.getEvents({
+        limit: 50,
+        userId: filters?.userId,
+        type: filters?.action,
+        startDate: filters?.startDate?.toISOString(),
+        endDate: filters?.endDate?.toISOString(),
+      });
 
-      // Mock audit events
-      const mockEvents: AuditEvent[] = [
-        {
-          id: '1',
-          timestamp: new Date(),
-          userId: 'user-1',
-          action: 'LOGIN',
-          resource: 'auth',
-          outcome: 'success',
-          ipAddress: '192.168.1.1',
-          userAgent: 'Mozilla/5.0...',
-        },
-      ];
-
-      setAuditLog(mockEvents);
+      if (Array.isArray(events)) {
+        setAuditLog(
+          events.map((e) => ({
+            id: e.id,
+            timestamp: new Date(e.timestamp),
+            userId: e.userId ?? '',
+            action: e.action,
+            resource: e.resourceType,
+            outcome: e.result === 'allowed' ? 'success' : e.result === 'denied' ? 'blocked' : 'failure',
+            ipAddress: (e.metadata?.ipAddress as string) ?? '',
+            userAgent: (e.metadata?.userAgent as string) ?? '',
+            details: e.metadata,
+          }))
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch audit log');
       throw err;
