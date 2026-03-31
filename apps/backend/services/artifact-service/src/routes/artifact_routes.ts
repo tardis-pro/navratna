@@ -79,21 +79,22 @@ export function registerArtifactRoutes<T extends Elysia>(
     
             const type = query.type as string | undefined;
             const projectId = query.projectId as string | undefined;
-            const limit = query.limit ? parseInt(query.limit) : 50;
+            const limit = Math.min(query.limit ? parseInt(query.limit) : 50, 200);
             const offset = query.offset ? parseInt(query.offset) : 0;
     
-            const artifacts = await artifactRepo.findMany({
-              ...(type ? { type } : {}),
-              ...(projectId ? { projectId } : {}),
-            });
-    
-            // Apply pagination
-            const paginatedArtifacts = artifacts.slice(offset, offset + limit);
+            const [artifacts, total] = await Promise.all([
+              artifactRepo.findMany({
+                limit,
+                offset,
+                ...(type ? { type } : {}),
+              }),
+              artifactRepo.count(),
+            ]);
     
             return {
               success: true,
-              data: paginatedArtifacts,
-              total: artifacts.length,
+              data: artifacts,
+              total,
               limit,
               offset,
             };
