@@ -19,6 +19,9 @@ import { IntentField } from '@/components/IntentField/IntentField';
 import type { IntentOption } from '@/components/IntentField/intent_field_types';
 import { AttentionBudget } from '@/components/AttentionBudget/AttentionBudget';
 import { WhisperLine } from '@/components/AmbientIntelligence/WhisperLine';
+import { CrystallizationEffect } from '@/components/PredictiveIntent/CrystallizationEffect';
+import { MorningFog } from '@/components/AmbientIntelligence/MorningFog';
+import { BreathCycle } from '@/components/AmbientIntelligence/BreathCycle';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -494,6 +497,43 @@ export function TelescopeSurface({
     };
   }, []);
 
+  const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
+  const [fogActive, setFogActive] = useState(true);
+
+  useEffect(() => {
+    const unclaimed = visibleBlocks.filter((b) => !crystallizedIds.has(b.id));
+    if (unclaimed.length === 0) return;
+
+    const timers = unclaimed.map((b, i) =>
+      setTimeout(() => {
+        setCrystallizedIds((prev) => new Set([...prev, b.id]));
+      }, 100 + i * 150)
+    );
+
+    return () => timers.forEach(clearTimeout);
+  }, [visibleBlocks, crystallizedIds]);
+
+  useEffect(() => {
+    if (visibleBlocks.length === 0) return;
+    const allCrystallized = visibleBlocks.every((b) => crystallizedIds.has(b.id));
+    if (allCrystallized) setFogActive(false);
+  }, [visibleBlocks, crystallizedIds]);
+
+  const fogItems = useMemo(
+    () =>
+      visibleBlocks.map((b) => ({
+        id: b.id,
+        relevanceScore: b.relevanceScore,
+        loaded: crystallizedIds.has(b.id),
+      })),
+    [visibleBlocks, crystallizedIds]
+  );
+
+  const systemLoad = useMemo(
+    () => Math.min(visibleBlocks.length / Math.max(maxVisibleBlocks, 1), 1),
+    [visibleBlocks.length, maxVisibleBlocks]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -529,27 +569,36 @@ export function TelescopeSurface({
           />
         </div>
 
-        <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <AnimatePresence mode="popLayout">
-            {visibleBlocks.map((block, index) =>
-              block.type === 'portal' ? (
-                <div key={block.id} data-block-id={block.id}>
-                  <MaterializableBlock block={block}>
-                    {renderPortalContent(block.id)}
-                  </MaterializableBlock>
-                </div>
-              ) : (
-                <div key={block.id} data-block-id={block.id}>
-                  <TelescopeBlock
-                    block={block}
-                    onClick={onBlockSelect}
-                    isTopRanked={index === 0 && block.relevanceScore > 0.8}
-                  />
-                </div>
-              )
-            )}
-          </AnimatePresence>
-        </div>
+        <MorningFog items={fogItems} isActive={fogActive} onCleared={() => setFogActive(false)} />
+
+        <BreathCycle systemLoad={systemLoad} isActive={true}>
+          <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <AnimatePresence mode="popLayout">
+              {visibleBlocks.map((block, index) => (
+                <motion.div
+                  key={block.id}
+                  data-block-id={block.id}
+                  exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.95 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <CrystallizationEffect isLoading={!crystallizedIds.has(block.id)} duration={400}>
+                    {block.type === 'portal' ? (
+                      <MaterializableBlock block={block}>
+                        {renderPortalContent(block.id)}
+                      </MaterializableBlock>
+                    ) : (
+                      <TelescopeBlock
+                        block={block}
+                        onClick={onBlockSelect}
+                        isTopRanked={index === 0 && block.relevanceScore > 0.8}
+                      />
+                    )}
+                  </CrystallizationEffect>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </BreathCycle>
       </div>
 
       {visibleBlocks.length === 0 && (
