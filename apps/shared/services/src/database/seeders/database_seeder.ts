@@ -1,8 +1,8 @@
 import { getControlDb } from '../drizzle/clients/index';
 import { getIntelligenceDb } from '../drizzle/clients/index';
-import { users } from '../drizzle/schemas/control_schema';
-import { agents } from '../drizzle/schemas/intelligence_schema';
-import { personas } from '../drizzle/schemas/intelligence_schema';
+import { users } from '../drizzle/schemas/control.schema';
+import { agents } from '../drizzle/schemas/intelligence.schema';
+import { personas } from '../drizzle/schemas/intelligence.schema';
 import { UserSeed } from './user_seed';
 import { UserLLMProviderSeed } from './user_l_l_m_provider_seed';
 import { LLMPreferencesSeed } from './l_l_m_preferences_seed';
@@ -15,168 +15,168 @@ import { LLMProviderSeed } from './llm_provider_seed';
 import { CapabilitySeed } from './capability_seed';
 
 export class DatabaseSeeder {
-  private controlDb = getControlDb();
-  private intelligenceDb = getIntelligenceDb();
+    private controlDb = getControlDb();
+    private intelligenceDb = getIntelligenceDb();
 
-  async seedAll(): Promise<void> {
-    const results = {
-      users: false,
-      llmProviders: false,
-      capabilities: false,
-      userLLMProviders: false,
-      llmPreferences: false,
-      securityPolicies: false,
-      personas: false,
-      agents: false,
-      toolDefinitions: false,
-      projects: false,
-    };
+    async seedAll(): Promise<void> {
+        const results = {
+            users: false,
+            llmProviders: false,
+            capabilities: false,
+            userLLMProviders: false,
+            llmPreferences: false,
+            securityPolicies: false,
+            personas: false,
+            agents: false,
+            toolDefinitions: false,
+            projects: false,
+        };
 
-    try {
-      await this.seedUsers();
-      results.users = true;
-    } catch (error) {
-      console.error('   ❌ User seeding failed:', error);
+        try {
+            await this.seedUsers();
+            results.users = true;
+        } catch (error) {
+            console.error('   ❌ User seeding failed:', error);
+        }
+
+        try {
+            await this.seedLLMProviders();
+            results.llmProviders = true;
+        } catch (error) {
+            console.error('   ❌ LLM provider seeding failed:', error);
+        }
+
+        try {
+            await this.seedCapabilities();
+            results.capabilities = true;
+        } catch (error) {
+            console.error('   ❌ Capability seeding failed:', error);
+        }
+
+        try {
+            await this.seedUserLLMProviders();
+            results.userLLMProviders = true;
+        } catch (error) {
+            console.error('   ❌ User LLM provider seeding failed:', error);
+        }
+
+        try {
+            await this.seedSecurityPolicies();
+            results.securityPolicies = true;
+        } catch (error) {
+            console.error('   ❌ Security policy seeding failed:', error);
+        }
+
+        try {
+            await this.seedPersonas();
+            results.personas = true;
+        } catch (error) {
+            console.error('   ❌ Persona seeding failed:', error);
+        }
+
+        try {
+            await this.seedAgents();
+            results.agents = true;
+        } catch (error) {
+            console.error('   ❌ Agent seeding failed:', error);
+        }
+
+        try {
+            await this.seedLLMPreferences();
+            results.llmPreferences = true;
+        } catch (error) {
+            console.error('   ❌ LLM preferences seeding failed:', error);
+        }
+
+        try {
+            await this.seedToolDefinitions();
+            results.toolDefinitions = true;
+        } catch (error) {
+            console.error('   ❌ Tool definition seeding failed:', error);
+        }
+
+        try {
+            await this.seedProjects();
+            results.projects = true;
+        } catch (error) {
+            console.error('   ❌ Project seeding failed:', error);
+        }
+
+        const successCount = Object.values(results).filter(Boolean).length;
+        const totalCount = Object.keys(results).length;
+        if (successCount === totalCount) {
+            console.warn('✅ All seeders completed successfully');
+        } else if (successCount > 0) {
+            console.warn(`⚠️ ${successCount}/${totalCount} seeders completed`);
+        } else {
+            throw new Error('All seeders failed');
+        }
     }
 
-    try {
-      await this.seedLLMProviders();
-      results.llmProviders = true;
-    } catch (error) {
-      console.error('   ❌ LLM provider seeding failed:', error);
+    private async seedUsers(): Promise<void> {
+        const userSeed = new UserSeed();
+        await userSeed.seed();
     }
 
-    try {
-      await this.seedCapabilities();
-      results.capabilities = true;
-    } catch (error) {
-      console.error('   ❌ Capability seeding failed:', error);
+    private async seedLLMProviders(): Promise<void> {
+        const llmProviderSeed = new LLMProviderSeed();
+        await llmProviderSeed.seed();
     }
 
-    try {
-      await this.seedUserLLMProviders();
-      results.userLLMProviders = true;
-    } catch (error) {
-      console.error('   ❌ User LLM provider seeding failed:', error);
+    private async seedCapabilities(): Promise<void> {
+        const capabilitySeed = new CapabilitySeed();
+        await capabilitySeed.seed();
     }
 
-    try {
-      await this.seedSecurityPolicies();
-      results.securityPolicies = true;
-    } catch (error) {
-      console.error('   ❌ Security policy seeding failed:', error);
+    private async seedUserLLMProviders(): Promise<void> {
+        const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+        const userSeed = new UserLLMProviderSeed(allUsers.map((u) => u.id));
+        await userSeed.seed();
     }
 
-    try {
-      await this.seedPersonas();
-      results.personas = true;
-    } catch (error) {
-      console.error('   ❌ Persona seeding failed:', error);
+    private async seedSecurityPolicies(): Promise<void> {
+        const securityPolicySeed = new SecurityPolicySeed();
+        await securityPolicySeed.seed();
     }
 
-    try {
-      await this.seedAgents();
-      results.agents = true;
-    } catch (error) {
-      console.error('   ❌ Agent seeding failed:', error);
+    private async seedPersonas(): Promise<void> {
+        const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+        const personaSeed = new PersonaSeed(allUsers.map((u) => u.id));
+        await personaSeed.seed();
     }
 
-    try {
-      await this.seedLLMPreferences();
-      results.llmPreferences = true;
-    } catch (error) {
-      console.error('   ❌ LLM preferences seeding failed:', error);
+    private async seedAgents(): Promise<void> {
+        const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+        const allPersonas = await this.intelligenceDb.select({ id: personas.id }).from(personas);
+        const agentSeed = new AgentSeed(
+            allUsers.map((u) => u.id),
+            allPersonas.map((p) => p.id)
+        );
+        await agentSeed.seed();
     }
 
-    try {
-      await this.seedToolDefinitions();
-      results.toolDefinitions = true;
-    } catch (error) {
-      console.error('   ❌ Tool definition seeding failed:', error);
+    private async seedLLMPreferences(): Promise<void> {
+        const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+        const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
+        const llmPreferencesSeed = new LLMPreferencesSeed(
+            allUsers.map((u) => u.id),
+            allAgents.map((a) => a.id)
+        );
+        await llmPreferencesSeed.seed();
     }
 
-    try {
-      await this.seedProjects();
-      results.projects = true;
-    } catch (error) {
-      console.error('   ❌ Project seeding failed:', error);
+    private async seedToolDefinitions(): Promise<void> {
+        const toolDefinitionSeed = new ToolDefinitionSeed();
+        await toolDefinitionSeed.seed();
     }
 
-    const successCount = Object.values(results).filter(Boolean).length;
-    const totalCount = Object.keys(results).length;
-    if (successCount === totalCount) {
-      console.warn('✅ All seeders completed successfully');
-    } else if (successCount > 0) {
-      console.warn(`⚠️ ${successCount}/${totalCount} seeders completed`);
-    } else {
-      throw new Error('All seeders failed');
+    private async seedProjects(): Promise<void> {
+        const allUsers = await this.controlDb.select({ id: users.id }).from(users);
+        const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
+        const projectSeed = new ProjectSeed(
+            allUsers.map((u) => u.id),
+            allAgents.map((a) => a.id)
+        );
+        await projectSeed.seed();
     }
-  }
-
-  private async seedUsers(): Promise<void> {
-    const userSeed = new UserSeed();
-    await userSeed.seed();
-  }
-
-  private async seedLLMProviders(): Promise<void> {
-    const llmProviderSeed = new LLMProviderSeed();
-    await llmProviderSeed.seed();
-  }
-
-  private async seedCapabilities(): Promise<void> {
-    const capabilitySeed = new CapabilitySeed();
-    await capabilitySeed.seed();
-  }
-
-  private async seedUserLLMProviders(): Promise<void> {
-    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const userSeed = new UserLLMProviderSeed(allUsers.map((u) => u.id));
-    await userSeed.seed();
-  }
-
-  private async seedSecurityPolicies(): Promise<void> {
-    const securityPolicySeed = new SecurityPolicySeed();
-    await securityPolicySeed.seed();
-  }
-
-  private async seedPersonas(): Promise<void> {
-    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const personaSeed = new PersonaSeed(allUsers.map((u) => u.id));
-    await personaSeed.seed();
-  }
-
-  private async seedAgents(): Promise<void> {
-    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const allPersonas = await this.intelligenceDb.select({ id: personas.id }).from(personas);
-    const agentSeed = new AgentSeed(
-      allUsers.map((u) => u.id),
-      allPersonas.map((p) => p.id)
-    );
-    await agentSeed.seed();
-  }
-
-  private async seedLLMPreferences(): Promise<void> {
-    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
-    const llmPreferencesSeed = new LLMPreferencesSeed(
-      allUsers.map((u) => u.id),
-      allAgents.map((a) => a.id)
-    );
-    await llmPreferencesSeed.seed();
-  }
-
-  private async seedToolDefinitions(): Promise<void> {
-    const toolDefinitionSeed = new ToolDefinitionSeed();
-    await toolDefinitionSeed.seed();
-  }
-
-  private async seedProjects(): Promise<void> {
-    const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const allAgents = await this.intelligenceDb.select({ id: agents.id }).from(agents);
-    const projectSeed = new ProjectSeed(
-      allUsers.map((u) => u.id),
-      allAgents.map((a) => a.id)
-    );
-    await projectSeed.seed();
-  }
 }

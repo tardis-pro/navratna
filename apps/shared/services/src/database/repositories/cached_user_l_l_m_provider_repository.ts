@@ -1,102 +1,102 @@
 import { UserLLMProviderRepository } from './user_l_l_m_provider_repository';
 import { redisCacheService } from '../../redis_cache_service';
-import type { userLLMProviders } from '../drizzle/schemas/control_schema';
+import type { userLLMProviders } from '../drizzle/schemas/control.schema';
 
 type UserLLMProviderRow = typeof userLLMProviders.$inferSelect;
 
 export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
-  private readonly CACHE_TTL = { ACTIVE_PROVIDERS: 300, PROVIDER_BY_ID: 600, USER_PROVIDERS: 300 };
+    private readonly CACHE_TTL = { ACTIVE_PROVIDERS: 300, PROVIDER_BY_ID: 600, USER_PROVIDERS: 300 };
 
-  async findById(id: string): Promise<UserLLMProviderRow | null> {
-    const key = `user_llm_provider:${id}`;
-    try {
-      const cached = await redisCacheService.get(key);
-      if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow;
-    } catch { /* cache miss */ }
-    const result = await super.findById(id);
-    if (result) {
-      try {
-        await redisCacheService.set(key, JSON.stringify(result), this.CACHE_TTL.PROVIDER_BY_ID);
-      } catch { /* cache write failed */ }
-    }
-    return result;
-  }
-
-  async invalidate(id: string): Promise<void> {
-    try {
-      await redisCacheService.del(`user_llm_provider:${id}`);
-    } catch { /* ignore */ }
-  }
-
-  private async invalidateUserProviderIds(userId: string): Promise<void> {
-    const userProviders = await this.findByUserId(userId);
-    for (const provider of userProviders) {
-      if (provider.id) {
+    async findById(id: string): Promise<UserLLMProviderRow | null> {
+        const key = `user_llm_provider:${id}`;
         try {
-          await redisCacheService.del(`user_llm_provider:${provider.id}`);
+            const cached = await redisCacheService.get(key);
+            if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow;
+        } catch { /* cache miss */ }
+        const result = await super.findById(id);
+        if (result) {
+            try {
+                await redisCacheService.set(key, JSON.stringify(result), this.CACHE_TTL.PROVIDER_BY_ID);
+            } catch { /* cache write failed */ }
+        }
+        return result;
+    }
+
+    async invalidate(id: string): Promise<void> {
+        try {
+            await redisCacheService.del(`user_llm_provider:${id}`);
         } catch { /* ignore */ }
-      }
     }
-  }
 
-  async invalidateUserProviderCache(userId: string): Promise<void> {
-    const pattern = `user_llm_provider:*:${userId}*`;
-    const keys = await redisCacheService.keys(pattern);
-    for (const key of keys) {
-      try {
-        await redisCacheService.del(key);
-      } catch { /* ignore */ }
+    private async invalidateUserProviderIds(userId: string): Promise<void> {
+        const userProviders = await this.findByUserId(userId);
+        for (const provider of userProviders) {
+            if (provider.id) {
+                try {
+                    await redisCacheService.del(`user_llm_provider:${provider.id}`);
+                } catch { /* ignore */ }
+            }
+        }
     }
-    await this.invalidateUserProviderIds(userId);
-  }
 
-  async invalidateProviderSpecificCache(providerId: string, userId: string): Promise<void> {
-    const key = `user_llm_provider:${providerId}:${userId}`;
-    try {
-      await redisCacheService.del(key);
-    } catch { /* ignore */ }
-    await this.invalidateUserProviderIds(userId);
-  }
-
-  async findActiveProvidersByUser(
-    userId: string,
-    useCache = true
-  ): Promise<UserLLMProviderRow[]> {
-    const cacheKey = `user_llm_providers:active:${userId}`;
-    if (useCache) {
-      try {
-        const cached = await redisCacheService.get(cacheKey);
-        if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow[];
-      } catch { /* cache miss */ }
+    async invalidateUserProviderCache(userId: string): Promise<void> {
+        const pattern = `user_llm_provider:*:${userId}*`;
+        const keys = await redisCacheService.keys(pattern);
+        for (const key of keys) {
+            try {
+                await redisCacheService.del(key);
+            } catch { /* ignore */ }
+        }
+        await this.invalidateUserProviderIds(userId);
     }
-    const result = await this.findActiveByUserId(userId);
-    if (useCache && result.length > 0) {
-      try {
-        await redisCacheService.set(
-          cacheKey,
-          JSON.stringify(result),
-          this.CACHE_TTL.ACTIVE_PROVIDERS
-        );
-      } catch { /* cache write failed */ }
-    }
-    return result;
-  }
 
-  async getCacheHealthStatus(userId: string): Promise<{
-    cached: boolean;
-    keys: string[];
-    stats: { activeProviders: boolean; allProviders: boolean };
-  }> {
-    const cacheKey = `user_llm_providers:active:${userId}`;
-    const keys = [cacheKey];
-    const cached = await redisCacheService.exists(cacheKey);
-    return {
-      cached,
-      keys,
-      stats: {
-        activeProviders: cached,
-        allProviders: cached,
-      },
-    };
-  }
+    async invalidateProviderSpecificCache(providerId: string, userId: string): Promise<void> {
+        const key = `user_llm_provider:${providerId}:${userId}`;
+        try {
+            await redisCacheService.del(key);
+        } catch { /* ignore */ }
+        await this.invalidateUserProviderIds(userId);
+    }
+
+    async findActiveProvidersByUser(
+        userId: string,
+        useCache = true
+    ): Promise<UserLLMProviderRow[]> {
+        const cacheKey = `user_llm_providers:active:${userId}`;
+        if (useCache) {
+            try {
+                const cached = await redisCacheService.get(cacheKey);
+                if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow[];
+            } catch { /* cache miss */ }
+        }
+        const result = await this.findActiveByUserId(userId);
+        if (useCache && result.length > 0) {
+            try {
+                await redisCacheService.set(
+                    cacheKey,
+                    JSON.stringify(result),
+                    this.CACHE_TTL.ACTIVE_PROVIDERS
+                );
+            } catch { /* cache write failed */ }
+        }
+        return result;
+    }
+
+    async getCacheHealthStatus(userId: string): Promise<{
+        cached: boolean;
+        keys: string[];
+        stats: { activeProviders: boolean; allProviders: boolean };
+    }> {
+        const cacheKey = `user_llm_providers:active:${userId}`;
+        const keys = [cacheKey];
+        const cached = await redisCacheService.exists(cacheKey);
+        return {
+            cached,
+            keys,
+            stats: {
+                activeProviders: cached,
+                allProviders: cached,
+            },
+        };
+    }
 }

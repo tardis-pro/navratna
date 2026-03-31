@@ -43,27 +43,27 @@ export { RedisCacheService, redisCacheService } from '@uaip/infra';
 
 // Unified Model Selection System (replaces distributed selection logic)
 export {
-  ModelSelectionOrchestrator,
-  AgentSpecificStrategy,
-  UserSpecificStrategy,
-  PerformanceOptimizedStrategy,
-  ContextAwareStrategy,
-  SystemDefaultStrategy,
-  UNIFIED_SYSTEM_DEFAULTS,
+    ModelSelectionOrchestrator,
+    AgentSpecificStrategy,
+    UserSpecificStrategy,
+    PerformanceOptimizedStrategy,
+    ContextAwareStrategy,
+    SystemDefaultStrategy,
+    UNIFIED_SYSTEM_DEFAULTS,
 } from './services/model_selection_orchestrator';
 export type {
-  ModelSelectionRequest,
-  ModelSelectionResult,
-  FallbackChain,
-  ModelSelectionStrategy,
-  ModelSelectionContext,
+    ModelSelectionRequest,
+    ModelSelectionResult,
+    FallbackChain,
+    ModelSelectionStrategy,
+    ModelSelectionContext,
 } from '@uaip/types';
 
 export { UnifiedModelSelectionFacade } from './services/unified_model_selection_facade';
 export type {
-  UnifiedModelSelection,
-  UnifiedSelectionRequest,
-  SelectionMetrics,
+    UnifiedModelSelection,
+    UnifiedSelectionRequest,
+    SelectionMetrics,
 } from './services/unified_model_selection_facade';
 
 // Conversation Utilities
@@ -95,18 +95,13 @@ export { SecurityService } from './services/security_service';
 export { UserToolPreferencesService } from './services/user_tool_preferences_service';
 export { TaskService } from './services/task_service';
 export type {
-  CreateTaskRequest,
-  UpdateTaskRequest,
-  TaskAssignmentRequest,
-  TaskAssignmentSuggestion,
-  TaskFilters,
-<<<<<<< HEAD:apps/shared/services/src/index.ts
+    CreateTaskRequest,
+    UpdateTaskRequest,
+    TaskAssignmentRequest,
+    TaskAssignmentSuggestion,
+    TaskFilters,
 } from '@uaip/types';
 export type { TaskEntity } from '@uaip/types';
-=======
-} from './services/task.service';
-export type { Project as TaskEntity } from './database/drizzle/schemas/control.schema';
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
 
 // Agent Intelligence Services
 export { AgentIntelligenceService } from './agent_intelligence_service';
@@ -119,9 +114,9 @@ export { AgentTaskTypeResolver } from './services/agent_task_type_resolver';
 export { ToolManagementService } from './tool_management_service';
 export { ToolExecutionService } from './tool_execution_service';
 export type {
-  ToolExecutionRequestEvent,
-  ToolExecutionResponseEvent,
-  ToolExecutionOptions,
+    ToolExecutionRequestEvent,
+    ToolExecutionResponseEvent,
+    ToolExecutionOptions,
 } from '@uaip/types';
 export { OperationManagementService } from './operation_management_service';
 export { ProjectManagementService } from './project_management_service';
@@ -153,10 +148,10 @@ export { ResourceManagerService } from './resource_manager_service';
 
 // Enterprise Services
 export {
-  SERVICE_ACCESS_MATRIX,
-  validateServiceAccess,
-  AccessLevel,
-  getDatabaseConnectionString,
+    SERVICE_ACCESS_MATRIX,
+    validateServiceAccess,
+    AccessLevel,
+    getDatabaseConnectionString,
 } from './enterprise/service_access_matrix';
 
 // =============================================================================
@@ -164,18 +159,14 @@ export {
 // =============================================================================
 
 // Tool Graph
-<<<<<<< HEAD:apps/shared/services/src/index.ts
 export { ToolGraphDatabase } from './database/tool_graph_database';
-=======
-export { ToolGraphDatabase } from './database/toolGraphDatabase';
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
 export type {
-  ToolGraphRelationship,
-  ToolRecommendation,
-  UsagePattern,
-  ToolUsageAnalyticsRecord,
-  AgentToolPreference,
-  PopularToolRecord,
+    ToolGraphRelationship,
+    ToolRecommendation,
+    UsagePattern,
+    ToolUsageAnalyticsRecord,
+    AgentToolPreference,
+    PopularToolRecord,
 } from '@uaip/types';
 
 // Knowledge Graph Services
@@ -198,17 +189,17 @@ export { DebateOrchestratorService } from './cognitive/debate_orchestrator_servi
 export { TaskDAGService } from './cognitive/task_d_a_g_service';
 export type { TaskNode, TaskDAG } from '@uaip/types';
 export {
-  matchTemplate,
-  instantiateTemplate,
-  WORKFLOW_TEMPLATES,
+    matchTemplate,
+    instantiateTemplate,
+    WORKFLOW_TEMPLATES,
 } from './cognitive/workflow_templates';
 export type { WorkflowTemplate } from './cognitive/workflow_templates';
 export { MetaReasoningInterceptor } from './cognitive/meta_reasoning_interceptor';
 export type {
-  MetaReasoningInput,
-  MetaReasoningDecision,
-  CapabilityGapResult,
-  ErrorHistoryResult,
+    MetaReasoningInput,
+    MetaReasoningDecision,
+    CapabilityGapResult,
+    ErrorHistoryResult,
 } from '@uaip/types';
 export { CapabilityGapRadarService } from './cognitive/capability_gap_radar_service';
 export type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
@@ -222,30 +213,16 @@ export type { ReasoningNode, ReasoningEdge, ExplanationDAG } from '@uaip/types';
 // =============================================================================
 
 // Drizzle type aliases for backward-compat
-<<<<<<< HEAD:apps/shared/services/src/index.ts
-export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence_schema';
-export type { Project } from './database/drizzle/schemas/control_schema';
+export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence.schema';
+export type { Project } from './database/drizzle/schemas/control.schema';
 
 // Contact Management Enums
 export { ContactStatus, ContactType } from './database/repositories/user_contact_repository';
 
 export { LLMModelRepository } from './repositories/llm_model_repository';
-=======
-export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence.schema';
-export type { Project } from './database/drizzle/schemas/control.schema';
-
-// Contact Management Enums
-export { ContactStatus, ContactType } from './database/repositories/UserContactRepository';
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
-
-export { LLMModelRepository } from './repositories/llmModelRepository';
 
 // Database Seeders
-<<<<<<< HEAD:apps/shared/services/src/index.ts
 export { DefaultUserLLMProviderSeed } from './database/seeders/default_user_l_l_m_provider_seed';
-=======
-export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMProviderSeed';
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/index.ts
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION
@@ -253,15 +230,15 @@ export { DefaultUserLLMProviderSeed } from './database/seeders/DefaultUserLLMPro
 
 // Service Factory - Dependency Injection Container
 export {
-  ServiceFactory,
-  serviceFactory,
-  getKnowledgeGraphService,
-  getUserKnowledgeService,
-  getContextOrchestrationService,
-  getAgentMemoryService,
-  initializeServices,
-  servicesHealthCheck,
-  resetServices,
+    ServiceFactory,
+    serviceFactory,
+    getKnowledgeGraphService,
+    getUserKnowledgeService,
+    getContextOrchestrationService,
+    getAgentMemoryService,
+    initializeServices,
+    servicesHealthCheck,
+    resetServices,
 } from './service_factory'
 
 export { FeatureFactory, type Feature, type ServiceDeps } from './feature_factory.js';

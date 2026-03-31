@@ -77,14 +77,24 @@
       "import": "./dist/database/drizzle/index.js"
     },
     "./drizzle/intelligence": {
-      "@uaip/source": "./src/database/drizzle/schemas/intelligence_schema.ts",
-      "types": "./dist/database/drizzle/schemas/intelligence_schema.d.ts",
-      "import": "./dist/database/drizzle/schemas/intelligence_schema.js"
+      "@uaip/source": "./src/database/drizzle/schemas/intelligence.schema.ts",
+      "types": "./dist/database/drizzle/schemas/intelligence.schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/intelligence.schema.js"
+    },
+    "./drizzle/intelligence.schema": {
+      "@uaip/source": "./src/database/drizzle/schemas/intelligence.schema.ts",
+      "types": "./dist/database/drizzle/schemas/intelligence.schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/intelligence.schema.js"
     },
     "./drizzle/control": {
-      "@uaip/source": "./src/database/drizzle/schemas/control_schema.ts",
-      "types": "./dist/database/drizzle/schemas/control_schema.d.ts",
-      "import": "./dist/database/drizzle/schemas/control_schema.js"
+      "@uaip/source": "./src/database/drizzle/schemas/control.schema.ts",
+      "types": "./dist/database/drizzle/schemas/control.schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/control.schema.js"
+    },
+    "./drizzle/control.schema": {
+      "@uaip/source": "./src/database/drizzle/schemas/control.schema.ts",
+      "types": "./dist/database/drizzle/schemas/control.schema.d.ts",
+      "import": "./dist/database/drizzle/schemas/control.schema.js"
     },
     "./drizzle/clients": {
       "@uaip/source": "./src/database/drizzle/clients/index.ts",

@@ -85,7 +85,8 @@ export class MarketplaceService {
 
   async createItem(itemData: Record<string, unknown>): Promise<MarketplaceItem> {
     try {
-      return await this.databaseService.create('marketplace_items', itemData);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return await this.databaseService.create('marketplace_items', itemData as any);
     } catch (error) {
       logger.error('Error creating marketplace item', { error });
       throw error;

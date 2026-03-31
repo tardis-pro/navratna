@@ -736,6 +736,9 @@ export const auditEvents = pgTable('audit_events', {
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  resolved: boolean('resolved').notNull().default(false),
+  resolvedBy: varchar('resolved_by'),
+  resolvedAt: timestamp('resolved_at'),
 });
 
 export const integrationEvents = pgTable('integration_events', {
@@ -748,6 +751,19 @@ export const integrationEvents = pgTable('integration_events', {
   error: text('error'),
   retryCount: integer('retry_count').notNull().default(0),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+});
+
+export const workflowDefinitions = pgTable('workflow_definitions', {
+  ...base,
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  trigger: jsonb('trigger').$type<{ kind: string; expr: string; tz?: string }>().notNull(),
+  steps: jsonb('steps').$type<Array<Record<string, unknown>>>().notNull(),
+  delivery: jsonb('delivery').$type<{ type: string; target: string; retryPolicy?: Record<string, unknown> } | null>(),
+  enabled: boolean('enabled').notNull().default(true),
+  agentId: varchar('agent_id', { length: 255 }),
+  sessionKey: varchar('session_key', { length: 255 }),
+  model: varchar('model', { length: 255 }),
 });
 
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
@@ -771,3 +787,9 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type NewAuditEvent = typeof auditEvents.$inferInsert;
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+export type WorkflowDefinition = typeof workflowDefinitions.$inferSelect;
+export type NewWorkflowDefinition = typeof workflowDefinitions.$inferInsert;

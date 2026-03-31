@@ -1,9 +1,9 @@
 import { UserService, CreateUserData } from './user_service';
 import { CachedUserLLMProviderRepository } from '../database/repositories/cached_user_l_l_m_provider_repository';
 import { CachedLLMProviderRepository } from '../database/repositories/cached_l_l_m_provider_repository';
-import { UserEntity } from '../entities/user_entity';
-import { RefreshTokenEntity } from '../entities/refresh_token_entity';
-import { PasswordResetTokenEntity } from '../entities/password_reset_token_entity';
+import { UserEntity } from '../entities/user.entity';
+import { RefreshTokenEntity } from '../entities/refreshToken.entity';
+import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
 // UserLLMProviderType and LLMProviderType available via repositories
 import { redisCacheService } from '../redis_cache_service';
 import { logger } from '@uaip/utils';

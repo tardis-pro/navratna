@@ -1,246 +1,242 @@
 import {
-  UserRepository,
-  RefreshTokenRepository,
-  PasswordResetTokenRepository,
+    UserRepository,
+    RefreshTokenRepository,
+    PasswordResetTokenRepository,
 } from '../database/repositories/user_repository';
 import { LLMProviderRepository } from '../database/repositories/l_l_m_provider_repository';
 import { UserLLMProviderRepository } from '../database/repositories/user_l_l_m_provider_repository';
 import { UserLLMPreferenceRepository } from '../database/repositories/user_l_l_m_preference_repository';
 import { UserContactRepository } from '../database/repositories/user_contact_repository';
-import { UserEntity } from '../entities/user_entity';
-import { RefreshTokenEntity } from '../entities/refresh_token_entity';
-import { PasswordResetTokenEntity } from '../entities/password_reset_token_entity';
+import { UserEntity } from '../entities/user.entity';
+import { RefreshTokenEntity } from '../entities/refreshToken.entity';
+import { PasswordResetTokenEntity } from '../entities/passwordResetToken.entity';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 
 export type CreateUserData = {
-  email: string;
-  password?: string;
-  firstName?: string;
-  lastName?: string;
-  role?: string;
-  department?: string;
-  isOAuthUser?: boolean;
+    email: string;
+    password?: string;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+    department?: string;
+    isOAuthUser?: boolean;
 };
 
 export class UserService {
-  private static instance: UserService;
+    private static instance: UserService;
 
-  // Repositories
-  private userRepository: UserRepository | null = null;
-  private refreshTokenRepository: RefreshTokenRepository | null = null;
-  private passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
-  private llmProviderRepository: LLMProviderRepository | null = null;
-  private userLLMProviderRepository: UserLLMProviderRepository | null = null;
-  private userLLMPreferenceRepository: UserLLMPreferenceRepository | null = null;
-  private userContactRepository: UserContactRepository | null = null;
+    // Repositories
+    private userRepository: UserRepository | null = null;
+    private refreshTokenRepository: RefreshTokenRepository | null = null;
+    private passwordResetTokenRepository: PasswordResetTokenRepository | null = null;
+    private llmProviderRepository: LLMProviderRepository | null = null;
+    private userLLMProviderRepository: UserLLMProviderRepository | null = null;
+    private userLLMPreferenceRepository: UserLLMPreferenceRepository | null = null;
+    private userContactRepository: UserContactRepository | null = null;
 
-  protected constructor() {}
+    protected constructor() { }
 
-  public static getInstance(): UserService {
-    if (!UserService.instance) {
-      UserService.instance = new UserService();
+    public static getInstance(): UserService {
+        if (!UserService.instance) {
+            UserService.instance = new UserService();
+        }
+        return UserService.instance;
     }
-    return UserService.instance;
-  }
 
-  // Repository getters with lazy initialization
-  public getUserRepository(): UserRepository {
-    if (!this.userRepository) {
-      this.userRepository = new UserRepository();
+    // Repository getters with lazy initialization
+    public getUserRepository(): UserRepository {
+        if (!this.userRepository) {
+            this.userRepository = new UserRepository();
+        }
+        return this.userRepository;
     }
-    return this.userRepository;
-  }
 
-  public getRefreshTokenRepository(): RefreshTokenRepository {
-    if (!this.refreshTokenRepository) {
-      this.refreshTokenRepository = new RefreshTokenRepository();
+    public getRefreshTokenRepository(): RefreshTokenRepository {
+        if (!this.refreshTokenRepository) {
+            this.refreshTokenRepository = new RefreshTokenRepository();
+        }
+        return this.refreshTokenRepository;
     }
-    return this.refreshTokenRepository;
-  }
 
-  public getPasswordResetTokenRepository(): PasswordResetTokenRepository {
-    if (!this.passwordResetTokenRepository) {
-      this.passwordResetTokenRepository = new PasswordResetTokenRepository();
+    public getPasswordResetTokenRepository(): PasswordResetTokenRepository {
+        if (!this.passwordResetTokenRepository) {
+            this.passwordResetTokenRepository = new PasswordResetTokenRepository();
+        }
+        return this.passwordResetTokenRepository;
     }
-    return this.passwordResetTokenRepository;
-  }
 
-  public getLLMProviderRepository(): LLMProviderRepository {
-    if (!this.llmProviderRepository) {
-      this.llmProviderRepository = new LLMProviderRepository();
+    public getLLMProviderRepository(): LLMProviderRepository {
+        if (!this.llmProviderRepository) {
+            this.llmProviderRepository = new LLMProviderRepository();
+        }
+        return this.llmProviderRepository;
     }
-    return this.llmProviderRepository;
-  }
 
-  public getUserLLMProviderRepository(): UserLLMProviderRepository {
-    if (!this.userLLMProviderRepository) {
-      this.userLLMProviderRepository = new UserLLMProviderRepository();
+    public getUserLLMProviderRepository(): UserLLMProviderRepository {
+        if (!this.userLLMProviderRepository) {
+            this.userLLMProviderRepository = new UserLLMProviderRepository();
+        }
+        return this.userLLMProviderRepository;
     }
-    return this.userLLMProviderRepository;
-  }
 
-  public getUserLLMPreferenceRepository(): UserLLMPreferenceRepository {
-    if (!this.userLLMPreferenceRepository) {
-      this.userLLMPreferenceRepository = new UserLLMPreferenceRepository();
+    public getUserLLMPreferenceRepository(): UserLLMPreferenceRepository {
+        if (!this.userLLMPreferenceRepository) {
+            this.userLLMPreferenceRepository = new UserLLMPreferenceRepository();
+        }
+        return this.userLLMPreferenceRepository;
     }
-    return this.userLLMPreferenceRepository;
-  }
 
-  public getUserContactRepository(): UserContactRepository {
-    if (!this.userContactRepository) {
-      this.userContactRepository = new UserContactRepository();
+    public getUserContactRepository(): UserContactRepository {
+        if (!this.userContactRepository) {
+            this.userContactRepository = new UserContactRepository();
+        }
+        return this.userContactRepository;
     }
-    return this.userContactRepository;
-  }
 
-  // Note: OAuth, MFA, and Session operations should be handled by dedicated services
-  // These methods are kept for backward compatibility but should be migrated
+    // Note: OAuth, MFA, and Session operations should be handled by dedicated services
+    // These methods are kept for backward compatibility but should be migrated
 
-  // User operations
-  public async createUser(data: CreateUserData): Promise<UserEntity> {
-    const userRepo = this.getUserRepository();
+    // User operations
+    public async createUser(data: CreateUserData): Promise<UserEntity> {
+        const userRepo = this.getUserRepository();
 
-    const userData = {
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      department: data.department,
-      role: data.role || 'user',
-      passwordHash: data.password ? await bcrypt.hash(data.password, 10) : '',
-      isActive: true,
-    };
+        const userData = {
+            email: data.email,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            department: data.department,
+            role: data.role || 'user',
+            passwordHash: data.password ? await bcrypt.hash(data.password, 10) : '',
+            isActive: true,
+        };
 
-    return await userRepo.createUser(userData);
-  }
-
-  public async findUserByEmail(email: string): Promise<UserEntity | null> {
-    return await this.getUserRepository().getUserByEmail(email);
-  }
-
-  public async findUserById(id: string): Promise<UserEntity | null> {
-<<<<<<< HEAD:apps/shared/services/src/services/user_service.ts
-    return (await this.getUserRepository().findById(id)) as unknown as UserEntity | null;
-=======
-    return await this.getUserRepository().findById(id) as unknown as UserEntity | null;
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/services/UserService.ts
-  }
-
-  public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {
-    return await this.getUserRepository().updateUser(id, data);
-  }
-
-  public async deleteUser(id: string): Promise<boolean> {
-    return await this.getUserRepository().delete(id);
-  }
-
-  public async verifyPassword(user: UserEntity, password: string): Promise<boolean> {
-    if (!user.passwordHash) return false;
-    return await bcrypt.compare(password, user.passwordHash);
-  }
-
-  // Refresh token operations
-  public async createRefreshToken(
-    userId: string,
-    token: string,
-    expiresAt: Date
-  ): Promise<RefreshTokenEntity> {
-    const refreshTokenRepo = this.getRefreshTokenRepository();
-    return await refreshTokenRepo.createRefreshToken({
-      userId,
-      token,
-      expiresAt,
-    });
-  }
-
-  public async findRefreshToken(token: string): Promise<RefreshTokenEntity | null> {
-    return await this.getRefreshTokenRepository().getRefreshTokenWithUser(token);
-  }
-
-  public async revokeRefreshToken(token: string): Promise<boolean> {
-    try {
-      await this.getRefreshTokenRepository().revokeRefreshToken(token);
-      return true;
-    } catch {
-      return false;
+        return await userRepo.createUser(userData);
     }
-  }
 
-  public async cleanupExpiredTokens(): Promise<void> {
-    await this.getRefreshTokenRepository().cleanupExpiredRefreshTokens();
-  }
-
-  // Password reset operations
-  public async createPasswordResetToken(userId: string): Promise<string> {
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
-
-    const resetTokenRepo = this.getPasswordResetTokenRepository();
-    await resetTokenRepo.createPasswordResetToken({
-      userId,
-      token,
-      expiresAt,
-    });
-
-    return token;
-  }
-
-  public async findPasswordResetToken(token: string): Promise<PasswordResetTokenEntity | null> {
-    return await this.getPasswordResetTokenRepository().getPasswordResetTokenWithUser(token);
-  }
-
-  public async usePasswordResetToken(token: string): Promise<boolean> {
-    try {
-      await this.getPasswordResetTokenRepository().markPasswordResetTokenAsUsed(token);
-      return true;
-    } catch {
-      return false;
+    public async findUserByEmail(email: string): Promise<UserEntity | null> {
+        return await this.getUserRepository().getUserByEmail(email);
     }
-  }
 
-  // User management methods
-  public async updateLoginTracking(
-    userId: string,
-    data: {
-      failedLoginAttempts?: number;
-      lockedUntil?: Date;
-      lastLoginAt?: Date;
+    public async findUserById(id: string): Promise<UserEntity | null> {
+        return (await this.getUserRepository().findById(id)) as unknown as UserEntity | null;
     }
-  ): Promise<void> {
-    const userRepo = this.getUserRepository();
-    await userRepo.updateUserLoginTracking(userId, data);
-  }
 
-  public async resetLoginAttempts(userId: string): Promise<void> {
-    const userRepo = this.getUserRepository();
-    await userRepo.resetUserLoginAttempts(userId);
-  }
+    public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {
+        return await this.getUserRepository().updateUser(id, data);
+    }
 
-  public async getRefreshTokenWithUser(token: string): Promise<unknown | null> {
-    const refreshTokenRepo = this.getRefreshTokenRepository();
-    return await refreshTokenRepo.getRefreshTokenWithUser(token);
-  }
+    public async deleteUser(id: string): Promise<boolean> {
+        return await this.getUserRepository().delete(id);
+    }
 
-  public async revokeAllRefreshTokens(userId: string): Promise<void> {
-    const refreshTokenRepo = this.getRefreshTokenRepository();
-    await refreshTokenRepo.revokeAllUserRefreshTokens(userId);
-  }
+    public async verifyPassword(user: UserEntity, password: string): Promise<boolean> {
+        if (!user.passwordHash) return false;
+        return await bcrypt.compare(password, user.passwordHash);
+    }
 
-  public async updatePassword(userId: string, newPassword: string): Promise<void> {
-    const userRepo = this.getUserRepository();
-    await userRepo.updateUserPassword(userId, await bcrypt.hash(newPassword, 12));
-  }
+    // Refresh token operations
+    public async createRefreshToken(
+        userId: string,
+        token: string,
+        expiresAt: Date
+    ): Promise<RefreshTokenEntity> {
+        const refreshTokenRepo = this.getRefreshTokenRepository();
+        return await refreshTokenRepo.createRefreshToken({
+            userId,
+            token,
+            expiresAt,
+        });
+    }
 
-  public async getPasswordResetTokenWithUser(token: string): Promise<unknown | null> {
-    const resetTokenRepo = this.getPasswordResetTokenRepository();
-    return await resetTokenRepo.getPasswordResetTokenWithUser(token);
-  }
+    public async findRefreshToken(token: string): Promise<RefreshTokenEntity | null> {
+        return await this.getRefreshTokenRepository().getRefreshTokenWithUser(token);
+    }
 
-  public async markPasswordResetTokenAsUsed(token: string): Promise<void> {
-    const resetTokenRepo = this.getPasswordResetTokenRepository();
-    await resetTokenRepo.markPasswordResetTokenAsUsed(token);
-  }
+    public async revokeRefreshToken(token: string): Promise<boolean> {
+        try {
+            await this.getRefreshTokenRepository().revokeRefreshToken(token);
+            return true;
+        } catch {
+            return false;
+        }
+    }
 
-  // Note: MFA and Session operations have been moved to dedicated services
-  // These should be handled by SecurityService and SessionService respectively
+    public async cleanupExpiredTokens(): Promise<void> {
+        await this.getRefreshTokenRepository().cleanupExpiredRefreshTokens();
+    }
+
+    // Password reset operations
+    public async createPasswordResetToken(userId: string): Promise<string> {
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+
+        const resetTokenRepo = this.getPasswordResetTokenRepository();
+        await resetTokenRepo.createPasswordResetToken({
+            userId,
+            token,
+            expiresAt,
+        });
+
+        return token;
+    }
+
+    public async findPasswordResetToken(token: string): Promise<PasswordResetTokenEntity | null> {
+        return await this.getPasswordResetTokenRepository().getPasswordResetTokenWithUser(token);
+    }
+
+    public async usePasswordResetToken(token: string): Promise<boolean> {
+        try {
+            await this.getPasswordResetTokenRepository().markPasswordResetTokenAsUsed(token);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    // User management methods
+    public async updateLoginTracking(
+        userId: string,
+        data: {
+            failedLoginAttempts?: number;
+            lockedUntil?: Date;
+            lastLoginAt?: Date;
+        }
+    ): Promise<void> {
+        const userRepo = this.getUserRepository();
+        await userRepo.updateUserLoginTracking(userId, data);
+    }
+
+    public async resetLoginAttempts(userId: string): Promise<void> {
+        const userRepo = this.getUserRepository();
+        await userRepo.resetUserLoginAttempts(userId);
+    }
+
+    public async getRefreshTokenWithUser(token: string): Promise<unknown | null> {
+        const refreshTokenRepo = this.getRefreshTokenRepository();
+        return await refreshTokenRepo.getRefreshTokenWithUser(token);
+    }
+
+    public async revokeAllRefreshTokens(userId: string): Promise<void> {
+        const refreshTokenRepo = this.getRefreshTokenRepository();
+        await refreshTokenRepo.revokeAllUserRefreshTokens(userId);
+    }
+
+    public async updatePassword(userId: string, newPassword: string): Promise<void> {
+        const userRepo = this.getUserRepository();
+        await userRepo.updateUserPassword(userId, await bcrypt.hash(newPassword, 12));
+    }
+
+    public async getPasswordResetTokenWithUser(token: string): Promise<unknown | null> {
+        const resetTokenRepo = this.getPasswordResetTokenRepository();
+        return await resetTokenRepo.getPasswordResetTokenWithUser(token);
+    }
+
+    public async markPasswordResetTokenAsUsed(token: string): Promise<void> {
+        const resetTokenRepo = this.getPasswordResetTokenRepository();
+        await resetTokenRepo.markPasswordResetTokenAsUsed(token);
+    }
+
+    // Note: MFA and Session operations have been moved to dedicated services
+    // These should be handled by SecurityService and SessionService respectively
 }

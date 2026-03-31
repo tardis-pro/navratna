@@ -10,178 +10,166 @@ export type { QdrantHealthStatus } from '@uaip/types';
 
 type QdrantCollectionInfo = { result?: { points_count?: number } };
 type QdrantSampleItem = {
-  id: string | number;
-  payload?: Record<string, unknown>;
-  vector?: number[];
+    id: string | number;
+    payload?: Record<string, unknown>;
+    vector?: number[];
 };
 
 export class QdrantHealthService {
-  constructor(
-    private readonly qdrantService: QdrantService,
-    private readonly knowledgeRepository: KnowledgeRepository,
-    private readonly embeddingService: EmbeddingService,
-    private readonly graphDatabase: ToolGraphDatabase,
-    private readonly userRepository?: UserRepositoryLike | null
-  ) {}
+    constructor(
+        private readonly qdrantService: QdrantService,
+        private readonly knowledgeRepository: KnowledgeRepository,
+        private readonly embeddingService: EmbeddingService,
+        private readonly graphDatabase: ToolGraphDatabase,
+        private readonly userRepository?: UserRepositoryLike | null
+    ) { }
 
-  async checkHealth(): Promise<QdrantHealthStatus> {
-    const status: QdrantHealthStatus = {
-      isConnected: false,
-      collectionExists: false,
-      pointsCount: 0,
-      postgresItemsCount: 0,
-      syncNeeded: false,
-    };
+    async checkHealth(): Promise<QdrantHealthStatus> {
+        const status: QdrantHealthStatus = {
+            isConnected: false,
+            collectionExists: false,
+            pointsCount: 0,
+            postgresItemsCount: 0,
+            syncNeeded: false,
+        };
 
-    try {
-      // Check Qdrant connection and collection
-      const collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
-      status.isConnected = true;
-      status.collectionExists = true;
-      status.pointsCount = collectionInfo.result?.points_count || 0;
-
-      // Check PostgreSQL knowledge items count
-      const postgresItems = await this.knowledgeRepository.findRecentItems(1000);
-      status.postgresItemsCount = postgresItems.length;
-
-      // Determine if sync is needed
-      status.syncNeeded = status.pointsCount === 0 && status.postgresItemsCount > 0;
-
-      logger.info('Qdrant health check completed', {
-        pointsCount: status.pointsCount,
-        postgresItemsCount: status.postgresItemsCount,
-        syncNeeded: status.syncNeeded,
-      });
-    } catch (error) {
-      status.lastError = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Qdrant health check failed:', error);
-    }
-
-    return status;
-  }
-
-  async syncKnowledgeIfNeeded(maxItems: number = 100): Promise<{ synced: number; errors: number }> {
-    try {
-      const health = await this.checkHealth();
-
-      if (!health.syncNeeded) {
-        logger.info('Qdrant sync not needed', { pointsCount: health.pointsCount });
-        return { synced: 0, errors: 0 };
-      }
-
-      logger.info(
-        `Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`
-      );
-
-<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/qdrant_health_service.ts
-=======
-      const databaseService = DatabaseService.getInstance();
-      const userRepository = databaseService.getUserRepository();
-      const userRepositoryWrapper: { findById: (id: string) => Promise<import('../database/drizzle/schemas/control.schema').User | null> } = {
-        findById: (id: string) => userRepository.findById(id) as unknown as Promise<import('../database/drizzle/schemas/control.schema').User | null>,
-      };
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/qdrant-health.service.ts
-      const syncService = new KnowledgeSyncService(
-        this.knowledgeRepository,
-        this.qdrantService,
-        this.graphDatabase,
-        this.embeddingService,
-<<<<<<< HEAD:apps/shared/services/src/knowledge-graph/qdrant_health_service.ts
-        this.userRepository ?? null
-=======
-        userRepositoryWrapper as any
->>>>>>> 441faaf (feat: fix stuff):backend/shared/services/src/knowledge-graph/qdrant-health.service.ts
-      );
-
-      // Get items to sync
-      const items = await this.knowledgeRepository.findRecentItems(maxItems);
-
-      let synced = 0;
-      let errors = 0;
-
-      for (const item of items) {
         try {
-          // oxlint-disable-next-line no-await-in-loop
-          await syncService.syncKnowledgeItem(item);
-          synced++;
+            // Check Qdrant connection and collection
+            const collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
+            status.isConnected = true;
+            status.collectionExists = true;
+            status.pointsCount = collectionInfo.result?.points_count || 0;
 
-          if (synced % 10 === 0) {
-            logger.info(`Synced ${synced}/${items.length} items to Qdrant`);
-          }
+            // Check PostgreSQL knowledge items count
+            const postgresItems = await this.knowledgeRepository.findRecentItems(1000);
+            status.postgresItemsCount = postgresItems.length;
+
+            // Determine if sync is needed
+            status.syncNeeded = status.pointsCount === 0 && status.postgresItemsCount > 0;
+
+            logger.info('Qdrant health check completed', {
+                pointsCount: status.pointsCount,
+                postgresItemsCount: status.postgresItemsCount,
+                syncNeeded: status.syncNeeded,
+            });
         } catch (error) {
-          errors++;
-          logger.warn(`Failed to sync item ${item.id}:`, error);
+            status.lastError = error instanceof Error ? error.message : 'Unknown error';
+            logger.error('Qdrant health check failed:', error);
         }
-      }
 
-      logger.info(`Qdrant sync completed: ${synced} synced, ${errors} errors`);
-      return { synced, errors };
-    } catch (error) {
-      logger.error('Qdrant sync failed:', error);
-      throw error;
+        return status;
     }
-  }
 
-  async repairQdrantCollection(): Promise<void> {
-    try {
-      logger.info('Starting Qdrant collection repair...');
+    async syncKnowledgeIfNeeded(maxItems: number = 100): Promise<{ synced: number; errors: number }> {
+        try {
+            const health = await this.checkHealth();
 
-      // First, try to recreate the collection
-      await this.qdrantService.ensureCollection();
+            if (!health.syncNeeded) {
+                logger.info('Qdrant sync not needed', { pointsCount: health.pointsCount });
+                return { synced: 0, errors: 0 };
+            }
 
-      // Then sync some knowledge items
-      const result = await this.syncKnowledgeIfNeeded(50);
+            logger.info(
+                `Starting Qdrant sync for ${Math.min(maxItems, health.postgresItemsCount)} items`
+            );
 
-      logger.info(`Qdrant collection repair completed: ${result.synced} items synced`);
-    } catch (error) {
-      logger.error('Qdrant collection repair failed:', error);
-      throw error;
-    }
-  }
+            const syncService = new KnowledgeSyncService(
+                this.knowledgeRepository,
+                this.qdrantService,
+                this.graphDatabase,
+                this.embeddingService,
+                this.userRepository ?? null
+            );
 
-  async getQdrantDiagnostics(): Promise<{
-    health: QdrantHealthStatus;
-    collectionInfo: unknown;
-    sampleItems: unknown[];
-  }> {
-    const health = await this.checkHealth();
+            // Get items to sync
+            const items = await this.knowledgeRepository.findRecentItems(maxItems);
 
-    let collectionInfo = null;
-    let sampleItems: unknown[] = [];
+            let synced = 0;
+            let errors = 0;
 
-    try {
-      collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
+            for (const item of items) {
+                try {
+                    // oxlint-disable-next-line no-await-in-loop
+                    await syncService.syncKnowledgeItem(item);
+                    synced++;
 
-      // Get sample items from Qdrant if any exist
-      if (health.pointsCount > 0) {
-        const sampleResponse = await fetch(
-          `http://localhost:6333/collections/knowledge_embeddings/points/scroll`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ limit: 3, with_payload: true }),
-          }
-        );
+                    if (synced % 10 === 0) {
+                        logger.info(`Synced ${synced}/${items.length} items to Qdrant`);
+                    }
+                } catch (error) {
+                    errors++;
+                    logger.warn(`Failed to sync item ${item.id}:`, error);
+                }
+            }
 
-        if (sampleResponse.ok) {
-          const sampleData = (await sampleResponse.json()) as {
-            result?: { points?: QdrantSampleItem[] };
-          };
-          sampleItems = sampleData.result?.points || [];
+            logger.info(`Qdrant sync completed: ${synced} synced, ${errors} errors`);
+            return { synced, errors };
+        } catch (error) {
+            logger.error('Qdrant sync failed:', error);
+            throw error;
         }
-      }
-    } catch (error) {
-      logger.warn('Failed to get Qdrant diagnostics details:', error);
     }
 
-    return {
-      health,
-      collectionInfo,
-      sampleItems: (sampleItems as QdrantSampleItem[]).map((item) => ({
-        id: item.id,
-        payload: item.payload ? Object.keys(item.payload) : [],
-        vectorSize: item.vector?.length || 0,
-      })),
-    };
-  }
+    async repairQdrantCollection(): Promise<void> {
+        try {
+            logger.info('Starting Qdrant collection repair...');
+
+            // First, try to recreate the collection
+            await this.qdrantService.ensureCollection();
+
+            // Then sync some knowledge items
+            const result = await this.syncKnowledgeIfNeeded(50);
+
+            logger.info(`Qdrant collection repair completed: ${result.synced} items synced`);
+        } catch (error) {
+            logger.error('Qdrant collection repair failed:', error);
+            throw error;
+        }
+    }
+
+    async getQdrantDiagnostics(): Promise<{
+        health: QdrantHealthStatus;
+        collectionInfo: unknown;
+        sampleItems: unknown[];
+    }> {
+        const health = await this.checkHealth();
+
+        let collectionInfo = null;
+        let sampleItems: unknown[] = [];
+
+        try {
+            collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
+
+            // Get sample items from Qdrant if any exist
+            if (health.pointsCount > 0) {
+                const sampleResponse = await fetch(
+                    `http://localhost:6333/collections/knowledge_embeddings/points/scroll`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ limit: 3, with_payload: true }),
+                    }
+                );
+
+                if (sampleResponse.ok) {
+                    const sampleData = (await sampleResponse.json()) as {
+                        result?: { points?: QdrantSampleItem[] };
+                    };
+                    sampleItems = sampleData.result?.points || [];
+                }
+            }
+        } catch (error) {
+            logger.warn('Failed to get Qdrant diagnostics details:', error);
+        }
+
+        return {
+            health,
+            collectionInfo,
+            sampleItems: (sampleItems as QdrantSampleItem[]).map((item) => ({
+                id: item.id,
+                payload: item.payload ? Object.keys(item.payload) : [],
+                vectorSize: item.vector?.length || 0,
+            })),
+        };
+    }
 }
