@@ -2,23 +2,41 @@ import { getControlPool } from '../database/drizzle/clients/index';
 import { logger } from '@uaip/utils';
 import type { MCPJobRequest } from '@uaip/types';
 
+const MCP_ALLOWED_TABLES = new Set(['mcp_tool_calls', 'mcp_servers']);
+
+const SAFE_IDENTIFIER = /^[a-z][a-z0-9_]*$/;
+
+function assertSafeTable(table: string): void {
+  if (!MCP_ALLOWED_TABLES.has(table)) {
+    throw new Error(`Table "${table}" is not in the MCP allowed-tables whitelist`);
+  }
+}
+
+function assertSafeColumn(column: string): void {
+  if (!SAFE_IDENTIFIER.test(column)) {
+    throw new Error(`Column name "${column}" contains unsafe characters`);
+  }
+}
+
 async function updateRecordInTable(
   table: string,
   id: string,
   updates: Record<string, unknown>,
   notFoundMessage: string
 ): Promise<Record<string, unknown>> {
+  assertSafeTable(table);
   const pool = getControlPool();
   const keys = Object.keys(updates);
   if (keys.length === 0) {
-    const result = await pool.query(`SELECT * FROM ${table} WHERE id = $1 LIMIT 1`, [id]);
+    const result = await pool.query(`SELECT * FROM "${table}" WHERE id = $1 LIMIT 1`, [id]);
     if (result.rows.length === 0) throw new Error(notFoundMessage);
     return result.rows[0];
   }
-  const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
+  for (const k of keys) assertSafeColumn(k);
+  const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
   const values = [id, ...keys.map((k) => updates[k])];
   const result = await pool.query(
-    `UPDATE ${table} SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+    `UPDATE "${table}" SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
     values
   );
   if (result.rows.length === 0) throw new Error(notFoundMessage);

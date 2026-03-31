@@ -46,6 +46,46 @@ const INTELLIGENCE_TABLES = new Set([
   'llm_models',
 ]);
 
+const CONTROL_TABLES = new Set([
+  'users',
+  'sessions',
+  'tokens',
+  'mfa_challenges',
+  'oauth_providers',
+  'oauth_states',
+  'oauth_connections',
+  'tools',
+  'mcp_servers',
+  'mcp_tool_calls',
+  'operations',
+  'operation_steps',
+  'tasks',
+  'projects',
+  'security_policies',
+  'audit_events',
+  'approval_workflows',
+  'short_links',
+]);
+
+const ALL_KNOWN_TABLES = new Set([...INTELLIGENCE_TABLES, ...CONTROL_TABLES]);
+
+const SAFE_SQL_IDENTIFIER = /^[a-z][a-z0-9_]*$/;
+
+function assertSafeTableName(table: string): void {
+  if (!SAFE_SQL_IDENTIFIER.test(table)) {
+    throw new Error(`Unsafe table name rejected: "${table}"`);
+  }
+  if (!ALL_KNOWN_TABLES.has(table)) {
+    logger.warn(`Table "${table}" is not in the known-tables whitelist — query allowed but flagged`);
+  }
+}
+
+function assertSafeColumnName(column: string): void {
+  if (!SAFE_SQL_IDENTIFIER.test(column)) {
+    throw new Error(`Unsafe column name rejected: "${column}"`);
+  }
+}
+
 const camelToSnake = (value: string): string =>
   value
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
@@ -63,7 +103,9 @@ const mapRowsToCamelCase = <TRow extends Record<string, unknown>>(rows: TRow[]):
   rows.map((row) => mapRowToCamelCase(row));
 
 class DrizzleRepository<T extends ObjectLiteral> {
-  constructor(private readonly table: string) {}
+  constructor(private readonly table: string) {
+    assertSafeTableName(table);
+  }
 
   private get pool() {
     return INTELLIGENCE_TABLES.has(this.table) ? getIntelligencePool() : getControlPool();
@@ -78,13 +120,14 @@ class DrizzleRepository<T extends ObjectLiteral> {
             .map((key) => {
               const camelKey = String(key);
               const snakeKey = camelToSnake(camelKey);
+              assertSafeColumnName(snakeKey);
               return `"${snakeKey}" AS "${camelKey}"`;
             })
             .join(', ')
         : '*';
     let q = `SELECT ${selects} FROM "${this.table}"`;
     if (keys.length > 0)
-      q += ` WHERE ${keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ')}`;
+      q += ` WHERE ${keys.map((k, i) => { const col = camelToSnake(k); assertSafeColumnName(col); return `"${col}" = $${i + 1}`; }).join(' AND ')}`;
     q += ' LIMIT 1';
     const result = await this.pool.query<T>(q, vals);
     const row = result.rows[0];
@@ -101,10 +144,10 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
     let q = `SELECT * FROM "${this.table}"`;
     if (keys.length > 0)
-      q += ` WHERE ${keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ')}`;
+      q += ` WHERE ${keys.map((k, i) => { const col = camelToSnake(k); assertSafeColumnName(col); return `"${col}" = $${i + 1}`; }).join(' AND ')}`;
     if (opts?.order) {
       const clauses = Object.entries(opts.order)
-        .map(([c, d]) => `"${camelToSnake(c)}" ${d}`)
+        .map(([c, d]) => { const col = camelToSnake(c); assertSafeColumnName(col); const dir = d === 'DESC' ? 'DESC' : 'ASC'; return `"${col}" ${dir}`; })
         .join(', ');
       q += ` ORDER BY ${clauses}`;
     }
@@ -119,7 +162,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
     let q = `SELECT COUNT(*)::int AS cnt FROM "${this.table}"`;
     if (keys.length > 0)
-      q += ` WHERE ${keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ')}`;
+      q += ` WHERE ${keys.map((k, i) => { const col = camelToSnake(k); assertSafeColumnName(col); return `"${col}" = $${i + 1}`; }).join(' AND ')}`;
     const result = await this.pool.query<{ cnt: number }>(q, vals);
     return result.rows[0]?.cnt ?? 0;
   }
@@ -128,7 +171,8 @@ class DrizzleRepository<T extends ObjectLiteral> {
     const rec = entity as Record<string, JsonValue>;
     if (rec.id) {
       const keys = Object.keys(rec).filter((k) => k !== 'id');
-       const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
+      for (const k of keys) assertSafeColumnName(camelToSnake(k));
+      const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
       const vals: SqlParameter[] = [
         rec.id as SqlParameter,
         ...keys.map((k) => rec[k] as SqlParameter),
@@ -140,6 +184,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
       return mapRowToCamelCase(result.rows[0] as Record<string, unknown>) as T;
     }
     const keys = Object.keys(rec);
+    for (const k of keys) assertSafeColumnName(camelToSnake(k));
     const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
     const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
     const vals = keys.map((k) => rec[k]);
@@ -153,6 +198,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
   async update(id: string, data: Partial<T>): Promise<void> {
     const keys = Object.keys(data as Record<string, JsonValue>);
     if (keys.length === 0) return;
+    for (const k of keys) assertSafeColumnName(camelToSnake(k));
     const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
     const vals: SqlParameter[] = [
       id,
