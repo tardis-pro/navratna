@@ -86,9 +86,6 @@ export default defineConfig(({ mode: _mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '@uaip/navratna-core': path.resolve(__dirname, '../backend/services/navratna-core/src'),
-        '@uaip/navratna-gateway': path.resolve(__dirname, '../backend/services/navratna-gateway/src'),
-        '@uaip/shared-services': path.resolve(__dirname, '../shared/services/src'),
       },
       conditions: [],
     },

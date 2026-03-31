@@ -30,9 +30,7 @@
       "@uaip/navratna-core": ["../backend/services/navratna-core/src"],
       "@uaip/navratna-core/*": ["../backend/services/navratna-core/src/*"],
       "@uaip/navratna-gateway": ["../backend/services/navratna-gateway/src"],
-      "@uaip/navratna-gateway/*": ["../backend/services/navratna-gateway/src/*"],
-      "@uaip/shared-services": ["../shared/services/src"],
-      "@uaip/shared-services/*": ["../shared/services/src/*"]
+      "@uaip/navratna-gateway/*": ["../backend/services/navratna-gateway/src/*"]
     },
     "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
   },

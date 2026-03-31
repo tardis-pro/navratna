@@ -1,6 +1,6 @@
 import { treaty } from '@elysiajs/eden'
-import type { NavratnaCoreApp } from '@uaip/navratna-core/app'
-import type { NavratnaGatewayApp } from '@uaip/navratna-gateway/app'
+import type { NavratnaCoreApp } from '@uaip/types/eden_app_types'
+import type { NavratnaGatewayApp } from '@uaip/types/eden_app_types'
 import { csrfService } from '@/services/c_s_r_f_service'
 import { API_BASE_URL } from '@/config/api_config'
 
@@ -81,4 +81,4 @@ export async function edenWithCSRFRetry<T>(fn: () => Promise<EdenResponse<T>>): 
   return unwrapEden(result)
 }
 
-export type { NavratnaCoreApp, NavratnaGatewayApp }
+export type { NavratnaCoreApp, NavratnaGatewayApp } from '@uaip/types/eden_app_types'
