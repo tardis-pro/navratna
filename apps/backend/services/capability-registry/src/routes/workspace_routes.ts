@@ -17,32 +17,8 @@ interface WorkspaceRouteContext {
     headers?: { get?: (name: string) => string | null };
     signal?: AbortSignal;
   };
-  set?: { status?: number };
+  set?: { status?: number | string };
 }
-
-interface WorkspaceRouteGroup {
-  get: (
-    path: string,
-    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
-  ) => WorkspaceRouteGroup;
-  post: (
-    path: string,
-    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
-  ) => WorkspaceRouteGroup;
-  delete: (
-    path: string,
-    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
-  ) => WorkspaceRouteGroup;
-}
-
-interface WorkspaceRouteApp {
-  group: (
-    path: string,
-    handler: (group: WorkspaceRouteGroup) => WorkspaceRouteGroup
-  ) => WorkspaceRouteApp;
-}
-
-
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -58,18 +34,16 @@ function getHeader(headers: unknown, name: string): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
-export function registerWorkspaceRoutes<T extends Elysia>(
-  app: T,
+export function registerWorkspaceRoutes(
   workspaceManager?: WorkspaceManager,
   codingAgentExecutor?: CodingAgentExecutor
-): T {
+){
   const wm = workspaceManager ?? WorkspaceManager.getInstance();
   const executor = codingAgentExecutor ?? CodingAgentExecutor.getInstance(wm);
 
   logger.info('Registering workspace routes');
 
-  const a = app as WorkspaceRouteApp;
-  a.group('/api/v1/workspaces', (g: WorkspaceRouteGroup) =>
+  return new Elysia().group('/api/v1/workspaces', (g) =>
     g
       .post('/', async ({ body, set }) => {
         const b = asRecord(body);
@@ -359,6 +333,4 @@ export function registerWorkspaceRoutes<T extends Elysia>(
         return { success: result.exitCode === 0, data: result };
       })
   );
-
-  return app;
 }

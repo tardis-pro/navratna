@@ -135,8 +135,8 @@ function validateWithZod<T>(
   };
 }
 
-export function registerSecurityRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/security', (app) => withRequiredAuth(app)
+export function registerSecurityRoutes() {
+  return new Elysia().group('/api/v1/security', (app) => withRequiredAuth(app)
     // POST /assess-risk
     // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/assess-risk', async ({ set, body, user, request, headers }) => {
@@ -508,7 +508,6 @@ export function registerSecurityRoutes<T extends Elysia>(elysiaApp: T): T {
     )
   );
 
-  return elysiaApp;
 }
 
 export default registerSecurityRoutes;

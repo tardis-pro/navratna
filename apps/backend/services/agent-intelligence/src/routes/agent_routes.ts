@@ -25,8 +25,8 @@ const relevanceSchema = z.object({
   limit: z.number().int().positive().max(100).optional(),
 })
 
-export function registerAgentRoutes<T extends Elysia>(app: T): T {
-  app.group('/api/v1/agents', (group) =>
+export function registerAgentRoutes() {
+  return new Elysia().group('/api/v1/agents', (group) =>
     withNginxAuth(group).post('/relevance', async (ctx) => {
       const parsed = relevanceSchema.safeParse(ctx.body)
 
@@ -82,6 +82,4 @@ export function registerAgentRoutes<T extends Elysia>(app: T): T {
       }
     })
   )
-
-  return app
 }

@@ -57,8 +57,8 @@ const connectBodySchema = z.object({
 });
 const optionalOperationSchema = z.object({ operation: z.string().optional() });
 
-export function registerOAuthRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/oauth', (app) => withOptionalAuth(app)
+export function registerOAuthRoutes() {
+  return new Elysia().group('/api/v1/oauth', (app) => withOptionalAuth(app)
     // GET /providers
     .get('/providers', async ({ set, query }) => {
       try {
@@ -430,7 +430,6 @@ export function registerOAuthRoutes<T extends Elysia>(elysiaApp: T): T {
     }))
   );
 
-  return elysiaApp;
 }
 
 export default registerOAuthRoutes;

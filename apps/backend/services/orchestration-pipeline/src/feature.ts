@@ -30,10 +30,10 @@ export const orchestrationFeature: Feature = {
   },
 
   routes(app) {
-    registerApprovalRoutes(app, rdloApprovalService)
-    registerProjectRoutes(app)
-    registerTaskRoutes(app, taskController)
-    registerWorkflowRoutes(app, workflowEngineService)
+    app.use(registerApprovalRoutes(rdloApprovalService))
+    app.use(registerProjectRoutes())
+    app.use(registerTaskRoutes(taskController))
+    app.use(registerWorkflowRoutes(workflowEngineService))
     return app
   },
 }

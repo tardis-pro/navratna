@@ -19,8 +19,8 @@ const calibrateRequestSchema = z.object({
   context: z.string().min(1),
 })
 
-export function registerCognitivePortraitRoutes<T extends Elysia>(app: T): T {
-  app.group('/api/v1/users', (group) =>
+export function registerCognitivePortraitRoutes() {
+  return new Elysia().group('/api/v1/users', (group) =>
     withNginxAuth(group)
       .get('/:userId/cognitive-portrait', async (ctx) => {
         const userId = ctx.params.userId
@@ -81,6 +81,4 @@ export function registerCognitivePortraitRoutes<T extends Elysia>(app: T): T {
         }
       })
   )
-
-  return app
 }

@@ -1,3 +1,4 @@
+import { Elysia } from 'elysia';
 import { withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
@@ -34,25 +35,22 @@ function parseOptionalDate(input?: string): Date | undefined {
   return d;
 }
 
-export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
-  return elysiaApp.group('/api/v1/agent-llm-providers', (app: unknown) =>
+export function registerLLMAgentProviderRoutes() {
+  return new Elysia().group('/api/v1/agent-llm-providers', (app) =>
     withRequiredAuth(app)
-      .get('/', async (context: unknown) => {
-        const { user, set } = context as unknown;
+      // @ts-expect-error -- Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .get('/', async ({ user, set }) => {
         try {
           const supported = llmAgentProviderService.getSupportedProviders();
           return { success: true, data: supported };
         } catch (error) {
-          logger.error('Error listing supported agent LLM providers', {
-            error,
-            userId: user?.id,
-          });
+          logger.error('Error listing supported agent LLM providers', { error, userId: user?.id });
           set.status = 500;
           return { success: false, error: 'Failed to list supported agent LLM providers' };
         }
       })
-      .get('/user', async (context: unknown) => {
-        const { user, set } = context as unknown;
+      // @ts-expect-error -- Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .get('/user', async ({ user, set }) => {
         try {
           const providers = await llmAgentProviderService.listUserProviders(user.id);
           return { success: true, data: providers };
@@ -62,8 +60,8 @@ export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
           return { success: false, error: 'Failed to list user agent LLM providers' };
         }
       })
-      .post('/api-key', async (context: unknown) => {
-        const { user, set, body } = context as unknown;
+      // @ts-expect-error -- Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/api-key', async ({ user, set, body }) => {
         const validation = saveApiKeySchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -78,14 +76,14 @@ export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
           logger.error('Error storing agent LLM API key', {
             error,
             userId: user.id,
-            provider: (body as unknown)?.provider,
+            provider: (body as Record<string, unknown>)?.provider,
           });
           set.status = 500;
           return { success: false, error: 'Failed to store API key' };
         }
       })
-      .post('/oauth/initiate', async (context: unknown) => {
-        const { user, set, body } = context as unknown;
+      // @ts-expect-error -- Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/oauth/initiate', async ({ user, set, body }) => {
         const validation = oauthInitiateSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -109,8 +107,8 @@ export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
           };
         }
       })
-      .post('/oauth/tokens', async (context: unknown) => {
-        const { user, set, body } = context as unknown;
+      // @ts-expect-error -- Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .post('/oauth/tokens', async ({ user, set, body }) => {
         const validation = storeOAuthTokensSchema.safeParse(body);
         if (!validation.success) {
           set.status = 400;
@@ -136,9 +134,9 @@ export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
           return { success: false, error: 'Failed to store OAuth tokens' };
         }
       })
-      .delete('/:provider', async (context: unknown) => {
-        const { user, set, params } = context as unknown;
-        const parsed = providerSchema.safeParse((params as unknown).provider);
+      // @ts-expect-error -- Elysia middleware injects user, but TypeScript cannot infer through nested groups
+      .delete('/:provider', async ({ user, set, params }) => {
+        const parsed = providerSchema.safeParse(params.provider);
         if (!parsed.success) {
           set.status = 400;
           return { success: false, error: 'Invalid provider' };
@@ -151,7 +149,7 @@ export function registerLLMAgentProviderRoutes(elysiaApp: unknown): unknown {
           logger.error('Error disconnecting agent LLM provider', {
             error,
             userId: user.id,
-            provider: (params as unknown).provider,
+            provider: params.provider,
           });
           set.status = 500;
           return { success: false, error: 'Failed to disconnect provider' };

@@ -28,12 +28,6 @@
   "exclude": ["dist", "node_modules", "src/**/*.js", "src/__tests__/**/*", "src/**/*.test.ts"],
   "references": [
     {
-      "path": "../agent-intelligence"
-    },
-    {
-      "path": "../../../shared/infra"
-    },
-    {
       "path": "../../../packages/shared-utils"
     },
     {
@@ -44,6 +38,9 @@
     },
     {
       "path": "../../../shared/middleware"
+    },
+    {
+      "path": "../../../shared/infra"
     },
     {
       "path": "../../../shared/config"

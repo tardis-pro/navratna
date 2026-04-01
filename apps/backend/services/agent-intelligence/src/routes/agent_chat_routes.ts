@@ -99,13 +99,12 @@ const toAgentRequest = (
   context,
 })
 
-export function registerAgentChatRoutes<T extends Elysia>(
-  app: T,
+export function registerAgentChatRoutes(
   agentIntelligenceService: AgentChatDeps,
   userLLMService: UserLlmDeps,
   securityService: SecurityDeps
-): T {
-  app.group(
+) {
+  return new Elysia().group(
     '/api/v1/agents',
     (group) => withNginxAuth(group)
       .post('/:agentId/chat', async (ctx) => {
@@ -250,6 +249,4 @@ export function registerAgentChatRoutes<T extends Elysia>(
         }
       })
   )
-
-  return app
 }

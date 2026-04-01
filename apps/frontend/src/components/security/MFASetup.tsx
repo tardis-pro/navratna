@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 import { MFAMethod, MFASetupData } from '@uaip/types';
-import { api } from '@/utils/api';
+import { APIClient } from '@/api/client';
 
 interface MFAMethodConfig {
   id: MFAMethod;
@@ -97,8 +97,8 @@ export const MFASetup: React.FC = () => {
 
   const fetchMFAStatus = async () => {
     try {
-      const response = await api.get('/security/mfa/status');
-      setEnabledMethods(response.data.enabledMethods || []);
+      const response = await APIClient.get<{ enabledMethods?: MFAMethod[] }>('/security/mfa/status');
+      setEnabledMethods(response.enabledMethods || []);
     } catch {
       toast({
         title: 'Error',
@@ -119,8 +119,8 @@ export const MFASetup: React.FC = () => {
         return;
       }
 
-      const response = await api.post('/security/mfa/setup', { method });
-      setSetupData(response.data);
+      const response = await APIClient.post<MFASetupData>('/security/mfa/setup', { method });
+      setSetupData(response);
       setSetupStep('setup');
     } catch {
       toast({
@@ -139,11 +139,11 @@ export const MFASetup: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await api.post('/security/mfa/setup', {
+      const response = await APIClient.post<MFASetupData>('/security/mfa/setup', {
         method: MFAMethod.SMS,
         phoneNumber,
       });
-      setSetupData(response.data);
+      setSetupData(response);
       setSetupStep('verify');
     } catch {
       toast({
@@ -168,7 +168,7 @@ export const MFASetup: React.FC = () => {
 
     try {
       setVerifying(true);
-      await api.post('/security/mfa/verify', {
+      await APIClient.post('/security/mfa/verify', {
         method: selectedMethod,
         code: verificationCode,
         setupId: setupData?.setupId,
@@ -194,7 +194,7 @@ export const MFASetup: React.FC = () => {
 
   const handleDisable = async (method: MFAMethod) => {
     try {
-      await api.delete(`/security/mfa/${method}`);
+      await APIClient.delete(`/security/mfa/${method}`);
       setEnabledMethods((prev) => prev.filter((m) => m !== method));
       toast({
         title: 'MFA Disabled',

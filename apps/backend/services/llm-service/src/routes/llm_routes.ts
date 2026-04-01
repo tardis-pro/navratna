@@ -104,18 +104,17 @@ function toUserProviderType(value: unknown): UserProviderType | undefined {
   }
 }
 
-export function registerLLMRoutes<T extends Elysia>(
-  app: T,
+export function registerLLMRoutes(
   llmService: LLMService,
   modelBootstrapService: ModelBootstrapService,
   userLLMService: UserLLMService
-): T {
-  (app as { group: Function }).group(
+){
+  return new Elysia().group(
     '/api/v1/llm',
-    (group: { get: Function; post: Function }) =>
+    (group) =>
       group
         // Get available models from all providers
-        .get('/models', async ({ set }: { set: { headers: Record<string, string> } }) => {
+        .get('/models', async ({ set }) => {
           const models = await llmService.getAvailableModels();
 
           // Set cache headers (1 hour)
@@ -134,9 +133,6 @@ export function registerLLMRoutes<T extends Elysia>(
           async ({
             params,
             set,
-          }: {
-            params: Record<string, string>;
-            set: { headers: Record<string, string> };
           }) => {
             const { providerType } = params;
             const models = await llmService.getModelsFromProvider(providerType);
@@ -153,8 +149,8 @@ export function registerLLMRoutes<T extends Elysia>(
         )
 
         // Generate LLM response
-        .post('/generate', async ({ body }: { body: Record<string, unknown> }) => {
-          const { prompt, systemPrompt, maxTokens, temperature, model, preferredType } = body;
+        .post('/generate', async ({ body }) => {
+          const { prompt, systemPrompt, maxTokens, temperature, model, preferredType } = body as Record<string, unknown>;
 
           if (!prompt) {
             throw new ValidationError('Prompt is required');
@@ -178,7 +174,7 @@ export function registerLLMRoutes<T extends Elysia>(
         })
 
         // Generate agent response
-        .post('/agent-response', async ({ body }: { body: Record<string, unknown> }) => {
+        .post('/agent-response', async ({ body }) => {
           if (!isAgentResponseRequest(body)) {
             throw new ValidationError('Agent response request is invalid');
           }
@@ -190,19 +186,28 @@ export function registerLLMRoutes<T extends Elysia>(
             data: response,
           };
         })
-
+        
         // Generate artifact
-        .post('/artifact', async ({ body }: { body: Record<string, unknown> }) => {
-          if (!isArtifactType(body.type) || typeof body.prompt !== 'string') {
+        .post('/artifact', async ({ body }) => {
+          if (!isRecord(body)) {
+            throw new ValidationError('Type and prompt are required');
+          }
+
+          const artifactType = Reflect.get(body, 'type');
+          const prompt = Reflect.get(body, 'prompt');
+          const language = Reflect.get(body, 'language');
+          const requirements = Reflect.get(body, 'requirements');
+
+          if (!isArtifactType(artifactType) || typeof prompt !== 'string') {
             throw new ValidationError('Type and prompt are required');
           }
 
           const response = await llmService.generateArtifact({
-            type: body.type,
-            context: body.prompt,
-            language: typeof body.language === 'string' ? body.language : undefined,
-            requirements: Array.isArray(body.requirements)
-              ? body.requirements.filter((value): value is string => typeof value === 'string')
+            type: artifactType,
+            context: prompt,
+            language: typeof language === 'string' ? language : undefined,
+            requirements: Array.isArray(requirements)
+              ? requirements.filter((value): value is string => typeof value === 'string')
               : [],
             constraints: [],
           });
@@ -214,17 +219,26 @@ export function registerLLMRoutes<T extends Elysia>(
         })
 
         // Analyze context
-        .post('/analyze-context', async ({ body }: { body: Record<string, unknown> }) => {
-          if (!isContextMessageArray(body.conversationHistory)) {
+        .post('/analyze-context', async ({ body }) => {
+          if (!isRecord(body)) {
+            throw new ValidationError('Conversation history is required');
+          }
+
+          const conversationHistory = Reflect.get(body, 'conversationHistory');
+          const currentContext = Reflect.get(body, 'currentContext');
+          const userRequest = Reflect.get(body, 'userRequest');
+          const agentCapabilities = Reflect.get(body, 'agentCapabilities');
+
+          if (!isContextMessageArray(conversationHistory)) {
             throw new ValidationError('Conversation history is required');
           }
 
           const response = await llmService.analyzeContext({
-            conversationHistory: body.conversationHistory,
-            currentContext: isContextDocument(body.currentContext) ? body.currentContext : undefined,
-            userRequest: typeof body.userRequest === 'string' ? body.userRequest : undefined,
-            agentCapabilities: Array.isArray(body.agentCapabilities)
-              ? body.agentCapabilities.filter((value): value is string => typeof value === 'string')
+            conversationHistory,
+            currentContext: isContextDocument(currentContext) ? currentContext : undefined,
+            userRequest: typeof userRequest === 'string' ? userRequest : undefined,
+            agentCapabilities: Array.isArray(agentCapabilities)
+              ? agentCapabilities.filter((value): value is string => typeof value === 'string')
               : undefined,
           });
 
@@ -245,7 +259,7 @@ export function registerLLMRoutes<T extends Elysia>(
         })
 
         // Get all configured providers
-        .get('/providers', async ({ set }: { set: { headers: Record<string, string> } }) => {
+        .get('/providers', async ({ set }) => {
           const providers = await llmService.getConfiguredProviders();
 
           // Set cache headers (1 hour)
@@ -281,15 +295,17 @@ export function registerLLMRoutes<T extends Elysia>(
           return {
             success: true,
             data: result,
-            message: (result as Record<string, unknown>).testSuccess
+            message: isRecord(result) && Reflect.get(result, 'testSuccess')
               ? 'Event integration test passed'
               : 'Event integration test failed',
           };
         })
 
         // Cache management endpoints
-        .post('/cache/invalidate', async ({ body }: { body: Record<string, unknown> }) => {
-          const { type, syncModels } = body;
+        .post('/cache/invalidate', async ({ body }) => {
+          const payload = isRecord(body) ? body : {};
+          const type = Reflect.get(payload, 'type');
+          const syncModels = Reflect.get(payload, 'syncModels');
 
           switch (type) {
             case 'models':
@@ -355,7 +371,7 @@ export function registerLLMRoutes<T extends Elysia>(
 
         .post(
           '/bootstrap/refresh-user/:userId',
-          async ({ params }: { params: Record<string, string> }) => {
+          async ({ params }) => {
             const { userId } = params;
 
             if (!userId) {
@@ -376,26 +392,20 @@ export function registerLLMRoutes<T extends Elysia>(
         // Streaming endpoints
         .post(
           '/stream',
-          async ({
-            body,
-            store,
-          }: {
-            body: Record<string, unknown>;
-            store: { user?: { id: string } };
-          }) => {
-            const {
-              prompt,
-              systemPrompt,
-              model,
-              maxTokens,
-              agentId,
-              conversationId,
-              providerType,
-            } = body;
-            const userId = store.user?.id;
+          async ({ body, store }) => {
+            const payload = isRecord(body) ? body : {};
+            const prompt = Reflect.get(payload, 'prompt');
+            const systemPrompt = Reflect.get(payload, 'systemPrompt');
+            const model = Reflect.get(payload, 'model');
+            const maxTokens = Reflect.get(payload, 'maxTokens');
+            const agentId = Reflect.get(payload, 'agentId');
+            const conversationId = Reflect.get(payload, 'conversationId');
+            const providerType = Reflect.get(payload, 'providerType');
+            const storeUser = isRecord(store) ? Reflect.get(store, 'user') : undefined;
+            const userId = isRecord(storeUser) ? Reflect.get(storeUser, 'id') : undefined;
             const preferredProviderType = toUserProviderType(providerType);
 
-            if (!userId) {
+            if (typeof userId !== 'string') {
               throw new ValidationError('User not authenticated');
             }
 
@@ -475,9 +485,6 @@ export function registerLLMRoutes<T extends Elysia>(
           async ({
             params,
             store: _store,
-          }: {
-            params: Record<string, string>;
-            store: Record<string, unknown>;
           }) => {
             const { sessionId } = params;
             const streamingService = StreamingService.getInstance();
@@ -490,7 +497,7 @@ export function registerLLMRoutes<T extends Elysia>(
           }
         )
 
-        .get('/stream/:sessionId', async ({ params }: { params: Record<string, string> }) => {
+        .get('/stream/:sessionId', async ({ params }) => {
           const { sessionId } = params;
           const streamingService = StreamingService.getInstance();
           const info = streamingService.getStreamInfo(sessionId);
@@ -505,6 +512,4 @@ export function registerLLMRoutes<T extends Elysia>(
           };
         })
   );
-
-  return app;
 }

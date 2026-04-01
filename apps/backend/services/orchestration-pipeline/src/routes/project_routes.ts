@@ -90,331 +90,331 @@ const initServices = async () => {
   }
 };
 
-export function registerProjectRoutes<T extends Elysia>(app: T): T {
-  // Create project
-  app.post('/api/v1/projects', async ({ body, headers, set }) => {
-    try {
-      await initServices();
-      const userId = headers['x-user-id'];
-      if (!userId) {
-        set.status = 401;
-        return { error: 'User not authenticated' };
-      }
-
-      const validatedBody = createProjectSchema.parse(body);
-      const project = await projectService.createProject({
-        name: validatedBody.name!,
-        ownerId: userId,
-        description: validatedBody.description,
-        category: validatedBody.category,
-        tags: validatedBody.tags,
-        priority: validatedBody.priority,
-        visibility: validatedBody.visibility,
-        startDate: validatedBody.startDate ? new Date(validatedBody.startDate) : undefined,
-        endDate: validatedBody.endDate ? new Date(validatedBody.endDate) : undefined,
-        budget: validatedBody.budget,
-        settings: validatedBody.settings,
-        metadata: validatedBody.metadata,
-      });
-
-      set.status = 201;
-      return project;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return { error: 'Validation error', details: error.errors };
-      }
-      logger.error('Error creating project', { error });
-      set.status = 500;
-      return { error: 'Failed to create project' };
-    }
-  });
-
-  // Get user's projects
-  app.get('/api/v1/projects', async ({ headers, set }) => {
-    try {
-      await initServices();
-      const userId = headers['x-user-id'];
-      if (!userId) {
-        set.status = 401;
-        return { error: 'User not authenticated' };
-      }
-
-      const projects = await projectService.getProjects({ ownerId: userId });
-      return projects;
-    } catch (error) {
-      logger.error('Error fetching projects', { error });
-      set.status = 500;
-      return { error: 'Failed to fetch projects' };
-    }
-  });
-
-  // Get project by ID
-  app.get('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
-    try {
-      await initServices();
-      const userId = headers['x-user-id'];
-      const projectId = params.projectId;
-
-      const project = await projectService.getProject(projectId, userId);
-      if (!project) {
-        set.status = 404;
-        return { error: 'Project not found' };
-      }
-
-      return project;
-    } catch (error) {
-      logger.error('Error fetching project', { error });
-      set.status = 500;
-      return { error: 'Failed to fetch project' };
-    }
-  });
-
-  app.post(
-    '/api/v1/projects/:projectId/setup-workspace',
-    async ({ params, body, headers, set }) => {
+export function registerProjectRoutes() {
+  return new Elysia()
+    // Create project
+    .post('/api/v1/projects', async ({ body, headers, set }) => {
       try {
         await initServices();
+        const userId = headers['x-user-id'];
+        if (!userId) {
+          set.status = 401;
+          return { error: 'User not authenticated' };
+        }
 
-        const validatedBody = setupWorkspaceSchema.parse(body);
-        const headerUserId = headers['x-user-id'];
-        const userId = headerUserId || validatedBody.userId;
+        const validatedBody = createProjectSchema.parse(body);
+        const project = await projectService.createProject({
+          name: validatedBody.name!,
+          ownerId: userId,
+          description: validatedBody.description,
+          category: validatedBody.category,
+          tags: validatedBody.tags,
+          priority: validatedBody.priority,
+          visibility: validatedBody.visibility,
+          startDate: validatedBody.startDate ? new Date(validatedBody.startDate) : undefined,
+          endDate: validatedBody.endDate ? new Date(validatedBody.endDate) : undefined,
+          budget: validatedBody.budget,
+          settings: validatedBody.settings,
+          metadata: validatedBody.metadata,
+        });
+
+        set.status = 201;
+        return project;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          set.status = 400;
+          return { error: 'Validation error', details: error.errors };
+        }
+        logger.error('Error creating project', { error });
+        set.status = 500;
+        return { error: 'Failed to create project' };
+      }
+    })
+
+    // Get user's projects
+    .get('/api/v1/projects', async ({ headers, set }) => {
+      try {
+        await initServices();
+        const userId = headers['x-user-id'];
+        if (!userId) {
+          set.status = 401;
+          return { error: 'User not authenticated' };
+        }
+
+        const projects = await projectService.getProjects({ ownerId: userId });
+        return projects;
+      } catch (error) {
+        logger.error('Error fetching projects', { error });
+        set.status = 500;
+        return { error: 'Failed to fetch projects' };
+      }
+    })
+
+    // Get project analytics
+    .get('/api/v1/projects/analytics', async ({ headers, query, set }) => {
+      try {
+        await initServices();
+        const userId = headers['x-user-id'];
+        const _timeRange = query?.timeRange || '30d';
+
+        const analytics = await projectService.getProjectAnalytics({ ownerId: userId });
+        return analytics;
+      } catch (error) {
+        logger.error('Error fetching project analytics', { error });
+        set.status = 500;
+        return { error: 'Failed to fetch project analytics' };
+      }
+    })
+
+    // Get project by ID
+    .get('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
+      try {
+        await initServices();
+        const userId = headers['x-user-id'];
+        const projectId = params.projectId;
+
+        const project = await projectService.getProject(projectId, userId);
+        if (!project) {
+          set.status = 404;
+          return { error: 'Project not found' };
+        }
+
+        return project;
+      } catch (error) {
+        logger.error('Error fetching project', { error });
+        set.status = 500;
+        return { error: 'Failed to fetch project' };
+      }
+    })
+
+    .post(
+      '/api/v1/projects/:projectId/setup-workspace',
+      async ({ params, body, headers, set }) => {
+        try {
+          await initServices();
+
+          const validatedBody = setupWorkspaceSchema.parse(body);
+          const headerUserId = headers['x-user-id'];
+          const userId = headerUserId || validatedBody.userId;
+
+          if (!userId) {
+            set.status = 401;
+            return { error: 'User not authenticated' };
+          }
+
+          if (headerUserId && headerUserId !== validatedBody.userId) {
+            set.status = 403;
+            return { error: 'User ID mismatch' };
+          }
+
+          const projectId = params.projectId;
+          const workflow = new SetupProjectWorkspaceWorkflow(eventBusService);
+          const result = await workflow.execute({
+            projectId,
+            userId,
+            projectName: validatedBody.projectName,
+            githubToken: validatedBody.githubToken,
+            repoName: validatedBody.repoName,
+            repoVisibility: validatedBody.repoVisibility,
+          });
+
+          return result;
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            set.status = 400;
+            return { error: 'Validation error', details: error.errors };
+          }
+
+          logger.error('Error setting up project workspace', { error });
+          set.status = 500;
+          return { error: 'Failed to set up project workspace' };
+        }
+      }
+    )
+
+    // Update project
+    .put('/api/v1/projects/:projectId', async ({ params, body, headers, set }) => {
+      try {
+        await initServices();
+        const _userId = headers['x-user-id'];
+        const projectId = params.projectId;
+
+        const validatedBody = updateProjectSchema.parse(body);
+        const updateData: Record<string, unknown> = {
+          ...validatedBody,
+          ...(validatedBody.startDate ? { startDate: new Date(validatedBody.startDate) } : {}),
+          ...(validatedBody.endDate ? { endDate: new Date(validatedBody.endDate) } : {}),
+        };
+        const project = await projectService.updateProject(projectId, updateData);
+        return project;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          set.status = 400;
+          return { error: 'Validation error', details: error.errors };
+        }
+        logger.error('Error updating project', { error });
+        set.status = 500;
+        return { error: 'Failed to update project' };
+      }
+    })
+
+    // Delete project
+    .delete('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
+      try {
+        await initServices();
+        const _userId = headers['x-user-id'];
+        const projectId = params.projectId;
+
+        await projectService.deleteProject(projectId);
+        set.status = 204;
+        return '';
+      } catch (error) {
+        logger.error('Error deleting project', { error });
+        set.status = 500;
+        return { error: 'Failed to delete project' };
+      }
+    })
+
+    // Create task
+    .post('/api/v1/projects/:projectId/tasks', async ({ params, body, headers, set }) => {
+      try {
+        await initServices();
+        const _userId = headers['x-user-id'];
+        const projectId = params.projectId;
+
+        const validatedBody = createTaskSchema.parse(body);
+        const task = await projectService.createTask({
+          title: validatedBody.title!,
+          projectId,
+          description: validatedBody.description,
+          priority: validatedBody.priority,
+          assignedAgentId: validatedBody.assignedAgentId,
+          assignedUserId: validatedBody.assignedUserId,
+          requirements: validatedBody.requirements,
+          tools: validatedBody.tools,
+          estimatedCost: validatedBody.estimatedCost,
+          estimatedDuration: validatedBody.estimatedDuration,
+          dueDate: validatedBody.dueDate ? new Date(validatedBody.dueDate) : undefined,
+        });
+        set.status = 201;
+        return task;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          set.status = 400;
+          return { error: 'Validation error', details: error.errors };
+        }
+        logger.error('Error creating task', { error });
+        set.status = 500;
+        return { error: 'Failed to create task' };
+      }
+    })
+
+    // Update task
+    .put('/api/v1/projects/:projectId/tasks/:taskId', async ({ params, body, headers, set }) => {
+      try {
+        await initServices();
+        const _userId = headers['x-user-id'];
+        const _projectId = params.projectId;
+        const taskId = params.taskId;
+
+        const task = await projectService.updateTask(taskId, body);
+        return task;
+      } catch (error) {
+        logger.error('Error updating task', { error });
+        set.status = 500;
+        return { error: 'Failed to update task' };
+      }
+    })
+
+    // Add agent to project
+    .post('/api/v1/projects/:projectId/agents', async ({ params, body, headers, set }) => {
+      try {
+        await initServices();
+        const userId = headers['x-user-id'];
+        const projectId = params.projectId;
 
         if (!userId) {
           set.status = 401;
           return { error: 'User not authenticated' };
         }
 
-        if (headerUserId && headerUserId !== validatedBody.userId) {
-          set.status = 403;
-          return { error: 'User ID mismatch' };
-        }
+        const validatedBody = addAgentSchema.parse(body);
 
-        const projectId = params.projectId;
-        const workflow = new SetupProjectWorkspaceWorkflow(eventBusService);
-        const result = await workflow.execute({
+        logger.info('Assigning agent to project', {
           projectId,
-          userId,
-          projectName: validatedBody.projectName,
-          githubToken: validatedBody.githubToken,
-          repoName: validatedBody.repoName,
-          repoVisibility: validatedBody.repoVisibility,
+          requestedBy: userId,
+          agentId: validatedBody.agentId,
+          role: validatedBody.role,
         });
 
-        return result;
+        const assignment = await projectService.addProjectAgent(
+          projectId,
+          validatedBody.agentId,
+          validatedBody.role
+        );
+
+        set.status = 201;
+        return {
+          success: true,
+          message: 'Agent assigned to project',
+          assignment,
+        };
       } catch (error) {
         if (error instanceof z.ZodError) {
           set.status = 400;
           return { error: 'Validation error', details: error.errors };
         }
-
-        logger.error('Error setting up project workspace', { error });
+        logger.error('Error adding agent to project', { error });
         set.status = 500;
-        return { error: 'Failed to set up project workspace' };
+        return { error: 'Failed to add agent to project' };
       }
-    }
-  );
+    })
 
-  // Update project
-  app.put('/api/v1/projects/:projectId', async ({ params, body, headers, set }) => {
-    try {
-      await initServices();
-      const _userId = headers['x-user-id'];
-      const projectId = params.projectId;
+    // Record tool usage
+    .post('/api/v1/projects/:projectId/tool-usage', async ({ params, body, headers, set }) => {
+      try {
+        await initServices();
+        const _userId = headers['x-user-id'];
+        const projectId = params.projectId;
 
-      const validatedBody = updateProjectSchema.parse(body);
-      const updateData: Record<string, unknown> = {
-        ...validatedBody,
-        ...(validatedBody.startDate ? { startDate: new Date(validatedBody.startDate) } : {}),
-        ...(validatedBody.endDate ? { endDate: new Date(validatedBody.endDate) } : {}),
-      };
-      const project = await projectService.updateProject(projectId, updateData);
-      return project;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return { error: 'Validation error', details: error.errors };
+        const validatedBody = recordToolUsageSchema.parse(body);
+        // Map to expected format
+        const toolUsage = {
+          projectId,
+          toolId: validatedBody.toolId,
+          toolName: validatedBody.toolId, // Using toolId as toolName temporarily
+          success: validatedBody.usage.success,
+          executionTime: validatedBody.usage.duration || 0,
+          cost: validatedBody.usage.cost,
+          errorMessage: validatedBody.usage.error,
+        };
+        await projectService.recordToolUsage(toolUsage);
+        set.status = 201;
+        return { message: 'Tool usage recorded' };
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          set.status = 400;
+          return { error: 'Validation error', details: error.errors };
+        }
+        logger.error('Error recording tool usage', { error });
+        set.status = 500;
+        return { error: 'Failed to record tool usage' };
       }
-      logger.error('Error updating project', { error });
-      set.status = 500;
-      return { error: 'Failed to update project' };
-    }
-  });
+    })
 
-  // Delete project
-  app.delete('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
-    try {
-      await initServices();
-      const _userId = headers['x-user-id'];
-      const projectId = params.projectId;
+    // Get project metrics
+    .get('/api/v1/projects/:projectId/metrics', async ({ params, headers, set }) => {
+      try {
+        await initServices();
+        const _userId = headers['x-user-id'];
+        const projectId = params.projectId;
 
-      await projectService.deleteProject(projectId);
-      set.status = 204;
-      return '';
-    } catch (error) {
-      logger.error('Error deleting project', { error });
-      set.status = 500;
-      return { error: 'Failed to delete project' };
-    }
-  });
-
-  // Create task
-  app.post('/api/v1/projects/:projectId/tasks', async ({ params, body, headers, set }) => {
-    try {
-      await initServices();
-      const _userId = headers['x-user-id'];
-      const projectId = params.projectId;
-
-      const validatedBody = createTaskSchema.parse(body);
-      const task = await projectService.createTask({
-        title: validatedBody.title!,
-        projectId,
-        description: validatedBody.description,
-        priority: validatedBody.priority,
-        assignedAgentId: validatedBody.assignedAgentId,
-        assignedUserId: validatedBody.assignedUserId,
-        requirements: validatedBody.requirements,
-        tools: validatedBody.tools,
-        estimatedCost: validatedBody.estimatedCost,
-        estimatedDuration: validatedBody.estimatedDuration,
-        dueDate: validatedBody.dueDate ? new Date(validatedBody.dueDate) : undefined,
-      });
-      set.status = 201;
-      return task;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return { error: 'Validation error', details: error.errors };
+        const metrics = await projectService.getProjectMetrics(projectId);
+        return metrics;
+      } catch (error) {
+        logger.error('Error fetching project metrics', { error });
+        set.status = 500;
+        return { error: 'Failed to fetch project metrics' };
       }
-      logger.error('Error creating task', { error });
-      set.status = 500;
-      return { error: 'Failed to create task' };
-    }
-  });
-
-  // Update task
-  app.put('/api/v1/projects/:projectId/tasks/:taskId', async ({ params, body, headers, set }) => {
-    try {
-      await initServices();
-      const _userId = headers['x-user-id'];
-      const _projectId = params.projectId;
-      const taskId = params.taskId;
-
-      const task = await projectService.updateTask(taskId, body);
-      return task;
-    } catch (error) {
-      logger.error('Error updating task', { error });
-      set.status = 500;
-      return { error: 'Failed to update task' };
-    }
-  });
-
-  // Add agent to project
-  app.post('/api/v1/projects/:projectId/agents', async ({ params, body, headers, set }) => {
-    try {
-      await initServices();
-      const userId = headers['x-user-id'];
-      const projectId = params.projectId;
-
-      if (!userId) {
-        set.status = 401;
-        return { error: 'User not authenticated' };
-      }
-
-      const validatedBody = addAgentSchema.parse(body);
-
-      logger.info('Assigning agent to project', {
-        projectId,
-        requestedBy: userId,
-        agentId: validatedBody.agentId,
-        role: validatedBody.role,
-      });
-
-      const assignment = await projectService.addProjectAgent(
-        projectId,
-        validatedBody.agentId,
-        validatedBody.role
-      );
-
-      set.status = 201;
-      return {
-        success: true,
-        message: 'Agent assigned to project',
-        assignment,
-      };
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return { error: 'Validation error', details: error.errors };
-      }
-      logger.error('Error adding agent to project', { error });
-      set.status = 500;
-      return { error: 'Failed to add agent to project' };
-    }
-  });
-
-  // Record tool usage
-  app.post('/api/v1/projects/:projectId/tool-usage', async ({ params, body, headers, set }) => {
-    try {
-      await initServices();
-      const _userId = headers['x-user-id'];
-      const projectId = params.projectId;
-
-      const validatedBody = recordToolUsageSchema.parse(body);
-      // Map to expected format
-      const toolUsage = {
-        projectId,
-        toolId: validatedBody.toolId,
-        toolName: validatedBody.toolId, // Using toolId as toolName temporarily
-        success: validatedBody.usage.success,
-        executionTime: validatedBody.usage.duration || 0,
-        cost: validatedBody.usage.cost,
-        errorMessage: validatedBody.usage.error,
-      };
-      await projectService.recordToolUsage(toolUsage);
-      set.status = 201;
-      return { message: 'Tool usage recorded' };
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        set.status = 400;
-        return { error: 'Validation error', details: error.errors };
-      }
-      logger.error('Error recording tool usage', { error });
-      set.status = 500;
-      return { error: 'Failed to record tool usage' };
-    }
-  });
-
-  // Get project metrics
-  app.get('/api/v1/projects/:projectId/metrics', async ({ params, headers, set }) => {
-    try {
-      await initServices();
-      const _userId = headers['x-user-id'];
-      const projectId = params.projectId;
-
-      const metrics = await projectService.getProjectMetrics(projectId);
-      return metrics;
-    } catch (error) {
-      logger.error('Error fetching project metrics', { error });
-      set.status = 500;
-      return { error: 'Failed to fetch project metrics' };
-    }
-  });
-
-  // Get project analytics
-  app.get('/api/v1/projects/analytics', async ({ headers, query, set }) => {
-    try {
-      await initServices();
-      const userId = headers['x-user-id'];
-      const _timeRange = query?.timeRange || '30d';
-
-      const analytics = await projectService.getProjectAnalytics({ ownerId: userId });
-      return analytics;
-    } catch (error) {
-      logger.error('Error fetching project analytics', { error });
-      set.status = 500;
-      return { error: 'Failed to fetch project analytics' };
-    }
-  });
-  return app;
+    })
 }

@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+
 import { BaseService } from '@uaip/shared-services';
 import type { ServiceConfig } from '@uaip/shared-services';
 import { config } from '@uaip/config';
@@ -64,7 +64,7 @@ class BaseBenchMetaApp extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
-    registerBaseBenchRoutes(this.app as AnyElysia, this.baseBenchService);
+    this.app.use(registerBaseBenchRoutes(this.baseBenchService));
 
     this.app.get('/status', () => ({
       service: this.config.name,

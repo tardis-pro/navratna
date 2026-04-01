@@ -57,8 +57,8 @@ const projectQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-export function registerProjectRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/projects', (app) => withOptionalAuth(app)
+export function registerProjectRoutes() {
+  return new Elysia().group('/api/v1/projects', (app) => withOptionalAuth(app)
     // List projects
     .get('/', async ({ query, set, user }) => {
       try {
@@ -230,5 +230,4 @@ export function registerProjectRoutes<T extends Elysia>(elysiaApp: T): T {
     })
   );
 
-  return elysiaApp;
 }

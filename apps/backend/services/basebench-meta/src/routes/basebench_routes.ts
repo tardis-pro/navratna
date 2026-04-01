@@ -1,4 +1,4 @@
-import type { AnyElysia } from 'elysia';
+import { Elysia } from 'elysia';
 import {
   BaseBenchBatchEvaluationRequestSchema,
   BaseBenchCaseEvaluationRequestSchema,
@@ -15,10 +15,9 @@ import type {
 import { BaseBenchMetaService } from '../services/basebench_meta_service.js';
 
 export function registerBaseBenchRoutes(
-  app: AnyElysia,
   baseBenchService: BaseBenchMetaService
-): AnyElysia {
-  return app.group('/api/v1/basebench', (g: AnyElysia) =>
+) {
+  return new Elysia().group('/api/v1/basebench', (g) =>
     g
       .get('/cases', () => ({
         success: true,

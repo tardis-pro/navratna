@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { APIClient } from '@/api/client'
 import { STALE_TIMES, REFETCH_INTERVALS } from '@/api/query_config'
 
 interface DashboardSystemStats {
@@ -44,13 +45,7 @@ export interface DashboardStats {
 }
 
 async function fetchDashboardStats(): Promise<DashboardStats> {
-  const response = await fetch('/api/v1/dashboard/stats', {
-    credentials: 'include',
-  })
-  if (!response.ok) {
-    throw new Error(`Dashboard stats fetch failed: ${response.status}`)
-  }
-  return response.json()
+  return await APIClient.get<DashboardStats>('/api/v1/dashboard/stats')
 }
 
 export function useDashboardStats() {

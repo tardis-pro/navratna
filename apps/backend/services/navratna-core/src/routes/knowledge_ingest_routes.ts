@@ -29,8 +29,8 @@ function isClientInputError(message: string): boolean {
   )
 }
 
-export function registerKnowledgeIngestRoutes<T extends Elysia>(app: T): T {
-  app.group('/api/v1/knowledge', (group) => withNginxAuth(group).post('/ingest', async (ctx) => {
+export function registerKnowledgeIngestRoutes() {
+  return new Elysia().group('/api/v1/knowledge', (group) => withNginxAuth(group).post('/ingest', async (ctx) => {
     const source = parseSourceFromBody(ctx.body)
     if (!source) {
       ctx.set.status = 400
@@ -57,6 +57,4 @@ export function registerKnowledgeIngestRoutes<T extends Elysia>(app: T): T {
     }
   })
   )
-
-  return app
 }

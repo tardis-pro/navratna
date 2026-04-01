@@ -30,8 +30,9 @@ const jiraWebhookBodySchema = z.object({
   }).optional(),
 }).passthrough()
 
-export function registerJiraWebhookRoutes<T extends Elysia>(app: T): T {
-  app.post('/api/v1/webhooks/jira', async (ctx) => {
+export function registerJiraWebhookRoutes() {
+  return new Elysia()
+    .post('/api/v1/webhooks/jira', async (ctx) => {
     const rawBody = typeof ctx.body === 'string' ? ctx.body : JSON.stringify(ctx.body)
     const signatureHeader = ctx.request.headers.get('x-hub-signature')
     const deliveryId = `jira-${Date.now()}`
@@ -69,7 +70,5 @@ export function registerJiraWebhookRoutes<T extends Elysia>(app: T): T {
     }
 
     return { success: true, deliveryId }
-  })
-
-  return app
+    })
 }

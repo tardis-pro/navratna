@@ -19,19 +19,19 @@ export const securityFeature: Feature = {
   name: 'security-gateway',
 
   routes<TApp extends Elysia>(app: TApp): TApp {
-    registerAuthRoutes(app)
-    registerUserRoutes(app)
-    registerApprovalRoutes(app)
-    registerAuditRoutes(app)
-    registerSecurityRoutes(app)
-    registerSecurityStatsRoutes(app)
-    registerProviderRoutes(app)
-    registerOAuthRoutes(app)
-    registerPersonaRoutes(app)
-    registerKnowledgeRoutes(app)
-    registerContactRoutes(app)
-    registerToolPreferenceRoutes(app)
-    registerDashboardRoutes(app)
+    app.use(registerAuthRoutes())
+    app.use(registerUserRoutes())
+    app.use(registerApprovalRoutes())
+    app.use(registerAuditRoutes())
+    app.use(registerSecurityRoutes())
+    app.use(registerSecurityStatsRoutes())
+    app.use(registerProviderRoutes())
+    app.use(registerOAuthRoutes())
+    app.use(registerPersonaRoutes())
+    app.use(registerKnowledgeRoutes())
+    app.use(registerContactRoutes())
+    app.use(registerToolPreferenceRoutes())
+    app.use(registerDashboardRoutes())
     return app
   },
 }

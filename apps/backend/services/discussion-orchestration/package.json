@@ -36,6 +36,7 @@
     "socket.io": "catalog:backend",
     "winston": "catalog:backend",
     "ws": "catalog:backend",
+    "elysia": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {

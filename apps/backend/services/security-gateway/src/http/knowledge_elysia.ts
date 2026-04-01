@@ -282,8 +282,8 @@ async function getServices(): Promise<{
   }
 }
 
-export function registerKnowledgeRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/knowledge', (app) => withOptionalAuth(app)
+export function registerKnowledgeRoutes() {
+  return new Elysia().group('/api/v1/knowledge', (app) => withOptionalAuth(app)
     // POST /
     .group('', (g) => withRequiredAuth(g)
       // @ts-expect-error -- Property does not exist on inferred type
@@ -862,7 +862,6 @@ export function registerKnowledgeRoutes<T extends Elysia>(elysiaApp: T): T {
     })
   );
 
-  return elysiaApp;
 }
 
 export default registerKnowledgeRoutes;

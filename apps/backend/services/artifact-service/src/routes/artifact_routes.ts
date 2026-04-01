@@ -4,7 +4,7 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import { withNginxAuth } from '@uaip/middleware';
 
-type Elysia = { group: Function };
+import { Elysia } from 'elysia';
 
 const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
 
@@ -61,12 +61,10 @@ function buildArtifactGenerationRequest(body: unknown): ArtifactGenerationReques
   };
 }
 
-export function registerArtifactRoutes<T extends Elysia>(
-  app: T,
+export function registerArtifactRoutes(
   artifactService: ArtifactService
-): T {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- withNginxAuth type flows through Elysia group generics
-  (app as { group: Function }).group(
+){
+  return new Elysia().group(
     '/api/v1/artifacts',
     (g) => withNginxAuth(g)
       // List all artifacts
@@ -310,8 +308,6 @@ export function registerArtifactRoutes<T extends Elysia>(
         };
       })
   );
-
-  return app;
 }
 
 function getTypeDescription(type: ArtifactType): string {

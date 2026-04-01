@@ -11,11 +11,10 @@ type SemanticMemoryDeps = Pick<
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerAgentMemoryRoutes<T extends Elysia>(
-  app: T,
+export function registerAgentMemoryRoutes(
   semanticMemoryManager: SemanticMemoryDeps
-): T {
-  app.group(
+) {
+  return new Elysia().group(
     '/api/v1/agents',
     (group) => withNginxAuth(group)
       .delete('/:agentId/memory/semantic/:conceptId', async (ctx) => {
@@ -65,6 +64,4 @@ export function registerAgentMemoryRoutes<T extends Elysia>(
         }
       })
   )
-
-  return app
 }

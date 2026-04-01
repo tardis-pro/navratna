@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { agentsAPI } from '@/api';
 
 interface ApprovalRequestProps {
   approvalId: string;
@@ -40,20 +41,10 @@ export const ApprovalRequest: React.FC<ApprovalRequestProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(`/api/v1/agents/${agentId}/approvals/${approvalId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          approved,
-          reason: approved ? undefined : rejectReason.trim() || undefined,
-        }),
+      await agentsAPI.resolveApproval(agentId, approvalId, {
+        approved,
+        reason: approved ? undefined : rejectReason.trim() || undefined,
       });
-
-      if (!response.ok) {
-        throw new Error(`Approval request failed with status ${response.status}`);
-      }
 
       if (approved) {
         onApprove(approvalId);

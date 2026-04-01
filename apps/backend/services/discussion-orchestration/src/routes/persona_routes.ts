@@ -1,4 +1,4 @@
-type Elysia = { group: Function }
+import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import { PersonaService } from '@uaip/shared-services/persona'
 import { logger } from '@uaip/utils'
@@ -6,19 +6,10 @@ import { logger } from '@uaip/utils'
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: PersonaService): T {
-  ;(app as unknown as { group: Function }).group(
-    '/api/v1/personas',
-    (group: {
-      get: Function
-      post: Function
-      put: Function
-      delete: Function
-    }) => {
-      const applyNginxAuth = withNginxAuth as unknown as (app: typeof group) => typeof group
-      const authedGroup = applyNginxAuth(group)
-
-      return authedGroup
+export function registerPersonaRoutes(personaService: PersonaService) {
+  return new Elysia()
+    .group('/api/v1/personas', (group) => {
+      return withNginxAuth(group)
         .get('/', async (ctx) => {
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
@@ -38,7 +29,7 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            const userId = ctx.user.id
+            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const persona = await personaService.createPersona(
               {
                 ...body,
@@ -75,7 +66,7 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
 
         .get('/recommendations', async (ctx) => {
           try {
-            const userId = ctx.user.id
+            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const { context: contextStr, limit = '10' } = ctx.query
             const recommendations = await personaService.getPersonaRecommendations(
               userId,
@@ -119,8 +110,8 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
 
         .put('/:id', async (ctx) => {
           try {
-            const userId: string = ctx.user.id
-            const userRole: string = ctx.user.role ?? ''
+            const userId: string = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            const userRole: string = (ctx as unknown as { user: { id: string; role?: string } }).user.role ?? ''
 
             const existing = await personaService.getPersona(ctx.params.id)
             if (!existing) {
@@ -150,8 +141,8 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
 
         .delete('/:id', async (ctx) => {
           try {
-            const userId: string = ctx.user.id
-            const userRole: string = ctx.user.role ?? ''
+            const userId: string = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            const userRole: string = (ctx as unknown as { user: { id: string; role?: string } }).user.role ?? ''
 
             const existing = await personaService.getPersona(ctx.params.id)
             if (!existing) {
@@ -205,8 +196,5 @@ export function registerPersonaRoutes<T extends Elysia>(app: T, personaService: 
             }
           }
         })
-    }
-  )
-
-  return app
+    })
 }

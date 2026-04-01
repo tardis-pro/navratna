@@ -26,7 +26,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { OAuthProviderType, AgentOAuthConnection } from '@uaip/types';
-import { api } from '@/utils/api';
+import { APIClient } from '@/api/client';
 
 interface OAuthProvider {
   id: string;
@@ -97,10 +97,10 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const fetchConnections = async () => {
     try {
       setLoading(true);
-      const response = await api.get(
+      const response = await APIClient.get<AgentOAuthConnection[]>(
         `/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`
       );
-      setConnections(response.data);
+      setConnections(response);
     } catch {
       toast({
         title: 'Error',
@@ -115,13 +115,13 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const handleConnect = async (providerId: string) => {
     try {
       setConnecting(providerId);
-      const response = await api.post('/security/oauth/authorize', {
+      const response = await APIClient.post<{ authorizationUrl: string }>('/security/oauth/authorize', {
         providerId,
         agentId,
       });
 
       // Redirect to OAuth authorization URL
-      window.location.href = response.data.authorizationUrl;
+      window.location.href = response.authorizationUrl;
     } catch {
       toast({
         title: 'Connection Failed',
@@ -134,7 +134,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
 
   const handleDisconnect = async (connectionId: string, providerName: string) => {
     try {
-      await api.delete(`/security/oauth/connections/${connectionId}`);
+      await APIClient.delete(`/security/oauth/connections/${connectionId}`);
       setConnections((prev) => prev.filter((c) => c.id !== connectionId));
       toast({
         title: 'Disconnected',
@@ -152,7 +152,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const handleRefreshToken = async (connectionId: string, providerName: string) => {
     try {
       setRefreshing(connectionId);
-      await api.post(`/security/oauth/connections/${connectionId}/refresh`);
+      await APIClient.post(`/security/oauth/connections/${connectionId}/refresh`);
       toast({
         title: 'Token Refreshed',
         description: `Successfully refreshed ${providerName} access token`,

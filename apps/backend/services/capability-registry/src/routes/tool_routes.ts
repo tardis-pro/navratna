@@ -5,29 +5,7 @@ import { ToolExecutor } from '../services/tool_executor.js';
 import { BaseToolExecutor } from '../services/base_tool_executor.js';
 import { DatabaseService } from '@uaip/infra/database';
 
-interface RouteContext {
-  query?: Record<string, unknown>;
-  params?: Record<string, unknown>;
-  body?: unknown;
-  headers?: Record<string, unknown>;
-  set: { status: number };
-}
-
-interface RouteGroup {
-  get: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-  post: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-  put: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-  delete: (path: string, handler: (ctx: RouteContext) => unknown) => RouteGroup;
-}
-
-interface RouteApp {
-  group: (path: string, handler: (group: RouteGroup) => RouteGroup) => RouteApp;
-}
-
-
-
-export function registerToolRoutes<T extends Elysia>(app: T, toolController?: ToolController): T {
-  const routeApp = app as RouteApp;
+export function registerToolRoutes(toolController?: ToolController){
   const controller =
     toolController ??
     (() => {
@@ -38,7 +16,7 @@ export function registerToolRoutes<T extends Elysia>(app: T, toolController?: To
       return new ToolController(registry, exec);
     })();
 
-  routeApp.group('/api/v1/tools', (g: RouteGroup) =>
+  return new Elysia().group('/api/v1/tools', (g) =>
     g
       .get('/', (ctx) => controller.getTools(ctx))
       .get('/health', (ctx) => controller.healthCheck(ctx))
@@ -62,6 +40,4 @@ export function registerToolRoutes<T extends Elysia>(app: T, toolController?: To
       .post('/:id/relationships', (ctx) => controller.addRelationship(ctx))
       .post('/:id/execute', (ctx) => controller.executeTool(ctx))
   );
-
-  return app;
 }

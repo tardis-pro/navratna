@@ -1,4 +1,4 @@
-type Elysia = { group: Function }
+import { Elysia } from 'elysia'
 import { withNginxAuth, t } from '@uaip/middleware'
 import { DiscussionStatus } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
@@ -33,23 +33,13 @@ const sanitizeMessageContentOnRead = (message: unknown): unknown => {
   }
 }
 
-export function registerDiscussionRoutes<T extends Elysia>(
-  app: T,
+export function registerDiscussionRoutes(
   discussionService: DiscussionService,
   orchestrationService: DiscussionOrchestrationService
-): T {
-  ;(app as unknown as { group: Function }).group(
-    '/api/v1/discussions',
-    (group: {
-      get: Function
-      post: Function
-      put: Function
-      delete: Function
-    }) => {
-      const applyNginxAuth = withNginxAuth as unknown as (app: typeof group) => typeof group
-      const authedGroup = applyNginxAuth(group)
-
-      return authedGroup
+) {
+  return new Elysia()
+    .group('/api/v1/discussions', (group) => {
+      return withNginxAuth(group)
         .get('/', async (ctx) => {
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
@@ -69,7 +59,7 @@ export function registerDiscussionRoutes<T extends Elysia>(
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            const userId = ctx.user.id
+            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const discussion = await discussionService.createDiscussion(
               {
                 ...body,
@@ -232,7 +222,7 @@ export function registerDiscussionRoutes<T extends Elysia>(
 
         .post('/:id/start', async (ctx) => {
           try {
-            const startedBy = ctx.user.id
+            const startedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const discussion = await discussionService.startDiscussion(ctx.params.id, startedBy)
             return { success: true, data: discussion }
           } catch (error) {
@@ -247,7 +237,7 @@ export function registerDiscussionRoutes<T extends Elysia>(
 
         .post('/:id/end', async (ctx) => {
           try {
-            const endedBy = ctx.user.id
+            const endedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const body = ctx.body as { reason?: string } | undefined
             const discussion = await discussionService.endDiscussion(ctx.params.id, endedBy, body?.reason)
             return { success: true, data: discussion }
@@ -263,7 +253,7 @@ export function registerDiscussionRoutes<T extends Elysia>(
 
         .post('/:id/participants', async (ctx) => {
           try {
-            const addedBy = ctx.user.id
+            const addedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const result = await orchestrationService.addParticipant(
               ctx.params.id,
               ctx.body as Parameters<typeof orchestrationService.addParticipant>[1],
@@ -288,7 +278,7 @@ export function registerDiscussionRoutes<T extends Elysia>(
 
         .delete('/:id/participants/:pid', async (ctx) => {
           try {
-            const removedBy = ctx.user.id
+            const removedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             await discussionService.removeParticipant(ctx.params.id, ctx.params.pid, removedBy)
             return { success: true, message: 'Participant removed' }
           } catch (error) {
@@ -354,13 +344,13 @@ export function registerDiscussionRoutes<T extends Elysia>(
 
         .post('/:id/advance-turn', async (ctx) => {
           try {
-            const role = normalizeRole(ctx.user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
+            const role = normalizeRole((ctx as unknown as { user: { id: string; role?: string } }).user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
             if (role !== 'admin' && role !== 'moderator') {
               ctx.set.status = 403
               return { success: false, error: 'Only moderators can force-advance turns' }
             }
 
-            const forcedBy = ctx.user.id
+            const forcedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             await discussionService.advanceTurn(ctx.params.id, forcedBy)
             return { success: true, message: 'Turn advanced' }
           } catch (error) {
@@ -453,8 +443,5 @@ export function registerDiscussionRoutes<T extends Elysia>(
             }
           }
         })
-    }
-  )
-
-  return app
+    })
 }

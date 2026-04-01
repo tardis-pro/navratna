@@ -88,8 +88,8 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   return safeUser;
 };
 
-export function registerUserRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/users', (app) => withOptionalAuth(app)
+export function registerUserRoutes() {
+  return new Elysia().group('/api/v1/users', (app) => withOptionalAuth(app)
     // GET /api/v1/users (admin)
     .group('', (g) => withAdminGuard(g).get('/', async ({ set, query }) => {
       const parsed = userQuerySchema.safeParse(query);
@@ -418,7 +418,6 @@ export function registerUserRoutes<T extends Elysia>(elysiaApp: T): T {
     )
   );
 
-  return elysiaApp;
 }
 
 export default registerUserRoutes;

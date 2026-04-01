@@ -3,24 +3,6 @@ import { logger } from '@uaip/utils';
 import { MCPClientService } from '../services/mcp_client_service.js';
 import { MCPResourceDiscoveryService } from '../services/mcp_resource_discovery_service.js';
 
-interface MCPContext {
-  params: Record<string, string>;
-  query: Record<string, string | undefined>;
-  body?: unknown;
-  headers?: Record<string, unknown>;
-  request?: Request;
-  set: { status?: number };
-}
-
-interface MCPRouteGroup {
-  get: (path: string, handler: (ctx: MCPContext) => Promise<unknown> | unknown) => MCPRouteGroup;
-  post: (path: string, handler: (ctx: MCPContext) => Promise<unknown> | unknown) => MCPRouteGroup;
-}
-
-interface MCPRouteApp {
-  group: (path: string, handler: (group: MCPRouteGroup) => MCPRouteGroup) => MCPRouteApp;
-}
-
 // ---------------------------------------------------------------------------
 // Security helpers
 // ---------------------------------------------------------------------------
@@ -49,31 +31,16 @@ function sanitizeServerState(s: unknown) {
   };
 }
 
-/**
- * Enforces admin-only access using the x-user-role header.
- * The API gateway sets this header after verifying the caller's JWT.
- * Matches the pattern used in capabilityController.ts.
- */
-function requireAdmin(ctx: MCPContext): void {
-  const role = ctx.headers?.['x-user-role'] || ctx.request?.headers?.get?.('x-user-role');
-  if (role !== 'admin') {
-    ctx.set.status = 403;
-    throw new Error('Admin access required for MCP server management');
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Route registration
 // ---------------------------------------------------------------------------
 
-// Minimal Elysia route group for MCP endpoints
-export function registerMCPRoutes<T extends Elysia>(app: T): T {
-  const routeApp = app as MCPRouteApp;
+export function registerMCPRoutes() {
   const mcpService = MCPClientService.getInstance();
 
   logger.info('Registering MCP Elysia routes');
 
-  routeApp.group('/api/v1/mcp', (g: MCPRouteGroup) =>
+  return new Elysia().group('/api/v1/mcp', (g) =>
     g
       // Simple readiness/test endpoint
       .get('/test', () => ({ success: true, message: 'MCP routes working' }))
@@ -94,7 +61,7 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Tool recommendations for an agent
-      .get('/recommendations/:agentId', async ({ params, query }: MCPContext) => {
+      .get('/recommendations/:agentId', async ({ params, query }) => {
         const { agentId } = params;
         const { context, limit } = query;
         const recs = await mcpService.getToolRecommendations(
@@ -109,7 +76,7 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Related tools based on graph relationships
-      .get('/tools/:toolId/related', async ({ params, query }: MCPContext) => {
+      .get('/tools/:toolId/related', async ({ params, query }) => {
         const { toolId } = params;
         const types = query.relationshipTypes
           ? String(query.relationshipTypes).split(',')
@@ -124,7 +91,7 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Usage analytics
-      .get('/analytics/usage', async ({ query }: MCPContext) => {
+      .get('/analytics/usage', async ({ query }) => {
         const { toolId, agentId, serverName } = query;
         const analytics = await mcpService.getUsageAnalytics(toolId, agentId, serverName);
         return { success: true, data: { filters: { toolId, agentId, serverName }, analytics } };
@@ -137,7 +104,7 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Comprehensive discovery and search
-      .get('/discover', async ({ query }: MCPContext) => {
+      .get('/discover', async ({ query }) => {
         const { serverName } = query;
         const discoveryService = MCPResourceDiscoveryService.getInstance();
         const discovery = await discoveryService.discoverAllResources(serverName);
@@ -155,7 +122,7 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
         };
       })
 
-      .get('/search/resources', async ({ query, set }: MCPContext) => {
+      .get('/search/resources', async ({ query, set }) => {
         const { query: q, serverName, category, mimeType } = query;
         if (!q) {
           set.status = 400;
@@ -190,7 +157,7 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Server status — sanitized, no httpHeaders
-      .get('/servers/:serverName/status', async ({ params, set }: MCPContext) => {
+      .get('/servers/:serverName/status', async ({ params, set }) => {
         const st = mcpService.getServerStatus(params.serverName);
         if (!st) {
           set.status = 404;
@@ -200,65 +167,98 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Server lifecycle — admin only
-      .post('/servers/:serverName/start', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
+      .post('/servers/:serverName/start', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
         await mcpService.startServer(ctx.params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/stop', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
+      .post('/servers/:serverName/stop', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
         await mcpService.stopServer(ctx.params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/restart', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
+      .post('/servers/:serverName/restart', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
         await mcpService.restartServer(ctx.params.serverName);
         return { success: true };
       })
-      .post('/servers/:serverName/recover', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
+      .post('/servers/:serverName/recover', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
         await mcpService.recoverServer(ctx.params.serverName);
         return { success: true };
       })
 
       // Install / uninstall — admin only
-      .post('/servers/:serverName/install', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
-        const body = ctx.body as Record<string, unknown> | undefined;
+      .post('/servers/:serverName/install', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
+
+        const body = typeof ctx.body === 'object' && ctx.body !== null ? ctx.body : null;
         if (!body) {
           ctx.set.status = 400;
           return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Body required' } };
         }
+        const transportTypeValue = Reflect.get(body, 'transportType');
         const transportType: 'stdio' | 'http' | 'streamable-http' =
-          body.transportType === 'http' || body.transportType === 'streamable-http'
-            ? body.transportType
+          transportTypeValue === 'http' || transportTypeValue === 'streamable-http'
+            ? transportTypeValue
             : 'stdio';
         const installConfig = {
-          args: Array.isArray(body.args) ? body.args.map(String) : [],
-          command: typeof body.command === 'string' ? body.command : undefined,
-          env:
-            body.env && typeof body.env === 'object'
-              ? (body.env as Record<string, string>)
+          args: Array.isArray(Reflect.get(body, 'args')) ? Reflect.get(body, 'args').map(String) : [],
+          command:
+            typeof Reflect.get(body, 'command') === 'string'
+              ? Reflect.get(body, 'command')
               : undefined,
-          cwd: typeof body.cwd === 'string' ? body.cwd : undefined,
+          env:
+            Reflect.get(body, 'env') && typeof Reflect.get(body, 'env') === 'object'
+              ? Reflect.get(body, 'env')
+              : undefined,
+          cwd:
+            typeof Reflect.get(body, 'cwd') === 'string' ? Reflect.get(body, 'cwd') : undefined,
           transportType,
-          httpUrl: typeof body.httpUrl === 'string' ? body.httpUrl : undefined,
+          httpUrl:
+            typeof Reflect.get(body, 'httpUrl') === 'string'
+              ? Reflect.get(body, 'httpUrl')
+              : undefined,
           httpHeaders:
-            body.httpHeaders && typeof body.httpHeaders === 'object'
-              ? (body.httpHeaders as Record<string, string>)
+            Reflect.get(body, 'httpHeaders') && typeof Reflect.get(body, 'httpHeaders') === 'object'
+              ? Reflect.get(body, 'httpHeaders')
               : undefined,
         };
         await mcpService.installServer(ctx.params.serverName, installConfig);
         return { success: true };
       })
-      .post('/servers/:serverName/uninstall', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
+      .post('/servers/:serverName/uninstall', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
         await mcpService.uninstallServer(ctx.params.serverName);
         return { success: true };
       })
 
       // Tools by server
-      .get('/servers/:serverName/tools', async ({ params }: MCPContext) => {
+      .get('/servers/:serverName/tools', async ({ params }) => {
         const tools = mcpService.getToolsByServer(params.serverName);
         return {
           success: true,
@@ -267,10 +267,16 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Attach a single tool to agent — admin only
-      .post('/agents/:agentId/tools/attach', async (ctx: MCPContext) => {
-        requireAdmin(ctx);
-        const bodyData = ctx.body as Record<string, unknown> | undefined;
-        const { serverName, toolName } = bodyData || {};
+      .post('/agents/:agentId/tools/attach', async (ctx) => {
+        const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
+        if (role !== 'admin') {
+          ctx.set.status = 403;
+          return { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required for MCP server management' } };
+        }
+
+        const bodyData = typeof ctx.body === 'object' && ctx.body !== null ? ctx.body : null;
+        const serverName = bodyData && 'serverName' in bodyData ? bodyData.serverName : undefined;
+        const toolName = bodyData && 'toolName' in bodyData ? bodyData.toolName : undefined;
         if (!serverName || !toolName) {
           ctx.set.status = 400;
           return {
@@ -296,19 +302,17 @@ export function registerMCPRoutes<T extends Elysia>(app: T): T {
       })
 
       // Raw resources and prompts
-      .get('/resources', async ({ query }: MCPContext) => {
+      .get('/resources', async ({ query }) => {
         const { serverName } = query;
         const data = await mcpService.discoverResources(serverName);
         return { success: true, data: { resources: data, count: data.length } };
       })
-      .get('/prompts', async ({ query }: MCPContext) => {
+      .get('/prompts', async ({ query }) => {
         const { serverName } = query;
         const data = await mcpService.discoverPrompts(serverName);
         return { success: true, data: { prompts: data, count: data.length } };
       })
   );
-
-  return app;
 }
 
 export const noop: undefined = undefined;

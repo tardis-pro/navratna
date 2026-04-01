@@ -9,7 +9,7 @@ export interface GuardContext {
     role?: string
   } | null
   set: {
-    status?: number
+    status?: number | string
   }
 }
 

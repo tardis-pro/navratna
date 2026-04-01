@@ -119,8 +119,8 @@ const authRateLimiter = createRateLimiter({
   },
 });
 
-export function registerAuthRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/auth', (app) => withOptionalAuth(app)
+export function registerAuthRoutes() {
+  return new Elysia().group('/api/v1/auth', (app) => withOptionalAuth(app)
     .use(authRateLimiter)
     // POST /login
     .post('/login', async ({ body, set, request, headers, cookie }) => {
@@ -601,7 +601,6 @@ export function registerAuthRoutes<T extends Elysia>(elysiaApp: T): T {
     })
   );
 
-  return elysiaApp;
 }
 
 export default registerAuthRoutes;

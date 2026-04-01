@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play, SkipForward, Square, Users } from 'lucide-react';
+import { discussionsAPI } from '@/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { cn } from '@/lib/utils';
@@ -176,15 +177,7 @@ export const DiscussionControlsPortal: React.FC<DiscussionControlsPortalProps> =
         throw new Error('Missing discussion id');
       }
 
-      const response = await fetch(`/api/v1/discussions/${discussionId}/summary`, {
-        credentials: 'include',
-      });
-      const payload: unknown = await response.json();
-
-      if (!response.ok) {
-        throw new Error(getErrorMessage(payload, 'Failed to fetch discussion summary'));
-      }
-
+      const payload = await discussionsAPI.getSummary(discussionId);
       return parseSummary(payload);
     },
     enabled: Boolean(discussionId),
@@ -197,15 +190,17 @@ export const DiscussionControlsPortal: React.FC<DiscussionControlsPortalProps> =
       throw new Error('No active discussion');
     }
 
-    const response = await fetch(`/api/v1/discussions/${discussionId}/${action}`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    const payload: unknown = await response.json();
-
-    if (!response.ok) {
-      throw new Error(getErrorMessage(payload, `Failed to ${action} discussion`));
+    if (action === 'start') {
+      await discussionsAPI.start(discussionId);
+      return;
     }
+
+    if (action === 'end') {
+      await discussionsAPI.end(discussionId);
+      return;
+    }
+
+    await discussionsAPI.advanceTurn(discussionId);
   };
 
   const startMutation = useMutation({

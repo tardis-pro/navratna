@@ -45,6 +45,10 @@
       "import": "./dist/api/index.js",
       "require": "./dist/api/index.js",
       "types": "./dist/api/index.d.ts"
+    },
+    "./eden": {
+      "@uaip/source": "./src/eden_app_types.d.ts",
+      "types": "./src/eden_app_types.d.ts"
     }
   },
   "sideEffects": false

@@ -18,6 +18,7 @@ import {
   BarChart2,
   Link,
 } from 'lucide-react';
+import { mcpAPI } from '@/api';
 import { uaipAPI } from '@/utils/uaip_api';
 import MCPConfigUpload from '@/components/MCPConfigUpload';
 import { PortalLoadingState, PortalEmptyState } from './portal-shared-components';
@@ -195,28 +196,23 @@ export const UnifiedToolPortal: React.FC = () => {
 
   const loadSystemStatus = async () => {
     try {
-      // Check if there's an MCP status method in uaipAPI, if not use direct fetch
-      const response = await fetch('/api/v1/mcp/status');
-      if (response.ok) {
-        const result = await response.json();
-        const mcpData = result.data;
-        setSystemStatus({
-          mcp: {
-            status: mcpData.configExists ? 'active' : 'inactive',
-            totalServers: mcpData.servers?.length || 0,
-            runningServers:
-              mcpData.servers?.filter((s: { status?: string }) => s.status === 'running').length || 0,
-            errorServers: mcpData.servers?.filter((s: { status?: string }) => s.status === 'error').length || 0,
-            totalTools: 0, // Will be calculated from actual tools
-            servers: mcpData.servers || [],
-          },
-          oauth: {
-            connectedProviders: 0,
-            availableCapabilities: 0,
-            providers: [],
-          },
-        });
-      }
+      const mcpData = await mcpAPI.getStatus();
+      setSystemStatus({
+        mcp: {
+          status: mcpData.configExists ? 'active' : 'inactive',
+          totalServers: mcpData.servers?.length || 0,
+          runningServers:
+            mcpData.servers?.filter((s: { status?: string }) => s.status === 'running').length || 0,
+          errorServers: mcpData.servers?.filter((s: { status?: string }) => s.status === 'error').length || 0,
+          totalTools: 0,
+          servers: mcpData.servers || [],
+        },
+        oauth: {
+          connectedProviders: 0,
+          availableCapabilities: 0,
+          providers: [],
+        },
+      });
     } catch (error) {
       console.error('Failed to load system status:', error);
       setSystemStatus({

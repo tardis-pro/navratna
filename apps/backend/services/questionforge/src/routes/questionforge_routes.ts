@@ -11,12 +11,11 @@ interface RouteContext {
   params: Record<string, string>;
 }
 
-export function registerQuestionForgeRoutes<T extends Elysia>(
-  app: T,
+export function registerQuestionForgeRoutes(
   forgeService: QuestionForgeService,
   interviewService: InterviewCaptureService
-): T {
-  return app.group('/api/v1/questionforge', (g) =>
+) {
+  return new Elysia().group('/api/v1/questionforge', (g) =>
     withNginxAuth(g)
       // Run the full QuestionForge pipeline
       .post('/forge', async ({ body, set }) => {
@@ -207,5 +206,5 @@ export function registerQuestionForgeRoutes<T extends Elysia>(
           };
         }
       })
-  ) as unknown as T;
+  );
 }

@@ -94,8 +94,8 @@ function calculateUrgency(workflow: Record<string, unknown>): number {
   return urgency;
 }
 
-export function registerApprovalRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/approvals', (app) => withRequiredAuth(app)
+export function registerApprovalRoutes() {
+  return new Elysia().group('/api/v1/approvals', (app) => withRequiredAuth(app)
     // Create workflow (operator)
     .group('', (g) => withOperatorGuard(g)
       // @ts-expect-error -- Property does not exist on inferred type
@@ -437,7 +437,6 @@ export function registerApprovalRoutes<T extends Elysia>(elysiaApp: T): T {
     })
   );
 
-  return elysiaApp;
 }
 
 export default registerApprovalRoutes;

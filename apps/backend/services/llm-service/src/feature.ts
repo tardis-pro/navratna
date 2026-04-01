@@ -22,8 +22,8 @@ export const llmFeature: Feature = {
   },
 
   routes(app) {
-    registerLLMRoutes(app, llmService, modelBootstrapService, userLLMService)
-    registerUserLLMRoutes(app, userLLMService)
+    app.use(registerLLMRoutes(llmService, modelBootstrapService, userLLMService))
+    app.use(registerUserLLMRoutes(userLLMService))
     return app
   },
 }

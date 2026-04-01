@@ -24,8 +24,9 @@ const webhookBodySchema = z.object({
   }).passthrough().optional(),
 }).passthrough()
 
-export function registerGitHubWebhookRoutes<T extends Elysia>(app: T): T {
-  app.post('/api/v1/webhooks/github', async (ctx) => {
+export function registerGitHubWebhookRoutes() {
+  return new Elysia()
+    .post('/api/v1/webhooks/github', async (ctx) => {
     const rawBody = typeof ctx.body === 'string' ? ctx.body : JSON.stringify(ctx.body)
     const signatureHeader = ctx.request.headers.get('x-hub-signature-256')
     const eventType = ctx.request.headers.get('x-github-event')
@@ -75,7 +76,5 @@ export function registerGitHubWebhookRoutes<T extends Elysia>(app: T): T {
     }
 
     return { success: true, deliveryId }
-  })
-
-  return app
+    })
 }

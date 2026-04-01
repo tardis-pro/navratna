@@ -7,7 +7,7 @@
  */
 
 // Import the backend API client
-export * from './api';
+export * from '@/api';
 import { APIClient, api, coreClient, gatewayClient, unwrapEden, edenWithCSRFRetry } from '@/api';
 import {
   _API_CONFIG,
@@ -495,48 +495,11 @@ export const uaipAPI = {
       toolsExecuted?: Array<unknown>;
     }> {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        const response = await fetch(`/api/v1/agents/${agentId}/chat`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: request.message,
-            conversationHistory: request.conversationHistory || [],
-            context: request.context || {},
-          }),
-          signal: controller.signal,
+        return await api.agents.chat(agentId, {
+          message: request.message,
+          conversationHistory: request.conversationHistory || [],
+          context: request.context || {},
         });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error?.message || 'Failed to chat with agent');
-        }
-
-        return {
-          response: data.data.response,
-          agentName: data.data.agentName,
-          confidence: data.data.confidence || 0.8,
-          model: data.data.model || 'unknown',
-          tokensUsed: data.data.tokensUsed || 0,
-          memoryEnhanced: data.data.memoryEnhanced || false,
-          knowledgeUsed: data.data.knowledgeUsed || 0,
-          persona: data.data.persona,
-          conversationContext: data.data.conversationContext || {},
-          timestamp: data.data.timestamp || new Date().toISOString(),
-          toolsExecuted: data.data.toolsExecuted || [],
-        };
       } catch (error) {
         console.error('Agent chat error:', error);
 
@@ -1240,26 +1203,7 @@ export const uaipAPI = {
       mergedServers: string[];
     }> {
       try {
-        const formData = new FormData();
-        formData.append('mcpConfig', configFile);
-
-        const response = await fetch('/api/v1/mcp/upload-config', {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error?.message || 'Upload failed');
-        }
-
-        return result.data;
+        return await api.mcp.uploadConfig(configFile);
       } catch (error) {
         console.error('MCP config upload error:', error);
         throw error;
@@ -1278,7 +1222,6 @@ export const uaipAPI = {
       }>;
     }> {
       try {
-        const _client = getAPIClient();
         return await api.mcp.getStatus();
       } catch (error) {
         console.error('MCP status error:', error);
@@ -1294,7 +1237,6 @@ export const uaipAPI = {
       message?: string;
     }> {
       try {
-        const _client = getAPIClient();
         return await api.mcp.getConfig();
       } catch (error) {
         console.error('MCP config error:', error);
@@ -1308,8 +1250,7 @@ export const uaipAPI = {
       status: string;
     }> {
       try {
-        const _client = getAPIClient();
-        return await APIClient.post(`/api/v1/mcp/restart-server/${encodeURIComponent(serverName)}`);
+        return await api.mcp.restartServer(serverName);
       } catch (error) {
         console.error('MCP server restart error:', error);
         throw error;

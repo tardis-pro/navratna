@@ -176,8 +176,9 @@ function parsePage(queryValue: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function registerWorkflowRoutes<T extends Elysia>(app: T, workflowEngine: WorkflowEngineService): T {
-  app.group('/api/v1/workflows', (group) => withNginxAuth(group)
+export function registerWorkflowRoutes(workflowEngine: WorkflowEngineService) {
+  return new Elysia()
+    .group('/api/v1/workflows', (group) => withNginxAuth(group)
     .get('/', async (ctx) => {
       try {
         const page = parsePage(ctx.query?.page, 1);
@@ -318,7 +319,5 @@ export function registerWorkflowRoutes<T extends Elysia>(app: T, workflowEngine:
         return { success: false, error: 'Failed to delete workflow' };
       }
     })
-  );
-
-  return app;
+  )
 }

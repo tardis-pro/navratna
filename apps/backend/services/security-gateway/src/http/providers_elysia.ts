@@ -82,8 +82,8 @@ const getEventBusService = (): EventBusService => {
   return eventBusServiceSingleton;
 };
 
-export function registerProviderRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp
+export function registerProviderRoutes() {
+  return new Elysia()
       // Admin/system provider management
       .group('/api/v1', (app) => withAdminGuard(app)
         .get('/providers', async ({ set }) => {
@@ -550,8 +550,6 @@ export function registerProviderRoutes<T extends Elysia>(elysiaApp: T): T {
           }
         })
       );
-
-  return elysiaApp;
 }
 
 function toSafeProvider(provider: Record<string, unknown>) {

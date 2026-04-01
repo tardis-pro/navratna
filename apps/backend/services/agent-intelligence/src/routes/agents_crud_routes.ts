@@ -35,11 +35,10 @@ function parsePaginationParams(query: Record<string, string | undefined>): {
   return { page, limit, search }
 }
 
-export function registerAgentCrudRoutes<T extends Elysia>(
-  app: T,
+export function registerAgentCrudRoutes(
   agentIntelligenceService: AgentCrudDeps
-): T {
-  app.group(
+) {
+  return new Elysia().group(
     '/api/v1/agents',
     (group) => withNginxAuth(group)
       .get('/', async (ctx) => {
@@ -206,6 +205,4 @@ export function registerAgentCrudRoutes<T extends Elysia>(
         }
       })
   )
-
-  return app
 }

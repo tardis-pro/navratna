@@ -41,14 +41,12 @@ function validateMcpToolSchema(body: unknown): string | null {
   return null;
 }
 
-export function registerCapabilityRoutes<T extends Elysia>(app: T, controller?: CapabilityController): T {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Elysia group generics are not statically expressible after withNginxAuth
-  const routeApp = app as any;
+export function registerCapabilityRoutes(controller?: CapabilityController){
   const capabilityController = controller ?? new CapabilityController();
 
   logger.info('Registering capability routes');
 
-  routeApp.group('/api/v1/capabilities', (g) => withNginxAuth(g)
+  return new Elysia().group('/api/v1/capabilities', (g) => withNginxAuth(g)
     .get('/search', (ctx) => capabilityController.searchCapabilities(ctx))
     .get('/categories', (ctx) => capabilityController.getCategories(ctx))
     .get('/recommendations', (ctx) => capabilityController.getRecommendations(ctx))
@@ -62,23 +60,23 @@ export function registerCapabilityRoutes<T extends Elysia>(app: T, controller?: 
         ctx.set.status = 400;
         return { success: false, error: validationError };
       }
-      
+
       try {
         const result = await capabilityController.registerCapability(ctx);
         const eventBus = EventBusService.getInstance();
         const body = ctx.body as Record<string, unknown>;
-      
+
         await eventBus.publish(CAPABILITY_INJECTED_EVENT, {
           name: body.name,
           description: body.description,
           inputSchema: body.inputSchema,
           injectedAt: new Date().toISOString(),
         });
-      
+
         logger.info('Capability hot-injected and broadcast to agents', {
           name: body.name,
         });
-      
+
         return result;
       } catch (error) {
         logger.error('Capability hot-inject failed', {
@@ -96,6 +94,4 @@ export function registerCapabilityRoutes<T extends Elysia>(app: T, controller?: 
     .put('/:id', (ctx) => capabilityController.updateCapability(ctx))
     .delete('/:id', (ctx) => capabilityController.deleteCapability(ctx))
   );
-
-  return app;
 }

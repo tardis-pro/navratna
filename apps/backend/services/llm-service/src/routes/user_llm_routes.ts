@@ -110,10 +110,10 @@ function requireUserId(headers: Record<string, string | undefined>) {
   return { userId, error: null };
 }
 
-export function registerUserLLMRoutes<T extends Elysia>(app: T, userLLMService: UserLLMService): T {
-  app.group(
+export function registerUserLLMRoutes(userLLMService: UserLLMService){
+  return new Elysia().group(
     '/api/v1/user/llm',
-    (group: { get: Function; post: Function; put: Function; delete: Function }) =>
+    (group) =>
       group
         // Get user's providers
         .get('/providers', async ({ headers }: Context) => {
@@ -536,6 +536,4 @@ export function registerUserLLMRoutes<T extends Elysia>(app: T, userLLMService: 
           };
         })
   );
-
-  return app;
 }

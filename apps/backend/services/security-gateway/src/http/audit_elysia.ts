@@ -74,8 +74,8 @@ function validateWithZod<T>(
   };
 }
 
-export function registerAuditRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/audit', (app) => withRequiredAuth(app).group('', (g) => withAdminGuard(g)
+export function registerAuditRoutes() {
+  return new Elysia().group('/api/v1/audit', (app) => withRequiredAuth(app).group('', (g) => withAdminGuard(g)
     // GET /logs
     .get('/logs', async ({ set, query }) => {
       const { error, value } = validateWithZod(auditQuerySchema, query);
@@ -369,7 +369,6 @@ export function registerAuditRoutes<T extends Elysia>(elysiaApp: T): T {
   )
   );
 
-  return elysiaApp;
 }
 
 export default registerAuditRoutes;

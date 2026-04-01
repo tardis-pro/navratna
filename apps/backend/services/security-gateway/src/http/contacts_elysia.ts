@@ -45,8 +45,8 @@ function getContactStatus(contact: { metadata?: Record<string, unknown> | null }
   return typeof status === 'string' ? status : 'PENDING';
 }
 
-export function registerContactRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/contacts', (app) => withRequiredAuth(app)
+export function registerContactRoutes() {
+  return new Elysia().group('/api/v1/contacts', (app) => withRequiredAuth(app)
     // POST /request
     // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/request', async ({ set, body, user, request, headers }) => {
@@ -337,7 +337,6 @@ export function registerContactRoutes<T extends Elysia>(elysiaApp: T): T {
     })
   );
 
-  return elysiaApp;
 }
 
 export default registerContactRoutes;

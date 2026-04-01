@@ -227,8 +227,8 @@ function getAuthUser(value: unknown): AuthUser | null {
   return { id: value.id };
 }
 
-export function registerDashboardRoutes<T extends Elysia>(app: T): T {
-  app.group('/api/v1/dashboard', (groupedApp) =>
+export function registerDashboardRoutes() {
+  return new Elysia().group('/api/v1/dashboard', (groupedApp) =>
     withRequiredAuth(groupedApp).get('/stats', async (context) => {
       const authUser = getAuthUser('user' in context ? context.user : undefined);
       if (!authUser) {
@@ -364,5 +364,4 @@ export function registerDashboardRoutes<T extends Elysia>(app: T): T {
     })
   );
 
-  return app;
 }

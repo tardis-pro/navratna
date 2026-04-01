@@ -9,11 +9,11 @@ export const capabilityFeature: Feature = {
   name: 'capability-registry',
 
   routes(app) {
-    registerCapabilityRoutes(app)
-    registerMCPRoutes(app)
-    registerHealthRoutes(app)
-    registerToolRoutes(app)
-    registerWorkspaceRoutes(app)
+    app.use(registerCapabilityRoutes())
+    app.use(registerMCPRoutes())
+    app.use(registerHealthRoutes())
+    app.use(registerToolRoutes())
+    app.use(registerWorkspaceRoutes())
     return app
   },
 }

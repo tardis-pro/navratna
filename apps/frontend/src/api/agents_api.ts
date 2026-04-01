@@ -88,6 +88,17 @@ export const agentsAPI = {
     return APIClient.post<AgentChatResponse>(`${API_ROUTES.AGENTS.CHAT}/${id}/chat`, request);
   },
 
+  async resolveApproval(
+    agentId: string,
+    approvalId: string,
+    payload: { approved: boolean; reason?: string }
+  ): Promise<{ success?: boolean; message?: string }> {
+    return APIClient.post<{ success?: boolean; message?: string }>(
+      `${API_ROUTES.AGENTS.GET}/${agentId}/approvals/${approvalId}`,
+      payload
+    );
+  },
+
   async getMetrics(id: string, days: number = 30): Promise<Record<string, unknown>> {
     return APIClient.get(`${API_ROUTES.AGENTS.GET}/${id}/metrics`, { params: { days } });
   },

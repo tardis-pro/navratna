@@ -15,12 +15,11 @@ type CapabilityDiscoveryDeps = Pick<CapabilityDiscoveryService, 'getAgentCapabil
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function registerAgentCapabilityRoutes<T extends Elysia>(
-  app: T,
+export function registerAgentCapabilityRoutes(
   agentIntelligenceService: CapabilityRouteDeps,
   capabilityDiscoveryService: CapabilityDiscoveryDeps
-): T {
-  app.group(
+) {
+  return new Elysia().group(
     '/api/v1/agents',
     (group) => withNginxAuth(group)
       .get('/:agentId/capabilities', async (ctx) => {
@@ -144,6 +143,4 @@ export function registerAgentCapabilityRoutes<T extends Elysia>(
         }
       })
   )
-
-  return app
 }

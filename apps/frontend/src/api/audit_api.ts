@@ -1,10 +1,4 @@
-/**
- * Audit and Compliance API Client
- * Handles audit logs, compliance reports, and event tracking
- */
-
 import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
 import type { AuditEventType } from '@uaip/contracts/api';
 import type {
   AuditEvent,
@@ -16,50 +10,59 @@ import type {
 
 export type { AuditEvent, AuditStats, ComplianceReport, AuditLogOptions, AuditExportOptions };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export const auditAPI = {
   async getLogs(options?: AuditLogOptions): Promise<AuditEvent[]> {
-    return APIClient.get<AuditEvent[]>(API_ROUTES.AUDIT.LOGS, { params: options });
+    return APIClient.get<AuditEvent[]>('/api/v1/audit/logs', { params: options });
   },
 
   async getLog(id: string): Promise<AuditEvent> {
-    return APIClient.get<AuditEvent>(`${API_ROUTES.AUDIT.LOGS}/${id}`);
+    return APIClient.get<AuditEvent>(`/api/v1/audit/logs/${id}`);
   },
 
   async getEventTypes(): Promise<AuditEventType[]> {
-    return APIClient.get<AuditEventType[]>(API_ROUTES.AUDIT.EVENT_TYPES);
+    return APIClient.get<AuditEventType[]>('/api/v1/audit/events/types');
   },
 
   async getStats(days: number = 30): Promise<AuditStats> {
-    return APIClient.get<AuditStats>(API_ROUTES.AUDIT.STATS, { params: { days } });
+    return APIClient.get<AuditStats>('/api/v1/audit/stats', { params: { days } });
   },
 
   async export(options: AuditExportOptions): Promise<Blob> {
-    const response = await APIClient.post(API_ROUTES.AUDIT.EXPORT, options, {
+    return APIClient.post<Blob>('/api/v1/audit/export', options, {
       responseType: 'blob',
     });
-    return response;
+  },
+
+  async resolveLog(id: string): Promise<{ id: string; message: string }> {
+    return APIClient.request<{ id: string; message: string }>({
+      url: `/api/v1/audit/logs/${id}/resolve`,
+      method: 'PATCH',
+    });
   },
 
   async search(query: string, filters?: unknown): Promise<AuditEvent[]> {
-    return APIClient.get<AuditEvent[]>(API_ROUTES.AUDIT.SEARCH, {
-      params: { q: query, ...filters },
+    return APIClient.get<AuditEvent[]>('/api/v1/audit/search', {
+      params: { q: query, ...(isRecord(filters) ? filters : {}) },
     });
   },
 
-  // Compliance
   async getComplianceReports(options?: {
     page?: number;
     limit?: number;
     reportType?: string;
     status?: string;
   }): Promise<ComplianceReport[]> {
-    return APIClient.get<ComplianceReport[]>(API_ROUTES.AUDIT.COMPLIANCE_REPORTS, {
+    return APIClient.get<ComplianceReport[]>('/api/v1/audit/compliance-reports', {
       params: options,
     });
   },
 
   async getComplianceReport(id: string): Promise<ComplianceReport> {
-    return APIClient.get<ComplianceReport>(`${API_ROUTES.AUDIT.COMPLIANCE_REPORTS}/${id}`);
+    return APIClient.get<ComplianceReport>(`/api/v1/audit/compliance-reports/${id}`);
   },
 
   async generateComplianceReport(options: {
@@ -68,43 +71,36 @@ export const auditAPI = {
     endDate: string;
     includeDetails?: boolean;
   }): Promise<ComplianceReport> {
-    return APIClient.post<ComplianceReport>(API_ROUTES.AUDIT.GENERATE_COMPLIANCE_REPORT, options);
+    return APIClient.post<ComplianceReport>('/api/v1/audit/compliance-report', options);
   },
 
   async downloadComplianceReport(id: string, format: 'pdf' | 'csv' = 'pdf'): Promise<Blob> {
-    const response = await APIClient.get(`${API_ROUTES.AUDIT.COMPLIANCE_REPORTS}/${id}/download`, {
+    return APIClient.get<Blob>(`/api/v1/audit/compliance-reports/${id}/download`, {
       params: { format },
       responseType: 'blob',
     });
-    return response;
   },
 
-  // Cleanup
   async cleanup(olderThanDays: number): Promise<{ deleted: number }> {
-    return APIClient.post(API_ROUTES.AUDIT.CLEANUP, { olderThanDays });
+    return APIClient.post('/api/v1/audit/cleanup', { olderThanDays });
   },
 
-  // User activity
   async getUserActivity(userId: string, days: number = 30): Promise<AuditEvent[]> {
-    return APIClient.get<AuditEvent[]>(`${API_ROUTES.AUDIT.USER_ACTIVITY}/${userId}`, {
+    return APIClient.get<AuditEvent[]>(`/api/v1/audit/user-activity/${userId}`, {
       params: { days },
     });
   },
 
-  // Resource history
   async getResourceHistory(resourceType: string, resourceId: string): Promise<AuditEvent[]> {
-    return APIClient.get<AuditEvent[]>(
-      `${API_ROUTES.AUDIT.RESOURCE_HISTORY}/${resourceType}/${resourceId}`
-    );
+    return APIClient.get<AuditEvent[]>(`/api/v1/audit/resource-history/${resourceType}/${resourceId}`);
   },
 
-  // Retention policy
   async getRetentionPolicy(): Promise<{
     retentionDays: number;
     autoCleanup: boolean;
     excludedEventTypes?: AuditEventType[];
   }> {
-    return APIClient.get(API_ROUTES.AUDIT.RETENTION_POLICY);
+    return APIClient.get('/api/v1/audit/retention-policy');
   },
 
   async updateRetentionPolicy(policy: {
@@ -112,6 +108,6 @@ export const auditAPI = {
     autoCleanup?: boolean;
     excludedEventTypes?: AuditEventType[];
   }): Promise<void> {
-    return APIClient.put(API_ROUTES.AUDIT.RETENTION_POLICY, policy);
+    return APIClient.put('/api/v1/audit/retention-policy', policy);
   },
 };

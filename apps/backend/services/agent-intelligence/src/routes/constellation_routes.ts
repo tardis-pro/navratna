@@ -12,8 +12,8 @@ const constellationRequestSchema = z.object({
   includeItems: z.boolean().optional(),
 })
 
-export function registerConstellationRoutes<T extends Elysia>(app: T): T {
-  app.group('/api/v1/knowledge', (group) => withNginxAuth(group).post('/constellations', async (ctx) => {
+export function registerConstellationRoutes() {
+  return new Elysia().group('/api/v1/knowledge', (group) => withNginxAuth(group).post('/constellations', async (ctx) => {
     const parsed = constellationRequestSchema.safeParse(ctx.body)
   
     if (!parsed.success) {
@@ -47,6 +47,4 @@ export function registerConstellationRoutes<T extends Elysia>(app: T): T {
     }
   })
   )
-
-  return app
 }

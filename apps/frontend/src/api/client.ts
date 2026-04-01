@@ -1,9 +1,3 @@
-/**
- * Base API Client
- * Provides core HTTP client functionality with authentication, CSRF protection, and error handling
- */
-
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { csrfService } from '@/services/c_s_r_f_service';
 import { buildAPIURL } from '@/config/api_config';
 import type { APIError } from '@uaip/types';
@@ -24,103 +18,195 @@ export class APIClientError extends Error {
   }
 }
 
-class APIClientClass {
-  private client: AxiosInstance;
+type APIRequestConfig = Omit<RequestInit, 'body' | 'headers' | 'method'> & {
+  data?: unknown;
+  headers?: Record<string, string>;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  params?: Record<string, unknown>;
+  responseType?: 'blob' | 'json' | 'text';
+  timeout?: number;
+};
 
-  constructor() {
-    this.client = axios.create({
-      baseURL: buildAPIURL(''),
-      timeout: 30000,
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
-    this.setupInterceptors();
+function appendQueryParams(url: URL, params?: Record<string, unknown>): void {
+  if (!params) {
+    return;
   }
 
-  private setupInterceptors(): void {
-    this.client.interceptors.request.use(
-      async (config) => {
-        if (config.data instanceof FormData) {
-          delete config.headers['Content-Type'];
-        }
-
-        if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase() || '')) {
-          try {
-            const csrfToken = await csrfService.getToken();
-            if (csrfToken) {
-              config.headers['X-CSRF-Token'] = csrfToken;
-            }
-          } catch (error) {
-            console.warn('Failed to get CSRF token:', error);
-          }
-        }
-
-        return config;
-      },
-      (error) => {
-        return Promise.reject(error);
-      }
-    );
-
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          this.clearAuthToken();
-          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-        }
-
-        if (error.response?.status === 429) {
-          const retryAfter = parseInt(
-            (error.response.headers as Record<string, string>)['retry-after'] ?? '60',
-            10
-          );
-          window.dispatchEvent(
-            new CustomEvent('api:rate-limited', { detail: { retryAfter } })
-          );
-        }
-
-        if (error.response?.status === 403 && error.response?.data?.['error']?.includes('CSRF')) {
-          await csrfService.refreshToken();
-          return this.client.request(error.config!);
-        }
-
-        const apiError = this.extractErrorDetails(error);
-        throw new APIClientError(
-          apiError.message,
-          apiError.code,
-          apiError.details,
-          error.response?.status
-        );
-      }
-    );
-  }
-
-  private extractErrorDetails(error: AxiosError): APIError {
-    if (error.response?.data) {
-      const data = error.response.data as unknown;
-      return {
-        message: data.message || data.error || 'An error occurred',
-        code: data.code || data.errorCode,
-        details: data.details || data.errors,
-        statusCode: error.response.status,
-      };
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) {
+      continue;
     }
 
-    if (error.request) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        url.searchParams.append(key, String(item));
+      }
+      continue;
+    }
+
+    if (value instanceof Date) {
+      url.searchParams.append(key, value.toISOString());
+      continue;
+    }
+
+    url.searchParams.append(key, String(value));
+  }
+}
+
+async function parseResponseBody(response: Response, responseType: 'blob' | 'json' | 'text') {
+  if (responseType === 'blob') {
+    return await response.blob();
+  }
+
+  if (responseType === 'text') {
+    return await response.text();
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+    return text.length > 0 ? text : null;
+  }
+
+  return await response.json();
+}
+
+class APIClientClass {
+  private async createRequestInit(config?: APIRequestConfig): Promise<RequestInit> {
+    const method = config?.method ?? 'GET';
+    const headers = new Headers(config?.headers);
+    const body = config?.data;
+
+    if (!(body instanceof FormData) && body !== undefined && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      try {
+        const csrfToken = await csrfService.getToken();
+        if (csrfToken) {
+          headers.set('X-CSRF-Token', csrfToken);
+        }
+      } catch {
+      }
+    }
+
+    const resolvedBody: BodyInit | null | undefined =
+      body instanceof FormData || typeof body === 'string' || body === undefined
+        ? body
+        : JSON.stringify(body);
+
+    return {
+      ...config,
+      method,
+      headers,
+      body: resolvedBody,
+      credentials: 'include',
+    };
+  }
+
+  private extractErrorDetails(statusCode: number, responseData: unknown): APIError {
+    if (isRecord(responseData)) {
+      const message = Reflect.get(responseData, 'message');
+      const error = Reflect.get(responseData, 'error');
+      const code = Reflect.get(responseData, 'code');
+      const errorCode = Reflect.get(responseData, 'errorCode');
+
       return {
-        message: 'Network error - please check your connection',
-        code: 'NETWORK_ERROR',
+        message:
+          (typeof message === 'string' && message) ||
+          (typeof error === 'string' && error) ||
+          'An error occurred',
+        code:
+          (typeof code === 'string' && code) ||
+          (typeof errorCode === 'string' && errorCode) ||
+          undefined,
+        details: Reflect.get(responseData, 'details') ?? Reflect.get(responseData, 'errors'),
       };
     }
 
     return {
-      message: error.message || 'An unexpected error occurred',
+      message: statusCode >= 500 ? 'Server error' : 'Request failed',
       code: 'UNKNOWN_ERROR',
     };
+  }
+
+  private transformResponse<T>(responseData: unknown): T {
+    if (
+      isRecord(responseData) &&
+      responseData.success === true &&
+      'data' in responseData
+    ) {
+      return responseData.data as T;
+    }
+
+    return responseData as T;
+  }
+
+  private async performRequest<T>(url: string, config?: APIRequestConfig): Promise<T> {
+    const resolvedUrl = new URL(buildAPIURL(url));
+    appendQueryParams(resolvedUrl, config?.params);
+
+    const responseType = config?.responseType ?? 'json';
+    const timeout = config?.timeout ?? 30000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const requestInit = await this.createRequestInit({ ...config, signal: controller.signal });
+      const response = await fetch(resolvedUrl, requestInit);
+      const responseData = await parseResponseBody(response, responseType);
+
+      if (response.status === 401) {
+        this.clearAuthToken();
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
+
+      if (response.status === 429) {
+        const retryAfter = parseInt(response.headers.get('retry-after') ?? '60', 10);
+        window.dispatchEvent(new CustomEvent('api:rate-limited', { detail: { retryAfter } }));
+      }
+
+      if (!response.ok) {
+        const errorMessage = isRecord(responseData) ? Reflect.get(responseData, 'error') : undefined;
+        if (
+          response.status === 403 &&
+          typeof errorMessage === 'string' &&
+          errorMessage.includes('CSRF')
+        ) {
+          await csrfService.refreshToken();
+          return await this.performRequest<T>(url, config);
+        }
+
+        const apiError = this.extractErrorDetails(response.status, responseData);
+        throw new APIClientError(apiError.message, apiError.code, apiError.details, response.status);
+      }
+
+      if (responseType === 'blob') {
+        return responseData as T;
+      }
+
+      return this.transformResponse<T>(responseData);
+    } catch (error) {
+      if (error instanceof APIClientError) {
+        throw error;
+      }
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new APIClientError('Request timed out', 'TIMEOUT_ERROR');
+      }
+
+      throw new APIClientError(
+        error instanceof Error ? error.message : 'Network error - please check your connection',
+        'NETWORK_ERROR',
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   public setAuthToken(_token: string | null): void {}
@@ -131,70 +217,31 @@ class APIClientClass {
     return null;
   }
 
-  private transformResponse<T>(responseData: unknown): T {
-    // If response has the nested format { success: true, data: ... }, unwrap it
-    if (
-      responseData &&
-      typeof responseData === 'object' &&
-      'success' in responseData &&
-      'data' in responseData &&
-      responseData.success === true
-    ) {
-      return responseData.data as T;
-    }
-
-    // Otherwise return the response as-is
-    return responseData as T;
+  public async get<T = unknown>(url: string, config?: APIRequestConfig): Promise<T> {
+    return await this.performRequest<T>(url, { ...config, method: 'GET' });
   }
 
-  public async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.get<T>(url, config);
-    return this.transformResponse<T>(response.data);
+  public async post<T = unknown>(url: string, data?: unknown, config?: APIRequestConfig): Promise<T> {
+    return await this.performRequest<T>(url, { ...config, data, method: 'POST' });
   }
 
-  public async post<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await this.client.post<T>(url, data, config);
-    return this.transformResponse<T>(response.data);
+  public async put<T = unknown>(url: string, data?: unknown, config?: APIRequestConfig): Promise<T> {
+    return await this.performRequest<T>(url, { ...config, data, method: 'PUT' });
   }
 
-  public async put<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await this.client.put<T>(url, data, config);
-    return this.transformResponse<T>(response.data);
+  public async patch<T = unknown>(url: string, data?: unknown, config?: APIRequestConfig): Promise<T> {
+    return await this.performRequest<T>(url, { ...config, data, method: 'PATCH' });
   }
 
-  public async patch<T = unknown>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig
-  ): Promise<T> {
-    const response = await this.client.patch<T>(url, data, config);
-    return this.transformResponse<T>(response.data);
+  public async delete<T = unknown>(url: string, config?: APIRequestConfig): Promise<T> {
+    return await this.performRequest<T>(url, { ...config, method: 'DELETE' });
   }
 
-  public async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.delete<T>(url, config);
-    return this.transformResponse<T>(response.data);
-  }
-
-  public async request<T = unknown>(config: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.request<T>(config);
-    return this.transformResponse<T>(response.data);
-  }
-
-  public getAxiosInstance(): AxiosInstance {
-    return this.client;
+  public async request<T = unknown>(config: APIRequestConfig & { url: string }): Promise<T> {
+    return await this.performRequest<T>(config.url, config);
   }
 }
 
-// Export singleton instance
 export const APIClient = new APIClientClass();
 
 export function createFileUpload(file: File): FormData {

@@ -21,8 +21,8 @@ const setPreferencesSchema = z.object({
   notifyOnError: z.boolean().optional(),
 });
 
-export function registerToolPreferenceRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/users', (app) => withRequiredAuth(app)
+export function registerToolPreferenceRoutes() {
+  return new Elysia().group('/api/v1/users', (app) => withRequiredAuth(app)
     // GET /:userId/tool-preferences
     // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .get('/:userId/tool-preferences', async ({ set, params, user }) => {
@@ -164,7 +164,6 @@ export function registerToolPreferenceRoutes<T extends Elysia>(elysiaApp: T): T 
     })
   );
 
-  return elysiaApp;
 }
 
 export default registerToolPreferenceRoutes;

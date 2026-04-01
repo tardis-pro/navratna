@@ -141,6 +141,16 @@ export const discussionsAPI = {
     );
   },
 
+  async getSummary(discussionId: string): Promise<Record<string, unknown>> {
+    return APIClient.get<Record<string, unknown>>(
+      `${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/summary`
+    );
+  },
+
+  async advanceTurn(discussionId: string): Promise<void> {
+    await APIClient.post(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/advance-turn`);
+  },
+
   async export(discussionId: string, format: 'json' | 'text' | 'pdf' = 'json'): Promise<Blob> {
     const response = await APIClient.get(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/export`, {
       params: { format },
