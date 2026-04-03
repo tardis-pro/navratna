@@ -7,6 +7,7 @@ import { auditEvents } from '@uaip/shared-services/drizzle/control';
 import { sql } from '@uaip/shared-services/drizzle/clients';
 import { AuditService } from '../services/audit_service.js';
 import { AuditEventType } from '@uaip/types';
+import { getAuthUser } from './context_helpers.js';
 
 let domainAuditServiceSingleton: DomainAuditService | null = null;
 let auditServiceSingleton: AuditService | null = null;
@@ -83,6 +84,8 @@ const PaginationSchema = t.Object({
   total: t.Number(),
   pages: t.Number(),
 });
+
+type ExportParsedData = { data: unknown; recordCount: number };
 
 export function registerAuditRoutes() {
   return new Elysia().group('/api/v1/audit', (app) => withRequiredAuth(app).group('', (g) => withAdminGuard(g)
@@ -208,7 +211,9 @@ export function registerAuditRoutes() {
         500: ErrorSchema,
       },
     })
-    .post('/export', async ({ set, body, user, request, headers }) => {
+    .post('/export', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body, request, headers } = ctx;
       const { error, value } = validateWithZod(exportSchema, body);
       if (error) {
         set.status = 400;
@@ -224,9 +229,14 @@ export function registerAuditRoutes() {
           value.endDate,
           value.format
         );
-        let parsedData: unknown;
+        let parsedData: ExportParsedData;
         try {
-          parsedData = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
+          const raw: unknown = typeof exportData === 'string' ? JSON.parse(exportData) : exportData;
+          if (typeof raw === 'object' && raw !== null && 'recordCount' in raw && typeof raw.recordCount === 'number') {
+            parsedData = { data: 'data' in raw ? raw.data : raw, recordCount: raw.recordCount };
+          } else {
+            parsedData = { data: raw, recordCount: 0 };
+          }
         } catch {
           parsedData = { data: exportData, recordCount: 0 };
         }
@@ -275,7 +285,9 @@ export function registerAuditRoutes() {
         500: ErrorSchema,
       },
     })
-    .post('/compliance-report', async ({ set, body, user, request, headers }) => {
+    .post('/compliance-report', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body, request, headers } = ctx;
       const { error, value } = validateWithZod(complianceReportSchema, body);
       if (error) {
         set.status = 400;
@@ -340,23 +352,21 @@ export function registerAuditRoutes() {
         const parsedData = parsedQuery.success
           ? parsedQuery.data
           : userActivityQuerySchema.parse({});
-        const { page, limit, startDate, endDate, eventType } = parsedData;
+        const { page, limit, startDate, endDate } = parsedData;
         const offset = (page - 1) * limit;
         const repo = domainAuditService.getAuditRepository();
-        const result = await repo.getUserActivityAuditTrail({
-          userId,
+        const result = await repo.getUserActivityAuditTrail(userId, {
           startDate,
           endDate,
-          eventType,
           limit,
           offset,
         });
         return {
           message: 'User activity retrieved successfully',
           userId,
-          userEmail: result.activities[0]?.user?.email || null,
-          userRole: result.activities[0]?.user?.role || null,
-          activities: result.activities,
+          userEmail: null,
+          userRole: null,
+          activities: result.logs,
           pagination: {
             page,
             limit,
@@ -381,7 +391,9 @@ export function registerAuditRoutes() {
         500: ErrorSchema,
       },
     })
-    .delete('/cleanup', async ({ set, user, request, headers }) => {
+    .delete('/cleanup', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, request, headers } = ctx;
       try {
         const { auditService } = await getServices();
         const result = await auditService.cleanupOldLogs();

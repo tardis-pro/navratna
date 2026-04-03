@@ -5,7 +5,7 @@ import { AuditService } from '../services/audit_service.js';
 import { UserService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 
-import { getAuthUser, getErrorMessage } from './context_helpers.js';
+import { getAuthUser } from './context_helpers.js';
 
 let auditServiceSingleton: AuditService | null = null;
 let userServiceSingleton: UserService | null = null;
@@ -50,7 +50,9 @@ function getContactStatus(contact: { metadata?: Record<string, unknown> | null }
 export function registerContactRoutes() {
   return new Elysia().group('/api/v1/contacts', (app) => withRequiredAuth(app)
     // POST /request
-    .post('/request', async ({ set, body, user, request, headers }) => {
+    .post('/request', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body, request, headers } = ctx;
       const parsed = contactRequestSchema.safeParse(body);
       if (!parsed.success) {
         set.status = 400;
@@ -61,7 +63,7 @@ export function registerContactRoutes() {
         };
       }
       const { targetUserId, message, type } = parsed.data;
-      const userId = user!.id;
+      const userId = user.id;
       if (userId === targetUserId) {
         set.status = 400;
         return {
@@ -124,7 +126,9 @@ export function registerContactRoutes() {
     })
   
     // GET /
-    .get('/', async ({ set, query, user }) => {
+    .get('/', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, query } = ctx;
       const parsed = contactQuerySchema.safeParse(query);
       if (!parsed.success) {
         set.status = 400;
@@ -135,7 +139,7 @@ export function registerContactRoutes() {
         };
       }
       const { page, limit, status } = parsed.data;
-      const userId = user!.id;
+      const userId = user.id;
       const _offset = (page - 1) * limit;
       const { userService } = await getServices();
       const contactRepo = userService.getUserContactRepository();
@@ -175,7 +179,9 @@ export function registerContactRoutes() {
     })
   
     // POST /:contactId/action
-    .post('/:contactId/action', async ({ set, params, body, user, request, headers }) => {
+    .post('/:contactId/action', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params, body, request, headers } = ctx;
       const parsed = contactActionSchema.safeParse(body);
       if (!parsed.success) {
         set.status = 400;
@@ -187,7 +193,7 @@ export function registerContactRoutes() {
       }
       const { contactId } = params;
       const { action, message } = parsed.data;
-      const userId = user!.id;
+      const userId = user.id;
       const { userService, auditService } = await getServices();
       const contactRepo = userService.getUserContactRepository();
       const contact = await contactRepo.findById(contactId);
@@ -302,8 +308,9 @@ export function registerContactRoutes() {
     })
   
     // GET /pending
-    .get('/pending', async ({ user }) => {
-      const userId = user!.id;
+    .get('/pending', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const userId = user.id;
       const { userService } = await getServices();
       const contactRepo = userService.getUserContactRepository();
       const pending = (await contactRepo.findByUserId(userId)).filter(

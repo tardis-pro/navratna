@@ -12,6 +12,22 @@ import {
   SecurityMetrics,
 } from '@uaip/types';
 
+type AuditEventEntity = {
+  id?: string | null;
+  eventType?: AuditEventType | string | null;
+  userId?: string | null;
+  agentId?: string | null;
+  resourceType?: string | null;
+  resourceId?: string | null;
+  details?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  riskLevel?: string | null;
+  timestamp?: Date | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+};
+
 export class AuditService {
   private retentionDays: number = 365; // Default retention period
   private batchSize: number = 1000;
@@ -632,21 +648,21 @@ export class AuditService {
   /**
    * Map entity to audit event
    */
-  private mapEntityToAuditEvent(entity: unknown): AuditEvent {
+  private mapEntityToAuditEvent(entity: AuditEventEntity): AuditEvent {
     return {
-      id: entity.id,
-      eventType: entity.eventType,
-      userId: entity.userId,
-      agentId: entity.agentId,
-      resourceType: entity.resourceType,
-      resourceId: entity.resourceId,
-      details: entity.details || {},
-      ipAddress: entity.ipAddress,
-      userAgent: entity.userAgent,
-      riskLevel: entity.riskLevel as SecurityLevel,
-      timestamp: entity.timestamp,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      id: entity.id ?? '',
+      eventType: (entity.eventType ?? AuditEventType.USER_ACTION) as AuditEventType,
+      userId: entity.userId ?? undefined,
+      agentId: entity.agentId ?? undefined,
+      resourceType: entity.resourceType ?? undefined,
+      resourceId: entity.resourceId ?? undefined,
+      details: entity.details ?? {},
+      ipAddress: entity.ipAddress ?? undefined,
+      userAgent: entity.userAgent ?? undefined,
+      riskLevel: (entity.riskLevel ?? undefined) as SecurityLevel | undefined,
+      timestamp: entity.timestamp ?? new Date(),
+      createdAt: entity.createdAt ?? new Date(),
+      updatedAt: entity.updatedAt ?? new Date(),
     };
   }
 

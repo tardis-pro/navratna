@@ -1,5 +1,11 @@
 import { logger } from '@uaip/utils';
 import { ApiError as _ApiError } from '@uaip/utils';
+
+export type PolicyEvaluationResult = {
+  appliedPolicies: string[];
+  allowed?: boolean;
+  conditions?: string[];
+};
 import {
   SecurityValidationRequest,
   SecurityValidationResult,
@@ -652,7 +658,7 @@ export class SecurityGatewayService {
   protected buildReasoningText(
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment,
-    policyResult: unknown,
+    policyResult: PolicyEvaluationResult,
     approvalRequired: boolean
   ): string {
     const parts: string[] = [];

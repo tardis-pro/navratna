@@ -7,6 +7,7 @@ import {
   type UserKnowledgeService,
 } from '@uaip/shared-services';
 import { randomUUID } from 'crypto';
+import { getAuthUser } from './context_helpers.js';
 import {
   KnowledgeType,
   SourceType,
@@ -283,7 +284,9 @@ const KnowledgeSuccessDataSchema = t.Object({
 export function registerKnowledgeRoutes() {
   return new Elysia().group('/api/v1/knowledge', (app) => withOptionalAuth(app)
     .group('', (g) => withRequiredAuth(g)
-      .post('/', async ({ set, body, user }) => {
+      .post('/', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -315,7 +318,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .patch('/:itemId', async ({ set, params, body, user }) => {
+      .patch('/:itemId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -362,7 +367,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .delete('/:itemId', async ({ set, params, user }) => {
+      .delete('/:itemId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -400,7 +407,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .get('/tags/:tag', async ({ set, params, query, user }) => {
+      .get('/tags/:tag', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, query } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -421,7 +430,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .get('/stats', async ({ set, user }) => {
+      .get('/stats', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -440,7 +451,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .get('/:itemId/related', async ({ set, params, user }) => {
+      .get('/:itemId/related', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
         const userId = user.id;
         const { itemId } = itemIdParamsSchema.parse(params);
         const { userKnowledgeService, initializationError } = await getServices();
@@ -465,7 +478,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .get('/:itemId/similar', async ({ set, params, query, user }) => {
+      .get('/:itemId/similar', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, query } = ctx;
         const userId = user.id;
         const { itemId } = itemIdParamsSchema.parse(params);
         const limit = Number((query as TagQuery).limit ?? 10);
@@ -492,7 +507,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .get('/graph', async ({ set, query, user }) => {
+      .get('/graph', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, query } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -593,7 +610,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
+      .get('/graph/relationships/:itemId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, query } = ctx;
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
@@ -663,7 +682,9 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      .post('/sync', async ({ set, user }) => {
+      .post('/sync', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
         const _userId = user.id;
         const { initializationError } = await getServices();
         if (initializationError) {
@@ -706,7 +727,9 @@ export function registerKnowledgeRoutes() {
       
       .post(
         '/chat-import',
-        async ({ set, body, user }) => {
+        async (ctx) => {
+          const user = getAuthUser(ctx);
+          const { set, body } = ctx;
           const userId = user.id;
           const { userKnowledgeService, initializationError } = await getServices();
           if (initializationError) {

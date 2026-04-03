@@ -88,10 +88,12 @@ const InteractionTrackingSchema = z.object({
 export function registerPersonaRoutes() {
   return new Elysia().group('/api/v1/users/persona', (app) => withRequiredAuth(app)
     // GET /
-    .get('/', async ({ set, user }) => {
+    .get('/', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set } = ctx;
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity) {
           set.status = 404;
           return { error: 'User not found' };
@@ -113,7 +115,9 @@ export function registerPersonaRoutes() {
     })
   
     // PUT /
-    .put('/', async ({ set, body, user }) => {
+    .put('/', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body } = ctx;
       const validation = UpdatePersonaSchema.safeParse(body);
       if (!validation.success) {
         set.status = 400;
@@ -121,7 +125,7 @@ export function registerPersonaRoutes() {
       }
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity) {
           set.status = 404;
           return { error: 'User not found' };
@@ -141,13 +145,13 @@ export function registerPersonaRoutes() {
             ...entity.behavioralPatterns,
             ...behavioralPatterns,
           };
-        await repo.updateUser(user!.id, {
+        await repo.updateUser(user.id, {
           userPersona: entity.userPersona,
           onboardingProgress: entity.onboardingProgress,
           behavioralPatterns: entity.behavioralPatterns,
         });
         logger.info('User persona updated', {
-          userId: user!.id,
+          userId: user.id,
           updatedFields: Object.keys(body as unknown),
         });
         return {
@@ -167,7 +171,9 @@ export function registerPersonaRoutes() {
     })
   
     // POST /complete-onboarding
-    .post('/complete-onboarding', async ({ set, body, user }) => {
+    .post('/complete-onboarding', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body } = ctx;
       const validation = CompleteOnboardingSchema.safeParse(body);
       if (!validation.success) {
         set.status = 400;
@@ -175,7 +181,7 @@ export function registerPersonaRoutes() {
       }
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity) {
           set.status = 404;
           return { error: 'User not found' };
@@ -197,16 +203,16 @@ export function registerPersonaRoutes() {
           feedbackPreference:
             personaData.communicationPreference === 'brief' ? 'immediate' : 'summary',
         };
-        await repo.updateUser(user!.id, {
+        await repo.updateUser(user.id, {
           userPersona: entity.userPersona,
           onboardingProgress: entity.onboardingProgress,
           behavioralPatterns: entity.behavioralPatterns,
         });
         try {
           const providerRepo = UserService.getInstance().getUserLLMProviderRepository();
-          const providers = await providerRepo.findByUserId(user!.id);
+          const providers = await providerRepo.findByUserId(user.id);
           if (providers.length === 0)
-            await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(user!.id);
+            await DefaultUserLLMProviderSeed.createDefaultProvidersForUser(user.id);
         } catch (e) {
           logger.error('Default providers creation failed', e);
         }
@@ -227,7 +233,9 @@ export function registerPersonaRoutes() {
     })
   
     // PUT /behavioral-patterns
-    .put('/behavioral-patterns', async ({ set, body, user }) => {
+    .put('/behavioral-patterns', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body } = ctx;
       const validation = BehavioralPatternsSchema.safeParse(body);
       if (!validation.success) {
         set.status = 400;
@@ -235,7 +243,7 @@ export function registerPersonaRoutes() {
       }
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity) {
           set.status = 404;
           return { error: 'User not found' };
@@ -245,7 +253,7 @@ export function registerPersonaRoutes() {
           ...entity.behavioralPatterns,
           ...validation.data,
         };
-        await repo.updateUser(user!.id, {
+        await repo.updateUser(user.id, {
           behavioralPatterns: entity.behavioralPatterns,
         });
         return {
@@ -265,10 +273,12 @@ export function registerPersonaRoutes() {
     })
   
     // GET /recommendations
-    .get('/recommendations', async ({ set, user }) => {
+    .get('/recommendations', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set } = ctx;
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity || !entity.userPersona) {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
@@ -284,7 +294,9 @@ export function registerPersonaRoutes() {
     })
   
     // POST /track-interaction
-    .post('/track-interaction', async ({ set, body, user }) => {
+    .post('/track-interaction', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body } = ctx;
       const validation = InteractionTrackingSchema.safeParse(body);
       if (!validation.success) {
         set.status = 400;
@@ -292,7 +304,7 @@ export function registerPersonaRoutes() {
       }
       try {
         const { type, data, timestamp } = validation.data;
-        await processUserInteraction(user!.id, type, data, timestamp);
+        await processUserInteraction(user.id, type, data, timestamp);
         return { success: true };
       } catch {
         set.status = 500;
@@ -301,10 +313,12 @@ export function registerPersonaRoutes() {
     })
   
     // GET /compatible-agents
-    .get('/compatible-agents', async ({ set, user }) => {
+    .get('/compatible-agents', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set } = ctx;
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity || !entity.userPersona) {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
@@ -319,10 +333,12 @@ export function registerPersonaRoutes() {
     })
   
     // GET /optimized-workspace
-    .get('/optimized-workspace', async ({ set, user }) => {
+    .get('/optimized-workspace', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set } = ctx;
       try {
         const repo = userService.getUserRepository();
-        const entity = await repo.findById(user!.id);
+        const entity = await repo.findById(user.id);
         if (!entity || !entity.userPersona) {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };

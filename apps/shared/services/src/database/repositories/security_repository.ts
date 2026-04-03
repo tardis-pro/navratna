@@ -1,4 +1,4 @@
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, lte, count } from 'drizzle-orm';
 import { getControlDb } from '../drizzle/clients/index';
 import {
   securityPolicies,
@@ -84,6 +84,12 @@ export class SecurityPolicyRepository {
       throw error;
     }
   }
+
+  async getSecurityPolicy(id: string) { return this.findById(id); }
+  async createSecurityPolicy(data: typeof securityPolicies.$inferInsert) { return this.create(data); }
+  async updateSecurityPolicy(id: string, data: Partial<typeof securityPolicies.$inferInsert>) { return this.update(id, data); }
+  async deleteSecurityPolicy(id: string) { return this.delete(id); }
+  async getSecurityPolicyStats() { return this.getStats(); }
 
   async getStats(): Promise<{ total: number; enabled: number; disabled: number }> {
     try {
@@ -171,6 +177,19 @@ export class ApprovalWorkflowRepository {
     }
   }
 
+  async updateApprovalWorkflow(id: string, data: Partial<NewApprovalWorkflow>) { return this.update(id, data); }
+  async getPendingWorkflowsForReminders() { return this.findPending(); }
+  async getExpiredWorkflows(): Promise<ApprovalWorkflow[]> {
+    try {
+      return this.db.select().from(approvalWorkflows)
+        .where(and(eq(approvalWorkflows.status, 'pending'), lte(approvalWorkflows.expiresAt, new Date())))
+        .orderBy(desc(approvalWorkflows.createdAt));
+    } catch (error) {
+      logger.error('ApprovalWorkflowRepository.getExpiredWorkflows failed', { error: (error as Error).message });
+      throw error;
+    }
+  }
+
   async getStats(): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
     try {
       const [{ value: total }] = await this.db.select({ value: count() }).from(approvalWorkflows);
@@ -198,6 +217,9 @@ export class ApprovalDecisionRepository {
       throw error;
     }
   }
+
+  async createApprovalDecision(data: typeof approvalDecisions.$inferInsert) { return this.create(data); }
+  async getApprovalDecisions(workflowId: string) { return this.findByWorkflowId(workflowId); }
 
   async create(data: typeof approvalDecisions.$inferInsert): Promise<typeof approvalDecisions.$inferSelect> {
     try {

@@ -147,7 +147,9 @@ const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(
 
 export function registerSecurityRoutes() {
   return new Elysia().group('/api/v1/security', (app) => withRequiredAuth(app)
-    .post('/assess-risk', async ({ set, body, user, request, headers }) => {
+    .post('/assess-risk', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body, request, headers } = ctx;
       const { error, value } = validateWithZod(riskAssessmentSchema, body);
       if (error) {
         set.status = 400;
@@ -163,7 +165,7 @@ export function registerSecurityRoutes() {
             userId: user!.id,
             role: user!.role,
             permissions: user!.permissions || [],
-            securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
+            securityLevel: SecurityLevel.MEDIUM,
             sessionId: user!.sessionId || 'unknown',
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'] || '',
@@ -206,7 +208,9 @@ export function registerSecurityRoutes() {
         500: ErrorSchema,
       },
     })
-    .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
+    .post('/check-approval-required', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body, request, headers } = ctx;
       const { error, value } = validateWithZod(riskAssessmentSchema, body);
       if (error) {
         set.status = 400;
@@ -222,7 +226,7 @@ export function registerSecurityRoutes() {
             userId: user!.id,
             role: user!.role,
             permissions: user!.permissions || [],
-            securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
+            securityLevel: SecurityLevel.MEDIUM,
             sessionId: user!.sessionId || 'unknown',
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'] || '',
@@ -267,7 +271,7 @@ export function registerSecurityRoutes() {
       .get('/policies', async ({ set, query }) => {
         try {
           const { securityService } = await getServices();
-          const { page = 1, limit = 20, active, search } = query as unknown;
+          const { page = '1', limit = '20', active, search } = query as Record<string, string | undefined>;
           const filters: Record<string, unknown> = {
             limit: Number(limit),
             offset: (Number(page) - 1) * Number(limit),
@@ -319,7 +323,7 @@ export function registerSecurityRoutes() {
       .get('/policies/:policyId', async ({ set, params }) => {
         try {
           const { securityService } = await getServices();
-          const policyId = (params as unknown).policyId as string;
+          const policyId = (params as Record<string, string>).policyId;
           const repo = securityService!.getSecurityPolicyRepository();
           const policy = await repo.getSecurityPolicy(policyId);
           if (!policy) {
@@ -341,7 +345,9 @@ export function registerSecurityRoutes() {
           500: ErrorSchema,
         },
       })
-      .post('/policies', async ({ set, body, user, request, headers }) => {
+      .post('/policies', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body, request, headers } = ctx;
         const { error, value } = validateWithZod(securityPolicySchema, body);
         if (error) {
           set.status = 400;
@@ -357,10 +363,10 @@ export function registerSecurityRoutes() {
             name: value.name,
             description: value.description,
             priority: value.priority,
-            isActive: value.isActive,
-            conditions: value.conditions,
-            actions: value.actions,
-            createdBy: user!.id,
+            isEnabled: value.isActive,
+            policyType: 'custom',
+            rules: { conditions: value.conditions, actions: value.actions },
+            metadata: { createdBy: user!.id },
           });
           await auditService.logSecurityEvent({
             eventType: AuditEventType.POLICY_CREATED,
@@ -369,7 +375,7 @@ export function registerSecurityRoutes() {
               policyId: newPolicy.id,
               policyName: newPolicy.name,
               priority: newPolicy.priority,
-              isActive: newPolicy.isActive,
+              isActive: newPolicy.isEnabled,
             },
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
@@ -410,7 +416,7 @@ export function registerSecurityRoutes() {
         }
         try {
           const { securityService } = await getServices();
-          const policyId = (params as unknown).policyId as string;
+          const policyId = (params as Record<string, string>).policyId;
           const repo = securityService!.getSecurityPolicyRepository();
           const updated = await repo.updateSecurityPolicy(policyId, value);
           if (!updated) {
@@ -445,7 +451,7 @@ export function registerSecurityRoutes() {
       .delete('/policies/:policyId', async ({ set, params }) => {
         try {
           const { securityService } = await getServices();
-          const policyId = (params as unknown).policyId as string;
+          const policyId = (params as Record<string, string>).policyId;
           const repo = securityService!.getSecurityPolicyRepository();
           const ok = await repo.deleteSecurityPolicy(policyId);
           if (!ok) {
@@ -470,7 +476,7 @@ export function registerSecurityRoutes() {
       
       .get('/stats', async ({ set, query }) => {
         try {
-          const timeframe = ((query as unknown).timeframe || '24h') as string;
+          const timeframe = (query as Record<string, string>).timeframe || '24h';
           let startDate: Date;
           const endDate = new Date();
           switch (timeframe) {
@@ -557,9 +563,9 @@ export function registerSecurityRoutes() {
                 low_risk_count: riskStats.lowRiskCount,
               },
               policies: {
-                total_policies: policyStats.totalPolicies,
-                active_policies: policyStats.activePolicies,
-                inactive_policies: policyStats.inactivePolicies,
+                total_policies: policyStats.total,
+                active_policies: policyStats.enabled,
+                inactive_policies: policyStats.disabled,
               },
             },
           };

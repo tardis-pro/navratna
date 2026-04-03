@@ -116,9 +116,10 @@ export function registerOAuthRoutes() {
         });
         return { success: true, authorization_url: url, state };
       } catch (error: unknown) {
-        logger.error('Authorize failed', { error: error?.message });
+        const errorMsg = getErrorMessage(error);
+        logger.error('Authorize failed', { error: errorMsg });
         set.status = 400;
-        return { success: false, error: error?.message || 'Authorization failed' };
+        return { success: false, error: errorMsg || 'Authorization failed' };
       }
     })
   
@@ -163,17 +164,18 @@ export function registerOAuthRoutes() {
           mfa_challenge: authResult.mfaChallenge,
         };
       } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
         const { auditService } = getServices();
         await auditService.logEvent({
           eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
           details: {
-            error: error?.message,
+            error: errorMsg,
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
           },
         });
         set.status = 500;
-        return { success: false, error: error?.message || 'OAuth callback failed' };
+        return { success: false, error: errorMsg || 'OAuth callback failed' };
       }
     })
   
@@ -217,19 +219,20 @@ export function registerOAuthRoutes() {
           session: { id: authResult.session.id, expiresAt: authResult.session.expiresAt },
         };
       } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
         const { auditService } = getServices();
         const parsedBody = AgentAuthRequestSchema.safeParse(body);
         await auditService.logEvent({
           eventType: AuditEventType.AGENT_AUTH_FAILED,
           agentId: parsedBody.success ? parsedBody.data.agent_id : undefined,
           details: {
-            error: error?.message,
+            error: errorMsg,
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
           },
         });
         set.status = 500;
-        return { success: false, error: error?.message || 'Agent authentication failed' };
+        return { success: false, error: errorMsg || 'Agent authentication failed' };
       }
     })
   
@@ -268,8 +271,9 @@ export function registerOAuthRoutes() {
           message: 'OAuth provider connected successfully',
         };
       } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
         set.status = 500;
-        return { success: false, error: error?.message || 'Failed to connect OAuth provider' };
+        return { success: false, error: errorMsg || 'Failed to connect OAuth provider' };
       }
     })
     )
@@ -277,7 +281,9 @@ export function registerOAuthRoutes() {
     // Provider-specific operations (require auth)
     .group('/agent', (g) => withRequiredAuth(g)
       // GitHub operations
-      .post('/github/:providerId', async ({ set, params, body, user }) => {
+      .post('/github/:providerId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
         try {
           const { providerId } = providerIdParamsSchema.parse(params);
           const validated = z
@@ -291,7 +297,7 @@ export function registerOAuthRoutes() {
           let result: unknown;
           switch (validated.operation) {
             case 'list_repos':
-              result = await oauthProviderService.getGitHubRepos(user!.id, providerId);
+              result = await oauthProviderService.getGitHubRepos(user.id, providerId);
               break;
             case 'get_repo':
               if (!validated.repository) {
@@ -299,7 +305,7 @@ export function registerOAuthRoutes() {
                 return { success: false, error: 'Repository name required' };
               }
               result = await oauthProviderService.getGitHubRepo(
-                user!.id,
+                user.id,
                 providerId,
                 validated.repository
               );
@@ -310,7 +316,7 @@ export function registerOAuthRoutes() {
           }
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_SUCCESS,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
               providerId,
               operation: validated.operation,
@@ -320,25 +326,28 @@ export function registerOAuthRoutes() {
           });
           return { success: true, operation: validated.operation, data: result };
         } catch (error: unknown) {
+          const errorMsg = getErrorMessage(error);
           const { auditService } = getServices();
           const parsedParams = providerIdParamsSchema.safeParse(params);
           const parsedBody = optionalOperationSchema.safeParse(body);
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_FAILED,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
-              error: error?.message,
+              error: errorMsg,
               providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
               operation: parsedBody.success ? parsedBody.data.operation : undefined,
             },
           });
           set.status = 500;
-          return { success: false, error: error?.message || 'GitHub operation failed' };
+          return { success: false, error: errorMsg || 'GitHub operation failed' };
         }
       })
       
       // Gmail operations
-      .post('/gmail/:providerId', async ({ set, params, body, user }) => {
+      .post('/gmail/:providerId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
         try {
           const { providerId } = providerIdParamsSchema.parse(params);
           const validated = z
@@ -360,7 +369,7 @@ export function registerOAuthRoutes() {
             case 'list_messages':
             case 'search_messages':
               result = await oauthProviderService.getGmailMessages(
-                user!.id,
+                user.id,
                 providerId,
                 validated.query
               );
@@ -371,7 +380,7 @@ export function registerOAuthRoutes() {
                 return { success: false, error: 'Message ID required' };
               }
               result = await oauthProviderService.getGmailMessage(
-                user!.id,
+                user.id,
                 providerId,
                 validated.message_id
               );
@@ -382,7 +391,7 @@ export function registerOAuthRoutes() {
           }
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_SUCCESS,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
               providerId,
               operation: validated.operation,
@@ -393,20 +402,21 @@ export function registerOAuthRoutes() {
           });
           return { success: true, operation: validated.operation, data: result };
         } catch (error: unknown) {
+          const errorMsg = getErrorMessage(error);
           const { auditService } = getServices();
           const parsedParams = providerIdParamsSchema.safeParse(params);
           const parsedBody = optionalOperationSchema.safeParse(body);
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_FAILED,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
-              error: error?.message,
+              error: errorMsg,
               providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
               operation: parsedBody.success ? parsedBody.data.operation : undefined,
             },
           });
           set.status = 500;
-          return { success: false, error: error?.message || 'Gmail operation failed' };
+          return { success: false, error: errorMsg || 'Gmail operation failed' };
         }
       })
     )

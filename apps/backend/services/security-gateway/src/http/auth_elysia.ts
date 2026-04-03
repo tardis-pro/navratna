@@ -84,6 +84,13 @@ const internalTokenSchema = z.object({
   apiKey: z.string().min(1, 'API key is required'),
 });
 
+type TokenInfo = {
+  revokedAt?: Date | null;
+  expiresAt: Date;
+  user: { id: string; email: string; role: string; isActive?: boolean };
+  [key: string]: unknown;
+};
+
 // Token generation now handled by shared generateAuthTokens from @uaip/middleware
 
 async function getAuthUser(authorization?: string | null) {
@@ -301,7 +308,7 @@ export function registerAuthRoutes() {
         // Verify refresh token signature (throws on invalid/expired)
         jwt.verify(refreshToken, config.jwt.refreshSecret);
         const { userService } = await getServices();
-        const tokenData = await userService.getRefreshTokenWithUser(refreshToken);
+        const tokenData = await userService.getRefreshTokenWithUser(refreshToken) as TokenInfo | null;
         if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
           set.status = 401;
           return { error: 'Invalid Token', message: 'Refresh token not found or expired' };
@@ -365,7 +372,7 @@ export function registerAuthRoutes() {
       try {
         const authUser = await getAuthUser(headers.authorization);
         const { userService, auditService } = await getServices();
-        const refreshToken = (body as unknown)?.refreshToken as string | undefined;
+        const { refreshToken } = (body as Record<string, string | undefined>);
   
         if (refreshToken) {
           await userService.revokeRefreshToken(refreshToken);

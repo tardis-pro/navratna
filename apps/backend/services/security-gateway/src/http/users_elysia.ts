@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 // Elysia's type system cannot infer the 'user' property through nested .group() calls combined with middleware wrappers.
 import { z } from 'zod';
+import { getAuthUser } from './context_helpers.js';
 import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { validateJWTToken as _validateJWTToken } from '@uaip/middleware';
@@ -252,7 +253,9 @@ export function registerUserRoutes() {
   
     // GET /api/v1/users/llm-preferences
     .group('', (g) => withRequiredAuth(g)
-      .get('/llm-preferences', async ({ set, user }) => {
+      .get('/llm-preferences', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
         try {
           const { userService } = await getServices();
           const repo = userService.getUserLLMPreferenceRepository();
@@ -271,7 +274,9 @@ export function registerUserRoutes() {
       })
       
       // PUT /api/v1/users/llm-preferences
-      .put('/llm-preferences', async ({ set, user, body }) => {
+      .put('/llm-preferences', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
         const parsed = updateUserLLMPreferencesSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -354,7 +359,9 @@ export function registerUserRoutes() {
       })
       
       // POST /api/v1/users (admin)
-      .post('/', async ({ set, body, user }) => {
+      .post('/', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
         const parsed = createUserSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;

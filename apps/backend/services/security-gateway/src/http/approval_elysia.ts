@@ -7,6 +7,7 @@ import { ApprovalWorkflowService } from '../services/approval_workflow_service.j
 import { EventBusService } from '@uaip/infra/event_bus';
 import { NotificationService } from '../services/notification_service.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
+import { getAuthUser } from './context_helpers.js';
 
 let auditServiceSingleton: AuditService | null = null;
 let notificationServiceSingleton: NotificationService | null = null;
@@ -63,7 +64,34 @@ const queryWorkflowsSchema = z.object({
   offset: z.coerce.number().min(0).default(0),
 });
 
-function calculateUrgency(workflow: Record<string, unknown>): number {
+type WorkflowMetadata = {
+  securityLevel?: string;
+  operationType?: string;
+  createdBy?: string;
+  [key: string]: unknown;
+};
+
+type WorkflowRecord = {
+  metadata?: WorkflowMetadata;
+  expiresAt?: string | Date;
+  createdAt?: string | Date;
+  id?: string;
+  [key: string]: unknown;
+};
+
+type ApprovalWorkflowEntry = {
+  status?: ApprovalStatus;
+  id?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  operationId?: string;
+  requiredApprovers?: string[];
+  currentApprovers?: string[];
+  expiresAt?: Date;
+  metadata?: Record<string, unknown>;
+};
+
+function calculateUrgency(workflow: WorkflowRecord): number {
   let urgency = 0;
   switch (workflow.metadata?.securityLevel) {
     case SecurityLevel.CRITICAL:
@@ -96,7 +124,9 @@ const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(
 export function registerApprovalRoutes() {
   return new Elysia().group('/api/v1/approvals', (app) => withRequiredAuth(app)
     .group('', (g) => withOperatorGuard(g)
-      .post('/workflows', async ({ body, set, user, request, headers }) => {
+      .post('/workflows', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { body, set, request, headers } = ctx;
         const parsed = createWorkflowSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -113,13 +143,13 @@ export function registerApprovalRoutes() {
             expirationHours: parsed.data.expirationHours,
             metadata: {
               ...parsed.data.metadata,
-              createdBy: user!.id,
+              createdBy: user.id,
               createdAt: new Date().toISOString(),
             },
           });
           await auditService.logEvent({
             eventType: AuditEventType.APPROVAL_REQUESTED,
-            userId: user!.id,
+            userId: user.id,
             resourceType: 'approval_workflow',
             resourceId: workflow.id,
             details: {
@@ -172,7 +202,8 @@ export function registerApprovalRoutes() {
           500: ErrorSchema,
         },
       })
-      .get('/stats', async ({ set, query, _user }) => {
+      .get('/stats', async (ctx) => {
+        const { set, query } = ctx;
         try {
           const days = Number(query.days ?? 30);
           const startDate = new Date();
@@ -230,7 +261,9 @@ export function registerApprovalRoutes() {
         },
       })
     )
-    .get('/workflows', async ({ set, user, query }) => {
+    .get('/workflows', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, query } = ctx;
       const parsed = queryWorkflowsSchema.safeParse(query);
       if (!parsed.success) {
         set.status = 400;
@@ -238,13 +271,13 @@ export function registerApprovalRoutes() {
       }
       try {
         const { approvalWorkflowService } = await getServices();
-        let workflows: unknown[];
-        const role = (user!.role || '').toLowerCase();
+        let workflows: ApprovalWorkflowEntry[];
+        const role = (user.role || '').toLowerCase();
         if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
           workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
         } else {
           workflows = await approvalWorkflowService.getUserWorkflows(
-            user!.id,
+            user.id,
             parsed.data.status
           );
         }
@@ -294,11 +327,13 @@ export function registerApprovalRoutes() {
         500: ErrorSchema,
       },
     })
-    .get('/pending', async ({ set, user }) => {
+    .get('/pending', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set } = ctx;
       try {
         const { approvalWorkflowService } = await getServices();
         const pending = await approvalWorkflowService.getUserWorkflows(
-          user!.id,
+          user.id,
           ApprovalStatus.PENDING
         ).catch((err: Error) => { logger.error('getUserWorkflows failed in /pending', { error: err.message, stack: err.stack }); throw err; });
         const detailed = await Promise.all(
@@ -307,7 +342,7 @@ export function registerApprovalRoutes() {
             return {
               workflow: wf,
               status,
-              isPendingForUser: status.pendingApprovers.includes(user!.id),
+              isPendingForUser: status.pendingApprovers.includes(user.id),
               urgency: calculateUrgency(wf),
             };
           })
@@ -363,10 +398,12 @@ export function registerApprovalRoutes() {
   
     .group('', (g) => withOperatorGuard(g).post(
       '/:workflowId/cancel',
-      async ({ set, params, body, user, request, headers }) => {
+      async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, request, headers } = ctx;
+        const { reason } = ctx.body as { reason?: string };
         try {
           const workflowId = params.workflowId;
-          const reason = (body as unknown)?.reason;
           if (!reason || !reason.trim()) {
             set.status = 400;
             return { error: 'Cancellation reason is required' };
@@ -375,10 +412,10 @@ export function registerApprovalRoutes() {
           await approvalWorkflowService.cancelWorkflow(workflowId, reason);
           await auditService.logEvent({
             eventType: AuditEventType.APPROVAL_DENIED,
-            userId: user!.id,
+            userId: user.id,
             resourceType: 'approval_workflow',
             resourceId: workflowId,
-            details: { action: 'cancelled', reason, cancelledBy: user!.id },
+            details: { action: 'cancelled', reason, cancelledBy: user.id },
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
             riskLevel: SecurityLevel.MEDIUM,
@@ -402,7 +439,9 @@ export function registerApprovalRoutes() {
       }
     )
     )
-    .get('/:workflowId', async ({ set, params, user }) => {
+    .get('/:workflowId', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
       try {
         const workflowId = params.workflowId;
         if (!workflowId || workflowId.length < 10) {
@@ -411,10 +450,10 @@ export function registerApprovalRoutes() {
         }
         const { approvalWorkflowService } = await getServices();
         const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
-        const role = (user!.role || '').toLowerCase();
+        const role = (user.role || '').toLowerCase();
         const isAuthorized =
-          status.workflow.requiredApprovers.includes(user!.id) ||
-          status.workflow.metadata?.createdBy === user!.id ||
+          status.workflow.requiredApprovers.includes(user.id) ||
+          status.workflow.metadata?.createdBy === user.id ||
           role === 'admin' ||
           role === 'security-admin' ||
           role === 'security_admin';
@@ -443,7 +482,9 @@ export function registerApprovalRoutes() {
         500: ErrorSchema,
       },
     })
-    .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
+    .post('/:workflowId/decisions', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { params, set, body, request, headers } = ctx;
       const parsed = approvalDecisionSchema.safeParse({
         // @ts-expect-error -- Spread from non-object type
         ...(body as unknown),
@@ -457,7 +498,7 @@ export function registerApprovalRoutes() {
         const { approvalWorkflowService, auditService } = await getServices();
         const decisionInput = {
           workflowId: parsed.data.workflowId,
-          approverId: user!.id,
+          approverId: user.id,
           decision: parsed.data.decision,
           conditions: parsed.data.conditions,
           feedback: parsed.data.feedback,
@@ -469,7 +510,7 @@ export function registerApprovalRoutes() {
             parsed.data.decision === 'approve'
               ? AuditEventType.APPROVAL_GRANTED
               : AuditEventType.APPROVAL_DENIED,
-          userId: user!.id,
+          userId: user.id,
           resourceType: 'approval_workflow',
           resourceId: parsed.data.workflowId,
           details: {

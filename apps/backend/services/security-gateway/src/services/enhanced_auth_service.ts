@@ -25,6 +25,39 @@ import { AuditService } from './audit_service.js';
 import { config } from '@uaip/config';
 import * as speakeasy from 'speakeasy';
 
+type OAuthUserInfoParam = {
+  email?: string;
+  id?: string;
+  name?: string;
+  login?: string;
+  avatar_url?: string;
+  type?: string;
+};
+
+type OAuthProviderParam = {
+  id?: string;
+  type?: OAuthProviderType;
+  agentConfig?: { permissions?: string[] };
+};
+
+type OAuthStateParam = {
+  agentCapabilities?: AgentCapability[];
+  userType?: UserType;
+};
+
+type OAuthTokensParam = object;
+
+type DeviceInfoWithTrust = {
+  isTrusted?: boolean;
+  [key: string]: unknown;
+};
+
+type PermissionEntry = string | { resource?: string; [key: string]: unknown };
+
+type OAuthServiceExtended = {
+  getAgentConnection: (agentId: string, providerType: OAuthProviderType) => Promise<unknown>;
+};
+
 export class EnhancedAuthService {
   private userService: UserService;
   private oauthDomainService: OAuthService;
@@ -58,7 +91,7 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user = (await this.userService.findUserByEmail(userInfo.email)) as unknown;
+      let user: EnhancedUser | null = (await this.userService.findUserByEmail(userInfo.email)) as EnhancedUser | null;
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
@@ -454,7 +487,7 @@ export class EnhancedAuthService {
         department: user.department,
         role: user.role,
         permissions: Array.isArray(permissions)
-          ? permissions.map((p: unknown) => p.resource || p)
+          ? permissions.map((p: PermissionEntry) => (typeof p === 'string' ? p : (p.resource ?? '')))
           : [],
         securityLevel: user.securityClearance,
         // @ts-expect-error -- Missing properties in type
@@ -469,7 +502,7 @@ export class EnhancedAuthService {
         oauthProvider: session.oauthProvider,
         // @ts-expect-error -- Missing properties in type
         agentCapabilities: session.agentCapabilities,
-        deviceTrusted: (session.deviceInfo as unknown)?.isTrusted || false,
+        deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust)?.isTrusted ?? false,
         locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session),
         agentContext:
           user.userType === UserType.AGENT
@@ -479,7 +512,7 @@ export class EnhancedAuthService {
                   user.name ||
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
-                capabilities: user.agentConfig?.capabilities || [],
+                capabilities: (user.agentConfig?.capabilities || []) as AgentCapability[],
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
                   maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
@@ -504,9 +537,9 @@ export class EnhancedAuthService {
   // Private helper methods
 
   private async createUserFromOAuth(
-    userInfo: unknown,
-    provider: unknown,
-    oauthState: unknown
+    userInfo: OAuthUserInfoParam,
+    provider: OAuthProviderParam,
+    oauthState: OAuthStateParam
   ): Promise<EnhancedUser> {
     const user: EnhancedUser = {
       id: crypto.randomUUID(),
@@ -555,9 +588,9 @@ export class EnhancedAuthService {
 
   private async updateUserOAuthConnection(
     user: EnhancedUser,
-    tokens: unknown,
-    provider: unknown,
-    userInfo: unknown
+    tokens: OAuthTokensParam,
+    provider: OAuthProviderParam,
+    userInfo: OAuthUserInfoParam
   ): Promise<void> {
     const existingProvider = user.oauthProviders.find((p) => p.providerId === provider.id);
 
@@ -689,11 +722,12 @@ export class EnhancedAuthService {
     providerType: OAuthProviderType
   ): Promise<boolean> {
     // Check if the OAuth provider service has the method
+    const extendedOAuthService = this.oauthProviderService as unknown as OAuthServiceExtended;
     if (
       'getAgentConnection' in this.oauthProviderService &&
-      typeof (this.oauthProviderService as unknown).getAgentConnection === 'function'
+      typeof extendedOAuthService.getAgentConnection === 'function'
     ) {
-      const connection = await (this.oauthProviderService as unknown).getAgentConnection(
+      const connection = await extendedOAuthService.getAgentConnection(
         agentId,
         providerType
       );

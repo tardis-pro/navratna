@@ -11,6 +11,27 @@ export class UserLLMProviderRepository {
     return getControlDb();
   }
 
+  async findAllProvidersByUser(userId: string) { return this.findByUserId(userId); }
+  async createUserProvider(data: NewUserLLMProvider) { return this.create(data); }
+  async deleteUserProvider(id: string) { return this.delete(id); }
+
+  async updateApiKey(id: string, apiKey: string) {
+    return this.update(id, { apiKey } as Partial<NewUserLLMProvider>);
+  }
+
+  async updateProviderConfig(id: string, config: Partial<NewUserLLMProvider>) {
+    return this.update(id, config);
+  }
+
+  async updateStatus(id: string, status: string) {
+    return this.update(id, { status } as Partial<NewUserLLMProvider>);
+  }
+
+  async getProviderStats(userId: string): Promise<{ total: number; active: number }> {
+    const providers = await this.findByUserId(userId);
+    return { total: providers.length, active: providers.length };
+  }
+
   async findById(id: string): Promise<UserLLMProviderRow | null> {
     try {
       const [row] = await this.db

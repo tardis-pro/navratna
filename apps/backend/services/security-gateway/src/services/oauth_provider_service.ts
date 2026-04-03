@@ -30,6 +30,9 @@ interface OAuthTokenResponse {
   scope?: string;
 }
 
+type OAuthProviderConfigWithRevoke = OAuthProviderConfig & { revokeUrl?: string };
+type OAuthProviderAgentConfig = { allowAgentAccess?: boolean };
+
 interface OAuthUserInfo {
   id: string;
   email?: string;
@@ -153,26 +156,27 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
-        revokeUrl: (providerConfig as unknown).revokeUrl,
+        revokeUrl: (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl,
         isEnabled: providerConfig.isEnabled || true,
       });
       // @ts-expect-error -- Argument type mismatch
       this.providers.set(savedProvider.id, savedProvider as unknown);
 
+      const savedProviderAgentCfg = savedProvider.agentConfig as OAuthProviderAgentConfig | undefined;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
         details: {
           action: 'create_oauth_provider',
           providerId: savedProvider.id,
           providerType: savedProvider.type,
-          agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
+          agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
         },
       });
 
       logger.info('OAuth provider created', {
         providerId: savedProvider.id,
         type: savedProvider.type,
-        agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
+        agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
       });
 
       return savedProvider as unknown;

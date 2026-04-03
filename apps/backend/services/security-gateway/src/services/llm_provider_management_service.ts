@@ -119,12 +119,19 @@ export class LLMProviderManagementService {
       await this.ensureInitialized();
 
       // Check if provider with same name already exists
-      const existingProvider = await this.llmProviderRepository.findByName(request.name);
+      const allProviders = await this.llmProviderRepository.findMany();
+      const existingProvider = allProviders.find((p) => p.name === request.name) ?? null;
       if (existingProvider) {
         throw new Error(`LLM provider with name '${request.name}' already exists`);
       }
-      const provider = await this.llmProviderRepository.createProvider({
-        ...request,
+      const provider = await this.llmProviderRepository.create({
+        name: request.name,
+        type: request.type,
+        baseUrl: request.baseUrl,
+        description: request.description,
+        defaultModel: request.defaultModel,
+        configuration: request.configuration,
+        priority: request.priority ?? 0,
         createdBy,
       });
 
@@ -201,7 +208,7 @@ export class LLMProviderManagementService {
       await this.ensureInitialized();
 
       const provider = await this.llmProviderRepository.findById(id);
-      await this.llmProviderRepository.softDelete(id, deletedBy);
+      await this.llmProviderRepository.update(id, { isActive: false, updatedBy: deletedBy });
 
       // Notify LLM service to refresh providers and cache
       await this.notifyProviderChange('provider.deleted', id, provider?.type);
@@ -249,9 +256,9 @@ export class LLMProviderManagementService {
           result = { success: true, latency };
 
           // Update health check result
-          await this.llmProviderRepository.updateHealthCheck(id, {
-            status: 'healthy',
-            latency,
+          await this.llmProviderRepository.update(id, {
+            healthCheckResult: { status: 'healthy', latency, checkedAt: new Date() },
+            lastHealthCheckAt: new Date(),
           });
         } else {
           const errorText = await response.text();
@@ -262,10 +269,9 @@ export class LLMProviderManagementService {
           };
 
           // Update health check result
-          await this.llmProviderRepository.updateHealthCheck(id, {
-            status: 'unhealthy',
-            latency,
-            error: result.error,
+          await this.llmProviderRepository.update(id, {
+            healthCheckResult: { status: 'unhealthy', latency, error: result.error, checkedAt: new Date() },
+            lastHealthCheckAt: new Date(),
           });
         }
       } catch (error) {
@@ -279,10 +285,9 @@ export class LLMProviderManagementService {
         };
 
         // Update health check result
-        await this.llmProviderRepository.updateHealthCheck(id, {
-          status: 'unhealthy',
-          latency,
-          error: errorMessage,
+        await this.llmProviderRepository.update(id, {
+          healthCheckResult: { status: 'unhealthy', latency, error: errorMessage, checkedAt: new Date() },
+          lastHealthCheckAt: new Date(),
         });
       }
 
