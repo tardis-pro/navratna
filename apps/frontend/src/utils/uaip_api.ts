@@ -80,6 +80,7 @@ import type {
   DiscussionMessageCreate,
   ModelProvider,
 } from '@/types/frontend_extensions';
+import { logger } from '@/utils/browser_logger';
 
 // Environment configuration
 const envConfig = getEnvironmentConfig();
@@ -180,7 +181,7 @@ export const uaipAPI = {
           hasMore: false, // The backend doesn't provide pagination info yet
         };
       } catch (error) {
-        console.error('Failed to fetch personas:', error);
+        logger.error('Failed to fetch personas:', error);
         throw error;
       }
     },
@@ -200,7 +201,7 @@ export const uaipAPI = {
           hasMore: false,
         };
       } catch (error) {
-        console.error('Failed to fetch personas for display:', error);
+        logger.error('Failed to fetch personas for display:', error);
         throw error;
       }
     },
@@ -427,7 +428,7 @@ export const uaipAPI = {
         const agents = await api.agents.list();
         return agents || [];
       } catch (error) {
-        console.error('Failed to fetch agents:', error);
+        logger.error('Failed to fetch agents:', error);
         throw error;
       }
     },
@@ -437,7 +438,7 @@ export const uaipAPI = {
         const agent = await api.agents.get(id);
         return agent;
       } catch (error) {
-        console.error(`Failed to fetch agent ${id}:`, error);
+        logger.error(`Failed to fetch agent ${id}:`, error);
         throw error;
       }
     },
@@ -447,7 +448,7 @@ export const uaipAPI = {
         const agent = await api.agents.create(agentData);
         return agent;
       } catch (error) {
-        console.error('Failed to create agent:', error);
+        logger.error('Failed to create agent:', error);
         throw error;
       }
     },
@@ -457,7 +458,7 @@ export const uaipAPI = {
         const agent = await api.agents.update(id, updates);
         return agent;
       } catch (error) {
-        console.error(`Failed to update agent ${id}:`, error);
+        logger.error(`Failed to update agent ${id}:`, error);
         throw error;
       }
     },
@@ -466,7 +467,7 @@ export const uaipAPI = {
       try {
         await api.agents.delete(id);
       } catch (error) {
-        console.error(`Failed to delete agent ${id}:`, error);
+        logger.error(`Failed to delete agent ${id}:`, error);
       }
     },
 
@@ -501,7 +502,7 @@ export const uaipAPI = {
           context: request.context || {},
         });
       } catch (error) {
-        console.error('Agent chat error:', error);
+        logger.error('Agent chat error:', error);
 
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
@@ -527,7 +528,7 @@ export const uaipAPI = {
       try {
         return await edenRequest(`/api/v1/agents/${agentId}/tools`, { method: 'POST', body: { toolId } });
       } catch (error) {
-        console.error(`Failed to add tool ${toolId} to agent ${agentId}:`, error);
+        logger.error(`Failed to add tool ${toolId} to agent ${agentId}:`, error);
         throw error;
       }
     },
@@ -536,7 +537,7 @@ export const uaipAPI = {
       try {
         return await edenRequest(`/api/v1/agents/${agentId}/tools/${toolId}`, { method: 'DELETE' });
       } catch (error) {
-        console.error(`Failed to remove tool ${toolId} from agent ${agentId}:`, error);
+        logger.error(`Failed to remove tool ${toolId} from agent ${agentId}:`, error);
         throw error;
       }
     },
@@ -553,7 +554,7 @@ export const uaipAPI = {
         const tools = await api.tools.list(criteria);
         return tools || [];
       } catch (error) {
-        console.warn('Tools API failed, returning empty array:', error);
+        logger.warn('Tools API failed, returning empty array:', error);
         return [];
       }
     },
@@ -569,7 +570,7 @@ export const uaipAPI = {
 
         return response.data!;
       } catch (error) {
-        console.error('Failed to get tool:', error);
+        logger.error('Failed to get tool:', error);
         throw error;
       }
     },
@@ -585,7 +586,7 @@ export const uaipAPI = {
 
         return response.data!;
       } catch (error) {
-        console.error('Failed to create tool:', error);
+        logger.error('Failed to create tool:', error);
         throw error;
       }
     },
@@ -607,7 +608,7 @@ export const uaipAPI = {
           cost: Math.random() * 10,
         };
       } catch (error) {
-        console.error('Failed to execute tool:', error);
+        logger.error('Failed to execute tool:', error);
         return {
           success: false,
           error: { message: error instanceof Error ? error.message : 'Tool execution failed' },
@@ -624,13 +625,13 @@ export const uaipAPI = {
         const response = await client.tools.getCategories();
 
         if (!response.success) {
-          console.warn('Categories API not available, returning mock categories');
+          logger.warn('Categories API not available, returning mock categories');
           return ['System', 'External', 'Analysis', 'Communication', 'Development'];
         }
 
         return response.data!;
       } catch (error) {
-        console.warn('Failed to get tool categories, returning mock categories:', error);
+        logger.warn('Failed to get tool categories, returning mock categories:', error);
         return ['System', 'External', 'Analysis', 'Communication', 'Development'];
       }
     },
@@ -663,7 +664,7 @@ export const uaipAPI = {
           return transformedUserModels;
         }
       } catch (error) {
-        console.warn('Failed to get user models, falling back to system models:', error);
+        logger.warn('Failed to get user models, falling back to system models:', error);
       }
 
       // Fallback to system models if user has no providers
@@ -680,7 +681,7 @@ export const uaipAPI = {
           isAvailable: model.isActive || false,
         }));
       } catch (error) {
-        console.error('Failed to get system models:', error);
+        logger.error('Failed to get system models:', error);
         return [];
       }
     },
@@ -735,7 +736,7 @@ export const uaipAPI = {
         const provider = await api.llm.userLLM.createProvider(providerData);
         return provider;
       } catch (error) {
-        console.error('Failed to create provider:', error);
+        logger.error('Failed to create provider:', error);
         throw error;
       }
     },
@@ -831,7 +832,7 @@ export const uaipAPI = {
       }>
     > {
       // This method is not available in user LLM routes, so we'll return empty array
-      console.warn('getModelsFromProvider is not available in user LLM routes');
+      logger.warn('getModelsFromProvider is not available in user LLM routes');
       return [];
     },
 
@@ -851,7 +852,7 @@ export const uaipAPI = {
           available: provider.isActive && provider.status === 'active',
         }));
       } catch (error) {
-        console.warn('Failed to get user provider stats, returning empty array:', error);
+        logger.warn('Failed to get user provider stats, returning empty array:', error);
         return [];
       }
     },
@@ -901,7 +902,7 @@ export const uaipAPI = {
           reason: `Approved by ${approvalData.approverId}`,
         });
       } catch (error) {
-        console.error('Approval API failed:', error);
+        logger.error('Approval API failed:', error);
         throw error; // Re-throw to let the UI handle the error
       }
     },
@@ -916,7 +917,7 @@ export const uaipAPI = {
           reason: rejectionData.reason,
         });
       } catch (error) {
-        console.error('Rejection API failed:', error);
+        logger.error('Rejection API failed:', error);
         throw error; // Re-throw to let the UI handle the error
       }
     },
@@ -930,11 +931,11 @@ export const uaipAPI = {
         } else if (Array.isArray(response)) {
           return response;
         } else {
-          console.warn('getPending() returned unexpected format:', response);
+          logger.warn('getPending() returned unexpected format:', response);
           return [];
         }
       } catch (error) {
-        console.error('Failed to get pending approvals:', error);
+        logger.error('Failed to get pending approvals:', error);
         // Return empty array instead of throwing to prevent infinite retries
         return [];
       }
@@ -980,7 +981,7 @@ export const uaipAPI = {
 
         // Validate searchResults structure
         if (!Array.isArray(searchResults)) {
-          console.warn('Search results is not an array:', searchResults);
+          logger.warn('Search results is not an array:', searchResults);
           return {
             items: [],
             totalCount: 0,
@@ -1006,7 +1007,7 @@ export const uaipAPI = {
           },
         };
       } catch (error) {
-        console.warn('Knowledge search API failed, returning empty results:', error);
+        logger.warn('Knowledge search API failed, returning empty results:', error);
         return {
           items: [],
           totalCount: 0,
@@ -1087,7 +1088,7 @@ export const uaipAPI = {
           },
         };
       } catch (error) {
-        console.warn('Knowledge stats API failed, returning mock data:', error);
+        logger.warn('Knowledge stats API failed, returning mock data:', error);
         // Return mock data to prevent infinite loops
         return {
           totalItems: 0,
@@ -1110,7 +1111,7 @@ export const uaipAPI = {
         const relatedItems = await client.knowledge.findSimilar(itemId);
         return relatedItems.map((result: unknown) => result.item || result);
       } catch (error) {
-        console.warn('Similar items endpoint unavailable, returning empty:', error);
+        logger.warn('Similar items endpoint unavailable, returning empty:', error);
         return [];
       }
     },
@@ -1143,7 +1144,7 @@ export const uaipAPI = {
         const client = getAPIClient();
         return await client.knowledge.list(options);
       } catch (error) {
-        console.warn('Failed to get all knowledge items:', error);
+        logger.warn('Failed to get all knowledge items:', error);
         return [];
       }
     },
@@ -1171,7 +1172,7 @@ export const uaipAPI = {
         const client = getAPIClient();
         return await client.knowledge.getGraph(options);
       } catch (error) {
-        console.warn('Knowledge graph API failed, returning empty graph:', error);
+        logger.warn('Knowledge graph API failed, returning empty graph:', error);
         return {
           nodes: [],
           edges: [],
@@ -1205,7 +1206,7 @@ export const uaipAPI = {
       try {
         return await api.mcp.uploadConfig(configFile);
       } catch (error) {
-        console.error('MCP config upload error:', error);
+        logger.error('MCP config upload error:', error);
         throw error;
       }
     },
@@ -1224,7 +1225,7 @@ export const uaipAPI = {
       try {
         return await api.mcp.getStatus();
       } catch (error) {
-        console.error('MCP status error:', error);
+        logger.error('MCP status error:', error);
         throw error;
       }
     },
@@ -1239,7 +1240,7 @@ export const uaipAPI = {
       try {
         return await api.mcp.getConfig();
       } catch (error) {
-        console.error('MCP config error:', error);
+        logger.error('MCP config error:', error);
         throw error;
       }
     },
@@ -1252,7 +1253,7 @@ export const uaipAPI = {
       try {
         return await api.mcp.restartServer(serverName);
       } catch (error) {
-        console.error('MCP server restart error:', error);
+        logger.error('MCP server restart error:', error);
         throw error;
       }
     },
@@ -1273,7 +1274,7 @@ export const uaipAPI = {
       try {
         return await api.mcp.getTools();
       } catch (error) {
-        console.error('MCP tools error:', error);
+        logger.error('MCP tools error:', error);
         throw error;
       }
     },

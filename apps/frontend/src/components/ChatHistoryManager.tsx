@@ -17,6 +17,7 @@ import {
   Calendar as _Calendar,
   Bot,
 } from 'lucide-react';
+import { logger } from '@/utils/browser_logger';
 
 interface ChatHistoryManagerProps {
   onOpenChat?: (agentId: string, agentName: string, sessionId?: string) => void;
@@ -50,7 +51,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenCh
       const allSessions = await chatPersistenceService.getAllSessions();
       setSessions(allSessions);
     } catch (error) {
-      console.error('Failed to load chat history:', error);
+      logger.error('Failed to load chat history:', error);
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenCh
       await chatPersistenceService.deleteChatSession(sessionId);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
     } catch (error) {
-      console.error('Failed to delete session:', error);
+      logger.error('Failed to delete session:', error);
     }
   };
 
@@ -80,7 +81,7 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenCh
 
       downloadJson(exportData, `chat-${session.agentName}-${session.createdAt.split('T')[0]}.json`);
     } catch (error) {
-      console.error('Failed to export session:', error);
+      logger.error('Failed to export session:', error);
     }
   };
 

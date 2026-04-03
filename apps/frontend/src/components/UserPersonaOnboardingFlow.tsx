@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { logger } from '@/utils/browser_logger';
 
 interface PersonaQuestion {
   id: string;
@@ -427,7 +428,7 @@ export const UserPersonaOnboardingFlow: React.FC<UserPersonaOnboardingFlowProps>
 
       await onComplete({ personaData, onboardingProgress });
     } catch (error) {
-      console.error('Failed to complete onboarding:', error);
+      logger.error('Failed to complete onboarding:', error);
     } finally {
       setIsSubmitting(false);
     }

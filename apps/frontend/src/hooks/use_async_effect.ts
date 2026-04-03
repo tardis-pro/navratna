@@ -1,4 +1,5 @@
 import { useEffect, useRef, DependencyList } from 'react';
+import { logger } from '@/utils/browser_logger';
 
 /**
  * Custom hook for running async effects with automatic cleanup
@@ -35,7 +36,7 @@ export function useAsyncEffect(
         }
       } catch (error) {
         if (mounted) {
-          console.error('Async effect error:', error);
+          logger.error('Async effect error:', error);
         }
       }
     };

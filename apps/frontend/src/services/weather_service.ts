@@ -1,4 +1,5 @@
 import { LocationData } from './location_service';
+import { logger } from '@/utils/browser_logger';
 
 export interface WeatherData {
   location: string;
@@ -41,7 +42,7 @@ export class WeatherService {
 
       return weather;
     } catch (error) {
-      console.error('Failed to fetch weather data:', error);
+      logger.error('Failed to fetch weather data:', error);
       return this.getDefaultWeather(location);
     }
   }
@@ -199,7 +200,7 @@ export class WeatherService {
       const cached = localStorage.getItem(this.WEATHER_CACHE_KEY);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
-      console.warn('Failed to load cached weather:', error);
+      logger.warn('Failed to load cached weather:', error);
       return null;
     }
   }
@@ -221,7 +222,7 @@ export class WeatherService {
       localStorage.setItem(this.WEATHER_CACHE_KEY, JSON.stringify(weather));
       localStorage.setItem(this.WEATHER_TIMESTAMP_KEY, Date.now().toString());
     } catch (error) {
-      console.warn('Failed to cache weather data:', error);
+      logger.warn('Failed to cache weather data:', error);
     }
   }
 

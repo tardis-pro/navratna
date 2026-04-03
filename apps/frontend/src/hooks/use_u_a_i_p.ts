@@ -14,6 +14,7 @@ import type {
 } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip_api';
 import { getWebSocketURL } from '../config/api_config';
+import { logger } from '@/utils/browser_logger';
 
 // Enhanced error handling for production deployment
 const createUIError = (error: unknown, context: string): UIError => ({
@@ -54,7 +55,7 @@ export function useAsyncData<T>(
     } catch (error: unknown) {
       // Handle 404 errors gracefully - backend services might not be running
       if (error.message?.includes('404') || error.message?.includes('not found')) {
-        console.warn('Backend service not available, using fallback data:', error.message);
+        logger.warn('Backend service not available, using fallback data:', error.message);
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -172,7 +173,7 @@ export function useAgents() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to update agent:', error);
+        logger.error('Failed to update agent:', error);
         throw error;
       }
     },
@@ -232,7 +233,7 @@ export function useOperations() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to execute operation:', error);
+        logger.error('Failed to execute operation:', error);
         throw error;
       }
     },
@@ -248,7 +249,7 @@ export function useOperations() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to pause operation:', error);
+        logger.error('Failed to pause operation:', error);
         throw error;
       }
     },
@@ -264,7 +265,7 @@ export function useOperations() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to cancel operation:', error);
+        logger.error('Failed to cancel operation:', error);
         throw error;
       }
     },
@@ -337,7 +338,7 @@ export function useCapabilities() {
     try {
       return await uaipAPI.client.capabilities.search({ query });
     } catch (error) {
-      console.error('Failed to search capabilities:', error);
+      logger.error('Failed to search capabilities:', error);
       throw error;
     }
   }, []);
@@ -351,7 +352,7 @@ export function useCapabilities() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to register capability:', error);
+        logger.error('Failed to register capability:', error);
         throw error;
       }
     },
@@ -438,7 +439,7 @@ export function useApprovals() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to process approval:', error);
+        logger.error('Failed to process approval:', error);
         throw error;
       }
     },
@@ -481,7 +482,7 @@ export function useWebSocket(url?: string) {
           const data = JSON.parse(event.data) as WebSocketEvent;
           setLastEvent(data);
         } catch (err) {
-          console.error('[UAIP WebSocket] Failed to parse message:', err);
+          logger.error('[UAIP WebSocket] Failed to parse message:', err);
         }
       };
 
@@ -503,11 +504,11 @@ export function useWebSocket(url?: string) {
 
       wsRef.current.onerror = (socketError) => {
         setError('WebSocket connection error');
-        console.error('[UAIP WebSocket] Error:', socketError);
+        logger.error('[UAIP WebSocket] Error:', socketError);
       };
     } catch (err) {
       setError('Failed to create WebSocket connection');
-      console.error('[UAIP WebSocket] Creation error:', err);
+      logger.error('[UAIP WebSocket] Creation error:', err);
     }
   }, [url]);
 
@@ -529,7 +530,7 @@ export function useWebSocket(url?: string) {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     } else {
-      console.warn('[UAIP WebSocket] Cannot send message: not connected');
+      logger.warn('[UAIP WebSocket] Cannot send message: not connected');
     }
   }, []);
 
@@ -579,7 +580,7 @@ export function useInsights() {
         }
         return response;
       } catch (error) {
-        console.error('Failed to generate insight:', error);
+        logger.error('Failed to generate insight:', error);
         throw error;
       }
     },

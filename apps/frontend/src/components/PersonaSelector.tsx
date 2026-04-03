@@ -11,6 +11,7 @@ import {
   Loader2,
   RefreshCw,
 } from 'lucide-react';
+import { logger } from '@/utils/browser_logger';
 
 interface PersonaSelectorProps {
   onSelectPersona: (persona: PersonaDisplay) => Promise<void>;
@@ -41,7 +42,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
       const personasResult = await uaipAPI.personas.getForDisplay();
       setPersonas(personasResult.personas || []);
     } catch (err) {
-      console.warn('Failed to load persona data from API, using fallback data:', err);
+      logger.warn('Failed to load persona data from API, using fallback data:', err);
 
       // Fallback to mock data when API is not available
       const mockPersonas: PersonaDisplay[] = [
@@ -167,7 +168,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
       );
       setPersonas(result.personas || []);
     } catch (err) {
-      console.warn('Failed to search personas via API, filtering fallback data:', err);
+      logger.warn('Failed to search personas via API, filtering fallback data:', err);
 
       // Filter the current personas (which should be the fallback data)
       const query = searchQuery.toLowerCase();
@@ -201,7 +202,7 @@ export const PersonaSelector: React.FC<PersonaSelectorProps> = ({
     try {
       await onSelectPersona(persona);
     } catch (err) {
-      console.error('Failed to select persona:', err);
+      logger.error('Failed to select persona:', err);
       alert('Failed to create agent with this persona. Please try again.');
     }
   };

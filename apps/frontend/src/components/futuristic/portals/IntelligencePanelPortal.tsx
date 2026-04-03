@@ -33,6 +33,7 @@ import { LightBulbIcon } from '@heroicons/react/24/outline';
 import { useAgents } from '../../../contexts/AgentContext';
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip_api';
+import { logger } from '@/utils/browser_logger';
 
 interface IntelligencePanelPortalProps {
   className?: string;
@@ -249,7 +250,7 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         setCognitiveInsights((prev) => [...advancedInsights, ...prev.slice(0, 3)]);
       }
     } catch (error) {
-      console.error('Deep analysis failed:', error);
+      logger.error('Deep analysis failed:', error);
     } finally {
       setIsAnalyzing(false);
     }

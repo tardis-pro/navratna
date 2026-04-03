@@ -4,6 +4,7 @@ import { Eye, EyeOff, Lock, User, Lightbulb, Sparkles, Globe, MapPin } from 'luc
 import { motion } from 'framer-motion';
 import { LocationService, LocationData } from '../services/location_service';
 import { MapWallpaper } from './futuristic/desktop/MapWallpaper';
+import { logger } from '@/utils/browser_logger';
 
 interface LoginFormData {
   email: string;
@@ -88,7 +89,7 @@ export const Login: React.FC = () => {
         setLocationConsent(false);
       }
     } catch (err) {
-      console.error('Location request failed:', err);
+      logger.error('Location request failed:', err);
       setLocationConsent(false);
     } finally {
       setIsRequestingLocation(false);
@@ -109,7 +110,7 @@ export const Login: React.FC = () => {
       await login(formData.email, formData.password, formData.rememberMe);
     } catch (err) {
       // Error is handled by the auth context
-      console.error('Login failed:', err);
+      logger.error('Login failed:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -207,7 +208,7 @@ export const Login: React.FC = () => {
       try {
         await login(email, password, formData.rememberMe);
       } catch (err) {
-        console.error('Auto-login failed:', err);
+        logger.error('Auto-login failed:', err);
       } finally {
         setIsSubmitting(false);
       }

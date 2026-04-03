@@ -62,6 +62,7 @@ import {
   List,
 } from 'lucide-react';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { logger } from '@/utils/browser_logger';
 
 interface DiscussionPortalProps {
   className?: string;
@@ -261,7 +262,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
           setSelectedDiscussionId(discussionId);
         }
       } catch (error) {
-        console.error('Failed to load available discussions:', error);
+        logger.error('Failed to load available discussions:', error);
       } finally {
         setLoadingDiscussions(false);
       }
@@ -343,7 +344,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
 
       setIsConfigOpen(false);
     } catch (error) {
-      console.error('Failed to start discussion:', error);
+      logger.error('Failed to start discussion:', error);
     }
   };
 
@@ -351,7 +352,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     try {
       await stop();
     } catch (error) {
-      console.error('Failed to stop discussion:', error);
+      logger.error('Failed to stop discussion:', error);
     }
   };
 
@@ -359,7 +360,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     try {
       await pause();
     } catch (error) {
-      console.error('Failed to pause discussion:', error);
+      logger.error('Failed to pause discussion:', error);
     }
   };
 
@@ -367,7 +368,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     try {
       await resume();
     } catch (error) {
-      console.error('Failed to resume discussion:', error);
+      logger.error('Failed to resume discussion:', error);
     }
   };
 

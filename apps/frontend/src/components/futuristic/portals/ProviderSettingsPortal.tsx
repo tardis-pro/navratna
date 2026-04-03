@@ -20,6 +20,7 @@ import { LLMTaskType, LLMProviderType, UserLLMPreference } from '@uaip/types';
 import { uaipAPI as _uaipAPI } from '../../../utils/uaip_api';
 import { usersAPI } from '../../../api/users_api';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { logger } from '@/utils/browser_logger';
 
 interface ProviderSettingsPortalProps {
   className?: string;
@@ -116,7 +117,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
       const response = await usersAPI.getUserLLMPreferences();
       setUserPreferences(response || []);
     } catch (error) {
-      console.error('Failed to load user preferences:', error);
+      logger.error('Failed to load user preferences:', error);
     } finally {
       setLoadingPreferences(false);
     }
@@ -158,7 +159,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
       await usersAPI.updateUserLLMPreferences(userPreferences);
       // Show success message or notification
     } catch (error) {
-      console.error('Failed to save user preferences:', error);
+      logger.error('Failed to save user preferences:', error);
     }
   };
 
@@ -191,7 +192,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
             : null,
       }));
     } catch (error) {
-      console.error('Failed to initialize model data:', error);
+      logger.error('Failed to initialize model data:', error);
       setInitializationStatus((prev) => ({
         ...prev,
         loading: false,
@@ -222,7 +223,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
       await loadUserPreferences();
       setInitializationStatus((prev) => ({ ...prev, loading: false }));
     } catch (error) {
-      console.error('Failed to refresh  providers:', error);
+      logger.error('Failed to refresh  providers:', error);
       setInitializationStatus((prev) => ({
         ...prev,
         loading: false,

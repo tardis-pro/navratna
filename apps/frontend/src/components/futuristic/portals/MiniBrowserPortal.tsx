@@ -54,6 +54,7 @@ import {
   ZoomOut,
   RotateCw,
 } from 'lucide-react';
+import { logger } from '@/utils/browser_logger';
 
 interface Screenshot {
   id: string;
@@ -304,7 +305,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
         setShowSaveDialog(true);
       }
     } catch (error) {
-      console.error('Failed to capture screenshot:', error);
+      logger.error('Failed to capture screenshot:', error);
     } finally {
       setIsCapturing(false);
     }
@@ -341,7 +342,7 @@ export const MiniBrowserPortal: React.FC<MiniBrowserPortalProps> = ({ className 
         setShowSaveDialog(false);
         setCurrentScreenshot(null);
       } catch (error) {
-        console.error('Failed to save screenshot to knowledge base:', error);
+        logger.error('Failed to save screenshot to knowledge base:', error);
       } finally {
         setIsUploading(false);
       }

@@ -18,6 +18,7 @@ import {
   PortalEmptyState,
   PortalHeader,
 } from './portal-shared-components';
+import { logger } from '@/utils/browser_logger';
 
 interface AuditEntry {
   id: string;
@@ -133,7 +134,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
     const actionKey = `${approvalId}-${decision}`;
 
     if (actionsInProgress.has(actionKey)) {
-      console.warn('Action already in progress, ignoring duplicate request');
+      logger.warn('Action already in progress, ignoring duplicate request');
       return;
     }
 
@@ -149,7 +150,7 @@ export const SecurityGateway: React.FC<SecurityGatewayPortalProps> = ({ classNam
       // Refresh data after approval action
       await refreshData();
     } catch (error) {
-      console.error(`Failed to ${decision} approval ${approvalId}:`, error);
+      logger.error(`Failed to ${decision} approval ${approvalId}:`, error);
       // Show user-friendly error message
       alert(
         `Failed to ${decision} approval: ${error instanceof Error ? error.message : 'Unknown error'}`

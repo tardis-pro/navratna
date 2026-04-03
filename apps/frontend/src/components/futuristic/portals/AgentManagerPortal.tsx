@@ -62,6 +62,7 @@ import type { ModelOption } from '@uaip/types/models';
 import { useToast } from '@/components/ui/use_toast';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 import { STALE_TIMES } from '@/api/query_config';
+import { logger } from '@/utils/browser_logger';
 
 interface AgentManagerPortalProps {
   className?: string;
@@ -108,7 +109,7 @@ const getModels = async (): Promise<ModelOption[]> => {
       }));
     }
   } catch (error) {
-    console.warn('Failed to fetch models from API, using fallback models:', error);
+    logger.warn('Failed to fetch models from API, using fallback models:', error);
   }
 
   // Fallback models when API is unavailable
@@ -341,7 +342,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         setMcpToolsError('Invalid MCP tools response format');
       }
     } catch (error) {
-      console.error('Failed to load MCP tools:', error);
+      logger.error('Failed to load MCP tools:', error);
       setMcpToolsError('Failed to load MCP tools');
       // Fallback to mock data for development
       setAvailableMCPTools([
@@ -406,7 +407,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         }
       }
     } catch (error) {
-      console.error('Failed to load models:', error);
+      logger.error('Failed to load models:', error);
       setModelsError('Failed to load available models');
     } finally {
       setModelsLoading(false);
@@ -588,7 +589,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         navigateToView();
       }
     } catch (error) {
-      console.error('Failed to create agent:', error);
+      logger.error('Failed to create agent:', error);
     }
   };
 
@@ -652,7 +653,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         // Optionally refresh personas in PersonaSelector
       }
     } catch (error) {
-      console.error('Failed to create persona:', error);
+      logger.error('Failed to create persona:', error);
     }
   };
 
@@ -672,7 +673,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
       await refetchAgents();
     } catch (error) {
-      console.error('Failed to delete agent:', error);
+      logger.error('Failed to delete agent:', error);
     }
   };
 
@@ -1255,7 +1256,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
               Promise.all([loadModels(), refetchAgents(), loadMCPTools()])
               .then(() => {})
               .catch((error) => {
-                console.error('❌ Manual refresh failed:', error);
+                logger.error('❌ Manual refresh failed:', error);
               })
               .finally(() => {
                 setRefreshing(false);

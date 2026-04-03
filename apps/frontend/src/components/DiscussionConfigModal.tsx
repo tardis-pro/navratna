@@ -33,6 +33,7 @@ import {
   Zap,
   Users,
 } from 'lucide-react';
+import { logger } from '@/utils/browser_logger';
 
 export type DiscussionPurpose =
   | 'brainstorm'
@@ -371,7 +372,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         onDiscussionStarted(result.discussionId);
       }
     } catch (error) {
-      console.error('Failed to start discussion:', error);
+      logger.error('Failed to start discussion:', error);
     }
   };
 

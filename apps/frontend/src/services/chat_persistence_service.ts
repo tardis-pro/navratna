@@ -3,6 +3,7 @@
 import { discussionsAPI } from '../api/discussions_api';
 import { _Discussion, CreateDiscussionRequest, TurnStrategy, MessageType } from '@uaip/types';
 import { getStoredUserId } from '@/utils/auth_storage';
+import { logger } from '@/utils/browser_logger';
 
 export interface ChatSession {
   id: string;
@@ -57,7 +58,7 @@ export class ChatPersistenceService {
     agentName: string,
     makePersistent = true
   ): Promise<ChatSession> {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.createChatSession is deprecated. Use discussionsAPI.create() instead.'
     );
 
@@ -128,7 +129,7 @@ export class ChatPersistenceService {
     limit = 50,
     offset = 0
   ): Promise<PersistentChatMessage[]> {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.getMessages is deprecated. Use discussionsAPI.getMessages() instead.'
     );
 
@@ -150,7 +151,7 @@ export class ChatPersistenceService {
         metadata: msg.metadata,
       }));
     } catch (error) {
-      console.error('Failed to load messages from discussion service:', error);
+      logger.error('Failed to load messages from discussion service:', error);
       return [];
     }
   }
@@ -159,7 +160,7 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.list() instead
    */
   public async getAllSessions(): Promise<ChatSession[]> {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.getAllSessions is deprecated. Use discussionsAPI.list() instead.'
     );
 
@@ -183,7 +184,7 @@ export class ChatPersistenceService {
           messageCount: discussion.messageCount || 0,
         }));
     } catch (error) {
-      console.error('Failed to load discussions:', error);
+      logger.error('Failed to load discussions:', error);
       return [];
     }
   }
@@ -192,7 +193,7 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.list() instead
    */
   public getAllChatSessions(): ChatSession[] {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.getAllChatSessions is deprecated. Use discussionsAPI.list() instead.'
     );
     // This is a synchronous method, so we can't easily convert it to async
@@ -204,14 +205,14 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.end() instead
    */
   public async deleteChatSession(sessionId: string): Promise<void> {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.deleteChatSession is deprecated. Use discussionsAPI.end() instead.'
     );
 
     try {
       await discussionsAPI.end(sessionId);
     } catch (error) {
-      console.error('Failed to end discussion:', error);
+      logger.error('Failed to end discussion:', error);
     }
   }
 
@@ -219,7 +220,7 @@ export class ChatPersistenceService {
    * @deprecated No longer needed - backend handles all persistence
    */
   public async clearSession(_sessionId: string): Promise<void> {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.clearSession is deprecated. No action needed - backend handles all persistence.'
     );
     // No action needed - backend handles all persistence
@@ -229,7 +230,7 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.sendMessage() instead
    */
   public async addMessage(sessionId: string, message: PersistentChatMessage): Promise<void> {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.addMessage is deprecated. Use discussionsAPI.sendMessage() instead.'
     );
 
@@ -249,7 +250,7 @@ export class ChatPersistenceService {
         },
       });
     } catch (error) {
-      console.error('Failed to persist message to discussion service:', error);
+      logger.error('Failed to persist message to discussion service:', error);
     }
   }
 
@@ -257,7 +258,7 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.get() instead
    */
   public getChatSession(_sessionId: string): ChatSession | undefined {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.getChatSession is deprecated. Use discussionsAPI.get() instead.'
     );
     // This is a synchronous method, so we can't easily convert it to async
@@ -268,7 +269,7 @@ export class ChatPersistenceService {
    * @deprecated Use discussionsAPI.list() with agent filter instead
    */
   public findSessionByAgent(_agentId: string): ChatSession | undefined {
-    console.warn(
+    logger.warn(
       'ChatPersistenceService.findSessionByAgent is deprecated. Use discussionsAPI.list() with agent filter instead.'
     );
     // This is a synchronous method, so we can't easily convert it to async

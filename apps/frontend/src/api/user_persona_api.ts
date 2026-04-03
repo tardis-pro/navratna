@@ -8,6 +8,7 @@ import type {
   PersonaRecommendations,
   PersonaInsights,
 } from '@uaip/contracts/api';
+import { logger } from '@/utils/browser_logger';
 
 export type {
   UserPersonaData,
@@ -64,7 +65,7 @@ export const userPersonaAPI = {
       return edenWithCSRFRetry(() => persona['onboarding-status'].get());
     } catch (error: unknown) {
       const errRecord = isRecord(error) ? error : {};
-      console.error('User persona onboarding status check failed:', {
+      logger.error('User persona onboarding status check failed:', {
         error,
         status: errRecord['status'],
         statusCode: errRecord['statusCode'],

@@ -24,6 +24,7 @@ import type { KnowledgeItem } from '@uaip/types';
 import KnowledgeGraphVisualization from './KnowledgeGraphVisualization';
 import { AtomicKnowledgeViewer } from './AtomicKnowledgeViewer';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
+import { logger } from '@/utils/browser_logger';
 
 interface KnowledgePortalProps {
   className?: string;
@@ -143,7 +144,7 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
         timestamp: Date.now(),
       });
     } catch (searchError) {
-      console.error('Search failed:', searchError);
+      logger.error('Search failed:', searchError);
     }
   }, [searchQuery, searchKnowledge]);
 

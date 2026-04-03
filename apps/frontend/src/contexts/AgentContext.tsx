@@ -33,6 +33,7 @@ import {
 import uaipAPI from '@/utils/uaip_api';
 import { llmAPI } from '@/api/llm_api';
 import { PERSONA_CATEGORIES } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 // Agent Intelligence Flow - using backend API
 interface AgentIntelligenceFlow {
@@ -209,7 +210,7 @@ function agentReducer(
     case 'ADD_AGENT': {
       // Validate payload
       if (!action.payload || !action.payload.id) {
-        console.error(
+        logger.error(
           '❌ REDUCER: ADD_AGENT: Invalid payload - missing agent or id',
           action.payload
         );
@@ -251,7 +252,7 @@ function agentReducer(
     }
     case 'REMOVE_AGENT': {
       if (!action.payload) {
-        console.error('REMOVE_AGENT: Invalid payload - missing agent id', action.payload);
+        logger.error('REMOVE_AGENT: Invalid payload - missing agent id', action.payload);
         return state;
       }
       const { [action.payload]: _removed, ...rest } = state;
@@ -259,7 +260,7 @@ function agentReducer(
     }
     case 'UPDATE_AGENT': {
       if (!action.payload || !action.payload.id) {
-        console.error('UPDATE_AGENT: Invalid payload - missing id', action.payload);
+        logger.error('UPDATE_AGENT: Invalid payload - missing id', action.payload);
         return state;
       }
       const existingAgent = state[action.payload.id];
@@ -414,7 +415,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         }));
         loadingRefs.current.providersLoaded = true;
       } catch (error) {
-        console.error('[AgentContext] Failed to load providers:', error);
+        logger.error('[AgentContext] Failed to load providers:', error);
         setModelState((prev) => ({
           ...prev,
           loadingProviders: false,
@@ -453,7 +454,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         }));
         loadingRefs.current.modelsLoaded = true;
       } catch (error) {
-        console.error('[AgentContext] Failed to load models:', error);
+        logger.error('[AgentContext] Failed to load models:', error);
         setModelState((prev) => ({
           ...prev,
           loadingModels: false,
@@ -475,7 +476,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         await loadProviders();
         return true;
       } catch (error) {
-        console.error('Failed to create provider:', error);
+        logger.error('Failed to create provider:', error);
         throw error;
       }
     },
@@ -492,7 +493,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         await loadProviders();
         return true;
       } catch (error) {
-        console.error('Failed to update provider:', error);
+        logger.error('Failed to update provider:', error);
         throw error;
       }
     },
@@ -505,7 +506,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       const result = await uaipAPI.llm.testProvider(providerId);
       return result;
     } catch (error) {
-      console.error('Failed to test provider:', error);
+      logger.error('Failed to test provider:', error);
       throw error;
     }
   }, []);
@@ -520,7 +521,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         await loadProviders();
         return true;
       } catch (error) {
-        console.error('Failed to delete provider:', error);
+        logger.error('Failed to delete provider:', error);
         throw error;
       }
     },
@@ -591,7 +592,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     try {
       await llmAPI.invalidateCache('all');
     } catch (error) {
-      console.warn('Failed to invalidate LLM cache:', error);
+      logger.warn('Failed to invalidate LLM cache:', error);
       // Continue with refresh even if cache invalidation fails
     }
 
@@ -885,12 +886,12 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   const addAgent = useCallback((agent: AgentState) => {
     if (!agent) {
-      console.error('❌ addAgent: Cannot add undefined agent');
+      logger.error('❌ addAgent: Cannot add undefined agent');
       return;
     }
 
     if (!agent.id) {
-      console.error('❌ addAgent: Agent missing required id property', agent);
+      logger.error('❌ addAgent: Agent missing required id property', agent);
       return;
     }
 
@@ -899,17 +900,17 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   const addAgents = useCallback((agentList: AgentState[]) => {
     if (!agentList || !Array.isArray(agentList)) {
-      console.error('❌ addAgents: Invalid agent list', agentList);
+      logger.error('❌ addAgents: Invalid agent list', agentList);
       return;
     }
 
     const validAgents = agentList.filter((agent) => {
       if (!agent) {
-        console.error('❌ addAgents: Skipping undefined agent');
+        logger.error('❌ addAgents: Skipping undefined agent');
         return false;
       }
       if (!agent.id) {
-        console.error('❌ addAgents: Skipping agent missing id', agent);
+        logger.error('❌ addAgents: Skipping agent missing id', agent);
         return false;
       }
       return true;
@@ -1029,7 +1030,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         await uaipAPI.approvals.approve(executionId, { approverId });
         return true;
       } catch (error) {
-        console.error('Failed to approve tool execution:', error);
+        logger.error('Failed to approve tool execution:', error);
         return false;
       }
     },
@@ -1095,7 +1096,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
             addAgent(agentState);
           } catch (error) {
-            console.error('❌ Failed to create/add agent state:', {
+            logger.error('❌ Failed to create/add agent state:', {
               backendAgent: backendAgent,
               error: error.message,
               stack: error.stack,
@@ -1107,7 +1108,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         agentsLoadedRef.current = true;
       }
     } catch (error) {
-      console.error('Failed to refresh agents from backend:', error);
+      logger.error('Failed to refresh agents from backend:', error);
     }
   }, [addAgent]);
 
@@ -1156,7 +1157,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
             addAgents(agentStates);
           } catch (error) {
-            console.error('❌ Failed to process agents in bulk:', error.message);
+            logger.error('❌ Failed to process agents in bulk:', error.message);
             // Fallback to individual processing if bulk fails
 
             agentList.forEach((backendAgent, _index) => {
@@ -1164,7 +1165,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
                 const agentState = createAgentStateFromBackend(backendAgent);
                 addAgent(agentState);
               } catch (err) {
-                console.error('❌ Failed to create/add agent state:', {
+                logger.error('❌ Failed to create/add agent state:', {
                   backendAgent: backendAgent,
                   error: err.message,
                   stack: err.stack,
@@ -1177,7 +1178,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           agentsLoadedRef.current = true;
         }
       } catch (error) {
-        console.error('Failed to load agents from backend:', error);
+        logger.error('Failed to load agents from backend:', error);
       }
     };
 

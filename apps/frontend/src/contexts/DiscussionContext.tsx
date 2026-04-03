@@ -25,6 +25,7 @@ import {
 
 // Import frontend-specific message type
 import { Message } from '@/types/frontend_extensions';
+import { logger } from '@/utils/browser_logger';
 
 interface DiscussionProviderProps {
   topic?: string;
@@ -188,7 +189,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           break;
 
         case 'error':
-          console.error('❌ Discussion error:', lastEvent.payload);
+          logger.error('❌ Discussion error:', lastEvent.payload);
           setLastError(lastEvent.payload.message || 'Discussion error occurred');
           setIsLoading(false);
           break;
@@ -219,7 +220,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   useEffect(() => {
     if (isLoading && discussionId) {
       const timeout = setTimeout(() => {
-        console.warn('⏰ Discussion start timeout - no response received within 10 seconds');
+        logger.warn('⏰ Discussion start timeout - no response received within 10 seconds');
         setLastError('Discussion start timeout. Please try again.');
         setIsLoading(false);
       }, 10000); // 10 second timeout
@@ -231,18 +232,18 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const start = useCallback(
     async (topic?: string, agentIds?: string[], enhancedContext?: unknown) => {
       if (isActive) {
-        console.warn('Discussion is already active');
+        logger.warn('Discussion is already active');
         return;
       }
 
       if (!isWebSocketConnected) {
-        console.warn('Cannot start discussion: WebSocket not connected');
+        logger.warn('Cannot start discussion: WebSocket not connected');
         setLastError('WebSocket not connected. Please check your connection.');
         return;
       }
 
       if (!user?.id) {
-        console.error('Cannot start discussion: User not authenticated');
+        logger.error('Cannot start discussion: User not authenticated');
         setLastError('User not authenticated');
         return;
       }
@@ -275,7 +276,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         }
 
         if (selectedAgentIds.length < 2) {
-          console.warn(
+          logger.warn(
             `Only ${selectedAgentIds.length} agent(s) available, proceeding with minimum participants`
           );
         }
@@ -347,12 +348,12 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
         // Note: The discussion will be marked as active when we receive the 'discussion_started' event
         // This is handled in the useEffect that listens to WebSocket events
       } catch (error) {
-        console.error('❌ Failed to start discussion:', error);
+        logger.error('❌ Failed to start discussion:', error);
 
         // Enhanced error logging for validation failures
         if (error instanceof Error) {
           if (error.message.includes('Validation failed')) {
-            console.error('Discussion validation failed. Check required fields:', {
+            logger.error('Discussion validation failed. Check required fields:', {
               requiredFields: ['title', 'topic', 'createdBy', 'initialParticipants (min 1)'],
               providedData: {
                 title: `Discussion: ${topic || 'General Discussion'}`,
@@ -409,7 +410,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       setMessages([]);
       setCurrentTurn(null);
     } catch (error) {
-      console.error('Failed to stop discussion:', error);
+      logger.error('Failed to stop discussion:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to stop discussion');
     } finally {
       setIsLoading(false);
@@ -433,7 +434,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
       setLastError(null);
     } catch (error) {
-      console.error('Failed to pause discussion:', error);
+      logger.error('Failed to pause discussion:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to pause discussion');
     } finally {
       setIsLoading(false);
@@ -458,7 +459,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
         setLastError(null);
       } catch (error) {
-        console.error('Failed to resume discussion:', error);
+        logger.error('Failed to resume discussion:', error);
         setLastError(error instanceof Error ? error.message : 'Failed to resume discussion');
       } finally {
         setIsLoading(false);
@@ -470,19 +471,19 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   const addMessage = useCallback(
     async (content: string, agentId?: string) => {
       if (!isActive || !discussionId) {
-        console.warn('Cannot add message: discussion not active');
+        logger.warn('Cannot add message: discussion not active');
         return;
       }
 
       if (!isWebSocketConnected) {
-        console.warn('Cannot add message: WebSocket not connected');
+        logger.warn('Cannot add message: WebSocket not connected');
         setLastError('WebSocket not connected. Please check your connection.');
         return;
       }
 
       try {
         if (agentId) {
-          console.warn('Agent ID provided for WebSocket message; metadata is not supported.');
+          logger.warn('Agent ID provided for WebSocket message; metadata is not supported.');
         }
 
         sendWebSocketMessage('send_message', {
@@ -491,7 +492,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           messageType: MessageType.MESSAGE,
         });
       } catch (error) {
-        console.error('Failed to send message:', error);
+        logger.error('Failed to send message:', error);
         setLastError(error instanceof Error ? error.message : 'Failed to send message');
       }
     },
@@ -539,8 +540,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
       setHistory(transformedHistory);
     } catch (error) {
-      console.error('Failed to load discussion history:', error);
-      console.error('Error details:', {
+      logger.error('Failed to load discussion history:', error);
+      logger.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         discussionId: discussionIdParam,

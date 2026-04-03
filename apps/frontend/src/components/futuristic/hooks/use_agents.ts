@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { uaipAPI } from '@/utils/uaip_api';
+import { logger } from '@/utils/browser_logger';
 
 interface Agent {
   id: string;
@@ -63,7 +64,7 @@ export const useAgents = () => {
         setAgents(getMockAgents());
       }
     } catch (err) {
-      console.warn('Failed to fetch agents from API, using mock data:', err);
+      logger.warn('Failed to fetch agents from API, using mock data:', err);
       // Use mock data as fallback
       setAgents(getMockAgents());
       setError(null); // Don't show error for fallback
@@ -160,7 +161,7 @@ export const useAgents = () => {
         );
       }
     } catch (err) {
-      console.warn('Failed to fetch agent activities:', err);
+      logger.warn('Failed to fetch agent activities:', err);
       // Mock activities
       setActivities([
         {
@@ -214,7 +215,7 @@ export const useAgents = () => {
         prev.map((agent) => (agent.id === agentId ? { ...agent, status } : agent))
       );
     } catch (err) {
-      console.error('Failed to update agent status:', err);
+      logger.error('Failed to update agent status:', err);
       // Update locally anyway for demo purposes
       setAgents((prev) =>
         prev.map((agent) => (agent.id === agentId ? { ...agent, status } : agent))

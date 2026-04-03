@@ -29,6 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { logger } from '@/utils/browser_logger';
 
 // Use ReactFlow's built-in types
 type ReactFlowNode = Node<{ label: string }>;
@@ -275,7 +276,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
       setTimeout(() => fitView({ padding: 0.2 }), 100);
     } catch (err) {
       setError('Failed to generate mind map');
-      console.error(err);
+      logger.error('Failed to generate mind map', err);
       setIsLoading(false);
     }
   }, [markdown, initialized, fitView, setNodes, setEdges, ogNodes, ogEdges]);

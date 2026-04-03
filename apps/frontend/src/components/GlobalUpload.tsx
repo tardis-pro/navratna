@@ -23,6 +23,7 @@ import { useKnowledge } from '@/contexts/KnowledgeContext';
 import { parseCommaSeparatedValues } from '@/utils/parse_comma_separated';
 import type { KnowledgeIngestRequest } from '@uaip/types';
 import { KnowledgeType, SourceType } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface GlobalUploadProps {
   isOpen: boolean;
@@ -191,7 +192,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
 
             knowledgeItems.push(knowledgeItem);
           } catch (error) {
-            console.error(`Failed to process file ${file.name}:`, error);
+            logger.error(`Failed to process file ${file.name}:`, error);
           }
         }
       }
@@ -208,7 +209,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
         handleClose();
       }
     } catch (error) {
-      console.error('Upload failed:', error);
+      logger.error('Upload failed:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

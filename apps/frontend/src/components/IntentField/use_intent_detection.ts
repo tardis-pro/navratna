@@ -8,6 +8,7 @@ import type {
   UseIntentDetectionOptions,
   IntentSearchResult,
 } from './intent_field_types';
+import { logger } from '@/utils/browser_logger';
 
 const STATIC_OPTIONS: IntentOption[] = [
   {
@@ -384,7 +385,7 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
                 return;
               }
 
-              console.warn('Intent relevance API unavailable, using local fuzzy ranking', apiError);
+              logger.warn('Intent relevance API unavailable, using local fuzzy ranking', apiError);
             });
         }, DEBOUNCE_MS);
       }

@@ -29,6 +29,7 @@ import { TextKnowledgeCard } from '@/components/TextKnowledgeCard';
 import { UploadDropZone } from '@/components/UploadDropZone';
 import { UploadProgressBar } from '@/components/UploadProgressBar';
 import { FileRemoveButton } from '@/components/FileRemoveButton';
+import { logger } from '@/utils/browser_logger';
 
 interface ChatKnowledgeUploaderProps {
   onUploadComplete?: () => void;
@@ -153,7 +154,7 @@ export const ChatKnowledgeUploader: React.FC<ChatKnowledgeUploaderProps> = ({
 
       return true;
     } catch (err) {
-      console.error('Error polling job status:', err);
+      logger.error('Error polling job status:', err);
       setChatFiles((prev) =>
         prev.map((file) =>
           file.id === fileId

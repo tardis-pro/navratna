@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll_area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeType, SourceType, KnowledgeItem } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface KnowledgeSearchProps {
   onItemSelect?: (item: KnowledgeItem) => void;
@@ -68,7 +69,7 @@ export const KnowledgeSearch: React.FC<KnowledgeSearchProps> = ({ onItemSelect, 
         timestamp: Date.now(),
       });
     } catch (err) {
-      console.error('Search failed:', err);
+      logger.error('Search failed:', err);
     }
   }, [query, selectedTags, selectedTypes, selectedSources, searchKnowledge]);
 

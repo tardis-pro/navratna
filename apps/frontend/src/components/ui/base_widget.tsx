@@ -7,6 +7,7 @@ import {
   WidgetUsage,
   WidgetPermission,
 } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 // Widget context for sharing data between parent and widget
 export interface WidgetContext {
@@ -239,7 +240,7 @@ class WidgetErrorBoundary extends Component<WidgetErrorBoundaryProps, WidgetErro
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(`Widget error in ${this.props.widgetId}:`, error, errorInfo);
+    logger.error(`Widget error in ${this.props.widgetId}:`, error, errorInfo);
 
     const widgetError: WidgetError = {
       widgetId: this.props.context.widgetId,
@@ -335,7 +336,7 @@ export abstract class BaseWidgetComponent<
 > extends React.Component<P, S> {
   // @deprecated Use functional components with useWidget hook instead
   protected getInitialState(): S {
-    console.warn(
+    logger.warn(
       'BaseWidgetComponent is deprecated. Use functional components with useWidget hook instead.'
     );
     return {} as S;

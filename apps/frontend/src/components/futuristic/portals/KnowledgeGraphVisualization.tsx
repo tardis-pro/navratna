@@ -25,6 +25,7 @@ import { API_CONFIG as _API_CONFIG } from '@/config/api_config';
 import { uaipAPI } from '@/utils/uaip_api';
 
 import '@xyflow/react/dist/style.css';
+import { logger } from '@/utils/browser_logger';
 
 // Knowledge Graph Types
 interface KnowledgeNode extends Node {
@@ -316,7 +317,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
           },
         };
       } catch (apiError) {
-        console.warn('Knowledge graph API failed, using mock data:', apiError);
+        logger.warn('Knowledge graph API failed, using mock data:', apiError);
         // Provide mock data when API is not available
         graphData = {
           nodes: [],
@@ -365,7 +366,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       setTimeout(() => fitView({ padding: 0.2 }), 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch knowledge graph');
-      console.error('Knowledge graph fetch error:', err);
+      logger.error('Knowledge graph fetch error:', err);
     } finally {
       setIsLoading(false);
     }
