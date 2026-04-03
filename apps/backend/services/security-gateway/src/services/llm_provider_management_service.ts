@@ -1,66 +1,13 @@
 import { LLMProviderRepository, LLMProvider } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { LLMProviderType, LLMProviderStatus } from '@uaip/types';
+import {
+  LLMProviderType,
+  LLMProviderStatus,
+  CreateLLMProviderRequest,
+  UpdateLLMProviderRequest,
+  LLMProviderResponse,
+} from '@uaip/types';
 import { logger } from '@uaip/utils';
-
-export interface CreateLLMProviderRequest {
-  name: string;
-  description?: string;
-  type: LLMProviderType;
-  baseUrl: string;
-  apiKey?: string;
-  defaultModel?: string;
-  modelsList?: string[];
-  configuration?: {
-    timeout?: number;
-    retries?: number;
-    rateLimit?: number;
-    headers?: Record<string, string>;
-    customEndpoints?: {
-      models?: string;
-      chat?: string;
-      completions?: string;
-    };
-  };
-  priority?: number;
-}
-
-export interface UpdateLLMProviderRequest {
-  name?: string;
-  description?: string;
-  baseUrl?: string;
-  apiKey?: string;
-  defaultModel?: string;
-  modelsList?: string[];
-  configuration?: unknown;
-  priority?: number;
-  status?: LLMProviderStatus;
-}
-
-export interface LLMProviderResponse {
-  id: string;
-  name: string;
-  description?: string;
-  type: LLMProviderType;
-  baseUrl: string;
-  hasApiKey: boolean;
-  defaultModel?: string;
-  modelsList?: string[];
-  configuration?: unknown;
-  status: LLMProviderStatus;
-  isActive: boolean;
-  priority: number;
-  stats: {
-    totalRequests: string;
-    totalTokensUsed: string;
-    totalErrors: string;
-    errorRate: number;
-    lastUsedAt?: Date;
-    healthStatus?: string;
-  };
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export class LLMProviderManagementService {
   private static instance: LLMProviderManagementService;

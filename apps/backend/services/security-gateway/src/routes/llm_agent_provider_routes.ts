@@ -2,10 +2,8 @@ import { Elysia } from 'elysia';
 import { withRequiredAuth } from '@uaip/middleware';
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
-import {
-  AgentLLMProvider,
-  LLMAgentProviderService,
-} from '../services/llm_agent_provider_service.js';
+import { AgentLLMProvider } from '@uaip/types';
+import { LLMAgentProviderService } from '../services/llm_agent_provider_service.js';
 
 const llmAgentProviderService = LLMAgentProviderService.getInstance();
 

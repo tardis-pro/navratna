@@ -17,31 +17,13 @@ import {
   SecurityLevel,
   SessionStatus,
   AuditEventType,
+  AuthenticationResult,
+  AgentAuthenticationRequest,
 } from '@uaip/types';
 import { OAuthProviderService } from './oauth_provider_service.js';
 import { AuditService } from './audit_service.js';
 import { config } from '@uaip/config';
 import * as speakeasy from 'speakeasy';
-
-interface AuthenticationResult {
-  user: EnhancedUser;
-  session: Session;
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-  };
-  requiresMFA: boolean;
-  mfaChallenge?: MFAChallenge;
-}
-
-interface AgentAuthenticationRequest {
-  agentId: string;
-  agentToken: string;
-  capabilities: AgentCapability[];
-  requestedProviders: OAuthProviderType[];
-  ipAddress?: string;
-  userAgent?: string;
-}
 
 export class EnhancedAuthService {
   private userService: UserService;

@@ -1,33 +1,7 @@
 import * as crypto from 'crypto';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-
-export enum AgentLLMProvider {
-  ANTHROPIC = 'anthropic',
-  OPENAI_CODEX = 'openai-codex',
-  GITHUB_COPILOT = 'github-copilot',
-  GOOGLE_GEMINI_CLI = 'google-gemini-cli',
-  OPENAI = 'openai',
-  GOOGLE = 'google',
-  GROQ = 'groq',
-  MISTRAL = 'mistral',
-  OPENROUTER = 'openrouter',
-}
-
-export interface LLMProviderCredentialRecord {
-  id: string;
-  userId: string;
-  provider: AgentLLMProvider;
-  credentialType: 'api_key' | 'oauth';
-  encryptedApiKey?: string;
-  encryptedAccessToken?: string;
-  encryptedRefreshToken?: string;
-  tokenExpiresAt?: Date;
-  isActive: boolean;
-  connectedAt: Date;
-  lastUsedAt?: Date;
-  metadata?: Record<string, unknown>;
-}
+import { AgentLLMProvider, LLMProviderCredentialRecord } from '@uaip/types';
 
 export const OAUTH_SUPPORTED_PROVIDERS: AgentLLMProvider[] = [
   AgentLLMProvider.ANTHROPIC,

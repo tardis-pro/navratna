@@ -16,34 +16,13 @@ import {
   AuthenticationMethod,
   MFAMethod,
   ApprovalRequirement,
+  AgentSecurityPolicy,
 } from '@uaip/types';
 import { SecurityGatewayService } from './security_gateway_service.js';
 import { OAuthProviderService } from './oauth_provider_service.js';
 import { EnhancedAuthService } from './enhanced_auth_service.js';
 import { AuditService } from './audit_service.js';
 import { ApprovalWorkflowService } from './approval_workflow_service.js';
-
-export interface AgentSecurityPolicy {
-  id: string;
-  name: string;
-  description: string;
-  applicableCapabilities: AgentCapability[];
-  allowedProviders: OAuthProviderType[];
-  conditions: Record<string, unknown>;
-  actions: {
-    allow?: boolean;
-    requireApproval?: boolean;
-    requiredApprovers?: string[];
-    maxRiskLevel?: SecurityLevel;
-    additionalValidations?: string[];
-    rateLimits?: {
-      requestsPerHour: number;
-      requestsPerDay: number;
-    };
-  };
-  priority: number;
-  isActive: boolean;
-}
 
 export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private agentPolicies: Map<string, AgentSecurityPolicy> = new Map();
