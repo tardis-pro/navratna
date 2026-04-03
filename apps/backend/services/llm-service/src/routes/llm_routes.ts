@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import {
   LLMService,
   ModelBootstrapService,
@@ -11,12 +11,11 @@ import type {
   ChatMessage,
   ContextDocument,
   ContextMessage,
+  LLMArtifactType,
   StreamingLLMRequest,
+  UserLLMProviderType,
 } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
-
-type UserProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
-type LLMArtifactType = 'code' | 'documentation' | 'test' | 'prd';
 
 const _artifactTypes: readonly LLMArtifactType[] = ['code', 'documentation', 'test', 'prd'];
 
@@ -90,7 +89,7 @@ function isArtifactType(value: unknown): value is LLMArtifactType {
   return value === 'code' || value === 'documentation' || value === 'test' || value === 'prd';
 }
 
-function toUserProviderType(value: unknown): UserProviderType | undefined {
+function toUserProviderType(value: unknown): UserLLMProviderType | undefined {
   switch (value) {
     case 'ollama':
     case 'llmstudio':
@@ -125,6 +124,8 @@ export function registerLLMRoutes(
             success: true,
             data: models,
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Get models from a specific provider
@@ -145,6 +146,9 @@ export function registerLLMRoutes(
               success: true,
               data: models,
             };
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
           }
         )
 
@@ -171,6 +175,16 @@ export function registerLLMRoutes(
             success: true,
             data: response,
           };
+        }, {
+          body: t.Object({
+            prompt: t.String(),
+            systemPrompt: t.Optional(t.String()),
+            maxTokens: t.Optional(t.Number()),
+            temperature: t.Optional(t.Number()),
+            model: t.Optional(t.String()),
+            preferredType: t.Optional(t.String()),
+          }),
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Generate agent response
@@ -185,6 +199,18 @@ export function registerLLMRoutes(
             success: true,
             data: response,
           };
+        }, {
+          body: t.Object({
+            agent: t.Object({
+              id: t.String(),
+              name: t.String(),
+              role: t.String(),
+            }),
+            messages: t.Array(t.Any()),
+            context: t.Optional(t.Any()),
+            tools: t.Optional(t.Array(t.Any())),
+          }),
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
         
         // Generate artifact
@@ -216,6 +242,19 @@ export function registerLLMRoutes(
             success: true,
             data: response,
           };
+        }, {
+          body: t.Object({
+            type: t.Union([
+              t.Literal('code'),
+              t.Literal('documentation'),
+              t.Literal('test'),
+              t.Literal('prd'),
+            ]),
+            prompt: t.String(),
+            language: t.Optional(t.String()),
+            requirements: t.Optional(t.Array(t.String())),
+          }),
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Analyze context
@@ -246,16 +285,26 @@ export function registerLLMRoutes(
             success: true,
             data: response,
           };
+        }, {
+          body: t.Object({
+            conversationHistory: t.Array(t.Any()),
+            currentContext: t.Optional(t.Any()),
+            userRequest: t.Optional(t.String()),
+            agentCapabilities: t.Optional(t.Array(t.String())),
+          }),
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Get provider statistics
-        .get('/providers/stats', async () => {
+        .get('/providers/stats', async ({ store: _store }) => {
           const stats = await llmService.getProviderStats();
 
           return {
             success: true,
             data: stats,
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Get all configured providers
@@ -270,20 +319,24 @@ export function registerLLMRoutes(
             success: true,
             data: providers,
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Check provider health
-        .get('/providers/health', async () => {
+        .get('/providers/health', async ({ store: _store }) => {
           const healthResults = await llmService.checkProviderHealth();
 
           return {
             success: true,
             data: healthResults,
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
         // Test event-driven integration
-        .post('/test-events', async () => {
+        .post('/test-events', async ({ store: _store }) => {
           logger.info('Testing event-driven LLM integration...');
 
           // Import the test function dynamically
@@ -299,6 +352,10 @@ export function registerLLMRoutes(
               ? 'Event integration test passed'
               : 'Event integration test failed',
           };
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any(), message: t.String() }),
+          },
         })
 
         // Cache management endpoints
@@ -334,28 +391,38 @@ export function registerLLMRoutes(
             success: true,
             message: `Cache invalidated: ${type || 'all'}${syncModels !== false ? ' (model sync triggered)' : ''}`,
           };
+        }, {
+          body: t.Object({
+            type: t.Optional(t.String()),
+            syncModels: t.Optional(t.Boolean()),
+          }),
+          response: { 200: t.Object({ success: t.Literal(true), message: t.String() }) },
         })
 
-        .post('/cache/refresh', async () => {
+        .post('/cache/refresh', async ({ store: _store }) => {
           await llmService.refreshProviders();
 
           return {
             success: true,
             message: 'Providers refreshed and cache cleared',
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), message: t.String() }) },
         })
 
         // Model bootstrap management endpoints
-        .get('/bootstrap/status', async () => {
+        .get('/bootstrap/status', async ({ store: _store }) => {
           const status = await modelBootstrapService.getBootstrapStatus();
 
           return {
             success: true,
             data: status,
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
 
-        .post('/bootstrap/refresh', async () => {
+        .post('/bootstrap/refresh', async ({ store: _store }) => {
           logger.info('Manual model bootstrap refresh requested');
 
           // Run bootstrap in background
@@ -367,6 +434,8 @@ export function registerLLMRoutes(
             success: true,
             message: 'Model bootstrap refresh started',
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), message: t.String() }) },
         })
 
         .post(
@@ -386,6 +455,9 @@ export function registerLLMRoutes(
               success: true,
               message: `Models refreshed for user ${userId}`,
             };
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), message: t.String() }) },
           }
         )
 
@@ -477,6 +549,23 @@ export function registerLLMRoutes(
               success: true,
               data: { sessionId, status: 'streaming' },
             };
+          },
+          {
+            body: t.Object({
+              prompt: t.String(),
+              systemPrompt: t.Optional(t.String()),
+              model: t.Optional(t.String()),
+              maxTokens: t.Optional(t.Number()),
+              agentId: t.Optional(t.String()),
+              conversationId: t.Optional(t.String()),
+              providerType: t.Optional(t.String()),
+            }),
+            response: {
+              200: t.Object({
+                success: t.Literal(true),
+                data: t.Object({ sessionId: t.String(), status: t.String() }),
+              }),
+            },
           }
         )
 
@@ -494,6 +583,14 @@ export function registerLLMRoutes(
               success: true,
               data: { status: 'cancelled' },
             };
+          },
+          {
+            response: {
+              200: t.Object({
+                success: t.Literal(true),
+                data: t.Object({ status: t.String() }),
+              }),
+            },
           }
         )
 
@@ -510,6 +607,8 @@ export function registerLLMRoutes(
             success: true,
             data: info,
           };
+        }, {
+          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
         })
   );
 }

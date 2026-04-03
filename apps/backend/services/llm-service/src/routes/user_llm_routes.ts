@@ -1,10 +1,16 @@
 import { UserLLMService, AgentResponseRequest } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
 import { ModelCapabilityDetector } from '@uaip/shared-services';
+import type {
+  UserLLMProviderType,
+  CreateUserLLMProviderRequest,
+  UpdateUserLLMProviderRequest,
+  UpdateApiKeyRequest,
+  UserLLMGenerateRequest,
+  LLMProviderShape,
+} from '@uaip/types';
 import { LLMProviderType } from '@uaip/types';
-import { Elysia, type Context } from 'elysia';
-
-type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
+import { Elysia, t } from 'elysia';
 
 function _isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -39,53 +45,7 @@ function toDetectorProviderType(value: UserLLMProviderType): LLMProviderType | n
   }
 }
 
-// Request Interfaces
-interface CreateProviderRequest {
-  name: string;
-  description?: string;
-  type: UserLLMProviderType;
-  baseUrl?: string;
-  apiKey?: string;
-  defaultModel?: string;
-  configuration?: Record<string, unknown>;
-  priority?: number;
-}
 
-interface UpdateProviderRequest {
-  name?: string;
-  description?: string;
-  baseUrl?: string;
-  defaultModel?: string;
-  priority?: number;
-  configuration?: Record<string, unknown>;
-}
-
-interface UpdateApiKeyRequest {
-  apiKey: string;
-}
-
-interface GenerateRequest {
-  prompt: string;
-  systemPrompt?: string;
-  maxTokens?: number;
-  temperature?: number;
-  model?: string;
-}
-
-type LLMProviderShape = {
-  id: string;
-  name: string;
-  userId: string;
-  description?: string;
-  type: UserLLMProviderType;
-  baseUrl?: string;
-  apiKeyEncrypted?: string;
-  isDefault: boolean;
-  configuration?: Record<string, unknown>;
-  isActive?: boolean;
-  defaultModel?: string;
-  modelId?: string;
-};
 
 function sanitizeProvider(provider: LLMProviderShape) {
   return {
@@ -110,33 +70,39 @@ function requireUserId(headers: Record<string, string | undefined>) {
   return { userId, error: null };
 }
 
+const ProviderResponseSchema = t.Object({
+  success: t.Boolean(),
+  data: t.Optional(t.Any()),
+  error: t.Optional(t.String()),
+  message: t.Optional(t.String()),
+});
+
 export function registerUserLLMRoutes(userLLMService: UserLLMService){
   return new Elysia().group(
     '/api/v1/user/llm',
     (group) =>
       group
-        // Get user's providers
-        .get('/providers', async ({ headers }: Context) => {
+        .get('/providers', async ({ headers }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
           const providers = await userLLMService.getUserProviders(userId);
 
-          // Remove sensitive data (API keys) from response
           const sanitizedProviders = providers.map(sanitizeProvider);
 
           return {
             success: true,
             data: sanitizedProviders,
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Create a new provider for user
-        .post('/providers', async ({ headers, body }: Context) => {
+        .post('/providers', async ({ headers, body }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          const requestBody = body as CreateProviderRequest;
+          const requestBody = body as CreateUserLLMProviderRequest;
           const {
             name,
             description,
@@ -166,7 +132,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             priority,
           });
 
-          // Return sanitized provider data
           return {
             success: true,
             data: {
@@ -184,15 +149,33 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               hasApiKey: Boolean(provider.apiKeyEncrypted),
             },
           };
+        }, {
+          body: t.Object({
+            name: t.String(),
+            description: t.Optional(t.String()),
+            type: t.Union([
+              t.Literal('ollama'),
+              t.Literal('llmstudio'),
+              t.Literal('openai'),
+              t.Literal('anthropic'),
+              t.Literal('google'),
+              t.Literal('custom'),
+            ]),
+            baseUrl: t.Optional(t.String()),
+            apiKey: t.Optional(t.String()),
+            defaultModel: t.Optional(t.String()),
+            configuration: t.Optional(t.Any()),
+            priority: t.Optional(t.Number()),
+          }),
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Update provider configuration
-        .put('/providers/:providerId', async ({ headers, params, body }: Context) => {
+        .put('/providers/:providerId', async ({ headers, params, body }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
           const { providerId } = params;
-          const requestBody = body as UpdateProviderRequest;
+          const requestBody = body as UpdateUserLLMProviderRequest;
           const { name, description, baseUrl, defaultModel, priority, configuration } =
             requestBody || {};
 
@@ -209,16 +192,25 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             message: 'Provider configuration updated successfully',
           };
+        }, {
+          body: t.Object({
+            name: t.Optional(t.String()),
+            description: t.Optional(t.String()),
+            baseUrl: t.Optional(t.String()),
+            defaultModel: t.Optional(t.String()),
+            priority: t.Optional(t.Number()),
+            configuration: t.Optional(t.Any()),
+          }),
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Update provider API key
-        .put('/providers/:providerId/api-key', async ({ headers, params, body }: Context) => {
+        .put('/providers/:providerId/api-key', async ({ headers, params, body }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
           const { providerId } = params;
           const requestBody = body as UpdateApiKeyRequest;
-          const { apiKey } = requestBody || {};
+          const { apiKey } = requestBody;
 
           if (!apiKey) {
             return {
@@ -233,10 +225,14 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             message: 'API key updated successfully',
           };
+        }, {
+          body: t.Object({
+            apiKey: t.String(),
+          }),
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Test provider connectivity
-        .post('/providers/:providerId/test', async ({ headers }: Context) => {
+        .post('/providers/:providerId/test', async ({ headers }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
@@ -246,10 +242,11 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             data: result,
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Delete provider
-        .delete('/providers/:providerId', async ({ headers, params }: Context) => {
+        .delete('/providers/:providerId', async ({ headers, params }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
@@ -260,10 +257,11 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             message: 'Provider deleted successfully',
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Get user's providers by type
-        .get('/providers/type/:type', async ({ headers, params }: Context) => {
+        .get('/providers/type/:type', async ({ headers, params }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
@@ -277,17 +275,17 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             type
           );
 
-          // Remove sensitive data (API keys) from response
           const sanitizedProviders = providers.map(sanitizeProvider);
 
           return {
             success: true,
             data: sanitizedProviders,
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Get available models for user
-        .get('/models', async ({ headers }: Context) => {
+        .get('/models', async ({ headers }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
           logger.info('Getting available models for user', { userId });
@@ -298,14 +296,15 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             data: models,
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Generate LLM response
-        .post('/generate', async ({ headers, body }: Context) => {
+        .post('/generate', async ({ headers, body }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          const requestBody = body as GenerateRequest;
+          const requestBody = body as UserLLMGenerateRequest;
           const { prompt, systemPrompt, maxTokens, temperature, model } = requestBody || {};
 
           if (!prompt) {
@@ -327,14 +326,21 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             data: response,
           };
+        }, {
+          body: t.Object({
+            prompt: t.String(),
+            systemPrompt: t.Optional(t.String()),
+            maxTokens: t.Optional(t.Number()),
+            temperature: t.Optional(t.Number()),
+            model: t.Optional(t.String()),
+          }),
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Generate agent response
-        .post('/agent-response', async ({ headers, body }: Context) => {
+        .post('/agent-response', async ({ headers, body }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          // Cast body to AgentResponseRequest
           const request = body as AgentResponseRequest;
           const { agent, messages, context, tools } = request || {};
 
@@ -356,10 +362,21 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
             success: true,
             data: response,
           };
+        }, {
+          body: t.Object({
+            agent: t.Object({
+              id: t.String(),
+              name: t.String(),
+              role: t.String(),
+            }),
+            messages: t.Array(t.Any()),
+            context: t.Optional(t.Any()),
+            tools: t.Optional(t.Array(t.Any())),
+          }),
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Get model capabilities for user's providers
-        .get('/capabilities', async ({ headers }: Context) => {
+        .get('/capabilities', async ({ headers }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
@@ -392,12 +409,13 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               activeProviders: userProviders.filter((p) => p.isActive).length,
             },
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
 
-        // Detect capabilities for a specific provider
         .post(
           '/providers/:providerId/detect-capabilities',
-          async ({ headers, params }: Context) => {
+          async ({ headers, params }) => {
             const userId = headers['x-user-id'];
             const providerId = params.providerId;
 
@@ -432,7 +450,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               provider.baseUrl
             );
 
-            // Update provider configuration with detected capabilities
             const currentConfig = provider.configuration as Record<string, unknown> | undefined;
             provider.configuration = {
               ...currentConfig,
@@ -454,11 +471,13 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
                 detection,
               },
             };
+          },
+          {
+            response: { 200: ProviderResponseSchema },
           }
         )
 
-        // Detect capabilities for all user providers
-        .post('/detect-all-capabilities', async ({ headers }: Context) => {
+        .post('/detect-all-capabilities', async ({ headers }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
@@ -490,7 +509,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
                   provider.baseUrl
                 );
 
-                // Update provider configuration with detected capabilities
                 const currentConfig = provider.configuration as Record<string, unknown> | undefined;
                 provider.configuration = {
                   ...currentConfig,
@@ -519,7 +537,7 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
                 modelId: provider.defaultModel,
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
-                detectedCapabilities: [] as string[], // Ensure this is set to an empty array,
+                detectedCapabilities: [] as string[],
               });
             }
           }
@@ -534,6 +552,8 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               results,
             },
           };
+        }, {
+          response: { 200: ProviderResponseSchema },
         })
   );
 }
