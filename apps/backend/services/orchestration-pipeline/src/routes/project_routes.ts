@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { ProjectManagementService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services/database';
 import { EventBusService } from '@uaip/shared-services/event-bus';
@@ -76,6 +76,10 @@ const setupWorkspaceSchema = z.object({
   repoVisibility: z.enum(['public', 'private']),
 });
 
+const ProjectErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) })
+const ProjectSchema = t.Any()
+const TaskSchema = t.Any()
+
 // Initialize services
 let projectService: ProjectManagementService;
 let eventBusService: EventBusService;
@@ -92,7 +96,6 @@ const initServices = async () => {
 
 export function registerProjectRoutes() {
   return new Elysia()
-    // Create project
     .post('/api/v1/projects', async ({ body, headers, set }) => {
       try {
         await initServices();
@@ -129,9 +132,23 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to create project' };
       }
+    }, {
+      body: t.Object({
+        name: t.String(),
+        description: t.Optional(t.String()),
+        category: t.Optional(t.String()),
+        tags: t.Optional(t.Array(t.String())),
+        priority: t.Optional(t.String()),
+        visibility: t.Optional(t.String()),
+        startDate: t.Optional(t.String()),
+        endDate: t.Optional(t.String()),
+        budget: t.Optional(t.Number()),
+        settings: t.Optional(t.Any()),
+        metadata: t.Optional(t.Any()),
+      }),
+      response: { 201: ProjectSchema, 400: ProjectErrorSchema, 401: ProjectErrorSchema, 500: ProjectErrorSchema },
     })
 
-    // Get user's projects
     .get('/api/v1/projects', async ({ headers, set }) => {
       try {
         await initServices();
@@ -148,9 +165,10 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to fetch projects' };
       }
+    }, {
+      response: { 200: t.Array(ProjectSchema), 401: ProjectErrorSchema, 500: ProjectErrorSchema },
     })
 
-    // Get project analytics
     .get('/api/v1/projects/analytics', async ({ headers, query, set }) => {
       try {
         await initServices();
@@ -164,9 +182,11 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to fetch project analytics' };
       }
+    }, {
+      query: t.Object({ timeRange: t.Optional(t.String()) }),
+      response: { 200: t.Any(), 500: ProjectErrorSchema },
     })
 
-    // Get project by ID
     .get('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
       try {
         await initServices();
@@ -185,6 +205,8 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to fetch project' };
       }
+    }, {
+      response: { 200: ProjectSchema, 404: ProjectErrorSchema, 500: ProjectErrorSchema },
     })
 
     .post(
@@ -229,10 +251,19 @@ export function registerProjectRoutes() {
           set.status = 500;
           return { error: 'Failed to set up project workspace' };
         }
+      },
+      {
+        body: t.Object({
+          userId: t.String(),
+          projectName: t.String(),
+          githubToken: t.String(),
+          repoName: t.String(),
+          repoVisibility: t.Union([t.Literal('public'), t.Literal('private')]),
+        }),
+        response: { 200: t.Any(), 400: ProjectErrorSchema, 401: ProjectErrorSchema, 403: ProjectErrorSchema, 500: ProjectErrorSchema },
       }
     )
 
-    // Update project
     .put('/api/v1/projects/:projectId', async ({ params, body, headers, set }) => {
       try {
         await initServices();
@@ -256,9 +287,24 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to update project' };
       }
+    }, {
+      body: t.Object({
+        name: t.Optional(t.String()),
+        description: t.Optional(t.String()),
+        category: t.Optional(t.String()),
+        tags: t.Optional(t.Array(t.String())),
+        priority: t.Optional(t.String()),
+        visibility: t.Optional(t.String()),
+        status: t.Optional(t.String()),
+        startDate: t.Optional(t.String()),
+        endDate: t.Optional(t.String()),
+        budget: t.Optional(t.Number()),
+        settings: t.Optional(t.Any()),
+        metadata: t.Optional(t.Any()),
+      }),
+      response: { 200: ProjectSchema, 400: ProjectErrorSchema, 500: ProjectErrorSchema },
     })
 
-    // Delete project
     .delete('/api/v1/projects/:projectId', async ({ params, headers, set }) => {
       try {
         await initServices();
@@ -273,9 +319,10 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to delete project' };
       }
+    }, {
+      response: { 204: t.String(), 500: ProjectErrorSchema },
     })
 
-    // Create task
     .post('/api/v1/projects/:projectId/tasks', async ({ params, body, headers, set }) => {
       try {
         await initServices();
@@ -307,9 +354,22 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to create task' };
       }
+    }, {
+      body: t.Object({
+        title: t.String(),
+        description: t.Optional(t.String()),
+        priority: t.Optional(t.String()),
+        assignedAgentId: t.Optional(t.String()),
+        assignedUserId: t.Optional(t.String()),
+        requirements: t.Optional(t.Any()),
+        tools: t.Optional(t.Array(t.String())),
+        estimatedCost: t.Optional(t.Number()),
+        estimatedDuration: t.Optional(t.Number()),
+        dueDate: t.Optional(t.String()),
+      }),
+      response: { 201: TaskSchema, 400: ProjectErrorSchema, 500: ProjectErrorSchema },
     })
 
-    // Update task
     .put('/api/v1/projects/:projectId/tasks/:taskId', async ({ params, body, headers, set }) => {
       try {
         await initServices();
@@ -324,9 +384,11 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to update task' };
       }
+    }, {
+      body: t.Any(),
+      response: { 200: TaskSchema, 500: ProjectErrorSchema },
     })
 
-    // Add agent to project
     .post('/api/v1/projects/:projectId/agents', async ({ params, body, headers, set }) => {
       try {
         await initServices();
@@ -368,9 +430,20 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to add agent to project' };
       }
+    }, {
+      body: t.Object({
+        agentId: t.String(),
+        role: t.Optional(t.String()),
+        permissions: t.Optional(t.Array(t.String())),
+      }),
+      response: {
+        201: t.Object({ success: t.Boolean(), message: t.String(), assignment: t.Any() }),
+        400: ProjectErrorSchema,
+        401: ProjectErrorSchema,
+        500: ProjectErrorSchema,
+      },
     })
 
-    // Record tool usage
     .post('/api/v1/projects/:projectId/tool-usage', async ({ params, body, headers, set }) => {
       try {
         await initServices();
@@ -378,11 +451,10 @@ export function registerProjectRoutes() {
         const projectId = params.projectId;
 
         const validatedBody = recordToolUsageSchema.parse(body);
-        // Map to expected format
         const toolUsage = {
           projectId,
           toolId: validatedBody.toolId,
-          toolName: validatedBody.toolId, // Using toolId as toolName temporarily
+          toolName: validatedBody.toolId,
           success: validatedBody.usage.success,
           executionTime: validatedBody.usage.duration || 0,
           cost: validatedBody.usage.cost,
@@ -400,9 +472,21 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to record tool usage' };
       }
+    }, {
+      body: t.Object({
+        toolId: t.String(),
+        usage: t.Object({
+          success: t.Boolean(),
+          duration: t.Optional(t.Number()),
+          inputTokens: t.Optional(t.Number()),
+          outputTokens: t.Optional(t.Number()),
+          cost: t.Optional(t.Number()),
+          error: t.Optional(t.String()),
+        }),
+      }),
+      response: { 201: t.Object({ message: t.String() }), 400: ProjectErrorSchema, 500: ProjectErrorSchema },
     })
 
-    // Get project metrics
     .get('/api/v1/projects/:projectId/metrics', async ({ params, headers, set }) => {
       try {
         await initServices();
@@ -416,5 +500,7 @@ export function registerProjectRoutes() {
         set.status = 500;
         return { error: 'Failed to fetch project metrics' };
       }
+    }, {
+      response: { 200: t.Any(), 500: ProjectErrorSchema },
     })
 }
