@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
@@ -8,7 +8,6 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { NotificationService } from '../services/notification_service.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 
-// Lazy service setup (keeps routing file self-contained)
 let auditServiceSingleton: AuditService | null = null;
 let notificationServiceSingleton: NotificationService | null = null;
 let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
@@ -94,9 +93,11 @@ function calculateUrgency(workflow: Record<string, unknown>): number {
   return urgency;
 }
 
+const ErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) });
+const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) });
+
 export function registerApprovalRoutes() {
   return new Elysia().group('/api/v1/approvals', (app) => withRequiredAuth(app)
-    // Create workflow (operator)
     .group('', (g) => withOperatorGuard(g)
       // @ts-expect-error -- Property does not exist on inferred type
       .post('/workflows', async ({ body, set, user, request, headers }) => {
@@ -152,8 +153,29 @@ export function registerApprovalRoutes() {
             message: 'Failed to create approval workflow',
           };
         }
+      }, {
+        body: t.Object({
+          operationId: t.String(),
+          operationType: t.String(),
+          requiredApprovers: t.Array(t.String()),
+          securityLevel: t.String(),
+          context: t.Any(),
+          expirationHours: t.Optional(t.Number()),
+          metadata: t.Optional(t.Any()),
+        }),
+        response: {
+          201: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              workflow: t.Any(),
+              approvalUrl: t.String(),
+            }),
+            message: t.String(),
+          }),
+          400: ValidationErrorSchema,
+          500: ErrorSchema,
+        },
       })
-      // Stats (operator)
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/stats', async ({ set, query, _user }) => {
         try {
@@ -195,10 +217,25 @@ export function registerApprovalRoutes() {
             message: 'Failed to get approval statistics',
           };
         }
+      }, {
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              stats: t.Any(),
+              period: t.Object({
+                days: t.Number(),
+                startDate: t.Any(),
+                endDate: t.Any(),
+              }),
+            }),
+            message: t.String(),
+          }),
+          500: ErrorSchema,
+        },
       })
     )
   
-    // Query workflows (auth)
     // @ts-expect-error -- Property does not exist on inferred type
     .get('/workflows', async ({ set, user, query }) => {
       const parsed = queryWorkflowsSchema.safeParse(query);
@@ -249,9 +286,26 @@ export function registerApprovalRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to query workflows' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            workflows: t.Any(),
+            pagination: t.Object({
+              total: t.Number(),
+              limit: t.Number(),
+              offset: t.Number(),
+              hasMore: t.Boolean(),
+            }),
+          }),
+          message: t.String(),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
   
-    // Pending approvals for current user
     // @ts-expect-error -- Property does not exist on inferred type
     .get('/pending', async ({ set, user }) => {
       try {
@@ -300,9 +354,26 @@ export function registerApprovalRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to get pending approvals' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            pendingApprovals: t.Any(),
+            count: t.Number(),
+            summary: t.Object({
+              critical: t.Number(),
+              high: t.Number(),
+              medium: t.Number(),
+              low: t.Number(),
+            }),
+          }),
+          message: t.String(),
+        }),
+        500: ErrorSchema,
+      },
     })
   
-    // Cancel workflow (operator)
     .group('', (g) => withOperatorGuard(g).post(
       '/:workflowId/cancel',
       // @ts-expect-error -- Property does not exist on inferred type
@@ -335,11 +406,18 @@ export function registerApprovalRoutes() {
             message: 'Failed to cancel approval workflow',
           };
         }
+      },
+      {
+        body: t.Object({ reason: t.String() }),
+        response: {
+          200: t.Object({ success: t.Literal(true), message: t.String() }),
+          400: t.Object({ error: t.String() }),
+          500: ErrorSchema,
+        },
       }
     )
     )
   
-    // Workflow details
     // @ts-expect-error -- Property does not exist on inferred type
     .get('/:workflowId', async ({ set, params, user }) => {
       try {
@@ -370,9 +448,19 @@ export function registerApprovalRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to get workflow' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({ status: t.Any(), workflow: t.Any() }),
+          message: t.String(),
+        }),
+        400: t.Object({ error: t.String() }),
+        403: t.Object({ error: t.String() }),
+        500: ErrorSchema,
+      },
     })
   
-    // Approval decision
     // @ts-expect-error -- Property does not exist on inferred type
     .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
       const parsed = approvalDecisionSchema.safeParse({
@@ -434,6 +522,25 @@ export function registerApprovalRoutes() {
           message: 'Failed to process approval decision',
         };
       }
+    }, {
+      body: t.Object({
+        decision: t.Union([t.Literal('approve'), t.Literal('reject')]),
+        conditions: t.Optional(t.Array(t.String())),
+        feedback: t.Optional(t.String()),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            decision: t.Any(),
+            status: t.Any(),
+            message: t.String(),
+          }),
+          message: t.String(),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
   );
 

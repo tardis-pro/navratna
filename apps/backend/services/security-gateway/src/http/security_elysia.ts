@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
@@ -9,7 +9,6 @@ import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/security_gateway_service.js';
 import { ApprovalWorkflowService } from '../services/approval_workflow_service.js';
 
-// Lazy service setup mirroring the original route behavior
 let securityServiceSingleton: SecurityService | null = null;
 let auditServiceSingleton: AuditService | null = null;
 let domainAuditServiceSingleton: DomainAuditService | null = null;
@@ -57,7 +56,6 @@ async function getSecurityServices() {
   };
 }
 
-// Schemas
 const riskAssessmentSchema = z.object({
   operationType: z.enum(['CREATE', 'READ', 'UPDATE', 'DELETE', 'EXECUTE', 'DEPLOY', 'CONFIGURE']),
   resourceType: z.enum(['AGENT', 'WORKFLOW', 'DATA', 'SYSTEM', 'USER', 'POLICY', 'CONFIGURATION']),
@@ -135,9 +133,18 @@ function validateWithZod<T>(
   };
 }
 
+const RiskAssessmentBodySchema = t.Object({
+  operationType: t.String(),
+  resourceType: t.String(),
+  resourceId: t.Optional(t.String()),
+  context: t.Optional(t.Any()),
+});
+
+const ErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) });
+const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) });
+
 export function registerSecurityRoutes() {
   return new Elysia().group('/api/v1/security', (app) => withRequiredAuth(app)
-    // POST /assess-risk
     // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/assess-risk', async ({ set, body, user, request, headers }) => {
       const { error, value } = validateWithZod(riskAssessmentSchema, body);
@@ -190,9 +197,15 @@ export function registerSecurityRoutes() {
           message: 'An error occurred during risk assessment',
         };
       }
+    }, {
+      body: RiskAssessmentBodySchema,
+      response: {
+        200: t.Object({ message: t.String(), assessment: t.Any() }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
   
-    // POST /check-approval-required
     // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
       const { error, value } = validateWithZod(riskAssessmentSchema, body);
@@ -237,9 +250,20 @@ export function registerSecurityRoutes() {
           message: 'An error occurred during approval requirement check',
         };
       }
+    }, {
+      body: RiskAssessmentBodySchema,
+      response: {
+        200: t.Object({
+          message: t.String(),
+          requiresApproval: t.Boolean(),
+          requirements: t.Optional(t.Any()),
+          matchedPolicies: t.Array(t.String()),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
   
-    // Admin-only: policies
     .group('', (g) => withAdminGuard(g)
       .get('/policies', async ({ set, query }) => {
         try {
@@ -278,6 +302,20 @@ export function registerSecurityRoutes() {
             message: 'An error occurred while retrieving security policies',
           };
         }
+      }, {
+        response: {
+          200: t.Object({
+            message: t.String(),
+            policies: t.Any(),
+            pagination: t.Object({
+              page: t.Number(),
+              limit: t.Number(),
+              total: t.Number(),
+              pages: t.Number(),
+            }),
+          }),
+          500: ErrorSchema,
+        },
       })
       
       .get('/policies/:policyId', async ({ set, params }) => {
@@ -300,6 +338,12 @@ export function registerSecurityRoutes() {
             message: 'An error occurred while retrieving the security policy',
           };
         }
+      }, {
+        response: {
+          200: t.Object({ message: t.String(), policy: t.Any() }),
+          404: ErrorSchema,
+          500: ErrorSchema,
+        },
       })
       
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
@@ -346,6 +390,20 @@ export function registerSecurityRoutes() {
             message: 'An error occurred while creating the security policy',
           };
         }
+      }, {
+        body: t.Object({
+          name: t.String(),
+          description: t.String(),
+          priority: t.Number(),
+          isActive: t.Optional(t.Boolean()),
+          conditions: t.Any(),
+          actions: t.Any(),
+        }),
+        response: {
+          201: t.Object({ message: t.String(), policy: t.Any() }),
+          400: ValidationErrorSchema,
+          500: ErrorSchema,
+        },
       })
       
       .put('/policies/:policyId', async ({ set, params, body }) => {
@@ -376,6 +434,21 @@ export function registerSecurityRoutes() {
             message: 'An error occurred while updating the security policy',
           };
         }
+      }, {
+        body: t.Object({
+          name: t.Optional(t.String()),
+          description: t.Optional(t.String()),
+          priority: t.Optional(t.Number()),
+          isActive: t.Optional(t.Boolean()),
+          conditions: t.Optional(t.Any()),
+          actions: t.Optional(t.Any()),
+        }),
+        response: {
+          200: t.Object({ message: t.String(), policy: t.Any() }),
+          400: ValidationErrorSchema,
+          404: ErrorSchema,
+          500: ErrorSchema,
+        },
       })
       
       .delete('/policies/:policyId', async ({ set, params }) => {
@@ -398,6 +471,12 @@ export function registerSecurityRoutes() {
             message: 'An error occurred while deleting the security policy',
           };
         }
+      }, {
+        response: {
+          200: t.Object({ message: t.String() }),
+          404: ErrorSchema,
+          500: ErrorSchema,
+        },
       })
       
       .get('/stats', async ({ set, query }) => {
@@ -504,6 +583,29 @@ export function registerSecurityRoutes() {
             message: 'An error occurred while retrieving security statistics',
           };
         }
+      }, {
+        response: {
+          200: t.Object({
+            message: t.String(),
+            timeframe: t.String(),
+            statistics: t.Object({
+              events: t.Array(t.Object({ event_type: t.String(), count: t.Number() })),
+              riskAssessments: t.Object({
+                total_assessments: t.Number(),
+                avg_risk_score: t.Number(),
+                high_risk_count: t.Number(),
+                medium_risk_count: t.Number(),
+                low_risk_count: t.Number(),
+              }),
+              policies: t.Object({
+                total_policies: t.Number(),
+                active_policies: t.Number(),
+                inactive_policies: t.Number(),
+              }),
+            }),
+          }),
+          500: ErrorSchema,
+        },
       })
     )
   );

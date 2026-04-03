@@ -271,6 +271,27 @@ export function registerAuthRoutes() {
         password: t.String({ minLength: 6 }),
         rememberMe: t.Optional(t.Boolean({ default: false })),
       }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            user: t.Object({
+              id: t.String(),
+              email: t.String(),
+              firstName: t.String(),
+              lastName: t.String(),
+              role: t.String(),
+              department: t.String(),
+              permissions: t.Array(t.Any()),
+              lastLoginAt: t.Optional(t.Any()),
+            }),
+          }),
+          meta: t.Object({ timestamp: t.Any() }),
+        }),
+        400: t.Object({ error: t.String(), details: t.Optional(t.Any()) }),
+        401: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
     })
   
     // POST /refresh
@@ -339,6 +360,14 @@ export function registerAuthRoutes() {
         set.status = 401;
         return { error: 'Invalid Token', message: 'Refresh token is invalid or expired' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          meta: t.Object({ timestamp: t.Any() }),
+        }),
+        401: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
     })
   
     // POST /logout
@@ -377,6 +406,15 @@ export function registerAuthRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'An error occurred during logout' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({ message: t.String() }),
+          meta: t.Object({ timestamp: t.Any() }),
+        }),
+        500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
     })
   
     // POST /change-password (requires auth)
@@ -434,6 +472,13 @@ export function registerAuthRoutes() {
         currentPassword: t.String({ minLength: 1 }),
         newPassword: t.String({ minLength: 8 }),
       }),
+      response: {
+        200: t.Object({ message: t.String() }),
+        400: t.Object({ error: t.String(), details: t.Optional(t.Any()) }),
+        401: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        404: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
     })
     )
   
@@ -471,6 +516,29 @@ export function registerAuthRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to load user' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            id: t.String(),
+            email: t.String(),
+            firstName: t.String(),
+            lastName: t.String(),
+            role: t.String(),
+            department: t.String(),
+            permissions: t.Array(t.Any()),
+            lastLoginAt: t.Optional(t.Any()),
+          }),
+          meta: t.Object({ timestamp: t.Any() }),
+        }),
+        404: t.Object({
+          success: t.Literal(false),
+          error: t.Object({ code: t.String(), message: t.String() }),
+          meta: t.Object({ timestamp: t.Any() }),
+        }),
+        500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
     })
     )
   
@@ -506,6 +574,17 @@ export function registerAuthRoutes() {
           },
         };
       }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({ token: t.String(), headerName: t.String() }),
+        }),
+        500: t.Object({
+          success: t.Literal(false),
+          error: t.Object({ code: t.String(), message: t.String() }),
+        }),
+      },
     })
   
     // GET /validate - Token validation for nginx auth_request
@@ -534,6 +613,11 @@ export function registerAuthRoutes() {
         set.status = 401;
         return { error: 'Token validation failed' };
       }
+    }, {
+      response: {
+        200: t.Object({ valid: t.Literal(true) }),
+        401: t.Object({ error: t.String() }),
+      },
     })
     // POST /internal-token - Issue internal service token
     .post('/internal-token', async ({ body, set }) => {
@@ -598,6 +682,18 @@ export function registerAuthRoutes() {
         serviceName: t.String({ minLength: 1 }),
         apiKey: t.String({ minLength: 1 }),
       }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({ token: t.String(), expiresAt: t.String() }),
+        }),
+        400: t.Object({ error: t.String(), details: t.Optional(t.Any()) }),
+        401: t.Object({ error: t.String() }),
+        500: t.Object({
+          success: t.Literal(false),
+          error: t.Object({ code: t.String(), message: t.String() }),
+        }),
+      },
     })
   );
 

@@ -14,7 +14,6 @@ import {
   type KnowledgeIngestRequest,
 } from '@uaip/types';
 
-// Query parameter interfaces
 interface _ItemIdParams {
   itemId: string;
 }
@@ -150,14 +149,12 @@ const normalizeKnowledgeItem = (item: Record<string, unknown>): KnowledgeIngestR
 const isChatImportBody = (value: unknown): value is { file?: File; options?: string } =>
   typeof value === 'object' && value !== null;
 
-// Health status interface
 interface ServicesHealthStatus {
   healthy: boolean;
   services: Record<string, boolean>;
   error?: string;
 }
 
-// Knowledge item body interface
 interface _KnowledgeItemBody {
   content: string;
   type?: string;
@@ -173,7 +170,6 @@ interface _KnowledgeItemBody {
   confidence?: number;
 }
 
-// In-memory job store — good enough for single-instance dev; replace with Redis for prod
 const chatImportJobs = new Map<
   string,
   {
@@ -205,11 +201,9 @@ function parseChatFile(
   if (ext === 'json') {
     try {
       const data = JSON.parse(content);
-      // ChatGPT / Claude export: array of conversations
       const convs = Array.isArray(data) ? data : (data.conversations ?? data.data ?? []);
       for (const conv of convs) {
         const title = conv.title ?? conv.name ?? 'Untitled conversation';
-        // Collect all assistant/human message texts
         let text = '';
         const msgs = conv.messages ?? (conv.mapping ? Object.values(conv.mapping) : []);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO: normalize chat-export JSON message shapes before iterating
@@ -228,11 +222,9 @@ function parseChatFile(
         }
       }
     } catch {
-      // Not valid JSON — fall through to text handling
       items.push({ content: content.slice(0, 8000), title: fileName, tags: ['chat-import'] });
     }
   } else if (ext === 'txt' || ext === 'md') {
-    // WhatsApp / plain text — split on date-prefixed lines as conversation turns
     const chunks = content.split(/\n(?=\d{1,2}\/\d{1,2}\/\d{2,4}|\[\d)/);
     const MAX_CHUNK = 2000;
     let buf = '';
@@ -255,7 +247,6 @@ function parseChatFile(
         tags: ['chat-import'],
       });
   } else {
-    // CSV / HTML / fallback — just ingest raw content in 4 KB chunks
     const CHUNK = 4000;
     for (let i = 0, n = 0; i < content.length; i += CHUNK, n++) {
       items.push({
@@ -282,9 +273,15 @@ async function getServices(): Promise<{
   }
 }
 
+const KnowledgeErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.String()) });
+const KnowledgeSuccessDataSchema = t.Object({
+  success: t.Literal(true),
+  data: t.Any(),
+  message: t.String(),
+});
+
 export function registerKnowledgeRoutes() {
   return new Elysia().group('/api/v1/knowledge', (app) => withOptionalAuth(app)
-    // POST /
     .group('', (g) => withRequiredAuth(g)
       // @ts-expect-error -- Property does not exist on inferred type
       .post('/', async ({ set, body, user }) => {
@@ -311,9 +308,15 @@ export function registerKnowledgeRoutes() {
           data: result,
           message: `Successfully added ${result.processedCount} knowledge items`,
         };
+      }, {
+        body: t.Any(),
+        response: {
+          201: KnowledgeSuccessDataSchema,
+          400: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // PATCH /:itemId
       // @ts-expect-error -- Property does not exist on inferred type
       .patch('/:itemId', async ({ set, params, body, user }) => {
         const userId = user.id;
@@ -352,9 +355,17 @@ export function registerKnowledgeRoutes() {
             details: error instanceof Error ? error.message : 'Unknown error',
           };
         }
+      }, {
+        body: t.Any(),
+        response: {
+          200: KnowledgeSuccessDataSchema,
+          400: KnowledgeErrorSchema,
+          404: KnowledgeErrorSchema,
+          500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // DELETE /:itemId
       // @ts-expect-error -- Property does not exist on inferred type
       .delete('/:itemId', async ({ set, params, user }) => {
         const userId = user.id;
@@ -385,9 +396,16 @@ export function registerKnowledgeRoutes() {
             details: error instanceof Error ? error.message : 'Unknown error',
           };
         }
+      }, {
+        response: {
+          200: t.Object({ success: t.Literal(true), message: t.String() }),
+          400: KnowledgeErrorSchema,
+          404: KnowledgeErrorSchema,
+          500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // GET /tags/:tag
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/tags/:tag', async ({ set, params, query, user }) => {
         const userId = user.id;
@@ -404,9 +422,13 @@ export function registerKnowledgeRoutes() {
           data: items,
           message: `Found ${items.length} items with tag "${tag}"`,
         };
+      }, {
+        response: {
+          200: KnowledgeSuccessDataSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // GET /stats
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/stats', async ({ set, user }) => {
         const userId = user.id;
@@ -421,9 +443,13 @@ export function registerKnowledgeRoutes() {
           data: stats,
           message: 'Knowledge statistics retrieved successfully',
         };
+      }, {
+        response: {
+          200: KnowledgeSuccessDataSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // GET /:itemId/related
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/:itemId/related', async ({ set, params, user }) => {
         const userId = user.id;
@@ -443,9 +469,14 @@ export function registerKnowledgeRoutes() {
           data: related,
           message: `Found ${related.length} related items`,
         };
+      }, {
+        response: {
+          200: KnowledgeSuccessDataSchema,
+          400: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // GET /:itemId/similar
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/:itemId/similar', async ({ set, params, query, user }) => {
         const userId = user.id;
@@ -467,9 +498,14 @@ export function registerKnowledgeRoutes() {
           data: limited,
           message: `Found ${limited.length} similar items`,
         };
+      }, {
+        response: {
+          200: KnowledgeSuccessDataSchema,
+          400: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // GET /graph
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/graph', async ({ set, query, user }) => {
         const userId = user.id;
@@ -554,9 +590,25 @@ export function registerKnowledgeRoutes() {
           },
           message: `Retrieved knowledge graph with ${nodes.length} nodes and ${edges.length} relationships`,
         };
+      }, {
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              nodes: t.Any(),
+              edges: t.Any(),
+              metadata: t.Object({
+                totalNodes: t.Number(),
+                totalEdges: t.Number(),
+                searchMetadata: t.Any(),
+              }),
+            }),
+            message: t.String(),
+          }),
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // GET /graph/relationships/:itemId
       // @ts-expect-error -- Property does not exist on inferred type
       .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
         const userId = user.id;
@@ -612,9 +664,23 @@ export function registerKnowledgeRoutes() {
           data: { itemId, relationships, totalCount: related.length },
           message: `Found ${relationships.length} relationships for knowledge item`,
         };
+      }, {
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              itemId: t.String(),
+              relationships: t.Any(),
+              totalCount: t.Number(),
+            }),
+            message: t.String(),
+          }),
+          400: KnowledgeErrorSchema,
+          404: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // POST /sync
       // @ts-expect-error -- Property does not exist on inferred type
       .post('/sync', async ({ set, user }) => {
         const _userId = user.id;
@@ -650,10 +716,13 @@ export function registerKnowledgeRoutes() {
           data: result,
           message: 'Knowledge clustering sync completed successfully',
         };
+      }, {
+        response: {
+          200: KnowledgeSuccessDataSchema,
+          503: KnowledgeErrorSchema,
+        },
       })
       
-      // POST /chat-import — upload a chat history file and extract knowledge
-      // (no ts-expect-error needed — handler is typed as :any)
       .post(
         '/chat-import',
         // @ts-expect-error -- Property does not exist on inferred type
@@ -673,7 +742,6 @@ export function registerKnowledgeRoutes() {
           }
       
           const optionsRaw = rawBody?.options;
-          // options is a string when sent as a FormData field
           let options: Record<string, boolean> = {};
           if (optionsRaw) {
             try {
@@ -694,7 +762,6 @@ export function registerKnowledgeRoutes() {
           };
           chatImportJobs.set(jobId, job);
       
-          // Process synchronously (async in background to not block response)
           setImmediate(async () => {
             try {
               const content = await file.text();
@@ -760,11 +827,14 @@ export function registerKnowledgeRoutes() {
             file: t.File(),
             options: t.Optional(t.String()),
           }),
+          response: {
+            200: t.Object({ jobId: t.String(), status: t.String(), message: t.String() }),
+            400: KnowledgeErrorSchema,
+            503: KnowledgeErrorSchema,
+          },
         }
       )
       
-      // GET /chat-jobs/:jobId — poll for import job status
-      // (no ts-expect-error needed — handler is typed as :any)
       .get('/chat-jobs/:jobId', async ({ set, params }) => {
         const jobId = params.jobId;
         const job = chatImportJobs.get(jobId);
@@ -773,10 +843,34 @@ export function registerKnowledgeRoutes() {
           return { error: 'Job not found' };
         }
         return job;
+      }, {
+        response: {
+          200: t.Object({
+            id: t.String(),
+            status: t.Union([
+              t.Literal('pending'),
+              t.Literal('processing'),
+              t.Literal('completed'),
+              t.Literal('failed'),
+            ]),
+            progress: t.Number(),
+            filesProcessed: t.Number(),
+            totalFiles: t.Number(),
+            extractedItems: t.Number(),
+            error: t.Optional(t.String()),
+            results: t.Optional(t.Object({
+              knowledgeItems: t.Number(),
+              qaPairs: t.Number(),
+              workflows: t.Number(),
+              expertiseProfiles: t.Number(),
+              learningMoments: t.Number(),
+            })),
+          }),
+          404: t.Object({ error: t.String() }),
+        },
       })
     )
   
-    // GET /
     .get('/', async ({ set, query, user }) => {
       if (!user) {
         set.status = 401;
@@ -806,9 +900,19 @@ export function registerKnowledgeRoutes() {
         meta: { total: result.totalCount, limit, offset, searchMetadata: result.searchMetadata },
         message: `Retrieved ${result.items.length} knowledge items`,
       };
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Any(),
+          meta: t.Any(),
+          message: t.String(),
+        }),
+        401: t.Object({ error: t.String() }),
+        503: KnowledgeErrorSchema,
+      },
     })
   
-    // GET /search
     .get('/search', async ({ set, query, user }) => {
       if (!user) {
         set.status = 401;
@@ -843,22 +947,31 @@ export function registerKnowledgeRoutes() {
         data: result,
         message: `Found ${result.totalCount} knowledge items`,
       };
+    }, {
+      response: {
+        200: KnowledgeSuccessDataSchema,
+        400: KnowledgeErrorSchema,
+        401: t.Object({ error: t.String() }),
+        503: KnowledgeErrorSchema,
+      },
     })
   
-    // GET /health (public)
-    .get('/health', async () => {
+    .get('/health', async ({ set }) => {
       const healthStatus = await servicesHealthCheck();
       const ok = (healthStatus as ServicesHealthStatus).healthy;
-      if (ok)
-        return { success: true, data: healthStatus, message: 'Knowledge services are healthy' };
-      return new Response(
-        JSON.stringify({
-          success: false,
-          data: healthStatus,
-          message: 'Knowledge services are not healthy',
-        }),
-        { status: 503, headers: { 'content-type': 'application/json' } }
-      );
+      if (!ok) {
+        set.status = 503;
+        return {
+          error: 'Knowledge services are not healthy',
+          details: JSON.stringify(healthStatus),
+        };
+      }
+      return { success: true as const, data: healthStatus, message: 'Knowledge services are healthy' };
+    }, {
+      response: {
+        200: KnowledgeSuccessDataSchema,
+        503: KnowledgeErrorSchema,
+      },
     })
   );
 

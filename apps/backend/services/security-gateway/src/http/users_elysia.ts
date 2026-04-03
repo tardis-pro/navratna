@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 // Elysia's type system cannot infer the 'user' property through nested .group() calls combined with middleware wrappers.
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
@@ -88,6 +88,40 @@ const omitPasswordHash = <T extends { passwordHash?: string }>(user: T) => {
   return safeUser;
 };
 
+const UserSchema = t.Object({
+  id: t.String(),
+  email: t.String(),
+  firstName: t.Optional(t.Any()),
+  lastName: t.Optional(t.Any()),
+  department: t.Optional(t.Any()),
+  role: t.String(),
+  isActive: t.Boolean(),
+  createdAt: t.Union([t.String(), t.Date()]),
+  updatedAt: t.Optional(t.Union([t.String(), t.Date()])),
+  lastLoginAt: t.Optional(t.Any()),
+  failedLoginAttempts: t.Optional(t.Number()),
+})
+
+const PublicUserSchema = t.Object({
+  id: t.String(),
+  email: t.String(),
+  displayName: t.String(),
+  firstName: t.Union([t.String(), t.Null()]),
+  lastName: t.Union([t.String(), t.Null()]),
+  department: t.Union([t.String(), t.Null()]),
+  createdAt: t.Union([t.String(), t.Date()]),
+  lastLoginAt: t.Optional(t.Union([t.String(), t.Date(), t.Null()])),
+})
+
+const PaginationSchema = t.Object({
+  page: t.Number(),
+  limit: t.Number(),
+  total: t.Number(),
+  pages: t.Number(),
+})
+
+const HttpErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) })
+
 export function registerUserRoutes() {
   return new Elysia().group('/api/v1/users', (app) => withOptionalAuth(app)
     // GET /api/v1/users (admin)
@@ -125,6 +159,24 @@ export function registerUserRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to retrieve users' };
       }
+    }, {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+        role: t.Optional(t.String()),
+        isActive: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      response: {
+        200: t.Object({
+          message: t.String(),
+          users: t.Array(t.Any()),
+          pagination: PaginationSchema,
+          filters: t.Any(),
+        }),
+        400: t.Object({ error: t.String(), details: t.Any() }),
+        500: HttpErrorSchema,
+      },
     })
     )
   
@@ -172,12 +224,30 @@ export function registerUserRoutes() {
         };
       } catch {
         set.status = 500;
-        return {
-          success: false,
-          error: 'Internal Server Error',
-          message: 'Failed to retrieve public users',
-        };
+      return {
+        success: false,
+        error: 'Internal Server Error',
+        message: 'Failed to retrieve public users',
+      };
       }
+    }, {
+      query: t.Object({
+        page: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          message: t.String(),
+          data: t.Object({
+            users: t.Array(PublicUserSchema),
+            pagination: PaginationSchema,
+          }),
+        }),
+        400: t.Object({ error: t.String(), details: t.Any() }),
+        500: t.Object({ success: t.Literal(false), error: t.String(), message: t.String() }),
+      },
     })
   
     // GET /api/v1/users/llm-preferences
@@ -194,6 +264,11 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to retrieve preferences' };
         }
+      }, {
+        response: {
+          200: t.Array(t.Any()),
+          500: HttpErrorSchema,
+        },
       })
       
       // PUT /api/v1/users/llm-preferences
@@ -235,6 +310,24 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to update preferences' };
         }
+      }, {
+        body: t.Object({
+          preferences: t.Array(t.Object({
+            taskType: t.String(),
+            preferredProvider: t.String(),
+            preferredModel: t.String(),
+            fallbackModel: t.Optional(t.String()),
+            settings: t.Optional(t.Any()),
+            description: t.Optional(t.String()),
+            priority: t.Optional(t.Number()),
+            isActive: t.Optional(t.Boolean()),
+          })),
+        }),
+        response: {
+          200: t.Object({ message: t.String() }),
+          400: t.Object({ error: t.String(), details: t.Any() }),
+          500: HttpErrorSchema,
+        },
       })
     )
   
@@ -254,6 +347,12 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to retrieve user' };
         }
+      }, {
+        response: {
+          200: t.Object({ message: t.String(), user: UserSchema }),
+          404: t.Object({ error: t.String(), message: t.String() }),
+          500: HttpErrorSchema,
+        },
       })
       
       // POST /api/v1/users (admin)
@@ -307,6 +406,22 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to create user' };
         }
+      }, {
+        body: t.Object({
+          email: t.String(),
+          password: t.String(),
+          role: t.Optional(t.String()),
+          firstName: t.Optional(t.String()),
+          lastName: t.Optional(t.String()),
+          department: t.Optional(t.String()),
+          isActive: t.Optional(t.Boolean()),
+        }),
+        response: {
+          201: t.Object({ message: t.String(), user: UserSchema }),
+          400: t.Object({ error: t.String(), details: t.Any() }),
+          409: t.Object({ error: t.String(), message: t.String() }),
+          500: HttpErrorSchema,
+        },
       })
       
       // PUT /api/v1/users/:userId (admin)
@@ -368,6 +483,22 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to update user' };
         }
+      }, {
+        body: t.Object({
+          email: t.Optional(t.String()),
+          role: t.Optional(t.String()),
+          firstName: t.Optional(t.String()),
+          lastName: t.Optional(t.String()),
+          department: t.Optional(t.String()),
+          isActive: t.Optional(t.Boolean()),
+        }),
+        response: {
+          200: t.Object({ message: t.String(), user: t.Any() }),
+          400: t.Object({ error: t.String(), details: t.Any() }),
+          404: t.Object({ error: t.String(), message: t.String() }),
+          409: t.Object({ error: t.String(), message: t.String() }),
+          500: HttpErrorSchema,
+        },
       })
       
       // DELETE /api/v1/users/:userId (admin)
@@ -391,6 +522,12 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to delete user' };
         }
+      }, {
+        response: {
+          200: t.Object({ message: t.String() }),
+          404: t.Object({ error: t.String(), message: t.String() }),
+          500: HttpErrorSchema,
+        },
       })
       
       // GET /api/v1/users/stats (admin)
@@ -414,6 +551,22 @@ export function registerUserRoutes() {
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to load stats' };
         }
+      }, {
+        response: {
+          200: t.Object({
+            message: t.String(),
+            statistics: t.Object({
+              roleDistribution: t.Any(),
+              departmentDistribution: t.Any(),
+              summary: t.Object({
+                totalUsers: t.Number(),
+                activeUsers: t.Number(),
+                inactiveUsers: t.Number(),
+              }),
+            }),
+          }),
+          500: HttpErrorSchema,
+        },
       })
     )
   );

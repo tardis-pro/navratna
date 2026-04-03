@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { logger as _logger } from '@uaip/utils';
 import { withAdminGuard, withRequiredAuth } from '@uaip/middleware';
@@ -74,9 +74,18 @@ function validateWithZod<T>(
   };
 }
 
+const ErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) });
+const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) });
+
+const PaginationSchema = t.Object({
+  page: t.Number(),
+  limit: t.Number(),
+  total: t.Number(),
+  pages: t.Number(),
+});
+
 export function registerAuditRoutes() {
   return new Elysia().group('/api/v1/audit', (app) => withRequiredAuth(app).group('', (g) => withAdminGuard(g)
-    // GET /logs
     .get('/logs', async ({ set, query }) => {
       const { error, value } = validateWithZod(auditQuerySchema, query);
       if (error) {
@@ -117,9 +126,19 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to retrieve audit logs' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          message: t.String(),
+          logs: t.Any(),
+          pagination: PaginationSchema,
+          filters: t.Any(),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
     
-    // GET /logs/:logId
     .get('/logs/:logId', async ({ set, params }) => {
       try {
         const { domainAuditService } = await getServices();
@@ -136,9 +155,14 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to retrieve audit log' };
       }
+    }, {
+      response: {
+        200: t.Object({ message: t.String(), log: t.Any() }),
+        404: ErrorSchema,
+        500: ErrorSchema,
+      },
     })
     
-    // GET /events/types
     .get('/events/types', async ({ set }) => {
       try {
         const { domainAuditService } = await getServices();
@@ -149,9 +173,13 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to retrieve event types' };
       }
+    }, {
+      response: {
+        200: t.Object({ message: t.String(), eventTypes: t.Any() }),
+        500: ErrorSchema,
+      },
     })
     
-    // GET /stats
     .get('/stats', async ({ set, query }) => {
       try {
         const parsedQuery = statsQuerySchema.safeParse(query);
@@ -171,9 +199,17 @@ export function registerAuditRoutes() {
           message: 'Failed to retrieve audit statistics',
         };
       }
+    }, {
+      response: {
+        200: t.Object({
+          message: t.String(),
+          timeframe: t.String(),
+          statistics: t.Any(),
+        }),
+        500: ErrorSchema,
+      },
     })
     
-    // POST /export
     // @ts-expect-error -- Property does not exist on inferred type
     .post('/export', async ({ set, body, user, request, headers }) => {
       const { error, value } = validateWithZod(exportSchema, body);
@@ -224,9 +260,28 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to export audit logs' };
       }
+    }, {
+      body: t.Object({
+        format: t.Optional(t.Union([t.Literal('json'), t.Literal('csv'), t.Literal('xml')])),
+        eventType: t.Optional(t.String()),
+        userId: t.Optional(t.String()),
+        startDate: t.Optional(t.Any()),
+        endDate: t.Optional(t.Any()),
+        includeDetails: t.Optional(t.Boolean()),
+      }),
+      response: {
+        200: t.Object({
+          message: t.String(),
+          format: t.String(),
+          recordCount: t.Any(),
+          exportedAt: t.String(),
+          data: t.Any(),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
     
-    // POST /compliance-report
     // @ts-expect-error -- Property does not exist on inferred type
     .post('/compliance-report', async ({ set, body, user, request, headers }) => {
       const { error, value } = validateWithZod(complianceReportSchema, body);
@@ -265,9 +320,26 @@ export function registerAuditRoutes() {
           message: 'Failed to generate compliance report',
         };
       }
+    }, {
+      body: t.Object({
+        reportType: t.Union([
+          t.Literal('security_events'),
+          t.Literal('user_activity'),
+          t.Literal('policy_compliance'),
+          t.Literal('risk_assessment'),
+        ]),
+        startDate: t.Any(),
+        endDate: t.Any(),
+        format: t.Optional(t.Union([t.Literal('json'), t.Literal('csv'), t.Literal('pdf')])),
+        includeCharts: t.Optional(t.Boolean()),
+      }),
+      response: {
+        200: t.Any(),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
     })
     
-    // GET /user-activity/:userId
     .get('/user-activity/:userId', async ({ set, params, query }) => {
       try {
         const { domainAuditService } = await getServices();
@@ -305,9 +377,20 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to retrieve user activity' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          message: t.String(),
+          userId: t.String(),
+          userEmail: t.Union([t.String(), t.Null()]),
+          userRole: t.Union([t.String(), t.Null()]),
+          activities: t.Any(),
+          pagination: PaginationSchema,
+        }),
+        500: ErrorSchema,
+      },
     })
     
-    // DELETE /cleanup
     // @ts-expect-error -- Property does not exist on inferred type
     .delete('/cleanup', async ({ set, user, request, headers }) => {
       try {
@@ -325,6 +408,14 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to cleanup audit logs' };
       }
+    }, {
+      response: {
+        200: t.Object({
+          message: t.String(),
+          result: t.Object({ archived: t.Number(), deleted: t.Number() }),
+        }),
+        500: ErrorSchema,
+      },
     })
     .patch('/logs/:logId/resolve', async ({ params, request, set }) => {
       try {
@@ -365,6 +456,12 @@ export function registerAuditRoutes() {
         set.status = 500;
         return { error: 'Failed to resolve audit event' };
       }
+    }, {
+      response: {
+        200: t.Object({ message: t.String(), id: t.String() }),
+        404: t.Object({ error: t.String() }),
+        500: t.Object({ error: t.String() }),
+      },
     })
   )
   );
