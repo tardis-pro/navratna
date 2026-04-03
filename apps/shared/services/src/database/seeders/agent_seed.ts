@@ -1,5 +1,5 @@
 import { getIntelligenceDb } from '../drizzle/clients/index';
-import { agents } from '../../database/drizzle/schemas/intelligence_schema';
+import { agents, type Agent } from '../../database/drizzle/schemas/intelligence_schema';
 import { BaseSeed } from './base_seed';
 import {
   AgentRole,
@@ -7,6 +7,9 @@ import {
   AgentIntelligenceConfig,
   AgentSecurityContext,
 } from '@uaip/types';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type AgentInsert = InferInsertModel<typeof agents>;
 
 export class AgentSeed extends BaseSeed {
   private db = getIntelligenceDb();
@@ -19,13 +22,13 @@ export class AgentSeed extends BaseSeed {
     this.personas = personaIds.map((id) => ({ id }));
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<Agent[]> {
     const seedData = await this.getSeedData();
 
     for (const agent of seedData) {
       await this.db
         .insert(agents)
-        .values(agent as any)
+        .values(agent)
         .onConflictDoNothing();
     }
 
@@ -36,7 +39,7 @@ export class AgentSeed extends BaseSeed {
     return this.personas[0]?.id ?? '00000000-0000-0000-0000-000000000000';
   }
 
-  async getSeedData(): Promise<any[]> {
+  async getSeedData(): Promise<AgentInsert[]> {
     return [
       {
         name: 'Pro',

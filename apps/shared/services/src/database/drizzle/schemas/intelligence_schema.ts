@@ -691,3 +691,5 @@ export type LLMModel = typeof llmModels.$inferSelect;
 export type NewLLMModel = typeof llmModels.$inferInsert;
 export type ShortLink = typeof shortLinks.$inferSelect;
 export type NewShortLink = typeof shortLinks.$inferInsert;
+export type AgentLLMPreference = typeof agentLLMPreferences.$inferSelect;
+export type NewAgentLLMPreference = typeof agentLLMPreferences.$inferInsert;
