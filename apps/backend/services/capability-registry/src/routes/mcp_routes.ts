@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { logger } from '@uaip/utils';
 import { MCPClientService } from '../services/mcp_client_service.js';
 import { MCPResourceDiscoveryService } from '../services/mcp_resource_discovery_service.js';
@@ -35,6 +35,10 @@ function sanitizeServerState(s: unknown) {
 // Route registration
 // ---------------------------------------------------------------------------
 
+const McpSuccessSchema = t.Object({ success: t.Boolean() })
+const McpErrorSchema = t.Object({ success: t.Literal(false), error: t.Object({ code: t.String(), message: t.String() }) })
+const McpAny = t.Any()
+
 export function registerMCPRoutes() {
   const mcpService = MCPClientService.getInstance();
 
@@ -45,13 +49,11 @@ export function registerMCPRoutes() {
       // Simple readiness/test endpoint
       .get('/test', () => ({ success: true, message: 'MCP routes working' }))
 
-      // Summarized system status
       .get('/status', async () => {
         const status = await mcpService.getSystemStatus();
         return { success: true, data: status };
       })
 
-      // Optional tools snapshot if available
       .get('/test-tools', async () => {
         const tools = mcpService.getAvailableToolsForAgent?.();
         return {
@@ -73,6 +75,14 @@ export function registerMCPRoutes() {
           success: true,
           data: { agentId, context, recommendations: recs, totalRecommendations: recs.length },
         };
+      }, {
+        query: t.Object({ context: t.Optional(t.String()), limit: t.Optional(t.String()) }),
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({ agentId: t.String(), context: t.Optional(t.Any()), recommendations: t.Array(McpAny), totalRecommendations: t.Number() }),
+          }),
+        },
       })
 
       // Related tools based on graph relationships
@@ -88,6 +98,11 @@ export function registerMCPRoutes() {
           success: true,
           data: { toolId, relatedTools: related, totalRelated: related.length },
         };
+      }, {
+        query: t.Object({ relationshipTypes: t.Optional(t.String()), minStrength: t.Optional(t.String()), limit: t.Optional(t.String()) }),
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Object({ toolId: t.String(), relatedTools: t.Array(McpAny), totalRelated: t.Number() }) }),
+        },
       })
 
       // Usage analytics
@@ -95,6 +110,9 @@ export function registerMCPRoutes() {
         const { toolId, agentId, serverName } = query;
         const analytics = await mcpService.getUsageAnalytics(toolId, agentId, serverName);
         return { success: true, data: { filters: { toolId, agentId, serverName }, analytics } };
+      }, {
+        query: t.Object({ toolId: t.Optional(t.String()), agentId: t.Optional(t.String()), serverName: t.Optional(t.String()) }),
+        response: { 200: t.Object({ success: t.Literal(true), data: McpAny }) },
       })
 
       // Graph status
@@ -120,6 +138,9 @@ export function registerMCPRoutes() {
             },
           },
         };
+      }, {
+        query: t.Object({ serverName: t.Optional(t.String()) }),
+        response: { 200: t.Object({ success: t.Literal(true), data: McpAny }) },
       })
 
       .get('/search/resources', async ({ query, set }) => {
@@ -138,6 +159,12 @@ export function registerMCPRoutes() {
           mimeType,
         });
         return { success: true, data: { query: q, resources, count: resources.length } };
+      }, {
+        query: t.Object({ query: t.Optional(t.String()), serverName: t.Optional(t.String()), category: t.Optional(t.String()), mimeType: t.Optional(t.String()) }),
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Object({ query: McpAny, resources: t.Array(McpAny), count: t.Number() }) }),
+          400: McpErrorSchema,
+        },
       })
 
       // List servers summary — safe fields only, no secrets
@@ -164,6 +191,8 @@ export function registerMCPRoutes() {
           return { success: false, error: { code: 'NOT_FOUND', message: 'Server not found' } };
         }
         return { success: true, data: sanitizeServerState(st) };
+      }, {
+        response: { 200: t.Object({ success: t.Literal(true), data: McpAny }), 404: McpErrorSchema },
       })
 
       // Server lifecycle — admin only
@@ -175,6 +204,8 @@ export function registerMCPRoutes() {
         }
         await mcpService.startServer(ctx.params.serverName);
         return { success: true };
+      }, {
+        response: { 200: McpSuccessSchema, 403: McpErrorSchema },
       })
       .post('/servers/:serverName/stop', async (ctx) => {
         const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
@@ -184,6 +215,8 @@ export function registerMCPRoutes() {
         }
         await mcpService.stopServer(ctx.params.serverName);
         return { success: true };
+      }, {
+        response: { 200: McpSuccessSchema, 403: McpErrorSchema },
       })
       .post('/servers/:serverName/restart', async (ctx) => {
         const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
@@ -193,6 +226,8 @@ export function registerMCPRoutes() {
         }
         await mcpService.restartServer(ctx.params.serverName);
         return { success: true };
+      }, {
+        response: { 200: McpSuccessSchema, 403: McpErrorSchema },
       })
       .post('/servers/:serverName/recover', async (ctx) => {
         const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
@@ -202,6 +237,8 @@ export function registerMCPRoutes() {
         }
         await mcpService.recoverServer(ctx.params.serverName);
         return { success: true };
+      }, {
+        response: { 200: McpSuccessSchema, 403: McpErrorSchema },
       })
 
       // Install / uninstall — admin only
@@ -246,6 +283,17 @@ export function registerMCPRoutes() {
         };
         await mcpService.installServer(ctx.params.serverName, installConfig);
         return { success: true };
+      }, {
+        body: t.Object({
+          transportType: t.Optional(t.String()),
+          args: t.Optional(t.Array(t.String())),
+          command: t.Optional(t.String()),
+          env: t.Optional(t.Any()),
+          cwd: t.Optional(t.String()),
+          httpUrl: t.Optional(t.String()),
+          httpHeaders: t.Optional(t.Any()),
+        }),
+        response: { 200: McpSuccessSchema, 400: McpErrorSchema, 403: McpErrorSchema },
       })
       .post('/servers/:serverName/uninstall', async (ctx) => {
         const role = ctx.headers['x-user-role'] || ctx.request.headers.get('x-user-role');
@@ -255,6 +303,8 @@ export function registerMCPRoutes() {
         }
         await mcpService.uninstallServer(ctx.params.serverName);
         return { success: true };
+      }, {
+        response: { 200: McpSuccessSchema, 403: McpErrorSchema },
       })
 
       // Tools by server
@@ -264,6 +314,8 @@ export function registerMCPRoutes() {
           success: true,
           data: { serverName: params.serverName, tools, count: tools.length },
         };
+      }, {
+        response: { 200: t.Object({ success: t.Literal(true), data: t.Object({ serverName: t.String(), tools: t.Array(McpAny), count: t.Number() }) }) },
       })
 
       // Attach a single tool to agent — admin only
@@ -299,6 +351,16 @@ export function registerMCPRoutes() {
             assignment: result.assignment,
           },
         };
+      }, {
+        body: t.Object({ serverName: t.String(), toolName: t.String() }),
+        response: {
+          200: t.Object({
+            success: t.Boolean(),
+            data: t.Object({ agentId: t.String(), serverName: t.String(), toolName: t.String(), toolId: t.String(), assignment: McpAny }),
+          }),
+          400: McpErrorSchema,
+          403: McpErrorSchema,
+        },
       })
 
       // Raw resources and prompts
@@ -306,11 +368,17 @@ export function registerMCPRoutes() {
         const { serverName } = query;
         const data = await mcpService.discoverResources(serverName);
         return { success: true, data: { resources: data, count: data.length } };
+      }, {
+        query: t.Object({ serverName: t.Optional(t.String()) }),
+        response: { 200: t.Object({ success: t.Literal(true), data: t.Object({ resources: t.Array(McpAny), count: t.Number() }) }) },
       })
       .get('/prompts', async ({ query }) => {
         const { serverName } = query;
         const data = await mcpService.discoverPrompts(serverName);
         return { success: true, data: { prompts: data, count: data.length } };
+      }, {
+        query: t.Object({ serverName: t.Optional(t.String()) }),
+        response: { 200: t.Object({ success: t.Literal(true), data: t.Object({ prompts: t.Array(McpAny), count: t.Number() }) }) },
       })
   );
 }

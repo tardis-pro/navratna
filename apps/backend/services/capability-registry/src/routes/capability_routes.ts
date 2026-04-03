@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { CapabilityController } from '../controllers/capability_controller.js';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
@@ -41,19 +41,51 @@ function validateMcpToolSchema(body: unknown): string | null {
   return null;
 }
 
+const CapabilitySchema = t.Any()
+const CapabilityErrorSchema = t.Object({ success: t.Boolean(), error: t.String() })
+const MetaSchema = t.Object({ timestamp: t.Any(), service: t.String() })
+
 export function registerCapabilityRoutes(controller?: CapabilityController){
   const capabilityController = controller ?? new CapabilityController();
 
   logger.info('Registering capability routes');
 
   return new Elysia().group('/api/v1/capabilities', (g) => withNginxAuth(g)
-    .get('/search', (ctx) => capabilityController.searchCapabilities(ctx))
-    .get('/categories', (ctx) => capabilityController.getCategories(ctx))
-    .get('/recommendations', (ctx) => capabilityController.getRecommendations(ctx))
-    .get('/', (ctx) => capabilityController.listCapabilities(ctx))
+    .get('/search', (ctx) => capabilityController.searchCapabilities(ctx), {
+      query: t.Object({
+        query: t.Optional(t.String()),
+        type: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+      }),
+      response: { 200: t.Any(), 400: CapabilityErrorSchema, 500: CapabilityErrorSchema },
+    })
+    .get('/categories', (ctx) => capabilityController.getCategories(ctx), {
+      response: {
+        200: t.Object({ success: t.Boolean(), data: t.Object({ categories: t.Array(t.String()) }), meta: MetaSchema }),
+      },
+    })
+    .get('/recommendations', (ctx) => capabilityController.getRecommendations(ctx), {
+      query: t.Object({ agentId: t.Optional(t.String()), context: t.Optional(t.String()), limit: t.Optional(t.String()) }),
+      response: {
+        200: t.Object({ success: t.Boolean(), data: t.Object({ recommendations: t.Array(t.Any()) }), meta: MetaSchema }),
+      },
+    })
+    .get('/', (ctx) => capabilityController.listCapabilities(ctx), {
+      query: t.Object({
+        type: t.Optional(t.String()),
+        status: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+      }),
+      response: {
+        200: t.Object({ success: t.Boolean(), data: t.Object({ capabilities: t.Array(CapabilitySchema), totalCount: t.Number() }), meta: MetaSchema }),
+      },
+    })
     .get('/:id', (ctx) => capabilityController.getCapability(ctx))
     .get('/:id/dependencies', (ctx) => capabilityController.getCapabilityDependencies(ctx))
-    .post('/', (ctx) => capabilityController.registerCapability(ctx))
+    .post('/', (ctx) => capabilityController.registerCapability(ctx), {
+      body: t.Any(),
+    })
     .post('/inject', async (ctx) => {
       const validationError = validateMcpToolSchema(ctx.body);
       if (validationError) {
@@ -88,10 +120,44 @@ export function registerCapabilityRoutes(controller?: CapabilityController){
           error: error instanceof Error ? error.message : 'Hot-inject failed',
         };
       }
+    }, {
+      body: t.Object({
+        name: t.String(),
+        description: t.String(),
+        inputSchema: t.Any(),
+      }),
+      response: { 200: t.Any(), 400: CapabilityErrorSchema, 500: CapabilityErrorSchema },
     })
-    .post('/:id/execute', (ctx) => capabilityController.executeCapability(ctx))
-    .post('/:id/validate', (ctx) => capabilityController.validateCapability(ctx))
-    .put('/:id', (ctx) => capabilityController.updateCapability(ctx))
-    .delete('/:id', (ctx) => capabilityController.deleteCapability(ctx))
+    .post('/:id/execute', (ctx) => capabilityController.executeCapability(ctx), {
+      body: t.Any(),
+      response: {
+        200: t.Object({ success: t.Boolean(), data: t.Object({ execution: t.Any() }), meta: MetaSchema }),
+        400: CapabilityErrorSchema,
+        500: CapabilityErrorSchema,
+      },
+    })
+    .post('/:id/validate', (ctx) => capabilityController.validateCapability(ctx), {
+      body: t.Any(),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          data: t.Object({ validationResult: t.Object({ valid: t.Boolean(), issues: t.Array(t.String()), recommendations: t.Array(t.String()) }) }),
+          meta: MetaSchema,
+        }),
+        400: CapabilityErrorSchema,
+        500: CapabilityErrorSchema,
+      },
+    })
+    .put('/:id', (ctx) => capabilityController.updateCapability(ctx), {
+      body: t.Any(),
+      response: {
+        200: t.Object({ success: t.Boolean(), data: t.Object({ capability: t.Object({ id: t.String() }) }), meta: MetaSchema }),
+        400: CapabilityErrorSchema,
+        500: CapabilityErrorSchema,
+      },
+    })
+    .delete('/:id', (ctx) => capabilityController.deleteCapability(ctx), {
+      response: { 200: CapabilityErrorSchema, 400: CapabilityErrorSchema, 500: CapabilityErrorSchema },
+    })
   );
 }
