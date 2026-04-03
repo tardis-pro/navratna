@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useConversationIntelligence } from '@/hooks/use_conversation_intelligence';
-import { APIClient } from '@/api/client';
+import { edenRequest } from '@/api/eden';
 import type {
   IntentOption,
   IntentCategory,
@@ -290,10 +290,13 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
         return new Map<string, number>();
       }
 
-      const response = await APIClient.post<RelevanceApiResponse>('/api/v1/agents/relevance', {
-        query,
-        candidates: intentOptions.map(toRelevanceCandidate),
-        limit: intentOptions.length,
+      const response = await edenRequest<RelevanceApiResponse>('/api/v1/agents/relevance', {
+        method: 'POST',
+        body: {
+          query,
+          candidates: intentOptions.map(toRelevanceCandidate),
+          limit: intentOptions.length,
+        },
       });
 
       const scoreMap = new Map<string, number>();

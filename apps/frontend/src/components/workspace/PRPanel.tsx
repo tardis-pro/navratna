@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, GitPullRequest, GitMerge, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { APIClient } from '@/api/client';
+import { edenRequest } from '@/api/eden';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,9 +55,9 @@ export function PRPanel({ workspaceId, className }: PRPanelProps) {
     if (!canLoad) return;
     try {
       setLoading(true);
-      const result = await APIClient.get<WorkspacePullRequest[]>(
-        `/api/v1/workspaces/${workspaceId}/pull-requests`,
-        { params: { state: 'open' } }
+      const result = await edenRequest<WorkspacePullRequest[]>(
+        `/api/v1/workspaces/${workspaceId}/pull-requests?state=open`,
+        { method: 'GET' }
       );
       setPrs(Array.isArray(result) ? result : []);
     } catch {
@@ -74,11 +74,14 @@ export function PRPanel({ workspaceId, className }: PRPanelProps) {
   const createPR = async () => {
     if (!title.trim()) return;
     try {
-      await APIClient.post(`/api/v1/workspaces/${workspaceId}/pull-requests`, {
-        title: title.trim(),
-        body,
-        base: baseBranch.trim() || 'main',
-        draft,
+      await edenRequest(`/api/v1/workspaces/${workspaceId}/pull-requests`, {
+        method: 'POST',
+        body: {
+          title: title.trim(),
+          body,
+          base: baseBranch.trim() || 'main',
+          draft,
+        },
       });
       toast.success('Pull request created');
       setTitle('');
@@ -92,7 +95,7 @@ export function PRPanel({ workspaceId, className }: PRPanelProps) {
 
   const mergePR = async (number: number) => {
     try {
-      await APIClient.post(`/api/v1/workspaces/${workspaceId}/pull-requests/${number}/merge`);
+      await edenRequest(`/api/v1/workspaces/${workspaceId}/pull-requests/${number}/merge`, { method: 'POST' });
       toast.success(`Merged PR #${number}`);
       await load();
     } catch (error) {

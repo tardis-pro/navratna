@@ -4,6 +4,18 @@
   "description": "QuestionForge - Stakeholder Discovery Council Service",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./app": {
+      "@uaip/source": "./src/app.ts",
+      "types": "./src/app.ts",
+      "import": "./src/app.ts",
+      "default": "./src/app.ts"
+    }
+  },
   "scripts": {
     "build": "tsc && tsc-alias",
     "dev": "bun --hot src/index.ts",
@@ -19,6 +31,7 @@
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "elysia": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {

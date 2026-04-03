@@ -49,10 +49,44 @@ async function getClusteringService(): Promise<KnowledgeClusteringService> {
   return clusteringService
 }
 
-function generateConstellationName(cluster: KnowledgeCluster): string {
+function fallbackConstellationName(cluster: KnowledgeCluster): string {
   const tags = cluster.consolidatedTags
   if (tags.length === 0) return `${cluster.consolidatedType} Cluster`
   return tags.slice(0, 3).map((tag) => tag.charAt(0).toUpperCase() + tag.slice(1)).join(' / ')
+}
+
+async function generateConstellationName(cluster: KnowledgeCluster): Promise<string> {
+  const tagHint = cluster.consolidatedTags.slice(0, 5).join(', ')
+  const sampleContent = cluster.similarChunks
+    .slice(0, 3)
+    .map((p) => p.payload.content.slice(0, 100))
+    .join('\n')
+
+  try {
+    const llm = ServiceFactory.getInstance().getLLMService()
+    if (!llm || typeof llm !== 'object' || !('generateResponse' in llm)) {
+      return fallbackConstellationName(cluster)
+    }
+
+    const response = await (llm as { generateResponse(r: { messages: { role: string; content: string }[]; maxTokens?: number }): Promise<{ content: string }> }).generateResponse({
+      messages: [
+        {
+          role: 'user',
+          content: `Name this knowledge cluster in 2-5 words. Tags: ${tagHint}. Sample:\n${sampleContent}\n\nRespond with ONLY the name.`,
+        },
+      ],
+      maxTokens: 20,
+    })
+
+    const name = response.content.trim().replace(/^["']|["']$/g, '')
+    return name.length > 0 && name.length < 60 ? name : fallbackConstellationName(cluster)
+  } catch (error) {
+    logger.warn('LLM naming failed for constellation, using fallback', {
+      error: error instanceof Error ? error.message : String(error),
+      clusterId: cluster.clusterId,
+    })
+    return fallbackConstellationName(cluster)
+  }
 }
 
 function generateDescription(cluster: KnowledgeCluster): string {
@@ -79,12 +113,42 @@ function determineDominantSourceType(cluster: KnowledgeCluster): SourceType {
   return dominant
 }
 
-function determineHealth(cluster: KnowledgeCluster): ConstellationHealth {
+const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000
+
+async function determineHealth(cluster: KnowledgeCluster): Promise<ConstellationHealth> {
   const confidence = cluster.averageConfidence
   const chunkCount = cluster.similarChunks.length
-  if (confidence >= 0.9) return 'validated'
+
+  let relationshipDensity = 0
+  try {
+    const knowledgeRepo = await ServiceFactory.getInstance().getKnowledgeRepository()
+    const sampleIds = cluster.similarChunks.slice(0, 5).map((p) => p.id)
+    let totalRelationships = 0
+    for (const id of sampleIds) {
+      const rels = await knowledgeRepo.getRelationships(id)
+      totalRelationships += rels.length
+    }
+    relationshipDensity = sampleIds.length > 0 ? totalRelationships / sampleIds.length : 0
+  } catch {
+    // Neo4j unavailable — fall back to confidence + staleness only
+  }
+
+  const now = Date.now()
+  const oldestUpdated = cluster.similarChunks.reduce((oldest, chunk) => {
+    const meta = chunk.payload.originalMetadata
+    const raw = meta?.updatedAt ?? meta?.createdAt
+    if (typeof raw === 'string') {
+      const ts = new Date(raw).getTime()
+      return ts < oldest ? ts : oldest
+    }
+    return oldest
+  }, now)
+  const isStale = now - oldestUpdated > STALE_THRESHOLD_MS
+
+  if (isStale && confidence < 0.5) return 'stale'
+  if (confidence >= 0.9 && relationshipDensity >= 3) return 'validated'
   if (confidence >= 0.75) return 'stable'
-  if (confidence >= 0.5 && chunkCount > 5) return 'active'
+  if (confidence >= 0.5 && chunkCount > 5 && relationshipDensity >= 2) return 'active'
   if (confidence >= 0.5) return 'processing'
   if (confidence >= 0.3) return 'ambiguous'
   return 'conflicted'
@@ -110,7 +174,7 @@ function mapPointToItem(point: QdrantPoint, itemRelevance: number): Constellatio
   }
 }
 
-function mapClusterToConstellation(cluster: KnowledgeCluster, relevanceScore: number): Constellation {
+async function mapClusterToConstellation(cluster: KnowledgeCluster, relevanceScore: number): Promise<Constellation> {
   const items = cluster.similarChunks.map((point) => mapPointToItem(point, relevanceScore))
   const metadata: ConstellationMetadata = {
     itemCount: items.length,
@@ -120,16 +184,21 @@ function mapClusterToConstellation(cluster: KnowledgeCluster, relevanceScore: nu
     clusterSimilarity: cluster.confidence,
   }
 
+  const [name, health] = await Promise.all([
+    generateConstellationName(cluster),
+    determineHealth(cluster),
+  ])
+
   return {
     id: cluster.clusterId,
-    name: generateConstellationName(cluster),
+    name,
     description: generateDescription(cluster),
     knowledgeType: cluster.consolidatedType,
     items,
     relevanceScore,
     confidence: cluster.averageConfidence,
     tags: cluster.consolidatedTags,
-    health: determineHealth(cluster),
+    health,
     metadata,
   }
 }
@@ -201,8 +270,10 @@ export async function getConstellations(
     }
   }
 
-  let constellations = clusteringResult.clusters.map((cluster) =>
-    mapClusterToConstellation(cluster, cluster.averageConfidence)
+  let constellations = await Promise.all(
+    clusteringResult.clusters.map((cluster) =>
+      mapClusterToConstellation(cluster, cluster.averageConfidence)
+    )
   )
 
   if (query) {
@@ -211,7 +282,7 @@ export async function getConstellations(
 
   const limitedConstellations = constellations.slice(0, limit).map((constellation) =>
     request.includeItems === false
-      ? { ...constellation, items: [] }
+      ? { ...constellation, items: [] as ConstellationItem[] }
       : constellation
   )
 

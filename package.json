@@ -35,6 +35,7 @@
     "test:integration:cleanup": "./scripts/run-integration-tests.sh cleanup"
   },
   "devDependencies": {
+    "@macrodata/opencode": "^0.2.1",
     "@nx/js": "^22.6.1",
     "@types/node": "^25.5.0",
     "concurrently": "catalog:dev",

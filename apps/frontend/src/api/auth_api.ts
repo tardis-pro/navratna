@@ -3,98 +3,64 @@
  * Handles all authentication-related operations
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry } from './eden';
 import type {
-  UserRole,
   LoginCredentials,
   LoginResponse,
   RefreshTokenResponse,
-  ResetPasswordRequest,
-  ResetPasswordConfirm,
   ChangePasswordRequest,
-  RegisterRequest,
-  RegisterResponse,
 } from '@uaip/contracts/api';
+
+const auth = gatewayClient.api.v1.auth
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function getString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function toLoginUser(value: unknown): LoginResponse['user'] {
+  const user = isRecord(value) ? value : {}
+  const email = getString(Reflect.get(user, 'email')) ?? ''
+  const firstName = getString(Reflect.get(user, 'firstName')) ?? ''
+  const lastName = getString(Reflect.get(user, 'lastName')) ?? ''
+
+  return {
+    id: getString(Reflect.get(user, 'id')) ?? '',
+    email,
+    name: `${firstName} ${lastName}`.trim() || email,
+    role: getString(Reflect.get(user, 'role')) ?? '',
+  }
+}
 
 export const authAPI = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const response = await APIClient.post<{
-      user: {
-        id: string;
-        email: string;
-        firstName?: string;
-        lastName?: string;
-        role: string;
-        department?: string;
-        permissions?: string[];
-        lastLoginAt?: string;
-      };
-    }>(API_ROUTES.AUTH.LOGIN, credentials);
+    const response = await edenWithCSRFRetry(() => auth.login.post(credentials))
 
     return {
       token: '',
-      user: {
-        id: response.user.id,
-        email: response.user.email,
-        name:
-          `${response.user.firstName || ''} ${response.user.lastName || ''}`.trim() ||
-          response.user.email,
-        role: response.user.role as UserRole,
-      },
+      user: toLoginUser(response),
     };
   },
 
   async logout(): Promise<void> {
-    return APIClient.post(API_ROUTES.AUTH.LOGOUT, {});
+    await edenWithCSRFRetry(() => auth.logout.post());
   },
 
   async refreshToken(): Promise<RefreshTokenResponse> {
-    await APIClient.post(API_ROUTES.AUTH.REFRESH);
-    return { token: '' };
-  },
-
-  async resetPassword(request: ResetPasswordRequest): Promise<{ message: string }> {
-    return APIClient.post(API_ROUTES.AUTH.RESET_PASSWORD, request);
-  },
-
-  async confirmResetPassword(request: ResetPasswordConfirm): Promise<{ message: string }> {
-    return APIClient.post(API_ROUTES.AUTH.RESET_PASSWORD_CONFIRM, request);
+    await edenWithCSRFRetry(() => auth.refresh.post());
+    return { token: '', refreshToken: '' };
   },
 
   async changePassword(request: ChangePasswordRequest): Promise<{ message: string }> {
-    return APIClient.post(API_ROUTES.AUTH.CHANGE_PASSWORD, request);
+    const response = await edenWithCSRFRetry(() => auth['change-password'].post(request));
+    return { message: getString(Reflect.get(isRecord(response) ? response : {}, 'message')) ?? '' };
   },
 
   async getCurrentUser(): Promise<LoginResponse['user']> {
-    const response = await APIClient.get<{
-      id: string;
-      email: string;
-      firstName?: string;
-      lastName?: string;
-      role: string;
-      department?: string;
-      permissions?: string[];
-      isActive: boolean;
-      createdAt: string;
-      lastLoginAt?: string;
-      passwordChangedAt?: string;
-    }>(API_ROUTES.AUTH.ME);
-
-    // Transform backend response to frontend expected format (same as login method)
-    return {
-      id: response.id,
-      email: response.email,
-      name: `${response.firstName || ''} ${response.lastName || ''}`.trim() || response.email,
-      role: response.role as UserRole,
-    };
-  },
-
-  async register(request: RegisterRequest): Promise<RegisterResponse> {
-    return APIClient.post<RegisterResponse>(API_ROUTES.AUTH.REGISTER, request);
-  },
-
-  async validateToken(token: string): Promise<{ valid: boolean; user?: LoginResponse['user'] }> {
-    return APIClient.post(API_ROUTES.AUTH.VALIDATE_TOKEN, { token });
+    const response = await edenWithCSRFRetry(() => auth.me.get());
+    return toLoginUser(response);
   },
 };

@@ -32,9 +32,6 @@
       "path": "./apps/backend/services/artifact-service"
     },
     {
-      "path": "./apps/backend/services/navratna-gateway"
-    },
-    {
       "path": "./apps/backend/services/security-gateway"
     },
     {

@@ -17,6 +17,7 @@ interface SmartInputFieldProps {
   onSubmit: (text: string, intent?: unknown) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export const SmartInputField: React.FC<SmartInputFieldProps> = ({

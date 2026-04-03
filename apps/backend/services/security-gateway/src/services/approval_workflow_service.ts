@@ -372,12 +372,11 @@ export class ApprovalWorkflowService {
         // @ts-expect-error -- Property does not exist on inferred type
         .getPendingWorkflowsForReminders(reminderThreshold);
 
-      await Promise.all(
-        workflows.map(async (workflowEntity) => {
-          const workflow = this.mapEntityToWorkflow(workflowEntity);
-          await this.sendWorkflowReminder(workflow);
-        })
-      );
+      logger.info('Sending approval reminders', { count: workflows.length });
+      await this.processInBatches(workflows, async (workflowEntity) => {
+        const workflow = this.mapEntityToWorkflow(workflowEntity);
+        await this.sendWorkflowReminder(workflow);
+      });
     } catch (error) {
       logger.error('Failed to send approval reminders', { error });
     }
@@ -402,27 +401,25 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      await Promise.all(
-        workflows.map(async (workflowEntity) => {
-          try {
-            logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
-            await this.expireWorkflow(workflowEntity.id);
-            logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
-          } catch (workflowError) {
-            logger.error('Failed to expire individual workflow', {
-              workflowId: workflowEntity.id,
-              error:
-                workflowError instanceof Error
-                  ? {
-                      message: workflowError.message,
-                      stack: workflowError.stack,
-                      name: workflowError.name,
-                    }
-                  : workflowError,
-            });
-          }
-        })
-      );
+      await this.processInBatches(workflows as Array<{ id: string }>, async (workflowEntity) => {
+        try {
+          logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
+          await this.expireWorkflow(workflowEntity.id);
+          logger.info('Successfully expired workflow', { workflowId: workflowEntity.id });
+        } catch (workflowError) {
+          logger.error('Failed to expire individual workflow', {
+            workflowId: workflowEntity.id,
+            error:
+              workflowError instanceof Error
+                ? {
+                    message: workflowError.message,
+                    stack: workflowError.stack,
+                    name: workflowError.name,
+                  }
+                : workflowError,
+          });
+        }
+      });
     } catch (error) {
       logger.error('Failed to expire workflows', {
         error:
@@ -648,21 +645,18 @@ export class ApprovalWorkflowService {
     additionalData?: Record<string, unknown>
   ): Promise<void> {
     try {
-      // Send notifications to each approver individually
-      await Promise.all(
-        workflow.requiredApprovers.map(async (approverId) =>
-          this.notificationService.sendNotification({
-            type,
-            recipient: approverId,
-            subject: this.getNotificationSubject(type, workflow),
-            message: this.getNotificationMessage(type, workflow),
-            data: {
-              workflowId: workflow.id,
-              operationId: workflow.operationId,
-              ...additionalData,
-            },
-          })
-        )
+      await this.processInBatches(workflow.requiredApprovers, async (approverId) =>
+        this.notificationService.sendNotification({
+          type,
+          recipient: approverId,
+          subject: this.getNotificationSubject(type, workflow),
+          message: this.getNotificationMessage(type, workflow),
+          data: {
+            workflowId: workflow.id,
+            operationId: workflow.operationId,
+            ...additionalData,
+          },
+        })
       );
     } catch (error) {
       logger.error('Failed to send notifications', {
@@ -791,5 +785,17 @@ export class ApprovalWorkflowService {
     }
 
     logger.info('Approval workflow service cleaned up');
+  }
+
+  private static readonly BATCH_SIZE = 10;
+
+  private async processInBatches<T>(
+    items: T[],
+    fn: (item: T) => Promise<void>
+  ): Promise<void> {
+    for (let i = 0; i < items.length; i += ApprovalWorkflowService.BATCH_SIZE) {
+      const batch = items.slice(i, i + ApprovalWorkflowService.BATCH_SIZE);
+      await Promise.all(batch.map(fn));
+    }
   }
 }

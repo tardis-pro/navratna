@@ -126,6 +126,11 @@ const SecurityGateway = lazy(() =>
 const ToolsPanel = lazy(() =>
   import('../futuristic/portals/ToolsPanel').then((m) => ({ default: m.ToolsPanel }))
 );
+const WorkflowStudioPortal = lazy(() =>
+  import('../futuristic/portals/WorkflowStudioPortal').then((m) => ({
+    default: m.WorkflowStudioPortal,
+  }))
+);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
@@ -160,6 +165,7 @@ export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.C
   'project-onboarding': ProjectOnboardingFlow,
   'security-gateway': SecurityGateway,
   'tools-panel': ToolsPanel,
+  'workflow-studio': WorkflowStudioPortal,
 };
 
 export const PORTAL_LABELS: Record<string, string> = {
@@ -194,6 +200,7 @@ export const PORTAL_LABELS: Record<string, string> = {
   'project-onboarding': 'Project Setup',
   'security-gateway': 'Security Gateway',
   'tools-panel': 'Tools Panel',
+  'workflow-studio': 'Workflow Studio',
 };
 
 type RawBlock = Omit<MaterializableBlockData, 'position' | 'dimensions' | 'visibility'> & {
@@ -449,6 +456,14 @@ export function createInitialBlocks(): MaterializableBlockData[] {
       relevanceScore: 0.45,
       visibility: 'hidden',
       metadata: { title: 'Project Setup' },
+    },
+    {
+      id: 'workflow-studio',
+      type: 'portal',
+      expression: 'calm',
+      relevanceScore: 0.65,
+      visibility: 'faded',
+      metadata: { title: 'Workflow Studio' },
     },
   ];
 

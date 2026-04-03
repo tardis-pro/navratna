@@ -1,22 +1,21 @@
-/**
- * QuestionForge API - Stakeholder Discovery Council
- */
-import { APIClient } from './client';
+import { questionforgeClient, edenWithCSRFRetry } from './eden';
 import type {
   ForgeRequest,
   ForgeResult,
   NormalizedBrief,
-  AgentAnalysis,
   CouncilDebateResult,
-  Question,
-  QuestionPack,
-  Assumption,
-  Contradiction,
   InterviewScript,
   InterviewSession,
   InterviewAnswer,
   InterviewResult,
 } from '@uaip/contracts/api';
+import type {
+  AgentAnalysis,
+  Question,
+  QuestionPack,
+  Assumption,
+  Contradiction,
+} from '@uaip/types';
 
 export type {
   ForgeRequest,
@@ -34,76 +33,50 @@ export type {
   InterviewResult,
 };
 
-const BASE = '/api/v1/questionforge';
+const qf = questionforgeClient.api.v1.questionforge;
 
 export const questionforgeAPI = {
-  /** Run the full QuestionForge pipeline */
   async forge(request: ForgeRequest): Promise<ForgeResult> {
-    const response = await APIClient.post<{ success: boolean; data: ForgeResult }>(
-      `${BASE}/forge`,
-      request
-    );
-    return response.data;
+    return edenWithCSRFRetry(() => qf.forge.post(request));
   },
 
-  /** Create an interview session */
   async createInterview(
     projectBriefId: string,
     stakeholderRole: string,
     questions: Question[]
   ): Promise<InterviewSession> {
-    const response = await APIClient.post<{ success: boolean; data: InterviewSession }>(
-      `${BASE}/interviews`,
-      { projectBriefId, stakeholderRole, questions }
+    return edenWithCSRFRetry(() =>
+      qf.interviews.post({ projectBriefId, stakeholderRole, questions })
     );
-    return response.data;
   },
 
-  /** Get an interview session */
   async getInterview(sessionId: string): Promise<InterviewSession> {
-    const response = await APIClient.get<{ success: boolean; data: InterviewSession }>(
-      `${BASE}/interviews/${sessionId}`
-    );
-    return response.data;
+    return edenWithCSRFRetry(() => qf.interviews[sessionId].get());
   },
 
-  /** Record an answer */
   async recordAnswer(
     sessionId: string,
     questionId: string,
     answer: string
   ): Promise<InterviewAnswer> {
-    const response = await APIClient.post<{ success: boolean; data: InterviewAnswer }>(
-      `${BASE}/interviews/${sessionId}/answers`,
-      { questionId, answer }
+    return edenWithCSRFRetry(() =>
+      qf.interviews[sessionId].answers.post({ questionId, answer })
     );
-    return response.data;
   },
 
-  /** Get next question */
   async nextQuestion(sessionId: string): Promise<Question | null> {
-    const response = await APIClient.get<{ success: boolean; data: Question | null }>(
-      `${BASE}/interviews/${sessionId}/next`
-    );
-    return response.data;
+    return edenWithCSRFRetry(() => qf.interviews[sessionId].next.get());
   },
 
-  /** Complete an interview session */
   async completeInterview(sessionId: string): Promise<InterviewResult> {
-    const response = await APIClient.post<{ success: boolean; data: InterviewResult }>(
-      `${BASE}/interviews/${sessionId}/complete`,
-      {}
-    );
-    return response.data;
+    return edenWithCSRFRetry(() => qf.interviews[sessionId].complete.post());
   },
 
-  /** Pause an interview */
   async pauseInterview(sessionId: string): Promise<void> {
-    await APIClient.post(`${BASE}/interviews/${sessionId}/pause`, {});
+    await edenWithCSRFRetry(() => qf.interviews[sessionId].pause.post());
   },
 
-  /** Resume an interview */
   async resumeInterview(sessionId: string): Promise<void> {
-    await APIClient.post(`${BASE}/interviews/${sessionId}/resume`, {});
+    await edenWithCSRFRetry(() => qf.interviews[sessionId].resume.post());
   },
 };

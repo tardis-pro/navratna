@@ -135,7 +135,26 @@ export function TelescopeKnowledgeSurface({
     if (visibleConstellations.length === 0) return;
     if (dimensions.width <= 800 && dimensions.height <= 600) return;
 
-    const emptyConnections: string[] = [];
+    const tagIndex = new Map<string, string[]>();
+    for (const c of visibleConstellations) {
+      for (const tag of c.metadata.tags) {
+        const ids = tagIndex.get(tag) ?? [];
+        ids.push(c.id);
+        tagIndex.set(tag, ids);
+      }
+    }
+    const connectionMap = new Map<string, Set<string>>();
+    for (const ids of tagIndex.values()) {
+      if (ids.length < 2) continue;
+      for (const id of ids) {
+        const set = connectionMap.get(id) ?? new Set<string>();
+        for (const peer of ids) {
+          if (peer !== id) set.add(peer);
+        }
+        connectionMap.set(id, set);
+      }
+    }
+
     const safeY = Math.max(300, (dimensions.height - 120) / 2);
     const forceNodes: ForceNode[] = visibleConstellations.map((c, i) => ({
       id: c.id,
@@ -144,8 +163,8 @@ export function TelescopeKnowledgeSurface({
       vx: 0,
       vy: 0,
       relevanceScore: c.relevanceScore,
-      radius: NODE_WIDTH / 2,
-      connections: emptyConnections,
+      radius: (NODE_WIDTH / 2) * (0.7 + c.relevanceScore * 0.3),
+      connections: Array.from(connectionMap.get(c.id) ?? []),
       pinned: false,
     }));
     setForceNodes(forceNodes);

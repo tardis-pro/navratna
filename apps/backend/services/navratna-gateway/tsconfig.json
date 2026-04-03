@@ -26,6 +26,15 @@
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*"],
   "references": [
     {
+      "path": "../capability-registry"
+    },
+    {
+      "path": "../orchestration-pipeline"
+    },
+    {
+      "path": "../security-gateway"
+    },
+    {
       "path": "../../../packages/shared-utils"
     },
     {

@@ -15,6 +15,14 @@ import {
 import { MaterializableBlock } from '@/components/MaterializableBlock';
 import { renderPortalContent } from './portal_registry';
 import { cn } from '@/lib/utils';
+import { IntentField } from '@/components/IntentField/IntentField';
+import type { IntentOption } from '@/components/IntentField/intent_field_types';
+import { AttentionBudget } from '@/components/AttentionBudget/AttentionBudget';
+import { WhisperLine } from '@/components/AmbientIntelligence/WhisperLine';
+import { CrystallizationEffect } from '@/components/PredictiveIntent/CrystallizationEffect';
+import { MorningFog } from '@/components/AmbientIntelligence/MorningFog';
+import { BreathCycle } from '@/components/AmbientIntelligence/BreathCycle';
+import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpression';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -423,6 +431,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
 export interface TelescopeSurfaceProps {
   blocks: MaterializableBlockData[];
   onBlockSelect?: (id: string) => void;
+  onIntentSelect?: (option: IntentOption) => void;
   maxVisibleBlocks?: number;
   className?: string;
 }
@@ -430,6 +439,7 @@ export interface TelescopeSurfaceProps {
 export function TelescopeSurface({
   blocks,
   onBlockSelect,
+  onIntentSelect,
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
 }: TelescopeSurfaceProps) {
@@ -488,6 +498,65 @@ export function TelescopeSurface({
     };
   }, []);
 
+  const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
+  const [fogActive, setFogActive] = useState(true);
+
+  useEffect(() => {
+    const unclaimed = visibleBlocks.filter((b) => !crystallizedIds.has(b.id));
+    if (unclaimed.length === 0) return;
+
+    const timers = unclaimed.map((b, i) =>
+      setTimeout(() => {
+        setCrystallizedIds((prev) => new Set([...prev, b.id]));
+      }, 100 + i * 150)
+    );
+
+    return () => timers.forEach(clearTimeout);
+  }, [visibleBlocks, crystallizedIds]);
+
+  useEffect(() => {
+    if (visibleBlocks.length === 0) return;
+    const allCrystallized = visibleBlocks.every((b) => crystallizedIds.has(b.id));
+    if (allCrystallized) setFogActive(false);
+  }, [visibleBlocks, crystallizedIds]);
+
+  const fogItems = useMemo(
+    () =>
+      visibleBlocks.map((b) => ({
+        id: b.id,
+        relevanceScore: b.relevanceScore,
+        loaded: crystallizedIds.has(b.id),
+      })),
+    [visibleBlocks, crystallizedIds]
+  );
+
+  const systemLoad = useMemo(
+    () => Math.min(visibleBlocks.length / Math.max(maxVisibleBlocks, 1), 1),
+    [visibleBlocks.length, maxVisibleBlocks]
+  );
+
+  const topBlock = visibleBlocks[0];
+  const topExpression = useKnowledgeMicroexpression({
+    health: 'stable',
+    relevanceScore: topBlock?.relevanceScore ?? 0,
+    isProcessing: fogActive,
+    hasConflicts: false,
+  });
+
+  const whisperMessage = useMemo(() => {
+    if (!topBlock) return '';
+    const title = (topBlock.metadata?.title as string) ?? topBlock.id;
+    const pct = Math.round(topBlock.relevanceScore * 100);
+    if (topExpression.expression === 'working') return `Loading constellations...`;
+    if (topExpression.expression === 'satisfied') return `Showing ${title} — ${pct}% context match`;
+    return `Showing ${title} because it ranks highest in your current context`;
+  }, [topBlock, topExpression.expression]);
+
+  const whisperContext = useMemo(() => {
+    if (visibleBlocks.length <= 1) return undefined;
+    return `${visibleBlocks.length} active • ${topExpression.label}`;
+  }, [visibleBlocks.length, topExpression.label]);
+
   return (
     <div
       ref={containerRef}
@@ -502,26 +571,57 @@ export function TelescopeSurface({
       <CosmicBackground />
       <ConstellationLines centers={blockCenters} containerRef={containerRef} />
 
-      <div className="relative z-10 grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-[1600px] mx-auto">
-        <AnimatePresence mode="popLayout">
-          {visibleBlocks.map((block, index) =>
-            block.type === 'portal' ? (
-              <div key={block.id} data-block-id={block.id}>
-                <MaterializableBlock block={block}>
-                  {renderPortalContent(block.id)}
-                </MaterializableBlock>
-              </div>
-            ) : (
-              <div key={block.id} data-block-id={block.id}>
-                <TelescopeBlock
-                  block={block}
-                  onClick={onBlockSelect}
-                  isTopRanked={index === 0 && block.relevanceScore > 0.8}
-                />
-              </div>
-            )
-          )}
-        </AnimatePresence>
+      <AttentionBudget
+        activeCount={visibleBlocks.length}
+        maxBudget={maxVisibleBlocks}
+        items={visibleBlocks.map((b) => ({
+          id: b.id,
+          label: (b.metadata?.title as string) ?? b.id,
+          type: b.type,
+        }))}
+        className="absolute top-4 right-4 z-20"
+        position="right"
+      />
+
+      <div className="relative z-10 max-w-[1600px] mx-auto">
+        <div className="mb-6">
+          <IntentField
+            onSelect={onIntentSelect}
+            placeholder="Search agents, portals, knowledge..."
+            showTrigger={true}
+          />
+        </div>
+
+        <MorningFog items={fogItems} isActive={fogActive} onCleared={() => setFogActive(false)} />
+
+        <BreathCycle systemLoad={systemLoad} isActive={true}>
+          <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <AnimatePresence mode="popLayout">
+              {visibleBlocks.map((block, index) => (
+                <motion.div
+                  key={block.id}
+                  data-block-id={block.id}
+                  exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.95 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <CrystallizationEffect isLoading={!crystallizedIds.has(block.id)} duration={400}>
+                    {block.type === 'portal' ? (
+                      <MaterializableBlock block={block}>
+                        {renderPortalContent(block.id)}
+                      </MaterializableBlock>
+                    ) : (
+                      <TelescopeBlock
+                        block={block}
+                        onClick={onBlockSelect}
+                        isTopRanked={index === 0 && block.relevanceScore > 0.8}
+                      />
+                    )}
+                  </CrystallizationEffect>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </BreathCycle>
       </div>
 
       {visibleBlocks.length === 0 && (
@@ -545,6 +645,16 @@ export function TelescopeSurface({
             Agents and artifacts will surface here automatically as they become relevant to your current context.
           </p>
         </motion.div>
+      )}
+
+      {visibleBlocks.length > 0 && whisperMessage && (
+        <WhisperLine
+          message={whisperMessage}
+          context={whisperContext}
+          relevanceScore={topBlock?.relevanceScore}
+          position="bottom"
+          className="absolute bottom-0 left-0 right-0 z-20"
+        />
       )}
     </div>
   );

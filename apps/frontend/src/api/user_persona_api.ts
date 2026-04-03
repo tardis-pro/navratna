@@ -1,4 +1,4 @@
-import { APIClient } from './client';
+import { gatewayClient, edenWithCSRFRetry } from './eden';
 import type {
   UserPersonaData,
   OnboardingProgress,
@@ -19,84 +19,71 @@ export type {
   PersonaInsights,
 };
 
-class UserPersonaAPI {
-  // Get current user's persona data
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+const persona = gatewayClient.api.v1.users.persona;
+
+export const userPersonaAPI = {
   async getCurrentPersona(): Promise<UserPersonaResponse> {
-    const response = await APIClient.get('/api/v1/users/persona');
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona.get());
+  },
 
-  // Update user persona data
   async updatePersona(updates: UserPersonaUpdate): Promise<UserPersonaResponse> {
-    const response = await APIClient.put('/api/v1/users/persona', updates);
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona.put(updates));
+  },
 
-  // Complete onboarding flow
   async completeOnboarding(data: {
     personaData: UserPersonaData;
     onboardingProgress: OnboardingProgress;
   }): Promise<UserPersonaResponse> {
-    const response = await APIClient.post('/api/v1/users/persona/complete-onboarding', data);
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona['complete-onboarding'].post(data));
+  },
 
-  // Update behavioral patterns (called automatically by system)
   async updateBehavioralPatterns(
     patterns: Partial<BehavioralPatterns>
   ): Promise<UserPersonaResponse> {
-    const response = await APIClient.put('/api/v1/users/persona/behavioral-patterns', patterns);
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona['behavioral-patterns'].put(patterns));
+  },
 
-  // Get persona-based recommendations
   async getPersonaRecommendations(): Promise<PersonaRecommendations> {
-    const response = await APIClient.get('/api/v1/users/persona/recommendations');
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona.recommendations.get());
+  },
 
-  // Get persona insights and analytics
   async getPersonaInsights(): Promise<PersonaInsights> {
-    const response = await APIClient.get('/api/v1/users/persona/insights');
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona.insights.get());
+  },
 
-  // Check if onboarding is required
   async checkOnboardingStatus(): Promise<{
     isRequired: boolean;
     isCompleted: boolean;
     currentStep?: number;
   }> {
     try {
-      const response = await APIClient.get('/api/v1/users/persona/onboarding-status');
-      return response.data;
+      return edenWithCSRFRetry(() => persona['onboarding-status'].get());
     } catch (error: unknown) {
-      // Log the full error for debugging
+      const errRecord = isRecord(error) ? error : {};
       console.error('User persona onboarding status check failed:', {
         error,
-        status: error?.status,
-        statusCode: error?.statusCode,
-        message: error?.message,
-        response: error?.response,
-        config: error?.config,
+        status: errRecord['status'],
+        statusCode: errRecord['statusCode'],
+        message: errRecord['message'],
+        response: errRecord['response'],
+        config: errRecord['config'],
       });
-
-      // For now, default to requiring onboarding since we can't check status
       return {
         isRequired: true,
         isCompleted: false,
         currentStep: 1,
       };
     }
-  }
+  },
 
-  // Reset persona data (admin or user choice)
   async resetPersona(): Promise<{ success: boolean }> {
-    const response = await APIClient.post('/api/v1/users/persona/reset');
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona.reset.post());
+  },
 
-  // Get persona-compatible agents
   async getCompatibleAgents(): Promise<
     Array<{
       id: string;
@@ -106,30 +93,23 @@ class UserPersonaAPI {
       persona: unknown;
     }>
   > {
-    const response = await APIClient.get('/api/v1/users/persona/compatible-agents');
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona['compatible-agents'].get());
+  },
 
-  // Get persona-optimized workspace layout
   async getOptimizedWorkspace(): Promise<{
     layout: string;
     components: unknown[];
     shortcuts: unknown[];
     notifications: unknown;
   }> {
-    const response = await APIClient.get('/api/v1/users/persona/optimized-workspace');
-    return response.data;
-  }
+    return edenWithCSRFRetry(() => persona['optimized-workspace'].get());
+  },
 
-  // Track user interaction for behavioral learning
   async trackInteraction(interaction: {
     type: 'tool_usage' | 'agent_interaction' | 'workflow_completion' | 'preference_change';
     data: unknown;
     timestamp: Date;
   }): Promise<{ success: boolean }> {
-    const response = await APIClient.post('/api/v1/users/persona/track-interaction', interaction);
-    return response.data;
-  }
-}
-
-export const userPersonaAPI = new UserPersonaAPI();
+    return edenWithCSRFRetry(() => persona['track-interaction'].post(interaction));
+  },
+};

@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { logger } from '@uaip/utils';
 import { WorkspaceManager, type WorkspaceConfig } from '../services/workspace_manager_service.js';
 import {
@@ -17,32 +17,8 @@ interface WorkspaceRouteContext {
     headers?: { get?: (name: string) => string | null };
     signal?: AbortSignal;
   };
-  set?: { status?: number };
+  set?: { status?: number | string };
 }
-
-interface WorkspaceRouteGroup {
-  get: (
-    path: string,
-    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
-  ) => WorkspaceRouteGroup;
-  post: (
-    path: string,
-    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
-  ) => WorkspaceRouteGroup;
-  delete: (
-    path: string,
-    handler: (ctx: WorkspaceRouteContext) => Promise<unknown> | unknown
-  ) => WorkspaceRouteGroup;
-}
-
-interface WorkspaceRouteApp {
-  group: (
-    path: string,
-    handler: (group: WorkspaceRouteGroup) => WorkspaceRouteGroup
-  ) => WorkspaceRouteApp;
-}
-
-
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -58,18 +34,20 @@ function getHeader(headers: unknown, name: string): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
-export function registerWorkspaceRoutes<T extends Elysia>(
-  app: T,
+const WsAny = t.Any()
+const WsErrorSchema = t.Object({ success: t.Literal(false), error: t.Object({ code: t.String(), message: t.String() }) })
+const WsSuccessSchema = t.Object({ success: t.Boolean() })
+
+export function registerWorkspaceRoutes(
   workspaceManager?: WorkspaceManager,
   codingAgentExecutor?: CodingAgentExecutor
-): T {
+){
   const wm = workspaceManager ?? WorkspaceManager.getInstance();
   const executor = codingAgentExecutor ?? CodingAgentExecutor.getInstance(wm);
 
   logger.info('Registering workspace routes');
 
-  const a = app as WorkspaceRouteApp;
-  a.group('/api/v1/workspaces', (g: WorkspaceRouteGroup) =>
+  return new Elysia().group('/api/v1/workspaces', (g) =>
     g
       .post('/', async ({ body, set }) => {
         const b = asRecord(body);
@@ -96,6 +74,17 @@ export function registerWorkspaceRoutes<T extends Elysia>(
 
         const info = await wm.provisionWorkspace(cfg);
         return { success: true, data: info };
+      }, {
+        body: t.Object({
+          workspaceId: t.Optional(t.String()),
+          projectId: t.Optional(t.String()),
+          userId: t.Optional(t.String()),
+          githubRepo: t.String(),
+          githubCloneUrl: t.String(),
+          githubToken: t.String(),
+          branchName: t.Optional(t.String()),
+        }),
+        response: { 200: t.Object({ success: t.Literal(true), data: WsAny }), 400: WsErrorSchema },
       })
       .get('/', async () => ({ success: true, data: wm.listWorkspaces() }))
       .get('/:id', async ({ params, set }) => {
@@ -106,11 +95,15 @@ export function registerWorkspaceRoutes<T extends Elysia>(
           return { success: false, error: { code: 'NOT_FOUND', message: 'Workspace not found' } };
         }
         return { success: true, data: info };
+      }, {
+        response: { 200: t.Object({ success: t.Literal(true), data: WsAny }), 404: WsErrorSchema },
       })
       .delete('/:id', async ({ params }) => {
         const id = asString(params?.id) || '';
         await wm.destroyWorkspace(id);
         return { success: true };
+      }, {
+        response: { 200: WsSuccessSchema },
       })
       .post('/:id/sessions', async ({ params, body, set }) => {
         const workspaceId = asString(params?.id) || '';
@@ -155,6 +148,19 @@ export function registerWorkspaceRoutes<T extends Elysia>(
 
         const result = await executor.createSession(opts);
         return { success: true, data: result };
+      }, {
+        body: t.Object({
+          sessionId: t.Optional(t.String()),
+          userId: t.Optional(t.String()),
+          projectId: t.Optional(t.String()),
+          llmCredentials: t.Optional(t.Array(t.Any())),
+          systemPromptAdditions: t.Optional(t.String()),
+          continuePreviousSession: t.Optional(t.Boolean()),
+        }),
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Object({ sessionId: t.String(), ready: t.Boolean() }) }),
+          400: WsErrorSchema,
+        },
       })
       .post('/:id/sessions/:sessionId/prompt', async (ctx: WorkspaceRouteContext) => {
         const workspaceId = asString(ctx.params?.id) || '';
@@ -260,11 +266,15 @@ export function registerWorkspaceRoutes<T extends Elysia>(
         const sessionId = asString(params?.sessionId) || '';
         await executor.abort(sessionId);
         return { success: true };
+      }, {
+        response: { 200: WsSuccessSchema },
       })
       .delete('/:id/sessions/:sessionId', async ({ params }) => {
         const sessionId = asString(params?.sessionId) || '';
         await executor.closeSession(sessionId);
         return { success: true };
+      }, {
+        response: { 200: WsSuccessSchema },
       })
       // Persistent SSE stream: GET /:id/sessions/:sessionId/events
       // CodingSessionPage connects here via EventSource and receives all agent events
@@ -357,8 +367,12 @@ export function registerWorkspaceRoutes<T extends Elysia>(
         }
         const result = await wm.execInWorkspace(workspaceId, cmd);
         return { success: result.exitCode === 0, data: result };
+      }, {
+        query: t.Object({ command: t.Optional(t.String()) }),
+        response: {
+          200: t.Object({ success: t.Boolean(), data: t.Object({ stdout: t.String(), stderr: t.String(), exitCode: t.Number() }) }),
+          400: WsErrorSchema,
+        },
       })
   );
-
-  return app;
 }

@@ -1,18 +1,6 @@
 import { LLMModelRepository, getControlPool } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-
-export interface ModelForUser {
-  id: string;
-  name: string;
-  description?: string;
-  source: string;
-  apiEndpoint?: string;
-  apiType?: string;
-  provider: string;
-  providerId: string;
-  isAvailable: boolean;
-  isDefault: boolean;
-}
+import type { ModelForUser } from '@uaip/types';
 
 export class ModelService {
   private llmModelRepository = new LLMModelRepository();

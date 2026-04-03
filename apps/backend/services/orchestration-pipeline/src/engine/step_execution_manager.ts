@@ -379,21 +379,146 @@ export class StepExecutionManager extends EventEmitter {
     );
   }
 
+  /**
+   * Safely evaluate a workflow condition string without arbitrary code execution.
+   *
+   * Supported syntax:
+   *   - Property access on context: `context.someKey`, `results.stepId.output`
+   *   - Comparison operators: `===`, `!==`, `==`, `!=`, `>`, `>=`, `<`, `<=`
+   *   - Literal values: `true`, `false`, `null`, quoted strings, numbers
+   *   - Logical operators: `&&`, `||`
+   *   - Negation: `!expr`
+   *
+   * Examples:
+   *   "context.approved === true"
+   *   "results.analysis.output.score >= 0.8"
+   *   "context.env === 'production' && context.approved !== false"
+   */
   private evaluateCondition(condition: string, context: StepExecutionContext): boolean {
-    // Simple condition evaluation - in production this would be more sophisticated
     try {
-      // Create a safe evaluation context
-      const evalContext = {
+      const evalContext: Record<string, unknown> = {
         ...context.globalContext,
         results: Object.fromEntries(context.previousResults),
       };
 
-      // This is a simplified example - in production use a proper expression evaluator
-      const func = new Function('context', `return ${condition}`);
-      return func(evalContext);
+      return this.safeEvaluateExpression(condition.trim(), evalContext);
     } catch (error) {
-      logger.error(`Failed to evaluate condition: ${condition}`, error);
+      logger.error('Failed to evaluate condition safely', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
+    }
+  }
+
+  private resolvePropertyPath(path: string, context: Record<string, unknown>): unknown {
+    const segments = path.split('.');
+    let current: unknown = context;
+
+    for (const segment of segments) {
+      if (current === null || current === undefined) return undefined;
+      if (typeof current !== 'object') return undefined;
+      current = (current as Record<string, unknown>)[segment];
+    }
+
+    return current;
+  }
+
+  private parseValueToken(token: string, context: Record<string, unknown>): unknown {
+    const trimmed = token.trim();
+
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+    if (trimmed === 'null') return null;
+    if (trimmed === 'undefined') return undefined;
+
+    if (
+      (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+      (trimmed.startsWith('"') && trimmed.endsWith('"'))
+    ) {
+      return trimmed.slice(1, -1);
+    }
+
+    const num = Number(trimmed);
+    if (!Number.isNaN(num) && trimmed.length > 0) return num;
+
+    // Property path — validate against injection (safe chars only: letters, digits, dots, underscores)
+    if (/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(trimmed)) {
+      return this.resolvePropertyPath(trimmed, context);
+    }
+
+    throw new Error(`Unsafe or unrecognised token in condition: "${trimmed}"`);
+  }
+
+  private safeEvaluateExpression(expr: string, context: Record<string, unknown>): boolean {
+    const trimmed = expr.trim();
+
+    const orParts = this.splitAtTopLevel(trimmed, '||');
+    if (orParts.length > 1) {
+      return orParts.some((part) => this.safeEvaluateExpression(part, context));
+    }
+
+    const andParts = this.splitAtTopLevel(trimmed, '&&');
+    if (andParts.length > 1) {
+      return andParts.every((part) => this.safeEvaluateExpression(part, context));
+    }
+
+    if (trimmed.startsWith('!') && !trimmed.startsWith('!=')) {
+      const inner = trimmed.slice(1).trim();
+      if (inner.startsWith('(') && inner.endsWith(')')) {
+        return !this.safeEvaluateExpression(inner.slice(1, -1), context);
+      }
+      return !this.safeEvaluateExpression(inner, context);
+    }
+
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+      return this.safeEvaluateExpression(trimmed.slice(1, -1), context);
+    }
+
+    const comparisonOps = ['===', '!==', '==', '!=', '>=', '<=', '>', '<'] as const;
+    for (const op of comparisonOps) {
+      const idx = trimmed.indexOf(op);
+      if (idx !== -1) {
+        const lhs = this.parseValueToken(trimmed.slice(0, idx), context);
+        const rhs = this.parseValueToken(trimmed.slice(idx + op.length), context);
+        return this.applyComparison(op, lhs, rhs);
+      }
+    }
+
+    const val = this.parseValueToken(trimmed, context);
+    return Boolean(val);
+  }
+
+  private splitAtTopLevel(expr: string, operator: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let current = 0;
+
+    for (let i = 0; i < expr.length; i++) {
+      if (expr[i] === '(') depth++;
+      else if (expr[i] === ')') depth--;
+      else if (depth === 0 && expr.slice(i, i + operator.length) === operator) {
+        parts.push(expr.slice(current, i));
+        i += operator.length - 1;
+        current = i + 1;
+      }
+    }
+    parts.push(expr.slice(current));
+
+    return parts.length > 1 ? parts : [expr];
+  }
+
+  private applyComparison(op: string, lhs: unknown, rhs: unknown): boolean {
+    switch (op) {
+      case '===': return lhs === rhs;
+      case '!==': return lhs !== rhs;
+      case '==': return lhs == rhs;
+      case '!=': return lhs != rhs;
+      case '>': return (lhs as number) > (rhs as number);
+      case '>=': return (lhs as number) >= (rhs as number);
+      case '<': return (lhs as number) < (rhs as number);
+      case '<=': return (lhs as number) <= (rhs as number);
+      default: throw new Error(`Unknown comparison operator: ${op}`);
     }
   }
 

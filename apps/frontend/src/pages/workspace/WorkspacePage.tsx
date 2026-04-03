@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitBranch, Github, Plus, RefreshCw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { APIClient } from '@/api/client';
+import { edenRequest } from '@/api/eden';
 import { llmAPI } from '@/api/llm_api';
 import { projectsAPI } from '@/api/projects_api';
 import { STALE_TIMES } from '@/api/query_config';
@@ -152,14 +152,17 @@ export default function WorkspacePage() {
 
     try {
       setIsSettingUp(true);
-      const result = await APIClient.post<WorkspaceSetupResult>(
+      const result = await edenRequest<WorkspaceSetupResult>(
         `/api/v1/projects/${projectId}/setup-workspace`,
         {
-          userId,
-          projectName,
-          githubToken: githubToken.trim(),
-          repoName: repoName.trim(),
-          repoVisibility,
+          method: 'POST',
+          body: {
+            userId,
+            projectName,
+            githubToken: githubToken.trim(),
+            repoName: repoName.trim(),
+            repoVisibility,
+          },
         }
       );
 

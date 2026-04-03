@@ -1,5 +1,5 @@
-type Elysia = { group: Function }
-import { withNginxAuth } from '@uaip/middleware'
+import { Elysia } from 'elysia'
+import { withNginxAuth, t } from '@uaip/middleware'
 import { DiscussionStatus } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import {
@@ -33,23 +33,13 @@ const sanitizeMessageContentOnRead = (message: unknown): unknown => {
   }
 }
 
-export function registerDiscussionRoutes<T extends Elysia>(
-  app: T,
+export function registerDiscussionRoutes(
   discussionService: DiscussionService,
   orchestrationService: DiscussionOrchestrationService
-): T {
-  ;(app as unknown as { group: Function }).group(
-    '/api/v1/discussions',
-    (group: {
-      get: Function
-      post: Function
-      put: Function
-      delete: Function
-    }) => {
-      const applyNginxAuth = withNginxAuth as unknown as (app: typeof group) => typeof group
-      const authedGroup = applyNginxAuth(group)
-
-      return authedGroup
+) {
+  return new Elysia()
+    .group('/api/v1/discussions', (group) => {
+      return withNginxAuth(group)
         .get('/', async (ctx) => {
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
@@ -64,12 +54,18 @@ export function registerDiscussionRoutes<T extends Elysia>(
             ctx.set.status = 500
             return { success: false, error: 'Failed to list discussions' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Optional(t.Array(t.Any())), total: t.Optional(t.Number()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            const userId = ctx.user.id
+            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const discussion = await discussionService.createDiscussion(
               {
                 ...body,
@@ -86,6 +82,22 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to create discussion',
             }
           }
+        }, {
+          body: t.Object({
+            title: t.String(),
+            topic: t.Optional(t.String()),
+            description: t.Optional(t.String()),
+            initialParticipants: t.Optional(t.Array(t.Object({
+              agentId: t.String(),
+              role: t.Optional(t.String()),
+            }))),
+            settings: t.Optional(t.Record(t.String(), t.Unknown())),
+            turnStrategy: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/search', async (ctx) => {
@@ -102,6 +114,12 @@ export function registerDiscussionRoutes<T extends Elysia>(
             ctx.set.status = 500
             return { success: false, error: 'Failed to search discussions' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Optional(t.Array(t.Any())), total: t.Optional(t.Number()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id', async (ctx) => {
@@ -117,6 +135,12 @@ export function registerDiscussionRoutes<T extends Elysia>(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion' }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id/summary', async (ctx) => {
@@ -199,6 +223,25 @@ export function registerDiscussionRoutes<T extends Elysia>(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion summary' }
           }
+        }, {
+          response: {
+            200: t.Object({
+              success: t.Literal(true),
+              data: t.Object({
+                id: t.String(),
+                title: t.Any(),
+                status: t.Any(),
+                participants: t.Array(t.String()),
+                currentTurn: t.Any(),
+                messageCount: t.Number(),
+                startedAt: t.Any(),
+                endedAt: t.Any(),
+                activeHuddles: t.Number(),
+              }),
+            }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .put('/:id', async (ctx) => {
@@ -216,11 +259,24 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to update discussion',
             }
           }
+        }, {
+          body: t.Object({
+            title: t.Optional(t.String()),
+            description: t.Optional(t.String()),
+            topic: t.Optional(t.String()),
+            status: t.Optional(t.String()),
+            settings: t.Optional(t.Record(t.String(), t.Unknown())),
+            turnStrategy: t.Optional(t.Record(t.String(), t.Unknown())),
+          }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/start', async (ctx) => {
           try {
-            const startedBy = ctx.user.id
+            const startedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const discussion = await discussionService.startDiscussion(ctx.params.id, startedBy)
             return { success: true, data: discussion }
           } catch (error) {
@@ -231,11 +287,16 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to start discussion',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/end', async (ctx) => {
           try {
-            const endedBy = ctx.user.id
+            const endedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             const body = ctx.body as { reason?: string } | undefined
             const discussion = await discussionService.endDiscussion(ctx.params.id, endedBy, body?.reason)
             return { success: true, data: discussion }
@@ -247,31 +308,46 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to end discussion',
             }
           }
+        }, {
+          body: t.Object({ reason: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/participants', async (ctx) => {
-            try {
-              const addedBy = ctx.user.id
-              const result = await orchestrationService.addParticipant(
-                ctx.params.id,
-                ctx.body as Parameters<typeof orchestrationService.addParticipant>[1],
-                addedBy
-              )
-              ctx.set.status = 201
-              return { success: true, data: result }
-            } catch (error) {
-              logger.error('Failed to add participant', { error, id: ctx.params.id })
-              ctx.set.status = 400
-              return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to add participant',
-              }
+          try {
+            const addedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            const result = await orchestrationService.addParticipant(
+              ctx.params.id,
+              ctx.body as Parameters<typeof orchestrationService.addParticipant>[1],
+              addedBy
+            )
+            ctx.set.status = 201
+            return { success: true, data: result }
+          } catch (error) {
+            logger.error('Failed to add participant', { error, id: ctx.params.id })
+            ctx.set.status = 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to add participant',
             }
+          }
+        }, {
+          body: t.Object({
+            agentId: t.String(),
+            role: t.Optional(t.String()),
+          }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .delete('/:id/participants/:pid', async (ctx) => {
           try {
-            const removedBy = ctx.user.id
+            const removedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             await discussionService.removeParticipant(ctx.params.id, ctx.params.pid, removedBy)
             return { success: true, message: 'Participant removed' }
           } catch (error) {
@@ -282,6 +358,11 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to remove participant',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/participants/:pid/messages', async (ctx) => {
@@ -309,6 +390,16 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to send message',
             }
           }
+        }, {
+          body: t.Object({
+            content: t.String(),
+            messageType: t.Optional(t.String()),
+            metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.Optional(t.Any()) }),
+          },
         })
 
         .get('/:id/messages', async (ctx) => {
@@ -327,17 +418,23 @@ export function registerDiscussionRoutes<T extends Elysia>(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get messages' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Array(t.Any()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/advance-turn', async (ctx) => {
           try {
-            const role = normalizeRole(ctx.user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
+            const role = normalizeRole((ctx as unknown as { user: { id: string; role?: string } }).user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
             if (role !== 'admin' && role !== 'moderator') {
               ctx.set.status = 403
               return { success: false, error: 'Only moderators can force-advance turns' }
             }
 
-            const forcedBy = ctx.user.id
+            const forcedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
             await discussionService.advanceTurn(ctx.params.id, forcedBy)
             return { success: true, message: 'Turn advanced' }
           } catch (error) {
@@ -348,6 +445,12 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to advance turn',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            403: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id/analytics', async (ctx) => {
@@ -359,6 +462,11 @@ export function registerDiscussionRoutes<T extends Elysia>(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion analytics' }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/turns/request', async (ctx) => {
@@ -379,6 +487,15 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to request turn',
             }
           }
+        }, {
+          body: t.Object({
+            participantId: t.Optional(t.String()),
+            reason: t.Optional(t.String()),
+          }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/huddle', async (ctx) => {
@@ -414,6 +531,17 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to create huddle',
             }
           }
+        }, {
+          body: t.Object({
+            initiatorId: t.Optional(t.String()),
+            participants: t.Optional(t.Array(t.String())),
+            topic: t.Optional(t.String()),
+            context: t.Optional(t.String()),
+          }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/huddles/:huddle_id/resolve', async (ctx) => {
@@ -429,9 +557,12 @@ export function registerDiscussionRoutes<T extends Elysia>(
               error: error instanceof Error ? error.message : 'Failed to resolve huddle',
             }
           }
+        }, {
+          body: t.Object({ summary: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
-    }
-  )
-
-  return app
+    })
 }

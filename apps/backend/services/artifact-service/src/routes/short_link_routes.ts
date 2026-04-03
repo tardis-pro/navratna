@@ -1,47 +1,48 @@
 import { ShortLinkService } from '../services/short_link_service.js';
 import { logger } from '@uaip/utils';
 
-type Elysia = { group: Function };
+import { Elysia, t } from 'elysia';
 
-type HeaderCtx = { headers: Record<string, string>; set: { status: number } };
-
-function requireUser(
-  headers: Record<string, string>,
-  set: { status: number }
-): { userId: string; svc: ShortLinkService } | { error: string } {
-  const userId = headers['x-user-id'];
-  if (!userId) {
-    set.status = 401;
-    return { error: 'User not authenticated' };
-  }
-  return { userId, svc: new ShortLinkService() };
+function getBodyRecord(value: unknown) {
+  return typeof value === 'object' && value !== null ? value : null;
 }
 
-function isAuthError(v: unknown): v is { error: string } {
-  return typeof v === 'object' && v !== null && 'error' in v && !('userId' in v);
+function getString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
 }
 
-export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
-  (app as { group: Function }).group(
-    '/api/v1',
-    (g: { post: Function; get: Function; put: Function; delete: Function }) =>
+const LinkSchema = t.Any()
+const LinkErrorSchema = t.Object({ success: t.Literal(false), error: t.String() })
+
+export function registerShortLinkRoutes() {
+  return new Elysia()
+    .group(
+      '/api/v1',
+      (g) =>
       g
         .post(
           '/links',
-          async ({
-            headers,
-            body,
-            set,
-          }: HeaderCtx & { body: Record<string, unknown> }) => {
+          async ({ headers, body, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
-              const shortLink = await svc.createShortLink(body.originalUrl as string, userId, body);
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const payload = getBodyRecord(body);
+              const originalUrl = payload ? getString(Reflect.get(payload, 'originalUrl')) : undefined;
+              if (!originalUrl) {
+                set.status = 400;
+                return { success: false, error: 'originalUrl is required' };
+              }
+
+              const svc = new ShortLinkService();
+              const shortLink = await svc.createShortLink(originalUrl, userId, payload ?? undefined);
               logger.info('Short link created', {
                 shortCode: shortLink.shortCode,
                 userId,
-                originalUrl: body.originalUrl as string,
+                originalUrl,
               });
               set.status = 201;
               return { success: true, data: shortLink };
@@ -53,25 +54,41 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
                 error: error instanceof Error ? error.message : 'Failed to create short link',
               };
             }
+          },
+          {
+            body: t.Object({
+              originalUrl: t.String(),
+              title: t.Optional(t.String()),
+              description: t.Optional(t.String()),
+              type: t.Optional(t.String()),
+              customCode: t.Optional(t.String()),
+              expiresAt: t.Optional(t.String()),
+              maxClicks: t.Optional(t.Number()),
+              tags: t.Optional(t.Array(t.String())),
+              artifactId: t.Optional(t.String()),
+              projectFileId: t.Optional(t.String()),
+              generateQR: t.Optional(t.Boolean()),
+            }),
+            response: { 201: t.Object({ success: t.Literal(true), data: LinkSchema }), 400: LinkErrorSchema, 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
         .get(
           '/links',
-          async ({
-            headers,
-            query,
-            set,
-          }: HeaderCtx & { query: Record<string, unknown> }) => {
+          async ({ headers, query, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const svc = new ShortLinkService();
               const options = {
                 page: parseInt(String(query.page ?? 1)),
                 limit: parseInt(String(query.limit ?? 20)),
-                type: query.type as string | undefined,
-                search: query.search as string | undefined,
+                type: getString(query.type),
+                search: getString(query.search),
               };
               const links = await svc.getUserLinks(userId, options);
               return { success: true, data: links };
@@ -80,20 +97,24 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
               set.status = 500;
               return { success: false, error: 'Failed to fetch links' };
             }
+          },
+          {
+            query: t.Object({ page: t.Optional(t.String()), limit: t.Optional(t.String()), type: t.Optional(t.String()), search: t.Optional(t.String()) }),
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Array(LinkSchema) }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
         .get(
           '/links/:id',
-          async ({
-            headers,
-            params,
-            set,
-          }: HeaderCtx & { params: Record<string, string> }) => {
+          async ({ headers, params, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const svc = new ShortLinkService();
               const link = await svc.getLinkById(params.id, userId);
               if (!link) {
                 set.status = 404;
@@ -105,22 +126,30 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
               set.status = 500;
               return { success: false, error: 'Failed to fetch link' };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: LinkSchema }), 401: LinkErrorSchema, 404: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
         .put(
           '/links/:id',
-          async ({
-            headers,
-            params,
-            body,
-            set,
-          }: HeaderCtx & { params: Record<string, string>; body: Record<string, unknown> }) => {
+          async ({ headers, params, body, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
-              const updated = await svc.updateLink(params.id, userId, body);
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const payload = getBodyRecord(body);
+              if (!payload) {
+                set.status = 400;
+                return { success: false, error: 'Request body is required' };
+              }
+
+              const svc = new ShortLinkService();
+              const updated = await svc.updateLink(params.id, userId, payload);
               logger.info('Short link updated', { linkId: params.id, userId });
               return { success: true, data: updated };
             } catch (error) {
@@ -131,20 +160,24 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
                 error: error instanceof Error ? error.message : 'Failed to update link',
               };
             }
+          },
+          {
+            body: t.Any(),
+            response: { 200: t.Object({ success: t.Literal(true), data: LinkSchema }), 400: LinkErrorSchema, 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
         .delete(
           '/links/:id',
-          async ({
-            headers,
-            params,
-            set,
-          }: HeaderCtx & { params: Record<string, string> }) => {
+          async ({ headers, params, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const svc = new ShortLinkService();
               await svc.deleteLink(params.id, userId);
               logger.info('Short link deleted', { linkId: params.id, userId });
               return { success: true, message: 'Link deleted successfully' };
@@ -156,20 +189,23 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
                 error: error instanceof Error ? error.message : 'Failed to delete link',
               };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), message: t.String() }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
         .post(
           '/links/:id/qr',
-          async ({
-            headers,
-            params,
-            set,
-          }: HeaderCtx & { params: Record<string, string> }) => {
+          async ({ headers, params, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const svc = new ShortLinkService();
               const qrCode = await svc.generateQRCode(params.id, userId);
               return { success: true, data: { qrCode } };
             } catch (error) {
@@ -180,20 +216,23 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
                 error: error instanceof Error ? error.message : 'Failed to generate QR code',
               };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Object({ qrCode: t.String() }) }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
         .get(
           '/links/:id/analytics',
-          async ({
-            headers,
-            params,
-            set,
-          }: HeaderCtx & { params: Record<string, string> }) => {
+          async ({ headers, params, set }) => {
             try {
-              const auth = requireUser(headers, set);
-              if (isAuthError(auth)) return auth;
-              const { userId, svc } = auth;
+              const userId = headers['x-user-id'];
+              if (!userId) {
+                set.status = 401;
+                return { success: false, error: 'User not authenticated' };
+              }
+
+              const svc = new ShortLinkService();
               const analytics = await svc.getLinkAnalytics(params.id, userId);
               return { success: true, data: analytics };
             } catch (error) {
@@ -201,20 +240,16 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
               set.status = 500;
               return { success: false, error: 'Failed to fetch analytics' };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
-  );
-
-  (app as { group: Function }).group('/s', (g: { get: Function }) =>
-    g.get(
-      '/:shortCode',
-      async ({
-        params,
-        headers,
-      }: {
-        params: Record<string, string>;
-        headers: Record<string, string>;
-      }) => {
+    )
+    .group('/s', (g) =>
+      g.get(
+        '/:shortCode',
+        async ({ params, headers }) => {
         try {
           const svc = new ShortLinkService();
           const result = await svc.resolveShortLink(params.shortCode, {
@@ -249,9 +284,10 @@ export function registerShortLinkRoutes<T extends Elysia>(app: T): T {
             });
           return new Response(JSON.stringify({ success: false, error: message }), { status: 500 });
         }
-      }
-    )
-  );
-
-  return app;
+        },
+        {
+          response: { 200: t.Any(), 302: t.Any() },
+        }
+      )
+    );
 }

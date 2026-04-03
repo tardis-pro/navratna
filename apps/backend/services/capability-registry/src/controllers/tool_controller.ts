@@ -13,7 +13,7 @@ interface ElysiaCtx {
   params?: Record<string, unknown>;
   body?: unknown;
   headers?: Record<string, unknown>;
-  set: { status: number };
+  set: { status?: number | string };
 }
 
 // Request validation schemas
@@ -798,7 +798,7 @@ export class ToolController {
     }
   }
 
-  private buildInvalidIdResponse(set: { status: number }): Record<string, unknown> {
+  private buildInvalidIdResponse(set: { status?: number | string }): Record<string, unknown> {
     set.status = 400;
     return {
       success: false,
@@ -807,7 +807,7 @@ export class ToolController {
     };
   }
 
-  private buildZodErrorResponse(set: { status: number }, error: z.ZodError): Record<string, unknown> {
+  private buildZodErrorResponse(set: { status?: number | string }, error: z.ZodError): Record<string, unknown> {
     set.status = 400;
     return {
       success: false,

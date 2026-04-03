@@ -45,6 +45,10 @@ export class DiscussionService {
   private maxParticipants: number;
   private defaultTurnTimeout: number;
   private activeDiscussions: Map<string, Record<string, unknown>>;
+  private cacheTimestamps: Map<string, number>;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private static readonly MAX_CACHED = 1000;
+  private static readonly STALE_MS = 2 * 60 * 60 * 1000;
 
   constructor(config: DiscussionServiceConfig) {
     this.databaseService = config.databaseService;
@@ -54,8 +58,43 @@ export class DiscussionService {
     this.enableRealTimeEvents = config.enableRealTimeEvents ?? true;
     this.enableAnalytics = config.enableAnalytics ?? true;
     this.maxParticipants = config.maxParticipants ?? 20;
-    this.defaultTurnTimeout = config.defaultTurnTimeout ?? 300; // 5 minutes
+    this.defaultTurnTimeout = config.defaultTurnTimeout ?? 300;
     this.activeDiscussions = new Map();
+    this.cacheTimestamps = new Map();
+    this.cleanupInterval = setInterval(() => this.evictStaleEntries(), 5 * 60 * 1000);
+  }
+
+  dispose(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.activeDiscussions.clear();
+    this.cacheTimestamps.clear();
+  }
+
+  private evictStaleEntries(): void {
+    const now = Date.now();
+    let evicted = 0;
+    for (const [key, ts] of this.cacheTimestamps) {
+      if (now - ts > DiscussionService.STALE_MS) {
+        this.activeDiscussions.delete(key);
+        this.cacheTimestamps.delete(key);
+        evicted++;
+      }
+    }
+    if (this.activeDiscussions.size > DiscussionService.MAX_CACHED) {
+      const sorted = [...this.cacheTimestamps.entries()].sort((a, b) => a[1] - b[1]);
+      const excess = sorted.slice(0, sorted.length - DiscussionService.MAX_CACHED);
+      for (const [key] of excess) {
+        this.activeDiscussions.delete(key);
+        this.cacheTimestamps.delete(key);
+        evicted++;
+      }
+    }
+    if (evicted > 0) {
+      logger.info('Evicted stale discussions from cache', { evicted, remaining: this.activeDiscussions.size });
+    }
   }
 
   private async hydrateDiscussionRelations(
@@ -184,6 +223,7 @@ export class DiscussionService {
 
       // Cache active discussion
       this.activeDiscussions.set(discussionId, discussion);
+      this.cacheTimestamps.set(discussionId, Date.now());
 
       // Emit creation event
       await this.emitDiscussionEvent(discussionId, DiscussionEventType.STATUS_CHANGED, {
@@ -206,6 +246,7 @@ export class DiscussionService {
       if (!forceRefresh) {
         const cached = this.activeDiscussions.get(id);
         if (cached) {
+          this.cacheTimestamps.set(id, Date.now());
           return cached;
         }
       }
@@ -219,6 +260,7 @@ export class DiscussionService {
         const hydratedDiscussion = await this.hydrateDiscussionRelations(discussion)
         if (hydratedDiscussion.status === DiscussionStatus.ACTIVE) {
           this.activeDiscussions.set(id, hydratedDiscussion)
+          this.cacheTimestamps.set(id, Date.now());
         }
         return hydratedDiscussion
       }
@@ -268,8 +310,10 @@ export class DiscussionService {
       // Update cache
       if (discussion.status === DiscussionStatus.ACTIVE) {
         this.activeDiscussions.set(id, discussion);
+        this.cacheTimestamps.set(id, Date.now());
       } else {
         this.activeDiscussions.delete(id);
+        this.cacheTimestamps.delete(id);
       }
 
       // Emit update event
@@ -397,8 +441,8 @@ export class DiscussionService {
         analytics: finalAnalytics,
       });
 
-      // Remove from active discussions
       this.activeDiscussions.delete(id);
+      this.cacheTimestamps.delete(id);
 
       // Generate discussion summary
       if (this.enableAnalytics) {

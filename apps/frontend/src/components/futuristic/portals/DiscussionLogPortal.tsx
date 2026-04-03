@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDown, MessageSquare, Search } from 'lucide-react';
+import { discussionsAPI } from '@/api';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { cn } from '@/lib/utils';
 
@@ -143,15 +144,7 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({ classN
         return [] as DiscussionLogMessage[];
       }
 
-      const response = await fetch(`/api/v1/discussions/${discussionId}/messages?limit=50`, {
-        credentials: 'include',
-      });
-      const payload: unknown = await response.json();
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch discussion messages');
-      }
-
+      const payload = await discussionsAPI.getMessages(discussionId, { limit: 50 });
       return parseMessagesResponse(payload);
     },
     enabled: Boolean(discussionId),

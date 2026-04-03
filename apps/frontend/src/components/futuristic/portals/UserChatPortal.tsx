@@ -24,6 +24,7 @@ import {
   X,
   Loader,
 } from 'lucide-react';
+import { edenRequest } from '@/api/eden';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
 import { Button } from '@/components/ui/button';
@@ -107,13 +108,21 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     const loadContacts = async () => {
       try {
-        const contactsResponse = await fetch('/api/v1/contacts?status=ACCEPTED', {
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-        if (contactsResponse.ok) {
-          const contactsData = await contactsResponse.json();
+        const contactsData = await edenRequest<{
+          data: {
+            contacts: Array<{
+              acceptedAt?: string;
+              createdAt: string;
+              user: {
+                id: string;
+                email: string;
+                displayName?: string;
+                firstName?: string;
+                lastName?: string;
+              };
+            }>;
+          };
+        }>('/api/v1/contacts?status=ACCEPTED', { method: 'GET' });
           const userContacts = contactsData.data.contacts.map((contact: unknown) => ({
             id: contact.user.id,
             username: contact.user.email.split('@')[0],
@@ -154,26 +163,20 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
           // If no contacts, load some public users for demo
           if (userContacts.length === 0) {
-            const publicResponse = await fetch('/api/v1/users/public?limit=10', {
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-            });
+            const publicData = await edenRequest<{
+              data: { users: Array<{ id: string; email: string; displayName?: string }> };
+            }>('/api/v1/users/public?limit=10', { method: 'GET' });
+            const publicUsers = publicData.data.users.map((_user: unknown) => ({
+              id: user.id,
+              username: user.email.split('@')[0],
+              email: user.email,
+              displayName: user.displayName,
+              status: 'offline' as const,
+              lastSeen: new Date(),
+            }));
 
-            if (publicResponse.ok) {
-              const publicData = await publicResponse.json();
-              const publicUsers = publicData.data.users.map((_user: unknown) => ({
-                id: user.id,
-                username: user.email.split('@')[0],
-                email: user.email,
-                displayName: user.displayName,
-                status: 'offline' as const,
-                lastSeen: new Date(),
-              }));
-
-              setContacts(publicUsers);
-            }
+            setContacts(publicUsers);
           }
-        }
       } catch (error) {
         console.error('Error loading contacts:', error);
         // Fallback to empty contacts
@@ -541,13 +544,11 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
     setIsLoadingUsers(true);
     try {
-      const response = await fetch(`/api/v1/users/public?limit=50&search=${userSearchTerm}`, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      const queryParams = new URLSearchParams({ limit: '50' });
+      if (userSearchTerm) queryParams.set('search', userSearchTerm);
+      const data = await edenRequest<{
+        data: { users: Array<{ id: string; email: string; displayName?: string }> };
+      }>(`/api/v1/users/public?${queryParams.toString()}`, { method: 'GET' });
         const existingContactIds = new Set(contacts.map((c) => c.id));
 
         // Filter out current user and existing contacts - users are now pre-filtered to exclude admin/manager roles
@@ -562,8 +563,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             lastSeen: new Date(),
           }));
 
-        setAvailableUsers(availableUsers);
-      }
+        setAvailableUsers(_availableUsers);
     } catch (error) {
       console.error('Error loading available users:', error);
     } finally {
@@ -576,26 +576,16 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
     if (!user) return;
 
     try {
-      const response = await fetch('/api/v1/contacts/request', {
+      await edenRequest('/api/v1/contacts/request', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           targetUserId: targetUserId,
           type: 'FRIEND',
           message: 'Would like to add you as a user connection',
-        }),
+        },
       });
 
-      if (response.ok) {
-        // Remove user from available users list
-        setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
-
-        // Optionally show success message
-      } else {
-        const errorData = await response.json();
-        console.error('Failed to send user connection request:', errorData.message);
-      }
+      setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
     } catch (error) {
       console.error('Error sending user connection request:', error);
     }

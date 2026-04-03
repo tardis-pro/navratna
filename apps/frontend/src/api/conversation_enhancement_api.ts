@@ -1,4 +1,4 @@
-import { APIClient } from './client';
+import { edenRequest } from './eden';
 import type {
   ConversationEnhancementRequest,
   ConversationEnhancementResult,
@@ -21,27 +21,27 @@ export const conversationEnhancementAPI = {
   async getEnhancedContribution(
     request: ConversationEnhancementRequest
   ): Promise<ConversationEnhancementResult> {
-    return APIClient.post<ConversationEnhancementResult>(`${BASE}/enhance`, request);
+    return edenRequest<ConversationEnhancementResult>(`${BASE}/enhance`, { method: 'POST', body: request });
   },
 
   async analyzeConversation(request: ConversationAnalysisRequest): Promise<unknown> {
-    return APIClient.post(`${BASE}/analyze`, request);
+    return edenRequest(`${BASE}/analyze`, { method: 'POST', body: request });
   },
 
   async createHybridPersona(request: HybridPersonaRequest): Promise<unknown> {
-    return APIClient.post(`${BASE}/hybrid-persona`, request);
+    return edenRequest(`${BASE}/hybrid-persona`, { method: 'POST', body: request });
   },
 
   async generateContextualResponse(request: ContextualResponseRequest): Promise<unknown> {
-    return APIClient.post(`${BASE}/contextual-response`, request);
+    return edenRequest(`${BASE}/contextual-response`, { method: 'POST', body: request });
   },
 
   async getAgentPersonas(agentId: string): Promise<unknown> {
-    return APIClient.get(`${BASE}/personas/${agentId}`);
+    return edenRequest(`${BASE}/personas/${agentId}`, { method: 'GET' });
   },
 
   async getConversationHealth(discussionId: string): Promise<unknown> {
-    return APIClient.get(`${BASE}/health/${discussionId}`);
+    return edenRequest(`${BASE}/health/${discussionId}`, { method: 'GET' });
   },
 
   async getFlowAnalysis(
@@ -49,12 +49,15 @@ export const conversationEnhancementAPI = {
     messageHistory: unknown[],
     conversationState: unknown
   ): Promise<unknown> {
-    return APIClient.post(`${BASE}/analyze`, {
-      discussionId,
-      messageHistory,
-      conversationState,
-      analysisType: 'flow',
-    } as ConversationAnalysisRequest);
+    return edenRequest(`${BASE}/analyze`, {
+      method: 'POST',
+      body: {
+        discussionId,
+        messageHistory,
+        conversationState,
+        analysisType: 'flow',
+      } as ConversationAnalysisRequest,
+    });
   },
 
   async getConversationInsights(
@@ -62,12 +65,15 @@ export const conversationEnhancementAPI = {
     messageHistory: unknown[],
     conversationState: unknown
   ): Promise<unknown> {
-    return APIClient.post(`${BASE}/analyze`, {
-      discussionId,
-      messageHistory,
-      conversationState,
-      analysisType: 'insights',
-    } as ConversationAnalysisRequest);
+    return edenRequest(`${BASE}/analyze`, {
+      method: 'POST',
+      body: {
+        discussionId,
+        messageHistory,
+        conversationState,
+        analysisType: 'insights',
+      } as ConversationAnalysisRequest,
+    });
   },
 
   async getConversationPatterns(
@@ -75,12 +81,15 @@ export const conversationEnhancementAPI = {
     messageHistory: unknown[],
     conversationState: unknown
   ): Promise<unknown> {
-    return APIClient.post(`${BASE}/analyze`, {
-      discussionId,
-      messageHistory,
-      conversationState,
-      analysisType: 'patterns',
-    } as ConversationAnalysisRequest);
+    return edenRequest(`${BASE}/analyze`, {
+      method: 'POST',
+      body: {
+        discussionId,
+        messageHistory,
+        conversationState,
+        analysisType: 'patterns',
+      } as ConversationAnalysisRequest,
+    });
   },
 };
 

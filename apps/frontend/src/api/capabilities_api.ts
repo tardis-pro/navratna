@@ -3,8 +3,7 @@
  * Handles capability discovery, registration, and recommendations
  */
 
-import { APIClient, createFileUpload } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import type {
   Capability,
   CapabilitySearchRequest,
@@ -14,10 +13,10 @@ import type {
   CapabilityCreate,
   CapabilityUpdate,
   CapabilityCategory,
-  CapabilityDependency,
   CapabilityValidation,
   CapabilityListOptions,
 } from '@uaip/contracts/api';
+import type { CapabilityDependency } from '@uaip/types';
 
 export type {
   CapabilityCreate,
@@ -28,67 +27,64 @@ export type {
   CapabilityListOptions,
 };
 
+const capabilities = gatewayClient.api.v1.capabilities;
+
 export const capabilitiesAPI = {
   async search(request: CapabilitySearchRequest): Promise<Capability[]> {
-    return APIClient.post<Capability[]>(API_ROUTES.CAPABILITIES.SEARCH, request);
+    return edenWithCSRFRetry(() => capabilities.search.post(request));
   },
 
   async list(options?: CapabilityListOptions): Promise<Capability[]> {
-    return APIClient.get<Capability[]>(API_ROUTES.CAPABILITIES.LIST, { params: options });
+    return edenWithCSRFRetry(() =>
+      capabilities.get({ query: options as Record<string, unknown> })
+    );
   },
 
   async get(id: string): Promise<Capability> {
-    return APIClient.get<Capability>(`${API_ROUTES.CAPABILITIES.GET}/${id}`);
+    return edenWithCSRFRetry(() => capabilities[id].get());
   },
 
   async create(capability: CapabilityCreate): Promise<Capability> {
-    return APIClient.post<Capability>(API_ROUTES.CAPABILITIES.REGISTER, capability);
+    return edenWithCSRFRetry(() => capabilities.post(capability));
   },
 
   async update(id: string, updates: CapabilityUpdate): Promise<Capability> {
-    return APIClient.put<Capability>(`${API_ROUTES.CAPABILITIES.UPDATE}/${id}`, updates);
+    return edenWithCSRFRetry(() => capabilities[id].put(updates));
   },
 
   async delete(id: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.CAPABILITIES.DELETE}/${id}`);
+    await edenWithCSRFRetry(() => capabilities[id].delete());
   },
 
   async getCategories(): Promise<CapabilityCategory[]> {
-    return APIClient.get<CapabilityCategory[]>(API_ROUTES.CAPABILITIES.CATEGORIES);
+    return edenWithCSRFRetry(() => capabilities.categories.get());
   },
 
   async getRecommendations(context?: unknown): Promise<CapabilityRecommendation[]> {
-    return APIClient.post<CapabilityRecommendation[]>(API_ROUTES.CAPABILITIES.RECOMMENDATIONS, {
-      context,
-    });
+    return edenWithCSRFRetry(() => capabilities.recommendations.post({ context }));
   },
 
   async getDependencies(id: string): Promise<CapabilityDependency> {
-    return APIClient.get<CapabilityDependency>(
-      `${API_ROUTES.CAPABILITIES.DEPENDENCIES}/${id}/dependencies`
-    );
+    return edenWithCSRFRetry(() => capabilities[id].dependencies.get());
   },
 
   async updateDependencies(
     id: string,
     dependencies: Omit<CapabilityDependency, 'capabilityId'>
   ): Promise<void> {
-    return APIClient.put(
-      `${API_ROUTES.CAPABILITIES.DEPENDENCIES}/${id}/dependencies`,
-      dependencies
-    );
+    await edenWithCSRFRetry(() => capabilities[id].dependencies.put(dependencies));
   },
 
   async validate(capability: CapabilityCreate | CapabilityUpdate): Promise<CapabilityValidation> {
-    return APIClient.post<CapabilityValidation>(API_ROUTES.CAPABILITIES.VALIDATE, capability);
+    return edenWithCSRFRetry(() => capabilities.validate.post(capability));
   },
 
   async enable(id: string): Promise<Capability> {
-    return APIClient.post<Capability>(`${API_ROUTES.CAPABILITIES.UPDATE}/${id}/enable`);
+    return edenWithCSRFRetry(() => capabilities[id].enable.post({}));
   },
 
   async disable(id: string): Promise<Capability> {
-    return APIClient.post<Capability>(`${API_ROUTES.CAPABILITIES.UPDATE}/${id}/disable`);
+    return edenWithCSRFRetry(() => capabilities[id].disable.post({}));
   },
 
   async test(
@@ -100,7 +96,7 @@ export const capabilitiesAPI = {
     error?: string;
     duration: number;
   }> {
-    return APIClient.post(`${API_ROUTES.CAPABILITIES.GET}/${id}/test`, testData);
+    return edenWithCSRFRetry(() => capabilities[id].test.post(testData));
   },
 
   async getProviders(): Promise<
@@ -111,19 +107,14 @@ export const capabilitiesAPI = {
       status: 'active' | 'inactive';
     }>
   > {
-    return APIClient.get(API_ROUTES.CAPABILITIES.PROVIDERS);
+    return edenWithCSRFRetry(() => capabilities.providers.get());
   },
 
-  async getTags(): Promise<
-    Array<{
-      name: string;
-      count: number;
-    }>
-  > {
-    return APIClient.get(API_ROUTES.CAPABILITIES.TAGS);
+  async getTags(): Promise<Array<{ name: string; count: number }>> {
+    return edenWithCSRFRetry(() => capabilities.tags.get());
   },
 
-  async bulkRegister(capabilities: CapabilityCreate[]): Promise<{
+  async bulkRegister(capabilityList: CapabilityCreate[]): Promise<{
     registered: number;
     failed: number;
     errors?: Array<{
@@ -131,18 +122,22 @@ export const capabilitiesAPI = {
       error: string;
     }>;
   }> {
-    return APIClient.post(`${API_ROUTES.CAPABILITIES.REGISTER}/bulk`, { capabilities });
+    return edenWithCSRFRetry(() => capabilities.bulk.post({ capabilities: capabilityList }));
   },
 
   async export(format: 'json' | 'yaml' = 'json'): Promise<Blob> {
-    const response = await APIClient.get(`${API_ROUTES.CAPABILITIES.LIST}/export`, {
-      params: { format },
+    return edenRequest<Blob>(`/api/v1/capabilities/export?format=${format}`, {
+      method: 'GET',
       responseType: 'blob',
     });
-    return response;
   },
 
   async import(file: File): Promise<{ imported: number; updated: number; errors?: string[] }> {
-    return APIClient.post(`${API_ROUTES.CAPABILITIES.REGISTER}/import`, createFileUpload(file));
+    const formData = new FormData();
+    formData.append('file', file);
+    return edenRequest('/api/v1/capabilities/import', {
+      method: 'POST',
+      body: formData,
+    });
   },
 };

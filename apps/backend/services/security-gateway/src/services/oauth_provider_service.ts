@@ -798,39 +798,57 @@ export class OAuthProviderService {
     return createHash('sha256').update(verifier).digest('base64url');
   }
 
+  private getEncryptionKey(): string {
+    const encryptionKey = config.security?.encryptionKey;
+    if (!encryptionKey) {
+      throw new ApiError(
+        500,
+        'OAuth encryption key is not configured. Set ENCRYPTION_KEY in environment.',
+        'MISSING_ENCRYPTION_KEY'
+      );
+    }
+    return encryptionKey;
+  }
+
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(
-      // @ts-expect-error -- Property does not exist on inferred type
-      (config as unknown).security?.encryptionKey || 'default-key',
-      'salt',
-      32
-    );
+    const key = crypto.scryptSync(this.getEncryptionKey(), 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
     let encrypted = cipher.update(secret, 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
-    return `${iv.toString('hex')}:${encrypted}`;
+    const authTag = cipher.getAuthTag().toString('hex');
+    return `${iv.toString('hex')}:${authTag}:${encrypted}`;
   }
 
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(
-      // @ts-expect-error -- Property does not exist on inferred type
-      (config as unknown).security?.encryptionKey || 'default-key',
-      'salt',
-      32
-    );
+    const key = crypto.scryptSync(this.getEncryptionKey(), 'salt', 32);
 
-    const [ivHex, encrypted] = encryptedSecret.split(':');
+    const parts = encryptedSecret.split(':');
+
+    if (parts.length === 3) {
+      const [ivHex, authTagHex, encrypted] = parts;
+      const iv = Buffer.from(ivHex, 'hex');
+      const decipher = crypto.createDecipheriv(algorithm, key, iv);
+      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    }
+
+    // Legacy format (iv:encrypted without auth tag) — decrypt but log migration needed
+    const [ivHex, encrypted] = parts;
     const iv = Buffer.from(ivHex, 'hex');
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
 
+    logger.warn('Decrypted secret using legacy format without auth tag — re-encrypt recommended');
     return decrypted;
   }
 

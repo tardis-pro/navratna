@@ -1,76 +1,16 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { AuditService as DomainAuditService } from '@uaip/shared-services';
-import { AuditEvent, AuditEventType, SecurityLevel, User as _User } from '@uaip/types';
-
-export interface AuditLogRequest {
-  eventType: AuditEventType;
-  userId?: string;
-  agentId?: string;
-  resourceType?: string;
-  resourceId?: string;
-  details: Record<string, unknown>;
-  ipAddress?: string;
-  userAgent?: string;
-  riskLevel?: SecurityLevel;
-}
-
-export interface AuditQuery {
-  eventTypes?: AuditEventType[];
-  userId?: string;
-  agentId?: string;
-  resourceType?: string;
-  resourceId?: string;
-  startDate?: Date;
-  endDate?: Date;
-  riskLevel?: SecurityLevel;
-  limit?: number;
-  offset?: number;
-}
-
-export interface AuditReport {
-  summary: {
-    totalEvents: number;
-    eventsByType: Record<string, number>;
-    eventsByRiskLevel: Record<string, number>;
-    uniqueUsers: number;
-    timeRange: {
-      start: Date;
-      end: Date;
-    };
-  };
-  events: AuditEvent[];
-  trends: {
-    dailyActivity: Array<{
-      date: string;
-      count: number;
-      riskEvents: number;
-    }>;
-    topUsers: Array<{
-      userId: string;
-      eventCount: number;
-      riskEvents: number;
-    }>;
-    topResources: Array<{
-      resourceType: string;
-      resourceId: string;
-      eventCount: number;
-    }>;
-  };
-}
-
-export interface SecurityMetrics {
-  totalSecurityEvents: number;
-  criticalEvents: number;
-  highRiskEvents: number;
-  failedLogins: number;
-  permissionDenials: number;
-  approvalRequests: number;
-  approvalDenials: number;
-  securityViolations: number;
-  averageRiskScore: number;
-  complianceScore: number;
-}
+import {
+  AuditEvent,
+  AuditEventType,
+  SecurityLevel,
+  User as _User,
+  AuditLogRequest,
+  AuditQuery,
+  AuditReport,
+  SecurityMetrics,
+} from '@uaip/types';
 
 export class AuditService {
   private retentionDays: number = 365; // Default retention period

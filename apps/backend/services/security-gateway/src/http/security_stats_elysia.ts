@@ -49,11 +49,11 @@ function toCount(value: unknown): number {
   return typeof value === 'number' ? value : Number(value ?? 0);
 }
 
-export function registerSecurityStatsRoutes<T extends Elysia>(app: T): T {
-  app.use(
+export function registerSecurityStatsRoutes() {
+  return new Elysia().use(
     withRequiredAuth(
       withAdminGuard(
-        (app as any).get('/api/v1/security/stats', async ({ request, set }) => {
+        new Elysia().get('/api/v1/security/stats', async ({ request, set }) => {
           const userId = request.headers.get('x-user-id') ?? '';
           if (!userId) {
             set.status = 401;
@@ -168,5 +168,4 @@ export function registerSecurityStatsRoutes<T extends Elysia>(app: T): T {
       )
     )
   );
-  return app;
 }

@@ -522,7 +522,12 @@ export class EventBusService {
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.unsubscribe(responseEventType, responseHandler).catch(() => {});
+        this.unsubscribe(responseEventType, responseHandler).catch((err) => {
+          this.logger.warn('Failed to unsubscribe response handler on timeout', {
+            responseEventType,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
         reject(new Error(`Request timeout after ${timeoutMs}ms`));
       }, timeoutMs);
 

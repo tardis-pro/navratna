@@ -29,35 +29,32 @@ function isClientInputError(message: string): boolean {
   )
 }
 
-export function registerKnowledgeIngestRoutes<T extends Elysia>(app: T): T {
-  app.group('/api/v1/knowledge', (group: unknown) =>
-    withNginxAuth(group as unknown as Parameters<typeof withNginxAuth>[0]).post('/ingest', async (ctx) => {
-      const source = parseSourceFromBody(ctx.body)
-      if (!source) {
-        ctx.set.status = 400
-        return {
-          success: false,
-          error: 'source must be a non-empty string',
-        }
+export function registerKnowledgeIngestRoutes() {
+  return new Elysia().group('/api/v1/knowledge', (group) => withNginxAuth(group).post('/ingest', async (ctx) => {
+    const source = parseSourceFromBody(ctx.body)
+    if (!source) {
+      ctx.set.status = 400
+      return {
+        success: false,
+        error: 'source must be a non-empty string',
       }
-
-      try {
-        const repoContext = await repoIngestionService.ingest(source)
-        return {
-          success: true,
-          data: repoContext,
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to ingest repository source'
-        logger.error('Knowledge ingest route failed', { source, error: message })
-        ctx.set.status = isClientInputError(message) ? 400 : 500
-        return {
-          success: false,
-          error: message,
-        }
+    }
+  
+    try {
+      const repoContext = await repoIngestionService.ingest(source)
+      return {
+        success: true,
+        data: repoContext,
       }
-    })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to ingest repository source'
+      logger.error('Knowledge ingest route failed', { source, error: message })
+      ctx.set.status = isClientInputError(message) ? 400 : 500
+      return {
+        success: false,
+        error: message,
+      }
+    }
+  })
   )
-
-  return app
 }

@@ -10,43 +10,12 @@ import {
   SecurityContext,
   AuditEventType,
   Operation as _Operation,
+  GatewaySecurityPolicy as SecurityPolicy,
+  RiskAssessmentConfig,
 } from '@uaip/types';
 // @ts-expect-error -- Module import issue
 import { ApprovalWorkflowService, ApprovalRequest } from './approval_workflow_service.js';
 import { AuditService } from './audit_service.js';
-
-export interface SecurityPolicy {
-  id: string;
-  name: string;
-  description: string;
-  conditions: Record<string, unknown>;
-  actions: {
-    allow?: boolean;
-    requireApproval?: boolean;
-    requiredApprovers?: string[];
-    maxRiskLevel?: SecurityLevel;
-    additionalValidations?: string[];
-  };
-  priority: number;
-  isActive: boolean;
-}
-
-export interface RiskAssessmentConfig {
-  operationTypeWeights: Record<string, number>;
-  resourceTypeWeights: Record<string, number>;
-  userRoleWeights: Record<string, number>;
-  timeBasedFactors: {
-    offHours: number;
-    weekend: number;
-    holiday: number;
-  };
-  thresholds: {
-    low: number;
-    medium: number;
-    high: number;
-    critical: number;
-  };
-}
 
 export class SecurityGatewayService {
   private policies: Map<string, SecurityPolicy> = new Map();

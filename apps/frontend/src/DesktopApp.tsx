@@ -10,7 +10,7 @@ import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { TelescopeKnowledgeSurface } from './components/TelescopeSurface';
+import TelescopeSurfacePage from './pages/TelescopeSurfacePage';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
@@ -63,15 +63,11 @@ function DesktopApp() {
                                 />
                                 <Route
                                   path="/"
-                                  element={
-                                    <TelescopeKnowledgeSurface className="min-h-screen" />
-                                  }
+                                  element={<TelescopeSurfacePage />}
                                 />
                                 <Route
                                   path="*"
-                                  element={
-                                    <TelescopeKnowledgeSurface className="min-h-screen" />
-                                  }
+                                  element={<TelescopeSurfacePage />}
                                 />
                               </Routes>
                             </BrowserRouter>

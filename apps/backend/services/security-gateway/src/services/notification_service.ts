@@ -4,27 +4,11 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService as _DatabaseService } from '@uaip/infra/database';
 import { EventBusService as _EventBusService } from '@uaip/infra/event_bus';
-
-export interface ApprovalNotification {
-  type: string;
-  recipientId: string;
-  workflowId: string;
-  operationId: string;
-  metadata?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-export interface NotificationTemplate {
-  subject: string;
-  htmlBody: string;
-  textBody: string;
-}
-
-export interface NotificationChannel {
-  type: 'email' | 'in_app' | 'webhook' | 'sms';
-  enabled: boolean;
-  config: Record<string, unknown>;
-}
+import type {
+  ApprovalNotification,
+  NotificationTemplate,
+  NotificationChannel,
+} from '@uaip/types';
 
 export class NotificationService {
   private emailTransporter: nodemailer.Transporter | null = null;

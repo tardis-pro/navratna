@@ -2,11 +2,10 @@ import type {
   BaseBenchCaseEvaluationResult,
   BaseBenchComponentScore,
   BaseBenchModelOutput,
+  BaseBenchScoredCaseResult,
   BaseBenchTaskFamily,
   BaseBenchTestCase,
 } from '@uaip/types';
-
-export type BaseBenchScoredCaseResult = BaseBenchCaseEvaluationResult;
 
 const META_WEIGHTS = {
   actionAppropriateness: 0.25,

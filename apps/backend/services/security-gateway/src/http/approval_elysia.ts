@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth, withOperatorGuard } from '@uaip/middleware';
@@ -8,7 +8,6 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { NotificationService } from '../services/notification_service.js';
 import { ApprovalStatus, SecurityLevel, AuditEventType } from '@uaip/types';
 
-// Lazy service setup (keeps routing file self-contained)
 let auditServiceSingleton: AuditService | null = null;
 let notificationServiceSingleton: NotificationService | null = null;
 let approvalWorkflowServiceSingleton: ApprovalWorkflowService | null = null;
@@ -94,353 +93,457 @@ function calculateUrgency(workflow: Record<string, unknown>): number {
   return urgency;
 }
 
-export function registerApprovalRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/approvals', (app: any) =>
-    withRequiredAuth(app)
-      // Create workflow (operator)
-      .group('', (g: any) =>
-        withOperatorGuard(g)
-          // @ts-expect-error -- Property does not exist on inferred type
-          .post('/workflows', async ({ body, set, user, request, headers }) => {
-            const parsed = createWorkflowSchema.safeParse(body);
-            if (!parsed.success) {
-              set.status = 400;
-              return { error: 'Validation Error', details: parsed.error.flatten() };
-            }
-            try {
-              const { approvalWorkflowService, auditService } = await getServices();
-              const workflow = await approvalWorkflowService.createApprovalWorkflow({
-                operationId: parsed.data.operationId,
-                operationType: parsed.data.operationType,
-                requiredApprovers: parsed.data.requiredApprovers,
-                securityLevel: parsed.data.securityLevel,
-                context: parsed.data.context,
-                expirationHours: parsed.data.expirationHours,
-                metadata: {
-                  ...parsed.data.metadata,
-                  createdBy: user!.id,
-                  createdAt: new Date().toISOString(),
-                },
-              });
-              await auditService.logEvent({
-                eventType: AuditEventType.APPROVAL_REQUESTED,
-                userId: user!.id,
-                resourceType: 'approval_workflow',
-                resourceId: workflow.id,
-                details: {
-                  operationId: parsed.data.operationId,
-                  operationType: parsed.data.operationType,
-                  requiredApprovers: parsed.data.requiredApprovers.length,
-                  securityLevel: parsed.data.securityLevel,
-                },
-                ipAddress: request.headers.get('x-forwarded-for') || '',
-                userAgent: headers['user-agent'],
-                riskLevel: parsed.data.securityLevel,
-              });
-              set.status = 201;
-              return {
-                success: true,
-                data: {
-                  workflow,
-                  approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/approvals/${workflow.id}`,
-                },
-                message: 'Approval workflow created successfully',
-              };
-            } catch (error) {
-              logger.error('Failed to create approval workflow', { error });
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'Failed to create approval workflow',
-              };
-            }
-          })
-          // Stats (operator)
-          // @ts-expect-error -- Property does not exist on inferred type
-          .get('/stats', async ({ set, query, _user }) => {
-            try {
-              const days = Number(query.days ?? 30);
-              const startDate = new Date();
-              startDate.setDate(startDate.getDate() - days);
-              const { approvalWorkflowService } = await getServices();
-              const all = await approvalWorkflowService.getUserWorkflows('');
-              const filtered = all.filter((w) => w.createdAt >= startDate);
-              const stats = {
-                total: filtered.length,
-                byStatus: {
-                  pending: filtered.filter((w) => w.status === ApprovalStatus.PENDING).length,
-                  approved: filtered.filter((w) => w.status === ApprovalStatus.APPROVED).length,
-                  rejected: filtered.filter((w) => w.status === ApprovalStatus.REJECTED).length,
-                  expired: filtered.filter((w) => w.status === ApprovalStatus.EXPIRED).length,
-                },
-                bySecurityLevel: {
-                  critical: filtered.filter(
-                    (w) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
-                  ).length,
-                  high: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.HIGH)
-                    .length,
-                  medium: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.MEDIUM)
-                    .length,
-                  low: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.LOW)
-                    .length,
-                },
-              };
-              return {
-                success: true,
-                data: { stats, period: { days, startDate, endDate: new Date() } },
-                message: 'Approval statistics retrieved successfully',
-              };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'Failed to get approval statistics',
-              };
-            }
-          })
-      )
+const ErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) });
+const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) });
 
-      // Query workflows (auth)
+export function registerApprovalRoutes() {
+  return new Elysia().group('/api/v1/approvals', (app) => withRequiredAuth(app)
+    .group('', (g) => withOperatorGuard(g)
       // @ts-expect-error -- Property does not exist on inferred type
-      .get('/workflows', async ({ set, user, query }) => {
-        const parsed = queryWorkflowsSchema.safeParse(query);
-        if (!parsed.success) {
-          set.status = 400;
-          return { error: 'Validation Error', details: parsed.error.flatten() };
-        }
-        try {
-          const { approvalWorkflowService } = await getServices();
-          let workflows: unknown[];
-          const role = (user!.role || '').toLowerCase();
-          if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
-            workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
-          } else {
-            workflows = await approvalWorkflowService.getUserWorkflows(
-              user!.id,
-              parsed.data.status
-            );
-          }
-          let filtered = workflows;
-          const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
-          if (operationType)
-            // @ts-expect-error -- Property does not exist on inferred type
-            filtered = filtered.filter((w) => w.metadata?.operationType === operationType);
-          if (securityLevel)
-            // @ts-expect-error -- Property does not exist on inferred type
-            filtered = filtered.filter((w) => w.metadata?.securityLevel === securityLevel);
-          // @ts-expect-error -- Property does not exist on inferred type
-          if (startDate) filtered = filtered.filter((w) => w.createdAt >= new Date(startDate));
-          // @ts-expect-error -- Property does not exist on inferred type
-          if (endDate) filtered = filtered.filter((w) => w.createdAt <= new Date(endDate));
-          const total = filtered.length;
-          const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
-          return {
-            success: true,
-            data: {
-              workflows: page,
-              pagination: {
-                total,
-                limit: Number(limit),
-                offset: Number(offset),
-                hasMore: Number(offset) + Number(limit) < total,
-              },
-            },
-            message: 'Approval workflows retrieved successfully',
-          };
-        } catch {
-          set.status = 500;
-          return { error: 'Internal Server Error', message: 'Failed to query workflows' };
-        }
-      })
-
-      // Pending approvals for current user
-      // @ts-expect-error -- Property does not exist on inferred type
-      .get('/pending', async ({ set, user }) => {
-        try {
-          const { approvalWorkflowService } = await getServices();
-          const pending = await approvalWorkflowService.getUserWorkflows(
-            user!.id,
-            ApprovalStatus.PENDING
-          ).catch((err: Error) => { logger.error('getUserWorkflows failed in /pending', { error: err.message, stack: err.stack }); throw err; });
-          const detailed = await Promise.all(
-            pending.map(async (wf) => {
-              const status = await approvalWorkflowService!.getWorkflowStatus(wf.id);
-              return {
-                workflow: wf,
-                status,
-                isPendingForUser: status.pendingApprovers.includes(user!.id),
-                urgency: calculateUrgency(wf),
-              };
-            })
-          );
-          const userPending = detailed
-            .filter((w) => w.isPendingForUser)
-            .sort((a, b) => b.urgency - a.urgency);
-          return {
-            success: true,
-            data: {
-              pendingApprovals: userPending,
-              count: userPending.length,
-              summary: {
-                critical: userPending.filter(
-                  (w) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
-                ).length,
-                high: userPending.filter(
-                  (w) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
-                ).length,
-                medium: userPending.filter(
-                  (w) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
-                ).length,
-                low: userPending.filter(
-                  (w) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
-                ).length,
-              },
-            },
-            message: 'Pending approvals retrieved successfully',
-          };
-        } catch {
-          set.status = 500;
-          return { error: 'Internal Server Error', message: 'Failed to get pending approvals' };
-        }
-      })
-
-      // Cancel workflow (operator)
-      .group('', (g: any) =>
-        withOperatorGuard(g).post(
-          '/:workflowId/cancel',
-          // @ts-expect-error -- Property does not exist on inferred type
-          async ({ set, params, body, user, request, headers }) => {
-            try {
-              const workflowId = params.workflowId;
-              // @ts-expect-error -- Property does not exist on inferred type
-              const reason = (body as unknown)?.reason;
-              if (!reason || !reason.trim()) {
-                set.status = 400;
-                return { error: 'Cancellation reason is required' };
-              }
-              const { approvalWorkflowService, auditService } = await getServices();
-              await approvalWorkflowService.cancelWorkflow(workflowId, reason);
-              await auditService.logEvent({
-                eventType: AuditEventType.APPROVAL_DENIED,
-                userId: user!.id,
-                resourceType: 'approval_workflow',
-                resourceId: workflowId,
-                details: { action: 'cancelled', reason, cancelledBy: user!.id },
-                ipAddress: request.headers.get('x-forwarded-for') || '',
-                userAgent: headers['user-agent'],
-                riskLevel: SecurityLevel.MEDIUM,
-              });
-              return { success: true, message: 'Approval workflow cancelled successfully' };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'Failed to cancel approval workflow',
-              };
-            }
-          }
-        )
-      )
-
-      // Workflow details
-      // @ts-expect-error -- Property does not exist on inferred type
-      .get('/:workflowId', async ({ set, params, user }) => {
-        try {
-          const workflowId = params.workflowId;
-          if (!workflowId || workflowId.length < 10) {
-            set.status = 400;
-            return { error: 'Invalid workflow ID format' };
-          }
-          const { approvalWorkflowService } = await getServices();
-          const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
-          const role = (user!.role || '').toLowerCase();
-          const isAuthorized =
-            status.workflow.requiredApprovers.includes(user!.id) ||
-            status.workflow.metadata?.createdBy === user!.id ||
-            role === 'admin' ||
-            role === 'security-admin' ||
-            role === 'security_admin';
-          if (!isAuthorized) {
-            set.status = 403;
-            return { error: 'Not authorized to view this workflow' };
-          }
-          return {
-            success: true,
-            data: { status, workflow: status.workflow },
-            message: 'Approval workflow status retrieved successfully',
-          };
-        } catch {
-          set.status = 500;
-          return { error: 'Internal Server Error', message: 'Failed to get workflow' };
-        }
-      })
-
-      // Approval decision
-      // @ts-expect-error -- Property does not exist on inferred type
-      .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
-        const parsed = approvalDecisionSchema.safeParse({
-          // @ts-expect-error -- Spread from non-object type
-          ...(body as unknown),
-          workflowId: params.workflowId,
-        });
+      .post('/workflows', async ({ body, set, user, request, headers }) => {
+        const parsed = createWorkflowSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
           return { error: 'Validation Error', details: parsed.error.flatten() };
         }
         try {
           const { approvalWorkflowService, auditService } = await getServices();
-          const decisionInput = {
-            workflowId: parsed.data.workflowId,
-            approverId: user!.id,
-            decision: parsed.data.decision,
-            conditions: parsed.data.conditions,
-            feedback: parsed.data.feedback,
-            decidedAt: new Date(),
-          } as unknown;
-          const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
+          const workflow = await approvalWorkflowService.createApprovalWorkflow({
+            operationId: parsed.data.operationId,
+            operationType: parsed.data.operationType,
+            requiredApprovers: parsed.data.requiredApprovers,
+            securityLevel: parsed.data.securityLevel,
+            context: parsed.data.context,
+            expirationHours: parsed.data.expirationHours,
+            metadata: {
+              ...parsed.data.metadata,
+              createdBy: user!.id,
+              createdAt: new Date().toISOString(),
+            },
+          });
           await auditService.logEvent({
-            eventType:
-              parsed.data.decision === 'approve'
-                ? AuditEventType.APPROVAL_GRANTED
-                : AuditEventType.APPROVAL_DENIED,
+            eventType: AuditEventType.APPROVAL_REQUESTED,
             userId: user!.id,
             resourceType: 'approval_workflow',
-            resourceId: parsed.data.workflowId,
+            resourceId: workflow.id,
             details: {
-              decision: parsed.data.decision,
-              conditions: parsed.data.conditions,
-              feedback: parsed.data.feedback,
-              workflowStatus: status.isComplete ? 'completed' : 'pending',
-              canProceed: status.canProceed,
+              operationId: parsed.data.operationId,
+              operationType: parsed.data.operationType,
+              requiredApprovers: parsed.data.requiredApprovers.length,
+              securityLevel: parsed.data.securityLevel,
             },
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
-            riskLevel: parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
+            riskLevel: parsed.data.securityLevel,
           });
+          set.status = 201;
           return {
             success: true,
             data: {
-              decision: decisionInput,
-              status,
-              message: status.isComplete
-                ? status.canProceed
-                  ? 'Operation approved and can proceed'
-                  : 'Operation rejected'
-                : 'Decision recorded, waiting for additional approvals',
+              workflow,
+              approvalUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/approvals/${workflow.id}`,
             },
-            message: 'Approval decision processed successfully',
+            message: 'Approval workflow created successfully',
+          };
+        } catch (error) {
+          logger.error('Failed to create approval workflow', { error });
+          set.status = 500;
+          return {
+            error: 'Internal Server Error',
+            message: 'Failed to create approval workflow',
+          };
+        }
+      }, {
+        body: t.Object({
+          operationId: t.String(),
+          operationType: t.String(),
+          requiredApprovers: t.Array(t.String()),
+          securityLevel: t.String(),
+          context: t.Any(),
+          expirationHours: t.Optional(t.Number()),
+          metadata: t.Optional(t.Any()),
+        }),
+        response: {
+          201: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              workflow: t.Any(),
+              approvalUrl: t.String(),
+            }),
+            message: t.String(),
+          }),
+          400: ValidationErrorSchema,
+          500: ErrorSchema,
+        },
+      })
+      // @ts-expect-error -- Property does not exist on inferred type
+      .get('/stats', async ({ set, query, _user }) => {
+        try {
+          const days = Number(query.days ?? 30);
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - days);
+          const { approvalWorkflowService } = await getServices();
+          const all = await approvalWorkflowService.getUserWorkflows('');
+          const filtered = all.filter((w) => w.createdAt >= startDate);
+          const stats = {
+            total: filtered.length,
+            byStatus: {
+              pending: filtered.filter((w) => w.status === ApprovalStatus.PENDING).length,
+              approved: filtered.filter((w) => w.status === ApprovalStatus.APPROVED).length,
+              rejected: filtered.filter((w) => w.status === ApprovalStatus.REJECTED).length,
+              expired: filtered.filter((w) => w.status === ApprovalStatus.EXPIRED).length,
+            },
+            bySecurityLevel: {
+              critical: filtered.filter(
+                (w) => w.metadata?.securityLevel === SecurityLevel.CRITICAL
+              ).length,
+              high: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.HIGH)
+                .length,
+              medium: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.MEDIUM)
+                .length,
+              low: filtered.filter((w) => w.metadata?.securityLevel === SecurityLevel.LOW)
+                .length,
+            },
+          };
+          return {
+            success: true,
+            data: { stats, period: { days, startDate, endDate: new Date() } },
+            message: 'Approval statistics retrieved successfully',
           };
         } catch {
           set.status = 500;
           return {
             error: 'Internal Server Error',
-            message: 'Failed to process approval decision',
+            message: 'Failed to get approval statistics',
           };
         }
+      }, {
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              stats: t.Any(),
+              period: t.Object({
+                days: t.Number(),
+                startDate: t.Any(),
+                endDate: t.Any(),
+              }),
+            }),
+            message: t.String(),
+          }),
+          500: ErrorSchema,
+        },
       })
+    )
+  
+    // @ts-expect-error -- Property does not exist on inferred type
+    .get('/workflows', async ({ set, user, query }) => {
+      const parsed = queryWorkflowsSchema.safeParse(query);
+      if (!parsed.success) {
+        set.status = 400;
+        return { error: 'Validation Error', details: parsed.error.flatten() };
+      }
+      try {
+        const { approvalWorkflowService } = await getServices();
+        let workflows: unknown[];
+        const role = (user!.role || '').toLowerCase();
+        if (role === 'admin' || role === 'security_admin' || role === 'security-admin') {
+          workflows = await approvalWorkflowService.getUserWorkflows('', parsed.data.status);
+        } else {
+          workflows = await approvalWorkflowService.getUserWorkflows(
+            user!.id,
+            parsed.data.status
+          );
+        }
+        let filtered = workflows;
+        const { operationType, securityLevel, startDate, endDate, limit, offset } = parsed.data;
+        if (operationType)
+          // @ts-expect-error -- Property does not exist on inferred type
+          filtered = filtered.filter((w) => w.metadata?.operationType === operationType);
+        if (securityLevel)
+          // @ts-expect-error -- Property does not exist on inferred type
+          filtered = filtered.filter((w) => w.metadata?.securityLevel === securityLevel);
+        // @ts-expect-error -- Property does not exist on inferred type
+        if (startDate) filtered = filtered.filter((w) => w.createdAt >= new Date(startDate));
+        // @ts-expect-error -- Property does not exist on inferred type
+        if (endDate) filtered = filtered.filter((w) => w.createdAt <= new Date(endDate));
+        const total = filtered.length;
+        const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
+        return {
+          success: true,
+          data: {
+            workflows: page,
+            pagination: {
+              total,
+              limit: Number(limit),
+              offset: Number(offset),
+              hasMore: Number(offset) + Number(limit) < total,
+            },
+          },
+          message: 'Approval workflows retrieved successfully',
+        };
+      } catch {
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'Failed to query workflows' };
+      }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            workflows: t.Any(),
+            pagination: t.Object({
+              total: t.Number(),
+              limit: t.Number(),
+              offset: t.Number(),
+              hasMore: t.Boolean(),
+            }),
+          }),
+          message: t.String(),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
+    })
+  
+    // @ts-expect-error -- Property does not exist on inferred type
+    .get('/pending', async ({ set, user }) => {
+      try {
+        const { approvalWorkflowService } = await getServices();
+        const pending = await approvalWorkflowService.getUserWorkflows(
+          user!.id,
+          ApprovalStatus.PENDING
+        ).catch((err: Error) => { logger.error('getUserWorkflows failed in /pending', { error: err.message, stack: err.stack }); throw err; });
+        const detailed = await Promise.all(
+          pending.map(async (wf) => {
+            const status = await approvalWorkflowService!.getWorkflowStatus(wf.id);
+            return {
+              workflow: wf,
+              status,
+              isPendingForUser: status.pendingApprovers.includes(user!.id),
+              urgency: calculateUrgency(wf),
+            };
+          })
+        );
+        const userPending = detailed
+          .filter((w) => w.isPendingForUser)
+          .sort((a, b) => b.urgency - a.urgency);
+        return {
+          success: true,
+          data: {
+            pendingApprovals: userPending,
+            count: userPending.length,
+            summary: {
+              critical: userPending.filter(
+                (w) => w.workflow.metadata?.securityLevel === SecurityLevel.CRITICAL
+              ).length,
+              high: userPending.filter(
+                (w) => w.workflow.metadata?.securityLevel === SecurityLevel.HIGH
+              ).length,
+              medium: userPending.filter(
+                (w) => w.workflow.metadata?.securityLevel === SecurityLevel.MEDIUM
+              ).length,
+              low: userPending.filter(
+                (w) => w.workflow.metadata?.securityLevel === SecurityLevel.LOW
+              ).length,
+            },
+          },
+          message: 'Pending approvals retrieved successfully',
+        };
+      } catch {
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'Failed to get pending approvals' };
+      }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            pendingApprovals: t.Any(),
+            count: t.Number(),
+            summary: t.Object({
+              critical: t.Number(),
+              high: t.Number(),
+              medium: t.Number(),
+              low: t.Number(),
+            }),
+          }),
+          message: t.String(),
+        }),
+        500: ErrorSchema,
+      },
+    })
+  
+    .group('', (g) => withOperatorGuard(g).post(
+      '/:workflowId/cancel',
+      // @ts-expect-error -- Property does not exist on inferred type
+      async ({ set, params, body, user, request, headers }) => {
+        try {
+          const workflowId = params.workflowId;
+          // @ts-expect-error -- Property does not exist on inferred type
+          const reason = (body as unknown)?.reason;
+          if (!reason || !reason.trim()) {
+            set.status = 400;
+            return { error: 'Cancellation reason is required' };
+          }
+          const { approvalWorkflowService, auditService } = await getServices();
+          await approvalWorkflowService.cancelWorkflow(workflowId, reason);
+          await auditService.logEvent({
+            eventType: AuditEventType.APPROVAL_DENIED,
+            userId: user!.id,
+            resourceType: 'approval_workflow',
+            resourceId: workflowId,
+            details: { action: 'cancelled', reason, cancelledBy: user!.id },
+            ipAddress: request.headers.get('x-forwarded-for') || '',
+            userAgent: headers['user-agent'],
+            riskLevel: SecurityLevel.MEDIUM,
+          });
+          return { success: true, message: 'Approval workflow cancelled successfully' };
+        } catch {
+          set.status = 500;
+          return {
+            error: 'Internal Server Error',
+            message: 'Failed to cancel approval workflow',
+          };
+        }
+      },
+      {
+        body: t.Object({ reason: t.String() }),
+        response: {
+          200: t.Object({ success: t.Literal(true), message: t.String() }),
+          400: t.Object({ error: t.String() }),
+          500: ErrorSchema,
+        },
+      }
+    )
+    )
+  
+    // @ts-expect-error -- Property does not exist on inferred type
+    .get('/:workflowId', async ({ set, params, user }) => {
+      try {
+        const workflowId = params.workflowId;
+        if (!workflowId || workflowId.length < 10) {
+          set.status = 400;
+          return { error: 'Invalid workflow ID format' };
+        }
+        const { approvalWorkflowService } = await getServices();
+        const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
+        const role = (user!.role || '').toLowerCase();
+        const isAuthorized =
+          status.workflow.requiredApprovers.includes(user!.id) ||
+          status.workflow.metadata?.createdBy === user!.id ||
+          role === 'admin' ||
+          role === 'security-admin' ||
+          role === 'security_admin';
+        if (!isAuthorized) {
+          set.status = 403;
+          return { error: 'Not authorized to view this workflow' };
+        }
+        return {
+          success: true,
+          data: { status, workflow: status.workflow },
+          message: 'Approval workflow status retrieved successfully',
+        };
+      } catch {
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'Failed to get workflow' };
+      }
+    }, {
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({ status: t.Any(), workflow: t.Any() }),
+          message: t.String(),
+        }),
+        400: t.Object({ error: t.String() }),
+        403: t.Object({ error: t.String() }),
+        500: ErrorSchema,
+      },
+    })
+  
+    // @ts-expect-error -- Property does not exist on inferred type
+    .post('/:workflowId/decisions', async ({ set, params, body, user, request, headers }) => {
+      const parsed = approvalDecisionSchema.safeParse({
+        // @ts-expect-error -- Spread from non-object type
+        ...(body as unknown),
+        workflowId: params.workflowId,
+      });
+      if (!parsed.success) {
+        set.status = 400;
+        return { error: 'Validation Error', details: parsed.error.flatten() };
+      }
+      try {
+        const { approvalWorkflowService, auditService } = await getServices();
+        const decisionInput = {
+          workflowId: parsed.data.workflowId,
+          approverId: user!.id,
+          decision: parsed.data.decision,
+          conditions: parsed.data.conditions,
+          feedback: parsed.data.feedback,
+          decidedAt: new Date(),
+        } as unknown;
+        const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
+        await auditService.logEvent({
+          eventType:
+            parsed.data.decision === 'approve'
+              ? AuditEventType.APPROVAL_GRANTED
+              : AuditEventType.APPROVAL_DENIED,
+          userId: user!.id,
+          resourceType: 'approval_workflow',
+          resourceId: parsed.data.workflowId,
+          details: {
+            decision: parsed.data.decision,
+            conditions: parsed.data.conditions,
+            feedback: parsed.data.feedback,
+            workflowStatus: status.isComplete ? 'completed' : 'pending',
+            canProceed: status.canProceed,
+          },
+          ipAddress: request.headers.get('x-forwarded-for') || '',
+          userAgent: headers['user-agent'],
+          riskLevel: parsed.data.decision === 'reject' ? SecurityLevel.MEDIUM : SecurityLevel.LOW,
+        });
+        return {
+          success: true,
+          data: {
+            decision: decisionInput,
+            status,
+            message: status.isComplete
+              ? status.canProceed
+                ? 'Operation approved and can proceed'
+                : 'Operation rejected'
+              : 'Decision recorded, waiting for additional approvals',
+          },
+          message: 'Approval decision processed successfully',
+        };
+      } catch {
+        set.status = 500;
+        return {
+          error: 'Internal Server Error',
+          message: 'Failed to process approval decision',
+        };
+      }
+    }, {
+      body: t.Object({
+        decision: t.Union([t.Literal('approve'), t.Literal('reject')]),
+        conditions: t.Optional(t.Array(t.String())),
+        feedback: t.Optional(t.String()),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            decision: t.Any(),
+            status: t.Any(),
+            message: t.String(),
+          }),
+          message: t.String(),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
+    })
   );
 
-  return elysiaApp;
 }
 
 export default registerApprovalRoutes;

@@ -228,7 +228,9 @@ export class CodingAgentExecutor extends EventEmitter {
           };
           this.emit('agent:event', startEvent);
           this.emit(`session:${sessionId}:event`, startEvent);
-          this.eventBus?.publish('coding.agent.event', startEvent).catch(() => {});
+          this.eventBus?.publish('coding.agent.event', startEvent).catch((err) => {
+            logger.warn('Failed to publish coding agent start event', { sessionId, error: err instanceof Error ? err.message : String(err) });
+          });
 
           setTimeout(() => {
             const updateEvent: CodingAgentEvent = {
@@ -241,7 +243,9 @@ export class CodingAgentExecutor extends EventEmitter {
             };
             this.emit('agent:event', updateEvent);
             this.emit(`session:${sessionId}:event`, updateEvent);
-            this.eventBus?.publish('coding.agent.event', updateEvent).catch(() => {});
+            this.eventBus?.publish('coding.agent.event', updateEvent).catch((err) => {
+              logger.warn('Failed to publish coding agent update event', { sessionId, error: err instanceof Error ? err.message : String(err) });
+            });
 
             const endEvent: CodingAgentEvent = {
               type: 'agent_end',
@@ -251,7 +255,9 @@ export class CodingAgentExecutor extends EventEmitter {
             };
             this.emit('agent:event', endEvent);
             this.emit(`session:${sessionId}:event`, endEvent);
-            this.eventBus?.publish('coding.agent.event', endEvent).catch(() => {});
+            this.eventBus?.publish('coding.agent.event', endEvent).catch((err) => {
+              logger.warn('Failed to publish coding agent end event', { sessionId, error: err instanceof Error ? err.message : String(err) });
+            });
           }, 500);
         }, 100);
       },

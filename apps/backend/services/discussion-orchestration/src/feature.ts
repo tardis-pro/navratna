@@ -61,8 +61,8 @@ export const discussionFeature: Feature = {
   },
 
   routes(app) {
-    registerPersonaRoutes(app, personaService)
-    registerDiscussionRoutes(app, discussionService, orchestrationService)
+    app.use(registerPersonaRoutes(personaService))
+    app.use(registerDiscussionRoutes(discussionService, orchestrationService))
     return app
   },
 

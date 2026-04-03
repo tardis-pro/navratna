@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { withRequiredAuth, withAdminGuard } from '@uaip/middleware';
 import { SecurityService, AuditService as DomainAuditService } from '@uaip/shared-services';
@@ -9,7 +9,6 @@ import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/security_gateway_service.js';
 import { ApprovalWorkflowService } from '../services/approval_workflow_service.js';
 
-// Lazy service setup mirroring the original route behavior
 let securityServiceSingleton: SecurityService | null = null;
 let auditServiceSingleton: AuditService | null = null;
 let domainAuditServiceSingleton: DomainAuditService | null = null;
@@ -57,7 +56,6 @@ async function getSecurityServices() {
   };
 }
 
-// Schemas
 const riskAssessmentSchema = z.object({
   operationType: z.enum(['CREATE', 'READ', 'UPDATE', 'DELETE', 'EXECUTE', 'DEPLOY', 'CONFIGURE']),
   resourceType: z.enum(['AGENT', 'WORKFLOW', 'DATA', 'SYSTEM', 'USER', 'POLICY', 'CONFIGURATION']),
@@ -135,13 +133,222 @@ function validateWithZod<T>(
   };
 }
 
-export function registerSecurityRoutes<T extends Elysia>(elysiaApp: T): T {
-  elysiaApp.group('/api/v1/security', (app: any) =>
-    withRequiredAuth(app)
-      // POST /assess-risk
+const RiskAssessmentBodySchema = t.Object({
+  operationType: t.String(),
+  resourceType: t.String(),
+  resourceId: t.Optional(t.String()),
+  context: t.Optional(t.Any()),
+});
+
+const ErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) });
+const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.Any()) });
+
+export function registerSecurityRoutes() {
+  return new Elysia().group('/api/v1/security', (app) => withRequiredAuth(app)
+    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+    .post('/assess-risk', async ({ set, body, user, request, headers }) => {
+      const { error, value } = validateWithZod(riskAssessmentSchema, body);
+      if (error) {
+        set.status = 400;
+        return {
+          error: 'Validation Error',
+          details: error.details.map((d) => d.message),
+        };
+      }
+      try {
+        const { securityGatewayService, auditService } = await getSecurityServices();
+        const assessment = await securityGatewayService.assessRisk({
+          securityContext: {
+            userId: user!.id,
+            role: user!.role,
+            permissions: user!.permissions || [],
+            securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
+            sessionId: user!.sessionId || 'unknown',
+            ipAddress: request.headers.get('x-forwarded-for') || '',
+            userAgent: headers['user-agent'] || '',
+            lastAuthentication: new Date(),
+            mfaVerified: false,
+            riskScore: 0,
+          },
+          operation: {
+            type: value.operationType,
+            resource: value.resourceType,
+            action: 'access',
+          },
+        });
+        await auditService.logSecurityEvent({
+          eventType: AuditEventType.RISK_ASSESSMENT,
+          userId: user!.id,
+          details: {
+            operationType: value.operationType,
+            resourceType: value.resourceType,
+            resourceId: value.resourceId,
+            riskScore: assessment.score,
+            riskLevel: assessment.overallRisk,
+          },
+          ipAddress: request.headers.get('x-forwarded-for') || '',
+          userAgent: headers['user-agent'],
+        });
+        return { message: 'Risk assessment completed', assessment };
+      } catch {
+        set.status = 500;
+        return {
+          error: 'Internal Server Error',
+          message: 'An error occurred during risk assessment',
+        };
+      }
+    }, {
+      body: RiskAssessmentBodySchema,
+      response: {
+        200: t.Object({ message: t.String(), assessment: t.Any() }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
+    })
+  
+    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+    .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
+      const { error, value } = validateWithZod(riskAssessmentSchema, body);
+      if (error) {
+        set.status = 400;
+        return {
+          error: 'Validation Error',
+          details: error.details.map((d) => d.message),
+        };
+      }
+      try {
+        const { securityGatewayService } = await getSecurityServices();
+        const approvalRequired = await securityGatewayService.requiresApproval({
+          securityContext: {
+            userId: user!.id,
+            role: user!.role,
+            permissions: user!.permissions || [],
+            securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
+            sessionId: user!.sessionId || 'unknown',
+            ipAddress: request.headers.get('x-forwarded-for') || '',
+            userAgent: headers['user-agent'] || '',
+            lastAuthentication: new Date(),
+            mfaVerified: false,
+            riskScore: 0,
+          },
+          operation: {
+            type: value.operationType,
+            resource: value.resourceType,
+            action: 'access',
+          },
+        });
+        return {
+          message: 'Approval requirement check completed',
+          requiresApproval: approvalRequired.required,
+          requirements: approvalRequired.requirements,
+          matchedPolicies: approvalRequired.matchedPolicies,
+        };
+      } catch {
+        set.status = 500;
+        return {
+          error: 'Internal Server Error',
+          message: 'An error occurred during approval requirement check',
+        };
+      }
+    }, {
+      body: RiskAssessmentBodySchema,
+      response: {
+        200: t.Object({
+          message: t.String(),
+          requiresApproval: t.Boolean(),
+          requirements: t.Optional(t.Any()),
+          matchedPolicies: t.Array(t.String()),
+        }),
+        400: ValidationErrorSchema,
+        500: ErrorSchema,
+      },
+    })
+  
+    .group('', (g) => withAdminGuard(g)
+      .get('/policies', async ({ set, query }) => {
+        try {
+          const { securityService } = await getServices();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const { page = 1, limit = 20, active, search } = query as unknown;
+          const filters: Record<string, unknown> = {
+            limit: Number(limit),
+            offset: (Number(page) - 1) * Number(limit),
+          };
+          if (active !== undefined) filters.active = active === 'true';
+          if (search) filters.search = String(search);
+          const repo = securityService!.getSecurityPolicyRepository();
+          const allPolicies = filters.active === true
+            ? await repo.findEnabled()
+            : await repo.findAll();
+          const filtered = filters.search
+            ? allPolicies.filter(p => p.name.toLowerCase().includes(String(filters.search).toLowerCase()))
+            : allPolicies;
+          const total = filtered.length;
+          const policies = filtered.slice(Number(filters.offset) || 0, (Number(filters.offset) || 0) + (Number(filters.limit) || 20));
+          return {
+            message: 'Security policies retrieved successfully',
+            policies,
+            pagination: {
+              page: Number(page),
+              limit: Number(limit),
+              total,
+              pages: Math.ceil(total / Number(limit)),
+            },
+          };
+        } catch {
+          set.status = 500;
+          return {
+            error: 'Internal Server Error',
+            message: 'An error occurred while retrieving security policies',
+          };
+        }
+      }, {
+        response: {
+          200: t.Object({
+            message: t.String(),
+            policies: t.Any(),
+            pagination: t.Object({
+              page: t.Number(),
+              limit: t.Number(),
+              total: t.Number(),
+              pages: t.Number(),
+            }),
+          }),
+          500: ErrorSchema,
+        },
+      })
+      
+      .get('/policies/:policyId', async ({ set, params }) => {
+        try {
+          const { securityService } = await getServices();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const policyId = (params as unknown).policyId as string;
+          const repo = securityService!.getSecurityPolicyRepository();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const policy = await repo.getSecurityPolicy(policyId);
+          if (!policy) {
+            set.status = 404;
+            return { error: 'Policy Not Found', message: 'Security policy not found' };
+          }
+          return { message: 'Security policy retrieved successfully', policy };
+        } catch {
+          set.status = 500;
+          return {
+            error: 'Internal Server Error',
+            message: 'An error occurred while retrieving the security policy',
+          };
+        }
+      }, {
+        response: {
+          200: t.Object({ message: t.String(), policy: t.Any() }),
+          404: ErrorSchema,
+          500: ErrorSchema,
+        },
+      })
+      
       // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .post('/assess-risk', async ({ set, body, user, request, headers }) => {
-        const { error, value } = validateWithZod(riskAssessmentSchema, body);
+      .post('/policies', async ({ set, body, user, request, headers }) => {
+        const { error, value } = validateWithZod(securityPolicySchema, body);
         if (error) {
           set.status = 400;
           return {
@@ -150,53 +357,57 @@ export function registerSecurityRoutes<T extends Elysia>(elysiaApp: T): T {
           };
         }
         try {
-          const { securityGatewayService, auditService } = await getSecurityServices();
-          const assessment = await securityGatewayService.assessRisk({
-            securityContext: {
-              userId: user!.id,
-              role: user!.role,
-              permissions: user!.permissions || [],
-              securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
-              sessionId: user!.sessionId || 'unknown',
-              ipAddress: request.headers.get('x-forwarded-for') || '',
-              userAgent: headers['user-agent'] || '',
-              lastAuthentication: new Date(),
-              mfaVerified: false,
-              riskScore: 0,
-            },
-            operation: {
-              type: value.operationType,
-              resource: value.resourceType,
-              action: 'access',
-            },
+          const { securityService, auditService } = await getSecurityServices();
+          const repo = securityService!.getSecurityPolicyRepository();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const newPolicy = await repo.createSecurityPolicy({
+            name: value.name,
+            description: value.description,
+            priority: value.priority,
+            isActive: value.isActive,
+            conditions: value.conditions,
+            actions: value.actions,
+            createdBy: user!.id,
           });
           await auditService.logSecurityEvent({
-            eventType: AuditEventType.RISK_ASSESSMENT,
+            eventType: AuditEventType.POLICY_CREATED,
             userId: user!.id,
             details: {
-              operationType: value.operationType,
-              resourceType: value.resourceType,
-              resourceId: value.resourceId,
-              riskScore: assessment.score,
-              riskLevel: assessment.overallRisk,
+              policyId: newPolicy.id,
+              policyName: newPolicy.name,
+              priority: newPolicy.priority,
+              isActive: newPolicy.isActive,
             },
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
           });
-          return { message: 'Risk assessment completed', assessment };
+          set.status = 201;
+          return { message: 'Security policy created successfully', policy: newPolicy };
         } catch {
           set.status = 500;
           return {
             error: 'Internal Server Error',
-            message: 'An error occurred during risk assessment',
+            message: 'An error occurred while creating the security policy',
           };
         }
+      }, {
+        body: t.Object({
+          name: t.String(),
+          description: t.String(),
+          priority: t.Number(),
+          isActive: t.Optional(t.Boolean()),
+          conditions: t.Any(),
+          actions: t.Any(),
+        }),
+        response: {
+          201: t.Object({ message: t.String(), policy: t.Any() }),
+          400: ValidationErrorSchema,
+          500: ErrorSchema,
+        },
       })
-
-      // POST /check-approval-required
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
-        const { error, value } = validateWithZod(riskAssessmentSchema, body);
+      
+      .put('/policies/:policyId', async ({ set, params, body }) => {
+        const { error, value } = validateWithZod(updatePolicySchema, body);
         if (error) {
           set.status = 400;
           return {
@@ -205,312 +416,200 @@ export function registerSecurityRoutes<T extends Elysia>(elysiaApp: T): T {
           };
         }
         try {
-          const { securityGatewayService } = await getSecurityServices();
-          const approvalRequired = await securityGatewayService.requiresApproval({
-            securityContext: {
-              userId: user!.id,
-              role: user!.role,
-              permissions: user!.permissions || [],
-              securityLevel: (user!.securityClearance as SecurityLevel) || SecurityLevel.MEDIUM,
-              sessionId: user!.sessionId || 'unknown',
-              ipAddress: request.headers.get('x-forwarded-for') || '',
-              userAgent: headers['user-agent'] || '',
-              lastAuthentication: new Date(),
-              mfaVerified: false,
-              riskScore: 0,
-            },
-            operation: {
-              type: value.operationType,
-              resource: value.resourceType,
-              action: 'access',
-            },
-          });
+          const { securityService } = await getServices();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const policyId = (params as unknown).policyId as string;
+          const repo = securityService!.getSecurityPolicyRepository();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const updated = await repo.updateSecurityPolicy(policyId, value);
+          if (!updated) {
+            set.status = 404;
+            return { error: 'Policy Not Found', message: 'Security policy not found' };
+          }
+          return { message: 'Security policy updated successfully', policy: updated };
+        } catch {
+          set.status = 500;
           return {
-            message: 'Approval requirement check completed',
-            requiresApproval: approvalRequired.required,
-            requirements: approvalRequired.requirements,
-            matchedPolicies: approvalRequired.matchedPolicies,
+            error: 'Internal Server Error',
+            message: 'An error occurred while updating the security policy',
+          };
+        }
+      }, {
+        body: t.Object({
+          name: t.Optional(t.String()),
+          description: t.Optional(t.String()),
+          priority: t.Optional(t.Number()),
+          isActive: t.Optional(t.Boolean()),
+          conditions: t.Optional(t.Any()),
+          actions: t.Optional(t.Any()),
+        }),
+        response: {
+          200: t.Object({ message: t.String(), policy: t.Any() }),
+          400: ValidationErrorSchema,
+          404: ErrorSchema,
+          500: ErrorSchema,
+        },
+      })
+      
+      .delete('/policies/:policyId', async ({ set, params }) => {
+        try {
+          const { securityService } = await getServices();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const policyId = (params as unknown).policyId as string;
+          const repo = securityService!.getSecurityPolicyRepository();
+          // @ts-expect-error -- Property does not exist on inferred type
+          const ok = await repo.deleteSecurityPolicy(policyId);
+          if (!ok) {
+            set.status = 404;
+            return { error: 'Policy Not Found', message: 'Security policy not found' };
+          }
+          return { message: 'Security policy deleted successfully' };
+        } catch {
+          set.status = 500;
+          return {
+            error: 'Internal Server Error',
+            message: 'An error occurred while deleting the security policy',
+          };
+        }
+      }, {
+        response: {
+          200: t.Object({ message: t.String() }),
+          404: ErrorSchema,
+          500: ErrorSchema,
+        },
+      })
+      
+      .get('/stats', async ({ set, query }) => {
+        try {
+          // @ts-expect-error -- Property does not exist on inferred type
+          const timeframe = ((query as unknown).timeframe || '24h') as string;
+          let startDate: Date;
+          const endDate = new Date();
+          switch (timeframe) {
+            case '1h':
+              startDate = new Date(endDate.getTime() - 3600000);
+              break;
+            case '24h':
+              startDate = new Date(endDate.getTime() - 86400000);
+              break;
+            case '7d':
+              startDate = new Date(endDate.getTime() - 7 * 86400000);
+              break;
+            case '30d':
+              startDate = new Date(endDate.getTime() - 30 * 86400000);
+              break;
+            default:
+              startDate = new Date(endDate.getTime() - 86400000);
+          }
+          const { domainAuditService, securityService } = await getServices();
+          const auditRepo = domainAuditService!.getAuditRepository();
+          const eventStats = await auditRepo.queryAuditEvents({
+            startDate,
+            endDate,
+            limit: 1000,
+          });
+          const eventsByType = eventStats.reduce(
+            (acc: Record<string, number>, event: Record<string, unknown>) => {
+              const eventType = typeof event.eventType === 'string' ? event.eventType : 'unknown';
+              acc[eventType] = (acc[eventType] ?? 0) + 1;
+              return acc;
+            },
+            {}
+          );
+          const riskEvents = await auditRepo.queryAuditEvents({
+            eventTypes: [AuditEventType.RISK_ASSESSMENT],
+            startDate,
+            endDate,
+            limit: 1000,
+          });
+          const initialRiskStats: RiskStats = {
+            totalAssessments: 0,
+            totalRiskScore: 0,
+            highRiskCount: 0,
+            mediumRiskCount: 0,
+            lowRiskCount: 0,
+          };
+          const riskStats: RiskStats = riskEvents.reduce<RiskStats>(
+            (acc, event: Record<string, unknown>) => {
+              const details =
+                event.details && typeof event.details === 'object'
+                  ? (event.details as Record<string, unknown>)
+                  : undefined;
+              const score = details?.riskScore;
+              if (typeof score === 'number') {
+                acc.totalAssessments++;
+                acc.totalRiskScore += score;
+                if (score >= 70) acc.highRiskCount++;
+                else if (score >= 40) acc.mediumRiskCount++;
+                else acc.lowRiskCount++;
+              }
+              return acc;
+            },
+            initialRiskStats
+          );
+          const policyStats = await securityService!
+            .getSecurityPolicyRepository()
+            // @ts-expect-error -- Property does not exist on inferred type
+            .getSecurityPolicyStats();
+          return {
+            message: 'Security statistics retrieved successfully',
+            timeframe,
+            statistics: {
+              events: Object.entries(eventsByType).map(([eventType, count]) => ({
+                event_type: eventType,
+                count,
+              })),
+              riskAssessments: {
+                total_assessments: riskStats.totalAssessments,
+                avg_risk_score:
+                  riskStats.totalAssessments > 0
+                    ? riskStats.totalRiskScore / riskStats.totalAssessments
+                    : 0,
+                high_risk_count: riskStats.highRiskCount,
+                medium_risk_count: riskStats.mediumRiskCount,
+                low_risk_count: riskStats.lowRiskCount,
+              },
+              policies: {
+                total_policies: policyStats.totalPolicies,
+                active_policies: policyStats.activePolicies,
+                inactive_policies: policyStats.inactivePolicies,
+              },
+            },
           };
         } catch {
           set.status = 500;
           return {
             error: 'Internal Server Error',
-            message: 'An error occurred during approval requirement check',
+            message: 'An error occurred while retrieving security statistics',
           };
         }
+      }, {
+        response: {
+          200: t.Object({
+            message: t.String(),
+            timeframe: t.String(),
+            statistics: t.Object({
+              events: t.Array(t.Object({ event_type: t.String(), count: t.Number() })),
+              riskAssessments: t.Object({
+                total_assessments: t.Number(),
+                avg_risk_score: t.Number(),
+                high_risk_count: t.Number(),
+                medium_risk_count: t.Number(),
+                low_risk_count: t.Number(),
+              }),
+              policies: t.Object({
+                total_policies: t.Number(),
+                active_policies: t.Number(),
+                inactive_policies: t.Number(),
+              }),
+            }),
+          }),
+          500: ErrorSchema,
+        },
       })
-
-      // Admin-only: policies
-      .group('', (g: any) =>
-        withAdminGuard(g)
-          .get('/policies', async ({ set, query }) => {
-            try {
-              const { securityService } = await getServices();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const { page = 1, limit = 20, active, search } = query as unknown;
-              const filters: Record<string, unknown> = {
-                limit: Number(limit),
-                offset: (Number(page) - 1) * Number(limit),
-              };
-              if (active !== undefined) filters.active = active === 'true';
-              if (search) filters.search = String(search);
-              const repo = securityService!.getSecurityPolicyRepository();
-              const allPolicies = filters.active === true
-                ? await repo.findEnabled()
-                : await repo.findAll();
-              const filtered = filters.search
-                ? allPolicies.filter(p => p.name.toLowerCase().includes(String(filters.search).toLowerCase()))
-                : allPolicies;
-              const total = filtered.length;
-              const policies = filtered.slice(Number(filters.offset) || 0, (Number(filters.offset) || 0) + (Number(filters.limit) || 20));
-              return {
-                message: 'Security policies retrieved successfully',
-                policies,
-                pagination: {
-                  page: Number(page),
-                  limit: Number(limit),
-                  total,
-                  pages: Math.ceil(total / Number(limit)),
-                },
-              };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'An error occurred while retrieving security policies',
-              };
-            }
-          })
-
-          .get('/policies/:policyId', async ({ set, params }) => {
-            try {
-              const { securityService } = await getServices();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const policyId = (params as unknown).policyId as string;
-              const repo = securityService!.getSecurityPolicyRepository();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const policy = await repo.getSecurityPolicy(policyId);
-              if (!policy) {
-                set.status = 404;
-                return { error: 'Policy Not Found', message: 'Security policy not found' };
-              }
-              return { message: 'Security policy retrieved successfully', policy };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'An error occurred while retrieving the security policy',
-              };
-            }
-          })
-
-          // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-          .post('/policies', async ({ set, body, user, request, headers }) => {
-            const { error, value } = validateWithZod(securityPolicySchema, body);
-            if (error) {
-              set.status = 400;
-              return {
-                error: 'Validation Error',
-                details: error.details.map((d) => d.message),
-              };
-            }
-            try {
-              const { securityService, auditService } = await getSecurityServices();
-              const repo = securityService!.getSecurityPolicyRepository();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const newPolicy = await repo.createSecurityPolicy({
-                name: value.name,
-                description: value.description,
-                priority: value.priority,
-                isActive: value.isActive,
-                conditions: value.conditions,
-                actions: value.actions,
-                createdBy: user!.id,
-              });
-              await auditService.logSecurityEvent({
-                eventType: AuditEventType.POLICY_CREATED,
-                userId: user!.id,
-                details: {
-                  policyId: newPolicy.id,
-                  policyName: newPolicy.name,
-                  priority: newPolicy.priority,
-                  isActive: newPolicy.isActive,
-                },
-                ipAddress: request.headers.get('x-forwarded-for') || '',
-                userAgent: headers['user-agent'],
-              });
-              set.status = 201;
-              return { message: 'Security policy created successfully', policy: newPolicy };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'An error occurred while creating the security policy',
-              };
-            }
-          })
-
-          .put('/policies/:policyId', async ({ set, params, body }) => {
-            const { error, value } = validateWithZod(updatePolicySchema, body);
-            if (error) {
-              set.status = 400;
-              return {
-                error: 'Validation Error',
-                details: error.details.map((d) => d.message),
-              };
-            }
-            try {
-              const { securityService } = await getServices();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const policyId = (params as unknown).policyId as string;
-              const repo = securityService!.getSecurityPolicyRepository();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const updated = await repo.updateSecurityPolicy(policyId, value);
-              if (!updated) {
-                set.status = 404;
-                return { error: 'Policy Not Found', message: 'Security policy not found' };
-              }
-              return { message: 'Security policy updated successfully', policy: updated };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'An error occurred while updating the security policy',
-              };
-            }
-          })
-
-          .delete('/policies/:policyId', async ({ set, params }) => {
-            try {
-              const { securityService } = await getServices();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const policyId = (params as unknown).policyId as string;
-              const repo = securityService!.getSecurityPolicyRepository();
-              // @ts-expect-error -- Property does not exist on inferred type
-              const ok = await repo.deleteSecurityPolicy(policyId);
-              if (!ok) {
-                set.status = 404;
-                return { error: 'Policy Not Found', message: 'Security policy not found' };
-              }
-              return { message: 'Security policy deleted successfully' };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'An error occurred while deleting the security policy',
-              };
-            }
-          })
-
-          .get('/stats', async ({ set, query }) => {
-            try {
-              // @ts-expect-error -- Property does not exist on inferred type
-              const timeframe = ((query as unknown).timeframe || '24h') as string;
-              let startDate: Date;
-              const endDate = new Date();
-              switch (timeframe) {
-                case '1h':
-                  startDate = new Date(endDate.getTime() - 3600000);
-                  break;
-                case '24h':
-                  startDate = new Date(endDate.getTime() - 86400000);
-                  break;
-                case '7d':
-                  startDate = new Date(endDate.getTime() - 7 * 86400000);
-                  break;
-                case '30d':
-                  startDate = new Date(endDate.getTime() - 30 * 86400000);
-                  break;
-                default:
-                  startDate = new Date(endDate.getTime() - 86400000);
-              }
-              const { domainAuditService, securityService } = await getServices();
-              const auditRepo = domainAuditService!.getAuditRepository();
-              const eventStats = await auditRepo.queryAuditEvents({
-                startDate,
-                endDate,
-                limit: 1000,
-              });
-              const eventsByType = eventStats.reduce(
-                (acc: Record<string, number>, event: Record<string, unknown>) => {
-                  const eventType = typeof event.eventType === 'string' ? event.eventType : 'unknown';
-                  acc[eventType] = (acc[eventType] ?? 0) + 1;
-                  return acc;
-                },
-                {}
-              );
-              const riskEvents = await auditRepo.queryAuditEvents({
-                eventTypes: [AuditEventType.RISK_ASSESSMENT],
-                startDate,
-                endDate,
-                limit: 1000,
-              });
-              const initialRiskStats: RiskStats = {
-                totalAssessments: 0,
-                totalRiskScore: 0,
-                highRiskCount: 0,
-                mediumRiskCount: 0,
-                lowRiskCount: 0,
-              };
-              const riskStats: RiskStats = riskEvents.reduce<RiskStats>(
-                (acc, event: Record<string, unknown>) => {
-                  const details =
-                    event.details && typeof event.details === 'object'
-                      ? (event.details as Record<string, unknown>)
-                      : undefined;
-                  const score = details?.riskScore;
-                  if (typeof score === 'number') {
-                    acc.totalAssessments++;
-                    acc.totalRiskScore += score;
-                    if (score >= 70) acc.highRiskCount++;
-                    else if (score >= 40) acc.mediumRiskCount++;
-                    else acc.lowRiskCount++;
-                  }
-                  return acc;
-                },
-                initialRiskStats
-              );
-              const policyStats = await securityService!
-                .getSecurityPolicyRepository()
-                // @ts-expect-error -- Property does not exist on inferred type
-                .getSecurityPolicyStats();
-              return {
-                message: 'Security statistics retrieved successfully',
-                timeframe,
-                statistics: {
-                  events: Object.entries(eventsByType).map(([eventType, count]) => ({
-                    event_type: eventType,
-                    count,
-                  })),
-                  riskAssessments: {
-                    total_assessments: riskStats.totalAssessments,
-                    avg_risk_score:
-                      riskStats.totalAssessments > 0
-                        ? riskStats.totalRiskScore / riskStats.totalAssessments
-                        : 0,
-                    high_risk_count: riskStats.highRiskCount,
-                    medium_risk_count: riskStats.mediumRiskCount,
-                    low_risk_count: riskStats.lowRiskCount,
-                  },
-                  policies: {
-                    total_policies: policyStats.totalPolicies,
-                    active_policies: policyStats.activePolicies,
-                    inactive_policies: policyStats.inactivePolicies,
-                  },
-                },
-              };
-            } catch {
-              set.status = 500;
-              return {
-                error: 'Internal Server Error',
-                message: 'An error occurred while retrieving security statistics',
-              };
-            }
-          })
-      )
+    )
   );
 
-  return elysiaApp;
 }
 
 export default registerSecurityRoutes;

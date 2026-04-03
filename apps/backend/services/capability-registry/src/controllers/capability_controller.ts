@@ -14,7 +14,7 @@ interface ElysiaContext {
   params?: Record<string, unknown>;
   body?: unknown;
   headers?: Record<string, unknown>;
-  set: { status: number };
+  set: { status?: number | string };
 }
 
 function getIdParam(params: Record<string, unknown> | undefined): string {
@@ -23,7 +23,7 @@ function getIdParam(params: Record<string, unknown> | undefined): string {
 
 function requireCapabilityId(
   id: string,
-  set: { status: number }
+  set: { status?: number | string }
 ): { success: false; error: string } | null {
   if (!id) {
     set.status = 400;

@@ -66,7 +66,7 @@ class NavratnaCoreService extends BaseService {
     this.app.use(requestTimingPlugin())
 
     this.factory.mountRoutes(this.app)
-    registerKnowledgeIngestRoutes(this.app as Parameters<typeof registerKnowledgeIngestRoutes>[0])
+    this.app.use(registerKnowledgeIngestRoutes())
 
     this.app.all('/socket.io/*', ({ request, server }: { request: Request; server: unknown }) => {
       if (!server) {

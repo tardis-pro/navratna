@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { withNginxAuth } from '@uaip/middleware';
 import { getControlDb } from '@uaip/shared-services';
 import { eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
@@ -18,6 +18,22 @@ import { WorkflowEngineService } from '../services/workflow_engine_service.js';
 type WorkflowTrigger = WorkflowDefinition['trigger'];
 type WorkflowSteps = WorkflowDefinition['steps'];
 type WorkflowDelivery = WorkflowDefinition['delivery'];
+
+const WorkflowSchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  description: t.Optional(t.Union([t.String(), t.Null()])),
+  trigger: t.Any(),
+  steps: t.Any(),
+  delivery: t.Optional(t.Any()),
+  enabled: t.Optional(t.Boolean()),
+  agentId: t.Optional(t.Union([t.String(), t.Null()])),
+  sessionKey: t.Optional(t.Union([t.String(), t.Null()])),
+  model: t.Optional(t.Union([t.String(), t.Null()])),
+  createdAt: t.Optional(t.Any()),
+  updatedAt: t.Optional(t.Any()),
+})
+const WorkflowErrorSchema = t.Object({ success: t.Literal(false), error: t.String() })
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -176,150 +192,205 @@ function parsePage(queryValue: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function registerWorkflowRoutes<T extends Elysia>(app: T, workflowEngine: WorkflowEngineService): T {
-  app.group('/api/v1/workflows', (group: any) =>
-    withNginxAuth(group)
-      .get('/', async (ctx) => {
-        try {
-          const page = parsePage(ctx.query?.page, 1);
-          const limit = Math.min(100, parsePage(ctx.query?.limit, 20));
-          const offset = (page - 1) * limit;
-
-          const db = getControlDb();
-          const [items, totalRows] = await Promise.all([
-            db
-              .select()
-              .from(workflowDefinitions)
-              .orderBy(desc(workflowDefinitions.createdAt))
-              .limit(limit)
-              .offset(offset),
-            db.select({ value: sql<number>`count(*)` }).from(workflowDefinitions),
-          ]);
-
-          const total = Number(totalRows[0]?.value ?? 0);
-
-          return {
-            success: true,
-            data: items,
-            pagination: {
-              page,
-              limit,
-              total,
-              hasMore: offset + limit < total,
-            },
-          };
-        } catch (error) {
-          logger.error('Failed to list workflows', { error });
-          ctx.set.status = 500;
-          return { success: false, error: 'Failed to list workflows' };
-        }
-      })
-
-      .post('/', async (ctx) => {
-        try {
-          const payload = parseCreatePayload(ctx.body);
-          if (!payload) {
-            ctx.set.status = 400;
-            return { success: false, error: 'Invalid workflow payload' };
-          }
-
-          const db = getControlDb();
-          const [created] = await db.insert(workflowDefinitions).values(payload).returning();
-
-          if (created.enabled) {
-            await workflowEngine.registerOrUpdate(created);
-          }
-
-          ctx.set.status = 201;
-          return { success: true, data: created };
-        } catch (error) {
-          logger.error('Failed to create workflow', { error });
-          ctx.set.status = 500;
-          return { success: false, error: 'Failed to create workflow' };
-        }
-      })
-
-      .get('/:id', async (ctx) => {
-        try {
-          const db = getControlDb();
-          const [definition] = await db
+export function registerWorkflowRoutes(workflowEngine: WorkflowEngineService) {
+  return new Elysia()
+    .group('/api/v1/workflows', (group) => withNginxAuth(group)
+    .get('/', async (ctx) => {
+      try {
+        const page = parsePage(ctx.query?.page, 1);
+        const limit = Math.min(100, parsePage(ctx.query?.limit, 20));
+        const offset = (page - 1) * limit;
+  
+        const db = getControlDb();
+        const [items, totalRows] = await Promise.all([
+          db
             .select()
             .from(workflowDefinitions)
-            .where(eq(workflowDefinitions.id, ctx.params.id))
-            .limit(1);
-
-          if (!definition) {
-            ctx.set.status = 404;
-            return { success: false, error: 'Workflow not found' };
-          }
-
-          return { success: true, data: definition };
-        } catch (error) {
-          logger.error('Failed to get workflow', { error, workflowDefinitionId: ctx.params.id });
-          ctx.set.status = 500;
-          return { success: false, error: 'Failed to get workflow' };
+            .orderBy(desc(workflowDefinitions.createdAt))
+            .limit(limit)
+            .offset(offset),
+          db.select({ value: sql<number>`count(*)` }).from(workflowDefinitions),
+        ]);
+  
+        const total = Number(totalRows[0]?.value ?? 0);
+  
+        return {
+          success: true,
+          data: items,
+          pagination: {
+            page,
+            limit,
+            total,
+            hasMore: offset + limit < total,
+          },
+        };
+      } catch (error) {
+        logger.error('Failed to list workflows', { error });
+        ctx.set.status = 500;
+        return { success: false, error: 'Failed to list workflows' };
+      }
+    }, {
+      query: t.Object({ page: t.Optional(t.String()), limit: t.Optional(t.String()) }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Array(WorkflowSchema),
+          pagination: t.Object({ page: t.Number(), limit: t.Number(), total: t.Number(), hasMore: t.Boolean() }),
+        }),
+        500: WorkflowErrorSchema,
+      },
+    })
+  
+    .post('/', async (ctx) => {
+      try {
+        const payload = parseCreatePayload(ctx.body);
+        if (!payload) {
+          ctx.set.status = 400;
+          return { success: false, error: 'Invalid workflow payload' };
         }
-      })
-
-      .put('/:id', async (ctx) => {
-        try {
-          const patch = parseUpdatePayload(ctx.body);
-          if (!patch) {
-            ctx.set.status = 400;
-            return { success: false, error: 'Invalid workflow payload' };
-          }
-
-          const db = getControlDb();
-          const [updated] = await db
-            .update(workflowDefinitions)
-            .set({
-              ...patch,
-              updatedAt: new Date(),
-            })
-            .where(eq(workflowDefinitions.id, ctx.params.id))
-            .returning();
-
-          if (!updated) {
-            ctx.set.status = 404;
-            return { success: false, error: 'Workflow not found' };
-          }
-
-          if (updated.enabled) {
-            await workflowEngine.registerOrUpdate(updated);
-          } else {
-            await workflowEngine.unregister(updated.id);
-          }
-
-          return { success: true, data: updated };
-        } catch (error) {
-          logger.error('Failed to update workflow', { error, workflowDefinitionId: ctx.params.id });
-          ctx.set.status = 500;
-          return { success: false, error: 'Failed to update workflow' };
+  
+        const db = getControlDb();
+        const [created] = await db.insert(workflowDefinitions).values(payload).returning();
+  
+        if (created.enabled) {
+          await workflowEngine.registerOrUpdate(created);
         }
-      })
-
-      .delete('/:id', async (ctx) => {
-        try {
-          const db = getControlDb();
-          const [removed] = await db
-            .delete(workflowDefinitions)
-            .where(eq(workflowDefinitions.id, ctx.params.id))
-            .returning();
-
-          if (!removed) {
-            ctx.set.status = 404;
-            return { success: false, error: 'Workflow not found' };
-          }
-
-          await workflowEngine.unregister(ctx.params.id);
-          return { success: true, data: removed };
-        } catch (error) {
-          logger.error('Failed to delete workflow', { error, workflowDefinitionId: ctx.params.id });
-          ctx.set.status = 500;
-          return { success: false, error: 'Failed to delete workflow' };
+  
+        ctx.set.status = 201;
+        return { success: true, data: created };
+      } catch (error) {
+        logger.error('Failed to create workflow', { error });
+        ctx.set.status = 500;
+        return { success: false, error: 'Failed to create workflow' };
+      }
+    }, {
+      body: t.Object({
+        name: t.String(),
+        description: t.Optional(t.String()),
+        trigger: t.Any(),
+        steps: t.Any(),
+        delivery: t.Optional(t.Any()),
+        enabled: t.Optional(t.Boolean()),
+        agentId: t.Optional(t.String()),
+        sessionKey: t.Optional(t.String()),
+        model: t.Optional(t.String()),
+      }),
+      response: {
+        201: t.Object({ success: t.Literal(true), data: WorkflowSchema }),
+        400: WorkflowErrorSchema,
+        500: WorkflowErrorSchema,
+      },
+    })
+  
+    .get('/:id', async (ctx) => {
+      try {
+        const db = getControlDb();
+        const [definition] = await db
+          .select()
+          .from(workflowDefinitions)
+          .where(eq(workflowDefinitions.id, ctx.params.id))
+          .limit(1);
+  
+        if (!definition) {
+          ctx.set.status = 404;
+          return { success: false, error: 'Workflow not found' };
         }
-      })
-  );
-
-  return app;
+  
+        return { success: true, data: definition };
+      } catch (error) {
+        logger.error('Failed to get workflow', { error, workflowDefinitionId: ctx.params.id });
+        ctx.set.status = 500;
+        return { success: false, error: 'Failed to get workflow' };
+      }
+    }, {
+      response: {
+        200: t.Object({ success: t.Literal(true), data: WorkflowSchema }),
+        404: WorkflowErrorSchema,
+        500: WorkflowErrorSchema,
+      },
+    })
+  
+    .put('/:id', async (ctx) => {
+      try {
+        const patch = parseUpdatePayload(ctx.body);
+        if (!patch) {
+          ctx.set.status = 400;
+          return { success: false, error: 'Invalid workflow payload' };
+        }
+  
+        const db = getControlDb();
+        const [updated] = await db
+          .update(workflowDefinitions)
+          .set({
+            ...patch,
+            updatedAt: new Date(),
+          })
+          .where(eq(workflowDefinitions.id, ctx.params.id))
+          .returning();
+  
+        if (!updated) {
+          ctx.set.status = 404;
+          return { success: false, error: 'Workflow not found' };
+        }
+  
+        if (updated.enabled) {
+          await workflowEngine.registerOrUpdate(updated);
+        } else {
+          await workflowEngine.unregister(updated.id);
+        }
+  
+        return { success: true, data: updated };
+      } catch (error) {
+        logger.error('Failed to update workflow', { error, workflowDefinitionId: ctx.params.id });
+        ctx.set.status = 500;
+        return { success: false, error: 'Failed to update workflow' };
+      }
+    }, {
+      body: t.Object({
+        name: t.Optional(t.String()),
+        description: t.Optional(t.Union([t.String(), t.Null()])),
+        trigger: t.Optional(t.Any()),
+        steps: t.Optional(t.Any()),
+        delivery: t.Optional(t.Any()),
+        enabled: t.Optional(t.Boolean()),
+        agentId: t.Optional(t.Union([t.String(), t.Null()])),
+        sessionKey: t.Optional(t.Union([t.String(), t.Null()])),
+        model: t.Optional(t.Union([t.String(), t.Null()])),
+      }),
+      response: {
+        200: t.Object({ success: t.Literal(true), data: WorkflowSchema }),
+        400: WorkflowErrorSchema,
+        404: WorkflowErrorSchema,
+        500: WorkflowErrorSchema,
+      },
+    })
+  
+    .delete('/:id', async (ctx) => {
+      try {
+        const db = getControlDb();
+        const [removed] = await db
+          .delete(workflowDefinitions)
+          .where(eq(workflowDefinitions.id, ctx.params.id))
+          .returning();
+  
+        if (!removed) {
+          ctx.set.status = 404;
+          return { success: false, error: 'Workflow not found' };
+        }
+  
+        await workflowEngine.unregister(ctx.params.id);
+        return { success: true, data: removed };
+      } catch (error) {
+        logger.error('Failed to delete workflow', { error, workflowDefinitionId: ctx.params.id });
+        ctx.set.status = 500;
+        return { success: false, error: 'Failed to delete workflow' };
+      }
+    }, {
+      response: {
+        200: t.Object({ success: t.Literal(true), data: WorkflowSchema }),
+        404: WorkflowErrorSchema,
+        500: WorkflowErrorSchema,
+      },
+    })
+  )
 }

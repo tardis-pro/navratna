@@ -1,5 +1,6 @@
 import { BaseService } from '@uaip/shared-services';
 import type { ServiceConfig } from '@uaip/shared-services';
+
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ForgeRequest } from '@uaip/types';
@@ -67,11 +68,10 @@ class QuestionForgeApp extends BaseService {
   }
 
   protected async setupRoutes(): Promise<void> {
-    registerQuestionForgeRoutes(
-      this.app as unknown as { group: (path: string, cb: (g: unknown) => unknown) => unknown },
+    this.app.use(registerQuestionForgeRoutes(
       this.forgeService,
       this.interviewService
-    );
+    ));
 
     this.app.get('/status', () => ({
       service: this.config.name,

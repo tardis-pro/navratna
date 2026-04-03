@@ -74,12 +74,12 @@ describe('agent routes e2e', () => {
 
   const buildApp = () => {
     const app = new Elysia()
-    registerAgentRoutes(app)
-    registerConstellationRoutes(app)
-    registerAgentCrudRoutes(app, crudDeps)
-    registerAgentChatRoutes(app, crudDeps, userLlmDeps, securityDeps)
-    registerAgentCapabilityRoutes(app, capabilityRouteDeps, capabilityDeps)
-    registerAgentMemoryRoutes(app, semanticMemoryDeps)
+    app.use(registerAgentRoutes())
+    app.use(registerConstellationRoutes())
+    app.use(registerAgentCrudRoutes(crudDeps))
+    app.use(registerAgentChatRoutes(crudDeps, userLlmDeps, securityDeps))
+    app.use(registerAgentCapabilityRoutes(capabilityRouteDeps, capabilityDeps))
+    app.use(registerAgentMemoryRoutes(semanticMemoryDeps))
     return app
   }
 

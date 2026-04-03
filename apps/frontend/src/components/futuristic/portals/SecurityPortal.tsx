@@ -26,6 +26,7 @@ import {
   Download,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { auditAPI, securityAPI } from '@/api';
 import { Portal, PortalProps } from '../Portal';
 import { cn } from '@/lib/utils';
 import { ViewportSize } from '@/hooks/use_viewport';
@@ -483,12 +484,7 @@ const SecurityPortalContent: React.FC<{
   const securityStatsQuery = useQuery({
     queryKey: ['security', 'stats'],
     queryFn: async () => {
-      const response = await fetch('/api/v1/security/stats', { credentials: 'include' });
-      const payload: unknown = await response.json();
-
-      if (!response.ok) {
-        throw new Error(getErrorMessage(payload, 'Failed to fetch security stats'));
-      }
+      const payload = await securityAPI.getStats();
 
       const metrics = parseSecurityMetrics(payload);
       const overallStatus = getOverallSystemStatus(payload, metrics);
@@ -501,15 +497,7 @@ const SecurityPortalContent: React.FC<{
   const securityEventsQuery = useQuery({
     queryKey: ['security', 'events'],
     queryFn: async () => {
-      const response = await fetch('/api/v1/audit/logs?limit=20&sortOrder=DESC', {
-        credentials: 'include',
-      });
-      const payload: unknown = await response.json();
-
-      if (!response.ok) {
-        throw new Error(getErrorMessage(payload, 'Failed to fetch security audit events'));
-      }
-
+      const payload = await auditAPI.getLogs({ limit: 20, sortOrder: 'DESC' as never });
       return parseEventsPayload(payload);
     },
     staleTime: STALE_TIMES.DEFAULT,
@@ -517,21 +505,7 @@ const SecurityPortalContent: React.FC<{
 
   const resolveEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      const response = await fetch(`/api/v1/audit/logs/${eventId}/resolve`, {
-        method: 'PATCH',
-        credentials: 'include',
-      });
-
-      let payload: unknown = null;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = null;
-      }
-
-      if (!response.ok) {
-        throw new Error(getErrorMessage(payload, 'Failed to resolve audit event'));
-      }
+      await auditAPI.resolveLog(eventId);
 
       return eventId;
     },
@@ -563,29 +537,10 @@ const SecurityPortalContent: React.FC<{
 
   const exportMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/v1/audit/export', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ format: 'json' }),
-      });
-
-      if (!response.ok) {
-        let payload: unknown = null;
-        try {
-          payload = await response.json();
-        } catch {
-          payload = null;
-        }
-        throw new Error(getErrorMessage(payload, 'Failed to export audit logs'));
-      }
-
-      const blob = await response.blob();
+      const blob = await auditAPI.export({ format: 'json' });
       return {
         blob,
-        fileName: getExportFileName(response.headers.get('content-disposition')),
+        fileName: `audit-export-${new Date().toISOString()}.json`,
       };
     },
     onSuccess: ({ blob, fileName }) => {

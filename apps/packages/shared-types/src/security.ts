@@ -1120,3 +1120,139 @@ export interface GatewaySecurityPolicy {
   priority: number;
   isActive: boolean;
 }
+
+// Notification types (moved from security-gateway notification_service)
+export interface ApprovalNotification {
+  type: string;
+  recipientId: string;
+  workflowId: string;
+  operationId: string;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface NotificationTemplate {
+  subject: string;
+  htmlBody: string;
+  textBody: string;
+}
+
+export interface NotificationChannel {
+  type: 'email' | 'in_app' | 'webhook' | 'sms';
+  enabled: boolean;
+  config: Record<string, unknown>;
+}
+
+// Auth result types (moved from security-gateway enhanced_auth_service)
+export interface AuthenticationResult {
+  user: EnhancedUser;
+  session: Session;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
+  requiresMFA: boolean;
+  mfaChallenge?: MFAChallenge;
+}
+
+export interface AgentAuthenticationRequest {
+  agentId: string;
+  agentToken: string;
+  capabilities: AgentCapability[];
+  requestedProviders: OAuthProviderType[];
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+// Agent security policy (moved from security-gateway enhanced_security_gateway_service)
+export interface AgentSecurityPolicy {
+  id: string;
+  name: string;
+  description: string;
+  applicableCapabilities: AgentCapability[];
+  allowedProviders: OAuthProviderType[];
+  conditions: Record<string, unknown>;
+  actions: {
+    allow?: boolean;
+    requireApproval?: boolean;
+    requiredApprovers?: string[];
+    maxRiskLevel?: SecurityLevel;
+    additionalValidations?: string[];
+    rateLimits?: {
+      requestsPerHour: number;
+      requestsPerDay: number;
+    };
+  };
+  priority: number;
+  isActive: boolean;
+}
+
+// Audit request/query types (moved from security-gateway audit_service)
+export interface AuditLogRequest {
+  eventType: AuditEventType;
+  userId?: string;
+  agentId?: string;
+  resourceType?: string;
+  resourceId?: string;
+  details: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
+  riskLevel?: SecurityLevel;
+}
+
+export interface AuditQuery {
+  eventTypes?: AuditEventType[];
+  userId?: string;
+  agentId?: string;
+  resourceType?: string;
+  resourceId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  riskLevel?: SecurityLevel;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditReport {
+  summary: {
+    totalEvents: number;
+    eventsByType: Record<string, number>;
+    eventsByRiskLevel: Record<string, number>;
+    uniqueUsers: number;
+    timeRange: {
+      start: Date;
+      end: Date;
+    };
+  };
+  events: AuditEvent[];
+  trends: {
+    dailyActivity: Array<{
+      date: string;
+      count: number;
+      riskEvents: number;
+    }>;
+    topUsers: Array<{
+      userId: string;
+      eventCount: number;
+      riskEvents: number;
+    }>;
+    topResources: Array<{
+      resourceType: string;
+      resourceId: string;
+      eventCount: number;
+    }>;
+  };
+}
+
+export interface SecurityMetrics {
+  totalSecurityEvents: number;
+  criticalEvents: number;
+  highRiskEvents: number;
+  failedLogins: number;
+  permissionDenials: number;
+  approvalRequests: number;
+  approvalDenials: number;
+  securityViolations: number;
+  averageRiskScore: number;
+  complianceScore: number;
+}

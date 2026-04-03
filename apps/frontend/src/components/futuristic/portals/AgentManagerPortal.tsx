@@ -11,7 +11,7 @@ import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
 const createAgentStateFromBackend = (data: unknown): AgentState => data as AgentState;
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip_api';
-import { APIClient } from '../../../api/client';
+import { edenRequest } from '../../../api/eden';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
 import {
   Users,
@@ -319,7 +319,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     queryKey: ['agents', 'portal', AGENTS_PAGE_SIZE],
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
-      APIClient.get<AgentsListPage>(`/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`),
+      edenRequest<AgentsListPage>(`/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`, { method: 'GET' }),
     getNextPageParam: (lastPage) =>
       lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined,
     staleTime: STALE_TIMES.DEFAULT,
@@ -333,7 +333,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     setMcpToolsError(null);
 
     try {
-      const data = await APIClient.get('/api/v1/agents/mcp-tools');
+      const data = await edenRequest('/api/v1/agents/mcp-tools', { method: 'GET' });
 
       if (Array.isArray(data)) {
         setAvailableMCPTools(data);
