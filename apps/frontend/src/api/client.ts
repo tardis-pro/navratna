@@ -1,6 +1,7 @@
 import { csrfService } from '@/services/c_s_r_f_service';
 import { buildAPIURL } from '@/config/api_config';
 import type { APIError } from '@uaip/types';
+import { edenRequest } from './eden';
 
 export type { APIError };
 
@@ -57,22 +58,27 @@ function appendQueryParams(url: URL, params?: Record<string, unknown>): void {
   }
 }
 
-async function parseResponseBody(response: Response, responseType: 'blob' | 'json' | 'text') {
-  if (responseType === 'blob') {
-    return await response.blob();
+function toBodyInit(value: unknown): BodyInit | null | undefined {
+  if (value === undefined) {
+    return undefined;
   }
 
-  if (responseType === 'text') {
-    return await response.text();
+  if (value === null) {
+    return null;
   }
 
-  const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.includes('application/json')) {
-    const text = await response.text();
-    return text.length > 0 ? text : null;
+  if (
+    value instanceof FormData ||
+    value instanceof Blob ||
+    value instanceof URLSearchParams ||
+    value instanceof ReadableStream ||
+    typeof value === 'string' ||
+    value instanceof ArrayBuffer
+  ) {
+    return value;
   }
 
-  return await response.json();
+  return JSON.stringify(value);
 }
 
 class APIClientClass {
@@ -95,10 +101,7 @@ class APIClientClass {
       }
     }
 
-    const resolvedBody: BodyInit | null | undefined =
-      body instanceof FormData || typeof body === 'string' || body === undefined
-        ? body
-        : JSON.stringify(body);
+    const resolvedBody = toBodyInit(body);
 
     return {
       ...config,
@@ -106,32 +109,6 @@ class APIClientClass {
       headers,
       body: resolvedBody,
       credentials: 'include',
-    };
-  }
-
-  private extractErrorDetails(statusCode: number, responseData: unknown): APIError {
-    if (isRecord(responseData)) {
-      const message = Reflect.get(responseData, 'message');
-      const error = Reflect.get(responseData, 'error');
-      const code = Reflect.get(responseData, 'code');
-      const errorCode = Reflect.get(responseData, 'errorCode');
-
-      return {
-        message:
-          (typeof message === 'string' && message) ||
-          (typeof error === 'string' && error) ||
-          'An error occurred',
-        code:
-          (typeof code === 'string' && code) ||
-          (typeof errorCode === 'string' && errorCode) ||
-          undefined,
-        details: Reflect.get(responseData, 'details') ?? Reflect.get(responseData, 'errors'),
-      };
-    }
-
-    return {
-      message: statusCode >= 500 ? 'Server error' : 'Request failed',
-      code: 'UNKNOWN_ERROR',
     };
   }
 
@@ -158,40 +135,36 @@ class APIClientClass {
 
     try {
       const requestInit = await this.createRequestInit({ ...config, signal: controller.signal });
-      const response = await fetch(resolvedUrl, requestInit);
-      const responseData = await parseResponseBody(response, responseType);
-
-      if (response.status === 401) {
-        this.clearAuthToken();
-        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
-      }
-
-      if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get('retry-after') ?? '60', 10);
-        window.dispatchEvent(new CustomEvent('api:rate-limited', { detail: { retryAfter } }));
-      }
-
-      if (!response.ok) {
-        const errorMessage = isRecord(responseData) ? Reflect.get(responseData, 'error') : undefined;
-        if (
-          response.status === 403 &&
-          typeof errorMessage === 'string' &&
-          errorMessage.includes('CSRF')
-        ) {
-          await csrfService.refreshToken();
-          return await this.performRequest<T>(url, config);
-        }
-
-        const apiError = this.extractErrorDetails(response.status, responseData);
-        throw new APIClientError(apiError.message, apiError.code, apiError.details, response.status);
-      }
-
-      if (responseType === 'blob') {
-        return responseData as T;
-      }
+      const relativeUrl = `${resolvedUrl.pathname}${resolvedUrl.search}`;
+      const responseData = await edenRequest<unknown>(relativeUrl, {
+        method: config?.method,
+        body: config?.data,
+        headers: requestInit.headers,
+        responseType,
+        signal: controller.signal,
+      });
 
       return this.transformResponse<T>(responseData);
     } catch (error) {
+      if (error instanceof APIClientError) {
+        throw error;
+      }
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new APIClientError('Request timed out', 'TIMEOUT_ERROR');
+      }
+
+      if (error instanceof Error && 'statusCode' in error) {
+        const statusCode = typeof Reflect.get(error, 'statusCode') === 'number'
+          ? (Reflect.get(error, 'statusCode') as number)
+          : undefined;
+        const code = typeof Reflect.get(error, 'code') === 'string'
+          ? (Reflect.get(error, 'code') as string)
+          : undefined;
+        const details = Reflect.get(error, 'details');
+        throw new APIClientError(error.message, code, details, statusCode);
+      }
+
       if (error instanceof APIClientError) {
         throw error;
       }

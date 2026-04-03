@@ -3,8 +3,7 @@
  * Handles all agent-related operations
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { coreClient, edenWithCSRFRetry, edenRequest, unwrapEden as _unwrapEden } from './eden';
 import type {
   Agent,
   AgentCreate,
@@ -34,58 +33,57 @@ export type {
   AgentChatResponse,
 };
 
+const agents = coreClient.api.v1.agents
+
 export const agentsAPI = {
   async list(options?: AgentListOptions): Promise<Agent[]> {
-    return APIClient.get<Agent[]>(API_ROUTES.AGENTS.LIST, { params: options });
+    return edenWithCSRFRetry(() => agents.get({ query: options }));
   },
 
   async get(id: string): Promise<Agent> {
-    return APIClient.get<Agent>(`${API_ROUTES.AGENTS.GET}/${id}`);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).get());
   },
 
   async create(agent: AgentCreate): Promise<Agent> {
-    return APIClient.post<Agent>(API_ROUTES.AGENTS.CREATE, agent);
+    return edenWithCSRFRetry(() => agents.post(agent));
   },
 
   async update(id: string, updates: AgentUpdate): Promise<Agent> {
-    return APIClient.put<Agent>(`${API_ROUTES.AGENTS.UPDATE}/${id}`, updates);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).put(updates));
   },
 
   async delete(id: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.AGENTS.DELETE}/${id}`);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).delete());
   },
 
   async analyze(id: string, request: AgentAnalysisRequest): Promise<AgentAnalysisResult> {
-    return APIClient.post<AgentAnalysisResult>(
-      `${API_ROUTES.AGENTS.ANALYZE}/${id}/analyze`,
-      request
-    );
+    return edenWithCSRFRetry(() => agents({ agentId: id }).analyze.post(request));
   },
 
   async plan(id: string, request: AgentPlanRequest): Promise<ExecutionPlan> {
-    return APIClient.post<ExecutionPlan>(`${API_ROUTES.AGENTS.PLAN}/${id}/plan`, request);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).plan.post(request));
   },
 
   async getCapabilities(id: string): Promise<string[]> {
-    return APIClient.get<string[]>(`${API_ROUTES.AGENTS.CAPABILITIES}/${id}/capabilities`);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).capabilities.get());
   },
 
   async learn(
     id: string,
     data: AgentLearningData
   ): Promise<{ success: boolean; message?: string }> {
-    return APIClient.post(`${API_ROUTES.AGENTS.LEARN}/${id}/learn`, data);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).learn.post(data));
   },
 
   async participate(
     id: string,
     request: AgentParticipationRequest
   ): Promise<{ success: boolean; turnId?: string }> {
-    return APIClient.post(`${API_ROUTES.AGENTS.PARTICIPATE}/${id}/participate`, request);
+    return edenRequest(`/api/v1/agents/${id}/participate`, { method: 'POST', body: request });
   },
 
   async chat(id: string, request: AgentChatRequest): Promise<AgentChatResponse> {
-    return APIClient.post<AgentChatResponse>(`${API_ROUTES.AGENTS.CHAT}/${id}/chat`, request);
+    return edenWithCSRFRetry(() => agents({ agentId: id }).chat.post(request));
   },
 
   async resolveApproval(
@@ -93,35 +91,38 @@ export const agentsAPI = {
     approvalId: string,
     payload: { approved: boolean; reason?: string }
   ): Promise<{ success?: boolean; message?: string }> {
-    return APIClient.post<{ success?: boolean; message?: string }>(
-      `${API_ROUTES.AGENTS.GET}/${agentId}/approvals/${approvalId}`,
-      payload
-    );
+    return edenWithCSRFRetry(() => agents({ agentId }).approvals({ approvalId }).post(payload));
   },
 
   async getMetrics(id: string, days: number = 30): Promise<Record<string, unknown>> {
-    return APIClient.get(`${API_ROUTES.AGENTS.GET}/${id}/metrics`, { params: { days } });
+    return edenRequest(`/api/v1/agents/${id}/metrics?days=${days}`, { method: 'GET' });
   },
 
   async assignTool(agentId: string, toolId: string, permissions?: unknown): Promise<void> {
-    return APIClient.post(`${API_ROUTES.AGENTS.GET}/${agentId}/tools/${toolId}`, permissions || {});
+    return edenRequest(`/api/v1/agents/${agentId}/tools/${toolId}`, {
+      method: 'POST',
+      body: permissions ?? {},
+    });
   },
 
   async removeTool(agentId: string, toolId: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.AGENTS.GET}/${agentId}/tools/${toolId}`);
+    return edenRequest(`/api/v1/agents/${agentId}/tools/${toolId}`, { method: 'DELETE' });
   },
 
   async getTools(id: string): Promise<unknown[]> {
-    return APIClient.get(`${API_ROUTES.AGENTS.GET}/${id}/tools`);
+    return edenRequest(`/api/v1/agents/${id}/tools`, { method: 'GET' });
   },
 
   async executeTool(agentId: string, toolName: string, input: unknown): Promise<unknown> {
-    return APIClient.post(`${API_ROUTES.AGENTS.GET}/${agentId}/tools/${toolName}/execute`, input);
+    return edenRequest(`/api/v1/agents/${agentId}/tools/${toolName}/execute`, {
+      method: 'POST',
+      body: input,
+    });
   },
 
   health: {
     async check(): Promise<AgentHealthCheck> {
-      return APIClient.get<AgentHealthCheck>(`${API_ROUTES.AGENTS.HEALTH}/health`);
+      return edenRequest('/api/v1/agents/health', { method: 'GET' });
     },
   },
 };

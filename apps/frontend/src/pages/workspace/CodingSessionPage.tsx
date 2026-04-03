@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, Loader2, Square, Send, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { APIClient } from '@/api/client';
+import { edenRequest } from '@/api/eden';
 import { buildAPIURL } from '@/config/api_config';
 import { PRPanel } from '@/components/workspace/PRPanel';
 import { ToolCallCard } from '@/components/workspace/ToolCallCard';
@@ -213,9 +213,9 @@ export default function CodingSessionPage() {
     setIsThinking(true);
 
     try {
-      await APIClient.post(`/api/v1/workspaces/${workspaceId}/sessions/${sessionId}/messages`, {
-        projectId,
-        content,
+      await edenRequest(`/api/v1/workspaces/${workspaceId}/sessions/${sessionId}/messages`, {
+        method: 'POST',
+        body: { projectId, content },
       });
     } catch (error) {
       setIsThinking(false);
@@ -228,7 +228,7 @@ export default function CodingSessionPage() {
       eventSourceRef.current?.close();
       setIsThinking(false);
       if (workspaceId) {
-        await APIClient.post(`/api/v1/workspaces/${workspaceId}/sessions/${sessionId}/abort`);
+        await edenRequest(`/api/v1/workspaces/${workspaceId}/sessions/${sessionId}/abort`, { method: 'POST' });
       }
     } catch {
       setIsThinking(false);

@@ -8,7 +8,7 @@
 
 // Import the backend API client
 export * from '@/api';
-import { APIClient, api, coreClient, gatewayClient, unwrapEden, edenWithCSRFRetry } from '@/api';
+import { api, coreClient, gatewayClient, unwrapEden, edenWithCSRFRetry, edenRequest } from '@/api';
 import {
   _API_CONFIG,
   getEffectiveAPIBaseURL,
@@ -130,7 +130,7 @@ export const uaipAPI = {
       // Add health check endpoint
       health: async () => {
         try {
-          const response = await APIClient.get('/health');
+          const response = await edenRequest('/health', { method: 'GET' });
           return { success: true, data: response };
         } catch (error) {
           return {
@@ -525,7 +525,7 @@ export const uaipAPI = {
     // Agent tool management functions
     async addTool(agentId: string, toolId: string): Promise<unknown> {
       try {
-        return await APIClient.post(`/api/v1/agents/${agentId}/tools`, { toolId });
+        return await edenRequest(`/api/v1/agents/${agentId}/tools`, { method: 'POST', body: { toolId } });
       } catch (error) {
         console.error(`Failed to add tool ${toolId} to agent ${agentId}:`, error);
         throw error;
@@ -534,7 +534,7 @@ export const uaipAPI = {
 
     async removeTool(agentId: string, toolId: string): Promise<unknown> {
       try {
-        return await APIClient.delete(`/api/v1/agents/${agentId}/tools/${toolId}`);
+        return await edenRequest(`/api/v1/agents/${agentId}/tools/${toolId}`, { method: 'DELETE' });
       } catch (error) {
         console.error(`Failed to remove tool ${toolId} from agent ${agentId}:`, error);
         throw error;

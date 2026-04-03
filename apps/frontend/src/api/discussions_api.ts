@@ -3,8 +3,7 @@
  * Handles all discussion-related operations
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { coreClient, edenWithCSRFRetry, edenRequest, unwrapEden as _unwrapEden } from './eden';
 import { getStoredUserId } from '@/utils/auth_storage';
 import type {
   Discussion,
@@ -26,61 +25,66 @@ export type DiscussionAnalytics = SharedDiscussionAnalytics;
 
 export type { MessageRequest, TurnRequest, DiscussionListOptions };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const discussions = coreClient.api.v1.discussions
+
 export const discussionsAPI = {
   async list(options?: DiscussionListOptions): Promise<Discussion[]> {
-    const response = await APIClient.get<
-      Discussion[] | { discussions?: Discussion[]; totalCount?: number; searchTime?: number }
-    >(API_ROUTES.DISCUSSIONS.LIST, { params: options });
+    const response = await edenWithCSRFRetry(() => discussions.get({ query: options }));
 
     if (Array.isArray(response)) {
       return response;
     }
 
-    if (Array.isArray(response?.discussions)) {
-      return response.discussions;
+    if (isRecord(response) && 'discussions' in response && Array.isArray(response['discussions'])) {
+      return response['discussions'] as Discussion[];
     }
 
     return [];
   },
 
   async get(id: string): Promise<Discussion> {
-    return APIClient.get<Discussion>(`${API_ROUTES.DISCUSSIONS.GET}/${id}`);
+    return edenWithCSRFRetry(() => discussions({ id }).get());
   },
 
   async create(discussion: DiscussionCreate): Promise<Discussion> {
-    return APIClient.post<Discussion>(API_ROUTES.DISCUSSIONS.CREATE, discussion);
+    return edenWithCSRFRetry(() => discussions.post(discussion));
   },
 
   async update(id: string, updates: DiscussionUpdate): Promise<Discussion> {
-    return APIClient.put<Discussion>(`${API_ROUTES.DISCUSSIONS.UPDATE}/${id}`, updates);
+    return edenWithCSRFRetry(() => discussions({ id }).put(updates));
   },
 
   async delete(id: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.DISCUSSIONS.DELETE}/${id}`);
+    return edenRequest(`/api/v1/discussions/${id}`, { method: 'DELETE' });
   },
 
   async start(id: string, startedBy?: string): Promise<Discussion> {
     const resolvedStartedBy = startedBy ?? getStoredUserId();
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.START}/${id}/start`, {
-      ...(resolvedStartedBy ? { startedBy: resolvedStartedBy } : {}),
-    });
+    return edenWithCSRFRetry(() =>
+      discussions({ id }).start.post(resolvedStartedBy ? { startedBy: resolvedStartedBy } : {})
+    );
   },
 
   async pause(id: string, reason?: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.PAUSE}/${id}/pause`, { reason });
+    return edenRequest(`/api/v1/discussions/${id}/pause`, { method: 'POST', body: { reason } });
   },
 
   async resume(id: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.RESUME}/${id}/resume`);
+    return edenRequest(`/api/v1/discussions/${id}/resume`, { method: 'POST' });
   },
 
   async end(id: string, reason?: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.END}/${id}/end`, { reason });
+    return edenWithCSRFRetry(() => discussions({ id }).end.post({ reason }));
   },
 
   async complete(id: string, summary?: string): Promise<Discussion> {
-    return APIClient.post<Discussion>(`${API_ROUTES.DISCUSSIONS.COMPLETE}/${id}/complete`, {
-      summary,
+    return edenRequest(`/api/v1/discussions/${id}/complete`, {
+      method: 'POST',
+      body: { summary },
     });
   },
 
@@ -88,23 +92,22 @@ export const discussionsAPI = {
     discussionId: string,
     participantId: string
   ): Promise<DiscussionParticipant> {
-    return APIClient.post<DiscussionParticipant>(
-      `${API_ROUTES.DISCUSSIONS.ADD_PARTICIPANT}/${discussionId}/participants`,
-      { participantId }
+    return edenWithCSRFRetry(() =>
+      discussions({ id: discussionId }).participants.post({ agentId: participantId })
     );
   },
 
   async removeParticipant(discussionId: string, participantId: string): Promise<void> {
-    return APIClient.delete(
-      `${API_ROUTES.DISCUSSIONS.REMOVE_PARTICIPANT}/${discussionId}/participants/${participantId}`
+    return edenWithCSRFRetry(() =>
+      discussions({ id: discussionId }).participants({ pid: participantId }).delete()
     );
   },
 
   async sendMessage(discussionId: string, message: MessageRequest): Promise<DiscussionMessage> {
-    return APIClient.post<DiscussionMessage>(
-      `${API_ROUTES.DISCUSSIONS.SEND_MESSAGE}/${discussionId}/messages`,
-      message
-    );
+    return edenRequest(`/api/v1/discussions/${discussionId}/messages`, {
+      method: 'POST',
+      body: message,
+    });
   },
 
   async getMessages(
@@ -115,57 +118,52 @@ export const discussionsAPI = {
       since?: string;
     }
   ): Promise<DiscussionMessage[]> {
-    const response = await APIClient.get<DiscussionMessage[] | { messages: DiscussionMessage[] }>(
-      `${API_ROUTES.DISCUSSIONS.MESSAGES}/${discussionId}/messages`,
-      { params: options }
+    const response = await edenWithCSRFRetry(() =>
+      discussions({ id: discussionId }).messages.get({ query: options })
     );
     if (Array.isArray(response)) {
       return response;
     }
-    if (response && Array.isArray(response.messages)) {
-      return response.messages;
+    if (isRecord(response) && 'messages' in response && Array.isArray(response['messages'])) {
+      return response['messages'] as DiscussionMessage[];
     }
     return [];
   },
 
   async manageTurn(discussionId: string, turn: TurnRequest): Promise<Discussion> {
-    return APIClient.post<Discussion>(
-      `${API_ROUTES.DISCUSSIONS.MANAGE_TURN}/${discussionId}/turn`,
-      turn
-    );
+    return edenRequest(`/api/v1/discussions/${discussionId}/turn`, {
+      method: 'POST',
+      body: turn,
+    });
   },
 
   async getAnalytics(discussionId: string): Promise<SharedDiscussionAnalytics> {
-    return APIClient.get<SharedDiscussionAnalytics>(
-      `${API_ROUTES.DISCUSSIONS.ANALYTICS}/${discussionId}/analytics`
-    );
+    return edenWithCSRFRetry(() => discussions({ id: discussionId }).analytics.get());
   },
 
   async getSummary(discussionId: string): Promise<Record<string, unknown>> {
-    return APIClient.get<Record<string, unknown>>(
-      `${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/summary`
-    );
+    return edenWithCSRFRetry(() => discussions({ id: discussionId }).summary.get());
   },
 
   async advanceTurn(discussionId: string): Promise<void> {
-    await APIClient.post(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/advance-turn`);
+    await edenWithCSRFRetry(() => discussions({ id: discussionId })['advance-turn'].post());
   },
 
   async export(discussionId: string, format: 'json' | 'text' | 'pdf' = 'json'): Promise<Blob> {
-    const response = await APIClient.get(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/export`, {
-      params: { format },
-      responseType: 'blob',
-    });
-    return response;
+    return edenRequest<Blob>(
+      `/api/v1/discussions/${discussionId}/export?format=${encodeURIComponent(format)}`,
+      { method: 'GET', responseType: 'blob' }
+    );
   },
 
   async getTranscript(discussionId: string): Promise<string> {
-    return APIClient.get<string>(`${API_ROUTES.DISCUSSIONS.GET}/${discussionId}/transcript`);
+    return edenRequest(`/api/v1/discussions/${discussionId}/transcript`, { method: 'GET' });
   },
 
   async search(query: string, filters?: unknown): Promise<Discussion[]> {
-    return APIClient.get<Discussion[]>(API_ROUTES.DISCUSSIONS.SEARCH, {
-      params: { q: query, ...filters },
-    });
+    const queryFilters = isRecord(filters) ? filters : {};
+    return edenWithCSRFRetry(() =>
+      discussions.search.get({ query: { q: query, ...queryFilters } })
+    );
   },
 };

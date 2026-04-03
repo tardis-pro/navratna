@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Agent, CreateAgentRequest, AgentSkill } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip_api';
-import { APIClient } from '../api/client';
+import { edenRequest } from '../api/eden';
 import { _llmAPI } from '../api/llm_api';
 import { useAgents } from '../contexts/AgentContext';
 import {
@@ -410,16 +410,17 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           setLoadingTools(true);
 
           // Get available MCP tools
-          const availableData = await APIClient.get<{ tools?: unknown[] }>(
-            '/api/v1/agents/mcp-tools'
+          const availableData = await edenRequest<{ tools?: unknown[] }>(
+            '/api/v1/agents/mcp-tools',
+            { method: 'GET' }
           );
           setMcpTools(availableData?.tools || []);
 
           // Get agent's assigned tools
-          const assignedData = await APIClient.get<{
+          const assignedData = await edenRequest<{
             assignedMCPTools?: unknown[];
             mcpToolSettings?: unknown;
-          }>(`/api/v1/agents/${agentId}/mcp-tools`);
+          }>(`/api/v1/agents/${agentId}/mcp-tools`, { method: 'GET' });
           setAssignedTools(assignedData?.assignedMCPTools || []);
           setToolSettings(assignedData?.mcpToolSettings || {});
         } catch (error) {
@@ -436,19 +437,22 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleAssignTool = async (tool: unknown) => {
       try {
-        const data = await APIClient.post<{ assignedMCPTools?: unknown[] }>(
+        const data = await edenRequest<{ assignedMCPTools?: unknown[] }>(
           `/api/v1/agents/${agentId}/mcp-tools`,
           {
-            toolsToAssign: [
-              {
-                toolId: (tool as Record<string, unknown>).id,
-                toolName: (tool as Record<string, unknown>).name,
-                serverName: (tool as Record<string, unknown>).serverName,
-                enabled: true,
-                priority: 1,
-                parameters: (tool as Record<string, unknown>).parameters || {},
-              },
-            ],
+            method: 'POST',
+            body: {
+              toolsToAssign: [
+                {
+                  toolId: (tool as Record<string, unknown>).id,
+                  toolName: (tool as Record<string, unknown>).name,
+                  serverName: (tool as Record<string, unknown>).serverName,
+                  enabled: true,
+                  priority: 1,
+                  parameters: (tool as Record<string, unknown>).parameters || {},
+                },
+              ],
+            },
           }
         );
         setAssignedTools(data?.assignedMCPTools || []);
@@ -460,7 +464,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleRemoveTool = async (toolId: string) => {
       try {
-        await APIClient.delete(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`);
+        await edenRequest(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { method: 'DELETE' });
         setAssignedTools((prev) =>
           (prev as Array<Record<string, unknown>>).filter((t) => t['toolId'] !== toolId)
         );
@@ -471,7 +475,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleToggleTool = async (toolId: string, enabled: boolean) => {
       try {
-        await APIClient.put(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { enabled });
+        await edenRequest(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { method: 'PUT', body: { enabled } });
         setAssignedTools((prev) =>
           (prev as Array<Record<string, unknown>>).map((t) =>
             t['toolId'] === toolId ? { ...t, enabled } : t
@@ -484,9 +488,9 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
 
     const handleUpdateSettings = async (newSettings: unknown) => {
       try {
-        const data = await APIClient.put<{ mcpToolSettings?: unknown }>(
+        const data = await edenRequest<{ mcpToolSettings?: unknown }>(
           `/api/v1/agents/${agentId}/mcp-settings`,
-          newSettings
+          { method: 'PUT', body: newSettings }
         );
         setToolSettings(data?.mcpToolSettings || {});
       } catch (error) {

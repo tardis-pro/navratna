@@ -3,8 +3,7 @@
  * Handles approval workflows, decisions, and pending approvals
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import type {
   ApprovalWorkflow,
   ApprovalDecision,
@@ -23,49 +22,52 @@ export type {
   ApprovalListOptions,
 };
 
+const approvals = gatewayClient.api.v1.approvals;
+
 export const approvalsAPI = {
   async create(workflow: ApprovalWorkflowCreate): Promise<ApprovalWorkflow> {
-    return APIClient.post<ApprovalWorkflow>(API_ROUTES.APPROVALS.CREATE, workflow);
+    return edenWithCSRFRetry(() => approvals.post(workflow));
   },
 
   async submitDecision(
     workflowId: string,
     decision: ApprovalDecisionRequest
   ): Promise<ApprovalDecision> {
-    return APIClient.post<ApprovalDecision>(
-      `${API_ROUTES.APPROVALS.SUBMIT_DECISION}/${workflowId}/decisions`,
-      decision
-    );
+    return edenWithCSRFRetry(() => approvals[workflowId].decisions.post(decision));
   },
 
   async getPending(options?: ApprovalListOptions): Promise<ApprovalWorkflow[]> {
-    return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.PENDING, {
-      params: { ...options, status: 'pending' },
-    });
+    return edenWithCSRFRetry(() =>
+      approvals.pending.get({ query: { ...options, status: 'pending' } })
+    );
   },
 
   async getMyPending(): Promise<ApprovalWorkflow[]> {
-    return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.MY_PENDING);
+    return edenWithCSRFRetry(() => approvals['my-pending'].get());
   },
 
   async getMyRequests(options?: ApprovalListOptions): Promise<ApprovalWorkflow[]> {
-    return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.MY_REQUESTS, { params: options });
+    return edenWithCSRFRetry(() =>
+      approvals['my-requests'].get({ query: options as Record<string, unknown> | undefined })
+    );
   },
 
   async list(options?: ApprovalListOptions): Promise<ApprovalWorkflow[]> {
-    return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.LIST, { params: options });
+    return edenWithCSRFRetry(() =>
+      approvals.get({ query: options as Record<string, unknown> | undefined })
+    );
   },
 
   async get(id: string): Promise<ApprovalWorkflow> {
-    return APIClient.get<ApprovalWorkflow>(`${API_ROUTES.APPROVALS.GET}/${id}`);
+    return edenWithCSRFRetry(() => approvals[id].get());
   },
 
   async cancel(id: string, reason?: string): Promise<void> {
-    return APIClient.post(`${API_ROUTES.APPROVALS.CANCEL}/${id}/cancel`, { reason });
+    await edenWithCSRFRetry(() => approvals[id].cancel.post({ reason }));
   },
 
   async getStats(days: number = 30): Promise<ApprovalStats> {
-    return APIClient.get<ApprovalStats>(API_ROUTES.APPROVALS.STATS, { params: { days } });
+    return edenWithCSRFRetry(() => approvals.stats.get({ query: { days } }));
   },
 
   async getHistory(options?: {
@@ -76,7 +78,9 @@ export const approvalsAPI = {
     startDate?: string;
     endDate?: string;
   }): Promise<ApprovalWorkflow[]> {
-    return APIClient.get<ApprovalWorkflow[]>(API_ROUTES.APPROVALS.HISTORY, { params: options });
+    return edenWithCSRFRetry(() =>
+      approvals.history.get({ query: options as Record<string, unknown> | undefined })
+    );
   },
 
   async bulkApprove(
@@ -87,7 +91,7 @@ export const approvalsAPI = {
     failed: number;
     errors?: string[];
   }> {
-    return APIClient.post(API_ROUTES.APPROVALS.BULK_APPROVE, { workflowIds, reason });
+    return edenWithCSRFRetry(() => approvals['bulk-approve'].post({ workflowIds, reason }));
   },
 
   async bulkReject(
@@ -98,21 +102,26 @@ export const approvalsAPI = {
     failed: number;
     errors?: string[];
   }> {
-    return APIClient.post(API_ROUTES.APPROVALS.BULK_REJECT, { workflowIds, reason });
+    return edenWithCSRFRetry(() => approvals['bulk-reject'].post({ workflowIds, reason }));
   },
 
   async getDecisions(workflowId: string): Promise<ApprovalDecision[]> {
-    return APIClient.get<ApprovalDecision[]>(`${API_ROUTES.APPROVALS.GET}/${workflowId}/decisions`);
+    return edenWithCSRFRetry(() => approvals[workflowId].decisions.get());
   },
 
   async export(
     format: 'csv' | 'json' | 'pdf' = 'csv',
     filters?: ApprovalListOptions
   ): Promise<Blob> {
-    const response = await APIClient.get(API_ROUTES.APPROVALS.EXPORT, {
-      params: { format, ...filters },
+    const params = new URLSearchParams({ format });
+    if (filters) {
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined) params.append(k, String(v));
+      });
+    }
+    return edenRequest<Blob>(`/api/v1/approvals/export?${params.toString()}`, {
+      method: 'GET',
       responseType: 'blob',
     });
-    return response;
   },
 };

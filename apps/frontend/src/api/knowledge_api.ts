@@ -3,8 +3,7 @@
  * Handles knowledge management, search, and relations
  */
 
-import { APIClient, createFileUpload } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import type {
   KnowledgeItem,
   KnowledgeUploadRequest,
@@ -25,9 +24,11 @@ export type {
   KnowledgeGraph,
 };
 
+const knowledge = gatewayClient.api.v1.knowledge;
+
 export const knowledgeAPI = {
   async upload(request: KnowledgeUploadRequest): Promise<KnowledgeItem> {
-    return APIClient.post<KnowledgeItem>(API_ROUTES.KNOWLEDGE.UPLOAD, request);
+    return edenWithCSRFRetry(() => knowledge.post(request));
   },
 
   async bulkUpload(items: KnowledgeUploadRequest[]): Promise<{
@@ -35,114 +36,120 @@ export const knowledgeAPI = {
     failed: number;
     errors?: string[];
   }> {
-    return APIClient.post(`${API_ROUTES.KNOWLEDGE.UPLOAD}/bulk`, { items });
+    return edenWithCSRFRetry(() => knowledge.bulk.post({ items }));
   },
 
   async search(request: KnowledgeSearchRequest): Promise<KnowledgeSearchResult[]> {
     // Convert to query parameters to match backend GET /api/v1/knowledge/search
-    const params = new URLSearchParams();
-    params.append('q', request.query);
+    const query: Record<string, string> = { q: request.query };
+    if (request.filters?.types?.length) query['types'] = request.filters.types.join(',');
+    if (request.filters?.tags?.length) query['tags'] = request.filters.tags.join(',');
+    if (request.options?.limit) query['limit'] = request.options.limit.toString();
+    if (request.options?.similarityThreshold) {
+      query['confidence'] = request.options.similarityThreshold.toString();
+    }
 
-    if (request.type) params.append('types', request.type);
-    if (request.tags && request.tags.length > 0) params.append('tags', request.tags.join(','));
-    if (request.limit) params.append('limit', request.limit.toString());
-    if (request.similarityThreshold)
-      params.append('confidence', request.similarityThreshold.toString());
-
-    const url = `${API_ROUTES.KNOWLEDGE.SEARCH}?${params.toString()}`;
+    const raw = await edenWithCSRFRetry(() => knowledge.search.get({ query }));
 
     // Backend returns {success: true, data: {items: [], ...}} OR {items: [], totalCount: number, searchMetadata: {}}
-    const response = await APIClient.get<unknown>(url);
+    const response = (raw as unknown) as Record<string, unknown>;
 
     // Handle both wrapped and unwrapped response formats
-    let searchData = response;
-    if (response.success && response.data) {
-      searchData = response.data;
+    let searchData: Record<string, unknown> = response;
+    if (response['success'] && response['data'] && typeof response['data'] === 'object') {
+      searchData = (response['data'] as unknown) as Record<string, unknown>;
     }
 
     // Validate response structure
-    if (!searchData || !searchData.items || !Array.isArray(searchData.items)) {
+    if (!searchData || !('items' in searchData) || !Array.isArray(searchData['items'])) {
       console.warn('Invalid search response structure:', response);
       return [];
     }
 
     // Transform backend response to expected format
-    return searchData.items.map((item: unknown) => ({
-      item: {
-        id: item.id,
-        title: item.content?.substring(0, 100) + '...' || 'Untitled',
-        content: item.content,
-        type: 'document' as const,
-        tags: item.tags || [],
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        metadata: item.metadata,
-      },
-      score: item.confidence || 0.8,
-      highlights: [],
-      relatedItems: [],
-    }));
+    return (searchData['items'] as unknown[]).map((rawItem: unknown) => {
+      const item = (rawItem as unknown) as Record<string, unknown>;
+      return {
+        item: {
+          id: item['id'] as string,
+          title: typeof item['content'] === 'string'
+            ? (item['content'] as string).substring(0, 100) + '...'
+            : 'Untitled',
+          content: item['content'] as string,
+          type: 'document' as const,
+          tags: Array.isArray(item['tags']) ? (item['tags'] as string[]) : [],
+          createdAt: item['createdAt'] as string,
+          updatedAt: item['updatedAt'] as string,
+          metadata: (item['metadata'] as unknown) as Record<string, unknown> | undefined,
+        },
+        score: typeof item['confidence'] === 'number' ? (item['confidence'] as number) : 0.8,
+        highlights: [] as string[],
+        relatedItems: [] as string[],
+      };
+    });
   },
 
   async get(id: string): Promise<KnowledgeItem> {
-    return APIClient.get<KnowledgeItem>(`${API_ROUTES.KNOWLEDGE.GET}/${id}`);
+    return edenWithCSRFRetry(() => knowledge[id].get());
   },
 
   async list(options?: { limit?: number; offset?: number }): Promise<KnowledgeItem[]> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.append('limit', options.limit.toString());
-    if (options?.offset) params.append('offset', options.offset.toString());
+    const query: Record<string, string> = {};
+    if (options?.limit) query['limit'] = options.limit.toString();
+    if (options?.offset) query['offset'] = options.offset.toString();
 
-    const url = `${API_ROUTES.KNOWLEDGE.BASE}?${params.toString()}`;
-    const response = await APIClient.get<unknown>(url);
+    const raw = await edenWithCSRFRetry(() => knowledge.get({ query }));
 
     // Handle wrapped response format: { success: true, data: [...], meta: {...} }
-    let items = response;
-    if (response.success && response.data) {
-      items = response.data;
+    let items: unknown = raw;
+    if (
+      items !== null &&
+      typeof items === 'object' &&
+      'success' in (items as Record<string, unknown>) &&
+      'data' in (items as Record<string, unknown>)
+    ) {
+      items = (items as Record<string, unknown>)['data'];
     }
 
     if (!Array.isArray(items)) {
-      console.warn('Knowledge list response is not an array:', response);
+      console.warn('Knowledge list response is not an array:', raw);
       return [];
     }
 
-    return items;
+    return items as KnowledgeItem[];
   },
 
   async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {
-    return APIClient.put<KnowledgeItem>(`${API_ROUTES.KNOWLEDGE.UPDATE}/${id}`, updates);
+    return edenWithCSRFRetry(() => knowledge[id].put(updates));
   },
 
   async delete(id: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.KNOWLEDGE.DELETE}/${id}`);
+    await edenWithCSRFRetry(() => knowledge[id].delete());
   },
 
   async getStats(): Promise<KnowledgeStats> {
     try {
       // Backend returns {success: true, data: {totalItems, itemsByType, recentActivity, generalKnowledge}}
-      const response = await APIClient.get<{ success: boolean; data: unknown }>(
-        API_ROUTES.KNOWLEDGE.STATS
-      );
+      const raw = await edenWithCSRFRetry(() => knowledge.stats.get());
 
       // Safely access nested properties with defaults
-      const stats = response.data || {};
+      const stats = (raw !== null && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
       const userStats = {
-        totalItems: stats.totalItems || 0,
-        itemsByType: stats.itemsByType || {},
-        recentActivity: stats.recentActivity || {},
+        totalItems: (stats['totalItems'] as number) || 0,
+        itemsByType: (stats['itemsByType'] as Record<string, number>) || {},
+        recentActivity: (stats['recentActivity'] as Record<string, number>) || {},
       };
-      const generalStats = stats.generalKnowledge || {};
+      const generalStats = (stats['generalKnowledge'] as Record<string, unknown>) || {};
 
       return {
-        totalItems: userStats.totalItems + (generalStats.totalItems || 0),
+        totalItems: userStats.totalItems + ((generalStats['totalItems'] as number) || 0),
         itemsByType: {
           ...userStats.itemsByType,
-          ...generalStats.itemsByType,
+          ...((generalStats['itemsByType'] as Record<string, number>) || {}),
         },
         itemsByCategory: {},
         totalRelations: 0,
-        recentUploads: userStats.recentActivity.itemsThisWeek || 0,
+        recentUploads: (userStats.recentActivity['itemsThisWeek'] as number) || 0,
         storageUsed: 0,
         topTags: [], // TODO: Add top tags when backend provides them
       };
@@ -162,19 +169,17 @@ export const knowledgeAPI = {
   },
 
   async getRelations(itemId: string): Promise<KnowledgeRelation[]> {
-    return APIClient.get<KnowledgeRelation[]>(
-      `${API_ROUTES.KNOWLEDGE.RELATIONS}/${itemId}/relations`
-    );
+    return edenWithCSRFRetry(() => knowledge[itemId].relations.get());
   },
 
   async createRelation(
     relation: Omit<KnowledgeRelation, 'id' | 'createdAt'>
   ): Promise<KnowledgeRelation> {
-    return APIClient.post<KnowledgeRelation>(API_ROUTES.KNOWLEDGE.RELATIONS, relation);
+    return edenWithCSRFRetry(() => knowledge.post(relation));
   },
 
   async deleteRelation(relationId: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.KNOWLEDGE.RELATIONS}/${relationId}`);
+    await edenWithCSRFRetry(() => knowledge[relationId].delete());
   },
 
   async getGraph(options?: {
@@ -185,40 +190,44 @@ export const knowledgeAPI = {
   }): Promise<KnowledgeGraph> {
     try {
       // Convert to query parameters to match backend GET /api/v1/knowledge/graph
-      const params = new URLSearchParams();
+      const query: Record<string, string> = { includeRelationships: 'true' };
+      if (options?.limit) query['limit'] = options.limit.toString();
+      if (options?.types?.length) query['types'] = options.types.join(',');
 
-      if (options?.limit) params.append('limit', options.limit.toString());
-      if (options?.types && options.types.length > 0)
-        params.append('types', options.types.join(','));
-      params.append('includeRelationships', 'true');
-
-      const url = `${API_ROUTES.KNOWLEDGE.GRAPH}?${params.toString()}`;
-
-      // APIClient.get() already unwraps {success:true, data:...} via transformResponse()
-      // so response IS the inner data object: { nodes: [], edges: [], metadata: {} }
-      const response = await APIClient.get<{
-        nodes: unknown[];
-        edges: unknown[];
-        metadata?: unknown;
-      }>(url);
+      const raw = await edenWithCSRFRetry(() => knowledge.graph.get({ query }));
+      const response = (raw !== null && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
 
       // Safely access with defaults
-      const nodes = response?.nodes || [];
-      const edges = response?.edges || [];
+      const nodes = Array.isArray(response['nodes'])
+        ? (response['nodes'] as Record<string, unknown>[])
+        : [];
+      const edges = Array.isArray(response['edges'])
+        ? (response['edges'] as Record<string, unknown>[])
+        : [];
 
       return {
-        nodes: nodes.map((node: unknown) => ({
-          id: node.id,
-          label: node.data?.label || node.id,
-          type: node.data?.knowledgeType || 'knowledge',
-          properties: node.data,
-        })),
-        edges: edges.map((edge: unknown) => ({
-          source: edge.source,
-          target: edge.target,
-          type: edge.data?.relationshipType || 'related',
-          properties: edge.data,
-        })),
+        nodes: nodes.map((node) => {
+          const nodeData = (
+            node['data'] !== null && typeof node['data'] === 'object' ? node['data'] : {}
+          ) as Record<string, unknown>;
+          return {
+            id: node['id'] as string,
+            label: (nodeData['label'] as string) || (node['id'] as string),
+            type: (nodeData['knowledgeType'] as string) || 'knowledge',
+            properties: (node['data'] as unknown) as Record<string, unknown> | undefined,
+          };
+        }),
+        edges: edges.map((edge) => {
+          const edgeData = (
+            edge['data'] !== null && typeof edge['data'] === 'object' ? edge['data'] : {}
+          ) as Record<string, unknown>;
+          return {
+            source: edge['source'] as string,
+            target: edge['target'] as string,
+            type: (edgeData['relationshipType'] as string) || 'related',
+            properties: (edge['data'] as unknown) as Record<string, unknown> | undefined,
+          };
+        }),
       };
     } catch (error) {
       console.warn('Knowledge graph API error:', error);
@@ -231,46 +240,43 @@ export const knowledgeAPI = {
   },
 
   async findSimilar(id: string, limit: number = 10): Promise<KnowledgeSearchResult[]> {
-    return APIClient.get<KnowledgeSearchResult[]>(`${API_ROUTES.KNOWLEDGE.GET}/${id}/similar`, {
-      params: { limit },
-    });
+    return edenWithCSRFRetry(() =>
+      knowledge[id].similar.get({ query: { limit: limit.toString() } })
+    );
   },
 
-  async getCategories(): Promise<
-    Array<{
-      name: string;
-      count: number;
-    }>
-  > {
-    return APIClient.get(API_ROUTES.KNOWLEDGE.CATEGORIES);
+  async getCategories(): Promise<Array<{ name: string; count: number }>> {
+    return edenWithCSRFRetry(() => knowledge.categories.get());
   },
 
-  async getTags(): Promise<
-    Array<{
-      name: string;
-      count: number;
-    }>
-  > {
-    return APIClient.get(API_ROUTES.KNOWLEDGE.TAGS);
+  async getTags(): Promise<Array<{ name: string; count: number }>> {
+    return edenWithCSRFRetry(() => knowledge.tags.get());
   },
 
   async export(format: 'json' | 'csv' = 'json', filters?: unknown): Promise<Blob> {
-    const response = await APIClient.get(API_ROUTES.KNOWLEDGE.EXPORT, {
-      params: { format, ...filters },
+    const params = new URLSearchParams({ format });
+    if (filters && typeof filters === 'object') {
+      for (const [k, v] of Object.entries(filters)) {
+        if (v !== undefined && v !== null) params.append(k, String(v));
+      }
+    }
+    return edenRequest<Blob>(`/api/v1/knowledge/export?${params.toString()}`, {
+      method: 'GET',
       responseType: 'blob',
     });
-    return response;
   },
 
   async import(file: File): Promise<{ imported: number; updated: number; errors?: string[] }> {
-    return APIClient.post(API_ROUTES.KNOWLEDGE.IMPORT, createFileUpload(file));
+    const formData = new FormData();
+    formData.append('file', file);
+    return edenRequest('/api/v1/knowledge/import', {
+      method: 'POST',
+      body: formData,
+    });
   },
 
-  async reindex(): Promise<{
-    indexed: number;
-    duration: number;
-  }> {
-    return APIClient.post(API_ROUTES.KNOWLEDGE.REINDEX);
+  async reindex(): Promise<{ indexed: number; duration: number }> {
+    return edenWithCSRFRetry(() => knowledge.reindex.post({}));
   },
 
   // Chat ingestion methods
@@ -292,7 +298,10 @@ export const knowledgeAPI = {
     if (options) {
       formData.append('options', JSON.stringify(options));
     }
-    return APIClient.post(API_ROUTES.KNOWLEDGE.CHAT_IMPORT, formData);
+    return edenRequest('/api/v1/knowledge/chat-import', {
+      method: 'POST',
+      body: formData,
+    });
   },
 
   async getChatJobStatus(jobId: string): Promise<{
@@ -311,7 +320,7 @@ export const knowledgeAPI = {
       learningMoments: number;
     };
   }> {
-    return APIClient.get(`${API_ROUTES.KNOWLEDGE.CHAT_JOBS}/${jobId}`);
+    return edenWithCSRFRetry(() => knowledge['chat-jobs'][jobId].get());
   },
 
   async generateQAFromKnowledge(
@@ -330,9 +339,11 @@ export const knowledgeAPI = {
     const params = new URLSearchParams();
     if (domain) params.append('domain', domain);
     if (limit) params.append('limit', limit.toString());
-
-    const url = `${API_ROUTES.KNOWLEDGE.GENERATE_QA}?${params.toString()}`;
-    return APIClient.post(url);
+    const qs = params.toString();
+    const path = qs
+      ? `/api/v1/knowledge/generate-qa?${qs}`
+      : '/api/v1/knowledge/generate-qa';
+    return edenRequest(path, { method: 'POST' });
   },
 
   async extractWorkflows(conversationIds?: string[]): Promise<{
@@ -351,7 +362,7 @@ export const knowledgeAPI = {
     extracted: number;
   }> {
     const body = conversationIds ? { conversationIds } : {};
-    return APIClient.post(API_ROUTES.KNOWLEDGE.EXTRACT_WORKFLOWS, body);
+    return edenWithCSRFRetry(() => knowledge['extract-workflows'].post(body));
   },
 
   async getExpertiseProfile(participant: string): Promise<{
@@ -366,7 +377,7 @@ export const knowledgeAPI = {
     totalInteractions: number;
     knowledgeAreas: string[];
   }> {
-    return APIClient.get(`${API_ROUTES.KNOWLEDGE.EXPERTISE}/${encodeURIComponent(participant)}`);
+    return edenWithCSRFRetry(() => knowledge.expertise[participant].get());
   },
 
   async getLearningInsights(participant?: string): Promise<{
@@ -390,10 +401,8 @@ export const knowledgeAPI = {
     totalLearningMoments: number;
     activeTopics: string[];
   }> {
-    const params = new URLSearchParams();
-    if (participant) params.append('participant', participant);
-
-    const url = `${API_ROUTES.KNOWLEDGE.LEARNING_INSIGHTS}?${params.toString()}`;
-    return APIClient.get(url);
+    const query: Record<string, string> = {};
+    if (participant) query['participant'] = participant;
+    return edenWithCSRFRetry(() => knowledge['learning-insights'].get({ query }));
   },
 };

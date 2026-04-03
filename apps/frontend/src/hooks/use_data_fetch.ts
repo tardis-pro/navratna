@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 export interface UseDataFetchOptions {
   /**
@@ -38,52 +39,22 @@ export function useDataFetch<T>(
 ): UseDataFetchReturn<T> {
   const { immediate = true } = options;
 
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(immediate);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ['useDataFetch', ...dependencies],
+    queryFn: fetchFn,
+    enabled: immediate,
+    staleTime: 0,
+    retry: false,
+  });
 
-  // Use a ref to track the latest request ID to handle race conditions
-  const latestRequestIdRef = useRef(0);
-  const mountedRef = useRef(true);
-  const dependenciesRef = useRef(dependencies);
-  dependenciesRef.current = dependencies;
+  const refetch = useCallback(async () => {
+    await query.refetch();
+  }, [query]);
 
-  const fetchData = useCallback(async () => {
-    // Increment request ID and capture it for this specific call
-    const requestId = ++latestRequestIdRef.current;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await fetchFn();
-
-      // Only update state if this is still the latest request and component is mounted
-      if (mountedRef.current && requestId === latestRequestIdRef.current) {
-        setData(result);
-      }
-    } catch (err) {
-      // Only update error state if this is still the latest request and component is mounted
-      if (mountedRef.current && requestId === latestRequestIdRef.current) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      }
-    } finally {
-      // Only update loading state if this is still the latest request and component is mounted
-      if (mountedRef.current && requestId === latestRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [fetchFn]);
-
-  useEffect(() => {
-    if (immediate) {
-      fetchData();
-    }
-
-    return () => {
-      // Mark component as unmounted
-      mountedRef.current = false;
-    };
-  }, [fetchData, immediate]);
-
-  return { data, loading, error, refetch: fetchData };
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading || query.isFetching,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch,
+  };
 }

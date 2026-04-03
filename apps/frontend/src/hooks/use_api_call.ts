@@ -1,10 +1,5 @@
-import { useState, useCallback } from 'react';
-
-interface ApiCallState<T> {
-  data: T | null;
-  loading: boolean;
-  error: Error | null;
-}
+import { useCallback } from 'react';
+import { useMutation } from '@tanstack/react-query';
 
 interface UseApiCallOptions {
   onSuccess?: (data: unknown) => void;
@@ -26,34 +21,36 @@ interface UseApiCallOptions {
  * ```
  */
 export function useApiCall<T = unknown>(options: UseApiCallOptions = {}) {
-  const [state, setState] = useState<ApiCallState<T>>({
-    data: null,
-    loading: false,
-    error: null,
+  const mutation = useMutation<T, Error, () => Promise<T>>({
+    mutationFn: async (apiCall) => await apiCall(),
+    onSuccess: (data) => {
+      options.onSuccess?.(data);
+    },
+    onError: (error) => {
+      options.onError?.(error);
+    },
   });
 
   const execute = useCallback(
     async (apiCall: () => Promise<T>): Promise<T | null> => {
-      setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
-        const data = await apiCall();
-        setState({ data, loading: false, error: null });
-        options.onSuccess?.(data);
-        return data;
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        setState((prev) => ({ ...prev, loading: false, error }));
-        options.onError?.(error);
+        return await mutation.mutateAsync(apiCall);
+      } catch {
         return null;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [mutation]
   );
 
   const reset = useCallback(() => {
-    setState({ data: null, loading: false, error: null });
-  }, []);
+    mutation.reset();
+  }, [mutation]);
 
-  return { ...state, execute, reset };
+  return {
+    data: mutation.data ?? null,
+    loading: mutation.isPending,
+    error: mutation.error ?? null,
+    execute,
+    reset,
+  };
 }

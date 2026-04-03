@@ -3,8 +3,7 @@
  * Handles workflow execution, operation management, and pipeline control
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import type {
   Operation,
   OperationStatus,
@@ -30,102 +29,106 @@ export type {
   OperationListOptions,
 };
 
+type OrchestrationStats = {
+  totalOperations: number;
+  completedOperations: number;
+  failedOperations: number;
+  averageExecutionTime: number;
+  operationsByType: Record<OperationType, number>;
+  operationsByStatus: Record<OperationStatus, number>;
+};
+
+const operations = gatewayClient.api.v1.operations;
+const workflows = gatewayClient.api.v1.workflows;
+
 export const orchestrationAPI = {
   async executeOperation(
     request: ExecuteOperationRequest
   ): Promise<{ workflowInstanceId: string }> {
-    return APIClient.post<{ workflowInstanceId: string }>(
-      API_ROUTES.ORCHESTRATION.EXECUTE,
-      request
-    );
+    return edenWithCSRFRetry(() => operations.post(request));
   },
 
   async getOperationStatus(operationId: string): Promise<OperationStatusResponse> {
-    return APIClient.get<OperationStatusResponse>(
-      `${API_ROUTES.ORCHESTRATION.STATUS}/${operationId}/status`
+    return edenRequest<OperationStatusResponse>(
+      `/api/v1/operations/${operationId}/status`,
+      { method: 'GET' }
     );
   },
 
   async pauseOperation(operationId: string, reason?: string): Promise<void> {
-    return APIClient.post(`${API_ROUTES.ORCHESTRATION.PAUSE}/${operationId}/pause`, { reason });
+    await edenRequest(`/api/v1/operations/${operationId}/pause`, {
+      method: 'POST',
+      body: { reason },
+    });
   },
 
   async resumeOperation(operationId: string, checkpointId?: string): Promise<void> {
-    return APIClient.post(`${API_ROUTES.ORCHESTRATION.RESUME}/${operationId}/resume`, {
-      checkpointId,
+    await edenRequest(`/api/v1/operations/${operationId}/resume`, {
+      method: 'POST',
+      body: { checkpointId },
     });
   },
 
   async cancelOperation(operationId: string, reason?: string): Promise<void> {
-    return APIClient.post(`${API_ROUTES.ORCHESTRATION.CANCEL}/${operationId}/cancel`, { reason });
+    await edenRequest(`/api/v1/operations/${operationId}/cancel`, {
+      method: 'POST',
+      body: { reason },
+    });
   },
 
   async listOperations(options?: OperationListOptions): Promise<Operation[]> {
-    return APIClient.get<Operation[]>(API_ROUTES.ORCHESTRATION.LIST, { params: options });
+    return edenWithCSRFRetry(() => operations.get({ query: options as unknown as Record<string, unknown> }));
   },
 
   async getOperation(operationId: string): Promise<Operation> {
-    return APIClient.get<Operation>(`${API_ROUTES.ORCHESTRATION.GET}/${operationId}`);
+    return edenWithCSRFRetry(() => operations[operationId].get());
   },
 
   async getOperationHistory(operationId: string): Promise<unknown[]> {
-    return APIClient.get(`${API_ROUTES.ORCHESTRATION.GET}/${operationId}/history`);
+    return edenRequest<unknown[]>(`/api/v1/operations/${operationId}/history`, { method: 'GET' });
   },
 
   async getOperationLogs(operationId: string): Promise<unknown[]> {
-    return APIClient.get(`${API_ROUTES.ORCHESTRATION.GET}/${operationId}/logs`);
+    return edenRequest<unknown[]>(`/api/v1/operations/${operationId}/logs`, { method: 'GET' });
   },
 
-  // Workflow management
   async listWorkflows(options?: {
     page?: number;
     limit?: number;
     isActive?: boolean;
   }): Promise<WorkflowDefinition[]> {
-    return APIClient.get<WorkflowDefinition[]>(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows`, {
-      params: options,
-    });
+    return edenWithCSRFRetry(() => workflows.get({ query: options as unknown as Record<string, unknown> }));
   },
 
   async getWorkflow(workflowId: string): Promise<WorkflowDefinition> {
-    return APIClient.get<WorkflowDefinition>(
-      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`
-    );
+    return edenWithCSRFRetry(() => workflows[workflowId].get());
   },
 
   async createWorkflow(
     workflow: Omit<WorkflowDefinition, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<WorkflowDefinition> {
-    return APIClient.post<WorkflowDefinition>(
-      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows`,
-      workflow
-    );
+    return edenWithCSRFRetry(() => workflows.post(workflow));
   },
 
   async updateWorkflow(
     workflowId: string,
     updates: Partial<WorkflowDefinition>
   ): Promise<WorkflowDefinition> {
-    return APIClient.put<WorkflowDefinition>(
-      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`,
-      updates
-    );
+    return edenWithCSRFRetry(() => workflows[workflowId].put(updates));
   },
 
   async deleteWorkflow(workflowId: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}`);
+    await edenWithCSRFRetry(() => workflows[workflowId].delete());
   },
 
   async executeWorkflow(
     workflowId: string,
     input?: Record<string, unknown>
   ): Promise<WorkflowExecution> {
-    return APIClient.post<WorkflowExecution>(
-      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/execute`,
-      {
-        input,
-      }
-    );
+    return edenRequest<WorkflowExecution>(`/api/v1/workflows/${workflowId}/execute`, {
+      method: 'POST',
+      body: { input },
+    });
   },
 
   async getWorkflowExecutions(
@@ -136,29 +139,28 @@ export const orchestrationAPI = {
       status?: OperationStatus;
     }
   ): Promise<WorkflowExecution[]> {
-    return APIClient.get<WorkflowExecution[]>(
-      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/executions`,
-      {
-        params: options,
-      }
+    const parts: string[] = [];
+    if (options?.page !== undefined) parts.push(`page=${options.page}`);
+    if (options?.limit !== undefined) parts.push(`limit=${options.limit}`);
+    if (options?.status !== undefined) parts.push(`status=${options.status}`);
+    const qs = parts.length ? `?${parts.join('&')}` : '';
+    return edenRequest<WorkflowExecution[]>(
+      `/api/v1/workflows/${workflowId}/executions${qs}`,
+      { method: 'GET' }
     );
   },
 
   async getWorkflowExecution(workflowId: string, executionId: string): Promise<WorkflowExecution> {
-    return APIClient.get<WorkflowExecution>(
-      `${API_ROUTES.ORCHESTRATION.WORKFLOWS}/workflows/${workflowId}/executions/${executionId}`
+    return edenRequest<WorkflowExecution>(
+      `/api/v1/workflows/${workflowId}/executions/${executionId}`,
+      { method: 'GET' }
     );
   },
 
-  // Statistics
-  async getStats(days: number = 30): Promise<{
-    totalOperations: number;
-    completedOperations: number;
-    failedOperations: number;
-    averageExecutionTime: number;
-    operationsByType: Record<OperationType, number>;
-    operationsByStatus: Record<OperationStatus, number>;
-  }> {
-    return APIClient.get(`${API_ROUTES.ORCHESTRATION.STATS}/stats`, { params: { days } });
+  async getStats(days: number = 30): Promise<OrchestrationStats> {
+    return edenRequest<OrchestrationStats>(
+      `/api/v1/operations/stats?days=${encodeURIComponent(days)}`,
+      { method: 'GET' }
+    );
   },
 };

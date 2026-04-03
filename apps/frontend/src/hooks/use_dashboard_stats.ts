@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { APIClient } from '@/api/client'
+import { edenRequest } from '@/api/eden'
 import { STALE_TIMES, REFETCH_INTERVALS } from '@/api/query_config'
 
 interface DashboardSystemStats {
@@ -45,7 +45,7 @@ export interface DashboardStats {
 }
 
 async function fetchDashboardStats(): Promise<DashboardStats> {
-  return await APIClient.get<DashboardStats>('/api/v1/dashboard/stats')
+  return await edenRequest<DashboardStats>('/api/v1/dashboard/stats', { method: 'GET' })
 }
 
 export function useDashboardStats() {

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { StreamChunk, StreamingEventType, TokenStreamEvent } from '@uaip/types';
+import { edenRequest } from '@/api/eden';
 
 interface UseStreamingChatOptions {
   baseUrl?: string;
@@ -123,21 +124,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       conversationId?: string;
     }) => {
       try {
-        // Call API to start stream
-        const response = await fetch(`${baseUrl}/api/v1/llm/stream`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(request),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to start stream');
-        }
-
-        const { sessionId } = await response.json();
+        const { sessionId } = await edenRequest<{ sessionId: string }>('/api/v1/llm/stream', { method: 'POST', body: request });
         currentSessionRef.current = sessionId;
 
         // Subscribe to the session
@@ -150,7 +137,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         throw error;
       }
     },
-    [baseUrl]
+    []
   );
 
   // Cancel streaming

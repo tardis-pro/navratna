@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 import { MFAMethod, MFASetupData } from '@uaip/types';
-import { APIClient } from '@/api/client';
+import { edenRequest } from '@/api/eden';
 
 interface MFAMethodConfig {
   id: MFAMethod;
@@ -97,7 +97,7 @@ export const MFASetup: React.FC = () => {
 
   const fetchMFAStatus = async () => {
     try {
-      const response = await APIClient.get<{ enabledMethods?: MFAMethod[] }>('/security/mfa/status');
+      const response = await edenRequest<{ enabledMethods?: MFAMethod[] }>('/security/mfa/status', { method: 'GET' });
       setEnabledMethods(response.enabledMethods || []);
     } catch {
       toast({
@@ -119,7 +119,7 @@ export const MFASetup: React.FC = () => {
         return;
       }
 
-      const response = await APIClient.post<MFASetupData>('/security/mfa/setup', { method });
+      const response = await edenRequest<MFASetupData>('/security/mfa/setup', { method: 'POST', body: { method } });
       setSetupData(response);
       setSetupStep('setup');
     } catch {
@@ -139,9 +139,9 @@ export const MFASetup: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await APIClient.post<MFASetupData>('/security/mfa/setup', {
-        method: MFAMethod.SMS,
-        phoneNumber,
+      const response = await edenRequest<MFASetupData>('/security/mfa/setup', {
+        method: 'POST',
+        body: { method: MFAMethod.SMS, phoneNumber },
       });
       setSetupData(response);
       setSetupStep('verify');
@@ -168,10 +168,13 @@ export const MFASetup: React.FC = () => {
 
     try {
       setVerifying(true);
-      await APIClient.post('/security/mfa/verify', {
-        method: selectedMethod,
-        code: verificationCode,
-        setupId: setupData?.setupId,
+      await edenRequest('/security/mfa/verify', {
+        method: 'POST',
+        body: {
+          method: selectedMethod,
+          code: verificationCode,
+          setupId: setupData?.setupId,
+        },
       });
 
       toast({
@@ -194,7 +197,7 @@ export const MFASetup: React.FC = () => {
 
   const handleDisable = async (method: MFAMethod) => {
     try {
-      await APIClient.delete(`/security/mfa/${method}`);
+      await edenRequest(`/security/mfa/${method}`, { method: 'DELETE' });
       setEnabledMethods((prev) => prev.filter((m) => m !== method));
       toast({
         title: 'MFA Disabled',

@@ -3,8 +3,7 @@
  * Handles all MCP-related operations including servers and tools
  */
 
-import { APIClient } from './client';
-import { _API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import type {
   MCPServer,
   MCPTool,
@@ -15,68 +14,42 @@ import type {
 
 export type { MCPServer, MCPTool, MCPStatus, MCPConfig, MCPUploadResult };
 
+const mcp = gatewayClient.api.v1.mcp;
+
 export const mcpAPI = {
-  /**
-   * Get current MCP server status
-   */
   async getStatus(): Promise<MCPStatus> {
-    return APIClient.get<MCPStatus>('/api/v1/mcp/status');
+    return edenWithCSRFRetry(() => mcp.status.get());
   },
 
-  /**
-   * Get MCP configuration
-   */
   async getConfig(): Promise<MCPConfig> {
-    return APIClient.get<MCPConfig>('/api/v1/mcp/config');
+    return edenWithCSRFRetry(() => mcp.config.get());
   },
 
-  /**
-   * Upload MCP configuration file
-   */
   async uploadConfig(configFile: File): Promise<MCPUploadResult> {
     const formData = new FormData();
     formData.append('mcpConfig', configFile);
-
-    return APIClient.post<MCPUploadResult>('/api/v1/mcp/upload-config', formData, {
-      headers: {
-        // Don't set Content-Type, let the browser set it for FormData
-      },
+    return edenRequest<MCPUploadResult>('/api/v1/mcp/upload-config', {
+      method: 'POST',
+      body: formData,
     });
   },
 
-  /**
-   * Get all available MCP tools from configured servers
-   */
   async getTools(): Promise<{
     tools: MCPTool[];
     count: number;
     servers: string[];
   }> {
-    return APIClient.get<{
-      tools: MCPTool[];
-      count: number;
-      servers: string[];
-    }>('/api/v1/mcp/tools');
+    return edenWithCSRFRetry(() => mcp.tools.get());
   },
 
-  /**
-   * Get tools from a specific MCP server
-   */
   async getServerTools(serverName: string): Promise<{
     serverName: string;
     tools: MCPTool[];
     count: number;
   }> {
-    return APIClient.get<{
-      serverName: string;
-      tools: MCPTool[];
-      count: number;
-    }>(`/api/v1/mcp/tools/${encodeURIComponent(serverName)}`);
+    return edenWithCSRFRetry(() => mcp.servers[serverName].tools.get());
   },
 
-  /**
-   * Create a new MCP tool
-   */
   async createTool(toolData: {
     name: string;
     description: string;
@@ -84,12 +57,9 @@ export const mcpAPI = {
     parameters?: unknown;
     category?: string;
   }): Promise<{ tool: MCPTool; message: string }> {
-    return APIClient.post<{ tool: MCPTool; message: string }>('/api/v1/mcp/tools', toolData);
+    return edenWithCSRFRetry(() => mcp.tools.post(toolData));
   },
 
-  /**
-   * Update an existing MCP tool
-   */
   async updateTool(
     toolId: string,
     updates: {
@@ -103,29 +73,16 @@ export const mcpAPI = {
     message: string;
     updates: unknown;
   }> {
-    return APIClient.put<{
-      toolId: string;
-      message: string;
-      updates: unknown;
-    }>(`/api/v1/mcp/tools/${toolId}`, updates);
+    return edenWithCSRFRetry(() => mcp.tools[toolId].put(updates));
   },
 
-  /**
-   * Delete an MCP tool
-   */
   async deleteTool(toolId: string): Promise<{
     toolId: string;
     message: string;
   }> {
-    return APIClient.delete<{
-      toolId: string;
-      message: string;
-    }>(`/api/v1/mcp/tools/${toolId}`);
+    return edenWithCSRFRetry(() => mcp.tools[toolId].delete());
   },
 
-  /**
-   * Execute an MCP tool
-   */
   async executeTool(
     toolId: string,
     parameters: unknown,
@@ -135,32 +92,18 @@ export const mcpAPI = {
     result: unknown;
     message: string;
   }> {
-    return APIClient.post<{
-      toolId: string;
-      result: unknown;
-      message: string;
-    }>(`/api/v1/mcp/tools/${toolId}/execute`, {
-      parameters,
-      agentId,
-    });
+    return edenWithCSRFRetry(() =>
+      mcp.tools[toolId].execute.post({ parameters, agentId })
+    );
   },
 
-  /**
-   * Get tool schema
-   */
   async getToolSchema(toolId: string): Promise<{
     toolId: string;
     schema: unknown;
   }> {
-    return APIClient.get<{
-      toolId: string;
-      schema: unknown;
-    }>(`/api/v1/mcp/tools/${toolId}/schema`);
+    return edenWithCSRFRetry(() => mcp.tools[toolId].schema.get());
   },
 
-  /**
-   * Get tool recommendations
-   */
   async getToolRecommendations(
     toolId: string,
     limit: number = 5
@@ -169,77 +112,43 @@ export const mcpAPI = {
     recommendations: unknown[];
     count: number;
   }> {
-    return APIClient.get<{
-      toolId: string;
-      recommendations: unknown[];
-      count: number;
-    }>(`/api/v1/mcp/tools/${toolId}/recommendations`, {
-      params: { limit },
-    });
+    return edenWithCSRFRetry(() =>
+      mcp.tools[toolId].recommendations.get({ query: { limit } })
+    );
   },
 
-  /**
-   * Find tools by capability
-   */
   async findToolsByCapability(capability: string): Promise<{
     capability: string;
     tools: MCPTool[];
     count: number;
   }> {
-    return APIClient.get<{
-      capability: string;
-      tools: MCPTool[];
-      count: number;
-    }>(`/api/v1/mcp/tools/capabilities/${encodeURIComponent(capability)}`);
+    return edenWithCSRFRetry(() => mcp.tools.capabilities[capability].get());
   },
 
-  /**
-   * Get tool dependency graph
-   */
   async getToolDependencies(toolId: string): Promise<{
     toolId: string;
     dependencyGraph: unknown;
   }> {
-    return APIClient.get<{
-      toolId: string;
-      dependencyGraph: unknown;
-    }>(`/api/v1/mcp/tools/${toolId}/dependencies`);
+    return edenWithCSRFRetry(() => mcp.tools[toolId].dependencies.get());
   },
 
-  /**
-   * Restart an MCP server
-   */
   async restartServer(serverName: string): Promise<{
     message: string;
     serverName: string;
     status: string;
   }> {
-    return APIClient.post<{
-      message: string;
-      serverName: string;
-      status: string;
-    }>(`/api/v1/mcp/restart-server/${encodeURIComponent(serverName)}`);
+    return edenWithCSRFRetry(() => mcp.servers[serverName].restart.post());
   },
 
-  /**
-   * Check system requirements for MCP
-   */
   async getSystemRequirements(): Promise<unknown> {
-    return APIClient.get('/api/v1/mcp/system-requirements');
+    return edenWithCSRFRetry(() => mcp['system-requirements'].get());
   },
 
-  /**
-   * Install a missing MCP tool
-   */
   async installTool(toolName: string): Promise<{
     success: boolean;
     message: string;
     tool: string;
   }> {
-    return APIClient.post<{
-      success: boolean;
-      message: string;
-      tool: string;
-    }>(`/api/v1/mcp/install-tool/${encodeURIComponent(toolName)}`);
+    return edenWithCSRFRetry(() => mcp['install-tool'][toolName].post());
   },
 };

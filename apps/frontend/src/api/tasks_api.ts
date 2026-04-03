@@ -1,4 +1,4 @@
-import { APIClient } from './client';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import { STALE_TIMES } from './query_config';
 import type {
   TaskFilters,
@@ -37,63 +37,55 @@ function buildFilterParams(filters?: TaskFilters): string {
 
 export const tasksApi = {
   async getProjectTasks(projectId: string, filters?: TaskFilters) {
-    return APIClient.get(`/api/v1/projects/${projectId}/tasks${buildFilterParams(filters)}`);
+    return edenRequest(`/api/v1/projects/${projectId}/tasks${buildFilterParams(filters)}`, {
+      method: 'GET',
+    });
   },
 
-  // Get a specific task
   async getTask(taskId: string) {
-    const response = await APIClient.get(`/api/v1/tasks/${taskId}`);
-    return response;
+    return edenWithCSRFRetry(() => gatewayClient.api.v1.tasks[taskId].get());
   },
 
-  // Create a new task
   async createTask(projectId: string, taskData: CreateTaskRequest) {
-    const response = await APIClient.post(`/api/v1/projects/${projectId}/tasks`, taskData);
-    return response;
+    return edenWithCSRFRetry(() => gatewayClient.api.v1.projects[projectId].tasks.post(taskData));
   },
 
-  // Update a task
   async updateTask(taskId: string, updates: UpdateTaskRequest) {
-    const response = await APIClient.put(`/api/v1/tasks/${taskId}`, updates);
-    return response;
+    return edenWithCSRFRetry(() => gatewayClient.api.v1.tasks[taskId].put(updates));
   },
 
-  // Delete a task
   async deleteTask(taskId: string) {
-    const response = await APIClient.delete(`/api/v1/tasks/${taskId}`);
-    return response;
+    return edenWithCSRFRetry(() => gatewayClient.api.v1.tasks[taskId].delete());
   },
 
-  // Assign a task
   async assignTask(taskId: string, assignment: TaskAssignmentRequest) {
-    const response = await APIClient.post(`/api/v1/tasks/${taskId}/assign`, assignment);
-    return response;
+    return edenWithCSRFRetry(() => gatewayClient.api.v1.tasks[taskId].assign.post(assignment));
   },
 
-  // Get assignment suggestions
   async getAssignmentSuggestions(taskId: string) {
-    const response = await APIClient.get(`/api/v1/tasks/${taskId}/assignment-suggestions`);
-    return response;
+    return edenRequest(`/api/v1/tasks/${taskId}/assignment-suggestions`, { method: 'GET' });
   },
 
-  // Update task progress
   async updateTaskProgress(taskId: string, progress: TaskProgressUpdate) {
-    const response = await APIClient.put(`/api/v1/tasks/${taskId}/progress`, progress);
-    return response;
+    return edenWithCSRFRetry(() => gatewayClient.api.v1.tasks[taskId].progress.put(progress));
   },
 
-  // Get task statistics for a project
   async getTaskStatistics(projectId: string) {
-    const response = await APIClient.get(`/api/v1/projects/${projectId}/tasks/statistics`);
-    return response;
+    return edenWithCSRFRetry(
+      () => gatewayClient.api.v1.projects[projectId].tasks.statistics.get()
+    );
   },
 
   async getUserTasks(userId: string, filters?: TaskFilters) {
-    return APIClient.get(`/api/v1/users/${userId}/tasks${buildFilterParams(filters)}`);
+    return edenRequest(`/api/v1/users/${userId}/tasks${buildFilterParams(filters)}`, {
+      method: 'GET',
+    });
   },
 
   async getAgentTasks(agentId: string, filters?: TaskFilters) {
-    return APIClient.get(`/api/v1/agents/${agentId}/tasks${buildFilterParams(filters)}`);
+    return edenRequest(`/api/v1/agents/${agentId}/tasks${buildFilterParams(filters)}`, {
+      method: 'GET',
+    });
   },
 };
 
@@ -199,28 +191,35 @@ export const getTimeUntilDue = (dueDate?: string) => {
 };
 
 export const calculateTaskProgress = (task: unknown) => {
-  if (!task.metrics) return 0;
-  return task.metrics.completionPercentage || 0;
+  const t = task as { metrics?: { completionPercentage?: number } };
+  if (!t?.metrics) return 0;
+  return t.metrics.completionPercentage || 0;
 };
 
 export const getEstimatedVsActualTime = (task: unknown) => {
-  if (!task.metrics) return { estimated: 0, actual: 0, variance: 0 };
+  const t = task as { metrics?: { estimatedTime?: number; timeSpent?: number } };
+  if (!t?.metrics) return { estimated: 0, actual: 0, variance: 0 };
 
-  const estimated = task.metrics.estimatedTime || 0;
-  const actual = task.metrics.timeSpent || 0;
+  const estimated = t.metrics.estimatedTime || 0;
+  const actual = t.metrics.timeSpent || 0;
   const variance = estimated > 0 ? ((actual - estimated) / estimated) * 100 : 0;
 
   return { estimated, actual, variance };
 };
 
 export const getTaskAssigneeDisplay = (task: unknown) => {
-  if (!task.assigneeType) return 'Unassigned';
+  const t = task as {
+    assigneeType?: string;
+    assignedToUser?: { name?: string; email?: string };
+    assignedToAgent?: { name?: string };
+  };
+  if (!t.assigneeType) return 'Unassigned';
 
-  const prefix = task.assigneeType === 'agent' ? '🤖' : '👤';
+  const prefix = t.assigneeType === 'agent' ? '🤖' : '👤';
   const name =
-    task.assigneeType === 'human'
-      ? task.assignedToUser?.name || task.assignedToUser?.email
-      : task.assignedToAgent?.name;
+    t.assigneeType === 'human'
+      ? t.assignedToUser?.name || t.assignedToUser?.email
+      : t.assignedToAgent?.name;
 
   return name ? `${prefix} ${name}` : 'Unassigned';
 };

@@ -3,8 +3,8 @@
  * Handles all project-related operations
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
+import { ProjectRole } from '@uaip/types';
 import type { ProjectStatus, ProjectMemberRole } from '@uaip/contracts/api';
 import type {
   Project,
@@ -24,45 +24,44 @@ export type {
   ProjectListOptions,
 };
 
+const projects = gatewayClient.api.v1.projects;
+
 export const projectsAPI = {
   async list(options?: ProjectListOptions): Promise<Project[]> {
-    return APIClient.get<Project[]>(API_ROUTES.PROJECTS.LIST, { params: options });
+    return edenWithCSRFRetry(() => projects.get({ query: options as unknown as Record<string, unknown> }));
   },
 
   async get(id: string): Promise<Project> {
-    return APIClient.get<Project>(`${API_ROUTES.PROJECTS.GET}/${id}`);
+    return edenWithCSRFRetry(() => projects[id].get());
   },
 
   async create(project: ProjectCreate): Promise<Project> {
-    return APIClient.post<Project>(API_ROUTES.PROJECTS.CREATE, project);
+    return edenWithCSRFRetry(() => projects.post(project));
   },
 
   async update(id: string, updates: ProjectUpdate): Promise<Project> {
-    return APIClient.put<Project>(`${API_ROUTES.PROJECTS.UPDATE}/${id}`, updates);
+    return edenWithCSRFRetry(() => projects[id].put(updates));
   },
 
   async delete(id: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.PROJECTS.DELETE}/${id}`);
+    await edenWithCSRFRetry(() => projects[id].delete());
   },
 
   async updateStatus(id: string, status: ProjectStatus): Promise<Project> {
-    return APIClient.patch<Project>(`${API_ROUTES.PROJECTS.UPDATE}/${id}/status`, { status });
+    return edenWithCSRFRetry(() => projects[id].status.patch({ status }));
   },
 
   // Member management
   async getMembers(projectId: string): Promise<ProjectMember[]> {
-    return APIClient.get<ProjectMember[]>(`${API_ROUTES.PROJECTS.GET}/${projectId}/members`);
+    return edenWithCSRFRetry(() => projects[projectId].members.get());
   },
 
   async addMember(
     projectId: string,
     userId: string,
-    role: ProjectMemberRole = 'member'
+    role: ProjectMemberRole = ProjectRole.MEMBER
   ): Promise<ProjectMember> {
-    return APIClient.post<ProjectMember>(`${API_ROUTES.PROJECTS.GET}/${projectId}/members`, {
-      userId,
-      role,
-    });
+    return edenWithCSRFRetry(() => projects[projectId].members.post({ userId, role }));
   },
 
   async updateMemberRole(
@@ -70,21 +69,16 @@ export const projectsAPI = {
     userId: string,
     role: ProjectMemberRole
   ): Promise<ProjectMember> {
-    return APIClient.patch<ProjectMember>(
-      `${API_ROUTES.PROJECTS.GET}/${projectId}/members/${userId}`,
-      {
-        role,
-      }
-    );
+    return edenWithCSRFRetry(() => projects[projectId].members[userId].patch({ role }));
   },
 
   async removeMember(projectId: string, userId: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.PROJECTS.GET}/${projectId}/members/${userId}`);
+    await edenWithCSRFRetry(() => projects[projectId].members[userId].delete());
   },
 
   // File management
   async getFiles(projectId: string): Promise<ProjectFile[]> {
-    return APIClient.get<ProjectFile[]>(`${API_ROUTES.PROJECTS.GET}/${projectId}/files`);
+    return edenWithCSRFRetry(() => projects[projectId].files.get());
   },
 
   async addFile(
@@ -96,7 +90,7 @@ export const projectsAPI = {
       metadata?: unknown;
     }
   ): Promise<ProjectFile> {
-    return APIClient.post<ProjectFile>(`${API_ROUTES.PROJECTS.GET}/${projectId}/files`, file);
+    return edenWithCSRFRetry(() => projects[projectId].files.post(file));
   },
 
   async updateFile(
@@ -107,55 +101,51 @@ export const projectsAPI = {
       metadata?: unknown;
     }
   ): Promise<ProjectFile> {
-    return APIClient.patch<ProjectFile>(
-      `${API_ROUTES.PROJECTS.GET}/${projectId}/files/${fileId}`,
-      updates
-    );
+    return edenWithCSRFRetry(() => projects[projectId].files[fileId].patch(updates));
   },
 
   async deleteFile(projectId: string, fileId: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.PROJECTS.GET}/${projectId}/files/${fileId}`);
+    await edenWithCSRFRetry(() => projects[projectId].files[fileId].delete());
   },
 
   // Tool management
   async getTools(projectId: string): Promise<string[]> {
-    return APIClient.get<string[]>(`${API_ROUTES.PROJECTS.GET}/${projectId}/tools`);
+    return edenWithCSRFRetry(() => projects[projectId].tools.get());
   },
 
   async assignTools(projectId: string, toolIds: string[]): Promise<void> {
-    return APIClient.post(`${API_ROUTES.PROJECTS.GET}/${projectId}/tools`, { toolIds });
+    await edenWithCSRFRetry(() => projects[projectId].tools.post({ toolIds }));
   },
 
   async removeTools(projectId: string, toolIds: string[]): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.PROJECTS.GET}/${projectId}/tools`, {
-      data: { toolIds },
+    await edenRequest(`/api/v1/projects/${projectId}/tools`, {
+      method: 'DELETE',
+      body: { toolIds },
     });
   },
 
   // Analytics and stats
   async getStats(projectId: string): Promise<unknown> {
-    return APIClient.get(`${API_ROUTES.PROJECTS.GET}/${projectId}/stats`);
+    return edenWithCSRFRetry(() => projects[projectId].stats.get());
   },
 
   async getActivity(projectId: string, days: number = 30): Promise<unknown> {
-    return APIClient.get(`${API_ROUTES.PROJECTS.GET}/${projectId}/activity`, {
-      params: { days },
-    });
+    return edenWithCSRFRetry(() => projects[projectId].activity.get({ query: { days } }));
   },
 
   // Bulk operations
   async bulkUpdateStatus(projectIds: string[], status: ProjectStatus): Promise<Project[]> {
-    return APIClient.patch<Project[]>(`${API_ROUTES.PROJECTS.UPDATE}/bulk/status`, {
-      projectIds,
-      status,
+    return edenRequest<Project[]>('/api/v1/projects/bulk/status', {
+      method: 'PATCH',
+      body: { projectIds, status },
     });
   },
 
   async archive(projectId: string): Promise<Project> {
-    return APIClient.post<Project>(`${API_ROUTES.PROJECTS.UPDATE}/${projectId}/archive`);
+    return edenWithCSRFRetry(() => projects[projectId].archive.post());
   },
 
   async unarchive(projectId: string): Promise<Project> {
-    return APIClient.post<Project>(`${API_ROUTES.PROJECTS.UPDATE}/${projectId}/unarchive`);
+    return edenWithCSRFRetry(() => projects[projectId].unarchive.post());
   },
 };

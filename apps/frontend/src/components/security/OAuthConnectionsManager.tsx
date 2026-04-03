@@ -26,7 +26,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { OAuthProviderType, AgentOAuthConnection } from '@uaip/types';
-import { APIClient } from '@/api/client';
+import { edenRequest } from '@/api/eden';
 
 interface OAuthProvider {
   id: string;
@@ -97,8 +97,9 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const fetchConnections = async () => {
     try {
       setLoading(true);
-      const response = await APIClient.get<AgentOAuthConnection[]>(
-        `/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`
+      const response = await edenRequest<AgentOAuthConnection[]>(
+        `/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`,
+        { method: 'GET' }
       );
       setConnections(response);
     } catch {
@@ -115,9 +116,9 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const handleConnect = async (providerId: string) => {
     try {
       setConnecting(providerId);
-      const response = await APIClient.post<{ authorizationUrl: string }>('/security/oauth/authorize', {
-        providerId,
-        agentId,
+      const response = await edenRequest<{ authorizationUrl: string }>('/security/oauth/authorize', {
+        method: 'POST',
+        body: { providerId, agentId },
       });
 
       // Redirect to OAuth authorization URL
@@ -134,7 +135,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
 
   const handleDisconnect = async (connectionId: string, providerName: string) => {
     try {
-      await APIClient.delete(`/security/oauth/connections/${connectionId}`);
+      await edenRequest(`/security/oauth/connections/${connectionId}`, { method: 'DELETE' });
       setConnections((prev) => prev.filter((c) => c.id !== connectionId));
       toast({
         title: 'Disconnected',
@@ -152,7 +153,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const handleRefreshToken = async (connectionId: string, providerName: string) => {
     try {
       setRefreshing(connectionId);
-      await APIClient.post(`/security/oauth/connections/${connectionId}/refresh`);
+      await edenRequest(`/security/oauth/connections/${connectionId}/refresh`, { method: 'POST' });
       toast({
         title: 'Token Refreshed',
         description: `Successfully refreshed ${providerName} access token`,

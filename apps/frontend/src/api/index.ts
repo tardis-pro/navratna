@@ -12,6 +12,7 @@ export {
   gatewayClient,
   unwrapEden,
   edenWithCSRFRetry,
+  edenRequest,
   EdenClientError,
   type NavratnaCoreApp,
   type NavratnaGatewayApp,

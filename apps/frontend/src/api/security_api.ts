@@ -3,8 +3,7 @@
  * Handles security policies, risk assessment, and compliance
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 import type {
   SecurityPolicy,
   SecurityRule,
@@ -29,13 +28,11 @@ export type {
   PolicyUpdate,
 };
 
+const security = gatewayClient.api.v1.security;
+
 export const securityAPI = {
   async assessRisk(resource: string, action: string, context?: unknown): Promise<RiskAssessment> {
-    return APIClient.post<RiskAssessment>(API_ROUTES.SECURITY.ASSESS_RISK, {
-      resource,
-      action,
-      context,
-    });
+    return edenWithCSRFRetry(() => security['assess-risk'].post({ resource, action, context }));
   },
 
   async checkApprovalRequired(
@@ -46,49 +43,45 @@ export const securityAPI = {
     required: boolean;
     requirements?: ApprovalRequirement[];
   }> {
-    return APIClient.post(API_ROUTES.SECURITY.CHECK_APPROVAL, {
-      resource,
-      action,
-      context,
-    });
+    return edenWithCSRFRetry(() =>
+      security['check-approval-required'].post({ resource, action, context })
+    );
   },
 
-  // Policy management
   async listPolicies(options?: {
     page?: number;
     limit?: number;
     isActive?: boolean;
   }): Promise<SecurityPolicy[]> {
-    return APIClient.get<SecurityPolicy[]>(API_ROUTES.SECURITY.LIST_POLICIES, { params: options });
-  },
-
-  async getPolicy(id: string): Promise<SecurityPolicy> {
-    return APIClient.get<SecurityPolicy>(`${API_ROUTES.SECURITY.GET_POLICY}/${id}`);
-  },
-
-  async createPolicy(policy: PolicyCreate): Promise<SecurityPolicy> {
-    return APIClient.post<SecurityPolicy>(API_ROUTES.SECURITY.CREATE_POLICY, policy);
-  },
-
-  async updatePolicy(id: string, updates: PolicyUpdate): Promise<SecurityPolicy> {
-    return APIClient.put<SecurityPolicy>(`${API_ROUTES.SECURITY.UPDATE_POLICY}/${id}`, updates);
-  },
-
-  async deletePolicy(id: string): Promise<void> {
-    return APIClient.delete(`${API_ROUTES.SECURITY.DELETE_POLICY}/${id}`);
-  },
-
-  async activatePolicy(id: string): Promise<SecurityPolicy> {
-    return APIClient.post<SecurityPolicy>(`${API_ROUTES.SECURITY.ACTIVATE_POLICY}/${id}/activate`);
-  },
-
-  async deactivatePolicy(id: string): Promise<SecurityPolicy> {
-    return APIClient.post<SecurityPolicy>(
-      `${API_ROUTES.SECURITY.DEACTIVATE_POLICY}/${id}/deactivate`
+    return edenWithCSRFRetry(() =>
+      security.policies.get({ query: options as unknown as Record<string, unknown> })
     );
   },
 
-  // Security events
+  async getPolicy(id: string): Promise<SecurityPolicy> {
+    return edenWithCSRFRetry(() => security.policies[id].get());
+  },
+
+  async createPolicy(policy: PolicyCreate): Promise<SecurityPolicy> {
+    return edenWithCSRFRetry(() => security.policies.post(policy));
+  },
+
+  async updatePolicy(id: string, updates: PolicyUpdate): Promise<SecurityPolicy> {
+    return edenWithCSRFRetry(() => security.policies[id].put(updates));
+  },
+
+  async deletePolicy(id: string): Promise<void> {
+    await edenWithCSRFRetry(() => security.policies[id].delete());
+  },
+
+  async activatePolicy(id: string): Promise<SecurityPolicy> {
+    return edenWithCSRFRetry(() => security.policies[id].activate.post());
+  },
+
+  async deactivatePolicy(id: string): Promise<SecurityPolicy> {
+    return edenWithCSRFRetry(() => security.policies[id].deactivate.post());
+  },
+
   async getEvents(options?: {
     page?: number;
     limit?: number;
@@ -98,19 +91,19 @@ export const securityAPI = {
     startDate?: string;
     endDate?: string;
   }): Promise<SecurityEvent[]> {
-    return APIClient.get<SecurityEvent[]>(API_ROUTES.SECURITY.EVENTS, { params: options });
+    return edenWithCSRFRetry(() =>
+      security.events.get({ query: options as unknown as Record<string, unknown> })
+    );
   },
 
   async getEvent(id: string): Promise<SecurityEvent> {
-    return APIClient.get<SecurityEvent>(`${API_ROUTES.SECURITY.EVENTS}/${id}`);
+    return edenWithCSRFRetry(() => security.events[id].get());
   },
 
-  // Statistics
   async getStats(days: number = 30): Promise<SecurityStats> {
-    return APIClient.get<SecurityStats>(API_ROUTES.SECURITY.STATS, { params: { days } });
+    return edenWithCSRFRetry(() => security.stats.get({ query: { days } }));
   },
 
-  // Compliance
   async checkCompliance(
     resource: string,
     action: string
@@ -119,14 +112,13 @@ export const securityAPI = {
     violations?: string[];
     recommendations?: string[];
   }> {
-    return APIClient.post(API_ROUTES.SECURITY.CHECK_COMPLIANCE, { resource, action });
+    return edenWithCSRFRetry(() => security['check-compliance'].post({ resource, action }));
   },
 
   async exportSecurityReport(format: 'pdf' | 'csv' | 'json' = 'pdf'): Promise<Blob> {
-    const response = await APIClient.get(`${API_ROUTES.SECURITY.EXPORT}/report`, {
-      params: { format },
+    return edenRequest<Blob>(`/api/v1/security/report?format=${encodeURIComponent(format)}`, {
+      method: 'GET',
       responseType: 'blob',
     });
-    return response;
   },
 };

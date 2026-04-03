@@ -3,8 +3,7 @@
  * Handles LLM model management, provider configuration, and text generation
  */
 
-import { APIClient } from './client';
-import { API_ROUTES } from '@/config/api_config';
+import { coreClient, edenWithCSRFRetry } from './eden';
 import type {
   LLMModel,
   LLMProvider,
@@ -23,26 +22,29 @@ export type {
   UserLLMProvider,
 };
 
+const llm = coreClient.api.v1.llm
+const userLlm = coreClient.api.v1.user.llm
+
 export const llmAPI = {
   // Global LLM management
   async listModels(): Promise<LLMModel[]> {
-    return APIClient.get<LLMModel[]>(API_ROUTES.LLM.LIST_MODELS);
+    return edenWithCSRFRetry(() => llm.models.get());
   },
 
   async getModel(id: string): Promise<LLMModel> {
-    return APIClient.get<LLMModel>(`${API_ROUTES.LLM.GET_MODEL}/${id}`);
+    return edenWithCSRFRetry(() => llm.models[id].get());
   },
 
   async listProviders(): Promise<LLMProvider[]> {
-    return APIClient.get<LLMProvider[]>(API_ROUTES.LLM.LIST_PROVIDERS);
+    return edenWithCSRFRetry(() => llm.providers.get());
   },
 
   async getProvider(id: string): Promise<LLMProvider> {
-    return APIClient.get<LLMProvider>(`${API_ROUTES.LLM.GET_PROVIDER}/${id}`);
+    return edenWithCSRFRetry(() => llm.providers[id].get());
   },
 
   async generate(request: LLMGenerateRequest): Promise<LLMGenerateResponse> {
-    return APIClient.post<LLMGenerateResponse>(API_ROUTES.LLM.GENERATE, request);
+    return edenWithCSRFRetry(() => llm.generate.post(request));
   },
 
   async analyzeContext(
@@ -52,20 +54,20 @@ export const llmAPI = {
       maxTopics?: number;
     }
   ): Promise<LLMContextAnalysis> {
-    return APIClient.post<LLMContextAnalysis>(API_ROUTES.LLM.ANALYZE_CONTEXT, {
+    return edenWithCSRFRetry(() => llm['analyze-context'].post({
       text,
       ...options,
-    });
+    }));
   },
 
   // User-specific LLM providers
   userLLM: {
     async listProviders(): Promise<UserLLMProvider[]> {
-      return APIClient.get<UserLLMProvider[]>(API_ROUTES.USER_LLM.LIST_PROVIDERS);
+      return edenWithCSRFRetry(() => userLlm.providers.get());
     },
 
     async getProvider(id: string): Promise<UserLLMProvider> {
-      return APIClient.get<UserLLMProvider>(`${API_ROUTES.USER_LLM.GET_PROVIDER}/${id}`);
+      return edenWithCSRFRetry(() => userLlm.providers[id].get());
     },
 
     async createProvider(provider: {
@@ -79,7 +81,7 @@ export const llmAPI = {
       configuration?: Record<string, unknown>;
       priority?: number;
     }): Promise<UserLLMProvider> {
-      return APIClient.post<UserLLMProvider>(API_ROUTES.USER_LLM.CREATE_PROVIDER, provider);
+      return edenWithCSRFRetry(() => userLlm.providers.post(provider));
     },
 
     async updateProvider(
@@ -97,14 +99,11 @@ export const llmAPI = {
         isActive?: boolean;
       }
     ): Promise<UserLLMProvider> {
-      return APIClient.put<UserLLMProvider>(
-        `${API_ROUTES.USER_LLM.UPDATE_PROVIDER}/${id}`,
-        updates
-      );
+      return edenWithCSRFRetry(() => userLlm.providers[id].put(updates));
     },
 
     async deleteProvider(id: string): Promise<void> {
-      return APIClient.delete(`${API_ROUTES.USER_LLM.DELETE_PROVIDER}/${id}`);
+      return edenWithCSRFRetry(() => userLlm.providers[id].delete());
     },
 
     async testProvider(id: string): Promise<{
@@ -112,12 +111,11 @@ export const llmAPI = {
       message?: string;
       models?: string[];
     }> {
-      const response = await APIClient.post(`${API_ROUTES.USER_LLM.TEST_PROVIDER}/${id}/test`);
-      return response;
+      return edenWithCSRFRetry(() => userLlm.providers[id].test.post());
     },
 
     async setDefault(id: string): Promise<void> {
-      return APIClient.post(`${API_ROUTES.USER_LLM.SET_DEFAULT}/${id}/default`);
+      return edenWithCSRFRetry(() => userLlm.providers[id].default.post());
     },
 
     async generate(
@@ -126,7 +124,7 @@ export const llmAPI = {
         model?: string;
       }
     ): Promise<LLMGenerateResponse> {
-      return APIClient.post<LLMGenerateResponse>(API_ROUTES.USER_LLM.GENERATE, request);
+      return edenWithCSRFRetry(() => userLlm.generate.post(request));
     },
 
     async listModels(): Promise<
@@ -143,20 +141,7 @@ export const llmAPI = {
         isDefault: boolean;
       }>
     > {
-      return APIClient.get<
-        Array<{
-          id: string;
-          name: string;
-          description?: string;
-          source: string;
-          apiEndpoint: string;
-          apiType: string;
-          provider: string;
-          providerId: string;
-          isAvailable: boolean;
-          isDefault: boolean;
-        }>
-      >(API_ROUTES.USER_LLM.LIST_MODELS);
+      return edenWithCSRFRetry(() => userLlm.capabilities.get());
     },
   },
 
@@ -164,12 +149,10 @@ export const llmAPI = {
   async invalidateCache(
     type: 'models' | 'providers' | 'all' = 'all'
   ): Promise<{ success: boolean; message: string }> {
-    return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_INVALIDATE, {
-      type,
-    });
+    return edenWithCSRFRetry(() => llm.cache.invalidate.post({ type }));
   },
 
   async refreshCache(): Promise<{ success: boolean; message: string }> {
-    return APIClient.post<{ success: boolean; message: string }>(API_ROUTES.LLM.CACHE_REFRESH);
+    return edenWithCSRFRetry(() => llm.cache.refresh.post());
   },
 };
