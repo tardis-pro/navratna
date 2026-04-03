@@ -29,7 +29,7 @@ export function registerBaseBenchRoutes(
       }))
       .get(
         '/cases/:caseId',
-        ({ params, set }: { params: Record<string, string>; set: { status: number } }) => {
+        ({ params, set }) => {
           const testCase = baseBenchService.getCase(params.caseId);
           if (!testCase) {
             set.status = 404;
@@ -47,7 +47,7 @@ export function registerBaseBenchRoutes(
       )
       .post(
         '/evaluate',
-        ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+        ({ body, set }) => {
           const parsed = BaseBenchCaseEvaluationRequestSchema.safeParse(body);
           if (!parsed.success) {
             set.status = 400;
@@ -83,7 +83,7 @@ export function registerBaseBenchRoutes(
       )
       .post(
         '/evaluate/batch',
-        ({ body, set }: { body: Record<string, unknown>; set: { status: number } }) => {
+        ({ body, set }) => {
           const parsed = BaseBenchBatchEvaluationRequestSchema.safeParse(body);
           if (!parsed.success) {
             set.status = 400;
