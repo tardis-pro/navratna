@@ -217,6 +217,20 @@ export class AgentPlanningService {
       await this.storePlan(plan);
       await this.storePlanKnowledge(agent.id, plan, enhancedAnalysis);
 
+      await this.store.storeAgentActivity(agent.id, {
+        type: 'plan_generated',
+        duration: plan.estimatedDuration,
+        success: true,
+        metadata: {
+          planId: plan.id,
+          planType: plan.type,
+          planSteps: plan.steps.length,
+          intent: this.getPrimaryIntent(analysis) || this.extractPlanIntent(plan),
+          plan,
+        },
+        timestamp: plan.created_at,
+      });
+
       // Publish plan generated event
       await this.publishPlanningEvent('agent.plan.generated', {
         agentId: agent.id,
