@@ -12,7 +12,7 @@ class BrowserLogger implements Logger {
 
   info(message: string, ...args: unknown[]): void {
     if (this.isDevelopment) {
-      console.info(`[INFO] ${message}`, ...args);
+      console.warn(`[INFO] ${message}`, ...args);
     }
   }
 
@@ -28,7 +28,7 @@ class BrowserLogger implements Logger {
 
   debug(message: string, ...args: unknown[]): void {
     if (this.isDevelopment) {
-      console.debug(`[DEBUG] ${message}`, ...args);
+      console.warn(`[DEBUG] ${message}`, ...args);
     }
   }
 }
