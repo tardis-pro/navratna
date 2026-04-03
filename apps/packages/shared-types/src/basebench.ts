@@ -267,3 +267,5 @@ export const BaseBenchSchemas = {
   BatchEvaluationResult: BaseBenchBatchEvaluationResultSchema,
   RunSummary: BaseBenchRunSummarySchema,
 };
+
+export type BaseBenchScoredCaseResult = BaseBenchCaseEvaluationResult;
