@@ -16,12 +16,14 @@ import { registerAgentCrudRoutes } from './routes/agents_crud_routes.js'
 import { registerAgentMemoryRoutes } from './routes/agent_memory_routes.js'
 import { registerAgentRoutes } from './routes/agent_routes.js'
 import { registerConstellationRoutes } from './routes/constellation_routes.js'
+import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
 
 let agentIntelligenceService: AgentIntelligenceService
 let capabilityDiscoveryService: CapabilityDiscoveryService
 let userLLMService: UserLLMService
 let securityService: SecurityService
 let semanticMemoryManager: Awaited<ReturnType<ServiceFactory['getSemanticMemoryManager']>>
+let memoryConsolidationScheduler: MemoryConsolidationScheduler
 
 export const agentIntelligenceFeature: Feature = {
   name: 'agent-intelligence',
@@ -34,7 +36,19 @@ export const agentIntelligenceFeature: Feature = {
     capabilityDiscoveryService = new CapabilityDiscoveryService(databaseService)
     userLLMService = new UserLLMService(new UnifiedModelSelectionFacade())
     securityService = SecurityService.getInstance()
-    semanticMemoryManager = await ServiceFactory.getInstance().getSemanticMemoryManager()
+    const factory = ServiceFactory.getInstance()
+    semanticMemoryManager = await factory.getSemanticMemoryManager()
+
+    const [memoryConsolidator, workingMemoryManager] = await Promise.all([
+      factory.getMemoryConsolidator(),
+      factory.getWorkingMemoryManager(),
+    ])
+    memoryConsolidationScheduler = new MemoryConsolidationScheduler(
+      memoryConsolidator,
+      workingMemoryManager
+    )
+    memoryConsolidationScheduler.start()
+
     logger.info('agent-intelligence feature initialized')
   },
 
@@ -46,5 +60,9 @@ export const agentIntelligenceFeature: Feature = {
     app.use(registerAgentRoutes())
     app.use(registerConstellationRoutes())
     return app
+  },
+
+  async shutdown(): Promise<void> {
+    memoryConsolidationScheduler?.stop()
   },
 }

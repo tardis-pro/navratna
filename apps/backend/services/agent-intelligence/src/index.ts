@@ -19,6 +19,7 @@ class AgentIntelligenceService extends BaseService {
 
   protected async initialize(): Promise<void> {
     await this.factory.initialize({ eventBusService: this.eventBusService })
+    this.addShutdownHandler(() => this.factory.shutdown())
     logger.info('agent-intelligence: services initialized')
   }
 
