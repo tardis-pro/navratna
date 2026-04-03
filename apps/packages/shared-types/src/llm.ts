@@ -15,8 +15,12 @@ export enum LLMProviderType {
   OPENAI = 'openai',
   LLMSTUDIO = 'llmstudio',
   ANTHROPIC = 'anthropic',
+  GOOGLE = 'google',
   CUSTOM = 'custom',
 }
+
+/** String union matching LLMProviderType values — use when string literals are needed instead of enum */
+export type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
 // LLM model information
 export const LLMModelSchema = z.object({
   id: z.string(),
@@ -807,10 +811,160 @@ export interface PendingLLMRequest {
   resolve?: (value: unknown) => void;
 }
 
+export type LLMArtifactType = 'code' | 'documentation' | 'test' | 'prd';
+
 export interface SerializablePendingRequest {
   requestId: string;
   timestamp: number;
   timeoutMs: number;
   service: string;
   expiresAt: number;
+}
+
+// User LLM provider management DTOs
+
+export interface CreateUserLLMProviderRequest {
+  name: string;
+  description?: string;
+  type: UserLLMProviderType;
+  baseUrl?: string;
+  apiKey?: string;
+  defaultModel?: string;
+  configuration?: Record<string, unknown>;
+  priority?: number;
+}
+
+export interface UpdateUserLLMProviderRequest {
+  name?: string;
+  description?: string;
+  baseUrl?: string;
+  defaultModel?: string;
+  priority?: number;
+  configuration?: Record<string, unknown>;
+}
+
+export interface UpdateApiKeyRequest {
+  apiKey: string;
+}
+
+export interface UserLLMGenerateRequest {
+  prompt: string;
+  systemPrompt?: string;
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+}
+
+export interface LLMProviderShape {
+  id: string;
+  name: string;
+  userId: string;
+  description?: string;
+  type: UserLLMProviderType;
+  baseUrl?: string;
+  apiKeyEncrypted?: string;
+  isDefault: boolean;
+  configuration?: Record<string, unknown>;
+  isActive?: boolean;
+  defaultModel?: string;
+  modelId?: string;
+}
+
+export enum AgentLLMProvider {
+  ANTHROPIC = 'anthropic',
+  OPENAI_CODEX = 'openai-codex',
+  GITHUB_COPILOT = 'github-copilot',
+  GOOGLE_GEMINI_CLI = 'google-gemini-cli',
+  OPENAI = 'openai',
+  GOOGLE = 'google',
+  GROQ = 'groq',
+  MISTRAL = 'mistral',
+  OPENROUTER = 'openrouter',
+}
+
+export interface LLMProviderCredentialRecord {
+  id: string;
+  userId: string;
+  provider: AgentLLMProvider;
+  credentialType: 'api_key' | 'oauth';
+  encryptedApiKey?: string;
+  encryptedAccessToken?: string;
+  encryptedRefreshToken?: string;
+  tokenExpiresAt?: Date;
+  isActive: boolean;
+  connectedAt: Date;
+  lastUsedAt?: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ModelForUser {
+  id: string;
+  name: string;
+  description?: string;
+  source: string;
+  apiEndpoint?: string;
+  apiType?: string;
+  provider: string;
+  providerId: string;
+  isAvailable: boolean;
+  isDefault: boolean;
+}
+
+export interface CreateLLMProviderRequest {
+  name: string;
+  description?: string;
+  type: LLMProviderType;
+  baseUrl: string;
+  apiKey?: string;
+  defaultModel?: string;
+  modelsList?: string[];
+  configuration?: {
+    timeout?: number;
+    retries?: number;
+    rateLimit?: number;
+    headers?: Record<string, string>;
+    customEndpoints?: {
+      models?: string;
+      chat?: string;
+      completions?: string;
+    };
+  };
+  priority?: number;
+}
+
+export interface UpdateLLMProviderRequest {
+  name?: string;
+  description?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  defaultModel?: string;
+  modelsList?: string[];
+  configuration?: unknown;
+  priority?: number;
+  status?: LLMProviderStatus;
+}
+
+export interface LLMProviderResponse {
+  id: string;
+  name: string;
+  description?: string;
+  type: LLMProviderType;
+  baseUrl: string;
+  hasApiKey: boolean;
+  defaultModel?: string;
+  modelsList?: string[];
+  configuration?: unknown;
+  status: LLMProviderStatus;
+  isActive: boolean;
+  priority: number;
+  stats: {
+    totalRequests: string;
+    totalTokensUsed: string;
+    totalErrors: string;
+    errorRate: number;
+    lastUsedAt?: Date;
+    healthStatus?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
 }
