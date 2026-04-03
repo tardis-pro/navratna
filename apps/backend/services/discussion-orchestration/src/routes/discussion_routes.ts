@@ -54,6 +54,12 @@ export function registerDiscussionRoutes(
             ctx.set.status = 500
             return { success: false, error: 'Failed to list discussions' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Optional(t.Array(t.Any())), total: t.Optional(t.Number()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/', async (ctx) => {
@@ -88,6 +94,10 @@ export function registerDiscussionRoutes(
             settings: t.Optional(t.Record(t.String(), t.Unknown())),
             turnStrategy: t.Optional(t.Record(t.String(), t.Unknown())),
           }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/search', async (ctx) => {
@@ -104,6 +114,12 @@ export function registerDiscussionRoutes(
             ctx.set.status = 500
             return { success: false, error: 'Failed to search discussions' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Optional(t.Array(t.Any())), total: t.Optional(t.Number()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id', async (ctx) => {
@@ -119,6 +135,12 @@ export function registerDiscussionRoutes(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion' }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id/summary', async (ctx) => {
@@ -201,6 +223,25 @@ export function registerDiscussionRoutes(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion summary' }
           }
+        }, {
+          response: {
+            200: t.Object({
+              success: t.Literal(true),
+              data: t.Object({
+                id: t.String(),
+                title: t.Any(),
+                status: t.Any(),
+                participants: t.Array(t.String()),
+                currentTurn: t.Any(),
+                messageCount: t.Number(),
+                startedAt: t.Any(),
+                endedAt: t.Any(),
+                activeHuddles: t.Number(),
+              }),
+            }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .put('/:id', async (ctx) => {
@@ -218,6 +259,19 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to update discussion',
             }
           }
+        }, {
+          body: t.Object({
+            title: t.Optional(t.String()),
+            description: t.Optional(t.String()),
+            topic: t.Optional(t.String()),
+            status: t.Optional(t.String()),
+            settings: t.Optional(t.Record(t.String(), t.Unknown())),
+            turnStrategy: t.Optional(t.Record(t.String(), t.Unknown())),
+          }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/start', async (ctx) => {
@@ -233,6 +287,11 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to start discussion',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/end', async (ctx) => {
@@ -249,6 +308,12 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to end discussion',
             }
           }
+        }, {
+          body: t.Object({ reason: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/participants', async (ctx) => {
@@ -274,6 +339,10 @@ export function registerDiscussionRoutes(
             agentId: t.String(),
             role: t.Optional(t.String()),
           }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .delete('/:id/participants/:pid', async (ctx) => {
@@ -289,6 +358,11 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to remove participant',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/participants/:pid/messages', async (ctx) => {
@@ -322,6 +396,10 @@ export function registerDiscussionRoutes(
             messageType: t.Optional(t.String()),
             metadata: t.Optional(t.Record(t.String(), t.Unknown())),
           }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.Optional(t.Any()) }),
+          },
         })
 
         .get('/:id/messages', async (ctx) => {
@@ -340,6 +418,12 @@ export function registerDiscussionRoutes(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get messages' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Array(t.Any()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/advance-turn', async (ctx) => {
@@ -361,6 +445,12 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to advance turn',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            403: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id/analytics', async (ctx) => {
@@ -372,6 +462,11 @@ export function registerDiscussionRoutes(
             ctx.set.status = 500
             return { success: false, error: 'Failed to get discussion analytics' }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/turns/request', async (ctx) => {
@@ -392,6 +487,15 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to request turn',
             }
           }
+        }, {
+          body: t.Object({
+            participantId: t.Optional(t.String()),
+            reason: t.Optional(t.String()),
+          }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/huddle', async (ctx) => {
@@ -427,6 +531,17 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to create huddle',
             }
           }
+        }, {
+          body: t.Object({
+            initiatorId: t.Optional(t.String()),
+            participants: t.Optional(t.Array(t.String())),
+            topic: t.Optional(t.String()),
+            context: t.Optional(t.String()),
+          }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/huddles/:huddle_id/resolve', async (ctx) => {
@@ -442,6 +557,12 @@ export function registerDiscussionRoutes(
               error: error instanceof Error ? error.message : 'Failed to resolve huddle',
             }
           }
+        }, {
+          body: t.Object({ summary: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
     })
 }

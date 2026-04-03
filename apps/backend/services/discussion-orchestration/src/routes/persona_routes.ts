@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withNginxAuth, t } from '@uaip/middleware'
 import { PersonaService } from '@uaip/shared-services/persona'
 import { logger } from '@uaip/utils'
 
@@ -24,6 +24,12 @@ export function registerPersonaRoutes(personaService: PersonaService) {
             ctx.set.status = 500
             return { success: false, error: 'Failed to list personas' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Optional(t.Array(t.Any())), total: t.Optional(t.Number()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/', async (ctx) => {
@@ -46,6 +52,20 @@ export function registerPersonaRoutes(personaService: PersonaService) {
               error: error instanceof Error ? error.message : 'Failed to create persona',
             }
           }
+        }, {
+          body: t.Object({
+            name: t.String(),
+            description: t.Optional(t.String()),
+            role: t.Optional(t.String()),
+            traits: t.Optional(t.Array(t.Any())),
+            expertise: t.Optional(t.Array(t.String())),
+            systemPrompt: t.Optional(t.String()),
+            metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+          }, { additionalProperties: true }),
+          response: {
+            201: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/search', async (ctx) => {
@@ -62,6 +82,12 @@ export function registerPersonaRoutes(personaService: PersonaService) {
             ctx.set.status = 500
             return { success: false, error: 'Failed to search personas' }
           }
+        }, {
+          query: t.Object({ limit: t.Optional(t.String()), offset: t.Optional(t.String()) }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Optional(t.Array(t.Any())), total: t.Optional(t.Number()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/recommendations', async (ctx) => {
@@ -79,6 +105,12 @@ export function registerPersonaRoutes(personaService: PersonaService) {
             ctx.set.status = 500
             return { success: false, error: 'Failed to get persona recommendations' }
           }
+        }, {
+          query: t.Object({ context: t.Optional(t.String()), limit: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Array(t.Any()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/templates', async (ctx) => {
@@ -91,6 +123,12 @@ export function registerPersonaRoutes(personaService: PersonaService) {
             ctx.set.status = 500
             return { success: false, error: 'Failed to get persona templates' }
           }
+        }, {
+          query: t.Object({ category: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Array(t.Any()) }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id', async (ctx) => {
@@ -106,6 +144,12 @@ export function registerPersonaRoutes(personaService: PersonaService) {
             ctx.set.status = 500
             return { success: false, error: 'Failed to get persona' }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .put('/:id', async (ctx) => {
@@ -137,6 +181,22 @@ export function registerPersonaRoutes(personaService: PersonaService) {
               error: error instanceof Error ? error.message : 'Failed to update persona',
             }
           }
+        }, {
+          body: t.Object({
+            name: t.Optional(t.String()),
+            description: t.Optional(t.String()),
+            role: t.Optional(t.String()),
+            traits: t.Optional(t.Array(t.Any())),
+            expertise: t.Optional(t.Array(t.String())),
+            systemPrompt: t.Optional(t.String()),
+            metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+          }, { additionalProperties: true }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            403: t.Object({ success: t.Literal(false), error: t.String() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .delete('/:id', async (ctx) => {
@@ -165,6 +225,13 @@ export function registerPersonaRoutes(personaService: PersonaService) {
               error: error instanceof Error ? error.message : 'Failed to delete persona',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            403: t.Object({ success: t.Literal(false), error: t.String() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .get('/:id/analytics', async (ctx) => {
@@ -176,6 +243,11 @@ export function registerPersonaRoutes(personaService: PersonaService) {
             ctx.set.status = 500
             return { success: false, error: 'Failed to get persona analytics' }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            500: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
 
         .post('/:id/validate', async (ctx) => {
@@ -195,6 +267,12 @@ export function registerPersonaRoutes(personaService: PersonaService) {
               error: error instanceof Error ? error.message : 'Failed to validate persona',
             }
           }
+        }, {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+            404: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
         })
     })
 }
