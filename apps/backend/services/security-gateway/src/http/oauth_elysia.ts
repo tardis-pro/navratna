@@ -304,12 +304,12 @@ export function registerOAuthRoutes() {
                 set.status = 400;
                 return { success: false, error: 'Repository name required' };
               }
-              set.status = 501;
-              return {
-                success: false,
-                error: 'Not implemented',
-                message: 'Get repo operation not yet implemented',
-              };
+              result = await oauthProviderService.getGitHubRepo(
+                user!.id,
+                providerId,
+                validated.repository
+              );
+              break;
             default:
               set.status = 400;
               return { success: false, error: `Unsupported operation: ${validated.operation}` };
@@ -379,12 +379,12 @@ export function registerOAuthRoutes() {
                 set.status = 400;
                 return { success: false, error: 'Message ID required' };
               }
-              set.status = 501;
-              return {
-                success: false,
-                error: 'Not implemented',
-                message: 'Get message operation not yet implemented',
-              };
+              result = await oauthProviderService.getGmailMessage(
+                user!.id,
+                providerId,
+                validated.message_id
+              );
+              break;
             default:
               set.status = 400;
               return { success: false, error: `Unsupported operation: ${validated.operation}` };
