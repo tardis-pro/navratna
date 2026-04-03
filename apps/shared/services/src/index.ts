@@ -109,6 +109,14 @@ export { CapabilityDiscoveryService } from './capability_discovery_service';
 export { SecurityValidationService } from './security_validation_service';
 export { ModelCapabilityDetector } from './capabilities/model_capability_detector';
 export { AgentTaskTypeResolver } from './services/agent_task_type_resolver';
+export {
+  ToolRegistryCapabilityResolver,
+} from './agent/agent-intelligence/capability_resolver';
+export type {
+  PlanStepRequirement,
+  CapabilitySourceBreakdown,
+  PlanCapabilityResolutionResult,
+} from './agent/agent-intelligence/capability_resolver';
 
 // Business Logic Services
 export { ToolManagementService } from './tool_management_service';

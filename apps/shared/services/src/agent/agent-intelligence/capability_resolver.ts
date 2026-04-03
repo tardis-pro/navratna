@@ -12,161 +12,103 @@ import { CapabilityDiscoveryService } from '../../capability_discovery_service';
 import { DatabaseService } from '../../database_service';
 import { ToolService } from '../../services/tool_service';
 
-// ============================================================================
-// Plan-based resolution types
-// ============================================================================
-
-/**
- * A single capability requirement extracted from an execution plan step.
- *
- * Callers construct these from `ExecutionPlan.steps` (or equivalent) and pass
- * the slice to `resolveFromPlanSteps`.
- */
 export interface PlanStepRequirement {
-  /** Step identifier (from ExecutionPlan.steps[].id). */
   stepId: string;
   /**
    * Step type string from the plan (e.g. `'api'`, `'database'`,
    * `'tool_execution'`). The resolver maps this to a `ToolCategory`.
+   * Normalized to lowercase + underscores before lookup.
    */
   stepType: string;
-  /** Human-readable description of what the step needs. */
   description: string;
   /**
-   * Explicit category hint — when provided this overrides the
-   * `stepType → ToolCategory` mapping.
+   * Explicit category override — when provided, skips the stepType→category
+   * mapping and uses this value directly.
    */
   category?: ToolCategory;
   /**
-   * Whether this step is mandatory. Unresolved required steps appear in
+   * When `true`, unresolved steps are reported in
    * `PlanCapabilityResolutionResult.unresolvedSteps`.
    */
   required: boolean;
 }
 
-/** Source breakdown for observability. */
 export interface CapabilitySourceBreakdown {
-  /** Tools discovered through dynamic registry lookup by category. */
   dynamic: number;
-  /** Tools sourced from the agent's static `attachedTools` list. */
   fallback: number;
 }
 
-/**
- * Result returned by `resolveFromPlanSteps`.
- *
- * `resolvedTools` is the merged, deduplicated list that should be used for
- * execution. `unresolvedSteps` lists step IDs that are marked `required` but
- * for which no tool was found — the caller can surface these as capability
- * gaps.
- */
 export interface PlanCapabilityResolutionResult {
-  /** Merged, deduplicated `ToolDefinition` list (dynamic ∪ fallback). */
   resolvedTools: ToolDefinition[];
-  /** Source counters for observability / debugging. */
   sourceBreakdown: CapabilitySourceBreakdown;
-  /**
-   * Step IDs for required steps where no matching tool was found in either
-   * the dynamic lookup or the fallback list.
-   */
   unresolvedSteps: string[];
 }
 
-// ============================================================================
-// Step-type → ToolCategory mapping table
-// ============================================================================
-
-/**
- * Maps common plan step type strings to `ToolCategory` values.
- *
- * Entries are lower-cased so the lookup is case-insensitive. Add new
- * mappings here when new step types are introduced in the planning layer.
- */
 const STEP_TYPE_TO_CATEGORY: Readonly<Record<string, ToolCategory>> = {
-  // API / HTTP
   api: ToolCategory.API,
   http: ToolCategory.API,
   rest: ToolCategory.API,
   webhook: ToolCategory.API,
-  // Database
   database: ToolCategory.DATABASE,
   db: ToolCategory.DATABASE,
   sql: ToolCategory.DATABASE,
   query: ToolCategory.DATABASE,
-  // Web search / browsing
   web_search: ToolCategory.WEB_SEARCH,
   search: ToolCategory.WEB_SEARCH,
   browse: ToolCategory.WEB_SEARCH,
   scrape: ToolCategory.WEB_SEARCH,
-  // Code execution
   code_execution: ToolCategory.CODE_EXECUTION,
   code: ToolCategory.CODE_EXECUTION,
   execute: ToolCategory.CODE_EXECUTION,
   script: ToolCategory.CODE_EXECUTION,
   run: ToolCategory.CODE_EXECUTION,
-  // File system
   file_system: ToolCategory.FILE_SYSTEM,
   file: ToolCategory.FILE_SYSTEM,
   storage: ToolCategory.FILE_SYSTEM,
   filesystem: ToolCategory.FILE_SYSTEM,
-  // Computation
   computation: ToolCategory.COMPUTATION,
   compute: ToolCategory.COMPUTATION,
   math: ToolCategory.COMPUTATION,
   calculate: ToolCategory.COMPUTATION,
-  // Communication
   communication: ToolCategory.COMMUNICATION,
   email: ToolCategory.COMMUNICATION,
   message: ToolCategory.COMMUNICATION,
   notify: ToolCategory.COMMUNICATION,
   slack: ToolCategory.COMMUNICATION,
-  // Knowledge graph
   knowledge_graph: ToolCategory.KNOWLEDGE_GRAPH,
   knowledge: ToolCategory.KNOWLEDGE_GRAPH,
   graph: ToolCategory.KNOWLEDGE_GRAPH,
   neo4j: ToolCategory.KNOWLEDGE_GRAPH,
-  // Deployment
   deployment: ToolCategory.DEPLOYMENT,
   deploy: ToolCategory.DEPLOYMENT,
   release: ToolCategory.DEPLOYMENT,
   publish: ToolCategory.DEPLOYMENT,
-  // Monitoring
   monitoring: ToolCategory.MONITORING,
   monitor: ToolCategory.MONITORING,
   observability: ToolCategory.MONITORING,
   metrics: ToolCategory.MONITORING,
-  // Analysis
   analysis: ToolCategory.ANALYSIS,
   analyze: ToolCategory.ANALYSIS,
   analytics: ToolCategory.ANALYSIS,
   evaluate: ToolCategory.ANALYSIS,
-  // Generation / artifacts
   generation: ToolCategory.GENERATION,
   generate: ToolCategory.GENERATION,
   artifact_generation: ToolCategory.GENERATION,
   artifact: ToolCategory.GENERATION,
   synthesize: ToolCategory.GENERATION,
-  // System
   system: ToolCategory.SYSTEM,
   os: ToolCategory.SYSTEM,
-  // Network
   network: ToolCategory.NETWORK,
   tcp: ToolCategory.NETWORK,
-  // Development tooling
   development: ToolCategory.DEVELOPMENT,
   dev: ToolCategory.DEVELOPMENT,
   build: ToolCategory.DEVELOPMENT,
   lint: ToolCategory.DEVELOPMENT,
   test: ToolCategory.DEVELOPMENT,
-  // MCP / generic tool execution
   mcp: ToolCategory.MCP,
   tool_execution: ToolCategory.MCP,
   tool: ToolCategory.MCP,
 };
-
-// ============================================================================
-// Main resolver class
-// ============================================================================
 
 export class ToolRegistryCapabilityResolver implements CapabilityResolver {
   private capabilityDiscoveryService: CapabilityDiscoveryService;
@@ -182,8 +124,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     this.capabilityDiscoveryService =
       capabilityDiscoveryService || new CapabilityDiscoveryService(new DatabaseService());
   }
-
-  // ─── CapabilityResolver interface ─────────────────────────────────────────
 
   async lookup(toolName: string): Promise<ToolDefinition | null> {
     try {
@@ -228,14 +168,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     }
   }
 
-  /**
-   * Resolves capabilities using the agent's static `toolRegistry` plus a
-   * supplemental semantic search via `CapabilityDiscoveryService`.
-   *
-   * Prefer `resolveFromPlanSteps` when a typed execution plan is available,
-   * as it performs targeted category-based lookups rather than a broad
-   * semantic search.
-   */
   async resolveCapabilities(
     agentId: string,
     context: Record<string, unknown>
@@ -274,8 +206,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     return Array.from(deduplicated.values());
   }
 
-  // ─── Plan-based dynamic resolution ────────────────────────────────────────
-
   /**
    * Resolves tool capabilities based on a plan's step requirements.
    *
@@ -300,7 +230,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       attachedToolCount: attachedTools.length,
     });
 
-    // ── 1. Build category → step-IDs mapping (avoids duplicate queries) ──────
     const categoryToStepIds = new Map<ToolCategory, string[]>();
     const unmappedStepIds = new Set<string>();
 
@@ -319,7 +248,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       }
     }
 
-    // ── 2. Dynamic registry lookup per category ───────────────────────────────
     const dynamicToolsById = new Map<string, ToolDefinition>();
     const resolvedCategoryStepIds = new Set<string>();
 
@@ -353,7 +281,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
 
     const dynamicTools = Array.from(dynamicToolsById.values());
 
-    // ── 3. Compute unresolved required steps ──────────────────────────────────
     const unresolvedSteps = steps
       .filter(
         (s) =>
@@ -367,11 +294,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       logger.warn('Required plan steps could not be dynamically resolved', { unresolvedSteps });
     }
 
-    // ── 4. Merge dynamic results with attachedTools ───────────────────────────
-    //
-    // When dynamic lookup returns nothing at all, attachedTools acts as the
-    // complete fallback. Otherwise, attachedTools supplements the dynamic set
-    // with any enabled tools not already present (deduplicated by id).
     const enabledAttached = attachedTools.filter((t) => t.isEnabled);
 
     if (dynamicTools.length === 0 && enabledAttached.length > 0) {
@@ -382,12 +304,10 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
 
     const deduplicated = new Map<string, ToolDefinition>();
 
-    // Dynamic results take priority (inserted first)
     for (const tool of dynamicTools) {
       deduplicated.set(tool.id, tool);
     }
 
-    // attachedTools fill gaps
     for (const tool of enabledAttached) {
       if (!deduplicated.has(tool.id)) {
         deduplicated.set(tool.id, tool);
@@ -395,8 +315,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     }
 
     const resolvedTools = Array.from(deduplicated.values());
-
-    // Count how many of the final set came from each source
     const dynamicIds = new Set(dynamicTools.map((t) => t.id));
     const fallbackCount = resolvedTools.filter((t) => !dynamicIds.has(t.id)).length;
 
@@ -417,9 +335,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     };
   }
 
-  // ─── Private helpers ──────────────────────────────────────────────────────
-
-  /** Lazily instantiates `ToolService` using the singleton pattern. */
   private getToolService(): ToolService {
     if (this.toolService === null) {
       this.toolService = ToolService.getInstance();
@@ -427,27 +342,11 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     return this.toolService;
   }
 
-  /**
-   * Maps a plan step type string to a `ToolCategory`.
-   *
-   * The comparison is case-insensitive and supports underscore/hyphen variants
-   * (e.g. `'web-search'` and `'web_search'` both resolve).
-   *
-   * Returns `null` when no mapping is found so callers can decide how to
-   * handle unmapped step types without throwing.
-   */
   private mapStepTypeToCategory(stepType: string): ToolCategory | null {
     const normalized = stepType.toLowerCase().replaceAll('-', '_');
     return STEP_TYPE_TO_CATEGORY[normalized] ?? null;
   }
 
-  /**
-   * Fetches enabled tools for a given `ToolCategory` from the control-plane
-   * database via `ToolService`.
-   *
-   * The returned rows are mapped to `ToolDefinition` objects; rows that fail
-   * the type check are silently skipped with a debug log.
-   */
   private async lookupToolsByCategory(category: ToolCategory): Promise<ToolDefinition[]> {
     const rows = await this.getToolService().findToolsByCategory(category);
 
@@ -461,13 +360,6 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
     return tools;
   }
 
-  /**
-   * Type-safe mapping from a raw DB row (`Record<string, unknown>`) returned
-   * by `ToolService.findToolsByCategory` to a typed `ToolDefinition`.
-   *
-   * Uses the `in` operator for narrowing — no type assertions.
-   * Returns `null` if the row is missing required fields.
-   */
   private mapToolRowToDefinition(row: Record<string, unknown>): ToolDefinition | null {
     if (
       !('id' in row) ||
