@@ -30,6 +30,9 @@ interface OAuthTokenResponse {
   scope?: string;
 }
 
+type OAuthProviderConfigWithRevoke = OAuthProviderConfig & { revokeUrl?: string };
+type OAuthProviderAgentConfig = { allowAgentAccess?: boolean };
+
 interface OAuthUserInfo {
   id: string;
   email?: string;
@@ -153,29 +156,27 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
-        // @ts-expect-error -- Property does not exist on inferred type
-        revokeUrl: (providerConfig as unknown).revokeUrl,
+        revokeUrl: (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl,
         isEnabled: providerConfig.isEnabled || true,
       });
       // @ts-expect-error -- Argument type mismatch
       this.providers.set(savedProvider.id, savedProvider as unknown);
 
+      const savedProviderAgentCfg = savedProvider.agentConfig as OAuthProviderAgentConfig | undefined;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
         details: {
           action: 'create_oauth_provider',
           providerId: savedProvider.id,
           providerType: savedProvider.type,
-          // @ts-expect-error -- Property does not exist on inferred type
-          agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
+          agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
         },
       });
 
       logger.info('OAuth provider created', {
         providerId: savedProvider.id,
         type: savedProvider.type,
-        // @ts-expect-error -- Property does not exist on inferred type
-        agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
+        agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
       });
 
       return savedProvider as unknown;
@@ -933,23 +934,165 @@ export class OAuthProviderService {
   /**
    * Get GitHub repositories for an agent
    */
-  public async getGitHubRepos(_agentId: string, _providerId: string): Promise<unknown[]> {
-    // This would implement GitHub API calls using the agent's OAuth token
-    // For now, return empty array as placeholder
-    return [];
+  public async getGitHubRepos(agentId: string, providerId: string): Promise<unknown[]> {
+    const accessToken = await this.getAgentAccessToken(agentId, providerId);
+    if (!accessToken) {
+      logger.warn('No access token available for GitHub repos', { agentId, providerId });
+      return [];
+    }
+
+    const response = await fetch(
+      'https://api.github.com/user/repos?type=all&sort=updated&per_page=30',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const message =
+        typeof errorBody?.message === 'string'
+          ? errorBody.message
+          : 'GitHub API request failed';
+      logger.error('GitHub repos API error', {
+        agentId,
+        providerId,
+        status: response.status,
+        message,
+      });
+      throw new ApiError(response.status, `GitHub API error: ${message}`, 'GITHUB_API_ERROR');
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  }
+
+  public async getGitHubRepo(
+    agentId: string,
+    providerId: string,
+    repository: string
+  ): Promise<unknown> {
+    const accessToken = await this.getAgentAccessToken(agentId, providerId);
+    if (!accessToken) {
+      throw new ApiError(401, 'No OAuth connection found for GitHub', 'NO_OAUTH_CONNECTION');
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${repository}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const message =
+        typeof errorBody?.message === 'string'
+          ? errorBody.message
+          : 'GitHub API request failed';
+      logger.error('GitHub repo API error', {
+        agentId,
+        providerId,
+        repository,
+        status: response.status,
+        message,
+      });
+      throw new ApiError(response.status, `GitHub API error: ${message}`, 'GITHUB_API_ERROR');
+    }
+
+    return response.json();
   }
 
   /**
    * Get Gmail messages for an agent
    */
   public async getGmailMessages(
-    _agentId: string,
-    _providerId: string,
-    _options: unknown
+    agentId: string,
+    providerId: string,
+    query: unknown
   ): Promise<unknown[]> {
-    // This would implement Gmail API calls using the agent's OAuth token
-    // For now, return empty array as placeholder
-    return [];
+    const accessToken = await this.getAgentAccessToken(agentId, providerId);
+    if (!accessToken) {
+      logger.warn('No access token available for Gmail messages', { agentId, providerId });
+      return [];
+    }
+
+    const params = new URLSearchParams({ maxResults: '20' });
+    if (typeof query === 'string' && query.length > 0) {
+      params.set('q', query);
+    }
+
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const message =
+        typeof errorBody?.error?.message === 'string'
+          ? errorBody.error.message
+          : 'Gmail API request failed';
+      logger.error('Gmail messages API error', {
+        agentId,
+        providerId,
+        status: response.status,
+        message,
+      });
+      throw new ApiError(response.status, `Gmail API error: ${message}`, 'GMAIL_API_ERROR');
+    }
+
+    const data = await response.json();
+    return Array.isArray(data?.messages) ? data.messages : [];
+  }
+
+  public async getGmailMessage(
+    agentId: string,
+    providerId: string,
+    messageId: string
+  ): Promise<unknown> {
+    const accessToken = await this.getAgentAccessToken(agentId, providerId);
+    if (!accessToken) {
+      throw new ApiError(401, 'No OAuth connection found for Gmail', 'NO_OAUTH_CONNECTION');
+    }
+
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const message =
+        typeof errorBody?.error?.message === 'string'
+          ? errorBody.error.message
+          : 'Gmail API request failed';
+      logger.error('Gmail message API error', {
+        agentId,
+        providerId,
+        messageId,
+        status: response.status,
+        message,
+      });
+      throw new ApiError(response.status, `Gmail API error: ${message}`, 'GMAIL_API_ERROR');
+    }
+
+    return response.json();
   }
 
   /**

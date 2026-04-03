@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { UserToolPreferencesService } from '@uaip/shared-services';
 
+import { getAuthUser, getErrorMessage } from './context_helpers.js';
+
 const service = new UserToolPreferencesService();
 async function getService(): Promise<UserToolPreferencesService> {
   return service;
@@ -24,11 +26,11 @@ const setPreferencesSchema = z.object({
 export function registerToolPreferenceRoutes() {
   return new Elysia().group('/api/v1/users', (app) => withRequiredAuth(app)
     // GET /:userId/tool-preferences
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .get('/:userId/tool-preferences', async ({ set, params, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .get('/:userId/tool-preferences', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
+      const { userId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,
@@ -41,11 +43,11 @@ export function registerToolPreferenceRoutes() {
     })
   
     // GET /:userId/available-tools
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .get('/:userId/available-tools', async ({ set, params, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .get('/:userId/available-tools', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
+      const { userId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,
@@ -58,11 +60,11 @@ export function registerToolPreferenceRoutes() {
     })
   
     // POST /:userId/tools/set-preferences
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .post('/:userId/tools/set-preferences', async ({ set, params, body, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .post('/:userId/tools/set-preferences', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params, body } = ctx;
+      const { userId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,
@@ -92,11 +94,11 @@ export function registerToolPreferenceRoutes() {
     })
   
     // GET /:userId/tool-preferences/:toolId
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .get('/:userId/tool-preferences/:toolId', async ({ set, params, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId, toolId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .get('/:userId/tool-preferences/:toolId', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
+      const { userId, toolId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,
@@ -113,11 +115,11 @@ export function registerToolPreferenceRoutes() {
     })
   
     // GET /:userId/favorite-tools
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .get('/:userId/favorite-tools', async ({ set, params, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .get('/:userId/favorite-tools', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
+      const { userId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,
@@ -130,11 +132,11 @@ export function registerToolPreferenceRoutes() {
     })
   
     // GET /:userId/tool-usage-stats
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .get('/:userId/tool-usage-stats', async ({ set, params, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .get('/:userId/tool-usage-stats', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
+      const { userId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,
@@ -147,11 +149,11 @@ export function registerToolPreferenceRoutes() {
     })
   
     // POST /:userId/tools/:toolId/check-access
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    .post('/:userId/tools/:toolId/check-access', async ({ set, params, user }) => {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const { userId, toolId } = params as unknown;
-      if (user!.id !== userId && user!.role !== 'system_admin' && user!.role !== 'admin') {
+    .post('/:userId/tools/:toolId/check-access', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, params } = ctx;
+      const { userId, toolId } = params as Record<string, string>;
+      if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
           success: false,

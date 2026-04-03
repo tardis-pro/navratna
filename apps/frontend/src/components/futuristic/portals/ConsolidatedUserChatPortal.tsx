@@ -57,6 +57,7 @@ import { PromptSuggestions as _PromptSuggestions } from '../../chat/PromptSugges
 import { ConversationTopicDisplay as _ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
 import { DiscussionTrigger as _DiscussionTrigger } from '../../DiscussionTrigger';
 import { MessageType } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 // Interfaces
 interface UserContact {
@@ -288,7 +289,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
           }
         }
       } catch (error) {
-        console.error('Error loading contacts:', error);
+        logger.error('Error loading contacts:', error);
         // Fallback to agents only
         const agentContacts: UserContact[] = agentList.map((agent) => ({
           id: agent.id,
@@ -527,7 +528,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         callType: 'voice',
       });
     } catch (error) {
-      console.error('Failed to start voice call:', error);
+      logger.error('Failed to start voice call:', error);
     }
   };
 
@@ -570,7 +571,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         callType: 'video',
       });
     } catch (error) {
-      console.error('Failed to start video call:', error);
+      logger.error('Failed to start video call:', error);
     }
   };
 
@@ -683,7 +684,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
         setChatWindows((prev) => [...prev, newWindow]);
         setCurrentMessage((prev) => ({ ...prev, [newWindow.id]: '' }));
       } catch (error) {
-        console.error('Failed to open chat window:', error);
+        logger.error('Failed to open chat window:', error);
       }
     },
     [contacts]
@@ -808,7 +809,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
           });
         }
       } catch (error) {
-        console.error('Chat error:', error);
+        logger.error('Chat error:', error);
         setChatWindows((prev) =>
           prev.map((w) =>
             w.id === windowId
@@ -900,7 +901,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
           });
         }
       } catch (error) {
-        console.error('Portal chat error:', error);
+        logger.error('Portal chat error:', error);
         const errorMessage: ChatMessage = {
           id: `msg-${Date.now()}-error`,
           content: 'Sorry, I encountered an error. Please try again.',
@@ -943,7 +944,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
         setAvailableUsers(_availableUsers);
     } catch (error) {
-      console.error('Error loading available users:', error);
+      logger.error('Error loading available users:', error);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -964,7 +965,7 @@ export const ConsolidatedUserChatPortal: React.FC<ConsolidatedUserChatPortalProp
 
       setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
     } catch (error) {
-      console.error('Error sending connection request:', error);
+      logger.error('Error sending connection request:', error);
     }
   };
 

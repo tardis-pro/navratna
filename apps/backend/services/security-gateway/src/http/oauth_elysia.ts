@@ -7,6 +7,8 @@ import { EnhancedAuthService } from '../services/enhanced_auth_service.js';
 import { AuditService } from '../services/audit_service.js';
 import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
 
+import { getAuthUser, getErrorMessage } from './context_helpers.js';
+
 let oauthProviderServiceSingleton: OAuthProviderService | null = null;
 let enhancedAuthServiceSingleton: EnhancedAuthService | null = null;
 let auditServiceSingleton: AuditService | null = null;
@@ -114,11 +116,10 @@ export function registerOAuthRoutes() {
         });
         return { success: true, authorization_url: url, state };
       } catch (error: unknown) {
-        // @ts-expect-error -- Property does not exist on inferred type
-        logger.error('Authorize failed', { error: error?.message });
+        const errorMsg = getErrorMessage(error);
+        logger.error('Authorize failed', { error: errorMsg });
         set.status = 400;
-        // @ts-expect-error -- Property does not exist on inferred type
-        return { success: false, error: error?.message || 'Authorization failed' };
+        return { success: false, error: errorMsg || 'Authorization failed' };
       }
     })
   
@@ -163,19 +164,18 @@ export function registerOAuthRoutes() {
           mfa_challenge: authResult.mfaChallenge,
         };
       } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
         const { auditService } = getServices();
         await auditService.logEvent({
           eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
           details: {
-            // @ts-expect-error -- Property does not exist on inferred type
-            error: error?.message,
+            error: errorMsg,
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
           },
         });
         set.status = 500;
-        // @ts-expect-error -- Property does not exist on inferred type
-        return { success: false, error: error?.message || 'OAuth callback failed' };
+        return { success: false, error: errorMsg || 'OAuth callback failed' };
       }
     })
   
@@ -219,21 +219,20 @@ export function registerOAuthRoutes() {
           session: { id: authResult.session.id, expiresAt: authResult.session.expiresAt },
         };
       } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
         const { auditService } = getServices();
         const parsedBody = AgentAuthRequestSchema.safeParse(body);
         await auditService.logEvent({
           eventType: AuditEventType.AGENT_AUTH_FAILED,
           agentId: parsedBody.success ? parsedBody.data.agent_id : undefined,
           details: {
-            // @ts-expect-error -- Property does not exist on inferred type
-            error: error?.message,
+            error: errorMsg,
             ipAddress: request.headers.get('x-forwarded-for') || '',
             userAgent: headers['user-agent'],
           },
         });
         set.status = 500;
-        // @ts-expect-error -- Property does not exist on inferred type
-        return { success: false, error: error?.message || 'Agent authentication failed' };
+        return { success: false, error: errorMsg || 'Agent authentication failed' };
       }
     })
   
@@ -272,9 +271,9 @@ export function registerOAuthRoutes() {
           message: 'OAuth provider connected successfully',
         };
       } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
         set.status = 500;
-        // @ts-expect-error -- Property does not exist on inferred type
-        return { success: false, error: error?.message || 'Failed to connect OAuth provider' };
+        return { success: false, error: errorMsg || 'Failed to connect OAuth provider' };
       }
     })
     )
@@ -282,8 +281,9 @@ export function registerOAuthRoutes() {
     // Provider-specific operations (require auth)
     .group('/agent', (g) => withRequiredAuth(g)
       // GitHub operations
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .post('/github/:providerId', async ({ set, params, body, user }) => {
+      .post('/github/:providerId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
         try {
           const { providerId } = providerIdParamsSchema.parse(params);
           const validated = z
@@ -297,26 +297,26 @@ export function registerOAuthRoutes() {
           let result: unknown;
           switch (validated.operation) {
             case 'list_repos':
-              result = await oauthProviderService.getGitHubRepos(user!.id, providerId);
+              result = await oauthProviderService.getGitHubRepos(user.id, providerId);
               break;
             case 'get_repo':
               if (!validated.repository) {
                 set.status = 400;
                 return { success: false, error: 'Repository name required' };
               }
-              set.status = 501;
-              return {
-                success: false,
-                error: 'Not implemented',
-                message: 'Get repo operation not yet implemented',
-              };
+              result = await oauthProviderService.getGitHubRepo(
+                user.id,
+                providerId,
+                validated.repository
+              );
+              break;
             default:
               set.status = 400;
               return { success: false, error: `Unsupported operation: ${validated.operation}` };
           }
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_SUCCESS,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
               providerId,
               operation: validated.operation,
@@ -326,28 +326,28 @@ export function registerOAuthRoutes() {
           });
           return { success: true, operation: validated.operation, data: result };
         } catch (error: unknown) {
+          const errorMsg = getErrorMessage(error);
           const { auditService } = getServices();
           const parsedParams = providerIdParamsSchema.safeParse(params);
           const parsedBody = optionalOperationSchema.safeParse(body);
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_FAILED,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
-              // @ts-expect-error -- Property does not exist on inferred type
-              error: error?.message,
+              error: errorMsg,
               providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
               operation: parsedBody.success ? parsedBody.data.operation : undefined,
             },
           });
           set.status = 500;
-          // @ts-expect-error -- Property does not exist on inferred type
-          return { success: false, error: error?.message || 'GitHub operation failed' };
+          return { success: false, error: errorMsg || 'GitHub operation failed' };
         }
       })
       
       // Gmail operations
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-      .post('/gmail/:providerId', async ({ set, params, body, user }) => {
+      .post('/gmail/:providerId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
         try {
           const { providerId } = providerIdParamsSchema.parse(params);
           const validated = z
@@ -369,7 +369,7 @@ export function registerOAuthRoutes() {
             case 'list_messages':
             case 'search_messages':
               result = await oauthProviderService.getGmailMessages(
-                user!.id,
+                user.id,
                 providerId,
                 validated.query
               );
@@ -379,19 +379,19 @@ export function registerOAuthRoutes() {
                 set.status = 400;
                 return { success: false, error: 'Message ID required' };
               }
-              set.status = 501;
-              return {
-                success: false,
-                error: 'Not implemented',
-                message: 'Get message operation not yet implemented',
-              };
+              result = await oauthProviderService.getGmailMessage(
+                user.id,
+                providerId,
+                validated.message_id
+              );
+              break;
             default:
               set.status = 400;
               return { success: false, error: `Unsupported operation: ${validated.operation}` };
           }
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_SUCCESS,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
               providerId,
               operation: validated.operation,
@@ -402,22 +402,21 @@ export function registerOAuthRoutes() {
           });
           return { success: true, operation: validated.operation, data: result };
         } catch (error: unknown) {
+          const errorMsg = getErrorMessage(error);
           const { auditService } = getServices();
           const parsedParams = providerIdParamsSchema.safeParse(params);
           const parsedBody = optionalOperationSchema.safeParse(body);
           await auditService.logEvent({
             eventType: AuditEventType.AGENT_OPERATION_FAILED,
-            agentId: user!.id,
+            agentId: user.id,
             details: {
-              // @ts-expect-error -- Property does not exist on inferred type
-              error: error?.message,
+              error: errorMsg,
               providerId: parsedParams.success ? parsedParams.data.providerId : undefined,
               operation: parsedBody.success ? parsedBody.data.operation : undefined,
             },
           });
           set.status = 500;
-          // @ts-expect-error -- Property does not exist on inferred type
-          return { success: false, error: error?.message || 'Gmail operation failed' };
+          return { success: false, error: errorMsg || 'Gmail operation failed' };
         }
       })
     )

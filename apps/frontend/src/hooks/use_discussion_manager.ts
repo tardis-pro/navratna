@@ -4,6 +4,7 @@ import type { FrontendAgentState as AgentState, FrontendMessage as Message } fro
 import { FrontendDocumentContext } from '@uaip/types';
 import { useAuth } from '../contexts/AuthContext';
 import { useAgents } from '../contexts/AgentContext';
+import { logger } from '@/utils/browser_logger';
 
 export interface DiscussionManagerConfig {
   topic: string;
@@ -103,7 +104,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         messageHistory: frontendMessages,
       }));
     } catch (error) {
-      console.error('Failed to refresh discussion:', error);
+      logger.error('Failed to refresh discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Unknown error',
@@ -178,7 +179,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         // Cleanup on unmount
         return () => {};
       } catch (error) {
-        console.error('🔌 Failed to initialize WebSocket connection:', error);
+        logger.error('🔌 Failed to initialize WebSocket connection:', error);
         setState((prev) => ({
           ...prev,
           lastError: `WebSocket connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -206,7 +207,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
       // Ensure we have a valid user ID
       if (!user?.id) {
-        console.error('❌ User authentication issue:', {
+        logger.error('❌ User authentication issue:', {
           user,
           userType: typeof user,
           userKeys: user ? Object.keys(user) : 'N/A',
@@ -288,7 +289,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       setDiscussionId(discussion.id);
       return discussion.id;
     } catch (error) {
-      console.error('Failed to create discussion:', error);
+      logger.error('Failed to create discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Failed to create discussion',
@@ -322,7 +323,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         // Note: We don't need to update local agents state anymore since we're using AgentContext
         // The WebSocket will handle the participant.joined event
       } catch (error) {
-        console.error('Failed to add agent:', error);
+        logger.error('Failed to add agent:', error);
         setState((prev) => ({
           ...prev,
           lastError: error instanceof Error ? error.message : 'Failed to add agent',
@@ -349,7 +350,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
         // The WebSocket will handle the participant.left event
       } catch (error) {
-        console.error('Failed to remove agent:', error);
+        logger.error('Failed to remove agent:', error);
         setState((prev) => ({
           ...prev,
           lastError: error instanceof Error ? error.message : 'Failed to remove agent',
@@ -377,7 +378,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
       // The WebSocket will handle the discussion.started event
     } catch (error) {
-      console.error('Failed to start discussion:', error);
+      logger.error('Failed to start discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Failed to start discussion',
@@ -393,7 +394,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
       // The WebSocket will handle the discussion.ended event
     } catch (error) {
-      console.error('Failed to stop discussion:', error);
+      logger.error('Failed to stop discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Failed to stop discussion',
@@ -428,7 +429,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
 
         // The WebSocket will handle the message.sent event
       } catch (error) {
-        console.error('Failed to send message:', error);
+        logger.error('Failed to send message:', error);
         setState((prev) => ({
           ...prev,
           lastError: error instanceof Error ? error.message : 'Failed to send message',
@@ -462,7 +463,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       await uaipAPI.discussions.update(discussionId, { status: 'paused' });
       // The WebSocket will handle the status.changed event
     } catch (error) {
-      console.error('Failed to pause discussion:', error);
+      logger.error('Failed to pause discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Failed to pause discussion',
@@ -477,7 +478,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       await uaipAPI.discussions.update(discussionId, { status: 'active' });
       // The WebSocket will handle the status.changed event
     } catch (error) {
-      console.error('Failed to resume discussion:', error);
+      logger.error('Failed to resume discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Failed to resume discussion',
@@ -507,7 +508,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
       });
       // Note: We don't need to clear agents state since we're using AgentContext
     } catch (error) {
-      console.error('Failed to reset discussion:', error);
+      logger.error('Failed to reset discussion:', error);
       setState((prev) => ({
         ...prev,
         lastError: error instanceof Error ? error.message : 'Failed to reset discussion',

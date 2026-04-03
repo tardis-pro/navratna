@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { IDSchema } from './common.js';
-import { SecurityLevel } from './security.js';
+import { SecurityLevel, UserType, AgentCapability } from './security.js';
 
 // User management types
 export const CreateUserRequestSchema = z.object({
@@ -178,6 +178,17 @@ export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
 // ===== ENTITY INTERFACES (for repositories) =====
 
+export interface UserAgentConfig {
+  capabilities?: AgentCapability[];
+  securityLevel?: SecurityLevel;
+  restrictions?: Record<string, unknown>;
+  monitoring?: { maxDailyOperations?: number; [key: string]: unknown };
+  maxConcurrentSessions?: number;
+  allowedProviders?: string[];
+  allowAgentAccess?: boolean;
+  [key: string]: unknown;
+}
+
 export interface UserEntity {
   id: string;
   email: string;
@@ -186,10 +197,17 @@ export interface UserEntity {
   lastName?: string;
   department?: string;
   role: string;
+  userType?: UserType;
   passwordHash?: string;
   isActive: boolean;
   isOAuthUser?: boolean;
   securityClearance?: SecurityLevel;
+  failedLoginAttempts?: number;
+  lockedUntil?: Date | null;
+  passwordChangedAt?: Date | null;
+  lastLoginAt?: Date | null;
+  permissions?: string[] | null;
+  agentConfig?: UserAgentConfig | null;
   createdAt: Date;
   updatedAt: Date;
 }

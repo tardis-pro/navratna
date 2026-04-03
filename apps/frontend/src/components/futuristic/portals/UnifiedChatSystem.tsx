@@ -33,6 +33,7 @@ import {
   MessageType,
   TurnStrategy,
 } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface ChatMessage {
   id: string;
@@ -392,7 +393,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       if (targetWindowForPersistence?.discussionId) {
         addMessageToDiscussion(targetWindowForPersistence.discussionId, agentMessage).catch(
           (error) => {
-            console.error('Failed to persist agent message to discussion:', error);
+            logger.error('Failed to persist agent message to discussion:', error);
           }
         );
       }
@@ -489,7 +490,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           [newWindow.id]: { width: 320, height: 400 },
         }));
       } catch (error) {
-        console.error('Failed to open chat discussion:', error);
+        logger.error('Failed to open chat discussion:', error);
 
         // Fallback to creating a new chat window
         openChatWindow(agentId, agentName);
@@ -552,7 +553,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           [newWindow.id]: { width: 320, height: 400 },
         }));
       } catch (error) {
-        console.error('Failed to open chat window:', error);
+        logger.error('Failed to open chat window:', error);
 
         // Fallback to non-persistent chat
         const newWindow: ChatWindow = {
@@ -628,7 +629,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           [newWindow.id]: { width: 320, height: 400 },
         }));
       } catch (error) {
-        console.error('Failed to create new chat window:', error);
+        logger.error('Failed to create new chat window:', error);
 
         // Fallback to non-persistent chat
         const newWindow: ChatWindow = {
@@ -728,7 +729,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         try {
           await addMessageToDiscussion(window.discussionId, userMessage);
         } catch (error) {
-          console.error('Failed to persist user message to discussion:', error);
+          logger.error('Failed to persist user message to discussion:', error);
         }
       }
 
@@ -777,7 +778,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           try {
             await addMessageToDiscussion(window.discussionId, agentMessage);
           } catch (error) {
-            console.error('Failed to persist agent message to discussion:', error);
+            logger.error('Failed to persist agent message to discussion:', error);
           }
         }
       };
@@ -820,7 +821,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           await appendFloatingMsg(restResponse);
         }
       } catch (error) {
-        console.error('Chat error:', error);
+        logger.error('Chat error:', error);
         clearFloatingLoadingState();
         setChatWindows((prev) =>
           prev.map((w) =>
@@ -956,7 +957,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           appendPortalAgentMessage(restResponse);
         }
       } catch (error) {
-        console.error('Portal chat error:', error);
+        logger.error('Portal chat error:', error);
 
         // Clear loading states on error
         if (loadingTimeouts.current[portalWindowId]) {
@@ -1056,7 +1057,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             timestamp: new Date().toISOString(),
           });
         } catch (error) {
-          console.error('Error notifying server of chat window closure:', error);
+          logger.error('Error notifying server of chat window closure:', error);
         }
       }
 
@@ -1215,7 +1216,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         try {
           await addMessageToDiscussion(window.discussionId, userMessage);
         } catch (error) {
-          console.error('Failed to persist user message to discussion:', error);
+          logger.error('Failed to persist user message to discussion:', error);
         }
       }
 
@@ -1250,7 +1251,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           try {
             await addMessageToDiscussion(window.discussionId, agentMessage);
           } catch (error) {
-            console.error('Failed to persist agent message to discussion:', error);
+            logger.error('Failed to persist agent message to discussion:', error);
           }
         }
       };
@@ -1292,7 +1293,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           await appendFloatingAgentMessage(restResponse);
         }
       } catch (error) {
-        console.error('Chat error:', error);
+        logger.error('Chat error:', error);
         setChatWindows((prev) =>
           prev.map((w) =>
             w.id === windowId
@@ -1388,7 +1389,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
       }
     } catch (error) {
-      console.error('Portal chat error:', error);
+      logger.error('Portal chat error:', error);
 
       // Clear loading states on error
       setLoadingStates((prev) => {

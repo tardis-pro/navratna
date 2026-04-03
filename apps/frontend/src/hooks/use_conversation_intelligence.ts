@@ -9,6 +9,7 @@ import {
   PromptSuggestion,
   AutocompleteSuggestion,
 } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface UseConversationIntelligenceOptions {
   agentId: string;
@@ -150,7 +151,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
 
     // Error handling
     socket.on('error', (error) => {
-      console.error('Conversation intelligence error:', error);
+      logger.error('Conversation intelligence error:', error);
       setState((prev) => ({
         ...prev,
         loading: {

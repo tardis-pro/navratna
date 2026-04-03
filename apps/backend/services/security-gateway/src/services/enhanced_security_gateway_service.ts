@@ -19,6 +19,22 @@ import {
   AgentSecurityPolicy,
 } from '@uaip/types';
 import { SecurityGatewayService } from './security_gateway_service.js';
+import type { PolicyEvaluationResult } from './security_gateway_service.js';
+
+type AgentRestrictions = {
+  monitoring: {
+    logLevel: string;
+    alertThresholds: Record<string, number>;
+  };
+  rateLimit?: {
+    requests: number;
+    windowMs: number;
+  };
+};
+
+type OperationInput = {
+  type?: string;
+};
 import { OAuthProviderService } from './oauth_provider_service.js';
 import { EnhancedAuthService } from './enhanced_auth_service.js';
 import { AuditService } from './audit_service.js';
@@ -487,7 +503,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       return undefined;
     }
 
-    const restrictions: unknown = {
+    const restrictions: AgentRestrictions = {
       monitoring: {
         logLevel: 'detailed',
         alertThresholds: {
@@ -511,7 +527,6 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       );
 
       if (hasHighRiskCapability) {
-        // @ts-expect-error -- Property does not exist on inferred type
         restrictions.rateLimit = {
           requests: 50,
           windowMs: 60 * 60 * 1000, // 1 hour
@@ -883,7 +898,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private buildEnhancedReasoningText(
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment,
-    policyResult: unknown,
+    policyResult: PolicyEvaluationResult,
     approvalRequired: boolean
   ): string {
     const baseReasoning = this.buildReasoningText(
@@ -983,8 +998,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   /**
    * Assess operation risk
    */
-  private assessOperationRisk(operation: unknown): RiskFactor {
-    // @ts-expect-error -- Property does not exist on inferred type
+  private assessOperationRisk(operation: OperationInput): RiskFactor {
     const operationType = operation.type || 'unknown';
     let score = 1; // Base score
     let level = RiskLevel.LOW;

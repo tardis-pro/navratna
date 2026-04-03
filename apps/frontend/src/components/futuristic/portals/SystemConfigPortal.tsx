@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { logger } from '@/utils/browser_logger';
 
 interface SystemConfigPortalProps {
   className?: string;
@@ -91,7 +92,7 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
       try {
         setConfig(JSON.parse(savedConfig));
       } catch (error) {
-        console.error('Failed to load system configuration:', error);
+        logger.error('Failed to load system configuration:', error);
       }
     }
   }, []);
@@ -103,7 +104,7 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
       localStorage.setItem('system-config', JSON.stringify(config));
       setLastSaved(new Date());
     } catch (error) {
-      console.error('Failed to save system configuration:', error);
+      logger.error('Failed to save system configuration:', error);
     } finally {
       setSaving(false);
     }

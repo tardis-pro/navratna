@@ -31,6 +31,7 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { projectsAPI, type ProjectCreate } from '../../../api/projects_api';
 import { toolsAPI } from '../../../api/tools_api';
+import { logger } from '@/utils/browser_logger';
 
 interface ProjectTemplate {
   id: string;
@@ -753,7 +754,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
 
           progress[toolId] = 'completed';
         } catch (error) {
-          console.error(`Failed to setup tool ${toolId}:`, error);
+          logger.error(`Failed to setup tool ${toolId}:`, error);
           progress[toolId] = 'error';
         }
 
@@ -801,7 +802,7 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
       resetOnboardingState();
       onClose();
     } catch (error) {
-      console.error('Failed to create project:', error);
+      logger.error('Failed to create project:', error);
       // You could add error state here to show user feedback
     }
   };

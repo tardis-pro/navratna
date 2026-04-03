@@ -6,6 +6,7 @@ import type {
 import { FrontendDocumentContext } from '@uaip/types';
 import { _LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';
+import { logger } from '@/utils/browser_logger';
 
 export interface DiscussionContext {
   topic: string;
@@ -137,7 +138,7 @@ export class DiscussionManager implements IDiscussionManager {
   public start(): void {
     if (Object.keys(this.agentContext.agents).length < 2) {
       const error = 'At least two agents are required to start a discussion.';
-      console.error(error);
+      logger.error(error);
       this.state.lastError = error;
       this.updateCallback(this.state);
       return;
@@ -145,7 +146,7 @@ export class DiscussionManager implements IDiscussionManager {
 
     if (!this.document) {
       const error = 'A document must be loaded to start a discussion.';
-      console.error(error);
+      logger.error(error);
       this.state.lastError = error;
       this.updateCallback(this.state);
       return;
@@ -166,7 +167,7 @@ export class DiscussionManager implements IDiscussionManager {
     // Start processing turns
 
     this.processNextTurn().catch((error) => {
-      console.error('Error processing turn:', error);
+      logger.error('Error processing turn:', error);
       this.state.lastError = error instanceof Error ? error.message : 'Unknown error occurred';
       this.updateCallback(this.state);
     });

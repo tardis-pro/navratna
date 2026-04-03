@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { Sparkles } from 'lucide-react';
+import { logger } from '@/utils/browser_logger';
 
 interface AgentEditModalProps {
   agentId: string;
@@ -186,7 +187,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
             // TODO: Implement API call to save agent LLM preferences
             // await uaipAPI.agents.updateLLMPreferences(agentId, llmPreferences);
           } catch (prefError) {
-            console.warn('Failed to save LLM preferences:', prefError);
+            logger.warn('Failed to save LLM preferences:', prefError);
             // Don't fail the entire save if preferences fail
           }
         }
@@ -424,7 +425,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           setAssignedTools(assignedData?.assignedMCPTools || []);
           setToolSettings(assignedData?.mcpToolSettings || {});
         } catch (error) {
-          console.error('Error loading MCP tools:', error);
+          logger.error('Error loading MCP tools:', error);
         } finally {
           setLoadingTools(false);
         }
@@ -458,7 +459,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         setAssignedTools(data?.assignedMCPTools || []);
         setShowAddTool(false);
       } catch (error) {
-        console.error('Error assigning tool:', error);
+        logger.error('Error assigning tool:', error);
       }
     };
 
@@ -469,7 +470,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           (prev as Array<Record<string, unknown>>).filter((t) => t['toolId'] !== toolId)
         );
       } catch (error) {
-        console.error('Error removing tool:', error);
+        logger.error('Error removing tool:', error);
       }
     };
 
@@ -482,7 +483,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
           )
         );
       } catch (error) {
-        console.error('Error toggling tool:', error);
+        logger.error('Error toggling tool:', error);
       }
     };
 
@@ -494,7 +495,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         );
         setToolSettings(data?.mcpToolSettings || {});
       } catch (error) {
-        console.error('Error updating settings:', error);
+        logger.error('Error updating settings:', error);
       }
     };
 

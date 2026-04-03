@@ -158,6 +158,21 @@ import { Agent } from '../../../shared/types/src/agent';
 // oxlint-disable-next-line exhaustive-deps -- loadHistory is memoized, safe to omit
 ```
 
+**No inline types/interfaces** — never define types or interfaces inline (in function signatures, variable declarations, or return types). Always extract to a named type/interface in the appropriate types file (`@uaip/types` for shared, or a local `types.ts` for service-scoped):
+
+```typescript
+// ✅ Correct — named and extracted
+type CreateAgentParams = { name: string; personaId: string; config: AgentConfig };
+function createAgent(params: CreateAgentParams): Agent { ... }
+
+// ❌ Never — inline type
+function createAgent(params: { name: string; personaId: string; config: AgentConfig }): { id: string; status: string } { ... }
+```
+
+**No circular dependencies** — modules must form a DAG. If A imports B, B must never import A (directly or transitively). Resolve via dependency inversion, shared interfaces in `@uaip/types`, or event-based decoupling.
+
+**Separation of concerns** — each module/file has a single responsibility. Do not mix HTTP handlers with business logic, business logic with data access, or type definitions with implementations. Layer structure: routes → services → repositories → entities.
+
 ## ANTI-PATTERNS
 
 - `var` declarations — use `const` / `let`

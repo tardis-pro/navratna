@@ -35,6 +35,7 @@ import type {
   UIError,
   DataState,
 } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 // Event types for the UAIP system
 interface UAIPEvent {
@@ -278,7 +279,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         lastUpdated: new Date(),
       });
     } catch (error) {
-      console.error('Failed to load capabilities:', error);
+      logger.error('Failed to load capabilities:', error);
       setCapabilities((prev) => ({
         ...prev,
         isLoading: false,
@@ -320,7 +321,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         },
       }));
     } catch (error) {
-      console.error('Failed to load approvals:', error);
+      logger.error('Failed to load approvals:', error);
       setApprovals((prev) => ({
         ...prev,
         isLoading: false,
@@ -409,7 +410,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         // WebSocket initialization removed - using useWebSocket hook in components instead
         setIsWebSocketConnected(false);
       } catch (error) {
-        console.warn('WebSocket not available:', error);
+        logger.warn('WebSocket not available:', error);
         setIsWebSocketConnected(false);
       }
     };
@@ -428,7 +429,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
     // Don't refresh if there are ongoing errors to prevent spam
     const hasErrors = capabilities.error || approvals.error;
     if (hasErrors) {
-      console.warn('Skipping periodic refresh due to existing errors');
+      logger.warn('Skipping periodic refresh due to existing errors');
       return;
     }
 
@@ -497,7 +498,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         // Only refresh if approval was successful
         await loadApprovals();
       } catch (error) {
-        console.error('Failed to approve execution:', error);
+        logger.error('Failed to approve execution:', error);
         // Add error to UI state for user feedback
         setApprovals((prev) => ({
           ...prev,
@@ -524,7 +525,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
         // Only refresh if rejection was successful
         await loadApprovals();
       } catch (error) {
-        console.error('Failed to reject execution:', error);
+        logger.error('Failed to reject execution:', error);
         // Add error to UI state for user feedback
         setApprovals((prev) => ({
           ...prev,

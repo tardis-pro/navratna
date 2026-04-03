@@ -26,3 +26,5 @@ export { LLMProviderSeed } from './llm_provider_seed';
 export { CapabilitySeed } from './capability_seed';
 export { DefaultUserLLMProviderSeed } from './default_user_l_l_m_provider_seed';
 export { WorkflowDefinitionSeed } from './workflow_definition_seed';
+export { BackfillAgentChatConfig } from '../migrations/backfill_agent_chat_config';
+export type { BackfillResult } from '../migrations/backfill_agent_chat_config';

@@ -33,6 +33,7 @@ import {
   PortalSearchBar,
   PortalDetailCard,
 } from './portal-shared-components';
+import { logger } from '@/utils/browser_logger';
 
 interface ToolsPanelPortalProps {
   /** Optional additional class names for root container */
@@ -180,7 +181,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
 
       setTools(extractedTools);
     } catch (error) {
-      console.error('Error extracting tools:', error);
+      logger.error('Error extracting tools:', error);
       // Set empty tools array on error to prevent UI issues
       setTools([]);
     }

@@ -37,6 +37,7 @@ import type {
   ArtifactParticipant as Participant,
   ArtifactGenerationResult as GenerationResult,
 } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface ArtifactGenerationPanelProps {
   conversationId: string;
@@ -97,7 +98,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
       const result = await artifactFactory.analyzeConversation(conversationContext);
       setAnalysis(result);
     } catch (error) {
-      console.error('Conversation analysis failed:', error);
+      logger.error('Conversation analysis failed:', error);
     } finally {
       setIsAnalyzing(false);
     }
@@ -126,10 +127,10 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
         setActiveTab('artifacts');
       } else {
         // Handle errors
-        console.error('Generation failed:', result.errors);
+        logger.error('Generation failed:', result.errors);
       }
     } catch (error) {
-      console.error('Artifact generation failed:', error);
+      logger.error('Artifact generation failed:', error);
     } finally {
       setIsGenerating(false);
     }

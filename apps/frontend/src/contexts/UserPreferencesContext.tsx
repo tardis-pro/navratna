@@ -7,6 +7,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
+import { logger } from '@/utils/browser_logger';
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -112,7 +113,7 @@ export const UserPreferencesProvider: React.FC<UserPreferencesProviderProps> = (
         setPreferences({ ...defaultPreferences, ...parsed });
       }
     } catch (error) {
-      console.error('Failed to load user preferences:', error);
+      logger.error('Failed to load user preferences:', error);
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +138,7 @@ export const UserPreferencesProvider: React.FC<UserPreferencesProviderProps> = (
       try {
         localStorage.setItem('user-preferences', JSON.stringify(preferences));
       } catch (error) {
-        console.error('Failed to save user preferences:', error);
+        logger.error('Failed to save user preferences:', error);
       }
     }
   }, [preferences, isLoading]);

@@ -13,6 +13,7 @@ import type {
   KnowledgeStats,
   KnowledgeGraph,
 } from '@uaip/contracts/api';
+import { logger } from '@/utils/browser_logger';
 
 export type {
   KnowledgeItem,
@@ -62,7 +63,7 @@ export const knowledgeAPI = {
 
     // Validate response structure
     if (!searchData || !('items' in searchData) || !Array.isArray(searchData['items'])) {
-      console.warn('Invalid search response structure:', response);
+      logger.warn('Invalid search response structure:', response);
       return [];
     }
 
@@ -112,7 +113,7 @@ export const knowledgeAPI = {
     }
 
     if (!Array.isArray(items)) {
-      console.warn('Knowledge list response is not an array:', raw);
+      logger.warn('Knowledge list response is not an array:', raw);
       return [];
     }
 
@@ -154,7 +155,7 @@ export const knowledgeAPI = {
         topTags: [], // TODO: Add top tags when backend provides them
       };
     } catch (error) {
-      console.warn('Knowledge stats API error:', error);
+      logger.warn('Knowledge stats API error:', error);
       // Return fallback stats
       return {
         totalItems: 0,
@@ -230,7 +231,7 @@ export const knowledgeAPI = {
         }),
       };
     } catch (error) {
-      console.warn('Knowledge graph API error:', error);
+      logger.warn('Knowledge graph API error:', error);
       // Return empty graph as fallback
       return {
         nodes: [],

@@ -35,6 +35,7 @@ import {
   _Star,
   Activity,
 } from 'lucide-react';
+import { logger } from '@/utils/browser_logger';
 
 // Types
 interface TaskAssignmentSuggestion {
@@ -125,7 +126,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       setProjectMembers(membersData);
       setAvailableAgents(agentsData);
     } catch (error) {
-      console.error('Error loading assignment data:', error);
+      logger.error('Error loading assignment data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +152,7 @@ export const TaskAssignment: React.FC<TaskAssignmentProps> = ({
       setSelectedAssignee(null);
       setReason('');
     } catch (error) {
-      console.error('Error assigning task:', error);
+      logger.error('Error assigning task:', error);
     }
   };
 

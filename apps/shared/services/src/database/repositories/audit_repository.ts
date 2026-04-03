@@ -12,6 +12,20 @@ export class AuditRepository {
     return getControlDb();
   }
 
+  async getAuditLogById(id: string): Promise<AuditEvent | null> {
+    try {
+      const [row] = await this.db.select().from(auditEvents).where(eq(auditEvents.id, id)).limit(1);
+      return row ?? null;
+    } catch (error) {
+      logger.error('AuditRepository.getAuditLogById failed', { id, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  async getUserActivityAuditTrail(userId: string, filters: { startDate?: Date; endDate?: Date; limit?: number; offset?: number } = {}) {
+    return this.getUserActivity(userId, filters);
+  }
+
   async createAuditEvent(data: {
     eventType?: string;
     event_type?: string;

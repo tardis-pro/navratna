@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll_area';
 import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeItem } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface KnowledgeShortcutProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export const KnowledgeShortcut: React.FC<KnowledgeShortcutProps> = ({
         timestamp: Date.now(),
       });
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed:', error);
     } finally {
       setIsSearching(false);
     }

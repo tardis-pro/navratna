@@ -302,6 +302,36 @@ export class AgentIntelligenceStore {
     }
   }
 
+  async getPlanAuditLogs(
+    agentId: string,
+    timeRange?: TimeRangeData
+  ): Promise<AgentActivityRow[]> {
+    logger.debug('Getting plan audit logs', { agentId });
+    try {
+      const db = getIntelligenceDb();
+      const conditions = [
+        eq(agentActivity.agentId, agentId),
+        eq(agentActivity.activityType, 'plan_generated'),
+      ];
+
+      if (timeRange?.start) {
+        conditions.push(gte(agentActivity.createdAt, new Date(timeRange.start)));
+      }
+      if (timeRange?.end) {
+        conditions.push(lte(agentActivity.createdAt, new Date(timeRange.end)));
+      }
+
+      return await db
+        .select()
+        .from(agentActivity)
+        .where(and(...conditions))
+        .orderBy(desc(agentActivity.createdAt));
+    } catch (error) {
+      logger.warn('Failed to get plan audit logs', { error, agentId });
+      return [];
+    }
+  }
+
   async getOperationById(operationId: string): Promise<OperationRow | null> {
     logger.debug('Getting operation', { operationId });
     try {

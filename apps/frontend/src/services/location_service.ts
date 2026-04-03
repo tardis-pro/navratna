@@ -1,3 +1,4 @@
+import { logger } from '@/utils/browser_logger';
 export interface LocationData {
   latitude: number;
   longitude: number;
@@ -12,7 +13,7 @@ export class LocationService {
 
   static async requestLocation(): Promise<LocationData | null> {
     if (!navigator.geolocation) {
-      console.warn('Geolocation not supported');
+      logger.warn('Geolocation not supported');
       return null;
     }
 
@@ -27,7 +28,7 @@ export class LocationService {
           });
         },
         (error) => {
-          console.warn('Location access denied or failed:', error.message);
+          logger.warn('Location access denied or failed:', error.message);
           resolve(null); // Don't reject, just return null
         },
         {
@@ -69,7 +70,7 @@ export class LocationService {
         country: data.address?.country,
       };
     } catch (error) {
-      console.warn('Reverse geocoding failed:', error);
+      logger.warn('Reverse geocoding failed:', error);
       return {};
     }
   }
@@ -101,7 +102,7 @@ export class LocationService {
 
       return JSON.parse(locationData);
     } catch (error) {
-      console.warn('Failed to load saved location:', error);
+      logger.warn('Failed to load saved location:', error);
       return null;
     }
   }

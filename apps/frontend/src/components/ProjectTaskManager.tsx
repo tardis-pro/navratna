@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { logger } from '@/utils/browser_logger';
 
 interface ProjectTaskManagerProps {
   projectId: string;
@@ -310,7 +311,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               try {
                 await handleTaskCreate(data);
               } catch (error) {
-                console.error('Failed to create task:', error);
+                logger.error('Failed to create task:', error);
                 throw error;
               }
             }}

@@ -1,4 +1,5 @@
 import { llmAPI } from '@/api/llm_api';
+import { logger } from '@/utils/browser_logger';
 
 export interface LLMMessage {
   role: 'user' | 'assistant' | 'system';
@@ -18,7 +19,7 @@ export class _LLMService {
       });
       return response.content || '';
     } catch (error) {
-      console.error('LLM generate error:', error);
+      logger.error('LLM generate error:', error);
       throw error;
     }
   }
@@ -33,7 +34,7 @@ export class _LLMService {
       });
       onChunk(response.content || '');
     } catch (error) {
-      console.error('LLM streamGenerate error:', error);
+      logger.error('LLM streamGenerate error:', error);
       throw error;
     }
   }
@@ -65,7 +66,7 @@ export async function generateAgentResponse(
     });
     return response.content || '';
   } catch (error) {
-    console.error('generateAgentResponse error:', error);
+    logger.error('generateAgentResponse error:', error);
     throw error;
   }
 }

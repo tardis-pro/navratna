@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { logger } from '@/utils/browser_logger';
 
 interface UserContact {
   id: string;
@@ -178,7 +179,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
             setContacts(publicUsers);
           }
       } catch (error) {
-        console.error('Error loading contacts:', error);
+        logger.error('Error loading contacts:', error);
         // Fallback to empty contacts
         setContacts([]);
       }
@@ -227,7 +228,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
           }));
         }
       } catch (error) {
-        console.error('Error loading conversation:', error);
+        logger.error('Error loading conversation:', error);
       }
     };
 
@@ -365,7 +366,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         callType: 'voice',
       });
     } catch (error) {
-      console.error('Failed to start voice call:', error);
+      logger.error('Failed to start voice call:', error);
     }
   };
 
@@ -405,7 +406,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         callType: 'video',
       });
     } catch (error) {
-      console.error('Failed to start video call:', error);
+      logger.error('Failed to start video call:', error);
     }
   };
 
@@ -526,7 +527,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
         }));
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
       // Update temp message to show error
       setMessages((prev) => ({
         ...prev,
@@ -565,7 +566,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
         setAvailableUsers(_availableUsers);
     } catch (error) {
-      console.error('Error loading available users:', error);
+      logger.error('Error loading available users:', error);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -587,7 +588,7 @@ export const UserChatPortal: React.FC<UserChatPortalProps> = ({ className }) => 
 
       setAvailableUsers((prev) => prev.filter((u) => u.id !== targetUserId));
     } catch (error) {
-      console.error('Error sending user connection request:', error);
+      logger.error('Error sending user connection request:', error);
     }
   };
 

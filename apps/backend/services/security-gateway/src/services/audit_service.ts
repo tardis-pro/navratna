@@ -12,6 +12,22 @@ import {
   SecurityMetrics,
 } from '@uaip/types';
 
+type AuditEventEntity = {
+  id?: string | null;
+  eventType?: AuditEventType | string | null;
+  userId?: string | null;
+  agentId?: string | null;
+  resourceType?: string | null;
+  resourceId?: string | null;
+  details?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  riskLevel?: string | null;
+  timestamp?: Date | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+};
+
 export class AuditService {
   private retentionDays: number = 365; // Default retention period
   private batchSize: number = 1000;
@@ -632,34 +648,21 @@ export class AuditService {
   /**
    * Map entity to audit event
    */
-  private mapEntityToAuditEvent(entity: unknown): AuditEvent {
+  private mapEntityToAuditEvent(entity: AuditEventEntity): AuditEvent {
     return {
-      // @ts-expect-error -- Property does not exist on inferred type
-      id: entity.id,
-      // @ts-expect-error -- Property does not exist on inferred type
-      eventType: entity.eventType,
-      // @ts-expect-error -- Property does not exist on inferred type
-      userId: entity.userId,
-      // @ts-expect-error -- Property does not exist on inferred type
-      agentId: entity.agentId,
-      // @ts-expect-error -- Property does not exist on inferred type
-      resourceType: entity.resourceType,
-      // @ts-expect-error -- Property does not exist on inferred type
-      resourceId: entity.resourceId,
-      // @ts-expect-error -- Property does not exist on inferred type
-      details: entity.details || {},
-      // @ts-expect-error -- Property does not exist on inferred type
-      ipAddress: entity.ipAddress,
-      // @ts-expect-error -- Property does not exist on inferred type
-      userAgent: entity.userAgent,
-      // @ts-expect-error -- Property does not exist on inferred type
-      riskLevel: entity.riskLevel as SecurityLevel,
-      // @ts-expect-error -- Property does not exist on inferred type
-      timestamp: entity.timestamp,
-      // @ts-expect-error -- Property does not exist on inferred type
-      createdAt: entity.createdAt,
-      // @ts-expect-error -- Property does not exist on inferred type
-      updatedAt: entity.updatedAt,
+      id: entity.id ?? '',
+      eventType: (entity.eventType ?? AuditEventType.USER_ACTION) as AuditEventType,
+      userId: entity.userId ?? undefined,
+      agentId: entity.agentId ?? undefined,
+      resourceType: entity.resourceType ?? undefined,
+      resourceId: entity.resourceId ?? undefined,
+      details: entity.details ?? {},
+      ipAddress: entity.ipAddress ?? undefined,
+      userAgent: entity.userAgent ?? undefined,
+      riskLevel: (entity.riskLevel ?? undefined) as SecurityLevel | undefined,
+      timestamp: entity.timestamp ?? new Date(),
+      createdAt: entity.createdAt ?? new Date(),
+      updatedAt: entity.updatedAt ?? new Date(),
     };
   }
 

@@ -77,6 +77,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { uaipAPI } from '@/utils/uaip_api';
+import { logger } from '@/utils/browser_logger';
 const MarketplaceHubWidget = lazy(() => import('@/widgets/MarketplaceHubWidget'));
 const ToolManagementPortal = lazy(() =>
   import('./portals/ToolManagementPortal').then((m) => ({ default: m.ToolManagementPortal }))
@@ -1331,7 +1332,7 @@ export const PortalWorkspace: React.FC = () => {
           environment: envInfo.isDevelopment ? 'development' : 'production',
         });
       } catch (error) {
-        console.error('[PortalWorkspace] Failed to update system status:', error);
+        logger.error('[PortalWorkspace] Failed to update system status:', error);
         // Fallback to offline status on error
         setSystemStatus('offline');
         setActiveConnections(0);
@@ -1442,7 +1443,7 @@ export const PortalWorkspace: React.FC = () => {
             country: geoData.address.country,
           }));
         } catch (error) {
-          console.warn('Failed to get location data:', error);
+          logger.warn('Failed to get location data:', error);
         }
         // Weather (OpenWeatherMap, metric, icon)
         try {
@@ -1459,11 +1460,11 @@ export const PortalWorkspace: React.FC = () => {
             });
           }
         } catch (error) {
-          console.warn('Failed to get weather data:', error);
+          logger.warn('Failed to get weather data:', error);
         }
       },
       (err) => {
-        console.warn('Geolocation not available:', err);
+        logger.warn('Geolocation not available:', err);
       }
     );
   }, []);

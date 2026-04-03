@@ -25,6 +25,39 @@ import { AuditService } from './audit_service.js';
 import { config } from '@uaip/config';
 import * as speakeasy from 'speakeasy';
 
+type OAuthUserInfoParam = {
+  email?: string;
+  id?: string;
+  name?: string;
+  login?: string;
+  avatar_url?: string;
+  type?: string;
+};
+
+type OAuthProviderParam = {
+  id?: string;
+  type?: OAuthProviderType;
+  agentConfig?: { permissions?: string[] };
+};
+
+type OAuthStateParam = {
+  agentCapabilities?: AgentCapability[];
+  userType?: UserType;
+};
+
+type OAuthTokensParam = object;
+
+type DeviceInfoWithTrust = {
+  isTrusted?: boolean;
+  [key: string]: unknown;
+};
+
+type PermissionEntry = string | { resource?: string; [key: string]: unknown };
+
+type OAuthServiceExtended = {
+  getAgentConnection: (agentId: string, providerType: OAuthProviderType) => Promise<unknown>;
+};
+
 export class EnhancedAuthService {
   private userService: UserService;
   private oauthDomainService: OAuthService;
@@ -58,7 +91,7 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user = (await this.userService.findUserByEmail(userInfo.email)) as unknown;
+      let user: EnhancedUser | null = (await this.userService.findUserByEmail(userInfo.email)) as EnhancedUser | null;
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
@@ -100,12 +133,10 @@ export class EnhancedAuthService {
 
       await this.auditService.logEvent({
         eventType: AuditEventType.LOGIN_SUCCESS,
-        // @ts-expect-error -- Property does not exist on inferred type
         userId: user.id,
         details: {
           authMethod: AuthenticationMethod.OAUTH,
           provider: provider.type,
-          // @ts-expect-error -- Property does not exist on inferred type
           userType: user.userType,
           mfaRequired: requiresMFA,
         },
@@ -114,9 +145,7 @@ export class EnhancedAuthService {
       });
 
       logger.info('OAuth authentication successful', {
-        // @ts-expect-error -- Property does not exist on inferred type
         userId: user.id,
-        // @ts-expect-error -- Property does not exist on inferred type
         userType: user.userType,
         provider: provider.type,
         mfaRequired: requiresMFA,
@@ -235,8 +264,6 @@ export class EnhancedAuthService {
 
       const { tokens, userInfo, provider, oauthState } =
         await this.oauthProviderService.handleCallback(code, state, redirectUri);
-
-      // @ts-expect-error -- Property does not exist on inferred type
       if (user.userType === UserType.AGENT && oauthState.agentCapabilities) {
         // Create agent OAuth connection
         const connection = await this.oauthProviderService.createAgentConnection(
@@ -452,7 +479,6 @@ export class EnhancedAuthService {
         userId: user.id,
         // @ts-expect-error -- Type not assignable
         sessionId: session.id,
-        // @ts-expect-error -- Property does not exist on inferred type
         userType: user.userType,
         // @ts-expect-error -- Type not assignable
         ipAddress: session.ipAddress,
@@ -461,8 +487,7 @@ export class EnhancedAuthService {
         department: user.department,
         role: user.role,
         permissions: Array.isArray(permissions)
-          // @ts-expect-error -- Property does not exist on inferred type
-          ? permissions.map((p: unknown) => p.resource || p)
+          ? permissions.map((p: PermissionEntry) => (typeof p === 'string' ? p : (p.resource ?? '')))
           : [],
         securityLevel: user.securityClearance,
         // @ts-expect-error -- Missing properties in type
@@ -477,11 +502,9 @@ export class EnhancedAuthService {
         oauthProvider: session.oauthProvider,
         // @ts-expect-error -- Missing properties in type
         agentCapabilities: session.agentCapabilities,
-        // @ts-expect-error -- Property does not exist on inferred type
-        deviceTrusted: (session.deviceInfo as unknown)?.isTrusted || false,
+        deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust)?.isTrusted ?? false,
         locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session),
         agentContext:
-          // @ts-expect-error -- Property does not exist on inferred type
           user.userType === UserType.AGENT
             ? {
                 agentId: user.id,
@@ -489,14 +512,11 @@ export class EnhancedAuthService {
                   user.name ||
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
-                // @ts-expect-error -- Property does not exist on inferred type
-                capabilities: user.agentConfig?.capabilities || [],
+                capabilities: (user.agentConfig?.capabilities || []) as AgentCapability[],
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
-                  // @ts-expect-error -- Property does not exist on inferred type
                   maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
                   currentDailyOperations: 0,
-                  // @ts-expect-error -- Property does not exist on inferred type
                   maxConcurrentOperations: user.agentConfig?.maxConcurrentSessions || 5,
                   currentConcurrentOperations: 0,
                 },
@@ -517,52 +537,38 @@ export class EnhancedAuthService {
   // Private helper methods
 
   private async createUserFromOAuth(
-    userInfo: unknown,
-    provider: unknown,
-    oauthState: unknown
+    userInfo: OAuthUserInfoParam,
+    provider: OAuthProviderParam,
+    oauthState: OAuthStateParam
   ): Promise<EnhancedUser> {
     const user: EnhancedUser = {
       id: crypto.randomUUID(),
-      // @ts-expect-error -- Property does not exist on inferred type
       email: userInfo.email || `${userInfo.id}@${provider.type}.oauth`,
-      // @ts-expect-error -- Property does not exist on inferred type
       name: userInfo.name || userInfo.login || 'OAuth User',
-      // @ts-expect-error -- Property does not exist on inferred type
       role: oauthState.userType === UserType.AGENT ? 'agent' : 'user',
-      // @ts-expect-error -- Property does not exist on inferred type
       userType: oauthState.userType || UserType.HUMAN,
       securityClearance: SecurityLevel.MEDIUM,
       isActive: true,
       oauthProviders: [
         {
-          // @ts-expect-error -- Property does not exist on inferred type
           providerId: provider.id,
-          // @ts-expect-error -- Property does not exist on inferred type
           providerType: provider.type,
-          // @ts-expect-error -- Property does not exist on inferred type
           providerUserId: userInfo.id,
-          // @ts-expect-error -- Property does not exist on inferred type
           email: userInfo.email,
-          // @ts-expect-error -- Property does not exist on inferred type
           displayName: userInfo.name || userInfo.login,
-          // @ts-expect-error -- Property does not exist on inferred type
           avatarUrl: userInfo.avatar_url,
           isVerified: true,
           isPrimary: true,
           linkedAt: new Date(),
-          // @ts-expect-error -- Property does not exist on inferred type
           capabilities: oauthState.agentCapabilities,
         },
       ],
       // @ts-expect-error -- Type not assignable
       agentConfig:
-        // @ts-expect-error -- Property does not exist on inferred type
         oauthState.userType === UserType.AGENT
           ? {
-              // @ts-expect-error -- Property does not exist on inferred type
               capabilities: oauthState.agentCapabilities || [],
               maxConcurrentSessions: 5,
-              // @ts-expect-error -- Property does not exist on inferred type
               allowedProviders: [provider.type] as unknown[],
               securityLevel: SecurityLevel.MEDIUM,
               monitoring: {
@@ -582,34 +588,24 @@ export class EnhancedAuthService {
 
   private async updateUserOAuthConnection(
     user: EnhancedUser,
-    tokens: unknown,
-    provider: unknown,
-    userInfo: unknown
+    tokens: OAuthTokensParam,
+    provider: OAuthProviderParam,
+    userInfo: OAuthUserInfoParam
   ): Promise<void> {
-    // @ts-expect-error -- Property does not exist on inferred type
     const existingProvider = user.oauthProviders.find((p) => p.providerId === provider.id);
 
     if (existingProvider) {
       existingProvider.lastUsedAt = new Date();
-      // @ts-expect-error -- Property does not exist on inferred type
       existingProvider.email = userInfo.email;
-      // @ts-expect-error -- Property does not exist on inferred type
       existingProvider.displayName = userInfo.name || userInfo.login;
-      // @ts-expect-error -- Property does not exist on inferred type
       existingProvider.avatarUrl = userInfo.avatar_url;
     } else {
       user.oauthProviders.push({
-        // @ts-expect-error -- Property does not exist on inferred type
         providerId: provider.id,
-        // @ts-expect-error -- Property does not exist on inferred type
         providerType: provider.type,
-        // @ts-expect-error -- Property does not exist on inferred type
         providerUserId: userInfo.id,
-        // @ts-expect-error -- Property does not exist on inferred type
         email: userInfo.email,
-        // @ts-expect-error -- Property does not exist on inferred type
         displayName: userInfo.name || userInfo.login,
-        // @ts-expect-error -- Property does not exist on inferred type
         avatarUrl: userInfo.avatar_url,
         isVerified: true,
         isPrimary: user.oauthProviders.length === 0,
@@ -703,8 +699,6 @@ export class EnhancedAuthService {
       }
 
       const agent = await this.userService.findUserById(decoded.userId);
-
-      // @ts-expect-error -- Property does not exist on inferred type
       if (!agent || agent.userType !== UserType.AGENT) {
         return null;
       }
@@ -728,13 +722,12 @@ export class EnhancedAuthService {
     providerType: OAuthProviderType
   ): Promise<boolean> {
     // Check if the OAuth provider service has the method
+    const extendedOAuthService = this.oauthProviderService as unknown as OAuthServiceExtended;
     if (
       'getAgentConnection' in this.oauthProviderService &&
-      // @ts-expect-error -- Property does not exist on inferred type
-      typeof (this.oauthProviderService as unknown).getAgentConnection === 'function'
+      typeof extendedOAuthService.getAgentConnection === 'function'
     ) {
-      // @ts-expect-error -- Property does not exist on inferred type
-      const connection = await (this.oauthProviderService as unknown).getAgentConnection(
+      const connection = await extendedOAuthService.getAgentConnection(
         agentId,
         providerType
       );

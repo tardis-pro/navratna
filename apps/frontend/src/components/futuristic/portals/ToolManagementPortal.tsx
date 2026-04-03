@@ -24,6 +24,7 @@ import {
   PortalLoadingState,
   PortalDetailCard,
 } from './portal-shared-components';
+import { logger } from '@/utils/browser_logger';
 
 interface ToolManagementPortalProps {
   className?: string;
@@ -240,7 +241,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         type: 'custom',
       });
     } catch (error) {
-      console.error('Failed to create tool:', error);
+      logger.error('Failed to create tool:', error);
     } finally {
       setIsSubmitting(false);
     }

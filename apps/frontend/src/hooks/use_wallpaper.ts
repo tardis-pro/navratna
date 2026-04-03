@@ -4,6 +4,7 @@ import WallpaperService, {
   WallpaperTheme,
   WallpaperPreferences,
 } from '../services/wallpaper_service';
+import { logger } from '@/utils/browser_logger';
 
 export interface UseWallpaperReturn {
   currentImage: WallpaperImage | null;
@@ -73,7 +74,7 @@ export const useWallpaper = (): UseWallpaperReturn => {
           wallpaperService.removeChangeListener(handleImageChange);
         };
       } catch (error) {
-        console.error('Failed to initialize wallpaper service:', error);
+        logger.error('Failed to initialize wallpaper service:', error);
       } finally {
         setIsLoading(false);
       }

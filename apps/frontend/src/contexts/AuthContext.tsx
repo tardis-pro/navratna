@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { uaipAPI } from '../utils/uaip_api';
+import { logger } from '@/utils/browser_logger';
 
 export interface User {
   id: string;
@@ -248,7 +249,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setState(CLEARED_AUTH_STATE);
       }
     } catch (error) {
-      console.error('Auth status check failed:', error);
+      logger.error('Auth status check failed:', error);
       uaipAPI.client.clearAuth();
       setState(CLEARED_AUTH_STATE);
     }
@@ -315,7 +316,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }));
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      logger.error('Login failed:', error);
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -338,7 +339,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       setState(CLEARED_AUTH_STATE);
     } catch (error) {
-      console.error('Logout failed:', error);
+      logger.error('Logout failed:', error);
 
       // Force clear state even if backend call fails
       uaipAPI.client.clearAuth();
@@ -358,12 +359,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userData) {
         setState((prev) => ({ ...prev, user: parseUser(userData), error: null }));
       } else {
-        console.warn('User refresh failed, clearing auth');
+        logger.warn('User refresh failed, clearing auth');
         uaipAPI.client.clearAuth();
         setState(CLEARED_AUTH_STATE);
       }
     } catch (error) {
-      console.error('Failed to refresh user data:', error);
+      logger.error('Failed to refresh user data:', error);
       if (error instanceof Error && error.message.includes('Authentication failed')) {
         uaipAPI.client.clearAuth();
         setState(CLEARED_AUTH_STATE);

@@ -35,6 +35,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
 import { ViewportSize } from '@/hooks/use_viewport';
+import { logger } from '@/utils/browser_logger';
 
 const PROJECT_STATUS_OPTIONS = ['planning', 'active', 'paused', 'completed', 'archived'] as const;
 
@@ -437,7 +438,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
       }));
       setProjects(convertedProjects);
     } catch (error) {
-      console.error('Failed to load projects:', error);
+      logger.error('Failed to load projects:', error);
       setProjects([]);
     }
   }, []);
@@ -515,7 +516,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
       // Close the onboarding flow
       setShowOnboardingFlow(false);
     } catch (error) {
-      console.error('Failed to handle project creation:', error);
+      logger.error('Failed to handle project creation:', error);
     }
   };
 

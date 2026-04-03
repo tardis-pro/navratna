@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { logger } from '@/utils/browser_logger';
 
 export function createConversationIntelligenceSocket(
   token: string,
@@ -11,7 +12,7 @@ export function createConversationIntelligenceSocket(
   });
   socket.on('connected', () => {});
   socket.on('error', (error: unknown) => {
-    console.error('Conversation intelligence error:', error);
+    logger.error('Conversation intelligence error:', error);
   });
   return socket;
 }

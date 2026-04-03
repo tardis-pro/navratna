@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { uaipAPI } from '../utils/uaip_api';
+import { logger } from '@/utils/browser_logger';
 
 interface ModelProvider {
   id: string;
@@ -213,7 +214,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
 
       setProviders(fetchedProviders || []);
     } catch (err) {
-      console.error('Failed to load providers:', err);
+      logger.error('Failed to load providers:', err);
       setError(err instanceof Error ? err.message : 'Failed to load providers');
       setProviders([]);
     } finally {
@@ -247,7 +248,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
           [providerType]: filteredModels,
         }));
       } catch (err) {
-        console.error(`Failed to load models for ${providerType}:`, err);
+        logger.error(`Failed to load models for ${providerType}:`, err);
         setProviderModels((prev) => ({
           ...prev,
           [providerType]: [],
@@ -355,7 +356,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       resetForm();
       setShowAddModal(false);
     } catch (err) {
-      console.error('Failed to create provider:', err);
+      logger.error('Failed to create provider:', err);
       setFormErrors((prev) => ({
         ...prev,
         general: err instanceof Error ? err.message : 'Failed to create provider',
@@ -538,7 +539,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       // Always refresh the local provider list
       await loadProviders();
     } catch (err) {
-      console.error('Failed to delete provider:', err);
+      logger.error('Failed to delete provider:', err);
 
       // Check if this is a provider-in-use error
       // APIClientError has code directly on the error object

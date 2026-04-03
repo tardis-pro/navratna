@@ -3,6 +3,7 @@ import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { SecurityService } from '@uaip/shared-services';
+import type { ApprovalWorkflow as ApprovalWorkflowEntity } from '@uaip/shared-services';
 import {
   ApprovalWorkflow as ApprovalWorkflowType,
   ApprovalDecision,
@@ -158,15 +159,12 @@ export class ApprovalWorkflowService {
 
       // Save decision using DatabaseService
       const approvalDecisionRepo = this.securityService.getApprovalDecisionRepository();
-      // @ts-expect-error -- Property does not exist on inferred type
       await approvalDecisionRepo.createApprovalDecision({
         id: `decision-${decision.workflowId}-${decision.approverId}`,
         workflowId: decision.workflowId,
         approverId: decision.approverId,
         decision: decision.decision,
-        conditions: decision.conditions,
-        feedback: decision.feedback,
-        decidedAt: decision.decidedAt,
+        reason: decision.feedback,
       });
 
       // Update workflow status
@@ -311,9 +309,8 @@ export class ApprovalWorkflowService {
       // Update status using DatabaseService
       await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .updateApprovalWorkflow(workflowId, {
-          status: 'cancelled' as unknown,
+          status: 'cancelled',
         });
 
       // Notify approvers
@@ -369,8 +366,7 @@ export class ApprovalWorkflowService {
 
       const workflows = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
-        .getPendingWorkflowsForReminders(reminderThreshold);
+        .getPendingWorkflowsForReminders();
 
       logger.info('Sending approval reminders', { count: workflows.length });
       await this.processInBatches(workflows, async (workflowEntity) => {
@@ -392,7 +388,6 @@ export class ApprovalWorkflowService {
 
       const workflows = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .getExpiredWorkflows();
       logger.debug('Found expired workflows', { count: workflows.length });
 
@@ -444,9 +439,8 @@ export class ApprovalWorkflowService {
       // Update workflow status to expired
       const updatedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .updateApprovalWorkflow(workflowId, {
-          status: 'expired' as unknown,
+          status: 'expired',
         });
 
       if (!updatedWorkflow) {
@@ -532,7 +526,6 @@ export class ApprovalWorkflowService {
       // Update last reminder time
       await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .updateApprovalWorkflow(workflow.id, {
           lastReminderAt: new Date(),
         });
@@ -546,9 +539,8 @@ export class ApprovalWorkflowService {
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
 
     // Update workflow status
-    // @ts-expect-error -- Property does not exist on inferred type
     await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
-      status: newStatus as unknown,
+      status: newStatus,
     });
 
     // Notify stakeholders
@@ -586,7 +578,6 @@ export class ApprovalWorkflowService {
     }
 
     // Update in database
-    // @ts-expect-error -- Property does not exist on inferred type
     await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
       currentApprovers: workflow.currentApprovers,
     });
@@ -731,41 +722,30 @@ export class ApprovalWorkflowService {
   private async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
     const decisions = await this.securityService
       .getApprovalDecisionRepository()
-      // @ts-expect-error -- Property does not exist on inferred type
       .getApprovalDecisions(workflowId);
 
     return decisions.map((decision) => ({
       workflowId: decision.workflowId,
       approverId: decision.approverId,
-      decision: decision.decision,
-      conditions: decision.conditions,
-      feedback: decision.feedback,
-      decidedAt: decision.decidedAt,
+      decision: decision.decision as 'approve' | 'reject',
+      feedback: decision.reason ?? undefined,
+      decidedAt: decision.createdAt,
     }));
   }
 
   /**
    * Entity mapping helper
    */
-  private mapEntityToWorkflow(entity: unknown): ApprovalWorkflowType {
+  private mapEntityToWorkflow(entity: ApprovalWorkflowEntity): ApprovalWorkflowType {
     return {
-      // @ts-expect-error -- Property does not exist on inferred type
       id: entity.id,
-      // @ts-expect-error -- Property does not exist on inferred type
       operationId: entity.operationId,
-      // @ts-expect-error -- Property does not exist on inferred type
       requiredApprovers: entity.requiredApprovers,
-      // @ts-expect-error -- Property does not exist on inferred type
       currentApprovers: entity.currentApprovers,
-      // @ts-expect-error -- Property does not exist on inferred type
       status: entity.status as ApprovalStatus,
-      // @ts-expect-error -- Property does not exist on inferred type
       expiresAt: entity.expiresAt,
-      // @ts-expect-error -- Property does not exist on inferred type
       metadata: entity.metadata,
-      // @ts-expect-error -- Property does not exist on inferred type
       createdAt: entity.createdAt,
-      // @ts-expect-error -- Property does not exist on inferred type
       updatedAt: entity.updatedAt,
     };
   }

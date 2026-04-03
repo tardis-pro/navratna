@@ -5,8 +5,7 @@ import {
   SemanticMemory,
   WorkingMemory,
 } from '@uaip/types';
-import { WorkingMemoryManager } from './working_memory_manager.js';
-import { EpisodicMemoryManager } from './episodic_memory_manager.js';
+import { WorkingMemoryManager, EpisodicMemoryManager } from '@uaip/shared-services';
 import { SemanticMemoryManager } from './semantic_memory_manager.js';
 
 export class MemoryConsolidator {

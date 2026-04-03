@@ -6,6 +6,7 @@ import type {
 } from '@uaip/types';
 import { useKnowledge } from './KnowledgeContext';
 import type { _KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 const initialState: FrontendFrontendDocumentContextState = {
   documents: {},
@@ -140,7 +141,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           await uploadKnowledge([knowledgeItem]);
         } catch (error) {
-          console.warn('Failed to add document to knowledge graph:', error);
+          logger.warn('Failed to add document to knowledge graph:', error);
         }
       }
     },

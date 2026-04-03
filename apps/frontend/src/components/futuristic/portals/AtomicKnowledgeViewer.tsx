@@ -62,6 +62,7 @@ import type { KnowledgeItem } from '@uaip/types';
 import { KnowledgeType, SourceType as _SourceType } from '@uaip/types';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
 import { parseCommaSeparatedValues } from '@/utils/parse_comma_separated';
+import { logger } from '@/utils/browser_logger';
 
 interface AtomicKnowledgeViewerProps {
   item: KnowledgeItem;
@@ -199,7 +200,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
 
       setConnections(mockConnections);
     } catch (error) {
-      console.error('Failed to load connections:', error);
+      logger.error('Failed to load connections:', error);
     }
   }, [item.id, onLoadRelated]);
 
@@ -300,7 +301,7 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
       });
       setIsEditing(false);
     } catch (error) {
-      console.error('Failed to update knowledge item:', error);
+      logger.error('Failed to update knowledge item:', error);
     }
   };
 

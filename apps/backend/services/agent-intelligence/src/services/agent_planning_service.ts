@@ -61,6 +61,20 @@ interface PlanningSecurityContext {
   [key: string]: unknown;
 }
 
+interface StepValidationResult {
+  isValid: boolean;
+  confidence: number;
+  mismatchReason?: string;
+}
+
+interface StepCorrectionAttempt {
+  attemptNumber: number;
+  parameters: Record<string, unknown>;
+  output: Record<string, unknown>;
+  validationResult: StepValidationResult;
+  timestamp: Date;
+}
+
 interface GeneratePlanEventPayload {
   requestId: string;
   agent: Agent;
@@ -88,6 +102,8 @@ export class AgentPlanningService {
   private securityLevel: number;
 
   private store: AgentIntelligenceStore;
+  private static readonly CORRECTION_CONFIDENCE_THRESHOLD = 0.6;
+  private static readonly MAX_CORRECTION_RETRIES = 2;
 
   constructor(config: AgentPlanningConfig) {
     this.databaseService = config.databaseService;
@@ -200,6 +216,20 @@ export class AgentPlanningService {
       // Store plan in database and knowledge graph
       await this.storePlan(plan);
       await this.storePlanKnowledge(agent.id, plan, enhancedAnalysis);
+
+      await this.store.storeAgentActivity(agent.id, {
+        type: 'plan_generated',
+        duration: plan.estimatedDuration,
+        success: true,
+        metadata: {
+          planId: plan.id,
+          planType: plan.type,
+          planSteps: plan.steps.length,
+          intent: this.getPrimaryIntent(analysis) || this.extractPlanIntent(plan),
+          plan,
+        },
+        timestamp: plan.created_at,
+      });
 
       // Publish plan generated event
       await this.publishPlanningEvent('agent.plan.generated', {
@@ -617,6 +647,232 @@ export class AgentPlanningService {
     return matchesIntent || matchesStep || outputSuccess === true || !!outputRecord?.result;
   }
 
+  /**
+   * Validate step output against the original analysis intent and trigger
+   * self-correction retries if the confidence score falls below the threshold.
+   *
+   * Publishes `agent.plan.step.corrected` events and audits each attempt.
+   * Maximum retries: MAX_CORRECTION_RETRIES (2).
+   *
+   * @param toolOutput  Raw output from the tool execution
+   * @param originalIntent  The primary intent string from the analysis
+   * @param step  The plan step being validated
+   * @param context  Execution context passed to retries
+   */
+  async validateStepOutput(
+    toolOutput: unknown,
+    originalIntent: string,
+    step: PlanStep,
+    context: Record<string, unknown>
+  ): Promise<{ output: Record<string, unknown>; correctionAttempts: StepCorrectionAttempt[] }> {
+    const correctionAttempts: StepCorrectionAttempt[] = [];
+
+    let currentOutput = this.normalizeStepOutput(toolOutput);
+    let confidence = this.computeOutputConfidence(currentOutput, originalIntent, step);
+
+    let retryCount = 0;
+    while (
+      confidence < AgentPlanningService.CORRECTION_CONFIDENCE_THRESHOLD &&
+      retryCount < AgentPlanningService.MAX_CORRECTION_RETRIES
+    ) {
+      retryCount++;
+
+      const adjustedContext: Record<string, unknown> = {
+        ...context,
+        retryAttempt: retryCount,
+        previousOutput: currentOutput,
+        correctionHint: this.generateCorrectionHint(originalIntent, step, currentOutput),
+      };
+
+      logger.info('Self-correction: retrying step execution', {
+        stepId: step.id,
+        attemptNumber: retryCount,
+        previousConfidence: confidence,
+        originalIntent,
+        service: this.serviceName,
+      });
+
+      // oxlint-disable-next-line no-await-in-loop -- sequential retry required for self-correction
+      const retryOutput = await this.executePlanStep(step, adjustedContext);
+      const retryConfidence = this.computeOutputConfidence(retryOutput, originalIntent, step);
+
+      const mismatchReason =
+        retryConfidence < AgentPlanningService.CORRECTION_CONFIDENCE_THRESHOLD
+          ? `Output confidence ${retryConfidence.toFixed(2)} below threshold ${AgentPlanningService.CORRECTION_CONFIDENCE_THRESHOLD}`
+          : undefined;
+
+      const attempt: StepCorrectionAttempt = {
+        attemptNumber: retryCount,
+        parameters: adjustedContext,
+        output: retryOutput,
+        validationResult: {
+          isValid: retryConfidence >= AgentPlanningService.CORRECTION_CONFIDENCE_THRESHOLD,
+          confidence: retryConfidence,
+          mismatchReason,
+        },
+        timestamp: new Date(),
+      };
+
+      correctionAttempts.push(attempt);
+
+      this.auditLog('STEP_CORRECTION_ATTEMPT', {
+        stepId: step.id,
+        stepType: step.type,
+        attemptNumber: retryCount,
+        previousConfidence: confidence,
+        newConfidence: retryConfidence,
+        isValid: attempt.validationResult.isValid,
+        originalIntent,
+        mismatchReason,
+      });
+
+      // oxlint-disable-next-line no-await-in-loop -- sequential publish required for audit ordering
+      await this.publishPlanningEvent('agent.plan.step.corrected', {
+        stepId: step.id,
+        stepType: step.type,
+        attemptNumber: retryCount,
+        previousConfidence: confidence,
+        newConfidence: retryConfidence,
+        isValid: attempt.validationResult.isValid,
+        originalIntent,
+        maxRetries: AgentPlanningService.MAX_CORRECTION_RETRIES,
+      });
+
+      currentOutput = retryOutput;
+      confidence = retryConfidence;
+    }
+
+    return { output: currentOutput, correctionAttempts };
+  }
+
+  /**
+   * Compute a normalized confidence score [0, 1] for how well the tool output
+   * satisfies the original intent for the given step.
+   *
+   * Score breakdown:
+   *  - 0.0-0.15: hard error indicators
+   *  - 0.4      : neutral base (no error signals)
+   *  - +0.25    : explicit success flag
+   *  - +0.10    : completed status
+   *  - +0.10    : result field present
+   *  - +0.10    : output contains intent-aligned keywords
+   *  - +0.05    : output contains step-type terms
+   */
+  private computeOutputConfidence(
+    output: Record<string, unknown>,
+    originalIntent: string,
+    step: PlanStep
+  ): number {
+    const outputRecord = this.asRecord(output);
+    if (!outputRecord) {
+      return 0;
+    }
+
+    const outputSuccess = this.asBoolean(outputRecord.success);
+    const outputError = this.asString(outputRecord.error);
+    const outputStatus = this.asString(outputRecord.status);
+
+    if (
+      outputSuccess === false ||
+      !!outputError ||
+      outputStatus === 'failed' ||
+      outputStatus === 'error'
+    ) {
+      return 0.1;
+    }
+
+    const outputText = JSON.stringify(output).toLowerCase();
+
+    if (/\berror\b|\bfailed\b|\bexception\b|\btimeout\b/.test(outputText)) {
+      return 0.15;
+    }
+
+    let score = 0.4;
+
+    if (outputSuccess === true) {
+      score += 0.25;
+    }
+
+    if (outputStatus === 'completed') {
+      score += 0.1;
+    }
+
+    if (outputRecord.result !== undefined) {
+      score += 0.1;
+    }
+
+    const normalizedIntent = (originalIntent || '').toLowerCase();
+    const intentKeywords: Record<string, string[]> = {
+      creation: ['create', 'generate', 'artifact', 'build', 'draft'],
+      create: ['create', 'generate', 'artifact', 'build', 'draft'],
+      analysis: ['analyze', 'analysis', 'insight', 'evaluate', 'assess'],
+      analyze: ['analyze', 'analysis', 'insight', 'evaluate', 'assess'],
+      modification: ['modify', 'change', 'update', 'patch', 'edit'],
+      retrieval: ['search', 'find', 'retrieve', 'lookup', 'query'],
+      find: ['search', 'find', 'retrieve', 'lookup', 'query'],
+      search: ['search', 'find', 'retrieve', 'lookup', 'query'],
+    };
+
+    const expectedKeywords = intentKeywords[normalizedIntent] ?? [];
+    if (expectedKeywords.length > 0 && expectedKeywords.some((kw) => outputText.includes(kw))) {
+      score += 0.1;
+    }
+
+    const stepTerms = [step.type, ...step.description.split(/\s+/)]
+      .map((term) => term.toLowerCase())
+      .filter((term) => term.length > 3);
+
+    if (stepTerms.some((term) => outputText.includes(term))) {
+      score += 0.05;
+    }
+
+    return Math.min(score, 1);
+  }
+
+  private normalizeStepOutput(toolOutput: unknown): Record<string, unknown> {
+    if (toolOutput === null || toolOutput === undefined) {
+      return { success: false, status: 'empty', error: 'No output produced' };
+    }
+
+    if (this.isRecord(toolOutput)) {
+      return toolOutput;
+    }
+
+    if (typeof toolOutput === 'string') {
+      return { success: true, status: 'completed', result: toolOutput };
+    }
+
+    return { success: true, status: 'completed', result: toolOutput };
+  }
+
+  private generateCorrectionHint(
+    originalIntent: string,
+    step: PlanStep,
+    previousOutput: Record<string, unknown>
+  ): string {
+    const previousError = this.asString(previousOutput.error);
+    const previousStatus = this.asString(previousOutput.status);
+
+    const hints: string[] = [
+      `Original intent: ${originalIntent}`,
+      `Step type: ${step.type}`,
+      `Step description: ${step.description}`,
+    ];
+
+    if (previousError) {
+      hints.push(`Previous attempt failed with: ${previousError}`);
+      hints.push('Try alternative approach to avoid the previous error');
+    } else if (previousStatus === 'failed' || previousStatus === 'error') {
+      hints.push('Previous attempt did not meet quality threshold');
+      hints.push('Adjust parameters and retry with focused scope');
+    } else {
+      hints.push('Previous output did not satisfy intent relevance criteria');
+      hints.push(`Focus output on: ${originalIntent}`);
+    }
+
+    return hints.join('. ');
+  }
+
   async executePlanWithSelfCorrection(
     plan: ExecutionPlan,
     originalIntent: string,
@@ -634,24 +890,23 @@ export class AgentPlanningService {
       };
 
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-      let output = await this.executePlanStep(step, context);
-      const isValid = this.validatePlanResult(originalIntent, output, step);
+      const rawOutput = await this.executePlanStep(step, context);
 
-      if (!isValid) {
-        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const retryResult = await this.executePlanStep(step, {
-          ...context,
-          retryAttempt: 1,
-          previousOutput: output,
+      // oxlint-disable-next-line no-await-in-loop -- sequential processing required
+      const { output, correctionAttempts } = await this.validateStepOutput(
+        rawOutput,
+        originalIntent,
+        step,
+        context
+      );
+
+      if (correctionAttempts.length > 0) {
+        logger.info('Self-correction completed for step', {
+          stepId: step.id,
+          correctionCount: correctionAttempts.length,
+          finalConfidence:
+            correctionAttempts[correctionAttempts.length - 1]?.validationResult.confidence,
         });
-
-        logger.info('Self-correction triggered', {
-          step,
-          originalOutput: output,
-          retryResult,
-        });
-
-        output = retryResult;
       }
 
       executionResults.push({

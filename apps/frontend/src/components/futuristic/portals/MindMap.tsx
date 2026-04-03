@@ -29,6 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { logger } from '@/utils/browser_logger';
 
 // Use ReactFlow's built-in types
 type ReactFlowNode = Node<{ label: string }>;
@@ -119,11 +120,9 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
   const [editLabel, setEditLabel] = useState<string>('');
 
   const { user } = useAuth();
-  const oAiKey =
-    (user as unknown as { openAiKey?: string })?.openAiKey ??
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (import.meta as any).env?.VITE_OPENAI_API_KEY ??
-    null;
+  // AI features route through the backend LLM service — no frontend API keys needed.
+  // The backend manages provider keys securely via ProviderSettingsPortal.
+  const oAiKey = (user as unknown as { openAiKey?: string })?.openAiKey ?? null;
   const [_aiReady, setAiReady] = useState<boolean>(false);
   const {
     fitView,
@@ -277,7 +276,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
       setTimeout(() => fitView({ padding: 0.2 }), 100);
     } catch (err) {
       setError('Failed to generate mind map');
-      console.error(err);
+      logger.error('Failed to generate mind map', err);
       setIsLoading(false);
     }
   }, [markdown, initialized, fitView, setNodes, setEdges, ogNodes, ogEdges]);

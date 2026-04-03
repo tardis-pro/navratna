@@ -11,6 +11,7 @@ import { useAutocompleteState } from '@/hooks/use_autocomplete_state';
 import { useConversationIntelligence } from '@/hooks/use_conversation_intelligence';
 import { useDebounce } from '@/hooks/use_debounce';
 import { AutocompleteSuggestion } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface GlobalAutocompleteProps {
   value: string;
@@ -180,7 +181,7 @@ export const GlobalAutocomplete = forwardRef<
         // The real response will come through the WebSocket callback
         // and will be handled by the onAutocompleteResults callback
       } catch (error) {
-        console.error('Enhancement request failed:', error);
+        logger.error('Enhancement request failed:', error);
         setIsEnhancing(false);
       }
     }, [connected, isEnhancing, enhancementType, value, context, requestAutocomplete]);

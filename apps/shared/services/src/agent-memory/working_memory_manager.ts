@@ -305,6 +305,34 @@ export class WorkingMemoryManager {
     return Math.min(totalItems / maxCapacity, 1.0);
   }
 
+  async getActiveAgentIds(): Promise<string[]> {
+    try {
+      const client = await this.getRedisClient();
+      if (!client) {
+        return [];
+      }
+
+      const prefix = 'agent:memory:working:';
+      const agentIds: string[] = [];
+      let cursor = '0';
+
+      do {
+        const [nextCursor, keys] = await client.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 100);
+        cursor = nextCursor;
+        for (const key of keys) {
+          agentIds.push(key.slice(prefix.length));
+        }
+      } while (cursor !== '0');
+
+      return agentIds;
+    } catch (error) {
+      logger.warn('Failed to scan active agent working memory keys', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+
   private trimWorkingMemory(memory: WorkingMemory): void {
     // Trim thoughts to keep most recent and important
     const maxThoughts = 10;

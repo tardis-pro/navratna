@@ -383,39 +383,121 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
   /**
    * Add feedback to knowledge items
    */
-  async addFeedback(_feedback: {
+  async addFeedback(feedback: {
     entityId: string;
     feedbackType: string;
     comments?: string;
     userId: string;
     timestamp: Date;
   }): Promise<void> {
-    // Store feedback in repository
-    // This is a placeholder implementation
+    try {
+      const content = `Feedback [${feedback.feedbackType}] on entity ${feedback.entityId}${
+        feedback.comments ? `: ${feedback.comments}` : ''
+      }`;
+      await this.knowledgeSync.createKnowledgeItem(
+        content,
+        KnowledgeType.EXPERIENTIAL,
+        {
+          tags: ['feedback', feedback.feedbackType],
+          confidence: 1.0,
+          entityId: feedback.entityId,
+          feedbackType: feedback.feedbackType,
+          comments: feedback.comments,
+          timestamp: feedback.timestamp.toISOString(),
+        },
+        feedback.userId
+      );
+    } catch (error) {
+      logger.error('Failed to store feedback', {
+        error: error instanceof Error ? error.message : String(error),
+        entityId: feedback.entityId,
+        feedbackType: feedback.feedbackType,
+      });
+      throw error;
+    }
   }
 
   /**
    * Store interaction data
    */
-  async storeInteraction(_interaction: Interaction): Promise<void> {
-    // Store interaction in repository
-    // This is a placeholder implementation
+  async storeInteraction(interaction: Interaction): Promise<void> {
+    try {
+      const content = `Interaction [${interaction.type}]: ${interaction.description}`;
+      const userId = interaction.participants[0];
+      await this.knowledgeSync.createKnowledgeItem(
+        content,
+        KnowledgeType.EPISODIC,
+        {
+          tags: ['interaction', interaction.type],
+          confidence: interaction.success ? 0.9 : 0.5,
+          interactionId: interaction.id,
+          interactionType: interaction.type,
+          participants: interaction.participants,
+          context: interaction.context,
+          success: interaction.success,
+          impact: interaction.impact,
+          novelty: interaction.novelty,
+          timestamp: interaction.timestamp.toISOString(),
+        },
+        userId
+      );
+    } catch (error) {
+      logger.error('Failed to store interaction', {
+        error: error instanceof Error ? error.message : String(error),
+        interactionId: interaction.id,
+        interactionType: interaction.type,
+      });
+      throw error;
+    }
   }
 
   /**
    * Adjust confidence scores
    */
-  async adjustConfidence(_itemId: string, _adjustment: number): Promise<void> {
-    // Adjust confidence in repository
-    // This is a placeholder implementation
+  async adjustConfidence(itemId: string, adjustment: number): Promise<void> {
+    try {
+      const item = await this.repository.findById(itemId);
+      if (!item) {
+        logger.warn('Knowledge item not found for confidence adjustment', { itemId });
+        return;
+      }
+      const newConfidence = Math.max(0, Math.min(1, item.confidence + adjustment));
+      await this.repository.update(itemId, { confidence: newConfidence });
+    } catch (error) {
+      logger.error('Failed to adjust confidence', {
+        error: error instanceof Error ? error.message : String(error),
+        itemId,
+        adjustment,
+      });
+      throw error;
+    }
   }
 
   /**
    * Initialize agent context
    */
-  async initializeAgentContext(_agentId: string, _context: Record<string, unknown>): Promise<void> {
-    // Initialize agent context
-    // This is a placeholder implementation
+  async initializeAgentContext(agentId: string, context: Record<string, unknown>): Promise<void> {
+    try {
+      const content = `Agent context initialized for agent ${agentId}`;
+      await this.knowledgeSync.createKnowledgeItem(
+        content,
+        KnowledgeType.EPISODIC,
+        {
+          tags: ['agent-context', agentId],
+          confidence: 1.0,
+          agentContextInitializedAt: new Date().toISOString(),
+          ...context,
+        },
+        undefined,
+        agentId
+      );
+    } catch (error) {
+      logger.error('Failed to initialize agent context', {
+        error: error instanceof Error ? error.message : String(error),
+        agentId,
+      });
+      throw error;
+    }
   }
 
   /**

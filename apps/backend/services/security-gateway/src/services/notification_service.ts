@@ -10,6 +10,19 @@ import type {
   NotificationChannel,
 } from '@uaip/types';
 
+type NotificationRecipient = {
+  id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  userId?: string;
+};
+
+type InAppNotificationRecord = {
+  id: string;
+  userId: string;
+};
+
 export class NotificationService {
   private emailTransporter: nodemailer.Transporter | null = null;
   private templates: Map<string, NotificationTemplate> = new Map();
@@ -72,7 +85,7 @@ export class NotificationService {
   private async sendViaChannel(
     channel: NotificationChannel,
     notification: ApprovalNotification,
-    recipient: unknown
+    recipient: NotificationRecipient
   ): Promise<void> {
     try {
       switch (channel.type) {
@@ -105,9 +118,8 @@ export class NotificationService {
    */
   private async sendEmailNotification(
     notification: ApprovalNotification,
-    recipient: unknown
+    recipient: NotificationRecipient
   ): Promise<void> {
-    // @ts-expect-error -- Property does not exist on inferred type
     if (!this.emailTransporter || !recipient.email) {
       logger.warn('Email transporter not configured or recipient has no email', {
         recipientId: notification.recipientId,
@@ -126,7 +138,6 @@ export class NotificationService {
 
     const mailOptions = {
       from: config.email.from || 'noreply@uaip.com',
-      // @ts-expect-error -- Property does not exist on inferred type
       to: recipient.email,
       subject: renderedTemplate.subject,
       html: renderedTemplate.htmlBody,
@@ -137,7 +148,6 @@ export class NotificationService {
 
     logger.info('Email notification sent', {
       recipientId: notification.recipientId,
-      // @ts-expect-error -- Property does not exist on inferred type
       email: recipient.email,
       type: notification.type,
     });
@@ -148,7 +158,7 @@ export class NotificationService {
    */
   private async sendInAppNotification(
     notification: ApprovalNotification,
-    _recipient: unknown
+    _recipient: NotificationRecipient
   ): Promise<void> {
     // Store in-app notification in database
     const inAppNotification = {
@@ -184,7 +194,7 @@ export class NotificationService {
    */
   private async sendWebhookNotification(
     notification: ApprovalNotification,
-    recipient: unknown,
+    recipient: NotificationRecipient,
     webhookConfig: Record<string, unknown>
   ): Promise<void> {
     if (!webhookConfig.url) {
@@ -195,11 +205,8 @@ export class NotificationService {
     const payload = {
       type: notification.type,
       recipient: {
-        // @ts-expect-error -- Property does not exist on inferred type
         id: recipient.id,
-        // @ts-expect-error -- Property does not exist on inferred type
         email: recipient.email,
-        // @ts-expect-error -- Property does not exist on inferred type
         name: recipient.name,
       },
       workflow: {
@@ -209,13 +216,11 @@ export class NotificationService {
       metadata: notification.metadata,
       timestamp: new Date().toISOString(),
     };
-
-    // @ts-expect-error -- No overload matches
-    const response = await fetch(webhookConfig.url, {
+    const response = await fetch(String(webhookConfig.url), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: webhookConfig.authHeader || '',
+        Authorization: String(webhookConfig.authHeader || ''),
         // @ts-expect-error -- Argument type mismatch
         'X-UAIP-Signature': this.generateWebhookSignature(payload, webhookConfig.secret),
       },
@@ -238,10 +243,9 @@ export class NotificationService {
    */
   private async sendSMSNotification(
     notification: ApprovalNotification,
-    recipient: unknown,
+    recipient: NotificationRecipient,
     smsConfig: Record<string, unknown>
   ): Promise<void> {
-    // @ts-expect-error -- Property does not exist on inferred type
     if (!recipient.phone || !smsConfig.provider) {
       logger.warn('SMS not configured or recipient has no phone', {
         recipientId: notification.recipientId,
@@ -254,7 +258,6 @@ export class NotificationService {
 
     logger.info('Sending SMS notification', {
       recipientId: notification.recipientId,
-      // @ts-expect-error -- Property does not exist on inferred type
       phone: recipient.phone,
       provider,
     });
@@ -263,7 +266,7 @@ export class NotificationService {
       if (provider === 'twilio') {
         const accountSid = process.env.TWILIO_ACCOUNT_SID;
         const authToken = process.env.TWILIO_AUTH_TOKEN;
-        const fromNumber = process.env.TWILIO_FROM_NUMBER || smsConfig.from;
+        const fromNumber = process.env.TWILIO_FROM_NUMBER || String(smsConfig.from || '');
 
         if (!accountSid || !authToken || !fromNumber) {
           logger.warn(
@@ -276,8 +279,7 @@ export class NotificationService {
         }
 
         const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-        // @ts-expect-error -- Property does not exist on inferred type; Argument type mismatch
-        const body = new URLSearchParams({ To: recipient.phone, From: fromNumber, Body: message });
+        const body = new URLSearchParams({ To: recipient.phone ?? '', From: fromNumber, Body: message });
         const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
         const response = await fetch(url, {
@@ -296,22 +298,18 @@ export class NotificationService {
 
         logger.info('SMS sent via Twilio', {
           recipientId: notification.recipientId,
-          // @ts-expect-error -- Property does not exist on inferred type
           phone: recipient.phone,
         });
       } else if (provider === 'webhook' || smsConfig.webhookUrl) {
-        const webhookUrl = smsConfig.webhookUrl || process.env.SMS_WEBHOOK_URL;
+        const webhookUrl = String(smsConfig.webhookUrl || process.env.SMS_WEBHOOK_URL || '');
         if (!webhookUrl) {
           logger.warn('SMS webhook URL not configured', { recipientId: notification.recipientId });
           return;
         }
-
-        // @ts-expect-error -- No overload matches
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            // @ts-expect-error -- Property does not exist on inferred type
             to: recipient.phone,
             message,
             recipientId: notification.recipientId,
@@ -378,10 +376,9 @@ export class NotificationService {
   private renderTemplate(
     template: NotificationTemplate,
     notification: ApprovalNotification,
-    recipient: unknown
+    recipient: NotificationRecipient
   ): NotificationTemplate {
     const data = {
-      // @ts-expect-error -- Property does not exist on inferred type
       recipientName: recipient.name,
       workflowId: notification.workflowId,
       operationId: notification.operationId,
@@ -402,9 +399,9 @@ export class NotificationService {
    * Interpolate template with data
    */
   private interpolateTemplate(template: string, data: Record<string, unknown>): string {
-    // @ts-expect-error -- No overload matches
-    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      return data[key] || match;
+    return template.replace(/\{\{(\w+)\}\}/g, (match: string, key: string): string => {
+      const value = data[key];
+      return typeof value === 'string' ? value : match;
     });
   }
 
@@ -459,24 +456,16 @@ export class NotificationService {
   /**
    * Save in-app notification to database
    */
-  private async saveInAppNotification(notification: unknown): Promise<void> {
-    // This would save to a notifications table
+  private async saveInAppNotification(notification: InAppNotificationRecord): Promise<void> {
     logger.info('In-app notification saved', {
-      // @ts-expect-error -- Property does not exist on inferred type
       notificationId: notification.id,
-      // @ts-expect-error -- Property does not exist on inferred type
       userId: notification.userId,
     });
   }
 
-  /**
-   * Send real-time notification
-   */
-  private async sendRealTimeNotification(userId: string, notification: unknown): Promise<void> {
-    // This would send via WebSocket or SSE
+  private async sendRealTimeNotification(userId: string, notification: InAppNotificationRecord): Promise<void> {
     logger.info('Real-time notification sent', {
       userId,
-      // @ts-expect-error -- Property does not exist on inferred type
       notificationId: notification.id,
     });
   }

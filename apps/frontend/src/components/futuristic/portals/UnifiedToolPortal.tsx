@@ -22,6 +22,7 @@ import { mcpAPI } from '@/api';
 import { uaipAPI } from '@/utils/uaip_api';
 import MCPConfigUpload from '@/components/MCPConfigUpload';
 import { PortalLoadingState, PortalEmptyState } from './portal-shared-components';
+import { logger } from '@/utils/browser_logger';
 
 interface Agent {
   id: string;
@@ -156,7 +157,7 @@ export const UnifiedToolPortal: React.FC = () => {
           }));
         }
       } catch (mcpError) {
-        console.warn('Failed to load MCP tools:', mcpError);
+        logger.warn('Failed to load MCP tools:', mcpError);
       }
 
       // Combine regular tools and MCP tools
@@ -164,7 +165,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
       setTools(allTools);
     } catch (error) {
-      console.error('Failed to load tools:', error);
+      logger.error('Failed to load tools:', error);
       setTools([]);
     }
   };
@@ -189,7 +190,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
       setAgents(agentsArray);
     } catch (error) {
-      console.error('Failed to load agents:', error);
+      logger.error('Failed to load agents:', error);
       setAgents([]);
     }
   };
@@ -214,7 +215,7 @@ export const UnifiedToolPortal: React.FC = () => {
         },
       });
     } catch (error) {
-      console.error('Failed to load system status:', error);
+      logger.error('Failed to load system status:', error);
       setSystemStatus({
         mcp: {
           status: 'error',
@@ -242,7 +243,7 @@ export const UnifiedToolPortal: React.FC = () => {
       setShowAgentSelector(false);
       setToolToAddToAgent(null);
     } catch (error) {
-      console.error('Failed to add tool to agent:', error);
+      logger.error('Failed to add tool to agent:', error);
       // Show user-friendly error message
       alert('Failed to add tool to agent. Please try again.');
     }
@@ -254,7 +255,7 @@ export const UnifiedToolPortal: React.FC = () => {
 
       await loadAgents();
     } catch (error) {
-      console.error('Failed to remove tool from agent:', error);
+      logger.error('Failed to remove tool from agent:', error);
       // Show user-friendly error message
       alert('Failed to remove tool from agent. Please try again.');
     }
@@ -473,7 +474,7 @@ export const UnifiedToolPortal: React.FC = () => {
           loadTools();
         }}
         onUploadError={(error) => {
-          console.error('MCP config upload failed:', error);
+          logger.error('MCP config upload failed:', error);
         }}
         className="bg-gray-800"
       />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/browser_logger';
 
 interface RecentItem {
   id: string;
@@ -127,7 +128,7 @@ export const useDesktop = () => {
         setActivityEvents(eventsWithDates);
       }
     } catch (error) {
-      console.error('Error loading desktop data from localStorage:', error);
+      logger.error('Error loading desktop data from localStorage:', error);
     }
   }, []);
 
@@ -136,7 +137,7 @@ export const useDesktop = () => {
     try {
       localStorage.setItem(STORAGE_KEYS.ICON_POSITIONS, JSON.stringify(positions));
     } catch (error) {
-      console.error('Error saving icon positions:', error);
+      logger.error('Error saving icon positions:', error);
     }
   }, []);
 
@@ -145,7 +146,7 @@ export const useDesktop = () => {
     try {
       localStorage.setItem(STORAGE_KEYS.RECENT_ITEMS, JSON.stringify(items));
     } catch (error) {
-      console.error('Error saving recent items:', error);
+      logger.error('Error saving recent items:', error);
     }
   }, []);
 
@@ -154,7 +155,7 @@ export const useDesktop = () => {
     try {
       localStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(prefs));
     } catch (error) {
-      console.error('Error saving preferences:', error);
+      logger.error('Error saving preferences:', error);
     }
   }, []);
 
@@ -165,7 +166,7 @@ export const useDesktop = () => {
       const limitedEvents = events.slice(-1000);
       localStorage.setItem(STORAGE_KEYS.ACTIVITY_EVENTS, JSON.stringify(limitedEvents));
     } catch (error) {
-      console.error('Error saving activity events:', error);
+      logger.error('Error saving activity events:', error);
     }
   }, []);
 

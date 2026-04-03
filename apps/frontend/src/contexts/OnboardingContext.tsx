@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { userPersonaAPI } from '../api/user_persona_api';
+import { logger } from '@/utils/browser_logger';
 
 interface OnboardingState {
   isFirstTime: boolean;
@@ -90,7 +91,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         });
       }
     } catch (error) {
-      console.error('Failed to check onboarding status:', error);
+      logger.error('Failed to check onboarding status:', error);
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -151,7 +152,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         localStorage.setItem('user-preferences', JSON.stringify(defaultPreferences));
       }
     } catch (error) {
-      console.error('Failed to complete onboarding:', error);
+      logger.error('Failed to complete onboarding:', error);
       throw error;
     }
   }, []);

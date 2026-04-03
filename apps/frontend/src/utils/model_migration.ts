@@ -1,5 +1,6 @@
 import { ModelOption, findModelsByName, extractModelName } from '@/components/ModelSelector';
 import type { FrontendAgentState as AgentState } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 // Migration utility to update agents with legacy model IDs
 export const migrateAgentModelIds = (
@@ -22,13 +23,13 @@ export const migrateAgentModelIds = (
 
         // If multiple models found, log the options
         if (matchingModels.length > 1) {
-          console.warn(
+          logger.warn(
             `Multiple servers have model "${agent.modelId}". Using ${matchingModels[0].source}. Available options:`,
             matchingModels.map((m) => m.source)
           );
         }
       } else {
-        console.warn(`No model found for agent ${agentId} with model ID: ${agent.modelId}`);
+        logger.warn(`No model found for agent ${agentId} with model ID: ${agent.modelId}`);
       }
     }
 

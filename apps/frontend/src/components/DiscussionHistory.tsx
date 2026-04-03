@@ -5,6 +5,7 @@ import { useDiscussion } from '@/contexts/DiscussionContext';
 import { discussionsAPI } from '@/api/discussions_api';
 import { cn } from '@/lib/utils';
 import type { Discussion } from '@uaip/types';
+import { logger } from '@/utils/browser_logger';
 
 interface DiscussionHistoryProps {
   onSelectDiscussion?: (discussionId: string) => void;
@@ -40,7 +41,7 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
       });
       setDiscussions(discussionList);
     } catch (err) {
-      console.error('Failed to load discussions:', err);
+      logger.error('Failed to load discussions:', err);
       setError('Failed to load discussions');
     } finally {
       setIsLoading(false);
@@ -61,7 +62,7 @@ export const DiscussionHistory: React.FC<DiscussionHistoryProps> = ({
 
       setIsOpen(false);
     } catch (err) {
-      console.error('Failed to load discussion history:', err);
+      logger.error('Failed to load discussion history:', err);
       setError('Failed to load discussion history');
     }
   };
