@@ -511,7 +511,6 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       );
 
       if (hasHighRiskCapability) {
-        // @ts-expect-error -- Property does not exist on inferred type
         restrictions.rateLimit = {
           requests: 50,
           windowMs: 60 * 60 * 1000, // 1 hour
@@ -984,7 +983,6 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
    * Assess operation risk
    */
   private assessOperationRisk(operation: unknown): RiskFactor {
-    // @ts-expect-error -- Property does not exist on inferred type
     const operationType = operation.type || 'unknown';
     let score = 1; // Base score
     let level = RiskLevel.LOW;

@@ -160,7 +160,6 @@ export function registerAuthRoutes() {
         }
   
         // Account lock check
-        // @ts-expect-error -- Property does not exist on inferred type
         if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
           await auditService.logSecurityEvent({
             eventType: AuditEventType.LOGIN_FAILED,
@@ -178,7 +177,6 @@ export function registerAuthRoutes() {
   
         const isValidPassword = await bcrypt.compare(password, user.passwordHash);
         if (!isValidPassword) {
-          // @ts-expect-error -- Property does not exist on inferred type
           const failedAttempts = (user.failedLoginAttempts || 0) + 1;
           const maxAttempts = 5;
           const lockDuration = 30 * 60 * 1000; // 30 minutes
@@ -252,9 +250,7 @@ export function registerAuthRoutes() {
               lastName: user.lastName || '',
               role: user.role,
               department: user.department || '',
-              // @ts-expect-error -- Property does not exist on inferred type
               permissions: user.permissions || [],
-              // @ts-expect-error -- Property does not exist on inferred type
               lastLoginAt: user.lastLoginAt,
             },
           },
@@ -306,23 +302,18 @@ export function registerAuthRoutes() {
         jwt.verify(refreshToken, config.jwt.refreshSecret);
         const { userService } = await getServices();
         const tokenData = await userService.getRefreshTokenWithUser(refreshToken);
-        // @ts-expect-error -- Property does not exist on inferred type
         if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
           set.status = 401;
           return { error: 'Invalid Token', message: 'Refresh token not found or expired' };
         }
-        // @ts-expect-error -- Property does not exist on inferred type
         if (!tokenData.user.isActive) {
           set.status = 401;
           return { error: 'Account Inactive', message: 'User account is no longer active' };
         }
   
         const tokens = generateAuthTokens({
-          // @ts-expect-error -- Property does not exist on inferred type
           userId: tokenData.user.id,
-          // @ts-expect-error -- Property does not exist on inferred type
           email: tokenData.user.email,
-          // @ts-expect-error -- Property does not exist on inferred type
           role: tokenData.user.role,
         });
   
@@ -332,7 +323,6 @@ export function registerAuthRoutes() {
         const refreshSeconds = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
         refreshExpiry.setSeconds(refreshExpiry.getSeconds() + (refreshSeconds ?? 604800));
         await userService.createRefreshToken(
-          // @ts-expect-error -- Property does not exist on inferred type
           tokenData.user.id,
           tokens.refreshToken,
           refreshExpiry
@@ -375,7 +365,6 @@ export function registerAuthRoutes() {
       try {
         const authUser = await getAuthUser(headers.authorization);
         const { userService, auditService } = await getServices();
-        // @ts-expect-error -- Property does not exist on inferred type
         const refreshToken = (body as unknown)?.refreshToken as string | undefined;
   
         if (refreshToken) {
@@ -505,9 +494,7 @@ export function registerAuthRoutes() {
             lastName: account.lastName || '',
             role: account.role,
             department: account.department || '',
-            // @ts-expect-error -- Property does not exist on inferred type
             permissions: account.permissions || [],
-            // @ts-expect-error -- Property does not exist on inferred type
             lastLoginAt: account.lastLoginAt,
           },
           meta: { timestamp: new Date() },

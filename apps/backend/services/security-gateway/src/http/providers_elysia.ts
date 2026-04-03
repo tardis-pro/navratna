@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { LLMProviderStatus } from '@uaip/types';
 import { llmProviderManagementService } from '../services/llm_provider_management_service.js';
 
+import { getAuthUser, getErrorMessage } from './context_helpers.js';
+
 // Zod schemas mirroring original
 const createUserProviderSchema = z.object({
   name: z.string().min(1).max(255),
@@ -121,7 +123,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to get LLM provider' };
           }
         })
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .post('/providers', async ({ set, body, user }) => {
           try {
             const parsedBody = createManagedProviderSchema.parse(body);
@@ -142,7 +143,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to create LLM provider' };
           }
         })
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .put('/providers/:id', async ({ set, params, body, user }) => {
           try {
             const { id } = providerIdParamsSchema.parse(params);
@@ -159,7 +159,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to update LLM provider' };
           }
         })
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .delete('/providers/:id', async ({ set, params, user }) => {
           try {
             const { id } = providerIdParamsSchema.parse(params);
@@ -196,7 +195,6 @@ export function registerProviderRoutes() {
 
       // User-scoped provider management (nginx routes /api/v1/llm/my-providers here)
       .group('/api/v1/llm', (app) => withRequiredAuth(app)
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .get('/my-providers/limits', async ({ user }) => {
           const role = (user!.role || 'user').toLowerCase();
           const limit = ROLE_LIMITS[role] ?? 0;
@@ -215,8 +213,6 @@ export function registerProviderRoutes() {
             },
           };
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .get('/my-providers', async ({ user, set }) => {
           try {
             const providers = await UserService.getInstance()
@@ -229,8 +225,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to get LLM providers' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .get('/my-providers/active', async ({ user, set }) => {
           try {
             const userProviders = await UserService.getInstance()
@@ -259,8 +253,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to get active LLM providers' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .get('/my-providers/models', async ({ user, set }) => {
           try {
             const { UserLLMService, ModelBootstrapService } = await import('@uaip/llm-service');
@@ -303,8 +295,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to get LLM models' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .get('/my-providers/:id', async ({ set, params, user }) => {
           try {
             const { id } = providerIdParamsSchema.parse(params);
@@ -322,8 +312,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to get LLM provider' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .post('/my-providers', async ({ set, body, user }) => {
           const validation = createUserProviderSchema.safeParse(body);
           if (!validation.success) {
@@ -338,7 +326,6 @@ export function registerProviderRoutes() {
             const role = (user!.role || 'user').toLowerCase();
             const limit = ROLE_LIMITS[role] ?? 0;
             const repo = UserService.getInstance().getUserLLMProviderRepository();
-            // @ts-expect-error -- Property does not exist on inferred type
             const existing = await repo.findAllProvidersByUser(user!.id);
             if (limit === 0 || existing.length >= limit) {
               set.status = 403;
@@ -352,7 +339,6 @@ export function registerProviderRoutes() {
               };
             }
             const v = validation.data;
-            // @ts-expect-error -- Property does not exist on inferred type
             const saved = await repo.createUserProvider({
               userId: user!.id,
               name: v.name,
@@ -394,8 +380,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to create LLM provider' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .put('/my-providers/:id', async ({ set, params, body, user }) => {
           const validation = updateUserProviderSchema.safeParse(body);
           if (!validation.success) {
@@ -417,7 +401,6 @@ export function registerProviderRoutes() {
             const v = validation.data;
             // Split config updates per available repo methods
             if (v.apiKey !== undefined) {
-              // @ts-expect-error -- Property does not exist on inferred type
               await repo.updateApiKey(id, v.apiKey, user!.id);
             }
             const configUpdates: Record<string, unknown> = {};
@@ -428,11 +411,9 @@ export function registerProviderRoutes() {
             if (v.priority !== undefined) configUpdates.priority = v.priority;
             if (v.configuration !== undefined) configUpdates.configuration = v.configuration;
             if (Object.keys(configUpdates).length > 0) {
-              // @ts-expect-error -- Property does not exist on inferred type
               await repo.updateProviderConfig(id, user!.id, configUpdates);
             }
             if (v.status !== undefined) {
-              // @ts-expect-error -- Property does not exist on inferred type
               await repo.updateStatus(id, v.status, user!.id);
             }
             const updatedProvider = await repo.findById(id);
@@ -458,8 +439,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to update LLM provider' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .delete('/my-providers/:id', async ({ set, params, user }) => {
           try {
             const { id } = providerIdParamsSchema.parse(params);
@@ -469,7 +448,6 @@ export function registerProviderRoutes() {
               set.status = 404;
               return { success: false, error: 'LLM provider not found' };
             }
-            // @ts-expect-error -- Property does not exist on inferred type
             await repo.deleteUserProvider(id, user!.id);
             try {
               await getEventBusService().publish('llm.provider.changed', {
@@ -495,8 +473,6 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to delete LLM provider' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .post('/my-providers/:id/test', async ({ set, params, user }) => {
           try {
             const { id } = providerIdParamsSchema.parse(params);
@@ -527,13 +503,10 @@ export function registerProviderRoutes() {
             return { success: false, error: 'Failed to test LLM provider database connection' };
           }
         })
-      
-        // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
         .get('/my-providers/:id/stats', async ({ set, params, user }) => {
           try {
             const { id } = providerIdParamsSchema.parse(params);
             const repo = UserService.getInstance().getUserLLMProviderRepository();
-            // @ts-expect-error -- Property does not exist on inferred type
             const stats = await repo.getProviderStats(id, user!.id);
             if (!stats) {
               set.status = 404;

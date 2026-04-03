@@ -283,7 +283,6 @@ const KnowledgeSuccessDataSchema = t.Object({
 export function registerKnowledgeRoutes() {
   return new Elysia().group('/api/v1/knowledge', (app) => withOptionalAuth(app)
     .group('', (g) => withRequiredAuth(g)
-      // @ts-expect-error -- Property does not exist on inferred type
       .post('/', async ({ set, body, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -316,8 +315,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .patch('/:itemId', async ({ set, params, body, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -365,8 +362,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .delete('/:itemId', async ({ set, params, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -405,8 +400,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/tags/:tag', async ({ set, params, query, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -428,8 +421,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/stats', async ({ set, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -449,8 +440,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/:itemId/related', async ({ set, params, user }) => {
         const userId = user.id;
         const { itemId } = itemIdParamsSchema.parse(params);
@@ -476,8 +465,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/:itemId/similar', async ({ set, params, query, user }) => {
         const userId = user.id;
         const { itemId } = itemIdParamsSchema.parse(params);
@@ -505,8 +492,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/graph', async ({ set, query, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -608,8 +593,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/graph/relationships/:itemId', async ({ set, params, query, user }) => {
         const userId = user.id;
         const { userKnowledgeService, initializationError } = await getServices();
@@ -680,8 +663,6 @@ export function registerKnowledgeRoutes() {
           503: KnowledgeErrorSchema,
         },
       })
-      
-      // @ts-expect-error -- Property does not exist on inferred type
       .post('/sync', async ({ set, user }) => {
         const _userId = user.id;
         const { initializationError } = await getServices();
@@ -725,7 +706,6 @@ export function registerKnowledgeRoutes() {
       
       .post(
         '/chat-import',
-        // @ts-expect-error -- Property does not exist on inferred type
         async ({ set, body, user }) => {
           const userId = user.id;
           const { userKnowledgeService, initializationError } = await getServices();

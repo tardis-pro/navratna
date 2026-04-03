@@ -9,6 +9,8 @@ import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/security_gateway_service.js';
 import { ApprovalWorkflowService } from '../services/approval_workflow_service.js';
 
+import { getAuthUser, getErrorMessage } from './context_helpers.js';
+
 let securityServiceSingleton: SecurityService | null = null;
 let auditServiceSingleton: AuditService | null = null;
 let domainAuditServiceSingleton: DomainAuditService | null = null;
@@ -145,7 +147,6 @@ const ValidationErrorSchema = t.Object({ error: t.String(), details: t.Optional(
 
 export function registerSecurityRoutes() {
   return new Elysia().group('/api/v1/security', (app) => withRequiredAuth(app)
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/assess-risk', async ({ set, body, user, request, headers }) => {
       const { error, value } = validateWithZod(riskAssessmentSchema, body);
       if (error) {
@@ -205,8 +206,6 @@ export function registerSecurityRoutes() {
         500: ErrorSchema,
       },
     })
-  
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/check-approval-required', async ({ set, body, user, request, headers }) => {
       const { error, value } = validateWithZod(riskAssessmentSchema, body);
       if (error) {
@@ -268,7 +267,6 @@ export function registerSecurityRoutes() {
       .get('/policies', async ({ set, query }) => {
         try {
           const { securityService } = await getServices();
-          // @ts-expect-error -- Property does not exist on inferred type
           const { page = 1, limit = 20, active, search } = query as unknown;
           const filters: Record<string, unknown> = {
             limit: Number(limit),
@@ -321,10 +319,8 @@ export function registerSecurityRoutes() {
       .get('/policies/:policyId', async ({ set, params }) => {
         try {
           const { securityService } = await getServices();
-          // @ts-expect-error -- Property does not exist on inferred type
           const policyId = (params as unknown).policyId as string;
           const repo = securityService!.getSecurityPolicyRepository();
-          // @ts-expect-error -- Property does not exist on inferred type
           const policy = await repo.getSecurityPolicy(policyId);
           if (!policy) {
             set.status = 404;
@@ -345,8 +341,6 @@ export function registerSecurityRoutes() {
           500: ErrorSchema,
         },
       })
-      
-      // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
       .post('/policies', async ({ set, body, user, request, headers }) => {
         const { error, value } = validateWithZod(securityPolicySchema, body);
         if (error) {
@@ -359,7 +353,6 @@ export function registerSecurityRoutes() {
         try {
           const { securityService, auditService } = await getSecurityServices();
           const repo = securityService!.getSecurityPolicyRepository();
-          // @ts-expect-error -- Property does not exist on inferred type
           const newPolicy = await repo.createSecurityPolicy({
             name: value.name,
             description: value.description,
@@ -417,10 +410,8 @@ export function registerSecurityRoutes() {
         }
         try {
           const { securityService } = await getServices();
-          // @ts-expect-error -- Property does not exist on inferred type
           const policyId = (params as unknown).policyId as string;
           const repo = securityService!.getSecurityPolicyRepository();
-          // @ts-expect-error -- Property does not exist on inferred type
           const updated = await repo.updateSecurityPolicy(policyId, value);
           if (!updated) {
             set.status = 404;
@@ -454,10 +445,8 @@ export function registerSecurityRoutes() {
       .delete('/policies/:policyId', async ({ set, params }) => {
         try {
           const { securityService } = await getServices();
-          // @ts-expect-error -- Property does not exist on inferred type
           const policyId = (params as unknown).policyId as string;
           const repo = securityService!.getSecurityPolicyRepository();
-          // @ts-expect-error -- Property does not exist on inferred type
           const ok = await repo.deleteSecurityPolicy(policyId);
           if (!ok) {
             set.status = 404;
@@ -481,7 +470,6 @@ export function registerSecurityRoutes() {
       
       .get('/stats', async ({ set, query }) => {
         try {
-          // @ts-expect-error -- Property does not exist on inferred type
           const timeframe = ((query as unknown).timeframe || '24h') as string;
           let startDate: Date;
           const endDate = new Date();
@@ -549,7 +537,6 @@ export function registerSecurityRoutes() {
           );
           const policyStats = await securityService!
             .getSecurityPolicyRepository()
-            // @ts-expect-error -- Property does not exist on inferred type
             .getSecurityPolicyStats();
           return {
             message: 'Security statistics retrieved successfully',

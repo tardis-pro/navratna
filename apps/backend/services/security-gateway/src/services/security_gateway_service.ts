@@ -668,10 +668,7 @@ export class SecurityGatewayService {
         .map((f) => f.description);
       parts.push(`Key risk factors: ${topFactors.join(', ')}`);
     }
-
-    // @ts-expect-error -- Property does not exist on inferred type
     if (policyResult.appliedPolicies.length > 0) {
-      // @ts-expect-error -- Property does not exist on inferred type
       parts.push(`Applied policies: ${policyResult.appliedPolicies.length}`);
     }
 

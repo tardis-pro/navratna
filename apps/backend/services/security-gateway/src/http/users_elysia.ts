@@ -252,7 +252,6 @@ export function registerUserRoutes() {
   
     // GET /api/v1/users/llm-preferences
     .group('', (g) => withRequiredAuth(g)
-      // @ts-expect-error -- Property does not exist on inferred type
       .get('/llm-preferences', async ({ set, user }) => {
         try {
           const { userService } = await getServices();
@@ -272,7 +271,6 @@ export function registerUserRoutes() {
       })
       
       // PUT /api/v1/users/llm-preferences
-      // @ts-expect-error -- Property does not exist on inferred type
       .put('/llm-preferences', async ({ set, user, body }) => {
         const parsed = updateUserLLMPreferencesSchema.safeParse(body);
         if (!parsed.success) {
@@ -356,7 +354,6 @@ export function registerUserRoutes() {
       })
       
       // POST /api/v1/users (admin)
-      // @ts-expect-error -- Property does not exist on inferred type
       .post('/', async ({ set, body, user }) => {
         const parsed = createUserSchema.safeParse(body);
         if (!parsed.success) {

@@ -5,6 +5,8 @@ import { AuditService } from '../services/audit_service.js';
 import { UserService } from '@uaip/shared-services';
 import { AuditEventType } from '@uaip/types';
 
+import { getAuthUser, getErrorMessage } from './context_helpers.js';
+
 let auditServiceSingleton: AuditService | null = null;
 let userServiceSingleton: UserService | null = null;
 async function getServices() {
@@ -48,7 +50,6 @@ function getContactStatus(contact: { metadata?: Record<string, unknown> | null }
 export function registerContactRoutes() {
   return new Elysia().group('/api/v1/contacts', (app) => withRequiredAuth(app)
     // POST /request
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/request', async ({ set, body, user, request, headers }) => {
       const parsed = contactRequestSchema.safeParse(body);
       if (!parsed.success) {
@@ -123,7 +124,6 @@ export function registerContactRoutes() {
     })
   
     // GET /
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .get('/', async ({ set, query, user }) => {
       const parsed = contactQuerySchema.safeParse(query);
       if (!parsed.success) {
@@ -175,7 +175,6 @@ export function registerContactRoutes() {
     })
   
     // POST /:contactId/action
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .post('/:contactId/action', async ({ set, params, body, user, request, headers }) => {
       const parsed = contactActionSchema.safeParse(body);
       if (!parsed.success) {
@@ -303,7 +302,6 @@ export function registerContactRoutes() {
     })
   
     // GET /pending
-    // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     .get('/pending', async ({ user }) => {
       const userId = user!.id;
       const { userService } = await getServices();

@@ -153,7 +153,6 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
-        // @ts-expect-error -- Property does not exist on inferred type
         revokeUrl: (providerConfig as unknown).revokeUrl,
         isEnabled: providerConfig.isEnabled || true,
       });
@@ -166,7 +165,6 @@ export class OAuthProviderService {
           action: 'create_oauth_provider',
           providerId: savedProvider.id,
           providerType: savedProvider.type,
-          // @ts-expect-error -- Property does not exist on inferred type
           agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
         },
       });
@@ -174,7 +172,6 @@ export class OAuthProviderService {
       logger.info('OAuth provider created', {
         providerId: savedProvider.id,
         type: savedProvider.type,
-        // @ts-expect-error -- Property does not exist on inferred type
         agentAccess: savedProvider.agentConfig?.allowAgentAccess || false,
       });
 

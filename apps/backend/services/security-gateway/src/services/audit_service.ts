@@ -634,31 +634,18 @@ export class AuditService {
    */
   private mapEntityToAuditEvent(entity: unknown): AuditEvent {
     return {
-      // @ts-expect-error -- Property does not exist on inferred type
       id: entity.id,
-      // @ts-expect-error -- Property does not exist on inferred type
       eventType: entity.eventType,
-      // @ts-expect-error -- Property does not exist on inferred type
       userId: entity.userId,
-      // @ts-expect-error -- Property does not exist on inferred type
       agentId: entity.agentId,
-      // @ts-expect-error -- Property does not exist on inferred type
       resourceType: entity.resourceType,
-      // @ts-expect-error -- Property does not exist on inferred type
       resourceId: entity.resourceId,
-      // @ts-expect-error -- Property does not exist on inferred type
       details: entity.details || {},
-      // @ts-expect-error -- Property does not exist on inferred type
       ipAddress: entity.ipAddress,
-      // @ts-expect-error -- Property does not exist on inferred type
       userAgent: entity.userAgent,
-      // @ts-expect-error -- Property does not exist on inferred type
       riskLevel: entity.riskLevel as SecurityLevel,
-      // @ts-expect-error -- Property does not exist on inferred type
       timestamp: entity.timestamp,
-      // @ts-expect-error -- Property does not exist on inferred type
       createdAt: entity.createdAt,
-      // @ts-expect-error -- Property does not exist on inferred type
       updatedAt: entity.updatedAt,
     };
   }

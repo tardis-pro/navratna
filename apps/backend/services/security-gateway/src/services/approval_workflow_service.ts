@@ -158,7 +158,6 @@ export class ApprovalWorkflowService {
 
       // Save decision using DatabaseService
       const approvalDecisionRepo = this.securityService.getApprovalDecisionRepository();
-      // @ts-expect-error -- Property does not exist on inferred type
       await approvalDecisionRepo.createApprovalDecision({
         id: `decision-${decision.workflowId}-${decision.approverId}`,
         workflowId: decision.workflowId,
@@ -311,7 +310,6 @@ export class ApprovalWorkflowService {
       // Update status using DatabaseService
       await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .updateApprovalWorkflow(workflowId, {
           status: 'cancelled' as unknown,
         });
@@ -369,7 +367,6 @@ export class ApprovalWorkflowService {
 
       const workflows = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .getPendingWorkflowsForReminders(reminderThreshold);
 
       logger.info('Sending approval reminders', { count: workflows.length });
@@ -392,7 +389,6 @@ export class ApprovalWorkflowService {
 
       const workflows = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .getExpiredWorkflows();
       logger.debug('Found expired workflows', { count: workflows.length });
 
@@ -444,7 +440,6 @@ export class ApprovalWorkflowService {
       // Update workflow status to expired
       const updatedWorkflow = await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .updateApprovalWorkflow(workflowId, {
           status: 'expired' as unknown,
         });
@@ -532,7 +527,6 @@ export class ApprovalWorkflowService {
       // Update last reminder time
       await this.securityService
         .getApprovalWorkflowRepository()
-        // @ts-expect-error -- Property does not exist on inferred type
         .updateApprovalWorkflow(workflow.id, {
           lastReminderAt: new Date(),
         });
@@ -546,7 +540,6 @@ export class ApprovalWorkflowService {
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
 
     // Update workflow status
-    // @ts-expect-error -- Property does not exist on inferred type
     await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
       status: newStatus as unknown,
     });
@@ -586,7 +579,6 @@ export class ApprovalWorkflowService {
     }
 
     // Update in database
-    // @ts-expect-error -- Property does not exist on inferred type
     await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
       currentApprovers: workflow.currentApprovers,
     });
@@ -731,7 +723,6 @@ export class ApprovalWorkflowService {
   private async getApprovalDecisions(workflowId: string): Promise<ApprovalDecision[]> {
     const decisions = await this.securityService
       .getApprovalDecisionRepository()
-      // @ts-expect-error -- Property does not exist on inferred type
       .getApprovalDecisions(workflowId);
 
     return decisions.map((decision) => ({
@@ -749,23 +740,14 @@ export class ApprovalWorkflowService {
    */
   private mapEntityToWorkflow(entity: unknown): ApprovalWorkflowType {
     return {
-      // @ts-expect-error -- Property does not exist on inferred type
       id: entity.id,
-      // @ts-expect-error -- Property does not exist on inferred type
       operationId: entity.operationId,
-      // @ts-expect-error -- Property does not exist on inferred type
       requiredApprovers: entity.requiredApprovers,
-      // @ts-expect-error -- Property does not exist on inferred type
       currentApprovers: entity.currentApprovers,
-      // @ts-expect-error -- Property does not exist on inferred type
       status: entity.status as ApprovalStatus,
-      // @ts-expect-error -- Property does not exist on inferred type
       expiresAt: entity.expiresAt,
-      // @ts-expect-error -- Property does not exist on inferred type
       metadata: entity.metadata,
-      // @ts-expect-error -- Property does not exist on inferred type
       createdAt: entity.createdAt,
-      // @ts-expect-error -- Property does not exist on inferred type
       updatedAt: entity.updatedAt,
     };
   }

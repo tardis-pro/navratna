@@ -119,13 +119,10 @@ export class LLMProviderManagementService {
       await this.ensureInitialized();
 
       // Check if provider with same name already exists
-      // @ts-expect-error -- Property does not exist on inferred type
       const existingProvider = await this.llmProviderRepository.findByName(request.name);
       if (existingProvider) {
         throw new Error(`LLM provider with name '${request.name}' already exists`);
       }
-
-      // @ts-expect-error -- Property does not exist on inferred type
       const provider = await this.llmProviderRepository.createProvider({
         ...request,
         createdBy,
@@ -204,7 +201,6 @@ export class LLMProviderManagementService {
       await this.ensureInitialized();
 
       const provider = await this.llmProviderRepository.findById(id);
-      // @ts-expect-error -- Property does not exist on inferred type
       await this.llmProviderRepository.softDelete(id, deletedBy);
 
       // Notify LLM service to refresh providers and cache
@@ -253,7 +249,6 @@ export class LLMProviderManagementService {
           result = { success: true, latency };
 
           // Update health check result
-          // @ts-expect-error -- Property does not exist on inferred type
           await this.llmProviderRepository.updateHealthCheck(id, {
             status: 'healthy',
             latency,
@@ -267,7 +262,6 @@ export class LLMProviderManagementService {
           };
 
           // Update health check result
-          // @ts-expect-error -- Property does not exist on inferred type
           await this.llmProviderRepository.updateHealthCheck(id, {
             status: 'unhealthy',
             latency,
@@ -285,7 +279,6 @@ export class LLMProviderManagementService {
         };
 
         // Update health check result
-        // @ts-expect-error -- Property does not exist on inferred type
         await this.llmProviderRepository.updateHealthCheck(id, {
           status: 'unhealthy',
           latency,
