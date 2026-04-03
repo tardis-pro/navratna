@@ -15,10 +15,19 @@ import {
   SourceType,
   KnowledgeItem,
 } from '@uaip/types';
+import type { EventBusMessage } from '@uaip/types';
 import { logger, ApiError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { Operation } from '@uaip/shared-services';
+import {
+  Operation,
+  MEMORY_CONSOLIDATION_REQUEST,
+  MEMORY_CONSOLIDATION_RESULT,
+} from '@uaip/shared-services';
+import type {
+  MemoryConsolidationRequestEvent,
+  MemoryConsolidationResultEvent,
+} from '@uaip/shared-services';
 import { AgentIntelligenceStore } from './agent_intelligence_store.js';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
 import { AgentMemoryService } from '../agent-memory/agent_memory_service.js';
@@ -106,6 +115,10 @@ export class AgentLearningService {
     await this.eventBusService.subscribe(
       'agent.learning.update',
       this.handleUpdateKnowledge.bind(this)
+    );
+    await this.eventBusService.subscribe(
+      MEMORY_CONSOLIDATION_REQUEST,
+      this.handleMemoryConsolidationRequest.bind(this)
     );
 
     logger.info('Agent Learning Service event subscriptions configured');
@@ -341,30 +354,60 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
     }
   }
 
-  /**
-   * Consolidate agent memory
-   */
   async consolidateMemory(agentId: string): Promise<void> {
-    try {
-      this.validateID(agentId, 'agentId');
+    this.validateID(agentId, 'agentId');
 
-      logger.info('Consolidating agent memory', { agentId });
+    const requestId = `consolidate-${Date.now()}-${agentId}`;
+    const payload: MemoryConsolidationRequestEvent = {
+      agentId,
+      requestId,
+      requestedAt: new Date().toISOString(),
+    };
 
-      if (this.agentMemoryService) {
-        await this.agentMemoryService.consolidateMemories(agentId);
-      }
+    await this.eventBusService.publish(MEMORY_CONSOLIDATION_REQUEST, payload);
 
-      // Publish memory consolidated event
-      await this.publishLearningEvent('agent.memory.consolidated', {
+    logger.info('Memory consolidation enqueued', { agentId, requestId });
+    this.auditLog('MEMORY_CONSOLIDATION_ENQUEUED', { agentId, requestId });
+  }
+
+  private async handleMemoryConsolidationRequest(message: EventBusMessage): Promise<void> {
+    const event = message.data as MemoryConsolidationRequestEvent;
+    const { agentId, requestId } = event;
+
+    if (!this.agentMemoryService) {
+      logger.warn('Memory consolidation requested but no memory service available', {
         agentId,
-        timestamp: new Date().toISOString(),
+        requestId,
       });
-
-      this.auditLog('MEMORY_CONSOLIDATED', { agentId });
-    } catch (error) {
-      logger.error('Failed to consolidate memory', { error, agentId });
-      throw error;
+      return;
     }
+
+    logger.info('Processing memory consolidation job', { agentId, requestId });
+
+    const result = await this.agentMemoryService.consolidateMemories(agentId);
+
+    const resultPayload: MemoryConsolidationResultEvent = {
+      agentId,
+      requestId,
+      consolidated: result.consolidated,
+      episodesCreated: result.episodesCreated,
+      conceptsLearned: result.conceptsLearned,
+      connectionsFormed: result.connectionsFormed,
+      reason: result.reason,
+      completedAt: new Date().toISOString(),
+    };
+
+    await this.eventBusService.publish(MEMORY_CONSOLIDATION_RESULT, resultPayload);
+
+    logger.info('Memory consolidation completed', {
+      agentId,
+      requestId,
+      consolidated: result.consolidated,
+      episodesCreated: result.episodesCreated,
+      conceptsLearned: result.conceptsLearned,
+    });
+
+    this.auditLog('MEMORY_CONSOLIDATED', { agentId, requestId, consolidated: result.consolidated });
   }
 
   /**

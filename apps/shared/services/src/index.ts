@@ -187,6 +187,16 @@ export { getConstellations } from './constellation_service';
 // Agent Memory Services
 export * from './agent-memory/index';
 
+// Memory Domain Events
+export {
+  MEMORY_CONSOLIDATION_REQUEST,
+  MEMORY_CONSOLIDATION_RESULT,
+} from './events/memory_events';
+export type {
+  MemoryConsolidationRequestEvent,
+  MemoryConsolidationResultEvent,
+} from './events/memory_events';
+
 // Integration Services - MCP + Neo4j Sync
 export * from './integration/index';
 
