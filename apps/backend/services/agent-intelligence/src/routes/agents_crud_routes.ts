@@ -35,6 +35,30 @@ function parsePaginationParams(query: Record<string, string | undefined>): {
   return { page, limit, search }
 }
 
+const AgentSchema = t.Object({
+  id: t.Optional(t.String()),
+  name: t.Optional(t.String()),
+  description: t.Optional(t.Union([t.String(), t.Null()])),
+  role: t.Optional(t.String()),
+  personaId: t.Optional(t.String()),
+  isActive: t.Optional(t.Boolean()),
+  createdBy: t.Optional(t.String()),
+  status: t.Optional(t.String()),
+  capabilities: t.Optional(t.Array(t.String())),
+  version: t.Optional(t.Any()),
+  securityLevel: t.Optional(t.String()),
+  createdAt: t.Optional(t.Union([t.String(), t.Date()])),
+  updatedAt: t.Optional(t.Union([t.String(), t.Date()])),
+  intelligenceConfig: t.Optional(t.Any()),
+  securityContext: t.Optional(t.Any()),
+  configuration: t.Optional(t.Any()),
+  metadata: t.Optional(t.Any()),
+  preferences: t.Optional(t.Any()),
+  tags: t.Optional(t.Any()),
+})
+
+const AgentErrorSchema = t.Object({ error: t.String(), message: t.Optional(t.String()) })
+
 export function registerAgentCrudRoutes(
   agentIntelligenceService: AgentCrudDeps
 ) {
@@ -82,6 +106,25 @@ export function registerAgentCrudRoutes(
           ctx.set.status = 500
           return { success: false, error: 'Failed to list agents' }
         }
+      }, {
+        query: t.Object({
+          page: t.Optional(t.String()),
+          limit: t.Optional(t.String()),
+          search: t.Optional(t.String()),
+        }),
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Array(AgentSchema),
+            pagination: t.Object({
+              page: t.Number(),
+              limit: t.Number(),
+              total: t.Number(),
+              hasMore: t.Boolean(),
+            }),
+          }),
+          500: AgentErrorSchema,
+        },
       })
     
       .post('/', async (ctx) => {
@@ -113,6 +156,10 @@ export function registerAgentCrudRoutes(
           capabilities: t.Optional(t.Array(t.String())),
           metadata: t.Optional(t.Record(t.String(), t.Unknown())),
         }),
+        response: {
+          201: t.Object({ success: t.Literal(true), data: AgentSchema }),
+          400: AgentErrorSchema,
+        },
       })
     
       .get('/:agentId', async (ctx) => {
@@ -129,6 +176,12 @@ export function registerAgentCrudRoutes(
           ctx.set.status = 500
           return { success: false, error: 'Failed to get agent' }
         }
+      }, {
+        response: {
+          200: t.Object({ success: t.Literal(true), data: AgentSchema }),
+          404: AgentErrorSchema,
+          500: AgentErrorSchema,
+        },
       })
     
       .put('/:agentId', async (ctx) => {
@@ -173,6 +226,12 @@ export function registerAgentCrudRoutes(
           capabilities: t.Array(t.String()),
           metadata: t.Record(t.String(), t.Unknown()),
         })),
+        response: {
+          200: t.Object({ success: t.Literal(true), data: AgentSchema }),
+          403: AgentErrorSchema,
+          404: AgentErrorSchema,
+          400: AgentErrorSchema,
+        },
       })
     
       .delete('/:agentId', async (ctx) => {
@@ -203,6 +262,13 @@ export function registerAgentCrudRoutes(
             error: error instanceof Error ? error.message : 'Failed to delete agent',
           }
         }
+      }, {
+        response: {
+          200: t.Object({ success: t.Literal(true), message: t.String() }),
+          403: AgentErrorSchema,
+          404: AgentErrorSchema,
+          400: AgentErrorSchema,
+        },
       })
   )
 }

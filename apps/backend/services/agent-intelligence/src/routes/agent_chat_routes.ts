@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import type { AgentResponseRequest, ChatMessage, DocumentContext } from '@uaip/types'
@@ -152,6 +152,34 @@ export function registerAgentChatRoutes(
             error: error instanceof Error ? error.message : 'Failed to process chat request',
           }
         }
+      }, {
+        body: t.Object({
+          message: t.Optional(t.String()),
+          messages: t.Optional(t.Array(t.Object({
+            id: t.Optional(t.String()),
+            content: t.String(),
+            sender: t.Optional(t.String()),
+            timestamp: t.Optional(t.String()),
+            type: t.Optional(t.Union([
+              t.Literal('user'),
+              t.Literal('assistant'),
+              t.Literal('system'),
+              t.Literal('tool'),
+            ])),
+          }))),
+          context: t.Optional(t.Object({
+            id: t.Optional(t.String()),
+            title: t.Optional(t.String()),
+            content: t.Optional(t.String()),
+            type: t.Optional(t.String()),
+          })),
+        }),
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Any() }),
+          400: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+          404: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+          500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        },
       })
     
       .post('/:agentId/approvals/:approvalId', async (ctx) => {
@@ -247,6 +275,26 @@ export function registerAgentChatRoutes(
             error: error instanceof Error ? error.message : 'Failed to resolve approval',
           }
         }
+      }, {
+        body: t.Object({
+          decision: t.Optional(t.Union([t.Literal('approved'), t.Literal('rejected')])),
+          reason: t.Optional(t.String()),
+          metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+        }),
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              approvalId: t.String(),
+              decision: t.Union([t.Literal('approved'), t.Literal('rejected')]),
+              status: t.String(),
+            }),
+          }),
+          400: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+          403: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+          404: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+          409: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        },
       })
   )
 }
