@@ -27,6 +27,57 @@ interface TurnRequestEntry {
   requestedAt: Date;
 }
 
+/**
+ * AsyncMutex — per-key serialization via Promise chaining.
+ *
+ * Eliminates the TOCTOU race in the old Map<string, boolean> pattern by
+ * making lock acquisition truly atomic: each caller chains onto the previous
+ * holder's resolution, forming an ordered queue per key.
+ *
+ * Usage:
+ *   const release = await this.mutex.acquire(key);
+ *   try { ... } finally { release(); }
+ */
+class AsyncMutex {
+  private readonly chains = new Map<string, Promise<void>>();
+
+  /**
+   * Acquire the lock for `key`. Resolves when the caller is next in line.
+   * Returns a release function that MUST be called (in a finally block).
+   */
+  acquire(key: string): Promise<() => void> {
+    let release!: () => void;
+    // Token that resolves when THIS holder calls release()
+    const token = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    // Chain on the previous holder (or an already-resolved promise)
+    const previous = this.chains.get(key) ?? Promise.resolve();
+
+    // Next waiter in the queue will chain on our token
+    this.chains.set(key, token);
+
+    return previous.then(() => {
+      // Wrapped release: auto-prunes the map once no more waiters remain
+      return () => {
+        if (this.chains.get(key) === token) {
+          this.chains.delete(key);
+        }
+        release();
+      };
+    });
+  }
+
+  get size(): number {
+    return this.chains.size;
+  }
+
+  clear(): void {
+    this.chains.clear();
+  }
+}
+
 export class DiscussionOrchestrationService extends EventEmitter {
   private turnStrategyService: TurnStrategyService;
   private discussionService: DiscussionService;
@@ -37,9 +88,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private recentParticipationRequests: Map<string, number> = new Map(); // Track recent participation requests
   private turnRequestQueues: Map<string, TurnRequestEntry[]> = new Map();
 
-  // Operation locks to prevent race conditions
-  private operationLocks: Map<string, boolean> = new Map();
-  private turnTimerRetryCounts: Map<string, number> = new Map();
+  private readonly mutex = new AsyncMutex();
   private participationRateLimits: Map<string, number> = new Map(); // Discussion-level rate limiting
   private cleanupInterval: NodeJS.Timeout | null = null;
   // Periodic task intervals — stored so they can be cleared in cleanup()
@@ -609,8 +658,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const activeParticipants = discussion.participants.filter((p) => p.isActive);
       const currentParticipantId = discussion.state.currentTurn.participantId;
 
-      // Clear existing turn timer
-      this.clearTurnTimer(discussionId);
+      await this.clearTurnTimer(discussionId);
 
       // Get next turn
       let turnResult = await this.turnStrategyService.advanceTurn(
@@ -1329,34 +1377,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
   private async setTurnTimer(discussionId: string, durationSeconds: number): Promise<void> {
     const lockKey = `turn_timer_${discussionId}`;
-
-    // Prevent race conditions with atomic turn timer operations
-    if (this.operationLocks.get(lockKey)) {
-      const retryCount = this.turnTimerRetryCounts.get(lockKey) || 0;
-
-      if (retryCount < 3) {
-        this.turnTimerRetryCounts.set(lockKey, retryCount + 1);
-        setTimeout(() => {
-          void this.setTurnTimer(discussionId, durationSeconds);
-        }, 100);
-      } else {
-        this.turnTimerRetryCounts.delete(lockKey);
-        logger.warn('Turn timer update dropped after max retries', {
-          lockKey,
-          discussionId,
-          durationSeconds,
-        });
-      }
-
-      return;
-    }
-
-    this.turnTimerRetryCounts.delete(lockKey);
-
-    this.operationLocks.set(lockKey, true);
-
+    const release = await this.mutex.acquire(lockKey);
     try {
-      // Atomically clear existing timer and set new one
       const existingTimer = this.turnTimers.get(discussionId);
       if (existingTimer) {
         clearTimeout(existingTimer);
@@ -1364,9 +1386,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         logger.debug('Existing turn timer cleared', { discussionId });
       }
 
-      // Set new timer with race condition protection
       const timer = setTimeout(async () => {
-        // Check if discussion still exists and is active before advancing
         const discussion = await this.getDiscussion(discussionId);
         if (!discussion || discussion.status !== 'active') {
           logger.debug('Skipping turn advance - discussion inactive', {
@@ -1381,7 +1401,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }, durationSeconds * 1000);
 
       this.turnTimers.set(discussionId, timer);
-      logger.debug('Turn timer set atomically', { discussionId, durationSeconds });
+      logger.debug('Turn timer set', { discussionId, durationSeconds });
     } catch (error) {
       logger.error('Error setting turn timer', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -1389,27 +1409,22 @@ export class DiscussionOrchestrationService extends EventEmitter {
         durationSeconds,
       });
     } finally {
-      // Always release the lock
-      this.operationLocks.delete(lockKey);
+      release();
     }
   }
 
-  private clearTurnTimer(discussionId: string): void {
+  private async clearTurnTimer(discussionId: string): Promise<void> {
     const lockKey = `turn_timer_${discussionId}`;
-
-    // Prevent race conditions during timer clearing
-    if (this.operationLocks.get(lockKey)) {
-      logger.debug('Turn timer operation in progress, deferring clear', { discussionId });
-      // Schedule clear for after current operation
-      setTimeout(() => this.clearTurnTimer(discussionId), 100);
-      return;
-    }
-
-    const timer = this.turnTimers.get(discussionId);
-    if (timer) {
-      clearTimeout(timer);
-      this.turnTimers.delete(discussionId);
-      logger.debug('Turn timer cleared', { discussionId });
+    const release = await this.mutex.acquire(lockKey);
+    try {
+      const timer = this.turnTimers.get(discussionId);
+      if (timer) {
+        clearTimeout(timer);
+        this.turnTimers.delete(discussionId);
+        logger.debug('Turn timer cleared', { discussionId });
+      }
+    } finally {
+      release();
     }
   }
 
@@ -2340,7 +2355,6 @@ export class DiscussionOrchestrationService extends EventEmitter {
     const now = Date.now();
     let cleanedDiscussions = 0;
     let cleanedParticipationRequests = 0;
-    let cleanedOperationLocks = 0;
 
     // Clean up stale discussions from cache (older than 1 hour with no activity)
     for (const [discussionId, discussion] of this.activeDiscussions.entries()) {
@@ -2381,19 +2395,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
     }
 
-    // Clean up orphaned operation locks (shouldn't happen but safety measure)
-    for (const [lockKey, _value] of this.operationLocks.entries()) {
-      // All operation locks should be short-lived, clean any older than 5 minutes
-      this.operationLocks.delete(lockKey);
-      cleanedOperationLocks++;
-      logger.warn('Cleaned up orphaned operation lock', { lockKey });
-    }
-
-    if (cleanedDiscussions > 0 || cleanedParticipationRequests > 0 || cleanedOperationLocks > 0) {
+    if (cleanedDiscussions > 0 || cleanedParticipationRequests > 0) {
       logger.info('Periodic cleanup completed', {
         cleanedDiscussions,
         cleanedParticipationRequests,
-        cleanedOperationLocks,
         remainingActiveDiscussions: this.activeDiscussions.size,
         remainingParticipationLimits: this.participationRateLimits.size,
         remainingParticipationRequests: this.recentParticipationRequests.size,
@@ -2426,7 +2431,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       turnRequestQueues: this.turnRequestQueues.size,
       participationRateLimits: this.participationRateLimits.size,
       recentParticipationRequests: this.recentParticipationRequests.size,
-      operationLocks: this.operationLocks.size,
+      operationLocks: this.mutex.size,
     };
   }
 
@@ -2725,7 +2730,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     this.turnRequestQueues.clear();
     this.participationRateLimits.clear();
     this.recentParticipationRequests.clear();
-    this.operationLocks.clear();
+    this.mutex.clear();
 
     logger.info('Discussion orchestration service cleanup completed');
   }
