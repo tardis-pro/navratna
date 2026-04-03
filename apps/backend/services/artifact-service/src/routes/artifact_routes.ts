@@ -4,7 +4,7 @@ import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import { withNginxAuth } from '@uaip/middleware';
 
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 
 const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
 
@@ -61,6 +61,9 @@ function buildArtifactGenerationRequest(body: unknown): ArtifactGenerationReques
   };
 }
 
+const ArtifactSchema = t.Any()
+const ArtifactErrorSchema = t.Object({ success: t.Literal(false), error: t.Object({ code: t.String(), message: t.String() }) })
+
 export function registerArtifactRoutes(
   artifactService: ArtifactService
 ){
@@ -104,6 +107,18 @@ export function registerArtifactRoutes(
               error: { code: 'INTERNAL_ERROR', message: 'Failed to list artifacts' },
             };
           }
+        },
+        {
+          query: t.Object({
+            type: t.Optional(t.String()),
+            projectId: t.Optional(t.String()),
+            limit: t.Optional(t.String()),
+            offset: t.Optional(t.String()),
+          }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Array(ArtifactSchema), total: t.Number(), limit: t.Number(), offset: t.Number() }),
+            500: ArtifactErrorSchema,
+          },
         }
       )
     
@@ -136,6 +151,13 @@ export function registerArtifactRoutes(
               error: { code: 'INTERNAL_ERROR', message: 'Failed to get artifact' },
             };
           }
+        },
+        {
+          response: {
+            200: t.Object({ success: t.Literal(true), data: ArtifactSchema }),
+            404: ArtifactErrorSchema,
+            500: ArtifactErrorSchema,
+          },
         }
       )
     
@@ -198,6 +220,22 @@ export function registerArtifactRoutes(
               },
             };
           }
+        },
+        {
+          body: t.Object({
+            type: t.String(),
+            context: t.Any(),
+            requirements: t.Optional(t.Array(t.String())),
+            constraints: t.Optional(t.Array(t.String())),
+            preferences: t.Optional(t.Any()),
+            metadata: t.Optional(t.Any()),
+            options: t.Optional(t.Object({
+              template: t.Optional(t.String()),
+              language: t.Optional(t.String()),
+              framework: t.Optional(t.String()),
+            })),
+          }),
+          response: { 200: t.Any(), 400: ArtifactErrorSchema, 500: ArtifactErrorSchema },
         }
       )
     
@@ -213,12 +251,12 @@ export function registerArtifactRoutes(
             let filtered = templates;
             if (language)
               filtered = filtered.filter(
-                (t) => !t.language || t.language.toLowerCase() === String(language).toLowerCase()
+                (tmpl) => !tmpl.language || tmpl.language.toLowerCase() === String(language).toLowerCase()
               );
             if (framework)
               filtered = filtered.filter(
-                (t) =>
-                  !t.framework || t.framework.toLowerCase() === String(framework).toLowerCase()
+                (tmpl) =>
+                  !tmpl.framework || tmpl.framework.toLowerCase() === String(framework).toLowerCase()
               );
     
             return { success: true, templates: filtered, total: filtered.length };
@@ -230,6 +268,13 @@ export function registerArtifactRoutes(
               error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve templates' },
             };
           }
+        },
+        {
+          query: t.Object({ type: t.Optional(t.String()), language: t.Optional(t.String()), framework: t.Optional(t.String()) }),
+          response: {
+            200: t.Object({ success: t.Literal(true), templates: t.Array(ArtifactSchema), total: t.Number() }),
+            500: ArtifactErrorSchema,
+          },
         }
       )
     
@@ -255,6 +300,13 @@ export function registerArtifactRoutes(
               error: { code: 'INTERNAL_ERROR', message: 'Failed to retrieve template' },
             };
           }
+        },
+        {
+          response: {
+            200: t.Object({ success: t.Literal(true), template: ArtifactSchema }),
+            404: ArtifactErrorSchema,
+            500: ArtifactErrorSchema,
+          },
         }
       )
     
@@ -283,10 +335,18 @@ export function registerArtifactRoutes(
               error: { code: 'INTERNAL_ERROR', message: 'Failed to validate artifact' },
             };
           }
+        },
+        {
+          body: t.Object({ content: t.String(), type: t.String() }),
+          response: {
+            200: t.Object({ success: t.Literal(true), validation: ArtifactSchema }),
+            400: ArtifactErrorSchema,
+            500: ArtifactErrorSchema,
+          },
         }
       )
     
-      .get('/health', () => {
+      .get('/health', (_ctx) => {
         const health = artifactService.getServiceHealth();
         return {
           success: true,
@@ -301,7 +361,7 @@ export function registerArtifactRoutes(
         };
       })
     
-      .get('/types', () => {
+      .get('/types', (_ctx) => {
         return {
           success: true,
           types: supportedArtifactTypes.map((type) => ({ type, description: getTypeDescription(type) })),

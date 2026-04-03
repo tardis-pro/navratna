@@ -1,7 +1,7 @@
 import { ShortLinkService } from '../services/short_link_service.js';
 import { logger } from '@uaip/utils';
 
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 
 function getBodyRecord(value: unknown) {
   return typeof value === 'object' && value !== null ? value : null;
@@ -10,6 +10,9 @@ function getBodyRecord(value: unknown) {
 function getString(value: unknown) {
   return typeof value === 'string' ? value : undefined;
 }
+
+const LinkSchema = t.Any()
+const LinkErrorSchema = t.Object({ success: t.Literal(false), error: t.String() })
 
 export function registerShortLinkRoutes() {
   return new Elysia()
@@ -51,6 +54,22 @@ export function registerShortLinkRoutes() {
                 error: error instanceof Error ? error.message : 'Failed to create short link',
               };
             }
+          },
+          {
+            body: t.Object({
+              originalUrl: t.String(),
+              title: t.Optional(t.String()),
+              description: t.Optional(t.String()),
+              type: t.Optional(t.String()),
+              customCode: t.Optional(t.String()),
+              expiresAt: t.Optional(t.String()),
+              maxClicks: t.Optional(t.Number()),
+              tags: t.Optional(t.Array(t.String())),
+              artifactId: t.Optional(t.String()),
+              projectFileId: t.Optional(t.String()),
+              generateQR: t.Optional(t.Boolean()),
+            }),
+            response: { 201: t.Object({ success: t.Literal(true), data: LinkSchema }), 400: LinkErrorSchema, 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
@@ -78,6 +97,10 @@ export function registerShortLinkRoutes() {
               set.status = 500;
               return { success: false, error: 'Failed to fetch links' };
             }
+          },
+          {
+            query: t.Object({ page: t.Optional(t.String()), limit: t.Optional(t.String()), type: t.Optional(t.String()), search: t.Optional(t.String()) }),
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Array(LinkSchema) }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
@@ -103,6 +126,9 @@ export function registerShortLinkRoutes() {
               set.status = 500;
               return { success: false, error: 'Failed to fetch link' };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: LinkSchema }), 401: LinkErrorSchema, 404: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
@@ -134,6 +160,10 @@ export function registerShortLinkRoutes() {
                 error: error instanceof Error ? error.message : 'Failed to update link',
               };
             }
+          },
+          {
+            body: t.Any(),
+            response: { 200: t.Object({ success: t.Literal(true), data: LinkSchema }), 400: LinkErrorSchema, 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
@@ -159,6 +189,9 @@ export function registerShortLinkRoutes() {
                 error: error instanceof Error ? error.message : 'Failed to delete link',
               };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), message: t.String() }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
@@ -183,6 +216,9 @@ export function registerShortLinkRoutes() {
                 error: error instanceof Error ? error.message : 'Failed to generate QR code',
               };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Object({ qrCode: t.String() }) }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
 
@@ -204,6 +240,9 @@ export function registerShortLinkRoutes() {
               set.status = 500;
               return { success: false, error: 'Failed to fetch analytics' };
             }
+          },
+          {
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }), 401: LinkErrorSchema, 500: LinkErrorSchema },
           }
         )
     )
@@ -245,6 +284,9 @@ export function registerShortLinkRoutes() {
             });
           return new Response(JSON.stringify({ success: false, error: message }), { status: 500 });
         }
+        },
+        {
+          response: { 200: t.Any(), 302: t.Any() },
         }
       )
     );
