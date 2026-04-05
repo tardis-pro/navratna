@@ -216,7 +216,7 @@ export class AgentCoreService {
       const db = getIntelligenceDb();
       const [savedAgent] = await db
         .insert(agents)
-        .values(agent as unknown as typeof agents.$inferInsert)
+        .values(agent as unknown as typeof agents.$inferInsert /* Agent domain type differs from Drizzle $inferInsert shape (e.g. version: number vs string) */)
         .returning();
 
       // Publish agent created event
@@ -233,7 +233,7 @@ export class AgentCoreService {
         createdBy,
       });
 
-      return savedAgent as unknown as Agent;
+      return savedAgent as unknown as Agent /* Drizzle select result differs from Agent domain type (e.g. version: string vs number) */;
     } catch (error) {
       logger.error('Failed to create agent', { error, agentData });
       throw error;
@@ -249,7 +249,7 @@ export class AgentCoreService {
 
       const db = getIntelligenceDb();
       const result = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
-      const agent = result[0] as unknown as Agent | null;
+      const agent = result[0] as unknown as Agent | null /* Drizzle select result differs from Agent domain type (e.g. version: string vs number) */;
 
       if (agent) {
         // Publish agent accessed event for analytics
@@ -324,7 +324,7 @@ export class AgentCoreService {
         timestamp: new Date().toISOString(),
       });
 
-      return agentsResult as unknown as Agent[];
+      return agentsResult as unknown as Agent[] /* Drizzle select result differs from Agent domain type (e.g. version: string vs number) */;
     } catch (error) {
       logger.error('Failed to list agents', { error, filters });
       throw error;
@@ -358,7 +358,7 @@ export class AgentCoreService {
       const dbUpdate = getIntelligenceDb();
       await dbUpdate
         .update(agents)
-        .set(updatePayload as unknown as typeof agents.$inferInsert)
+        .set(updatePayload as unknown as typeof agents.$inferInsert /* Agent domain type differs from Drizzle $inferInsert shape (e.g. version: number vs string) */)
         .where(eq(agents.id, agentId));
 
       // Get updated agent
@@ -413,7 +413,7 @@ export class AgentCoreService {
             ...agent.metadata,
             deletedFrom: this.serviceName,
           },
-        } as unknown as typeof agents.$inferInsert)
+        } as unknown as typeof agents.$inferInsert /* Agent domain type differs from Drizzle $inferInsert shape (e.g. version: number vs string) */)
         .where(eq(agents.id, agentId));
 
       // Publish agent deleted event

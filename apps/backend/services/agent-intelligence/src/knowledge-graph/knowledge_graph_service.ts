@@ -150,7 +150,7 @@ export class KnowledgeGraphService {
             console.warn('Vector collection is empty, falling back to repository search');
             filteredResults = (await this.repository.findByScope(
               scope || {}
-            )) as unknown as KnowledgeItem[];
+            )) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
           } else {
             vectorResults = await this.vectorDb.search(queryEmbedding, {
               limit: options?.limit || 20,
@@ -159,7 +159,7 @@ export class KnowledgeGraphService {
             });
             filteredResults = (await this.repository.applyFilters({
               limit: options?.limit || 20,
-            })) as unknown as KnowledgeItem[];
+            })) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
           }
         } catch (vectorError) {
           // If vector search fails, fall back to repository search
@@ -169,13 +169,13 @@ export class KnowledgeGraphService {
           );
           filteredResults = (await this.repository.findByScope(
             scope || {}
-          )) as unknown as KnowledgeItem[];
+          )) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
         }
       } else {
         // When no query is provided, get all items with scope filtering
         filteredResults = (await this.repository.findByScope(
           scope || {}
-        )) as unknown as KnowledgeItem[];
+        )) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
       }
 
       // Build vector filters including scope
@@ -252,7 +252,7 @@ export class KnowledgeGraphService {
         // Detect and create relationships
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const relationships = await this.relationshipDetector.detectRelationships(
-          knowledgeItem as unknown as KnowledgeItem
+          knowledgeItem as unknown as KnowledgeItem /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */
         );
         if (relationships.length > 0) {
           // Add scope to relationships
@@ -265,7 +265,7 @@ export class KnowledgeGraphService {
           await this.repository.createRelationships(scopedRelationships);
         }
 
-        results.push(knowledgeItem as unknown as KnowledgeItem);
+        results.push(knowledgeItem as unknown as KnowledgeItem /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */);
       } catch (error) {
         logger.error('Failed to ingest knowledge item', {
           preview: item.content.substring(0, 100),
@@ -302,7 +302,7 @@ export class KnowledgeGraphService {
         },
       });
 
-      return this.repository.applyFilters({ limit: 10 }) as unknown as KnowledgeItem[];
+      return this.repository.applyFilters({ limit: 10 }) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
     } catch (error) {
       console.error('Contextual knowledge retrieval error:', error);
       return [];
@@ -327,7 +327,7 @@ export class KnowledgeGraphService {
     try {
       const relationships = await this.repository.getRelationships(itemId);
       const relatedIds = relationships.map((r) => r.targetId);
-      return this.repository.getItems(relatedIds.map((id) => id)) as unknown as KnowledgeItem[];
+      return this.repository.getItems(relatedIds.map((id) => id)) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
     } catch (error) {
       console.error('Related knowledge retrieval error:', error);
       return [];
@@ -340,7 +340,7 @@ export class KnowledgeGraphService {
   async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
     const updatedItem = await this.repository.update(
       itemId,
-      updates as unknown as Parameters<typeof this.repository.update>[1]
+      updates as unknown as Parameters<typeof this.repository.update>[1] /* Partial<KnowledgeItem>→KnowledgeRow update param: domain type differs from Drizzle update shape */
     );
 
     // Re-generate embeddings if content changed
@@ -349,7 +349,7 @@ export class KnowledgeGraphService {
       await this.vectorDb.update(itemId, embeddings);
     }
 
-    return updatedItem as unknown as KnowledgeItem;
+    return updatedItem as unknown as KnowledgeItem /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
   }
 
   /**
@@ -629,11 +629,11 @@ export class KnowledgeGraphService {
       items = (await this.repository.findByDomain(
         domain,
         options?.maxItems
-      )) as unknown as KnowledgeItem[];
+      )) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
     } else {
       const allItems = (await this.repository.findRecentItems(
         options?.maxItems || 100
-      )) as unknown as KnowledgeItem[];
+      )) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
       items = options?.minConfidence
         ? allItems.filter((item) => item.confidence >= options.minConfidence!)
         : allItems;
@@ -677,7 +677,7 @@ export class KnowledgeGraphService {
   ) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
 
     return await this.taxonomyGenerator.generateTaxonomy(items, domain, options);
   }
@@ -696,7 +696,7 @@ export class KnowledgeGraphService {
   ) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
 
     return await this.reconciliationService.detectConflicts(items, {
       domains: domain ? [domain] : undefined,
@@ -724,7 +724,7 @@ export class KnowledgeGraphService {
   async mergeDuplicates(domain?: string) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
 
     return await this.reconciliationService.mergeDuplicates(items);
   }
@@ -735,7 +735,7 @@ export class KnowledgeGraphService {
   async generateKnowledgeSummaries(domain?: string) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
 
     return await this.reconciliationService.generateSummaries(items);
   }
@@ -906,7 +906,7 @@ export class KnowledgeGraphService {
         ? await this.repository.findByDomain(domain)
         : await this.repository.findRecentItems(
             options?.maxPairs || 100
-          )) as unknown as KnowledgeItem[];
+          )) as unknown as KnowledgeItem[] /* KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields */;
 
       return await this.qaGenerator.generateFromKnowledge(items, options);
     } catch (error) {

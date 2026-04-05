@@ -35,7 +35,7 @@ export function registerPersonaRoutes(personaService: PersonaService) {
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            const userId = (ctx as unknown as { user: { id: string; role?: string } } /* Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups */).user.id
             const persona = await personaService.createPersona(
               {
                 ...body,
@@ -92,7 +92,7 @@ export function registerPersonaRoutes(personaService: PersonaService) {
 
         .get('/recommendations', async (ctx) => {
           try {
-            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            const userId = (ctx as unknown as { user: { id: string; role?: string } } /* Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups */).user.id
             const { context: contextStr, limit = '10' } = ctx.query
             const recommendations = await personaService.getPersonaRecommendations(
               userId,
@@ -154,8 +154,8 @@ export function registerPersonaRoutes(personaService: PersonaService) {
 
         .put('/:id', async (ctx) => {
           try {
-            const userId: string = (ctx as unknown as { user: { id: string; role?: string } }).user.id
-            const userRole: string = (ctx as unknown as { user: { id: string; role?: string } }).user.role ?? ''
+            const userId: string = (ctx as unknown as { user: { id: string; role?: string } } /* Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups */).user.id
+            const userRole: string = (ctx as unknown as { user: { id: string; role?: string } } /* Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups */).user.role ?? ''
 
             const existing = await personaService.getPersona(ctx.params.id)
             if (!existing) {
@@ -201,8 +201,8 @@ export function registerPersonaRoutes(personaService: PersonaService) {
 
         .delete('/:id', async (ctx) => {
           try {
-            const userId: string = (ctx as unknown as { user: { id: string; role?: string } }).user.id
-            const userRole: string = (ctx as unknown as { user: { id: string; role?: string } }).user.role ?? ''
+            const userId: string = (ctx as unknown as { user: { id: string; role?: string } } /* Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups */).user.id
+            const userRole: string = (ctx as unknown as { user: { id: string; role?: string } } /* Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups */).user.role ?? ''
 
             const existing = await personaService.getPersona(ctx.params.id)
             if (!existing) {

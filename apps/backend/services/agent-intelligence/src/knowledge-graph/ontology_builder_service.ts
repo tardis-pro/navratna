@@ -102,6 +102,7 @@ export class OntologyBuilderService {
       // Get knowledge items if not provided
       let items = knowledgeItems;
       if (!items) {
+        // KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields
         items = (await this.knowledgeRepository.findByDomain(domain)) as unknown as KnowledgeItem[];
         if (items.length === 0) {
           throw new NotFoundError(`No knowledge items found for domain: ${domain}`);
@@ -406,7 +407,7 @@ export class OntologyBuilderService {
       for (const item of conceptItems) {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const createdItem = await this.knowledgeRepository.create(
-          item as unknown as Record<string, unknown>
+          item as unknown as Record<string, unknown> /* KnowledgeItem lacks index signature required by Record<string,unknown>; double-cast is intentional */
         );
 
         // Sync to Neo4j and Qdrant
@@ -440,7 +441,7 @@ export class OntologyBuilderService {
       for (const item of relationshipItems) {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const createdItem = await this.knowledgeRepository.create(
-          item as unknown as Record<string, unknown>
+          item as unknown as Record<string, unknown> /* KnowledgeItem lacks index signature required by Record<string,unknown>; double-cast is intentional */
         );
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
@@ -467,7 +468,7 @@ export class OntologyBuilderService {
       };
 
       const createdMetadataItem = await this.knowledgeRepository.create(
-        ontologyMetadataItem as unknown as Record<string, unknown>
+        ontologyMetadataItem as unknown as Record<string, unknown> /* KnowledgeItem lacks index signature required by Record<string,unknown>; double-cast is intentional */
       );
       await this.knowledgeSync.syncKnowledgeItem(createdMetadataItem);
 
@@ -506,7 +507,7 @@ export class OntologyBuilderService {
         return null;
       }
 
-      const metadataItem = ontologyMetadataItems[0] as unknown as Record<string, unknown>;
+      const metadataItem = ontologyMetadataItems[0] as unknown as Record<string, unknown> /* KnowledgeItem lacks index signature required by Record<string,unknown>; double-cast is intentional */;
       const metadata = (metadataItem.metadata as Record<string, unknown>) || {};
       const ontologyId =
         typeof metadata.ontologyId === 'string'

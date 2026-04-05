@@ -468,8 +468,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const participantManagementService = new ParticipantManagementService(
         (
           this.discussionService as unknown as {
-            databaseService: import('@uaip/infra').DatabaseService;
-          }
+                      databaseService: import('@uaip/infra').DatabaseService;
+                    } /* databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface */
         ).databaseService
       );
 
@@ -562,7 +562,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         actualParticipantId,
         content,
-        mappedMessageType as unknown as import('@uaip/types').MessageType
+        mappedMessageType as import('@uaip/types').MessageType
       );
 
       // Update participant activity using enterprise participant management
@@ -1780,8 +1780,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const participantManagementService = new ParticipantManagementService(
         (
           this.discussionService as unknown as {
-            databaseService: import('@uaip/infra').DatabaseService;
-          }
+                      databaseService: import('@uaip/infra').DatabaseService;
+                    } /* databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface */
         ).databaseService
       );
 
@@ -2041,7 +2041,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
             try {
               // Try to get agent information for proper name
               const agentData = await (
-                this.discussionService as unknown as {
+                this.discussionService as unknown as { /* databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface */
                   databaseService: import('@uaip/infra').DatabaseService & {
                     getAgentById?: (id: string) => Promise<{ name?: string } | null>;
                   };
@@ -2055,7 +2055,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
             try {
               // Try to get user information for proper name
               const userData = await (
-                this.discussionService as unknown as {
+                this.discussionService as unknown as { /* databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface */
                   databaseService: import('@uaip/infra').DatabaseService & {
                     getUserById?: (id: string) => Promise<{ email?: string; id?: string } | null>;
                   };
@@ -2299,8 +2299,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const participantManagementService = new ParticipantManagementService(
         (
           this.discussionService as unknown as {
-            databaseService: import('@uaip/infra').DatabaseService;
-          }
+                      databaseService: import('@uaip/infra').DatabaseService;
+                    } /* databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface */
         ).databaseService
       );
       return (await participantManagementService.getActiveParticipants(discussionId)).map(
@@ -2455,6 +2455,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return;
       }
 
+      // artifactConfig is a Drizzle column not reflected in the Discussion domain type
+      const discussionWithArtifact = discussion as unknown as {
+        artifactConfig?: Record<string, unknown>;
+      };
+
       // Get recent messages for context
       const recentMessages = await this.getDiscussionMessages(discussionId, { limit: 50 });
 
@@ -2504,22 +2509,18 @@ export class DiscussionOrchestrationService extends EventEmitter {
         artifactGeneration: {
           suggestedType: artifactType,
           priority: this.calculateArtifactPriority(discussion, completionReason),
-          autoShare:
-            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
-              ?.autoShare || true,
+          autoShare: discussionWithArtifact.artifactConfig?.autoShare || true,
           generateOnCompletion:
-            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
-              ?.generateOnCompletion !== false,
-          requiresApproval:
-            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
-              ?.requiresApproval || false,
+            discussionWithArtifact.artifactConfig?.generateOnCompletion !== false,
+          requiresApproval: discussionWithArtifact.artifactConfig?.requiresApproval || false,
           metadata: {
             discussionType: discussion.turnStrategy.strategy,
             completionReason,
             messageCount: discussionMetrics.totalMessages,
             participantCount: discussionMetrics.totalParticipants,
-            ...((discussion as unknown as { artifactConfig?: Record<string, unknown> })
-              .artifactConfig?.metadata as Record<string, unknown> | undefined),
+            ...(discussionWithArtifact.artifactConfig?.metadata as
+              | Record<string, unknown>
+              | undefined),
           },
         },
         timestamp: new Date(),
@@ -2551,7 +2552,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     messages: Record<string, unknown>[]
   ): string {
     // First check if discussion has configured artifact type
-    const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
+    const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> }) /* artifactConfig is a Drizzle column not in the Discussion domain type */
       .artifactConfig;
     if (artifactConfig?.enabled && artifactConfig?.artifactType) {
       return String(artifactConfig.artifactType);

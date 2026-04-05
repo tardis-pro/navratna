@@ -13,7 +13,7 @@ function withAgentGuard(
   ctx: unknown,
   callback: (agentContext: AgentContext, set: { status: number }) => unknown
 ): unknown {
-  const { agentContext, set } = ctx as unknown as {
+  const { agentContext, set } = ctx as {
     agentContext: AgentContext | null;
     set: { status: number };
   };
@@ -26,7 +26,7 @@ function withAgentGuard(
 
 export function loadAgentContext(app: Elysia): Elysia {
   return app.derive(({ params, ...ctx }) => {
-    const user = (ctx as unknown as { user?: { id: string } }).user;
+    const user = (ctx as unknown as { user?: { id: string } } /* Elysia middleware injects user context that TypeScript cannot infer through nested derive/guard groups */).user;
     const agentId = (params as Record<string, string>)?.agentId;
 
     if (!agentId) {
@@ -118,7 +118,7 @@ export function trackAgentOperation(operationName: string) {
   return (app: Elysia) => {
     return app
       .derive((ctx) => {
-        const agentContext = (ctx as unknown as { agentContext?: AgentContext }).agentContext;
+        const agentContext = (ctx as unknown as { agentContext?: AgentContext } /* Elysia middleware injects agentContext that TypeScript cannot infer through nested derive/guard groups */).agentContext;
         const agentExecution: AgentExecution = {
           startTime: Date.now(),
           operations: [operationName],
@@ -134,7 +134,7 @@ export function trackAgentOperation(operationName: string) {
         return { agentExecution };
       })
       .onAfterResponse((ctx) => {
-        const { agentContext, agentExecution, set } = ctx as unknown as {
+        const { agentContext, agentExecution, set } = ctx as unknown as { /* Elysia middleware injects agentContext/agentExecution that TypeScript cannot infer through nested derive/guard groups */
           agentContext?: AgentContext;
           agentExecution?: AgentExecution;
           set: { status?: number | string };
@@ -166,7 +166,7 @@ export function agentRateLimit(maxRequests = 100, windowMs = 60000) {
     return app.guard({
       beforeHandle(ctx) {
         return withAgentGuard(ctx, (agentContext, set) => {
-          const { user } = ctx as unknown as { user?: { id: string } };
+          const { user } = ctx as unknown as { user?: { id: string } } /* Elysia middleware injects user context that TypeScript cannot infer through nested derive/guard groups */;
           const key = `${agentContext.agentId}:${user?.id || 'anonymous'}`;
           const now = Date.now();
           const windowStart = now - windowMs;
@@ -238,7 +238,7 @@ export function executeAgentOperation(
 ) {
   return (app: Elysia) => {
     return app.derive(async (ctx) => {
-      const { agentContext, body, query, params, set } = ctx as unknown as {
+      const { agentContext, body, query, params, set } = ctx as unknown as { /* Elysia middleware injects agentContext that TypeScript cannot infer through nested derive/guard groups */
         agentContext?: AgentContext;
         body?: unknown;
         query?: Record<string, unknown>;
@@ -284,7 +284,7 @@ export function executeAgentOperation(
 export function executeAgentTool(toolName: string) {
   return (app: Elysia) => {
     return app.derive((ctx) => {
-      const { agentContext, body } = ctx as unknown as {
+      const { agentContext, body } = ctx as unknown as { /* Elysia middleware injects agentContext that TypeScript cannot infer through nested derive/guard groups */
         agentContext?: AgentContext;
         body?: unknown;
       };

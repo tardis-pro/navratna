@@ -804,7 +804,7 @@ export class LLMService {
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
     const window = this.contextManager.createRollingWindow(
-      messages as unknown as import('@uaip/types').Message[],
+      messages as unknown as import('@uaip/types').Message[], /* ChatMessage.timestamp is string but Message.timestamp is Date; structurally incompatible */
       systemPromptTokens,
       tools.length,
       contextDocs
@@ -1040,7 +1040,7 @@ export class LLMService {
         messageCount: request.conversationHistory.length,
         participants: Array.from(new Set(request.conversationHistory.map((m) => m.sender))),
         topics: this.extractTopics(
-          request.conversationHistory as unknown as import('@uaip/types').Message[]
+          request.conversationHistory as unknown as import('@uaip/types').Message[] /* ChatMessage.timestamp is string but Message.timestamp is Date; structurally incompatible */
         ),
         sentiment: 'neutral',
         complexity: request.conversationHistory.length > 10 ? 'high' : 'low',

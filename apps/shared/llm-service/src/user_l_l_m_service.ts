@@ -152,6 +152,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
+      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
       return providers as unknown as UserLLMProvider[];
     } catch (error) {
       logger.error('Error getting user LLM providers', { userId, error });
@@ -166,6 +167,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findActiveByUserId(userId);
+      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
       return providers as unknown as UserLLMProvider[];
     } catch (error) {
       logger.error('Error getting active user LLM providers', { userId, error });
@@ -186,6 +188,7 @@ export class UserLLMService {
       const filtered = providers.filter(
         (provider) => (provider as Record<string, unknown>).providerId === type
       );
+      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
       return filtered as unknown as UserLLMProvider[];
     } catch (error) {
       logger.error('Error getting user LLM providers by type', { userId, type, error });
@@ -200,6 +203,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const result = await repository.findById(providerId);
+      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
       return result as unknown as UserLLMProvider | null;
     } catch (error) {
       logger.error('Error getting user LLM provider by ID', { providerId, error });
@@ -298,6 +302,7 @@ export class UserLLMService {
   }> {
     try {
       const repository = await this.getUserLLMProviderRepository();
+      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
       const userProviders = (await repository.findByUserId(userId)) as unknown as UserLLMProvider[];
       if (!userProviders || userProviders.length === 0) {
         throw new Error('Provider not found or access denied');
@@ -686,12 +691,14 @@ export class UserLLMService {
           (p) => (p as Record<string, unknown>).providerId === preferredType
         );
         if (filtered.length > 0) {
+          // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
           return filtered[0] as unknown as UserLLMProvider;
         }
       }
       const defaultProvider = providers.find(
         (p) => (p as Record<string, unknown>).isDefault === true
       );
+      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
       return (defaultProvider || providers[0]) as unknown as UserLLMProvider;
     } catch (error) {
       logger.error('Error getting best user provider', { userId, preferredType, error });
@@ -715,6 +722,7 @@ export class UserLLMService {
       throw new Error(`Selected provider not found: ${providerType}`);
     }
 
+    // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
     return selectedProvider as unknown as UserLLMProvider;
   }
 
@@ -789,21 +797,20 @@ export class UserLLMService {
     switch (userProvider.type) {
       case 'ollama':
         return new OllamaProvider(
-          config as unknown as import('./interfaces.js').LLMProviderConfig,
+          config as import('./interfaces.js').LLMProviderConfig,
           userProvider.name
         );
       case 'llmstudio':
         return new LLMStudioProvider(
-          config as unknown as import('./interfaces.js').LLMProviderConfig,
+          config as import('./interfaces.js').LLMProviderConfig,
           userProvider.name
         );
       case 'openai':
       case 'anthropic':
       case 'custom':
       case 'google':
-        // OpenAI, Anthropic, Google, and custom providers all use OpenAI-compatible endpoints
         return new OpenAIProvider(
-          config as unknown as import('./interfaces.js').LLMProviderConfig,
+          config as import('./interfaces.js').LLMProviderConfig,
           userProvider.name
         );
       default:

@@ -56,22 +56,20 @@ export class TanStackProvider extends BaseProvider {
         messages,
         maxTokens: request.maxTokens || 2000,
         temperature: request.temperature || 0.7,
-      } as unknown as Parameters<typeof chat>[0]);
+      } as Parameters<typeof chat>[0]);
 
       // Collect full response from stream
       let content = '';
       let tokensUsed = 0;
 
       for await (const chunk of response) {
-        if (chunk.type === 'done') {
-          tokensUsed = (chunk as unknown as Record<string, unknown>).usage
-            ? (chunk as unknown as Record<string, { totalTokens?: number }>).usage?.totalTokens || 0
+        const chunkAny = chunk as unknown as Record<string, unknown>;
+        if (chunkAny.type === 'done') {
+          tokensUsed = chunkAny.usage
+            ? (chunkAny.usage as { totalTokens?: number }).totalTokens || 0
             : 0;
-        } else if (
-          'content' in chunk &&
-          typeof (chunk as unknown as Record<string, unknown>).content === 'string'
-        ) {
-          content += (chunk as unknown as Record<string, string>).content;
+        } else if ('content' in chunkAny && typeof chunkAny.content === 'string') {
+          content += chunkAny.content;
         }
       }
 
@@ -102,7 +100,7 @@ export class TanStackProvider extends BaseProvider {
       messages,
       maxTokens: request.maxTokens || 2000,
       temperature: request.temperature || 0.7,
-    } as unknown as Parameters<typeof chat>[0]);
+    } as Parameters<typeof chat>[0]);
 
     let tokenIndex = 0;
 
