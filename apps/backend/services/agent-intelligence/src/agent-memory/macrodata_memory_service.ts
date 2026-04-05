@@ -157,7 +157,9 @@ export class MacrodataMemoryService {
       );
       if (!rows.length) return '';
 
-      const agent = rows[0] as Record<string, unknown>;
+      const rawAgent = rows[0];
+      if (typeof rawAgent !== 'object' || rawAgent === null) return '';
+      const agent = rawAgent as Record<string, unknown>;
       const persona =
         typeof agent.persona === 'string' ? JSON.parse(agent.persona) : (agent.persona ?? {});
       const caps =
@@ -215,13 +217,15 @@ export class MacrodataMemoryService {
         [query.slice(0, 200), agentId, userId]
       );
 
-      return rows.map((r: Record<string, unknown>) => ({
-        content: typeof r.content === 'string' ? r.content : '',
-        tags: Array.isArray(r.tags)
-          ? r.tags.filter((tag): tag is string => typeof tag === 'string')
-          : [],
-        relevanceScore: typeof r.rank === 'number' ? r.rank : Number(r.rank) || 0,
-      }));
+      return rows
+        .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
+        .map((r) => ({
+          content: typeof r.content === 'string' ? r.content : '',
+          tags: Array.isArray(r.tags)
+            ? r.tags.filter((tag): tag is string => typeof tag === 'string')
+            : [],
+          relevanceScore: typeof r.rank === 'number' ? r.rank : Number(r.rank) || 0,
+        }));
     } catch (err) {
       logger.warn('Macrodata topics layer failed', {
         error: err instanceof Error ? err.message : String(err),

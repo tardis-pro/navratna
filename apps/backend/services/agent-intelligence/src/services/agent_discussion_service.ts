@@ -149,12 +149,12 @@ export class AgentDiscussionService {
       const pool = getIntelligencePool();
       const pgQueryExecutor = {
         query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
-          const result = await pool.query(sql, params as unknown[]);
+          const result = await pool.query(sql, params);
           return result.rows;
         },
       };
       const kgs = await getKnowledgeGraphService();
-      const kgsRecord = toRecord(kgs as unknown);
+      const kgsRecord = toRecord(kgs);
       const vectorDb = kgsRecord.vectorDb;
       const embeddings = kgsRecord.embeddings;
       if (vectorDb instanceof QdrantService && embeddings instanceof EmbeddingService) {
@@ -392,9 +392,15 @@ export class AgentDiscussionService {
 
       // Get contextual knowledge for the chat
       // Filter out empty-content messages so TEI embedder never sees blank strings
-      const safeHistory = (
-        conversationHistory as unknown as import('@uaip/types').ContextMessage[]
-      ).filter((m) => m?.content && String(m.content).trim().length > 0);
+      const safeHistory = conversationHistory
+        .filter((m) => m?.content && String(m.content).trim().length > 0)
+        .map((m): import('@uaip/types').ContextMessage => ({
+          sender: typeof m.sender === 'string' ? m.sender : typeof m.role === 'string' ? m.role : 'user',
+          content: String(m.content),
+          role: typeof m.role === 'string' ? m.role : undefined,
+          timestamp: m.timestamp instanceof Date || typeof m.timestamp === 'string' ? m.timestamp as Date | string : undefined,
+          metadata: typeof m.metadata === 'object' && m.metadata !== null ? (m.metadata as Record<string, unknown>) : undefined,
+        }));
       const contextualKnowledge: KnowledgeItem[] = this.knowledgeGraphService
         ? await this.knowledgeGraphService.getContextualKnowledge({
             conversationHistory: safeHistory,
@@ -559,7 +565,7 @@ export class AgentDiscussionService {
             ledTo: [],
             similarTo: [],
           },
-        } as Episode);
+        });
       }
 
       return {
@@ -1952,7 +1958,7 @@ Reasoning: ${reasoning.join('; ')}`,
 
       if (agentWithPersona && agentWithPersona.personaData) {
         // Map personaData to persona for compatibility with LLM service expectations
-        (agentWithPersona as Record<string, unknown>).persona = agentWithPersona.personaData;
+        Object.assign(agentWithPersona, { persona: agentWithPersona.personaData });
         logger.info('Agent data retrieved with persona', {
           agentId,
           agentName: agentWithPersona.name,
@@ -2137,7 +2143,7 @@ Reasoning: ${reasoning.join('; ')}`,
           temperature: agent.temperature || 0.7,
           modelId: agent.modelId,
           configuration: agent.configuration,
-          persona: (agent as Record<string, unknown>).persona, // Include persona data for enhanced prompts
+          persona: agent.persona, // Include persona data for enhanced prompts
         },
         messages: [
           ...conversationHistory.map((entry: Record<string, unknown>) => ({

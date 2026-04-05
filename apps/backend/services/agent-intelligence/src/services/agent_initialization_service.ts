@@ -41,6 +41,23 @@ export interface EnvironmentFactors {
   memorySystemStatus: string;
 }
 
+function isEnvironmentFactors(value: unknown): value is EnvironmentFactors {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.timeOfDay === 'number' &&
+    typeof v.userLoad === 'number' &&
+    typeof v.systemLoad === 'string' &&
+    typeof v.availableResources === 'string' &&
+    typeof v.knowledgeGraphStatus === 'string' &&
+    typeof v.memorySystemStatus === 'string'
+  );
+}
+
+function isAgent(value: unknown): value is Agent {
+  return typeof value === 'object' && value !== null && 'id' in value;
+}
+
 export class AgentInitializationService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
@@ -131,7 +148,7 @@ export class AgentInitializationService {
         try {
           await this.knowledgeGraphService.initializeAgentContext(agentId, {
             expertise: persona.expertise || [],
-            interests: (persona as Record<string, unknown>).interests || [],
+            interests: 'interests' in persona && Array.isArray(persona.interests) ? persona.interests : [],
             background: persona.background || '',
           });
           logger.info('Knowledge context initialized', { agentId });
@@ -293,7 +310,7 @@ export class AgentInitializationService {
         }
         if (requirements.specializations) {
           const extraSpecs = Array.isArray(requirements.specializations)
-            ? (requirements.specializations as string[])
+            ? requirements.specializations.filter((s): s is string => typeof s === 'string')
             : [];
           capabilities.specializations = [...capabilities.specializations, ...extraSpecs];
         }
@@ -351,9 +368,9 @@ export class AgentInitializationService {
    * Event handlers
    */
   private async handleInitializeAgent(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agentId = event.agentId as string;
-    const personaId = event.personaId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agentId = typeof event.agentId === 'string' ? event.agentId : '';
+    const personaId = typeof event.personaId === 'string' ? event.personaId : undefined;
     try {
       const agentState = await this.initializeAgent(agentId, personaId);
       await this.respondToRequest(requestId, { success: true, data: agentState });
@@ -366,10 +383,12 @@ export class AgentInitializationService {
   }
 
   private async handleSetupAgentState(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agentId = event.agentId as string;
-    const configuration = (event.configuration ?? {}) as Record<string, unknown>;
-    const environmentFactors = event.environmentFactors as EnvironmentFactors | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agentId = typeof event.agentId === 'string' ? event.agentId : '';
+    const rawConfig = event.configuration;
+    const configuration: Record<string, unknown> = typeof rawConfig === 'object' && rawConfig !== null ? (rawConfig as Record<string, unknown>) : {};
+    const rawEnv = event.environmentFactors;
+    const environmentFactors: EnvironmentFactors | undefined = isEnvironmentFactors(rawEnv) ? rawEnv : undefined;
     try {
       const agentState = await this.setupAgentState(agentId, configuration, environmentFactors);
       await this.respondToRequest(requestId, { success: true, data: agentState });
@@ -382,9 +401,15 @@ export class AgentInitializationService {
   }
 
   private async handleConfigureCapabilities(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agent = event.agent as Agent;
-    const requirements = (event.requirements ?? {}) as Record<string, unknown>;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawAgent = event.agent;
+    if (!isAgent(rawAgent)) {
+      await this.respondToRequest(requestId, { success: false, error: 'Invalid agent payload in event' });
+      return;
+    }
+    const agent: Agent = rawAgent;
+    const rawReqs = event.requirements;
+    const requirements: Record<string, unknown> = typeof rawReqs === 'object' && rawReqs !== null ? (rawReqs as Record<string, unknown>) : {};
     try {
       const capabilities = await this.configureAgentCapabilities(agent, requirements);
       await this.respondToRequest(requestId, { success: true, data: capabilities });
@@ -397,8 +422,9 @@ export class AgentInitializationService {
   }
 
   private async handleAnalyzeEnvironment(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const conversationContext = (event.conversationContext ?? {}) as Record<string, unknown>;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawCtx = event.conversationContext;
+    const conversationContext: Record<string, unknown> = typeof rawCtx === 'object' && rawCtx !== null ? (rawCtx as Record<string, unknown>) : {};
     try {
       const environment = this.analyzeEnvironmentFactors(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: environment });
@@ -484,8 +510,11 @@ export class AgentInitializationService {
   private async getAgentData(agentId: string): Promise<Agent | null> {
     try {
       const response = await this.eventBusService.request('agent.query.get', { agentId });
-      const typed = response as { success?: boolean; data?: Agent } | null;
-      return typed?.success ? (typed.data ?? null) : null;
+      if (typeof response === 'object' && response !== null && 'success' in response) {
+        const typed = response as { success?: boolean; data?: Agent };
+        return typed.success ? (typed.data ?? null) : null;
+      }
+      return null;
     } catch (error) {
       logger.warn('Failed to get agent data', { error, agentId });
       return null;

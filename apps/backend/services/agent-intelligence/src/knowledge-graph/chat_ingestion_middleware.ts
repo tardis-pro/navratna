@@ -109,16 +109,15 @@ export class ChatIngestionMiddleware {
   handleFileUpload() {
     return (app: MiddlewareApp) => {
       return app.derive((ctx) => {
-        const context =
-          ctx && typeof ctx === 'object'
-            ? (ctx as { body?: unknown; set?: { status?: number | string } })
-            : {};
-        const body = context.body;
-        const set = context.set;
-        const requestBody = body as { files?: Record<string, unknown>[] };
-        const files = requestBody?.files;
+        // @ts-expect-error — Elysia middleware injects body/set but TS can't infer through groups
+        const body: unknown = ctx?.body;
+        // @ts-expect-error — Elysia middleware injects body/set but TS can't infer through groups
+        const set: { status?: number | string } | undefined = ctx?.set;
+        const requestBody: Record<string, unknown> = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+        const filesRaw = requestBody.files;
+        const files = Array.isArray(filesRaw) ? filesRaw : undefined;
 
-        if (!files || !Array.isArray(files) || files.length === 0) {
+        if (!files || files.length === 0) {
           if (set) set.status = 400;
           return {
             uploadError: {
@@ -129,13 +128,9 @@ export class ChatIngestionMiddleware {
         }
 
         // Validate file limits
-        for (const file of files as Array<{
-          size: number;
-          mimetype?: string;
-          type?: string;
-          originalname?: string;
-          name?: string;
-        }>) {
+        for (const rawFile of files) {
+          type RawFileShape = { size?: number; mimetype?: string; type?: string; originalname?: string; name?: string };
+        const file: RawFileShape = typeof rawFile === 'object' && rawFile !== null ? (rawFile as RawFileShape) : {};
           if (file.size > MAX_FILE_SIZE) {
             if (set) set.status = 413;
             return {
@@ -168,15 +163,14 @@ export class ChatIngestionMiddleware {
   validateRequest() {
     return (app: MiddlewareApp) => {
       return app.derive((ctx) => {
-        const context =
-          ctx && typeof ctx === 'object'
-            ? (ctx as { body?: unknown; set?: { status?: number | string } })
-            : {};
-        const { body, set } = context;
-        const { uploadedFiles } = ctx as UploadContext;
+        // @ts-expect-error — Elysia middleware injects body/set but TS can't infer through groups
+        const body: unknown = ctx?.body;
+        // @ts-expect-error — Elysia middleware injects body/set but TS can't infer through groups
+        const set: { status?: number | string } | undefined = ctx?.set;
+        const uploadedFiles: Record<string, unknown>[] | undefined = (ctx as UploadContext)?.uploadedFiles;
 
         try {
-          const requestBody = body as Record<string, unknown>;
+          const requestBody: Record<string, unknown> = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
 
           // Validate request body options
           const options = ChatIngestionOptionsSchema.parse(requestBody);
@@ -208,16 +202,20 @@ export class ChatIngestionMiddleware {
             userId: options.userId,
           });
 
-          return { validatedOptions: options as ChatIngestionOptions };
+          return { validatedOptions: options };
         } catch (error: unknown) {
-          const err = error as Error & { errors?: Record<string, unknown>[] };
+          const err = error instanceof Error ? error : new Error(String(error));
+          const zodErrors: Record<string, unknown>[] =
+            typeof error === 'object' && error !== null && Array.isArray((error as { errors?: unknown }).errors)
+              ? ((error as { errors: Record<string, unknown>[] }).errors)
+              : [];
           logger.error('Chat ingestion validation failed', { error: err.message });
           if (set) set.status = 400;
           return {
             validationError: {
               error: 'Invalid request',
               message: err.message,
-              details: err.errors || [],
+              details: zodErrors,
             },
           };
         }
@@ -229,10 +227,10 @@ export class ChatIngestionMiddleware {
   validateFileFormat() {
     return (app: MiddlewareApp) => {
       return app.derive(async (ctx) => {
-        const context =
-          ctx && typeof ctx === 'object' ? (ctx as { set?: { status?: number | string } }) : {};
-        const { set } = context;
-        const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
+        // @ts-expect-error — Elysia middleware injects set but TS can't infer through groups
+        const set: { status?: number | string } | undefined = ctx?.set;
+        const uploadedFiles: Record<string, unknown>[] | undefined = (ctx as ValidationContext)?.uploadedFiles;
+        const validatedOptions: ChatIngestionOptions | undefined = (ctx as ValidationContext)?.validatedOptions;
 
         try {
           if (!uploadedFiles || !validatedOptions) {
@@ -248,11 +246,13 @@ export class ChatIngestionMiddleware {
           const processedFiles: ProcessedChatFile[] = [];
           const validationErrors: string[] = [];
 
-          for (const file of uploadedFiles as Array<{
-            originalname?: string;
-            name?: string;
-            size: number;
-          }>) {
+          type UploadedFileShape = { originalname?: string; name?: string; size: number };
+          const typedFiles = uploadedFiles.filter(
+            (f): f is UploadedFileShape =>
+              typeof f === 'object' && f !== null && typeof (f as UploadedFileShape).size === 'number'
+          );
+
+          for (const file of typedFiles) {
             try {
               // oxlint-disable-next-line no-await-in-loop -- sequential processing required
               const processedFile = await this.processFile(file, validatedOptions.userId);
@@ -264,7 +264,7 @@ export class ChatIngestionMiddleware {
                 );
               }
             } catch (error: unknown) {
-              const err = error as Error;
+              const err = error instanceof Error ? error : new Error(String(error));
               validationErrors.push(`File ${file.originalname || file.name}: ${err.message}`);
             }
           }
@@ -299,7 +299,7 @@ export class ChatIngestionMiddleware {
 
           return { chatFiles: processedFiles, validationWarnings: validationErrors };
         } catch (error: unknown) {
-          const err = error as Error;
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error('File format validation failed', { error: err.message });
           if (set) set.status = 500;
           return {
@@ -317,10 +317,9 @@ export class ChatIngestionMiddleware {
   parseFileContent() {
     return (app: MiddlewareApp) => {
       return app.derive(async (ctx) => {
-        const context =
-          ctx && typeof ctx === 'object' ? (ctx as { set?: { status?: number | string } }) : {};
-        const { set } = context;
-        const { chatFiles } = ctx as FileContext;
+        // @ts-expect-error — Elysia middleware injects set but TS can't infer through groups
+        const set: { status?: number | string } | undefined = ctx?.set;
+        const chatFiles: ProcessedChatFile[] | undefined = (ctx as FileContext)?.chatFiles;
 
         try {
           if (!chatFiles) {
@@ -358,7 +357,7 @@ export class ChatIngestionMiddleware {
               // Update file validation metadata
               file.validationResult.metadata.estimatedConversations = conversations.length;
             } catch (error: unknown) {
-              const err = error as Error;
+              const err = error instanceof Error ? error : new Error(String(error));
               parseResults.push({
                 fileId: file.id,
                 fileName: file.originalName,
@@ -397,7 +396,7 @@ export class ChatIngestionMiddleware {
 
           return { parseResults };
         } catch (error: unknown) {
-          const err = error as Error;
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error('File content parsing failed', { error: err.message });
           if (set) set.status = 500;
           return {
@@ -415,10 +414,10 @@ export class ChatIngestionMiddleware {
   createIngestionJob() {
     return (app: MiddlewareApp) => {
       return app.derive((ctx) => {
-        const context =
-          ctx && typeof ctx === 'object' ? (ctx as { set?: { status?: number | string } }) : {};
-        const { set } = context;
-        const { chatFiles, validatedOptions } = ctx as FileContext;
+        // @ts-expect-error — Elysia middleware injects set but TS can't infer through groups
+        const set: { status?: number | string } | undefined = ctx?.set;
+        const chatFiles: ProcessedChatFile[] | undefined = (ctx as FileContext)?.chatFiles;
+        const validatedOptions: ChatIngestionOptions | undefined = (ctx as FileContext)?.validatedOptions;
 
         try {
           if (!chatFiles) {
@@ -452,7 +451,7 @@ export class ChatIngestionMiddleware {
 
           return { chatIngestionJob: job };
         } catch (error: unknown) {
-          const err = error as Error;
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error('Job creation failed', { error: err.message });
           if (set) set.status = 500;
           return {
@@ -486,7 +485,7 @@ export class ChatIngestionMiddleware {
     userId: string
   ): Promise<ProcessedChatFile> {
     const fileName = file.originalname || file.name || 'unknown';
-    const content = file.buffer?.toString('utf-8') || (file.content as string) || '';
+    const content = file.buffer?.toString('utf-8') || (typeof file.content === 'string' ? file.content : '') || '';
 
     // Detect platform from file name or content
     const platform = this.detectPlatform(fileName, content);

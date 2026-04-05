@@ -2,6 +2,29 @@ import { KnowledgeItem, KnowledgeRelationship } from '@uaip/types';
 import { EmbeddingService } from './embedding_service.js';
 import { SmartEmbeddingService } from './smart_embedding_service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
+import type { KnowledgeRow } from '../../../../../shared/services/src/database/repositories/knowledge_repository.js';
+
+function mapRowToKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
+  return {
+    id: row.id,
+    content: row.content,
+    type: row.type,
+    sourceType: row.sourceType,
+    sourceIdentifier: row.sourceIdentifier,
+    sourceUrl: row.sourceUrl ?? undefined,
+    tags: row.tags,
+    confidence: row.confidence,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy ?? undefined,
+    organizationId: row.organizationId ?? undefined,
+    accessLevel: row.accessLevel,
+    userId: row.userId ?? undefined,
+    agentId: row.agentId ?? undefined,
+    summary: row.summary ?? undefined,
+  };
+}
 
 // Type for unknown service that can generate embeddings and calculate similarity
 type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;
@@ -43,7 +66,7 @@ export class RelationshipDetector {
         // Detect relationship type and confidence
         const relationshipInfo = this.analyzeRelationship(
           newItem,
-          existingItem as unknown as KnowledgeItem,
+          mapRowToKnowledgeItem(existingItem),
           similarity
         );
 

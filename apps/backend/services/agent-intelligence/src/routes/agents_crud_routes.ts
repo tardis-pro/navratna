@@ -67,9 +67,7 @@ export function registerAgentCrudRoutes(
     (group) => withNginxAuth(group)
       .get('/', async (ctx) => {
         try {
-          const { page, limit, search } = parsePaginationParams(
-            (ctx.query ?? {}) as Record<string, string | undefined>
-          )
+          const { page, limit, search } = parsePaginationParams(ctx.query ?? {})
     
           const db = getIntelligenceDb()
           const whereClause = search

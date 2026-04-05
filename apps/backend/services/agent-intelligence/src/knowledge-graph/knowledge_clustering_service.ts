@@ -133,17 +133,22 @@ export class KnowledgeClusteringService {
       });
 
       return searchResults.map((result) => {
-        const rawPayload = result.payload as Record<string, unknown>;
+        const rawPayload = result.payload;
+        const knowledgeTypeRaw = rawPayload.knowledgeType;
+        const knowledgeType: KnowledgeType = Object.values(KnowledgeType).includes(knowledgeTypeRaw as KnowledgeType)
+          ? (knowledgeTypeRaw as KnowledgeType)
+          : KnowledgeType.FACTUAL;
+        const originalMeta = rawPayload.originalMetadata;
         return {
           id: result.id.toString(),
-          vector: [] as number[],
+          vector: new Array<number>(),
           payload: {
             content: String(rawPayload.content ?? ''),
-            knowledgeType: (rawPayload.knowledgeType as KnowledgeType) ?? KnowledgeType.FACTUAL,
+            knowledgeType,
             tags: Array.isArray(rawPayload.tags) ? (rawPayload.tags as string[]) : [],
             confidence: typeof rawPayload.confidence === 'number' ? rawPayload.confidence : 0,
             sourceType: String(rawPayload.sourceType ?? ''),
-            originalMetadata: (rawPayload.originalMetadata as Record<string, unknown>) ?? {},
+            originalMetadata: typeof originalMeta === 'object' && originalMeta !== null ? (originalMeta as Record<string, unknown>) : {},
           },
         };
       });
@@ -189,7 +194,8 @@ export class KnowledgeClusteringService {
       accessLevel: 'public' as const,
     };
 
-    return knowledgeItem as unknown as KnowledgeItemEntity;
+    // @ts-expect-error — plain object satisfies KnowledgeItemEntity shape; optional fields omitted intentionally
+    return knowledgeItem as KnowledgeItemEntity;
   }
 
   /**
@@ -198,18 +204,25 @@ export class KnowledgeClusteringService {
   private async getAllQdrantPoints(): Promise<QdrantPoint[]> {
     try {
       const rawPoints = await this.qdrantService.scrollAll(10000);
-      return rawPoints.map((point) => ({
-        id: point.id,
-        vector: point.vector,
-        payload: {
-          content: String(point.payload.content ?? ''),
-          knowledgeType: (point.payload.knowledgeType as KnowledgeType) ?? KnowledgeType.FACTUAL,
-          tags: Array.isArray(point.payload.tags) ? (point.payload.tags as string[]) : [],
-          confidence: typeof point.payload.confidence === 'number' ? point.payload.confidence : 0,
-          sourceType: String(point.payload.sourceType ?? ''),
-          originalMetadata: (point.payload.originalMetadata as Record<string, unknown>) ?? {},
-        },
-      }));
+      return rawPoints.map((point) => {
+        const knowledgeTypeRaw = point.payload.knowledgeType;
+        const knowledgeType: KnowledgeType = Object.values(KnowledgeType).includes(knowledgeTypeRaw as KnowledgeType)
+          ? (knowledgeTypeRaw as KnowledgeType)
+          : KnowledgeType.FACTUAL;
+        const originalMeta = point.payload.originalMetadata;
+        return {
+          id: point.id,
+          vector: point.vector,
+          payload: {
+            content: String(point.payload.content ?? ''),
+            knowledgeType,
+            tags: Array.isArray(point.payload.tags) ? (point.payload.tags as string[]) : [],
+            confidence: typeof point.payload.confidence === 'number' ? point.payload.confidence : 0,
+            sourceType: String(point.payload.sourceType ?? ''),
+            originalMetadata: typeof originalMeta === 'object' && originalMeta !== null ? (originalMeta as Record<string, unknown>) : {},
+          },
+        };
+      });
     } catch (error) {
       logger.error('Error getting Qdrant points', { error: error instanceof Error ? error.message : String(error) });
       return [];

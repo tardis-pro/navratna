@@ -53,6 +53,32 @@ const WORDS_SHORT_THRESHOLD = 3;
 const MIN_INTENT_CONFIDENCE = 0.1;
 const MAX_INTENT_CONFIDENCE = 1;
 
+function isIntentAnalysis(value: unknown): value is IntentAnalysis {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.primary === 'string' &&
+    Array.isArray(v.secondary) &&
+    typeof v.confidence === 'number'
+  );
+}
+
+function isKnowledgeItemArray(value: unknown): value is KnowledgeItem[] {
+  return Array.isArray(value);
+}
+
+function isEpisodeArray(value: unknown): value is Episode[] {
+  return Array.isArray(value);
+}
+
+function isActionRecommendationArray(value: unknown): value is ActionRecommendation[] {
+  return Array.isArray(value);
+}
+
+function isAgentObject(value: unknown): value is Agent {
+  return typeof value === 'object' && value !== null && 'id' in value;
+}
+
 export class AgentIntentService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
@@ -439,11 +465,12 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
    * Event handlers
    */
   private async handleAnalyzeIntent(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const userRequest = event.userRequest as string;
-    const conversationContext = event.conversationContext as Record<string, unknown>;
-    const agent = event.agent as Agent | undefined;
-    const userId = event.userId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const userRequest = typeof event.userRequest === 'string' ? event.userRequest : '';
+    const rawCtx = event.conversationContext;
+    const conversationContext: Record<string, unknown> = typeof rawCtx === 'object' && rawCtx !== null ? (rawCtx as Record<string, unknown>) : {};
+    const agent = isAgentObject(event.agent) ? event.agent : undefined;
+    const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
       const analysis = await this.analyzeLLMUserIntent(
         userRequest,
@@ -467,14 +494,16 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   }
 
   private async handleGenerateRecommendations(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agent = event.agent as Agent | undefined;
-    const contextAnalysis = (event.contextAnalysis ?? {}) as Record<string, unknown>;
-    const intentAnalysis = event.intentAnalysis as IntentAnalysis;
-    const constraints = event.constraints as Record<string, unknown> | undefined;
-    const relevantKnowledge = (event.relevantKnowledge ?? []) as KnowledgeItem[];
-    const similarEpisodes = (event.similarEpisodes ?? []) as Episode[];
-    const userId = event.userId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agent = isAgentObject(event.agent) ? event.agent : undefined;
+    const rawCtx2 = event.contextAnalysis;
+    const contextAnalysis: Record<string, unknown> = typeof rawCtx2 === 'object' && rawCtx2 !== null ? (rawCtx2 as Record<string, unknown>) : {};
+    const intentAnalysis = isIntentAnalysis(event.intentAnalysis) ? event.intentAnalysis : ({ primary: '', secondary: [], confidence: 0, entities: [], sentiment: '', complexity: '', urgency: '' } satisfies IntentAnalysis);
+    const rawConstraints = event.constraints;
+    const constraints: Record<string, unknown> | undefined = typeof rawConstraints === 'object' && rawConstraints !== null ? (rawConstraints as Record<string, unknown>) : undefined;
+    const relevantKnowledge = isKnowledgeItemArray(event.relevantKnowledge) ? event.relevantKnowledge : [];
+    const similarEpisodes = isEpisodeArray(event.similarEpisodes) ? event.similarEpisodes : [];
+    const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
       const recommendations = await this.generateLLMEnhancedActionRecommendations(
         agent,
@@ -501,15 +530,16 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   }
 
   private async handleGenerateExplanation(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const contextAnalysis = (event.contextAnalysis ?? {}) as Record<string, unknown>;
-    const intentAnalysis = event.intentAnalysis as IntentAnalysis;
-    const actionRecommendations = (event.actionRecommendations ?? []) as ActionRecommendation[];
-    const confidence = event.confidence as number;
-    const relevantKnowledge = (event.relevantKnowledge ?? []) as KnowledgeItem[];
-    const similarEpisodes = (event.similarEpisodes ?? []) as Episode[];
-    const agent = event.agent as Agent | undefined;
-    const userId = event.userId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawCtx3 = event.contextAnalysis;
+    const contextAnalysis: Record<string, unknown> = typeof rawCtx3 === 'object' && rawCtx3 !== null ? (rawCtx3 as Record<string, unknown>) : {};
+    const intentAnalysis = isIntentAnalysis(event.intentAnalysis) ? event.intentAnalysis : ({ primary: '', secondary: [], confidence: 0, entities: [], sentiment: '', complexity: '', urgency: '' } satisfies IntentAnalysis);
+    const actionRecommendations = isActionRecommendationArray(event.actionRecommendations) ? event.actionRecommendations : [];
+    const confidence = typeof event.confidence === 'number' ? event.confidence : 0;
+    const relevantKnowledge = isKnowledgeItemArray(event.relevantKnowledge) ? event.relevantKnowledge : [];
+    const similarEpisodes = isEpisodeArray(event.similarEpisodes) ? event.similarEpisodes : [];
+    const agent = isAgentObject(event.agent) ? event.agent : undefined;
+    const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
       const explanation = await this.generateLLMEnhancedExplanation(
         contextAnalysis,
@@ -537,13 +567,16 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   }
 
   private async handleCalculateConfidence(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const contextAnalysis = (event.contextAnalysis ?? {}) as Record<string, unknown>;
-    const intentAnalysis = event.intentAnalysis as IntentAnalysis;
-    const actionRecommendations = (event.actionRecommendations ?? []) as ActionRecommendation[];
-    const intelligenceConfig = (event.intelligenceConfig ?? {}) as Record<string, unknown>;
-    const relevantKnowledge = (event.relevantKnowledge ?? []) as KnowledgeItem[];
-    const workingMemory = event.workingMemory as Record<string, unknown> | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawCtx4 = event.contextAnalysis;
+    const contextAnalysis: Record<string, unknown> = typeof rawCtx4 === 'object' && rawCtx4 !== null ? (rawCtx4 as Record<string, unknown>) : {};
+    const intentAnalysis = isIntentAnalysis(event.intentAnalysis) ? event.intentAnalysis : ({ primary: '', secondary: [], confidence: 0, entities: [], sentiment: '', complexity: '', urgency: '' } satisfies IntentAnalysis);
+    const actionRecommendations = isActionRecommendationArray(event.actionRecommendations) ? event.actionRecommendations : [];
+    const rawIntelConfig = event.intelligenceConfig;
+    const intelligenceConfig: Record<string, unknown> = typeof rawIntelConfig === 'object' && rawIntelConfig !== null ? (rawIntelConfig as Record<string, unknown>) : {};
+    const relevantKnowledge = isKnowledgeItemArray(event.relevantKnowledge) ? event.relevantKnowledge : [];
+    const rawWm = event.workingMemory;
+    const workingMemory: Record<string, unknown> | undefined = typeof rawWm === 'object' && rawWm !== null ? (rawWm as Record<string, unknown>) : undefined;
     try {
       const confidence = this.calculateEnhancedConfidence(
         contextAnalysis,

@@ -18,6 +18,30 @@ import { BatchProcessorService } from './batch_processor_service.js';
 import { KnowledgeGraphService } from './knowledge_graph_service.js';
 import { logger, ExternalServiceError, InternalServerError, NotFoundError } from '@uaip/utils';
 
+import type { KnowledgeRow } from '../../../../../shared/services/src/database/repositories/knowledge_repository.js';
+
+function mapRowToKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
+  return {
+    id: row.id,
+    content: row.content,
+    type: row.type,
+    sourceType: row.sourceType,
+    sourceIdentifier: row.sourceIdentifier,
+    sourceUrl: row.sourceUrl ?? undefined,
+    tags: row.tags,
+    confidence: row.confidence,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy ?? undefined,
+    organizationId: row.organizationId ?? undefined,
+    accessLevel: row.accessLevel,
+    userId: row.userId ?? undefined,
+    agentId: row.agentId ?? undefined,
+    summary: row.summary ?? undefined,
+  };
+}
+
 export interface BootstrapConfig {
   enableAutoSync: boolean;
   syncOnStartup: boolean;
@@ -178,10 +202,10 @@ export class KnowledgeBootstrapService {
     ];
 
     const results = await Promise.allSettled(serviceChecks);
-    const failures = results.filter((r) => r.status === 'rejected');
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
     if (failures.length > 0) {
-      const errors = failures.map((f) => (f as PromiseRejectedResult).reason);
+      const errors = failures.map((f) => f.reason);
       logger.warn('Some services are not ready:', errors);
 
       // Continue with degraded functionality
@@ -246,7 +270,7 @@ export class KnowledgeBootstrapService {
         return; // Success!
       } catch (error) {
         attempt++;
-        lastError = error as Error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt < this.config.retryAttempts) {
           logger.warn(
@@ -545,7 +569,7 @@ export class KnowledgeBootstrapService {
 
       // Detect conflicts across all knowledge
       const conflicts = await this.reconciliationService.detectConflicts(
-        (await this.knowledgeRepository.findRecentItems(200)) as unknown as KnowledgeItem[],
+        (await this.knowledgeRepository.findRecentItems(200)).map(mapRowToKnowledgeItem),
         {
           similarityThreshold: parseFloat(process.env.KNOWLEDGE_CLUSTER_SIMILARITY_THRESHOLD ?? '0.65'),
           maxConflictsPerBatch: 50,
@@ -593,7 +617,7 @@ export class KnowledgeBootstrapService {
             // Minimum items for meaningful taxonomy
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             const result = await this.taxonomyGenerator.generateTaxonomy(
-              items as unknown as KnowledgeItem[],
+              items.map(mapRowToKnowledgeItem),
               domain,
               {
                 maxCategories: 15,
@@ -629,10 +653,10 @@ export class KnowledgeBootstrapService {
       // Count domain occurrences from tags and metadata
       for (const item of items) {
         // From metadata domain
-        if (item.metadata.domain) {
+        if (typeof item.metadata.domain === 'string') {
           domainCounts.set(
-            item.metadata.domain as string,
-            (domainCounts.get(item.metadata.domain as string) || 0) + 1
+            item.metadata.domain,
+            (domainCounts.get(item.metadata.domain) || 0) + 1
           );
         }
 
@@ -826,9 +850,10 @@ export class KnowledgeBootstrapService {
       logger.info('Running knowledge reconciliation...', { domain });
 
       // Get knowledge items for the domain
-      const items = (domain
+      const rawItems = domain
         ? await this.knowledgeRepository.findByDomain(domain)
-        : await this.knowledgeRepository.findRecentItems(100)) as unknown as KnowledgeItem[];
+        : await this.knowledgeRepository.findRecentItems(100);
+      const items = rawItems.map(mapRowToKnowledgeItem);
 
       logger.info(`Found ${items.length} knowledge items for reconciliation`);
 

@@ -113,6 +113,19 @@ export interface AgentPersonaMapping {
   context?: Record<string, unknown>;
 }
 
+type PersonaToneValue = 'formal' | 'casual' | 'friendly' | 'professional' | 'academic' | 'creative' | 'analytical';
+type PersonaFormalityValue = 'formal' | 'very_informal' | 'informal' | 'neutral' | 'very_formal';
+
+function toPersonaTone(value: unknown): PersonaToneValue {
+  const valid: PersonaToneValue[] = ['formal', 'casual', 'friendly', 'professional', 'academic', 'creative', 'analytical'];
+  return valid.includes(value as PersonaToneValue) ? (value as PersonaToneValue) : 'professional';
+}
+
+function toPersonaFormality(value: unknown): PersonaFormalityValue {
+  const valid: PersonaFormalityValue[] = ['formal', 'very_informal', 'informal', 'neutral', 'very_formal'];
+  return valid.includes(value as PersonaFormalityValue) ? (value as PersonaFormalityValue) : 'formal';
+}
+
 interface EventWithDataPayload {
   data?: {
     requestId?: string;
@@ -135,7 +148,14 @@ const toLLMEventPayload = (
   if ('data' in event && typeof event.data === 'object' && event.data !== null) {
     return event.data as EventWithDataPayload['data'];
   }
-  return event as unknown as EventWithDataPayload['data'];
+  // event is Record<string, unknown> — extract known fields into EventWithDataPayload['data'] shape
+  const e = event as Record<string, unknown>;
+  return {
+    requestId: typeof e.requestId === 'string' ? e.requestId : undefined,
+    content: typeof e.content === 'string' ? e.content : undefined,
+    confidence: typeof e.confidence === 'number' ? e.confidence : undefined,
+    error: typeof e.error === 'object' && e.error !== null ? (e.error as Record<string, unknown>) : undefined,
+  };
 };
 
 export class ConversationEnhancementService extends EventEmitter {
@@ -267,7 +287,13 @@ export class ConversationEnhancementService extends EventEmitter {
         // Add to Redis-based request tracker (45 seconds timeout)
         await this.llmRequestTracker.addPendingRequest(
           requestId,
-          (response) => resolve(response as { content: string; confidence: number }),
+          (response) => {
+            const r = typeof response === 'object' && response !== null ? (response as Record<string, unknown>) : {};
+            resolve({
+              content: typeof r['content'] === 'string' ? r['content'] : '',
+              confidence: typeof r['confidence'] === 'number' ? r['confidence'] : 0,
+            });
+          },
           (error) => reject(error),
           45000,
           'conversation-enhancement'
@@ -657,9 +683,8 @@ export class ConversationEnhancementService extends EventEmitter {
       description: agent.description,
       role: agent.role,
       conversationalStyle: {
-        tone: (agent.metadata?.tone as Persona['conversationalStyle']['tone']) || 'professional',
-        formality:
-          (agent.metadata?.formality as Persona['conversationalStyle']['formality']) || 'formal',
+        tone: toPersonaTone(agent.metadata?.tone),
+        formality: toPersonaFormality(agent.metadata?.formality),
         empathy: typeof agent.metadata?.empathy === 'number' ? agent.metadata.empathy : 0.5,
         assertiveness:
           typeof agent.metadata?.assertiveness === 'number' ? agent.metadata.assertiveness : 0.5,
@@ -876,7 +901,8 @@ export class ConversationEnhancementService extends EventEmitter {
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
       const discussion = await this.databaseService.findById('discussions', discussionId);
-      return discussion as Discussion | null;
+      if (typeof discussion !== 'object' || discussion === null) return null;
+      return discussion as Discussion;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
       return null;
@@ -899,10 +925,11 @@ export class ConversationEnhancementService extends EventEmitter {
           metadata?: Record<string, unknown>;
         }>;
       };
-      const fullDiscussion = (await this.databaseService.findById(
-        'discussions',
-        discussion.id
-      )) as DiscussionWithParticipants | null;
+      const rawDiscussion = await this.databaseService.findById('discussions', discussion.id);
+      const fullDiscussion: DiscussionWithParticipants | null =
+        typeof rawDiscussion === 'object' && rawDiscussion !== null
+          ? (rawDiscussion as DiscussionWithParticipants)
+          : null;
       const participantMap = new Map<string, string>();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -974,7 +1001,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async handleAgentUpdate(event: Record<string, unknown>): Promise<void> {
     try {
-      const agentId = event.agentId as string;
+      const agentId = typeof event.agentId === 'string' ? event.agentId : '';
 
       const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
       if (agent) {
@@ -1191,7 +1218,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
       category: 'general',
       keywords: [cap],
       level: 'intermediate',
-      relatedDomains: [] as string[],
+      relatedDomains: new Array<string>(),
     }));
   }
 

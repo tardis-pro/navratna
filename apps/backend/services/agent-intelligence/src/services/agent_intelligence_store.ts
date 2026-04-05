@@ -116,7 +116,7 @@ export class AgentIntelligenceStore {
         })
         .where(eq(agents.id, agentId));
     } catch (error) {
-      logger.warn('Failed to store agent state', { agentId, error: (error as Error).message });
+      logger.warn('Failed to store agent state', { agentId, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -143,10 +143,7 @@ export class AgentIntelligenceStore {
         })
         .where(eq(agents.id, agentId));
     } catch (error) {
-      logger.warn('Failed to store agent capabilities', {
-        agentId,
-        error: (error as Error).message,
-      });
+      logger.warn('Failed to store agent capabilities', { agentId, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -165,7 +162,7 @@ export class AgentIntelligenceStore {
         },
       });
     } catch (error) {
-      logger.warn('Failed to store agent activity', { agentId, error: (error as Error).message });
+      logger.warn('Failed to store agent activity', { agentId, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -214,7 +211,7 @@ export class AgentIntelligenceStore {
         metadata: { operationId: record.operationId, version: record.version },
       });
     } catch (error) {
-      logger.warn('Failed to store learning record', { agentId, error: (error as Error).message });
+      logger.warn('Failed to store learning record', { agentId, error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -270,7 +267,7 @@ export class AgentIntelligenceStore {
           await db
             .update(operations)
             .set({
-              executionPlan: planExecutionData as unknown as import('@uaip/types').ExecutionPlan,
+              executionPlan: planExecutionData,
               priority: this.toOperationPriority(plan.priority),
               metadata: plan.metadata,
               updatedAt: new Date(),
@@ -287,7 +284,7 @@ export class AgentIntelligenceStore {
         status: OperationStatus.PENDING,
         agentId: plan.agentId ?? 'system',
         userId: plan.userId ?? 'system',
-        executionPlan: planExecutionData as unknown as import('@uaip/types').ExecutionPlan,
+        executionPlan: planExecutionData,
         priority: this.toOperationPriority(plan.priority),
         metadata: plan.metadata,
         dependencies: plan.dependencies ?? [],
@@ -298,7 +295,7 @@ export class AgentIntelligenceStore {
         maxRetries: 3,
       });
     } catch (error) {
-      logger.warn('Failed to store execution plan', { error: (error as Error).message });
+      logger.warn('Failed to store execution plan', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -343,7 +340,7 @@ export class AgentIntelligenceStore {
         .limit(1);
       return rows[0] ?? null;
     } catch (error) {
-      logger.warn('Failed to get operation', { operationId, error: (error as Error).message });
+      logger.warn('Failed to get operation', { operationId, error: error instanceof Error ? error.message : String(error) });
       return null;
     }
   }

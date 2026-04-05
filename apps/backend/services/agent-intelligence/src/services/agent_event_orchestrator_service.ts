@@ -194,8 +194,11 @@ export class AgentEventOrchestrator {
           executionContext: {
             agentId: request.agentId,
             userId,
-            environment:
-              (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+              environment: ((): 'development' | 'staging' | 'production' => {
+                const env = process.env.NODE_ENV;
+                if (env === 'development' || env === 'staging' || env === 'production') return env;
+                return 'development';
+              })(),
             metadata: request.context,
             timeout: request.timeout || 300000,
             resourceLimits: {
@@ -543,7 +546,7 @@ export class AgentEventOrchestrator {
   }
 
   private estimateOperationDuration(operationType: string): number {
-    const baseDurations = {
+    const baseDurations: Record<string, number> = {
       analyze: 30000, // 30 seconds
       plan: 60000, // 1 minute
       learn: 45000, // 45 seconds
@@ -552,7 +555,7 @@ export class AgentEventOrchestrator {
       metrics: 10000, // 10 seconds
     };
 
-    return (baseDurations as Record<string, number>)[operationType] || 30000;
+    return baseDurations[operationType] ?? 30000;
   }
 
   private async registerCapabilities(): Promise<void> {

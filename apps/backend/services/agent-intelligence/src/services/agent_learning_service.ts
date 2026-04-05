@@ -371,7 +371,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async handleMemoryConsolidationRequest(message: EventBusMessage): Promise<void> {
-    const event = message.data as MemoryConsolidationRequestEvent;
+    const rawData = message.data;
+    if (typeof rawData !== 'object' || rawData === null || !('agentId' in rawData) || !('requestId' in rawData)) {
+      logger.warn('Invalid MemoryConsolidationRequestEvent payload', { data: rawData });
+      return;
+    }
+    const event = rawData as MemoryConsolidationRequestEvent;
     const { agentId, requestId } = event;
 
     if (!this.agentMemoryService) {
@@ -741,8 +746,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }): Promise<LearningResult> {
     try {
       // Extract operation info from execution data
-      const operationId = (params.executionData.operationId as string) || 'unknown';
-      const outcome = (params.executionData.outcome as Record<string, unknown>) || {};
+      const operationId = typeof params.executionData.operationId === 'string' ? params.executionData.operationId : 'unknown';
+      const rawOutcome = params.executionData.outcome;
+      const outcome: Record<string, unknown> = typeof rawOutcome === 'object' && rawOutcome !== null ? (rawOutcome as Record<string, unknown>) : {};
 
       // Create a simplified learning interaction
       const interaction: AgentInteraction = {
@@ -752,9 +758,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         outcome: outcome.success ? 'success' : 'failure',
         learningPoints: [],
         performanceMetrics: {
-          efficiency: (outcome.efficiency as number) || 0.5,
-          accuracy: (outcome.accuracy as number) || 0.5,
-          userSatisfaction: (outcome.userSatisfaction as number) || 0.5,
+          efficiency: typeof outcome.efficiency === 'number' ? outcome.efficiency : 0.5,
+          accuracy: typeof outcome.accuracy === 'number' ? outcome.accuracy : 0.5,
+          userSatisfaction: typeof outcome.userSatisfaction === 'number' ? outcome.userSatisfaction : 0.5,
         },
         timestamp: new Date(),
       };

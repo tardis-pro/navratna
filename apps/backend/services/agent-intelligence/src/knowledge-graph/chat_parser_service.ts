@@ -417,6 +417,13 @@ export class ChatParserService {
     };
   }
 
+  private toPlatform(platform: string): ParsedConversation['platform'] {
+    if (platform === 'claude' || platform === 'gpt' || platform === 'whatsapp') {
+      return platform;
+    }
+    return 'generic';
+  }
+
   private createConversationFromMessages(
     messages: ParsedMessage[],
     platform: string,
@@ -444,7 +451,7 @@ export class ChatParserService {
     return [
       {
         id: id || uuidv4(),
-        platform: platform as ParsedConversation['platform'],
+        platform: this.toPlatform(platform),
         title: title || `${platform} conversation from ${filename}`,
         participants,
         messages,
@@ -466,7 +473,7 @@ export class ChatParserService {
   ): ParsedConversation {
     return {
       id: id || uuidv4(),
-      platform: platform as ParsedConversation['platform'],
+      platform: this.toPlatform(platform),
       title: `Empty ${platform} conversation from ${filename}`,
       participants: [],
       messages: [],

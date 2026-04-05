@@ -323,8 +323,10 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const tables = (config.tables as string[]) ?? [];
-    const schemas = (config.schemas as Record<string, Record<string, unknown>>) ?? {};
+    const tables = Array.isArray(config.tables) ? (config.tables as string[]) : [];
+    const schemas = typeof config.schemas === 'object' && config.schemas !== null
+      ? (config.schemas as Record<string, Record<string, unknown>>)
+      : {};
 
     // Discover tables
     for (const tableName of tables) {
@@ -359,11 +361,8 @@ export class ProcessArchaeologyService {
 
     // Fallback: if no tables provided but there are field-level hints
     if (tables.length === 0 && config.fields && Array.isArray(config.fields)) {
-      for (const field of config.fields as Array<{
-        name: string;
-        table?: string;
-        samples?: string[];
-      }>) {
+      type FieldHint = { name: string; table?: string; samples?: string[] };
+      for (const field of config.fields as FieldHint[]) {
         entities.push({
           id: uuidv4(),
           sourceId: source.id,
@@ -382,13 +381,10 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const endpoints =
-      (config.endpoints as Array<{
-        path: string;
-        method?: string;
-        responseFields?: string[];
-        sampleResponse?: Record<string, unknown>;
-      }>) ?? [];
+    type EndpointHint = { path: string; method?: string; responseFields?: string[]; sampleResponse?: Record<string, unknown> };
+    const endpoints: EndpointHint[] = Array.isArray(config.endpoints)
+      ? (config.endpoints as EndpointHint[])
+      : [];
 
     for (const ep of endpoints) {
       entities.push({
@@ -429,13 +425,10 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const files =
-      (config.files as Array<{
-        path: string;
-        language?: string;
-        exports?: string[];
-        imports?: string[];
-      }>) ?? [];
+    type FileHint = { path: string; language?: string; exports?: string[]; imports?: string[] };
+    const files: FileHint[] = Array.isArray(config.files)
+      ? (config.files as FileHint[])
+      : [];
 
     for (const file of files) {
       entities.push({
@@ -469,7 +462,7 @@ export class ProcessArchaeologyService {
     }
 
     // Discover models / interfaces from config hints
-    const models = (config.models as string[]) ?? [];
+    const models = Array.isArray(config.models) ? (config.models as string[]) : [];
     for (const modelName of models) {
       entities.push({
         id: uuidv4(),
@@ -487,8 +480,10 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const filePaths = (config.filePaths as string[]) ?? [];
-    const headers = (config.headers as Record<string, string[]>) ?? {};
+    const filePaths = Array.isArray(config.filePaths) ? (config.filePaths as string[]) : [];
+    const headers = typeof config.headers === 'object' && config.headers !== null
+      ? (config.headers as Record<string, string[]>)
+      : {};
 
     for (const filePath of filePaths) {
       entities.push({
@@ -526,12 +521,10 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const objects =
-      (config.objects as Array<{
-        name: string;
-        fields?: string[];
-        sampleRecords?: Array<Record<string, unknown>>;
-      }>) ?? [];
+    type SaaSObject = { name: string; fields?: string[]; sampleRecords?: Array<Record<string, unknown>> };
+    const objects: SaaSObject[] = Array.isArray(config.objects)
+      ? (config.objects as SaaSObject[])
+      : [];
 
     for (const obj of objects) {
       entities.push({
@@ -723,7 +716,9 @@ export class ProcessArchaeologyService {
     tableName: string,
     fieldName: string
   ): string[] | undefined {
-    const sampleData = config.sampleData as Record<string, Record<string, unknown>[]> | undefined;
+    const sampleData = typeof config.sampleData === 'object' && config.sampleData !== null
+      ? (config.sampleData as Record<string, Record<string, unknown>[]>)
+      : undefined;
     if (!sampleData || !sampleData[tableName]) {
       return undefined;
     }

@@ -257,7 +257,7 @@ export class TaxonomyGeneratorService {
     }
 
     // Use domain templates
-    const templates = this.categoryTemplates[domain as keyof typeof this.categoryTemplates];
+    const templates = domain in this.categoryTemplates ? this.categoryTemplates[domain as keyof typeof this.categoryTemplates] : undefined;
     if (templates) {
       for (const template of templates) {
         const categoryId = uuidv4();

@@ -49,9 +49,10 @@ export function registerCognitivePortraitRoutes() {
         }
 
         try {
+          const action = parsed.data.action as TrustAction;
           const trust = await updateTrustCalibration(
             userId,
-            parsed.data.action as TrustAction,
+            action,
             parsed.data.agentId,
             parsed.data.context
           )

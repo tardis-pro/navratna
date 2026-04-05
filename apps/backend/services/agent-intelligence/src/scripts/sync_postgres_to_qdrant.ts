@@ -22,15 +22,18 @@ async function teiEmbed(texts: string[]): Promise<number[][]> {
     throw new InternalServerError(`TEI embed failed ${res.status}: ${txt}`);
   }
   const data: unknown = await res.json();
-  if (Array.isArray(data)) return data as number[][];
-  const asRecord = data as Record<string, unknown>;
+  if (Array.isArray(data)) return data.filter((row): row is number[] => Array.isArray(row));
+  const asRecord = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
   const embeddings = Array.isArray(asRecord.embeddings) ? asRecord.embeddings : null;
-  return (embeddings ?? []) as number[][];
+  return (embeddings ?? []).filter((row): row is number[] => Array.isArray(row));
 }
 
 async function qdrantCollectionInfo(): Promise<{ result?: { points_count?: number } }> {
   const res = await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}`);
-  return res.json() as Promise<{ result?: { points_count?: number } }>;
+  const raw: unknown = await res.json();
+  const obj = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const result = typeof obj.result === 'object' && obj.result !== null ? (obj.result as Record<string, unknown>) : undefined;
+  return { result: result ? { points_count: typeof result.points_count === 'number' ? result.points_count : undefined } : undefined };
 }
 
 async function qdrantUpsert(

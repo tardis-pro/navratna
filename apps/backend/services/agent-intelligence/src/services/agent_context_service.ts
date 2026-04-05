@@ -233,7 +233,8 @@ export class AgentContextService {
         maxTokens: 1000,
       });
 
-      return llmResponse as LLMContextAnalysis;
+      const parsed: unknown = JSON.parse(llmResponse.content);
+      return typeof parsed === 'object' && parsed !== null ? (parsed as LLMContextAnalysis) : null;
     } catch (error) {
       logger.warn('LLM context analysis failed, falling back to basic analysis', { error });
       return null;
@@ -247,7 +248,7 @@ export class AgentContextService {
     // Basic intent analysis
     const intent = {
       primary: 'unknown',
-      secondary: [] as string[],
+      secondary: new Array<string>(),
       confidence: 0.5,
       keywords: this.extractKeywords(userRequest),
       sentiment: this.analyzeSentiment(userRequest),
@@ -275,11 +276,16 @@ export class AgentContextService {
    * Event handlers
    */
   private async handleAnalyzeContext(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agentId = event.agentId as string;
-    const conversationContext = event.conversationContext as ConversationContext;
-    const userRequest = event.userRequest as string;
-    const userId = event.userId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agentId = typeof event.agentId === 'string' ? event.agentId : '';
+    const rawConvCtx = event.conversationContext;
+    if (typeof rawConvCtx !== 'object' || rawConvCtx === null) {
+      await this.respondToRequest(requestId, { success: false, error: 'Invalid conversationContext in event' });
+      return;
+    }
+    const conversationContext = rawConvCtx as ConversationContext;
+    const userRequest = typeof event.userRequest === 'string' ? event.userRequest : '';
+    const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
       const analysis = await this.analyzeContext(agentId, conversationContext, userRequest, userId);
       await this.respondToRequest(requestId, { success: true, data: analysis });
@@ -292,10 +298,10 @@ export class AgentContextService {
   }
 
   private async handleUpdateContext(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const rawContextUpdate = (event.contextUpdate ?? {}) as Record<string, unknown>;
-    const knowledgeItemId = rawContextUpdate.knowledgeItemId as string | undefined;
-    const contextUpdate = rawContextUpdate as unknown as Partial<KnowledgeItem>;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawContextUpdate = typeof event.contextUpdate === 'object' && event.contextUpdate !== null ? (event.contextUpdate as Record<string, unknown>) : {};
+    const knowledgeItemId = typeof rawContextUpdate.knowledgeItemId === 'string' ? rawContextUpdate.knowledgeItemId : undefined;
+    const contextUpdate = rawContextUpdate as Partial<KnowledgeItem>;
     try {
       if (knowledgeItemId) {
         await this.knowledgeGraphService.updateKnowledge(knowledgeItemId, contextUpdate);
@@ -310,8 +316,13 @@ export class AgentContextService {
   }
 
   private async handleExtractContext(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const conversationContext = event.conversationContext as ConversationContext;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawConvCtx2 = event.conversationContext;
+    if (typeof rawConvCtx2 !== 'object' || rawConvCtx2 === null) {
+      await this.respondToRequest(requestId, { success: false, error: 'Invalid conversationContext in event' });
+      return;
+    }
+    const conversationContext = rawConvCtx2 as ConversationContext;
     try {
       const contextInfo = this.extractContextualInformation(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: contextInfo });
@@ -405,8 +416,8 @@ Please analyze:
   private extractTaskContext(_context: ConversationContext): Record<string, unknown> {
     return {
       currentTask: null,
-      completedTasks: [] as Record<string, unknown>[],
-      pendingTasks: [] as Record<string, unknown>[],
+      completedTasks: new Array<Record<string, unknown>>(),
+      pendingTasks: new Array<Record<string, unknown>>(),
     };
   }
 

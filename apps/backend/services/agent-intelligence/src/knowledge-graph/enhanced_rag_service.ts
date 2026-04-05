@@ -79,25 +79,30 @@ export class EnhancedRAGService {
       let results: EnhancedSearchResult[];
 
       if (useReranking && filteredCandidates.length > 1) {
-        const candidatesWithContent = filteredCandidates.map((c) => ({
-          id: c.id,
-          content: String(c.payload?.content ?? ''),
-          metadata: (c.payload?.metadata ?? {}) as Record<string, unknown>,
-          score: c.score,
-        }));
+        const candidatesWithContent = filteredCandidates.map((c) => {
+          const meta = c.payload?.metadata;
+          return {
+            id: c.id,
+            content: String(c.payload?.content ?? ''),
+            metadata: typeof meta === 'object' && meta !== null ? (meta as Record<string, unknown>) : {},
+            score: c.score,
+          };
+        });
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
-        results = filteredCandidates.slice(0, topK).map((candidate, index) => ({
-          id: candidate.id,
-          content: String(candidate.payload?.content ?? ''),
-          metadata: (candidate.payload?.metadata ?? {}) as Record<string, unknown>,
-          score: candidate.score,
-          originalScore: candidate.score,
-          rank: index + 1,
-          embedding: includeEmbeddings
-            ? (candidate.payload?.embedding as number[] | undefined)
-            : undefined,
-        }));
+        results = filteredCandidates.slice(0, topK).map((candidate, index) => {
+          const meta = candidate.payload?.metadata;
+          const emb = candidate.payload?.embedding;
+          return {
+            id: candidate.id,
+            content: String(candidate.payload?.content ?? ''),
+            metadata: typeof meta === 'object' && meta !== null ? (meta as Record<string, unknown>) : {},
+            score: candidate.score,
+            originalScore: candidate.score,
+            rank: index + 1,
+            embedding: includeEmbeddings && Array.isArray(emb) ? (emb as number[]) : undefined,
+          };
+        });
       }
 
       return results;
@@ -188,14 +193,17 @@ export class EnhancedRAGService {
       return candidates
         .filter((c) => c.score >= minScore)
         .slice(0, topK)
-        .map((candidate, index) => ({
-          id: candidate.id,
-          content: String(candidate.payload?.content ?? ''),
-          metadata: (candidate.payload?.metadata ?? {}) as Record<string, unknown>,
-          score: candidate.score,
-          originalScore: candidate.score,
-          rank: index + 1,
-        }));
+        .map((candidate, index) => {
+          const meta = candidate.payload?.metadata;
+          return {
+            id: candidate.id,
+            content: String(candidate.payload?.content ?? ''),
+            metadata: typeof meta === 'object' && meta !== null ? (meta as Record<string, unknown>) : {},
+            score: candidate.score,
+            originalScore: candidate.score,
+            rank: index + 1,
+          };
+        });
     } catch (error) {
       console.error('Similar documents search failed:', error);
       throw new InternalServerError(`Failed to find similar documents: ${error.message}`, { cause: error });

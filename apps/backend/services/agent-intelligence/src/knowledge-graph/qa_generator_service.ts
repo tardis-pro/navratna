@@ -646,7 +646,7 @@ export class QAGeneratorService {
 
   private generateMetaQuestions(item: KnowledgeItem, sourceType: string): GeneratedQA[] {
     const metaQAs: GeneratedQA[] = [];
-    const metadata = item.metadata as Record<string, unknown> | undefined;
+    const metadata: Record<string, unknown> | undefined = item.metadata;
     const templates = [
       {
         question: 'What is the main topic of this information?',
@@ -750,7 +750,7 @@ export class QAGeneratorService {
       question: this.cleanQuestion(question),
       answer: this.cleanAnswer(answer),
       source: String(item.id ?? item.sourceIdentifier ?? 'unknown'),
-      sourceType: sourceType as GeneratedQA['sourceType'],
+      sourceType: (['knowledge', 'conversation', 'hybrid'] as const).includes(sourceType as GeneratedQA['sourceType']) ? (sourceType as GeneratedQA['sourceType']) : 'knowledge',
       confidence: this.calculateInitialConfidence(question, answer, method),
       topic: this.extractTopic(question + ' ' + answer),
       difficulty: this.assessDifficulty(question, answer),
@@ -771,7 +771,7 @@ export class QAGeneratorService {
     options: QAGenerationOptions
   ): KnowledgeItem[] {
     return items.filter((item) => {
-      if (options.categories && !options.categories.includes(item.type as string)) {
+      if (options.categories && !options.categories.includes(String(item.type))) {
         return false;
       }
       return true;

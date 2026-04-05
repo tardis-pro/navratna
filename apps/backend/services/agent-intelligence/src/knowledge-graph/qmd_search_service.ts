@@ -132,7 +132,8 @@ export class QmdSearchService {
         LIMIT $${paramIdx}
       `;
 
-      const rows = (await this.dataSource.query(sql, params)) as Record<string, unknown>[];
+      const rawRows: unknown[] = await this.dataSource.query(sql, params);
+      const rows = rawRows.filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null);
       return rows.map((r) => ({
         id: String(r.id),
         content: String(r.content ?? ''),

@@ -13,8 +13,8 @@ import type {
   CognitivePortraitResponse,
   DomainExpertiseEntry,
   ToolPreferenceEntry,
-  TrustAction,
 } from '@uaip/types'
+import { TrustAction } from '@uaip/types'
 import {
   WorkStyle,
   CommunicationPreference,
@@ -314,23 +314,33 @@ export function initCognitivePortraitEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('user.decision.override', async (data: unknown) => {
-      const payload = data as { userId: string; agentId: string; context: string }
-      if (payload.userId) {
-        await updateTrustCalibration(payload.userId, 'override' as TrustAction, payload.agentId, payload.context)
+      if (typeof data !== 'object' || data === null) return;
+      const payload = data as Record<string, unknown>;
+      const userId = typeof payload.userId === 'string' ? payload.userId : '';
+      const agentId = typeof payload.agentId === 'string' ? payload.agentId : '';
+      const context = typeof payload.context === 'string' ? payload.context : '';
+      if (userId) {
+        await updateTrustCalibration(userId, TrustAction.OVERRIDE, agentId, context)
       }
     })
 
     eventBus.subscribe('user.decision.accept', async (data: unknown) => {
-      const payload = data as { userId: string; agentId: string; context: string }
-      if (payload.userId) {
-        await updateTrustCalibration(payload.userId, 'accept' as TrustAction, payload.agentId, payload.context)
+      if (typeof data !== 'object' || data === null) return;
+      const payload = data as Record<string, unknown>;
+      const userId = typeof payload.userId === 'string' ? payload.userId : '';
+      const agentId = typeof payload.agentId === 'string' ? payload.agentId : '';
+      const context = typeof payload.context === 'string' ? payload.context : '';
+      if (userId) {
+        await updateTrustCalibration(userId, TrustAction.ACCEPT, agentId, context)
       }
     })
 
     eventBus.subscribe('user.interaction', async (data: unknown) => {
-      const payload = data as { userId: string }
-      if (payload.userId) {
-        portraitCache.delete(payload.userId)
+      if (typeof data !== 'object' || data === null) return;
+      const payload = data as Record<string, unknown>;
+      const userId = typeof payload.userId === 'string' ? payload.userId : '';
+      if (userId) {
+        portraitCache.delete(userId)
       }
     })
 

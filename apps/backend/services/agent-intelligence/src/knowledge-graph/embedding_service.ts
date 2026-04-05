@@ -167,8 +167,9 @@ export class EmbeddingService {
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
       context.conversationHistory.forEach((msg) => {
-        const message = msg as { role?: string; content?: string };
-        parts.push(`${message.role}: ${message.content}`);
+        const role = typeof msg === 'object' && msg !== null && 'role' in msg && typeof (msg as { role?: unknown }).role === 'string' ? (msg as { role: string }).role : '';
+        const content = typeof msg === 'object' && msg !== null && 'content' in msg && typeof (msg as { content?: unknown }).content === 'string' ? (msg as { content: string }).content : '';
+        parts.push(`${role}: ${content}`);
       });
     }
 

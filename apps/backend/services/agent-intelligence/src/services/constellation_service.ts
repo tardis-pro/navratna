@@ -253,7 +253,7 @@ export async function getConstellations(
 
   // Strip items if not requested
   if (request.includeItems === false) {
-    constellations = constellations.map((c) => ({ ...c, items: [] as ConstellationItem[] }));
+    constellations = constellations.map((c) => ({ ...c, items: new Array<ConstellationItem>() }));
   }
 
   const totalItems = clusteringResult.totalOriginalItems;

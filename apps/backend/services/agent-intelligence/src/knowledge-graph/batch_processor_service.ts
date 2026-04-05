@@ -364,13 +364,13 @@ export class BatchProcessorService {
       ingestItems.push(
         ...knowledge.decisionPoints.map((decision: DecisionPoint) => ({
           content: decision.decision,
-          metadata: {
+            metadata: {
             options: decision.alternatives,
             reasoning: decision.reasoning,
             outcome: decision.outcome,
             confidence: decision.confidence,
             context: decision.context,
-            tags: [] as string[],
+            tags: new Array<string>(),
             extractedFrom: 'chat',
           },
           source: {

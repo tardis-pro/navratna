@@ -56,7 +56,8 @@ export class KnowledgeSyncService {
       const userRows = await getControlPool().query(`SELECT * FROM "users" WHERE id = $1 LIMIT 1`, [
         userId,
       ]);
-      const user = userRows.rows[0] as UserEntity | undefined;
+      const userRow: unknown = userRows.rows[0];
+      const user: UserEntity | undefined = typeof userRow === 'object' && userRow !== null ? (userRow as UserEntity) : undefined;
 
       if (!knowledgeItem || !user) {
         return {
@@ -633,8 +634,8 @@ export class KnowledgeSyncService {
       sourceId: rel.sourceId,
       targetId: rel.targetId,
       relType: rel.relationshipType,
-      confidence: (rel.metadata as Record<string, unknown>)?.confidence ?? 0.5,
-      summary: (rel.metadata as Record<string, unknown>)?.summary ?? '',
+      confidence: typeof rel.metadata?.confidence === 'number' ? rel.metadata.confidence : 0.5,
+      summary: typeof rel.metadata?.summary === 'string' ? rel.metadata.summary : '',
       createdAt: rel.createdAt.toISOString(),
       updatedAt: rel.updatedAt.toISOString(),
     };
@@ -789,7 +790,7 @@ export class KnowledgeSyncService {
             itemsMap.set(id, {
               id,
               content: String(point.payload.content ?? ''),
-              type: (point.payload.type as KnowledgeType) ?? KnowledgeType.FACTUAL,
+              type: Object.values(KnowledgeType).includes(point.payload.type as KnowledgeType) ? (point.payload.type as KnowledgeType) : KnowledgeType.FACTUAL,
               metadata: {},
               source: 'qdrant',
               existsIn: { postgres: false, neo4j: false, qdrant: true },
@@ -901,13 +902,19 @@ export class KnowledgeSyncService {
       type: item.type,
       sourceType: SourceType.AGENT_INTERACTION,
       sourceIdentifier: `sync-${item.source}-${item.id}`,
+      sourceUrl: null,
       tags: [],
-      confidence: '0.8',
+      confidence: 0.8,
       metadata: item.metadata ?? {},
       accessLevel: 'standard',
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as unknown as KnowledgeItemEntity;
+      createdBy: null,
+      organizationId: null,
+      userId: null,
+      agentId: null,
+      summary: null,
+    };
 
     return entity;
   }
@@ -982,7 +989,9 @@ export class KnowledgeSyncService {
 
       const params = {
         oldId:
-          (item.metadata.originalProperties as Record<string, unknown> | undefined)?.id ?? null,
+          (typeof item.metadata.originalProperties === 'object' && item.metadata.originalProperties !== null
+            ? (item.metadata.originalProperties as Record<string, unknown>).id
+            : null) ?? null,
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,

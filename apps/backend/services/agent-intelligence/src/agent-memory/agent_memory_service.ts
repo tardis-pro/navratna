@@ -149,9 +149,9 @@ export class AgentMemoryService {
     concepts: SemanticMemory[];
     workingMemoryRelevant: boolean;
   }> {
-    const results = {
-      episodes: [] as Episode[],
-      concepts: [] as SemanticMemory[],
+    const results: { episodes: Episode[]; concepts: SemanticMemory[]; workingMemoryRelevant: boolean } = {
+      episodes: [],
+      concepts: [],
       workingMemoryRelevant: false,
     };
 

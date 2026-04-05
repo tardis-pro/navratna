@@ -43,10 +43,12 @@ async function notionRequest<T>(path: string, method: string, body?: unknown): P
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return undefined;
   }
 
-  return (await response.json()) as T
+  const json: unknown = await response.json();
+  // @ts-expect-error — generic fetch wrapper: runtime JSON shape matches T as specified by caller
+  return json;
 }
 
 function markdownToNotionBlocks(markdown: string): Array<Record<string, unknown>> {
@@ -184,9 +186,17 @@ export async function importFromNotion(
   _targetRepoId: string
 ): Promise<{ content: string; title: string }> {
   const page = await notionRequest<Record<string, unknown>>(`/pages/${notionPageId}`, 'GET')
-  const properties = page.properties as Record<string, unknown> | undefined
-  const titleProp = (properties?.title ?? properties?.Name) as Record<string, unknown> | undefined
-  const titleArray = titleProp?.title as Array<{ plain_text: string }> | undefined
+  const properties = typeof page.properties === 'object' && page.properties !== null
+    ? (page.properties as Record<string, unknown>)
+    : undefined;
+  const rawTitleProp = properties?.title ?? properties?.Name;
+  const titleProp = typeof rawTitleProp === 'object' && rawTitleProp !== null
+    ? (rawTitleProp as Record<string, unknown>)
+    : undefined;
+  const rawTitleArray = titleProp?.title;
+  const titleArray = Array.isArray(rawTitleArray)
+    ? (rawTitleArray as Array<{ plain_text: string }>)
+    : undefined;
   const title = titleArray?.[0]?.plain_text ?? 'Imported Page'
 
   const blocksResponse = await notionRequest<{
@@ -195,9 +205,15 @@ export async function importFromNotion(
 
   const lines: string[] = []
   for (const block of blocksResponse.results) {
-    const blockType = block.type as string
-    const blockData = block[blockType] as Record<string, unknown> | undefined
-    const richText = blockData?.rich_text as Array<{ plain_text: string }> | undefined
+    const blockType = typeof block.type === 'string' ? block.type : '';
+    const rawBlockData = block[blockType];
+    const blockData = typeof rawBlockData === 'object' && rawBlockData !== null
+      ? (rawBlockData as Record<string, unknown>)
+      : undefined;
+    const rawRichText = blockData?.rich_text;
+    const richText = Array.isArray(rawRichText)
+      ? (rawRichText as Array<{ plain_text: string }>)
+      : undefined;
     const text = richText?.map((rt) => rt.plain_text).join('') ?? ''
 
     switch (blockType) {

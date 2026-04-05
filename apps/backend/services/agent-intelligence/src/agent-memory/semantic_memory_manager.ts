@@ -346,20 +346,56 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     if (typeof value !== 'object' || value === null) {
       return null;
     }
-    return value as SemanticMemory['knowledge'];
+    const v = value as Record<string, unknown>;
+    return {
+      definition: typeof v.definition === 'string' ? v.definition : '',
+      properties: typeof v.properties === 'object' && v.properties !== null
+        ? (v.properties as Record<string, unknown>)
+        : {},
+      relationships: Array.isArray(v.relationships) ? v.relationships.filter(
+        (r): r is { relatedConcept: string; relationshipType: string; strength: number } =>
+          typeof r === 'object' && r !== null &&
+          typeof (r as Record<string, unknown>).relatedConcept === 'string' &&
+          typeof (r as Record<string, unknown>).relationshipType === 'string' &&
+          typeof (r as Record<string, unknown>).strength === 'number'
+      ) : [],
+      examples: Array.isArray(v.examples)
+        ? v.examples.filter((e): e is string => typeof e === 'string')
+        : [],
+      counterExamples: Array.isArray(v.counterExamples)
+        ? v.counterExamples.filter((e): e is string => typeof e === 'string')
+        : [],
+    };
   }
 
   private asSemanticSources(value: unknown): SemanticMemory['sources'] | null {
     if (typeof value !== 'object' || value === null) {
       return null;
     }
-    return value as SemanticMemory['sources'];
+    const v = value as Record<string, unknown>;
+    return {
+      episodeIds: Array.isArray(v.episodeIds)
+        ? v.episodeIds.filter((e): e is string => typeof e === 'string')
+        : [],
+      externalSources: Array.isArray(v.externalSources)
+        ? v.externalSources.filter((e): e is string => typeof e === 'string')
+        : [],
+      reinforcements: typeof v.reinforcements === 'number' ? v.reinforcements : 0,
+    };
   }
 
   private asSemanticUsage(value: unknown): SemanticMemory['usage'] | null {
     if (typeof value !== 'object' || value === null) {
       return null;
     }
-    return value as SemanticMemory['usage'];
+    const v = value as Record<string, unknown>;
+    return {
+      timesAccessed: typeof v.timesAccessed === 'number' ? v.timesAccessed : 0,
+      lastUsed: v.lastUsed instanceof Date ? v.lastUsed : new Date(),
+      successRate: typeof v.successRate === 'number' ? v.successRate : 1.0,
+      contexts: Array.isArray(v.contexts)
+        ? v.contexts.filter((c): c is string => typeof c === 'string')
+        : [],
+    };
   }
 }
