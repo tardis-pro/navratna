@@ -42,7 +42,7 @@ export class ModelBootstrapService {
   private llmService: LLMService;
   private userLLMService: UserLLMService;
   private userService: UserService;
-  private modelSyncService: ModelSyncService;
+  private modelSyncService: ModelSyncService | null;
 
   // Cache keys and TTL (6 hours for boot cache = 21600 seconds)
   private static readonly BOOT_CACHE_TTL = 21600;
@@ -57,7 +57,7 @@ export class ModelBootstrapService {
     this.userLLMService = new UserLLMService();
     this.userService = UserService.getInstance();
     // Initialize ModelSyncService lazily to avoid async in constructor
-    this.modelSyncService = null as unknown as ModelSyncService;
+    this.modelSyncService = null;
   }
 
   public static getInstance(): ModelBootstrapService {

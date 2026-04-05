@@ -3,6 +3,7 @@ import {
   LLMResponse,
   AgentResponseRequest,
   AgentResponseResponse,
+  LLMProviderConfig,
 } from './interfaces.js';
 import { getContextManager, ContextManager } from './context-manager/context_manager.js';
 import { BaseProvider } from './providers/base_provider.js';
@@ -36,6 +37,56 @@ interface UserLLMProvider {
   isActive?: boolean;
   defaultModel?: string;
   modelId?: string;
+}
+
+// DB row shape returned by UserLLMProviderRepository
+interface UserLLMProviderDbRow {
+  id: string;
+  userId: string;
+  providerId: string;
+  apiKeyEncrypted?: string | null;
+  isDefault: boolean;
+  configuration?: Record<string, unknown> | null;
+}
+
+const validUserLLMProviderTypes = [
+  'ollama',
+  'llmstudio',
+  'openai',
+  'anthropic',
+  'google',
+  'custom',
+] as const;
+
+function isUserLLMProviderType(v: unknown): v is UserLLMProviderType {
+  return typeof v === 'string' && (validUserLLMProviderTypes as readonly string[]).includes(v);
+}
+
+/**
+ * Map a DB row (which stores name/type/baseUrl inside configuration) to UserLLMProvider.
+ * When creating a provider, we store those fields in configuration (see createUserProvider).
+ */
+function mapDbRowToUserLLMProvider(row: UserLLMProviderDbRow): UserLLMProvider {
+  const cfg = row.configuration ?? {};
+  const rawType = cfg.type ?? row.providerId;
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: typeof cfg.name === 'string' ? cfg.name : row.providerId,
+    type: isUserLLMProviderType(rawType) ? rawType : 'custom',
+    description: typeof cfg.description === 'string' ? cfg.description : undefined,
+    baseUrl: typeof cfg.baseUrl === 'string' ? cfg.baseUrl : undefined,
+    apiKeyEncrypted: row.apiKeyEncrypted ?? undefined,
+    isDefault: row.isDefault,
+    configuration: cfg,
+    isActive: typeof cfg.isActive === 'boolean' ? cfg.isActive : true,
+    defaultModel: typeof cfg.defaultModel === 'string' ? cfg.defaultModel : undefined,
+    modelId: row.providerId,
+  };
+}
+
+function mapDbRowsToUserLLMProviders(rows: UserLLMProviderDbRow[]): UserLLMProvider[] {
+  return rows.map(mapDbRowToUserLLMProvider);
 }
 
 export class UserLLMService {
@@ -152,8 +203,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
-      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-      return providers as unknown as UserLLMProvider[];
+      return mapDbRowsToUserLLMProviders(providers as unknown as UserLLMProviderDbRow[]);
     } catch (error) {
       logger.error('Error getting user LLM providers', { userId, error });
       throw error;
@@ -167,8 +217,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findActiveByUserId(userId);
-      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-      return providers as unknown as UserLLMProvider[];
+      return mapDbRowsToUserLLMProviders(providers as unknown as UserLLMProviderDbRow[]);
     } catch (error) {
       logger.error('Error getting active user LLM providers', { userId, error });
       throw error;
@@ -185,11 +234,9 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
-      const filtered = providers.filter(
-        (provider) => (provider as Record<string, unknown>).providerId === type
-      );
-      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-      return filtered as unknown as UserLLMProvider[];
+      const rows = providers as unknown as UserLLMProviderDbRow[];
+      const filtered = rows.filter((row) => row.providerId === type);
+      return mapDbRowsToUserLLMProviders(filtered);
     } catch (error) {
       logger.error('Error getting user LLM providers by type', { userId, type, error });
       throw error;
@@ -203,8 +250,8 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const result = await repository.findById(providerId);
-      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-      return result as unknown as UserLLMProvider | null;
+      if (!result) return null;
+      return mapDbRowToUserLLMProvider(result as unknown as UserLLMProviderDbRow);
     } catch (error) {
       logger.error('Error getting user LLM provider by ID', { providerId, error });
       throw error;
@@ -302,8 +349,8 @@ export class UserLLMService {
   }> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-      const userProviders = (await repository.findByUserId(userId)) as unknown as UserLLMProvider[];
+      const rows = await repository.findByUserId(userId);
+      const userProviders = mapDbRowsToUserLLMProviders(rows as unknown as UserLLMProviderDbRow[]);
       if (!userProviders || userProviders.length === 0) {
         throw new Error('Provider not found or access denied');
       }
@@ -359,11 +406,14 @@ export class UserLLMService {
       }
 
       // Ensure we have a fresh entity instance if the provider might be a plain object
-      const providerRecord = provider as UserLLMProvider;
+      const providerRecord = provider;
       if (providerRecord.id) {
         const repository = await this.getUserLLMProviderRepository();
-        const freshProvider = await repository.findById(providerRecord.id);
-        if (freshProvider) {
+        const freshRow = await repository.findById(providerRecord.id);
+        if (freshRow) {
+          const freshProvider = mapDbRowToUserLLMProvider(
+            freshRow as unknown as UserLLMProviderDbRow
+          );
           Object.assign(providerRecord, freshProvider);
         }
       }
@@ -486,16 +536,16 @@ export class UserLLMService {
           name: request.agent.name,
           description: request.agent.description,
           role: request.agent.role,
-          capabilities: request.agent.capabilities || [],
+          capabilities: request.agent.capabilities || new Array<string>(),
           // Set reasonable defaults for missing properties
-          learningHistory: [] as unknown[],
+          learningHistory: new Array<unknown>(),
           securityLevel: 'medium' as const,
-          complianceTags: [] as string[],
-          auditTrail: [] as unknown[],
+          complianceTags: new Array<string>(),
+          auditTrail: new Array<unknown>(),
           performanceMetrics: {},
           configuration: request.agent.configuration || {},
           preferences: {},
-          tags: [] as string[],
+          tags: new Array<string>(),
           metadata: request.agent.metadata || {},
           version: request.agent.version || 1,
           toolPermissions: {},
@@ -513,7 +563,10 @@ export class UserLLMService {
         // Determine appropriate task type for the agent
         const taskTypeResolver = await this.getTaskTypeResolver();
         const taskType = await taskTypeResolver.determineTaskType(
-          agentForTaskType as unknown as Parameters<typeof taskTypeResolver.determineTaskType>[0],
+          // agentForTaskType is a partial Agent shape; determineTaskType expects the full DB Agent type.
+          // This is a known structural mismatch — the partial object satisfies runtime requirements.
+          // @ts-expect-error -- agentForTaskType is a partial Agent shape; full Agent type required by determineTaskType but partial is runtime-safe
+          agentForTaskType,
           {
             userIntent: request.messages?.[0]?.content,
             conversationHistory: request.messages,
@@ -685,21 +738,17 @@ export class UserLLMService {
   ): Promise<UserLLMProvider | null> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const providers = await repository.findByUserId(userId);
+      const rawRows = await repository.findByUserId(userId);
+      const rows = rawRows as unknown as UserLLMProviderDbRow[];
       if (preferredType) {
-        const filtered = providers.filter(
-          (p) => (p as Record<string, unknown>).providerId === preferredType
-        );
+        const filtered = rows.filter((row) => row.providerId === preferredType);
         if (filtered.length > 0) {
-          // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-          return filtered[0] as unknown as UserLLMProvider;
+          return mapDbRowToUserLLMProvider(filtered[0]);
         }
       }
-      const defaultProvider = providers.find(
-        (p) => (p as Record<string, unknown>).isDefault === true
-      );
-      // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-      return (defaultProvider || providers[0]) as unknown as UserLLMProvider;
+      const defaultRow = rows.find((row) => row.isDefault === true);
+      const selectedRow = defaultRow ?? rows[0];
+      return selectedRow ? mapDbRowToUserLLMProvider(selectedRow) : null;
     } catch (error) {
       logger.error('Error getting best user provider', { userId, preferredType, error });
       return null;
@@ -711,24 +760,21 @@ export class UserLLMService {
     providerType: UserLLMProviderType
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
-    const providers = await repository.findByUserId(userId);
-    const filteredProviders = providers.filter(
-      (provider) => (provider as Record<string, unknown>).providerId === providerType
-    );
-    const selectedProvider = filteredProviders[0] ?? providers[0];
+    const rawRows = await repository.findByUserId(userId);
+    const rows = rawRows as unknown as UserLLMProviderDbRow[];
+    const filteredRows = rows.filter((row) => row.providerId === providerType);
+    const selectedRow = filteredRows[0] ?? rows[0];
 
-    if (!selectedProvider) {
+    if (!selectedRow) {
       logger.error('Selected provider not found', { providerType });
       throw new Error(`Selected provider not found: ${providerType}`);
     }
 
-    // Drizzle row lacks name/type fields that UserLLMProvider requires; double-cast is intentional
-    return selectedProvider as unknown as UserLLMProvider;
+    return mapDbRowToUserLLMProvider(selectedRow);
   }
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
-    const userProviderRecord = userProvider as unknown as Record<string, unknown>;
-    const cacheKey = `${userProviderRecord.userId}-${userProviderRecord.id}`;
+    const cacheKey = `${userProvider.userId}-${userProvider.id}`;
 
     if (this.providerCache.has(cacheKey)) {
       return this.providerCache.get(cacheKey)!;
@@ -740,19 +786,9 @@ export class UserLLMService {
   }
 
   /**
-   * Get provider configuration safely - handles both entity instances and plain objects
+   * Get provider configuration safely
    */
-  private getProviderConfig(userProvider: UserLLMProvider): {
-    type: UserLLMProviderType;
-    baseUrl?: string;
-    apiKey?: string;
-    defaultModel?: string;
-    timeout?: number;
-    retries?: number;
-  } {
-    const prov = userProvider as unknown as Record<string, unknown>;
-
-    // Handle plain object case - reconstruct the config manually
+  private getProviderConfig(userProvider: UserLLMProvider): LLMProviderConfig {
     const getDefaultBaseUrl = (type: UserLLMProviderType): string => {
       switch (type) {
         case 'openai':
@@ -770,23 +806,22 @@ export class UserLLMService {
       }
     };
 
-    const getApiKey = (): string | undefined => {
-      if (!userProvider.apiKeyEncrypted) {
-        return undefined;
-      }
-      // For plain objects, we can't decrypt, so return undefined
-      // The provider will need to handle this case
-      return undefined;
-    };
+    const cfg = userProvider.configuration ?? {};
+    const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : undefined;
+    const retries = typeof cfg.retries === 'number' ? cfg.retries : undefined;
 
-    const configuration = prov.configuration as Record<string, unknown> | undefined;
+    // Normalize type: 'google' and 'anthropic' map to 'custom' for LLMProviderConfig
+    const rawType = userProvider.type;
+    const providerConfigType: LLMProviderConfig['type'] =
+      rawType === 'google' || rawType === 'anthropic' ? 'custom' : rawType;
+
     return {
-      type: prov.type as UserLLMProviderType,
-      baseUrl: (prov.baseUrl as string) || getDefaultBaseUrl(prov.type as UserLLMProviderType),
-      apiKey: getApiKey(),
-      defaultModel: prov.defaultModel as string | undefined,
-      timeout: configuration?.timeout as number | undefined,
-      retries: configuration?.retries as number | undefined,
+      type: providerConfigType,
+      baseUrl: userProvider.baseUrl || getDefaultBaseUrl(userProvider.type),
+      // API key decryption is handled by the provider itself
+      defaultModel: userProvider.defaultModel,
+      timeout,
+      retries,
     };
   }
 
@@ -796,23 +831,14 @@ export class UserLLMService {
 
     switch (userProvider.type) {
       case 'ollama':
-        return new OllamaProvider(
-          config as import('./interfaces.js').LLMProviderConfig,
-          userProvider.name
-        );
+        return new OllamaProvider(config, userProvider.name);
       case 'llmstudio':
-        return new LLMStudioProvider(
-          config as import('./interfaces.js').LLMProviderConfig,
-          userProvider.name
-        );
+        return new LLMStudioProvider(config, userProvider.name);
       case 'openai':
       case 'anthropic':
       case 'custom':
       case 'google':
-        return new OpenAIProvider(
-          config as import('./interfaces.js').LLMProviderConfig,
-          userProvider.name
-        );
+        return new OpenAIProvider(config, userProvider.name);
       default:
         throw new Error(`Unsupported provider type: ${userProvider.type}`);
     }
@@ -836,7 +862,9 @@ export class UserLLMService {
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
     const window = this.contextManager.createRollingWindow(
-      messages as unknown as import('@uaip/types').Message[],
+      // ChatMessage.timestamp is string but Message.timestamp is Date; structurally incompatible
+      // @ts-expect-error -- ChatMessage vs Message timestamp type mismatch; runtime-safe
+      messages,
       systemPromptTokens,
       tools.length,
       contextDocs

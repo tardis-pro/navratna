@@ -7,6 +7,10 @@ import { LLMRequest, LLMResponse, LLMProviderConfig, ProviderModelInfo } from '.
 import { StreamChunk, StreamingLLMRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export class TanStackProvider extends BaseProvider {
   constructor(config: LLMProviderConfig) {
     super(config, `TanStack-${config.type}`);
@@ -63,13 +67,12 @@ export class TanStackProvider extends BaseProvider {
       let tokensUsed = 0;
 
       for await (const chunk of response) {
-        const chunkAny = chunk as unknown as Record<string, unknown>;
-        if (chunkAny.type === 'done') {
-          tokensUsed = chunkAny.usage
-            ? (chunkAny.usage as { totalTokens?: number }).totalTokens || 0
-            : 0;
-        } else if ('content' in chunkAny && typeof chunkAny.content === 'string') {
-          content += chunkAny.content;
+        if (!isRecord(chunk)) continue;
+        if (chunk.type === 'done') {
+          const usage = isRecord(chunk.usage) ? chunk.usage : null;
+          tokensUsed = typeof usage?.totalTokens === 'number' ? usage.totalTokens : 0;
+        } else if (typeof chunk.content === 'string') {
+          content += chunk.content;
         }
       }
 
@@ -105,40 +108,40 @@ export class TanStackProvider extends BaseProvider {
     let tokenIndex = 0;
 
     for await (const chunk of stream) {
-      const chunkAny = chunk as unknown as Record<string, unknown>;
+      if (!isRecord(chunk)) continue;
 
-      if ('content' in chunkAny && typeof chunkAny.content === 'string') {
+      if (typeof chunk.content === 'string') {
         yield {
           id: `chunk-${tokenIndex++}`,
           type: 'token',
-          content: chunkAny.content,
+          content: chunk.content,
           timestamp: Date.now(),
         };
-      } else if (chunkAny.type === 'tool_call') {
+      } else if (chunk.type === 'tool_call') {
         yield {
           id: `tool-${tokenIndex++}`,
           type: 'tool-call',
-          content: JSON.stringify(chunkAny),
+          content: JSON.stringify(chunk),
           timestamp: Date.now(),
-          metadata: { toolName: chunkAny.name },
+          metadata: { toolName: chunk.name },
         };
-      } else if (chunkAny.type === 'tool_result') {
+      } else if (chunk.type === 'tool_result') {
         yield {
           id: `tool-result-${tokenIndex++}`,
           type: 'tool-result',
-          content: JSON.stringify(chunkAny),
+          content: JSON.stringify(chunk),
           timestamp: Date.now(),
         };
-      } else if (chunkAny.type === 'done') {
+      } else if (chunk.type === 'done') {
         yield {
           id: `done-${Date.now()}`,
           type: 'done',
           timestamp: Date.now(),
-          metadata: { usage: chunkAny.usage },
+          metadata: { usage: chunk.usage },
         };
-      } else if (chunkAny.type === 'error') {
+      } else if (chunk.type === 'error') {
         const errorMessage =
-          typeof chunkAny.message === 'string' ? chunkAny.message : 'Unknown error';
+          typeof chunk.message === 'string' ? chunk.message : 'Unknown error';
         yield {
           id: `error-${Date.now()}`,
           type: 'error',

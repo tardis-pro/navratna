@@ -1,7 +1,6 @@
 import {
   LLMModel,
   LLMModelRepository,
-  UserLLMProviderRepository,
   getIntelligencePool,
   getControlPool,
 } from '@uaip/shared-services';
@@ -16,14 +15,14 @@ export type { ModelSyncResult, ModelData };
 
 export class ModelSyncService {
   private llmModelRepository = new LLMModelRepository();
-  private userLLMProviderRepository = new UserLLMProviderRepository();
 
   private toProviderConfig(config: unknown): LLMProviderConfig {
     if (!config || typeof config !== 'object') {
       throw new Error('Invalid provider configuration');
     }
 
-    const configRecord = config as Record<string, unknown>;
+    // @ts-expect-error -- TS narrows to `object` but not `Record<string,unknown>`; index access is safe after the typeof check above
+    const configRecord: Record<string, unknown> = config;
     const type = configRecord.type;
     const baseUrl = configRecord.baseUrl;
 
@@ -31,8 +30,13 @@ export class ModelSyncService {
       throw new Error('Provider configuration must include type and baseUrl');
     }
 
+    const validTypes = ['ollama', 'openai', 'llmstudio', 'anthropic', 'custom'] as const;
     const normalizedType: LLMProviderConfig['type'] =
-      type === 'google' ? 'custom' : (type as LLMProviderConfig['type']);
+      type === 'google'
+        ? 'custom'
+        : (validTypes as readonly string[]).includes(type)
+          ? (type as LLMProviderConfig['type'])
+          : 'custom';
 
     return {
       type: normalizedType,

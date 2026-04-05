@@ -3,6 +3,15 @@ import { logger } from '@uaip/utils';
 import { ApiKeyDecryptionRequest, ApiKeyDecryptionResponse } from '../interfaces';
 import { v4 as uuidv4 } from 'uuid';
 
+function isApiKeyDecryptionResponse(value: unknown): value is ApiKeyDecryptionResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).requestId === 'string' &&
+    typeof (value as Record<string, unknown>).success === 'boolean'
+  );
+}
+
 /**
  * Service for handling API key decryption via event-driven communication with Security Gateway
  */
@@ -103,7 +112,11 @@ export class ApiKeyDecryptionService {
       'llm.apikey.decrypt.response',
       async (message) => {
         try {
-          const response = message.data as ApiKeyDecryptionResponse;
+          if (!isApiKeyDecryptionResponse(message.data)) {
+            logger.warn('Received malformed API key decryption response', { data: message.data });
+            return;
+          }
+          const response: ApiKeyDecryptionResponse = message.data;
 
           const pendingRequest = this.pendingRequests.get(response.requestId);
           if (!pendingRequest) {
