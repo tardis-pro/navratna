@@ -30,12 +30,14 @@ export class ModelSyncService {
       throw new Error('Provider configuration must include type and baseUrl');
     }
 
-    const validTypes = ['ollama', 'openai', 'llmstudio', 'anthropic', 'custom'] as const;
+    const validTypes = new Set<unknown>(['ollama', 'openai', 'llmstudio', 'anthropic', 'custom']);
+    const isValidProviderType = (t: unknown): t is LLMProviderConfig['type'] =>
+      validTypes.has(t);
     const normalizedType: LLMProviderConfig['type'] =
       type === 'google'
         ? 'custom'
-        : (validTypes as readonly string[]).includes(type)
-          ? (type as LLMProviderConfig['type'])
+        : isValidProviderType(type)
+          ? type
           : 'custom';
 
     return {

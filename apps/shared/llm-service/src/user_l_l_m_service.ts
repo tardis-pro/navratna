@@ -39,7 +39,7 @@ interface UserLLMProvider {
   modelId?: string;
 }
 
-// DB row shape returned by UserLLMProviderRepository
+// DB row shape returned by UserLLMProviderRepository (matches Drizzle $inferSelect)
 interface UserLLMProviderDbRow {
   id: string;
   userId: string;
@@ -47,6 +47,19 @@ interface UserLLMProviderDbRow {
   apiKeyEncrypted?: string | null;
   isDefault: boolean;
   configuration?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+function isUserLLMProviderDbRow(v: unknown): v is UserLLMProviderDbRow {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    typeof (v as Record<string, unknown>).id === 'string' &&
+    typeof (v as Record<string, unknown>).userId === 'string' &&
+    typeof (v as Record<string, unknown>).providerId === 'string' &&
+    typeof (v as Record<string, unknown>).isDefault === 'boolean'
+  );
 }
 
 const validUserLLMProviderTypes = [
@@ -58,8 +71,10 @@ const validUserLLMProviderTypes = [
   'custom',
 ] as const;
 
+const validUserLLMProviderTypesSet = new Set<unknown>(validUserLLMProviderTypes);
+
 function isUserLLMProviderType(v: unknown): v is UserLLMProviderType {
-  return typeof v === 'string' && (validUserLLMProviderTypes as readonly string[]).includes(v);
+  return validUserLLMProviderTypesSet.has(v);
 }
 
 /**
@@ -87,6 +102,10 @@ function mapDbRowToUserLLMProvider(row: UserLLMProviderDbRow): UserLLMProvider {
 
 function mapDbRowsToUserLLMProviders(rows: UserLLMProviderDbRow[]): UserLLMProvider[] {
   return rows.map(mapDbRowToUserLLMProvider);
+}
+
+function toUserLLMProviderDbRows(raw: unknown[]): UserLLMProviderDbRow[] {
+  return raw.filter(isUserLLMProviderDbRow);
 }
 
 export class UserLLMService {
@@ -203,7 +222,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
-      return mapDbRowsToUserLLMProviders(providers as unknown as UserLLMProviderDbRow[]);
+      return mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(providers));
     } catch (error) {
       logger.error('Error getting user LLM providers', { userId, error });
       throw error;
@@ -217,7 +236,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findActiveByUserId(userId);
-      return mapDbRowsToUserLLMProviders(providers as unknown as UserLLMProviderDbRow[]);
+      return mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(providers));
     } catch (error) {
       logger.error('Error getting active user LLM providers', { userId, error });
       throw error;
@@ -234,7 +253,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
-      const rows = providers as unknown as UserLLMProviderDbRow[];
+      const rows = toUserLLMProviderDbRows(providers);
       const filtered = rows.filter((row) => row.providerId === type);
       return mapDbRowsToUserLLMProviders(filtered);
     } catch (error) {
@@ -251,7 +270,8 @@ export class UserLLMService {
       const repository = await this.getUserLLMProviderRepository();
       const result = await repository.findById(providerId);
       if (!result) return null;
-      return mapDbRowToUserLLMProvider(result as unknown as UserLLMProviderDbRow);
+      if (!isUserLLMProviderDbRow(result)) return null;
+      return mapDbRowToUserLLMProvider(result);
     } catch (error) {
       logger.error('Error getting user LLM provider by ID', { providerId, error });
       throw error;
@@ -350,7 +370,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const rows = await repository.findByUserId(userId);
-      const userProviders = mapDbRowsToUserLLMProviders(rows as unknown as UserLLMProviderDbRow[]);
+      const userProviders = mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(rows));
       if (!userProviders || userProviders.length === 0) {
         throw new Error('Provider not found or access denied');
       }
@@ -410,10 +430,8 @@ export class UserLLMService {
       if (providerRecord.id) {
         const repository = await this.getUserLLMProviderRepository();
         const freshRow = await repository.findById(providerRecord.id);
-        if (freshRow) {
-          const freshProvider = mapDbRowToUserLLMProvider(
-            freshRow as unknown as UserLLMProviderDbRow
-          );
+        if (freshRow && isUserLLMProviderDbRow(freshRow)) {
+          const freshProvider = mapDbRowToUserLLMProvider(freshRow);
           Object.assign(providerRecord, freshProvider);
         }
       }
@@ -739,7 +757,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const rawRows = await repository.findByUserId(userId);
-      const rows = rawRows as unknown as UserLLMProviderDbRow[];
+      const rows = toUserLLMProviderDbRows(rawRows);
       if (preferredType) {
         const filtered = rows.filter((row) => row.providerId === preferredType);
         if (filtered.length > 0) {
@@ -761,7 +779,7 @@ export class UserLLMService {
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
     const rawRows = await repository.findByUserId(userId);
-    const rows = rawRows as unknown as UserLLMProviderDbRow[];
+    const rows = toUserLLMProviderDbRows(rawRows);
     const filteredRows = rows.filter((row) => row.providerId === providerType);
     const selectedRow = filteredRows[0] ?? rows[0];
 
