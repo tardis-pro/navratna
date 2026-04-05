@@ -9,6 +9,10 @@ import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './round_robin_strategy.js';
 import { config as appConfig } from '../config/index.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 interface ContextAnalysis {
   topicRelevance: Map<string, number>; // participant ID -> relevance score
   expertiseMatch: Map<string, number>; // participant ID -> expertise match score
@@ -555,8 +559,11 @@ export class ContextAwareStrategy implements TurnStrategyInterface {
         signal: AbortSignal.timeout(3000),
       });
       if (!response.ok) return [];
-      const data = (await response.json()) as { data?: { expertise?: string[] } };
-      return data?.data?.expertise ?? [];
+      const raw: unknown = await response.json();
+      if (isRecord(raw) && isRecord(raw.data) && Array.isArray(raw.data.expertise)) {
+        return raw.data.expertise.filter((item): item is string => typeof item === 'string');
+      }
+      return [];
     } catch {
       logger.warn('Failed to fetch agent expertise', { agentId });
       return [];

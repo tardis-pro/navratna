@@ -224,11 +224,11 @@ describe('Layer 4: Social Simulation', () => {
     const discussionService = {
       getDiscussion: vi.fn(async () => parentDiscussion),
       createDiscussion: vi.fn(async () => huddleDiscussion),
-    } as unknown as DiscussionService;
+    } as DiscussionService;
 
     const eventBusService = {
       publish: vi.fn(async () => undefined),
-    } as unknown as EventBusService;
+    } as EventBusService;
 
     const service = new DiscussionOrchestrationService(discussionService, eventBusService);
 
@@ -280,16 +280,16 @@ describe('Layer 4: Social Simulation', () => {
         }
         return discussion;
       }),
-    } as unknown as DiscussionService;
+    } as DiscussionService;
 
     const eventBusService = {
       publish: vi.fn(async () => undefined),
-    } as unknown as EventBusService;
+    } as EventBusService;
 
     const webSocketHandler = {
       broadcastToDiscussion: vi.fn(),
       broadcastContextUpdate: vi.fn(),
-    } as unknown as DiscussionWebSocketHandler;
+    } as DiscussionWebSocketHandler;
 
     const service = new DiscussionOrchestrationService(
       discussionService,
@@ -325,16 +325,16 @@ describe('Layer 4: Social Simulation', () => {
 
     const discussionService = {
       getDiscussion: vi.fn(async () => discussion),
-    } as unknown as DiscussionService;
+    } as DiscussionService;
 
     const eventBusService = {
       publish: vi.fn(async () => undefined),
-    } as unknown as EventBusService;
+    } as EventBusService;
 
     const webSocketHandler = {
       broadcastToDiscussion: vi.fn(),
       broadcastContextUpdate: vi.fn(),
-    } as unknown as DiscussionWebSocketHandler;
+    } as DiscussionWebSocketHandler;
 
     const service = new DiscussionOrchestrationService(
       discussionService,
