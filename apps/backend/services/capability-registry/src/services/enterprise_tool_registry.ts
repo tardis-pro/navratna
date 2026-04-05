@@ -31,7 +31,7 @@ interface AdapterWithExecute {
 }
 
 function isAdapterWithExecute(v: unknown): v is AdapterWithExecute {
-  return typeof v === 'object' && v !== null && typeof (v as Record<string, unknown>).execute === 'function';
+  return isRecord(v) && typeof v.execute === 'function';
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

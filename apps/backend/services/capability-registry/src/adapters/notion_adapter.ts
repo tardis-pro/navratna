@@ -10,12 +10,12 @@ import type {
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 function toRecord(v: unknown): Record<string, unknown> {
-  if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-    return v
-  }
-  return {}
+  return isRecord(v) ? v : {}
 }
 
 export class NotionAdapter extends BaseOAuthAdapter {
@@ -133,7 +133,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
       execute: async (params: unknown, tokens: OAuthTokens) => {
         const p = toRecord(params)
         const pageId = typeof p.pageId === 'string' ? p.pageId : ''
-        const blocks = Array.isArray(p.blocks) ? (p.blocks as NotionBlockContent[]) : []
+        const blocks = Array.isArray(p.blocks) ? p.blocks.filter((b): b is NotionBlockContent => isRecord(b) && typeof b['type'] === 'string' && typeof b['content'] === 'string') : []
         return this.appendBlocks(pageId, blocks, tokens)
       },
     })

@@ -159,15 +159,12 @@ export class WorkspaceManager extends EventEmitter {
       );
       return { stdout, stderr, exitCode: 0 };
     } catch (error: unknown) {
-      const e = error as {
-        stdout?: string;
-        stderr?: string;
-        code?: number;
-        message?: string;
-      };
+      const isExecError = (v: unknown): v is { stdout?: string; stderr?: string; code?: number; message?: string } =>
+        typeof v === 'object' && v !== null;
+      const e = isExecError(error) ? error : {};
       return {
-        stdout: e.stdout || '',
-        stderr: e.stderr || e.message || 'Workspace command failed',
+        stdout: typeof e.stdout === 'string' ? e.stdout : '',
+        stderr: typeof e.stderr === 'string' ? e.stderr : typeof e.message === 'string' ? e.message : 'Workspace command failed',
         exitCode: typeof e.code === 'number' ? e.code : 1,
       };
     }

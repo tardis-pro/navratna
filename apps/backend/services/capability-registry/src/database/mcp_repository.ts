@@ -240,10 +240,9 @@ export class McpRepository {
 
   async createServer(data: Record<string, unknown>): Promise<MCPServer> {
     try {
-      const [row] = await this.db
-        .insert(mcpServers)
-        .values(data as typeof mcpServers.$inferInsert)
-        .returning();
+      // @ts-expect-error -- Drizzle insert type is stricter than Record<string, unknown>; caller validates fields before passing
+      const insertQuery = this.db.insert(mcpServers).values(data);
+      const [row] = await insertQuery.returning();
 
       logger.info(`McpRepository: created server ${row.id} (${row.name})`);
       return row;

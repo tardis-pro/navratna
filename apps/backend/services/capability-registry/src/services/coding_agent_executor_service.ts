@@ -13,10 +13,13 @@ type AgentEvent = {
   [key: string]: unknown;
 };
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function extractEventType(event: unknown): string | undefined {
-  if (typeof event !== 'object' || event === null) return undefined;
-  const rec = event as Record<string, unknown>;
-  return typeof rec.type === 'string' ? rec.type : undefined;
+  if (!isRecord(event)) return undefined;
+  return typeof event.type === 'string' ? event.type : undefined;
 }
 
 export interface LLMCredential {
@@ -108,11 +111,18 @@ export class CodingAgentExecutor extends EventEmitter {
         return { sessionId, ready: true };
       }
 
-      const mod = piModule as {
+      type PiAgentModule = {
         createAgentSession?: (args: Record<string, unknown>) => Promise<{ session: AgentSession }>;
         AuthStorage?: { inMemory: (data: Record<string, unknown>) => unknown };
         SessionManager?: { inMemory: () => unknown };
       };
+      function isPiAgentModule(v: unknown): v is PiAgentModule {
+        return isRecord(v);
+      }
+      if (!isPiAgentModule(piModule)) {
+        throw new NotFoundError('pi-coding-agent module has unexpected shape');
+      }
+      const mod = piModule;
 
       if (!mod.createAgentSession || !mod.AuthStorage || !mod.SessionManager) {
         throw new NotFoundError('pi-coding-agent module is missing expected exports');

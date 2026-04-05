@@ -8,12 +8,12 @@ import axios, { AxiosInstance } from 'axios';
 import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function toRecord(v: unknown): Record<string, unknown> {
-  if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-    return v;
-  }
-  return {};
+  return isRecord(v) ? v : {};
 }
 
 export class ConfluenceAdapter {
@@ -105,10 +105,10 @@ export class ConfluenceAdapter {
     const type = typeof p.type === 'string' ? p.type : 'page';
     const title = typeof p.title === 'string' ? p.title : undefined;
     const space = p.space;
-    const body = p.body !== undefined && typeof p.body === 'object' && p.body !== null ? (p.body as Record<string, unknown>) : undefined;
-    const ancestors = Array.isArray(p.ancestors) ? (p.ancestors as Array<Record<string, unknown>>) : undefined;
+    const body = isRecord(p.body) ? p.body : undefined;
+    const ancestors = Array.isArray(p.ancestors) ? p.ancestors.filter(isRecord) : undefined;
     const metadataRaw = toRecord(p.metadata);
-    const metadataLabels = Array.isArray(metadataRaw.labels) ? (metadataRaw.labels as string[]) : undefined;
+    const metadataLabels = Array.isArray(metadataRaw.labels) ? metadataRaw.labels.filter((l): l is string => typeof l === 'string') : undefined;
 
     const pageData: Record<string, unknown> = {
       type,
@@ -160,7 +160,7 @@ export class ConfluenceAdapter {
     const p = toRecord(parameters);
     const pageId = typeof p.pageId === 'string' ? p.pageId : undefined;
     const title = typeof p.title === 'string' ? p.title : undefined;
-    const body = p.body !== undefined && typeof p.body === 'object' && p.body !== null ? (p.body as Record<string, unknown>) : undefined;
+    const body = isRecord(p.body) ? p.body : undefined;
     const version = typeof p.version === 'number' ? p.version : undefined;
     const message = typeof p.message === 'string' ? p.message : 'Updated via API';
     if (!pageId) {

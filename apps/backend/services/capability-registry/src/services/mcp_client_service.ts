@@ -1075,9 +1075,10 @@ export class MCPClientService extends EventEmitter {
     const payload = this.asRecord(message);
     if (payload.id !== undefined) {
       // Response to our request
-      const pendingRequest = this.pendingRequests.get(payload.id as string | number);
-      if (pendingRequest) {
-        this.pendingRequests.delete(payload.id as string | number);
+      const requestId = typeof payload.id === 'string' || typeof payload.id === 'number' ? payload.id : undefined;
+      const pendingRequest = requestId !== undefined ? this.pendingRequests.get(requestId) : undefined;
+      if (pendingRequest && requestId !== undefined) {
+        this.pendingRequests.delete(requestId);
 
         const errorData = this.asRecord(payload.error);
         if (payload.error) {

@@ -12,12 +12,12 @@ import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
 const JIRA_OPERATION_COMPLETED_EVENT = 'jira.operation.completed';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function toRecord(v: unknown): Record<string, unknown> {
-  if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-    return v;
-  }
-  return {};
+  return isRecord(v) ? v : {};
 }
 
 export class JiraAdapter {
@@ -134,7 +134,7 @@ export class JiraAdapter {
   private async updateIssue(parameters: unknown): Promise<unknown> {
     const p = toRecord(parameters);
     const issueIdOrKey = typeof p.issueIdOrKey === 'string' ? p.issueIdOrKey : undefined;
-    const fields = p.fields !== undefined && typeof p.fields === 'object' && p.fields !== null ? (p.fields as Record<string, unknown>) : undefined;
+    const fields = isRecord(p.fields) ? p.fields : undefined;
     const notifyUsers = typeof p.notifyUsers === 'boolean' ? p.notifyUsers : true;
     if (!issueIdOrKey || !fields) {
       throw new ValidationError('updateIssue requires issueIdOrKey and fields');
@@ -168,7 +168,7 @@ export class JiraAdapter {
   private async searchIssues(parameters: unknown): Promise<unknown> {
     const p = toRecord(parameters);
     const jql = typeof p.jql === 'string' ? p.jql : undefined;
-    const fields = Array.isArray(p.fields) ? (p.fields as string[]) : [];
+    const fields = Array.isArray(p.fields) ? p.fields.filter((f): f is string => typeof f === 'string') : [];
     const maxResults = typeof p.maxResults === 'number' ? p.maxResults : 50;
     const startAt = typeof p.startAt === 'number' ? p.startAt : 0;
 

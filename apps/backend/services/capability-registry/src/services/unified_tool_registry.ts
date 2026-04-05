@@ -17,11 +17,27 @@ function isToolCategory(v: unknown): v is ToolCategory { return toolCategoryValu
 const securityLevelValues = new Set<unknown>(Object.values(SecurityLevel));
 function isSecurityLevel(v: unknown): v is SecurityLevel { return securityLevelValues.has(v); }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+import type { JSONSchema } from '@uaip/types';
+
+function toJSONSchema(v: unknown): JSONSchema {
+  if (!isRecord(v)) return {};
+  const schema: JSONSchema = {};
+  if (typeof v['type'] === 'string' || Array.isArray(v['type'])) schema.type = v['type'] as JSONSchema['type'];
+  if (isRecord(v['properties'])) schema.properties = v['properties'] as Record<string, JSONSchema>;
+  if (typeof v['description'] === 'string') schema.description = v['description'];
+  if (Array.isArray(v['required'])) schema.required = v['required'].filter((s): s is string => typeof s === 'string');
+  if (typeof v['additionalProperties'] === 'boolean') schema.additionalProperties = v['additionalProperties'];
+  return schema;
+}
+
 type RateLimitUsageData = { requests: number[]; lastReset: number };
 function isRateLimitUsageData(v: unknown): v is RateLimitUsageData {
-  if (typeof v !== 'object' || v === null) return false;
-  return 'requests' in v && Array.isArray((v as { requests: unknown }).requests) &&
-    'lastReset' in v && typeof (v as { lastReset: unknown }).lastReset === 'number';
+  if (!isRecord(v)) return false;
+  return Array.isArray(v['requests']) && typeof v['lastReset'] === 'number';
 }
 
 // Enhanced tool definition that combines both standard and enterprise features
@@ -274,7 +290,7 @@ export class UnifiedToolRegistry {
 
   private recordToToolDefinition(record: Record<string, unknown>): ToolDefinition {
     const rl = record.rateLimits;
-    const rlRecord = typeof rl === 'object' && rl !== null ? (rl as Record<string, unknown>) : null;
+    const rlRecord = isRecord(rl) ? rl : null;
     return {
       id: typeof record.id === 'string' ? record.id : '',
       name: typeof record.name === 'string' ? record.name : '',
@@ -285,8 +301,8 @@ export class UnifiedToolRegistry {
       author: typeof record.author === 'string' ? record.author : '',
       securityLevel: isSecurityLevel(record.securityLevel) ? record.securityLevel : SecurityLevel.LOW,
       tags: Array.isArray(record.tags) ? record.tags.filter((t): t is string => typeof t === 'string') : [],
-      parameters: typeof record.parameters === 'object' && record.parameters !== null ? (record.parameters as import('@uaip/types').JSONSchema) : {},
-      returnType: typeof record.returnType === 'object' && record.returnType !== null ? (record.returnType as import('@uaip/types').JSONSchema) : {},
+      parameters: toJSONSchema(record.parameters),
+      returnType: toJSONSchema(record.returnType),
       examples: [],
       requiresApproval: typeof record.requiresApproval === 'boolean' ? record.requiresApproval : false,
       dependencies: Array.isArray(record.dependencies) ? record.dependencies.filter((d): d is string => typeof d === 'string') : [],
