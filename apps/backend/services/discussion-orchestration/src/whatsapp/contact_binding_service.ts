@@ -10,6 +10,14 @@
 import type { Redis } from 'ioredis';
 import { createLogger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isAgentSummary(v: unknown): v is AgentSummary {
+  return isRecord(v) && typeof v['id'] === 'string' && typeof v['name'] === 'string' && typeof v['description'] === 'string';
+}
+
 const logger = createLogger({
   serviceName: 'ContactBindingService',
   environment: process.env.NODE_ENV || 'development',
@@ -109,10 +117,10 @@ export class ContactBindingService {
       const raw = await this.redis.get(`${SELECTING_PREFIX}${jid}`);
       if (!raw) return null;
       const parsed: unknown = JSON.parse(raw);
-      if (typeof parsed !== 'object' || parsed === null) return null;
-      const p = parsed as Record<string, unknown>;
-      if (!Array.isArray(p['agents']) || typeof p['expiresAt'] !== 'number') return null;
-      return { agents: p['agents'] as AgentSummary[], expiresAt: p['expiresAt'] };
+      if (!isRecord(parsed)) return null;
+      if (!Array.isArray(parsed['agents']) || typeof parsed['expiresAt'] !== 'number') return null;
+      const agents = parsed['agents'].filter(isAgentSummary);
+      return { agents, expiresAt: parsed['expiresAt'] };
     } catch {
       return null;
     }
@@ -141,7 +149,7 @@ export class ContactBindingService {
       if (!raw) return null;
       const parsed: unknown = JSON.parse(raw);
       if (!Array.isArray(parsed)) return null;
-      return parsed as AgentSummary[];
+      return parsed.filter(isAgentSummary);
     } catch {
       return null;
     }

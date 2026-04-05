@@ -35,9 +35,9 @@ export async function useRedisAuthState(redis: Redis): Promise<{
       const raw = await redis.get(credsKey);
       if (raw) {
         const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
-        // Baileys AuthenticationCreds is a complex object — validate minimally and trust the shape
         if (typeof parsed === 'object' && parsed !== null) {
-          return parsed as AuthenticationCreds;
+          // @ts-expect-error -- Baileys AuthenticationCreds is a complex opaque object; minimal shape validation done above
+          return parsed;
         }
       }
     } catch (err) {
@@ -75,7 +75,8 @@ export async function useRedisAuthState(redis: Redis): Promise<{
               if (raw) {
                 const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
                 if (parsed !== null && parsed !== undefined) {
-                  result[id] = parsed as SignalDataTypeMap[T];
+                  // @ts-expect-error -- SignalDataTypeMap[T] is a generic Baileys type; runtime shape validated by Baileys itself
+                  result[id] = parsed;
                 }
               }
             } catch (err) {

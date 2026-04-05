@@ -29,7 +29,8 @@ export class StreamingHandler {
     streamNamespace.on('connection', async (socket: Socket) => {
       try {
         // Check for nginx-forwarded user headers first (preferred path)
-        const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
+        const userIdHeader = socket.handshake.headers['x-user-id'];
+        const nginxUserId = typeof userIdHeader === 'string' ? userIdHeader : (Array.isArray(userIdHeader) ? userIdHeader[0] : undefined);
         let userId: string;
 
         if (nginxUserId) {
@@ -44,9 +45,9 @@ export class StreamingHandler {
           userId = nginxUserId;
         } else {
           // Fallback: Authenticate via token
-          let token =
-            (socket.handshake.auth?.token as string | undefined) ||
-            (socket.handshake.query?.token as string | undefined);
+          const authToken = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
+          const queryToken = typeof socket.handshake.query?.token === 'string' ? socket.handshake.query.token : undefined;
+          let token = authToken || queryToken;
           if (!token) {
             const cookieHeader = socket.handshake.headers.cookie;
             if (cookieHeader) {
@@ -143,11 +144,10 @@ export class StreamingHandler {
   }
 
   private subscribeToEventBus(): void {
+    const isRecord = (v: unknown): v is Record<string, unknown> =>
+      typeof v === 'object' && v !== null && !Array.isArray(v);
     const extractSessionId = (raw: unknown): string => {
-      if (typeof raw === 'object' && raw !== null && 'sessionId' in raw) {
-        const v = (raw as Record<string, unknown>)['sessionId'];
-        return typeof v === 'string' ? v : '';
-      }
+      if (isRecord(raw) && typeof raw['sessionId'] === 'string') return raw['sessionId'];
       return '';
     };
 

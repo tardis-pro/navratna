@@ -8,6 +8,20 @@ import {
 import { logger } from '@uaip/utils';
 import { TurnStrategyInterface } from './round_robin_strategy.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+type ModeratorSelection = { participantId: string; moderatorId: string; timestamp: Date };
+function isModeratorSelection(v: unknown): v is ModeratorSelection {
+  return isRecord(v) && typeof v['participantId'] === 'string' && typeof v['moderatorId'] === 'string';
+}
+
+type ModeratorTurnAdvance = { moderatorId: string; timestamp: Date };
+function isModeratorTurnAdvance(v: unknown): v is ModeratorTurnAdvance {
+  return isRecord(v) && typeof v['moderatorId'] === 'string';
+}
+
 export class ModeratedStrategy implements TurnStrategyInterface {
   public readonly strategy = TurnStrategy.MODERATED;
   private readonly strategyType = TurnStrategy.MODERATED;
@@ -350,9 +364,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     // For now, return null - in real implementation, this would check discussion.state.metadata
     const metadata = discussion.metadata;
     const sel = metadata?.['pendingModeratorSelection'];
-    if (typeof sel === 'object' && sel !== null && 'participantId' in sel) {
-      return sel as { participantId: string; moderatorId: string; timestamp: Date };
-    }
+    if (isModeratorSelection(sel)) return sel;
     return null;
   }
 
@@ -363,8 +375,9 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     // Check if participant has received moderator approval
     // This would typically be stored in discussion state or participant metadata
     const metadata = _discussion.metadata;
-    const approvals = Array.isArray(metadata?.['moderatorApprovals'])
-      ? (metadata['moderatorApprovals'] as string[])
+    const rawApprovals = metadata?.['moderatorApprovals'];
+    const approvals = Array.isArray(rawApprovals)
+      ? rawApprovals.filter((x): x is string => typeof x === 'string')
       : [];
     return approvals.includes(participant.id ?? '');
   }
@@ -375,9 +388,7 @@ export class ModeratedStrategy implements TurnStrategyInterface {
     // Check if moderator has explicitly advanced the turn
     const metadata = discussion.metadata;
     const adv = metadata?.['moderatorTurnAdvance'];
-    if (typeof adv === 'object' && adv !== null && 'moderatorId' in adv) {
-      return adv as { moderatorId: string; timestamp: Date };
-    }
+    if (isModeratorTurnAdvance(adv)) return adv;
     return null;
   }
 

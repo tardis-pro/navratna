@@ -66,7 +66,8 @@ export function authenticateConnection(
 
     if (!token && request.headers['sec-websocket-protocol']) {
       // Check if token is in WebSocket protocol header
-      const protocols = request.headers['sec-websocket-protocol'] as string;
+      const rawProtocol = request.headers['sec-websocket-protocol'];
+      const protocols = Array.isArray(rawProtocol) ? rawProtocol.join(', ') : rawProtocol ?? '';
       const tokenMatch = protocols.match(/token\.([^,\s]+)/);
       if (tokenMatch) {
         token = tokenMatch[1];

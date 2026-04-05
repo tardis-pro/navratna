@@ -170,8 +170,8 @@ export class BaileysClient extends EventEmitter {
           const statusCode = boom?.output?.statusCode;
           const disconnectReasonMap: Record<number, string> = Object.fromEntries(
             Object.entries(DisconnectReason)
-              .filter(([, v]) => typeof v === 'number')
-              .map(([k, v]) => [v as number, k])
+              .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+              .map(([k, v]) => [v, k])
           );
           const reason =
             typeof statusCode === 'number'

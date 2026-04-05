@@ -2279,10 +2279,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const validRoles = new Set<string>(['participant', 'moderator', 'observer', 'facilitator']);
       type ParticipantRole = 'participant' | 'moderator' | 'observer' | 'facilitator';
       const isValidRole = (r: unknown): r is ParticipantRole => typeof r === 'string' && validRoles.has(r);
+      const DEFAULT_ROLE: ParticipantRole = 'participant';
       const raw = await participantManagementService.getActiveParticipants(discussionId);
       return raw.map((p) => ({
         ...p,
-        role: isValidRole(p.role) ? p.role : ('participant' as ParticipantRole),
+        role: isValidRole(p.role) ? p.role : DEFAULT_ROLE,
       }));
     } catch (error) {
       logger.error('Error getting active participants', {

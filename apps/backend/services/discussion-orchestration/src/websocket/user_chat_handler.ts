@@ -234,13 +234,10 @@ export class UserChatHandler {
 
       if (targetSocketId) {
         // Forward signaling data to target user
-        const signalRecord = (
-          typeof signalData === 'object' && signalData !== null ? signalData : {}
-        ) as Record<string, unknown>;
         this.io.to(`user_${targetUserId}`).emit('call_signaling', {
           type,
           data: {
-            ...signalRecord,
+            ...signalData,
             callerId: sender.userId,
             callerName: sender.username,
           },

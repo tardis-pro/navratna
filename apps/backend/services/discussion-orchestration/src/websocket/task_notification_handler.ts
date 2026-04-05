@@ -3,6 +3,33 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { logger } from '@uaip/utils';
 import { authenticateConnection } from './websocket_security_utils.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isTaskNotificationActor(v: unknown): v is TaskNotificationActor {
+  return isRecord(v) && typeof v['id'] === 'string' && typeof v['name'] === 'string' &&
+    (v['type'] === 'user' || v['type'] === 'agent' || v['type'] === 'system');
+}
+
+function toNumberRecord(v: unknown): Record<string, number> {
+  if (!isRecord(v)) return {};
+  const result: Record<string, number> = {};
+  for (const [k, val] of Object.entries(v)) {
+    if (typeof val === 'number') result[k] = val;
+  }
+  return result;
+}
+
+function toChangesRecord(v: unknown): Record<string, { old: unknown; new: unknown }> | undefined {
+  if (!isRecord(v)) return undefined;
+  const result: Record<string, { old: unknown; new: unknown }> = {};
+  for (const [k, val] of Object.entries(v)) {
+    result[k] = { old: isRecord(val) ? val['old'] : undefined, new: isRecord(val) ? val['new'] : undefined };
+  }
+  return result;
+}
+
 interface TaskSummary {
   title?: string;
   assignedToUserId?: string;
@@ -330,35 +357,29 @@ export class TaskNotificationHandler {
   }
 
   private extractTaskEventData(raw: unknown): TaskEventData | null {
-    if (typeof raw !== 'object' || raw === null) return null;
-    const d = raw as Record<string, unknown>;
-    if (typeof d['taskId'] !== 'string' || typeof d['projectId'] !== 'string') return null;
+    if (!isRecord(raw)) return null;
+    if (typeof raw['taskId'] !== 'string' || typeof raw['projectId'] !== 'string') return null;
     return {
-      taskId: d['taskId'],
-      projectId: d['projectId'],
-      task: (typeof d['task'] === 'object' && d['task'] !== null ? d['task'] : {}) as TaskSummary,
-      changes: typeof d['changes'] === 'object' && d['changes'] !== null
-        ? (d['changes'] as Record<string, { old: unknown; new: unknown }>)
-        : undefined,
-      actor: typeof d['actor'] === 'object' && d['actor'] !== null
-        ? (d['actor'] as TaskNotificationActor)
-        : undefined,
-      completionPercentage: typeof d['completionPercentage'] === 'number' ? d['completionPercentage'] : undefined,
+      taskId: raw['taskId'],
+      projectId: raw['projectId'],
+      task: isRecord(raw['task']) ? raw['task'] : {},
+      changes: toChangesRecord(raw['changes']),
+      actor: isTaskNotificationActor(raw['actor']) ? raw['actor'] : undefined,
+      completionPercentage: typeof raw['completionPercentage'] === 'number' ? raw['completionPercentage'] : undefined,
     };
   }
 
   private extractProjectTaskStats(raw: unknown): ProjectTaskStats | null {
-    if (typeof raw !== 'object' || raw === null) return null;
-    const d = raw as Record<string, unknown>;
-    if (typeof d['projectId'] !== 'string') return null;
+    if (!isRecord(raw)) return null;
+    if (typeof raw['projectId'] !== 'string') return null;
     return {
-      projectId: d['projectId'],
-      total: typeof d['total'] === 'number' ? d['total'] : 0,
-      byStatus: (typeof d['byStatus'] === 'object' && d['byStatus'] !== null ? d['byStatus'] : {}) as Record<string, number>,
-      byPriority: (typeof d['byPriority'] === 'object' && d['byPriority'] !== null ? d['byPriority'] : {}) as Record<string, number>,
-      byAssigneeType: (typeof d['byAssigneeType'] === 'object' && d['byAssigneeType'] !== null ? d['byAssigneeType'] : {}) as Record<string, number>,
-      completionRate: typeof d['completionRate'] === 'number' ? d['completionRate'] : 0,
-      lastUpdated: d['lastUpdated'] instanceof Date ? d['lastUpdated'] : new Date(),
+      projectId: raw['projectId'],
+      total: typeof raw['total'] === 'number' ? raw['total'] : 0,
+      byStatus: toNumberRecord(raw['byStatus']),
+      byPriority: toNumberRecord(raw['byPriority']),
+      byAssigneeType: toNumberRecord(raw['byAssigneeType']),
+      completionRate: typeof raw['completionRate'] === 'number' ? raw['completionRate'] : 0,
+      lastUpdated: raw['lastUpdated'] instanceof Date ? raw['lastUpdated'] : new Date(),
     };
   }
 

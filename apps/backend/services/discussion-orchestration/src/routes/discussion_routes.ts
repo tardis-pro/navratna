@@ -67,12 +67,10 @@ export function registerDiscussionRoutes(
             const body = isRecord(ctx.body) ? ctx.body : {}
             // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const userId: string = ctx.user.id
-            const discussion = await discussionService.createDiscussion(
-              {
-                ...body,
-                createdBy: userId,
-              } as Parameters<typeof discussionService.createDiscussion>[0]
-            )
+            const discussion = await discussionService.createDiscussion({
+              ...body,
+              createdBy: userId,
+            })
             ctx.set.status = 201
             return { success: true, data: discussion }
           } catch (error) {

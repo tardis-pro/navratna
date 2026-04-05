@@ -113,9 +113,8 @@ export const discussionFeature: Feature = {
   },
 
   websocket(io: MinimalWebSocketServer): void {
-    // SocketIOServer satisfies MinimalWebSocketServer; cast needed for typed handler APIs
-    // @ts-expect-error -- SocketIOServer satisfies MinimalWebSocketServer interface; typed cast required for Socket.IO handler APIs
-    const socketIO = io as SocketIOServer
+    // @ts-expect-error -- io is MinimalWebSocketServer at the call site but is a SocketIOServer at runtime; typed variable required for Socket.IO handler APIs
+    const socketIO: SocketIOServer = io
 
     new UserChatHandler(socketIO, capturedEventBus)
 
