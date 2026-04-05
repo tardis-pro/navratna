@@ -144,11 +144,15 @@ export class QdrantService {
       });
 
       return results.map(
-        (r: { id: string | number; score: number; payload?: Record<string, unknown> | null }) => ({
-          id: r.id as string | number,
-          score: r.score,
-          payload: (r.payload ?? {}) as Record<string, unknown>,
-        })
+        (r: { id: string | number; score: number; payload?: Record<string, unknown> | null }) => {
+          const payload: Record<string, unknown> =
+            r.payload !== null && r.payload !== undefined ? r.payload : {};
+          return {
+            id: r.id,
+            score: r.score,
+            payload,
+          };
+        }
       );
     } catch (error) {
       logger.error('Failed to search vectors', {
@@ -197,15 +201,10 @@ export class QdrantService {
 
     try {
       const collectionInfo = await this.client.getCollection(this.config.collection);
-      // Qdrant client API returns collection info with config.vectors.count
-      const info = collectionInfo as unknown as Record<string, unknown>;
-      const infoConfig = info.config as Record<string, unknown> | undefined;
-      const vectors = infoConfig?.vectors as Record<string, unknown> | undefined;
-      const vectorsCount = (info.vectors_count as number) ?? (vectors?.count as number) ?? 0;
       return {
         name: this.config.collection,
-        vectorsCount,
-        pointsCount: (info.points_count as number) ?? 0,
+        vectorsCount: collectionInfo.indexed_vectors_count ?? 0,
+        pointsCount: collectionInfo.points_count ?? 0,
       };
     } catch (error) {
       logger.error('Failed to get collection info', {
