@@ -36,6 +36,27 @@ export interface LinkAnalytics {
   }>;
 }
 
+function parseLinkAnalytics(raw: Record<string, unknown>): LinkAnalytics {
+  return {
+    totalClicks: typeof raw.totalClicks === 'number' ? raw.totalClicks : undefined,
+    uniqueClicks: typeof raw.uniqueClicks === 'number' ? raw.uniqueClicks : undefined,
+    lastClickedAt: raw.lastClickedAt instanceof Date ? raw.lastClickedAt : undefined,
+    referrers: typeof raw.referrers === 'object' && raw.referrers !== null
+      ? (raw.referrers as Record<string, number>)
+      : undefined,
+    countries: typeof raw.countries === 'object' && raw.countries !== null
+      ? (raw.countries as Record<string, number>)
+      : undefined,
+    devices: typeof raw.devices === 'object' && raw.devices !== null
+      ? (raw.devices as Record<string, number>)
+      : undefined,
+    browsers: typeof raw.browsers === 'object' && raw.browsers !== null
+      ? (raw.browsers as Record<string, number>)
+      : undefined,
+    clickHistory: Array.isArray(raw.clickHistory) ? raw.clickHistory : undefined,
+  };
+}
+
 interface GetUserLinksOptions {
   page?: number;
   limit?: number;
@@ -123,9 +144,7 @@ export class ShortLinkService {
         password: hashedPassword,
         tags: options.tags ?? [],
         artifactId: options.artifactId,
-        projectFileId: options.projectFileId
-          ? (options.projectFileId as unknown as string)
-          : undefined,
+        projectFileId: options.projectFileId,
         accessRestrictions: { maxClicks: options.maxClicks },
         analytics: { totalClicks: 0, uniqueClicks: 0 },
         trackClicks: true,
@@ -277,7 +296,7 @@ export class ShortLinkService {
       id: link.id,
       shortCode: link.shortCode,
       totalClicks: link.clickCount,
-      analytics: (link.analytics as LinkAnalytics) ?? {},
+      analytics: parseLinkAnalytics(link.analytics),
       createdAt: link.createdAt,
       lastClickAt: link.lastClickedAt ?? null,
       status: link.status,
@@ -315,8 +334,8 @@ export class ShortLinkService {
 
       if (!link) return;
 
-      const existing = (link.analytics as LinkAnalytics) ?? {};
-      const updatedAnalytics: LinkAnalytics = {
+      const existing = parseLinkAnalytics(link.analytics);
+      const updatedAnalytics: Record<string, unknown> = {
         ...existing,
         totalClicks: (existing.totalClicks ?? 0) + 1,
         lastClickedAt: new Date(),
@@ -337,7 +356,7 @@ export class ShortLinkService {
         .set({
           clickCount: link.clickCount + 1,
           lastClickedAt: new Date(),
-          analytics: updatedAnalytics as Record<string, unknown>,
+          analytics: updatedAnalytics,
           updatedAt: new Date(),
         })
         .where(eq(shortLinks.id, linkId));

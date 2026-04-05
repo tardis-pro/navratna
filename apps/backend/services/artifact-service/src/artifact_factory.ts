@@ -120,11 +120,13 @@ export class ArtifactFactory {
   private mapValidationResult(localResult: LocalValidationResult): SharedValidationResult {
     // Convert ValidationIssues to ValidationErrors and ValidationWarnings
     const errors: ValidationError[] = localResult.errors
-      .filter((issue) => issue.severity === 'error' || issue.severity === 'warning')
+      .filter((issue): issue is ValidationError & { severity: 'error' | 'warning' } =>
+        issue.severity === 'error' || issue.severity === 'warning'
+      )
       .map((issue) => ({
         code: issue.code,
         message: issue.message,
-        severity: issue.severity as 'error' | 'warning',
+        severity: issue.severity,
       }));
 
     const warnings: ValidationWarning[] = localResult.warnings

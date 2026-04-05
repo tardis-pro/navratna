@@ -260,13 +260,13 @@ export function registerShortLinkRoutes() {
             referer: headers['referer'],
           });
 
-          if ((result as Record<string, unknown>).requiresPassword) {
+          if (result.requiresPassword) {
             return { success: false, error: 'Password required', requiresPassword: true };
           }
 
           return new Response(null, {
             status: 302,
-            headers: { Location: (result as Record<string, unknown>).url as string },
+            headers: { Location: result.url },
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Failed to resolve link';
