@@ -22,7 +22,7 @@ import { DiscussionRepository } from './database/repositories/discussion_reposit
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { PersonaService } from './persona_service';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError, InternalServerError } from '@uaip/utils';
 
 export interface DiscussionServiceConfig {
   databaseService: DatabaseService;
@@ -281,7 +281,7 @@ export class DiscussionService {
 
       const existingDiscussion = await this.getDiscussion(id);
       if (!existingDiscussion) {
-        throw new Error(`Discussion not found: ${id}`);
+        throw new NotFoundError(`Discussion not found: ${id}`);
       }
 
       // Update discussion in database
@@ -302,7 +302,7 @@ export class DiscussionService {
       );
 
       if (!updatedDiscussion) {
-        throw new Error(`Failed to update discussion: ${id}`);
+        throw new InternalServerError(`Failed to update discussion: ${id}`);
       }
 
       const discussion = await this.hydrateDiscussionRelations(updatedDiscussion)
@@ -339,11 +339,11 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(id, true); // Force refresh to get latest participants
       if (!discussion) {
-        throw new Error(`Discussion not found: ${id}`);
+        throw new NotFoundError(`Discussion not found: ${id}`);
       }
 
       if (discussion.status !== DiscussionStatus.DRAFT) {
-        throw new Error(`Discussion cannot be started from status: ${discussion.status}`);
+        throw new ValidationError(`Discussion cannot be started from status: ${discussion.status}`);
       }
 
       // Validate minimum participants
@@ -359,7 +359,7 @@ export class DiscussionService {
       });
 
       if (!discussion.participants || discussion.participants.length < 2) {
-        throw new Error('Discussion requires at least 2 participants to start');
+        throw new ValidationError('Discussion requires at least 2 participants to start');
       }
 
       // Update discussion status and state
@@ -378,7 +378,7 @@ export class DiscussionService {
 
       const refreshedDiscussion = await this.getDiscussion(id, true);
       if (!refreshedDiscussion) {
-        throw new Error(`Failed to refresh discussion after start: ${id}`);
+        throw new InternalServerError(`Failed to refresh discussion after start: ${id}`);
       }
 
       // Emit start event
@@ -405,7 +405,7 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(id);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${id}`);
+        throw new NotFoundError(`Discussion not found: ${id}`);
       }
 
       // Allow ending discussions in ACTIVE or DRAFT status
@@ -414,7 +414,7 @@ export class DiscussionService {
         discussion.status !== DiscussionStatus.ACTIVE &&
         discussion.status !== DiscussionStatus.DRAFT
       ) {
-        throw new Error(`Discussion cannot be ended from status: ${discussion.status}`);
+        throw new ValidationError(`Discussion cannot be ended from status: ${discussion.status}`);
       }
 
       // Calculate final metrics (only for ACTIVE discussions)
@@ -495,7 +495,7 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(discussionId, true);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${discussionId}`);
+        throw new NotFoundError(`Discussion not found: ${discussionId}`);
       }
 
       // Check participant limit - only count active participants
@@ -511,7 +511,7 @@ export class DiscussionService {
       });
 
       if (currentParticipantCount >= maxParticipants) {
-        throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
+        throw new ValidationError(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
 
       // Validate agent exists
@@ -520,7 +520,7 @@ export class DiscussionService {
         participantRequest.agentId
       );
       if (!agent) {
-        throw new Error(`Agent not found: ${participantRequest.agentId}`);
+        throw new NotFoundError(`Agent not found: ${participantRequest.agentId}`);
       }
 
       // Use enterprise participant management service
@@ -604,7 +604,7 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(discussionId, true);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${discussionId}`);
+        throw new NotFoundError(`Discussion not found: ${discussionId}`);
       }
 
       const existingParticipant = discussion.participants?.find(
@@ -631,12 +631,12 @@ export class DiscussionService {
       });
 
       if (currentParticipantCount >= maxParticipants) {
-        throw new Error(`Discussion has reached maximum participants limit: ${maxParticipants}`);
+        throw new ValidationError(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
 
       const user = await this.databaseService.findById('users', userId);
       if (!user) {
-        throw new Error(`User not found: ${userId}`);
+        throw new NotFoundError(`User not found: ${userId}`);
       }
 
       const participantManagementService = new (
@@ -714,7 +714,7 @@ export class DiscussionService {
         participantId
       );
       if (!participant || participant.discussionId !== discussionId) {
-        throw new Error(`Participant not found in discussion: ${participantId}`);
+        throw new NotFoundError(`Participant not found in discussion: ${participantId}`);
       }
 
       // Mark participant as inactive instead of deleting
@@ -769,11 +769,11 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${discussionId}`);
+        throw new NotFoundError(`Discussion not found: ${discussionId}`);
       }
 
       if (discussion.status !== DiscussionStatus.ACTIVE) {
-        throw new Error(`Cannot send message to discussion with status: ${discussion.status}`);
+        throw new ValidationError(`Cannot send message to discussion with status: ${discussion.status}`);
       }
 
       // Validate participant
@@ -782,7 +782,7 @@ export class DiscussionService {
         participantId
       );
       if (!participant || participant.discussionId !== discussionId || !participant.isActive) {
-        throw new Error(`Invalid or inactive participant: ${participantId}`);
+        throw new ValidationError(`Invalid or inactive participant: ${participantId}`);
       }
 
       // Analyze message sentiment (if analytics enabled)
@@ -915,7 +915,7 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${discussionId}`);
+        throw new NotFoundError(`Discussion not found: ${discussionId}`);
       }
 
       if (discussion.status !== DiscussionStatus.ACTIVE) {
@@ -1082,11 +1082,11 @@ export class DiscussionService {
 
   private async validateDiscussionRequest(request: CreateDiscussionRequest): Promise<void> {
     if (!request.title || request.title.trim().length === 0) {
-      throw new Error('Discussion title is required');
+      throw new ValidationError('Discussion title is required');
     }
 
     if (!request.topic || request.topic.trim().length === 0) {
-      throw new Error('Discussion topic is required');
+      throw new ValidationError('Discussion topic is required');
     }
 
     const titleLength = request.title.trim().length;
@@ -1095,27 +1095,27 @@ export class DiscussionService {
     const maxTopicLength = 1000;
 
     if (titleLength > maxTitleLength) {
-      throw new Error(`Discussion title must be ${maxTitleLength} characters or fewer`);
+      throw new ValidationError(`Discussion title must be ${maxTitleLength} characters or fewer`);
     }
 
     if (topicLength > maxTopicLength) {
-      throw new Error(`Discussion topic must be ${maxTopicLength} characters or fewer`);
+      throw new ValidationError(`Discussion topic must be ${maxTopicLength} characters or fewer`);
     }
 
     if (!request.initialParticipants || request.initialParticipants.length < 1) {
-      throw new Error('Discussion requires at least 1 initial participant');
+      throw new ValidationError('Discussion requires at least 1 initial participant');
     }
 
     // Validate agents exist
     await Promise.all(
       request.initialParticipants.map(async (participant) => {
         if (!participant.agentId) {
-          throw new Error('Participant agentId is required');
+          throw new ValidationError('Participant agentId is required');
         }
 
         const agent = await this.databaseService.findById('agents', participant.agentId);
         if (!agent) {
-          throw new Error(`Agent not found: ${participant.agentId}`);
+          throw new NotFoundError(`Agent not found: ${participant.agentId}`);
         }
       })
     );
@@ -1229,11 +1229,11 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(id);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${id}`);
+        throw new NotFoundError(`Discussion not found: ${id}`);
       }
 
       if (discussion.status !== DiscussionStatus.ACTIVE) {
-        throw new Error(`Discussion cannot be paused from status: ${discussion.status}`);
+        throw new ValidationError(`Discussion cannot be paused from status: ${discussion.status}`);
       }
 
       // Update discussion status
@@ -1270,11 +1270,11 @@ export class DiscussionService {
 
       const discussion = await this.getDiscussion(id);
       if (!discussion) {
-        throw new Error(`Discussion not found: ${id}`);
+        throw new NotFoundError(`Discussion not found: ${id}`);
       }
 
       if (discussion.status !== DiscussionStatus.PAUSED) {
-        throw new Error(`Discussion cannot be resumed from status: ${discussion.status}`);
+        throw new ValidationError(`Discussion cannot be resumed from status: ${discussion.status}`);
       }
 
       // Update discussion status

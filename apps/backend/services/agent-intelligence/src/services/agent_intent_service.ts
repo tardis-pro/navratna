@@ -5,7 +5,7 @@
  */
 
 import { Agent, KnowledgeItem, Episode } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
@@ -857,7 +857,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
 
   private validateInput(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 

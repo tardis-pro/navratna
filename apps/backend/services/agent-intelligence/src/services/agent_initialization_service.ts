@@ -5,7 +5,7 @@
  */
 
 import { Agent, AgentState } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { PersonaService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -178,7 +178,7 @@ export class AgentInitializationService {
       return agentState;
     } catch (error) {
       logger.error('Failed to initialize agent', { error, agentId, personaId });
-      throw new Error(`Failed to initialize agent: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to initialize agent: ${error.message}`, { cause: error });
     }
   }
 
@@ -198,7 +198,7 @@ export class AgentInitializationService {
       // Get current agent data
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentId}`);
+        throw new NotFoundError(`Agent not found: ${agentId}`);
       }
 
       // Extract agent capabilities
@@ -494,7 +494,7 @@ export class AgentInitializationService {
 
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 

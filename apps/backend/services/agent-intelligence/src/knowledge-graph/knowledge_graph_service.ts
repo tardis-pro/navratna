@@ -12,7 +12,7 @@ import {
   SourceType,
   VectorSearchResult,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, DatabaseError } from '@uaip/utils';
 import { QdrantService } from './qdrant_service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding_service.js';
@@ -201,7 +201,7 @@ export class KnowledgeGraphService {
       };
     } catch (error) {
       logger.error('Knowledge search error', { error: error instanceof Error ? error.message : String(error) });
-      throw new Error(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      throw new DatabaseError(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 

@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { logger } from '@uaip/utils'
+import { logger, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
 import type {
   JiraWebhookEventType,
@@ -21,7 +21,7 @@ const JIRA_EVENT_TOPIC_MAP: Record<string, string> = {
 function getWebhookSecret(): string {
   const secret = process.env.JIRA_WEBHOOK_SECRET
   if (!secret) {
-    throw new Error('JIRA_WEBHOOK_SECRET environment variable is required')
+    throw new ValidationError('JIRA_WEBHOOK_SECRET environment variable is required')
   }
   return secret
 }

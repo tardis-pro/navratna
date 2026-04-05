@@ -17,7 +17,7 @@ import { DocumentationGenerator } from './generators/documentation_generator.js'
 import { PRDGenerator } from './generators/p_r_d_generator.js';
 import { TemplateManager } from './templates/template_manager.js';
 import { ArtifactValidator } from './validation/artifact_validator.js';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, ValidationError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
 
 export interface LLMGenerationRequest {
@@ -80,7 +80,7 @@ export class ArtifactService implements IArtifactService {
 
     // Validate generator initialization
     if (this.generators.size === 0) {
-      throw new Error('No generators initialized');
+      throw new ValidationError('No generators initialized');
     }
 
     logger.info(
@@ -538,7 +538,7 @@ export class ArtifactService implements IArtifactService {
       logger.info(`Initialized ${this.generators.size} artifact generators`);
     } catch (error) {
       logger.error('Failed to initialize generators:', error);
-      throw new Error('Service initialization failed', { cause: error });
+      throw new InternalServerError('Service initialization failed', { cause: error });
     }
   }
 }

@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { KnowledgeItem } from '@uaip/types';
 import { ContentClassifier } from './content_classifier_service.js';
@@ -173,7 +173,7 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from knowledge failed', { error: error.message });
-      throw new Error(`Q&A generation failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Q&A generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -244,7 +244,7 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from conversations failed', { error: error.message });
-      throw new Error(`Q&A generation failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Q&A generation failed: ${error.message}`, { cause: error });
     }
   }
 

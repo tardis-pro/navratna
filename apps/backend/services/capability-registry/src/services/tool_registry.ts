@@ -12,7 +12,7 @@ import {
 } from '@uaip/types';
 import { ToolRecommendation, ToolService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra';
-import { logger } from '@uaip/utils';
+import { logger, DatabaseError, NotFoundError } from '@uaip/utils';
 import { z } from 'zod';
 
 export class ToolRegistry {
@@ -294,7 +294,7 @@ export class ToolRegistry {
     } catch (error) {
       logger.error(`Error looking up tool ${toolName}:`, error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to lookup tool: ${toolName}. ${errorMessage}`, { cause: error });
+      throw new DatabaseError(`Failed to lookup tool: ${toolName}. ${errorMessage}`, { cause: error });
     }
   }
 
@@ -372,10 +372,10 @@ export class ToolRegistry {
     const toTool = await this.getTool(toToolId);
 
     if (!fromTool) {
-      throw new Error(`Source tool not found: ${fromToolId}`);
+      throw new NotFoundError(`Source tool not found: ${fromToolId}`);
     }
     if (!toTool) {
-      throw new Error(`Target tool not found: ${toToolId}`);
+      throw new NotFoundError(`Target tool not found: ${toToolId}`);
     }
 
     // Create the relationship object with validated data

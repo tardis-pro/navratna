@@ -12,7 +12,7 @@ import {
   StepMetrics,
   ParallelExecutionPolicy,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { StepExecutorService, ResourceManagerService } from '@uaip/shared-services';
 
 export interface StepExecutionContext {
@@ -447,7 +447,7 @@ export class StepExecutionManager extends EventEmitter {
       return this.resolvePropertyPath(trimmed, context);
     }
 
-    throw new Error(`Unsafe or unrecognised token in condition: "${trimmed}"`);
+    throw new ValidationError(`Unsafe or unrecognised token in condition: "${trimmed}"`);
   }
 
   private safeEvaluateExpression(expr: string, context: Record<string, unknown>): boolean {
@@ -518,7 +518,7 @@ export class StepExecutionManager extends EventEmitter {
       case '>=': return (lhs as number) >= (rhs as number);
       case '<': return (lhs as number) < (rhs as number);
       case '<=': return (lhs as number) <= (rhs as number);
-      default: throw new Error(`Unknown comparison operator: ${op}`);
+      default: throw new ValidationError(`Unknown comparison operator: ${op}`);
     }
   }
 

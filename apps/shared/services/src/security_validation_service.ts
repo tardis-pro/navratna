@@ -1,5 +1,5 @@
 import { DatabaseService } from './database_service';
-import { logger, ApiError } from '@uaip/utils';
+import { logger, ApiError, ValidationError } from '@uaip/utils';
 import {
   SecurityValidationResult,
   RiskAssessment,
@@ -726,7 +726,7 @@ export class SecurityValidationService {
       case RiskLevel.HIGH:
         return SecurityLevel.HIGH;
       default:
-        throw new Error('Invalid risk level');
+        throw new ValidationError('Invalid risk level');
     }
   }
 }

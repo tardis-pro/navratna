@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { ParsedConversation, ParsedMessage } from './chat_parser_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
 import { EmbeddingService } from './embedding_service.js';
@@ -326,7 +326,7 @@ export class WorkflowExtractorService {
       return processedWorkflows;
     } catch (error) {
       logger.error('Workflow extraction failed', { error: error.message });
-      throw new Error(`Workflow extraction failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Workflow extraction failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -1328,7 +1328,7 @@ export class WorkflowExtractorService {
   private async createBaseWorkflow(_sequence: ActionSequence): Promise<ExtractedWorkflow> {
     // This would create a base workflow from sequence
     // Implementation would be similar to createWorkflowFromSequence
-    throw new Error('Not implemented yet');
+    throw new InternalServerError('Not implemented yet');
   }
 
   private async enhanceWithExecutionDetails(
@@ -1336,6 +1336,6 @@ export class WorkflowExtractorService {
   ): Promise<ExecutableWorkflow> {
     // This would enhance workflow with execution details
     // Implementation would add execution planning, validation rules, etc.
-    throw new Error('Not implemented yet');
+    throw new InternalServerError('Not implemented yet');
   }
 }

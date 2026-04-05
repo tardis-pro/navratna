@@ -9,7 +9,7 @@ import {
 } from '@uaip/types';
 import type { ForgeRequest, ForgeResult, InterviewSession } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 
 import { InputNormalizerService } from './input_normalizer_service.js';
 import { QuestionRankerService } from './question_ranker_service.js';
@@ -213,14 +213,14 @@ export class QuestionForgeService {
   async startInterview(forgeResultId: string, stakeholderRole: string): Promise<InterviewSession> {
     const forgeResult = this.forgeResults.get(forgeResultId);
     if (!forgeResult) {
-      throw new Error(`Forge result not found: ${forgeResultId}`);
+      throw new NotFoundError(`Forge result not found: ${forgeResultId}`);
     }
 
     const script = (forgeResult.interviewScripts as Record<string, unknown>)[stakeholderRole] as
       | (typeof forgeResult.interviewScripts)[string]
       | undefined;
     if (!script) {
-      throw new Error(`No interview script found for stakeholder role: ${stakeholderRole}`);
+      throw new NotFoundError(`No interview script found for stakeholder role: ${stakeholderRole}`);
     }
 
     const session = {

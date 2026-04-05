@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { AgentLLMProvider, LLMProviderCredentialRecord } from '@uaip/types';
 
@@ -234,7 +234,7 @@ export class LLMAgentProviderService {
     provider: AgentLLMProvider
   ): Promise<{ provider: AgentLLMProvider; instructions: string; callbackRequired: boolean }> {
     if (!OAUTH_SUPPORTED_PROVIDERS.includes(provider)) {
-      throw new Error(`Provider ${provider} does not support OAuth. Use API key instead.`);
+      throw new ValidationError(`Provider ${provider} does not support OAuth. Use API key instead.`);
     }
 
     const instructions = this.getOAuthInstructions(provider);

@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import Redis from 'ioredis';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { createLogger } from '@uaip/utils';
+import { createLogger, InternalServerError } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import { BaileysClient, type WAConnectionState } from './baileys_client.js';
 import type { WhatsAppIncomingMessage } from './message_mapper.js';
@@ -34,7 +34,7 @@ const AGENT_INTELLIGENCE_URL =
 
 async function fetchAgentsFromService(): Promise<AgentSummary[]> {
   const res = await fetch(`${AGENT_INTELLIGENCE_URL}/api/v1/agents?limit=50`);
-  if (!res.ok) throw new Error(`Agent Intelligence responded ${res.status}`);
+  if (!res.ok) throw new InternalServerError(`Agent Intelligence responded ${res.status}`);
 
   const body = (await res.json()) as { success: boolean; data: Record<string, unknown>[] };
   if (!body.success || !Array.isArray(body.data)) return [];

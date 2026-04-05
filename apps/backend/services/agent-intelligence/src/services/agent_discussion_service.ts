@@ -14,7 +14,7 @@ import {
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
-import { logger, ApiError } from '@uaip/utils';
+import { logger, ApiError, ConflictError, NotFoundError, ValidationError } from '@uaip/utils';
 import { DiscussionService, LLMRequestTracker, ThoughtParserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -600,7 +600,7 @@ export class AgentDiscussionService {
       // Get discussion context
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
-        throw new Error('Discussion not found');
+        throw new NotFoundError('Discussion not found');
       }
       const discussionRecord = toRecord(discussion);
       const discussionTopic = toStringValue(discussionRecord.topic);
@@ -756,7 +756,7 @@ export class AgentDiscussionService {
       // Get the agent
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentId}`);
+        throw new NotFoundError(`Agent not found: ${agentId}`);
       }
 
       // Extract user message
@@ -903,7 +903,7 @@ export class AgentDiscussionService {
   ): Promise<{ response: string; thoughtChain?: ThoughtChain }> {
     const agent = await this.getAgentData(agentId);
     if (!agent) {
-      throw new Error(`Agent not found: ${agentId}`);
+      throw new NotFoundError(`Agent not found: ${agentId}`);
     }
 
     // Build system prompt with thought protocol if enabled
@@ -981,7 +981,7 @@ export class AgentDiscussionService {
       // Get the agent first
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentId}`);
+        throw new NotFoundError(`Agent not found: ${agentId}`);
       }
 
       // Search for relevant knowledge
@@ -1088,7 +1088,7 @@ export class AgentDiscussionService {
       // Get agent details
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentId}`);
+        throw new NotFoundError(`Agent not found: ${agentId}`);
       }
 
       // Get relevant knowledge for the discussion
@@ -1530,7 +1530,7 @@ export class AgentDiscussionService {
           requestId,
           activeRequestCount: this.activeRequests.size,
         });
-        throw new Error(`Duplicate request ID: ${requestId}`);
+        throw new ConflictError(`Duplicate request ID: ${requestId}`);
       }
 
       // Publish LLM request event
@@ -2014,7 +2014,7 @@ Reasoning: ${reasoning.join('; ')}`,
 
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 

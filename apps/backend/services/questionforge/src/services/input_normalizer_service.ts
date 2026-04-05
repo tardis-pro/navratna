@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { EventBusService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import type { NormalizedBrief } from '@uaip/types';
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a structured data extraction engine. Given a project brief, notes, or transcript, extract the following information and return it as valid JSON only — no markdown, no explanation, no wrapping.
@@ -87,7 +87,7 @@ export class InputNormalizerService {
       // Attempt to find JSON object in the response
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No valid JSON found in LLM response');
+        throw new NotFoundError('No valid JSON found in LLM response');
       }
       parsed = JSON.parse(jsonMatch[0]);
     }

@@ -21,7 +21,7 @@ import {
   type OpenClawModelDefinition,
   type OpenClawProviderDefinition,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 
 const OPENCLAW_AGENTS_DIR = '/home/pronit/workspace/tardis/bmad-navratna/openclaw-infra/agents';
 
@@ -280,7 +280,7 @@ async function validateAgentDirectorySet(): Promise<void> {
   const missing = OPENCLAW_AGENT_NAMES.filter((name) => !discoveredNames.has(name));
 
   if (missing.length > 0) {
-    throw new Error(`Missing expected openclaw agent directories: ${missing.join(', ')}`);
+    throw new NotFoundError(`Missing expected openclaw agent directories: ${missing.join(', ')}`);
   }
 }
 

@@ -7,7 +7,7 @@ import type {
   StorySpec,
   StoryStatus,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError } from '@uaip/utils'
 import { randomUUID } from 'node:crypto'
 
 interface GitHubAdapterConfig {
@@ -210,7 +210,7 @@ export class GitHubBoardAdapter implements BoardProvider {
         status: response.status,
         body: errorBody.slice(0, 500),
       })
-      throw new Error(`GitHub API ${method} ${path} failed: ${response.status} ${response.statusText}`)
+      throw new ExternalServiceError(`GitHub API ${method} ${path} failed: ${response.status} ${response.statusText}`)
     }
 
     if (response.status === 204) {

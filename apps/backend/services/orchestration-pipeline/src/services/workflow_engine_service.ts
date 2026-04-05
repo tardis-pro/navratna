@@ -5,7 +5,7 @@ import {
   type WorkflowDefinition,
 } from '@uaip/shared-services/drizzle/control';
 import type { RepeatableJob, RepeatOptions } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 // BullMQ queue contract is an EventBusService internal implementation detail.
 interface RepeatableQueue {
   add(
@@ -133,7 +133,7 @@ export class WorkflowEngineService {
     if (definition.trigger.kind === 'every') {
       const every = Number.parseInt(definition.trigger.expr, 10);
       if (!Number.isFinite(every) || every <= 0) {
-        throw new Error(`Invalid 'every' expression for workflow ${definition.id}: ${definition.trigger.expr}`);
+        throw new ValidationError(`Invalid 'every' expression for workflow ${definition.id}: ${definition.trigger.expr}`);
       }
 
       return { every };

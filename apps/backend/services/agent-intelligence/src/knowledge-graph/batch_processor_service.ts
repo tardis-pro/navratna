@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import { ChatParserService } from './chat_parser_service.js';
 import {
   ChatKnowledgeExtractorService,
@@ -79,7 +79,7 @@ export class BatchProcessorService {
     // Validate files
     const validFiles = this.validateFiles(files);
     if (validFiles.length === 0) {
-      throw new Error('No valid files to process');
+      throw new NotFoundError('No valid files to process');
     }
 
     // Create job
@@ -139,7 +139,7 @@ export class BatchProcessorService {
   private async processJobAsync(jobId: string, files: FileData[]): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) {
-      throw new Error(`Job ${jobId} not found`);
+      throw new NotFoundError(`Job ${jobId} not found`);
     }
 
     logger.info(`Starting batch job ${jobId}`, {

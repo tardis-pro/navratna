@@ -1,5 +1,6 @@
 import type { UserContext } from '@uaip/types';
 
+import { AuthenticationError } from '@uaip/utils';
 interface ContextWithUser {
   user: UserContext;
   [key: string]: unknown;
@@ -8,7 +9,7 @@ interface ContextWithUser {
 export function getAuthUser(ctx: unknown): UserContext {
   const context = ctx as ContextWithUser;
   if (!context.user?.id) {
-    throw new Error('Authentication required: no user in context');
+    throw new AuthenticationError('Authentication required: no user in context');
   }
   return context.user;
 }

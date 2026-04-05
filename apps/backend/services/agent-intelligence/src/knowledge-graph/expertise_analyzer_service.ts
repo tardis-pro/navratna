@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { ParsedConversation, ParsedMessage } from './chat_parser_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
 import { EmbeddingService } from './embedding_service.js';
@@ -386,7 +386,7 @@ export class ExpertiseAnalyzerService {
       return profiles;
     } catch (error) {
       logger.error('Expertise analysis failed', { error: error.message });
-      throw new Error(`Expertise analysis failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Expertise analysis failed: ${error.message}`, { cause: error });
     }
   }
 

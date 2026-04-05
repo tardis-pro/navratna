@@ -1,7 +1,7 @@
 import { logger } from '@uaip/utils';
 import { LLMService } from '../l_l_m_service.js';
 import { UserLLMService } from '../user_l_l_m_service.js';
-import { RedisCacheService, UserService } from '@uaip/shared-services';
+import { RedisCacheService, UserService, getControlDb, userLLMProviders } from '@uaip/shared-services';
 import { ModelSyncService } from './model_sync_service.js';
 
 interface BootstrapStatus {
@@ -268,37 +268,13 @@ export class ModelBootstrapService {
     }
   }
 
-  /**
-   * Get all users who have LLM providers configured
-   */
   private async getUsersWithProviders(): Promise<string[]> {
     try {
-      // Use a simpler approach: query all users and check if they have providers
-      const userRepository = this.userService.getUserRepository();
-      const { users: allUsers } = await userRepository.queryUsers({});
-
-      const usersWithProviders: string[] = [];
-
-      // Check each user for LLM providers
-      for (const user of allUsers) {
-        try {
-          // eslint-disable-next-line no-await-in-loop -- sequential processing required
-          const providers = await this.userService
-            .getUserLLMProviderRepository()
-            .findByUserId(user.id as string);
-          if (providers.length > 0) {
-            usersWithProviders.push(user.id as string);
-          }
-        } catch (error) {
-          logger.warn('Failed to check providers for user', { userId: user.id, error });
-          // Continue with other users
-        }
-      }
-
-      return usersWithProviders;
+      const db = getControlDb();
+      const rows = await db.select({ userId: userLLMProviders.userId }).from(userLLMProviders);
+      return [...new Set(rows.map((r) => r.userId))];
     } catch (error) {
       logger.error('Failed to get users with providers', { error });
-      // Return empty array rather than throwing to allow system to continue
       return [];
     }
   }

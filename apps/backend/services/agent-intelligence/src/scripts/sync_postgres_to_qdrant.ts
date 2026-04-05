@@ -1,5 +1,6 @@
 import { initializeDatabase, getIntelligencePool, closeDatabase } from '@uaip/shared-services';
 
+import { ExternalServiceError, InternalServerError } from '@uaip/utils';
 const {
   TEI_EMBEDDING_URL = 'http://tei-embeddings:80',
   QDRANT_URL = 'http://qdrant:6333',
@@ -18,7 +19,7 @@ async function teiEmbed(texts: string[]): Promise<number[][]> {
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`TEI embed failed ${res.status}: ${txt}`);
+    throw new InternalServerError(`TEI embed failed ${res.status}: ${txt}`);
   }
   const data: unknown = await res.json();
   if (Array.isArray(data)) return data as number[][];
@@ -43,7 +44,7 @@ async function qdrantUpsert(
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`Qdrant upsert failed ${res.status}: ${txt}`);
+    throw new ExternalServiceError(`Qdrant upsert failed ${res.status}: ${txt}`);
   }
 }
 

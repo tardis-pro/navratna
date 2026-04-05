@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType } from '@uaip/types';
 import { ContentClassifier } from './content_classifier_service.js';
 import { EmbeddingService } from './embedding_service.js';
@@ -147,7 +147,7 @@ export class ConceptExtractorService {
       return result;
     } catch (error) {
       logger.error('Error extracting concepts:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

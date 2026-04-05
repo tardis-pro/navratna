@@ -8,7 +8,7 @@ import {
   DiscussionEvent,
   DiscussionEventType,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
 import { DiscussionService } from '@uaip/shared-services/discussion';
 import { TurnStrategyService } from './turn_strategy_service.js';
@@ -799,7 +799,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   ): Promise<Discussion> {
     const parentDiscussion = await this.getDiscussion(parentDiscussionId, true);
     if (!parentDiscussion) {
-      throw new Error('Parent discussion not found');
+      throw new NotFoundError('Parent discussion not found');
     }
 
     const uniqueParticipants = Array.from(
@@ -807,12 +807,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
     );
 
     if (uniqueParticipants.length === 0) {
-      throw new Error('At least one participant is required for a huddle');
+      throw new ValidationError('At least one participant is required for a huddle');
     }
 
     const normalizedTopic = topic.trim();
     if (!normalizedTopic) {
-      throw new Error('Huddle topic is required');
+      throw new ValidationError('Huddle topic is required');
     }
 
     const huddleRequest: CreateDiscussionRequest = {
@@ -857,7 +857,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   async resolveHuddle(huddleId: string, summary: string): Promise<void> {
     const huddle = await this.getDiscussion(huddleId, true);
     if (!huddle) {
-      throw new Error('Huddle not found');
+      throw new NotFoundError('Huddle not found');
     }
 
     const parentDiscussionId =
@@ -866,7 +866,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         : undefined) || huddle.parentDiscussionId;
 
     if (!parentDiscussionId) {
-      throw new Error('Huddle has no parent discussion');
+      throw new InternalServerError('Huddle has no parent discussion');
     }
 
     await this.discussionService.updateDiscussion(huddleId, {

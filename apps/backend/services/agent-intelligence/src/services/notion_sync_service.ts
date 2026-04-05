@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
 import type {
   NotionSyncConfig,
@@ -14,7 +14,7 @@ const NOTION_VERSION = '2022-06-28'
 function getNotionToken(): string {
   const token = process.env.NOTION_INTEGRATION_TOKEN
   if (!token) {
-    throw new Error('NOTION_INTEGRATION_TOKEN environment variable is required')
+    throw new ValidationError('NOTION_INTEGRATION_TOKEN environment variable is required')
   }
   return token
 }
@@ -39,7 +39,7 @@ async function notionRequest<T>(path: string, method: string, body?: unknown): P
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
     logger.error('Notion API request failed', { url, method, status: response.status, body: errorBody.slice(0, 500) })
-    throw new Error(`Notion API ${method} ${path} failed: ${response.status}`)
+    throw new ExternalServiceError(`Notion API ${method} ${path} failed: ${response.status}`)
   }
 
   if (response.status === 204) {
@@ -94,7 +94,7 @@ export async function syncRunbookToNotion(
     const pageId = syncConfig.notionPageId
 
     if (!pageId) {
-      throw new Error('notionPageId is required for runbook sync')
+      throw new ValidationError('notionPageId is required for runbook sync')
     }
 
     // Notion max 100 blocks per append
@@ -141,7 +141,7 @@ export async function syncArtifactToNotion(
   try {
     const parentId = syncConfig.notionPageId ?? syncConfig.notionDatabaseId
     if (!parentId) {
-      throw new Error('notionPageId or notionDatabaseId is required for artifact sync')
+      throw new ValidationError('notionPageId or notionDatabaseId is required for artifact sync')
     }
 
     const blocks = markdownToNotionBlocks(artifactContent)

@@ -3,7 +3,7 @@ import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
 import { ProjectStatus } from '@uaip/types';
 import { UnifiedToolRegistry } from './unified_tool_registry.js';
-import { logger } from '@uaip/utils';
+import { logger, AuthorizationError, NotFoundError, ValidationError } from '@uaip/utils';
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -309,7 +309,7 @@ export class ProjectToolIntegrationService {
     try {
       const project = await this.projectService.getProject(projectId);
       if (!project) {
-        throw new Error(`Project ${projectId} not found`);
+        throw new NotFoundError(`Project ${projectId} not found`);
       }
 
       // Get project metrics from project service
@@ -361,11 +361,11 @@ export class ProjectToolIntegrationService {
   private async validateProjectContext(context: ProjectToolContext): Promise<void> {
     const project = await this.projectService.getProject(context.projectId, context.userId);
     if (!project) {
-      throw new Error(`Project ${context.projectId} not found or access denied`);
+      throw new NotFoundError(`Project ${context.projectId} not found or access denied`);
     }
 
     if (project.status !== ProjectStatus.ACTIVE) {
-      throw new Error(`Project ${context.projectId} is not active`);
+      throw new ValidationError(`Project ${context.projectId} is not active`);
     }
   }
 
@@ -376,13 +376,13 @@ export class ProjectToolIntegrationService {
     const estimatedCost = request.estimatedCost || 0;
 
     if (estimatedCost > remainingBudget) {
-      throw new Error(
+      throw new ValidationError(
         `Insufficient budget. Required: ${estimatedCost}, Available: ${remainingBudget}`
       );
     }
 
     if (request.context.budget.limit && estimatedCost > request.context.budget.limit) {
-      throw new Error(
+      throw new ValidationError(
         `Cost exceeds limit. Required: ${estimatedCost}, Limit: ${request.context.budget.limit}`
       );
     }
@@ -397,7 +397,7 @@ export class ProjectToolIntegrationService {
       Array.isArray(project.settings.allowedTools) &&
       !project.settings.allowedTools.includes(request.toolId)
     ) {
-      throw new Error(`Tool ${request.toolId} is not allowed in this project`);
+      throw new AuthorizationError(`Tool ${request.toolId} is not allowed in this project`);
     }
 
     // Check agent-specific tool permissions

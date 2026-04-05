@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError, NotFoundError, ValidationError } from '@uaip/utils'
 import type { JiraSprintConfig, JiraPriorityMapping } from '@uaip/types'
 
 interface JiraSprintServiceConfig {
@@ -40,7 +40,7 @@ function getConfig(): JiraSprintServiceConfig {
   const apiToken = process.env.JIRA_API_TOKEN
 
   if (!baseUrl || !email || !apiToken) {
-    throw new Error('JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN are required')
+    throw new ValidationError('JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN are required')
   }
 
   return { baseUrl: baseUrl.replace(/\/$/, ''), email, apiToken }
@@ -69,7 +69,7 @@ async function agileRequest<T>(path: string, method: string, body?: unknown): Pr
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
     logger.error('Jira Agile API request failed', { url, method, status: response.status, body: errorBody.slice(0, 500) })
-    throw new Error(`Jira Agile API ${method} ${path} failed: ${response.status}`)
+    throw new ExternalServiceError(`Jira Agile API ${method} ${path} failed: ${response.status}`)
   }
 
   if (response.status === 204) {
@@ -150,7 +150,7 @@ export async function generateVelocityReport(sprintId: number): Promise<Velocity
 
   const boardId = boardsResponse.values[0]?.id
   if (!boardId) {
-    throw new Error('No board found for velocity report')
+    throw new NotFoundError('No board found for velocity report')
   }
 
   const issuesResponse = await agileRequest<{

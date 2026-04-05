@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError } from '@uaip/utils';
 import { EventEmitter } from 'events';
 
 export interface CircuitBreakerOptions {
@@ -68,7 +68,7 @@ export class CircuitBreaker extends EventEmitter {
   async execute(...args: Record<string, unknown>[]): Promise<unknown> {
     if (this.state === 'OPEN') {
       if (Date.now() < this.nextAttempt) {
-        throw new Error('Circuit breaker is OPEN');
+        throw new ExternalServiceError('Circuit breaker is OPEN');
       }
       this.state = 'HALF_OPEN';
       this.halfOpenRetries = 0;

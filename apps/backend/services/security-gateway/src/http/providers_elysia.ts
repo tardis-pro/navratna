@@ -242,21 +242,21 @@ export function registerProviderRoutes() {
               .getUserLLMProviderRepository()
               .findActiveByUserId(user!.id);
             const llmProviderRepo = UserService.getInstance().getLLMProviderRepository();
-            const active = await Promise.all(
-              userProviders.map(async (up) => {
-                const provider = await llmProviderRepo.findById(up.providerId);
-                return {
-                  id: up.id,
-                  providerId: up.providerId,
-                  name: provider?.name ?? 'Unknown',
-                  type: provider?.type ?? 'custom',
-                  defaultModel: provider?.defaultModel ?? null,
-                  priority: provider?.priority ?? 0,
-                  hasApiKey: Boolean(up.apiKeyEncrypted),
-                  isDefault: up.isDefault,
-                };
-              })
-            );
+            const providers = userProviders.length > 0 ? await llmProviderRepo.findMany() : [];
+            const providerMap = new Map(providers.map((p) => [p.id, p]));
+            const active = userProviders.map((up) => {
+              const provider = providerMap.get(up.providerId);
+              return {
+                id: up.id,
+                providerId: up.providerId,
+                name: provider?.name ?? 'Unknown',
+                type: provider?.type ?? 'custom',
+                defaultModel: provider?.defaultModel ?? null,
+                priority: provider?.priority ?? 0,
+                hasApiKey: Boolean(up.apiKeyEncrypted),
+                isDefault: up.isDefault,
+              };
+            });
             return { success: true, data: active };
           } catch (error) {
             logger.error('Error getting active user LLM providers', { error });

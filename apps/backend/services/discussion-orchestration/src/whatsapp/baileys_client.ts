@@ -2,7 +2,7 @@ import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, isJidBroadca
 import { Boom } from '@hapi/boom';
 import { EventEmitter } from 'events';
 import type { Redis } from 'ioredis';
-import { createLogger } from '@uaip/utils';
+import { createLogger, ExternalServiceError } from '@uaip/utils';
 import { useRedisAuthState, clearRedisAuthState } from './session_store.js';
 import { mapWAMessage, type WhatsAppIncomingMessage } from './message_mapper.js';
 
@@ -100,7 +100,7 @@ export class BaileysClient extends EventEmitter {
 
   async sendText(jid: string, text: string): Promise<void> {
     if (!this.socket || this.state !== 'connected') {
-      throw new Error('WhatsApp not connected — cannot send message');
+      throw new ExternalServiceError('WhatsApp not connected — cannot send message');
     }
     await this.socket.sendMessage(jid, { text });
   }

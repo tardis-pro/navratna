@@ -12,7 +12,7 @@ import type {
   LinearWebhookPayload,
   LINEAR_PRIORITY_THRESHOLDS,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils'
 import { randomUUID } from 'node:crypto'
 
 interface GraphQLResponse<T> {
@@ -338,7 +338,7 @@ export class LinearBoardAdapter implements BoardProvider {
     `, { id: identifier })
 
     if (!result.issue) {
-      throw new Error(`Linear issue not found: ${identifier}`)
+      throw new NotFoundError(`Linear issue not found: ${identifier}`)
     }
     return result.issue.id
   }
@@ -374,7 +374,7 @@ export class LinearBoardAdapter implements BoardProvider {
   private async getDefaultTeamId(): Promise<string> {
     const ids = await this.getDefaultTeamIds()
     if (ids.length === 0) {
-      throw new Error('No Linear teams found')
+      throw new NotFoundError('No Linear teams found')
     }
     return ids[0]
   }
@@ -403,7 +403,7 @@ export class LinearBoardAdapter implements BoardProvider {
         status: response.status,
         body: errorBody.slice(0, 500),
       })
-      throw new Error(`Linear API failed: ${response.status} ${response.statusText}`)
+      throw new ExternalServiceError(`Linear API failed: ${response.status} ${response.statusText}`)
     }
 
     const json = (await response.json()) as GraphQLResponse<T>
@@ -411,11 +411,11 @@ export class LinearBoardAdapter implements BoardProvider {
     if (json.errors && json.errors.length > 0) {
       const messages = json.errors.map((e) => e.message).join('; ')
       logger.error('Linear GraphQL errors', { errors: json.errors })
-      throw new Error(`Linear GraphQL error: ${messages}`)
+      throw new ExternalServiceError(`Linear GraphQL error: ${messages}`)
     }
 
     if (!json.data) {
-      throw new Error('Linear API returned no data')
+      throw new NotFoundError('Linear API returned no data')
     }
 
     return json.data

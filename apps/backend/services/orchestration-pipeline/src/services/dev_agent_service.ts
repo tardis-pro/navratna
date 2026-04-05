@@ -7,7 +7,7 @@ import type {
   RepoContext,
   SolutionDesign,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, InternalServerError } from '@uaip/utils'
 
 const DEVAGENT_PR_CREATED_EVENT = 'rdlo.devagent.pr.created'
 const DEVAGENT_CODE_REVIEW_EVENT = 'rdlo.devagent.code.review'
@@ -206,7 +206,7 @@ export class DevAgentService {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '<unreadable>')
-      throw new Error(`GitHub PR creation failed: ${response.status} — ${errorBody.slice(0, 500)}`)
+      throw new InternalServerError(`GitHub PR creation failed: ${response.status} — ${errorBody.slice(0, 500)}`)
     }
 
     const pr = (await response.json()) as { html_url: string }

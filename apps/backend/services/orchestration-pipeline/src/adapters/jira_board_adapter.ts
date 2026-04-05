@@ -7,7 +7,7 @@ import type {
   StorySpec,
   StoryStatus,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError } from '@uaip/utils'
 import { randomUUID } from 'node:crypto'
 
 interface JiraAdapterConfig {
@@ -232,7 +232,7 @@ export class JiraBoardAdapter implements BoardProvider {
         status: response.status,
         body: errorBody.slice(0, 500),
       })
-      throw new Error(`Jira API ${method} ${path} failed: ${response.status} ${response.statusText}`)
+      throw new ExternalServiceError(`Jira API ${method} ${path} failed: ${response.status} ${response.statusText}`)
     }
 
     if (response.status === 204) {

@@ -10,7 +10,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, ValidationError } from '@uaip/utils';
 
 const ALGO = 'aes-256-gcm';
 const SEPARATOR = ':';
@@ -18,7 +18,7 @@ const SEPARATOR = ':';
 function getKey(): Buffer {
   const hex = process.env.MCP_SECRETS_KEY;
   if (!hex || hex.length !== 64) {
-    throw new Error(
+    throw new ValidationError(
       'MCP_SECRETS_KEY must be set to a 64-char hex string (32 bytes). ' +
         'Generate one with: openssl rand -hex 32'
     );
@@ -61,7 +61,7 @@ export function decryptHeaders(stored: string): Record<string, string> {
     return JSON.parse(plain);
   } catch (err) {
     logger.error('mcpSecrets: decryption failed — wrong key or tampered data', err);
-    throw new Error('Failed to decrypt MCP server headers. Check MCP_SECRETS_KEY.', { cause: err });
+    throw new InternalServerError('Failed to decrypt MCP server headers. Check MCP_SECRETS_KEY.', { cause: err });
   }
 }
 

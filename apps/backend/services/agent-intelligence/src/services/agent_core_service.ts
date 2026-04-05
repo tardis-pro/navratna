@@ -5,7 +5,7 @@
  */
 
 import { Agent, AgentStatus, AgentRole, CreateAgentRequest } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import {
   validateServiceAccess,
   AccessLevel,
@@ -98,7 +98,7 @@ export class AgentCoreService {
         useEnterpriseMatrix
       )
     ) {
-      throw new Error(
+      throw new ValidationError(
         `Service lacks required database permissions for agents (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`
       );
     }
@@ -364,7 +364,7 @@ export class AgentCoreService {
       // Get updated agent
       const updatedAgent = await this.getAgent(agentId);
       if (!updatedAgent) {
-        throw new Error('Agent not found after update');
+        throw new NotFoundError('Agent not found after update');
       }
 
       // Publish agent updated event
@@ -398,7 +398,7 @@ export class AgentCoreService {
 
       const agent = await this.getAgent(agentId);
       if (!agent) {
-        throw new Error('Agent not found');
+        throw new NotFoundError('Agent not found');
       }
 
       // Soft delete by updating status
@@ -507,16 +507,16 @@ export class AgentCoreService {
    */
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 
   private validateAgentData(data: CreateAgentRequest): void {
     if (!data.name || data.name.trim().length === 0) {
-      throw new Error('Agent name is required');
+      throw new ValidationError('Agent name is required');
     }
     if (!data.personaId) {
-      throw new Error('Persona ID is required for agent creation');
+      throw new ValidationError('Persona ID is required for agent creation');
     }
   }
 

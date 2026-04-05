@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { UserService, OAuthService, MFAService, SessionService } from '@uaip/shared-services';
 import { JWTValidator as _JWTValidator, generateAuthTokens } from '@uaip/middleware';
@@ -320,7 +320,7 @@ export class EnhancedAuthService {
   ): Promise<MFAChallenge> {
     const user = await this.userService.findUserById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundError('User not found');
     }
 
     // For now, allow any MFA method - this should be configured from user preferences
@@ -336,7 +336,7 @@ export class EnhancedAuthService {
         challenge = crypto.randomInt(100000, 1000000).toString();
         break;
       default:
-        throw new Error(`Unsupported MFA method: ${method}`);
+        throw new ValidationError(`Unsupported MFA method: ${method}`);
     }
 
     const mfaChallenge: MFAChallenge = {

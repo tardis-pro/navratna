@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import type {
   Question,
   Assumption,
@@ -118,7 +118,7 @@ export class InterviewCaptureService {
 
     const questionExists = session.questions.some((q) => q.id === questionId);
     if (!questionExists) {
-      throw new Error(`Question ${questionId} not found in session ${sessionId}`);
+      throw new NotFoundError(`Question ${questionId} not found in session ${sessionId}`);
     }
 
     // Advance past the skipped question if it is the current one
@@ -150,7 +150,7 @@ export class InterviewCaptureService {
 
     const question = session.questions.find((q) => q.id === questionId);
     if (!question) {
-      throw new Error(`Question ${questionId} not found in session ${sessionId}`);
+      throw new NotFoundError(`Question ${questionId} not found in session ${sessionId}`);
     }
 
     // Analyse the answer via LLM
@@ -227,7 +227,7 @@ export class InterviewCaptureService {
     const session = this.requireSession(sessionId);
 
     if (session.status !== 'paused') {
-      throw new Error(
+      throw new InternalServerError(
         `Cannot resume session ${sessionId}: current status is '${session.status}', expected 'paused'`
       );
     }
@@ -247,7 +247,7 @@ export class InterviewCaptureService {
     const session = this.requireSession(sessionId);
 
     if (session.status === 'completed') {
-      throw new Error(`Session ${sessionId} is already completed`);
+      throw new InternalServerError(`Session ${sessionId} is already completed`);
     }
 
     session.status = 'completed';
@@ -492,7 +492,7 @@ export class InterviewCaptureService {
   private requireSession(sessionId: string): InterviewSession {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`Interview session not found: ${sessionId}`);
+      throw new NotFoundError(`Interview session not found: ${sessionId}`);
     }
     return session;
   }
@@ -502,7 +502,7 @@ export class InterviewCaptureService {
    */
   private assertActive(session: InterviewSession): void {
     if (session.status !== 'active') {
-      throw new Error(`Session ${session.id} is not active (current status: '${session.status}')`);
+      throw new InternalServerError(`Session ${session.id} is not active (current status: '${session.status}')`);
     }
   }
 }

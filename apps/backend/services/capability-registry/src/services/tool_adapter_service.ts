@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 
 export interface ToolAdapter {
   id: string;
@@ -140,7 +140,7 @@ export class ToolAdapterService {
   async configureAdapter(toolId: string, config: unknown): Promise<boolean> {
     const adapter = this.adapters.get(toolId);
     if (!adapter) {
-      throw new Error(`Unknown tool adapter: ${toolId}`);
+      throw new InternalServerError(`Unknown tool adapter: ${toolId}`);
     }
 
     try {
@@ -201,7 +201,7 @@ export class ToolAdapterService {
     switch (toolId) {
       case 'github':
         if (typeof cfg.token !== 'string') {
-          throw new Error('GitHub token is required');
+          throw new ValidationError('GitHub token is required');
         }
         // Test GitHub API connection
         await this.testGitHubConnection(cfg as unknown as GitHubConfig);
@@ -213,7 +213,7 @@ export class ToolAdapterService {
           typeof cfg.email !== 'string' ||
           typeof cfg.apiToken !== 'string'
         ) {
-          throw new Error('Jira URL, email, and API token are required');
+          throw new ValidationError('Jira URL, email, and API token are required');
         }
         // Test Jira API connection
         await this.testJiraConnection(cfg as unknown as JiraConfig);
@@ -225,14 +225,14 @@ export class ToolAdapterService {
           typeof cfg.email !== 'string' ||
           typeof cfg.apiToken !== 'string'
         ) {
-          throw new Error('Confluence URL, email, and API token are required');
+          throw new ValidationError('Confluence URL, email, and API token are required');
         }
         // Test Confluence API connection
         await this.testConfluenceConnection(cfg as unknown as ConfluenceConfig);
         break;
 
       default:
-        throw new Error(`Validation not implemented for tool: ${toolId}`);
+        throw new InternalServerError(`Validation not implemented for tool: ${toolId}`);
     }
   }
 
@@ -259,7 +259,7 @@ export class ToolAdapterService {
       },
     });
     if (!response.ok) {
-      throw new Error(errorMessage);
+      throw new InternalServerError(errorMessage);
     }
   }
 
@@ -295,7 +295,7 @@ export class ToolAdapterService {
     });
 
     if (!response.ok) {
-      throw new Error('Invalid GitHub token or API access denied');
+      throw new AuthenticationError('Invalid GitHub token or API access denied');
     }
   }
 

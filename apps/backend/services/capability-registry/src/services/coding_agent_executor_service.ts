@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import { WorkspaceManager } from './workspace_manager_service.js';
 
 type AgentSession = {
@@ -109,7 +109,7 @@ export class CodingAgentExecutor extends EventEmitter {
       };
 
       if (!mod.createAgentSession || !mod.AuthStorage || !mod.SessionManager) {
-        throw new Error('pi-coding-agent module is missing expected exports');
+        throw new NotFoundError('pi-coding-agent module is missing expected exports');
       }
 
       const authData: Record<string, unknown> = {};
@@ -132,7 +132,7 @@ export class CodingAgentExecutor extends EventEmitter {
 
       const workspace = await this.workspaceManager.getWorkspace(workspaceId);
       if (!workspace) {
-        throw new Error(`Workspace ${workspaceId} not found or not ready`);
+        throw new NotFoundError(`Workspace ${workspaceId} not found or not ready`);
       }
 
       const { session } = await mod.createAgentSession({
@@ -169,7 +169,7 @@ export class CodingAgentExecutor extends EventEmitter {
 
   async prompt(sessionId: string, message: string): Promise<void> {
     const entry = this.activeSessions.get(sessionId);
-    if (!entry) throw new Error(`Session ${sessionId} not found`);
+    if (!entry) throw new NotFoundError(`Session ${sessionId} not found`);
 
     logger.info('Sending prompt to coding agent', { sessionId, messageLength: message.length });
     await entry.session.prompt(message);

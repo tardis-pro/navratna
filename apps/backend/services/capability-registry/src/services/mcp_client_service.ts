@@ -4,7 +4,7 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
 import { ToolCategory } from '@uaip/types';
 import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
@@ -192,7 +192,7 @@ export class MCPClientService extends EventEmitter {
   async startServer(serverName: string): Promise<void> {
     let config = await this.loadServerConfig(serverName);
     if (!config) {
-      throw new Error(`Server configuration not found: ${serverName}`);
+      throw new NotFoundError(`Server configuration not found: ${serverName}`);
     }
 
     if (this.servers.has(serverName)) {
@@ -224,12 +224,12 @@ export class MCPClientService extends EventEmitter {
           if (!fallbackValidation.isValid) {
             const error = `Both primary and fallback commands failed for ${serverName}. ${commandValidation.suggestion}`;
             logger.error(error);
-            throw new Error(error);
+            throw new ExternalServiceError(error);
           }
         } else {
           const error = `Command '${config.command}' not found. ${commandValidation.suggestion}`;
           logger.error(`Cannot start MCP server ${serverName}: ${error}`);
-          throw new Error(error);
+          throw new ExternalServiceError(error);
         }
       }
     }
@@ -366,7 +366,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     const id = ++this.requestId;
@@ -395,7 +395,7 @@ export class MCPClientService extends EventEmitter {
           body: JSON.stringify(request),
         });
         if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+          throw new ExternalServiceError(`HTTP ${resp.status} ${resp.statusText}`);
         }
         const contentType = resp.headers.get('content-type') || '';
         let result: unknown;
@@ -404,7 +404,7 @@ export class MCPClientService extends EventEmitter {
         } else {
           const body = (await resp.json()) as JSONRPCResponse;
           if (body.error) {
-            throw new Error(`${body.error.message} (${body.error.code})`);
+            throw new ExternalServiceError(`${body.error.message} (${body.error.code})`);
           }
           result = body.result;
         }
@@ -772,7 +772,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     let jobId: string | null = null;
@@ -1313,7 +1313,7 @@ export class MCPClientService extends EventEmitter {
           const data = JSON.parse(payload) as JSONRPCResponse;
           if (data && (data.result !== undefined || data.error !== undefined)) {
             if (data.error) {
-              throw new Error(`${data.error.message} (${data.error.code})`);
+              throw new ExternalServiceError(`${data.error.message} (${data.error.code})`);
             }
             return data.result;
           }
@@ -1323,7 +1323,7 @@ export class MCPClientService extends EventEmitter {
         }
       }
     }
-    throw new Error('SSE stream ended without result');
+    throw new ExternalServiceError('SSE stream ended without result');
   }
 
   // MCP event data type helper
@@ -1811,7 +1811,7 @@ export class MCPClientService extends EventEmitter {
   async getResource(serverName: string, uri: string): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     try {
@@ -1874,7 +1874,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     try {
@@ -1929,12 +1929,12 @@ export class MCPClientService extends EventEmitter {
     try {
       const server = this.servers.get(serverName);
       if (!server || server.status !== 'running') {
-        throw new Error(`Server ${serverName} is not running`);
+        throw new ExternalServiceError(`Server ${serverName} is not running`);
       }
 
       const tool = server.tools?.find((t) => t.name === toolName);
       if (!tool) {
-        throw new Error(`Tool ${toolName} not found in server ${serverName}`);
+        throw new NotFoundError(`Tool ${toolName} not found in server ${serverName}`);
       }
 
       const toolId = `mcp:${serverName}:${toolName}`;
@@ -1947,7 +1947,7 @@ export class MCPClientService extends EventEmitter {
         // Check if agent exists
         const agent = await agentService.findAgentById(agentId);
         if (!agent) {
-          throw new Error(`Agent ${agentId} not found`);
+          throw new NotFoundError(`Agent ${agentId} not found`);
         }
 
         // Create or update tool definition
@@ -2010,7 +2010,7 @@ export class MCPClientService extends EventEmitter {
   async recoverServer(serverName: string): Promise<void> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new Error(`Server ${serverName} not found`);
+      throw new NotFoundError(`Server ${serverName} not found`);
     }
 
     logger.info(`Attempting to recover server: ${serverName}`);

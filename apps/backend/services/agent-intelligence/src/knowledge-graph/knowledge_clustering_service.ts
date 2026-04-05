@@ -2,7 +2,7 @@ import { QdrantService } from './qdrant_service.js';
 import { KnowledgeItemEntity } from '@uaip/shared-services';
 import { KnowledgeType, SourceType } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service.js';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 
 export interface KnowledgeCluster {
   clusterId: string;
@@ -121,7 +121,7 @@ export class KnowledgeClusteringService {
       // Get the reference vector using the correct API
       const referencePoints = await this.qdrantService.getPoints([vectorId]);
       if (!referencePoints || referencePoints.length === 0) {
-        throw new Error(`Vector ${vectorId} not found`);
+        throw new NotFoundError(`Vector ${vectorId} not found`);
       }
 
       const referencePoint = referencePoints[0];

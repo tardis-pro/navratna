@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { createLogger } from '@uaip/utils';
+import { createLogger, ExternalServiceError, InternalServerError } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import {
   ConversationIntelligenceEventType,
@@ -45,11 +45,11 @@ export class ConversationIntelligenceHandler {
     try {
       ciNamespace = this.io.of('/conversation_intelligence');
       if (!ciNamespace) {
-        throw new Error('Failed to create conversation intelligence namespace');
+        throw new ExternalServiceError('Failed to create conversation intelligence namespace');
       }
     } catch (error) {
       this.logger.error('Failed to create namespace:', error);
-      throw new Error(
+      throw new InternalServerError(
         'Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
         { cause: error }
       );

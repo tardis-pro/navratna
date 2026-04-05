@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
 import type {
   GitHubBranchProtectionConfig,
@@ -11,7 +11,7 @@ const GITHUB_API_BASE = 'https://api.github.com'
 function getGitHubToken(): string {
   const token = process.env.GITHUB_TOKEN
   if (!token) {
-    throw new Error('GITHUB_TOKEN environment variable is required')
+    throw new ValidationError('GITHUB_TOKEN environment variable is required')
   }
   return token
 }
@@ -78,7 +78,7 @@ export async function createStructuredPR(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
-    throw new Error(`Failed to create PR: ${response.status} ${errorBody.slice(0, 300)}`)
+    throw new ExternalServiceError(`Failed to create PR: ${response.status} ${errorBody.slice(0, 300)}`)
   }
 
   const pr = (await response.json()) as { number: number; html_url: string }
@@ -151,7 +151,7 @@ export async function configureBranchProtection(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
-    throw new Error(`Failed to configure branch protection: ${response.status} ${errorBody.slice(0, 300)}`)
+    throw new ExternalServiceError(`Failed to configure branch protection: ${response.status} ${errorBody.slice(0, 300)}`)
   }
 
   logger.info('Branch protection configured', { owner, repo, branch })

@@ -7,7 +7,7 @@ import {
   sql,
 } from '@uaip/shared-services/drizzle/clients';
 import { shortLinks } from '@uaip/shared-services/drizzle/intelligence';
-import { logger } from '@uaip/utils';
+import { logger, ConflictError, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 
@@ -101,7 +101,7 @@ export class ShortLinkService {
         .from(shortLinks)
         .where(eq(shortLinks.shortCode, shortCode))
         .limit(1);
-      if (existing.length > 0) throw new Error('Custom short code already exists');
+      if (existing.length > 0) throw new ConflictError('Custom short code already exists');
     }
 
     const hashedPassword = options.password
@@ -161,20 +161,20 @@ export class ShortLinkService {
     } = {}
   ): Promise<{ url: string; requiresPassword?: boolean }> {
     const link = await this.getShortLink(shortCode);
-    if (!link) throw new Error('Short link not found');
+    if (!link) throw new NotFoundError('Short link not found');
 
     if (link.expiresAt && new Date() > link.expiresAt) {
       await this.db
         .update(shortLinks)
         .set({ status: 'expired', updatedAt: new Date() })
         .where(eq(shortLinks.id, link.id));
-      throw new Error('Short link has expired');
+      throw new InternalServerError('Short link has expired');
     }
 
     if (link.password) {
       if (!options.password) return { url: '', requiresPassword: true };
       const match = await bcrypt.compare(options.password, link.password);
-      if (!match) throw new Error('Invalid password');
+      if (!match) throw new ValidationError('Invalid password');
     }
 
     await this.recordClick(link.id, options);
@@ -219,7 +219,7 @@ export class ShortLinkService {
 
   async updateLink(linkId: string, userId: string, updates: LinkUpdateData): Promise<ShortLink> {
     const link = await this.getLinkById(linkId, userId);
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     const [updated] = await this.db
       .update(shortLinks)
@@ -232,7 +232,7 @@ export class ShortLinkService {
 
   async deleteLink(linkId: string, userId: string): Promise<void> {
     const link = await this.getLinkById(linkId, userId);
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     await this.db
       .update(shortLinks)
@@ -252,7 +252,7 @@ export class ShortLinkService {
           .limit(1)
           .then(([r]) => r ?? null);
 
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${link.shortCode}`;
     const qrCodeDataURL = await QRCode.toDataURL(shortUrl, {
@@ -271,7 +271,7 @@ export class ShortLinkService {
 
   async getLinkAnalytics(linkId: string, userId: string): Promise<LinkAnalyticsResponse> {
     const link = await this.getLinkById(linkId, userId);
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     return {
       id: link.id,
@@ -302,7 +302,7 @@ export class ShortLinkService {
       if (existing.length === 0) return code;
     }
 
-    throw new Error('Failed to generate unique short code');
+    throw new InternalServerError('Failed to generate unique short code');
   }
 
   private async recordClick(linkId: string, clickData: ClickData): Promise<void> {

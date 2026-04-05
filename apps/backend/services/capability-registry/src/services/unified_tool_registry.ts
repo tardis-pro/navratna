@@ -8,7 +8,7 @@ import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
 import { ToolService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
-import { logger } from '@uaip/utils';
+import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
 import { z } from 'zod';
 
 // Enhanced tool definition that combines both standard and enterprise features
@@ -295,7 +295,7 @@ export class UnifiedToolRegistry {
       const existingTools = await this.toolService.findActiveTools();
       const existing = existingTools.find((t) => t.name === validated.name);
       if (existing) {
-        throw new Error(`Tool with name '${validated.name}' already exists`);
+        throw new ConflictError(`Tool with name '${validated.name}' already exists`);
       }
 
       // Create tool in database
@@ -427,11 +427,11 @@ export class UnifiedToolRegistry {
     try {
       const baseTool = await this.toolService.findToolById(toolId);
       if (!baseTool) {
-        throw new Error(`Tool ${toolId} not found`);
+        throw new NotFoundError(`Tool ${toolId} not found`);
       }
 
       if (!baseTool.isEnabled) {
-        throw new Error(`Tool ${toolId} is disabled`);
+        throw new InternalServerError(`Tool ${toolId} is disabled`);
       }
 
       // Convert to UnifiedToolDefinition for additional features
@@ -637,7 +637,7 @@ export class UnifiedToolRegistry {
   ): Promise<void> {
     // Check if tool has required operation
     if (tool.operations && !tool.operations.find((op) => op.id === operation)) {
-      throw new Error(`Operation '${operation}' not found in tool '${tool.id}'`);
+      throw new NotFoundError(`Operation '${operation}' not found in tool '${tool.id}'`);
     }
 
     // Security level validation
@@ -645,7 +645,7 @@ export class UnifiedToolRegistry {
     const requiredLevel = this.getRequiredSecurityLevel(tool.securityLevel);
 
     if (userSecurityLevel < requiredLevel) {
-      throw new Error(
+      throw new ValidationError(
         `Insufficient security level. Required: ${requiredLevel}, User: ${userSecurityLevel}`
       );
     }
@@ -670,7 +670,7 @@ export class UnifiedToolRegistry {
         const hasSufficientApproval = userIndex >= requiredIndex;
 
         if (!hasApproval || !hasSufficientApproval) {
-          throw new Error(
+          throw new ValidationError(
             `Tool '${tool.id}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
               `Current approval status: ${hasApproval ? `approved (${approvedLevel})` : 'not approved'}`
           );
@@ -687,7 +687,7 @@ export class UnifiedToolRegistry {
 
     // Approval requirement check (existing logic)
     if (tool.requiresApproval && !context.securityContext?.hasApproval) {
-      throw new Error(`Tool '${tool.id}' requires approval for execution`);
+      throw new ValidationError(`Tool '${tool.id}' requires approval for execution`);
     }
   }
 
@@ -714,7 +714,7 @@ export class UnifiedToolRegistry {
 
       // Check if limit exceeded
       if (usage.requests.length >= rateLimit.requests) {
-        throw new Error(`Rate limit exceeded for tool ${toolId}. Try again later.`);
+        throw new RateLimitError(`Rate limit exceeded for tool ${toolId}. Try again later.`);
       }
 
       // Record this request
@@ -763,7 +763,7 @@ export class UnifiedToolRegistry {
       const resultRecord = this.asRecord(result);
 
       if (!resultRecord.success) {
-        throw new Error(
+        throw new InternalServerError(
           `Sandbox execution failed: ${this.asString(resultRecord.error, 'unknown')}`
         );
       }
@@ -786,7 +786,7 @@ export class UnifiedToolRegistry {
       const executor = await this.getToolExecutor(tool);
 
       if (!executor) {
-        throw new Error(`No executor found for tool: ${tool.id}`);
+        throw new NotFoundError(`No executor found for tool: ${tool.id}`);
       }
 
       // Execute the operation
@@ -1006,7 +1006,7 @@ export class UnifiedToolRegistry {
             });
 
             if (!executionResult.success) {
-              throw new Error(executionResult.error || 'Enterprise tool execution failed');
+              throw new InternalServerError(executionResult.error || 'Enterprise tool execution failed');
             }
 
             return executionResult.data;

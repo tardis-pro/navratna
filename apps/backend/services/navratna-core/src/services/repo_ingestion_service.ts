@@ -13,7 +13,7 @@ import {
   type ServiceDefinition,
   type StructuralAnalysis,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, NotFoundError, ValidationError } from '@uaip/utils'
 import { AstSymbolExtractor } from './ast_symbol_extractor'
 import { ImportGraphService } from './import_graph_service'
 import { SemanticIndexService } from './semantic_index_service'
@@ -464,7 +464,7 @@ export class RepoIngestionService {
   async ingest(source: string): Promise<RepoContext> {
     const trimmedSource = source.trim()
     if (trimmedSource.length === 0) {
-      throw new Error('Invalid source: source is required')
+      throw new ValidationError('Invalid source: source is required')
     }
 
     const sourceIsGitUrl = isGitUrl(trimmedSource)
@@ -482,11 +482,11 @@ export class RepoIngestionService {
       } else {
         repoPath = resolve(trimmedSource)
         if (!existsSync(repoPath)) {
-          throw new Error(`Invalid source: local path does not exist (${repoPath})`)
+          throw new NotFoundError(`Invalid source: local path does not exist (${repoPath})`)
         }
 
         if (!statSync(repoPath).isDirectory()) {
-          throw new Error(`Invalid source: local path is not a directory (${repoPath})`)
+          throw new ValidationError(`Invalid source: local path is not a directory (${repoPath})`)
         }
       }
 

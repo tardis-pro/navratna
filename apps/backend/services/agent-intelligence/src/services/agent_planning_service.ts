@@ -13,7 +13,7 @@ import {
   KnowledgeType,
   SourceType,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, AuthorizationError, InternalServerError, ValidationError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { AgentIntelligenceStore } from './agent_intelligence_store.js';
@@ -565,7 +565,7 @@ export class AgentPlanningService {
       plan.estimatedDuration &&
       plan.estimatedDuration > securityContext.maxDuration
     ) {
-      throw new Error('Plan exceeds maximum allowed duration');
+      throw new ValidationError('Plan exceeds maximum allowed duration');
     }
 
     // Check step restrictions
@@ -574,7 +574,7 @@ export class AgentPlanningService {
         securityContext.restrictedStepTypes?.includes(step.type)
       );
       if (restrictedSteps.length > 0) {
-        throw new Error(
+        throw new InternalServerError(
           `Plan contains restricted step types: ${restrictedSteps.map((s) => s.type).join(', ')}`
         );
       }
@@ -582,7 +582,7 @@ export class AgentPlanningService {
 
     // Check resource constraints
     if (securityContext.maxSteps && plan.steps.length > securityContext.maxSteps) {
-      throw new Error('Plan exceeds maximum allowed steps');
+      throw new ValidationError('Plan exceeds maximum allowed steps');
     }
 
     // Validate against agent capabilities
@@ -593,7 +593,7 @@ export class AgentPlanningService {
         agent.securityContext.restrictedDomains.includes(domain)
       );
       if (restrictedDomains.length > 0) {
-        throw new Error(`Plan accesses restricted domains: ${restrictedDomains.join(', ')}`);
+        throw new AuthorizationError(`Plan accesses restricted domains: ${restrictedDomains.join(', ')}`);
       }
     }
   }

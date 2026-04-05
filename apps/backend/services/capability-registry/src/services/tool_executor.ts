@@ -5,7 +5,7 @@
 import { ToolDefinition, ToolExecution, ToolExecutionStatus } from '@uaip/types';
 import { ToolService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import { ToolRegistry } from './tool_registry.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
 
@@ -60,11 +60,11 @@ export class ToolExecutor {
     // Get tool definition
     const tool = await this.toolRegistry.getTool(toolId);
     if (!tool) {
-      throw new Error(`Tool ${toolId} not found`);
+      throw new NotFoundError(`Tool ${toolId} not found`);
     }
 
     if (!tool.isEnabled) {
-      throw new Error(`Tool ${toolId} is disabled`);
+      throw new InternalServerError(`Tool ${toolId} is disabled`);
     }
 
     // Create execution record
@@ -266,13 +266,13 @@ export class ToolExecutor {
   async retryExecution(executionId: string): Promise<ToolExecution> {
     const executionRecord = await this.toolService.getToolExecution(executionId);
     if (!executionRecord) {
-      throw new Error(`Execution ${executionId} not found`);
+      throw new NotFoundError(`Execution ${executionId} not found`);
     }
 
     const execution = executionRecord as unknown as ToolExecution;
 
     if (execution.retryCount >= execution.maxRetries) {
-      throw new Error(`Maximum retries exceeded for execution ${executionId}`);
+      throw new InternalServerError(`Maximum retries exceeded for execution ${executionId}`);
     }
 
     // Increment retry count
@@ -297,7 +297,7 @@ export class ToolExecutor {
 
     const tool = await this.toolRegistry.getTool(execution.toolId);
     if (!tool) {
-      throw new Error(`Tool ${execution.toolId} not found`);
+      throw new NotFoundError(`Tool ${execution.toolId} not found`);
     }
     return await this.performExecution(execution, tool);
   }
@@ -337,13 +337,13 @@ export class ToolExecutor {
   async approveExecution(executionId: string, approvedBy: string): Promise<ToolExecution> {
     const executionRecord = await this.toolService.getToolExecution(executionId);
     if (!executionRecord) {
-      throw new Error(`Execution ${executionId} not found`);
+      throw new NotFoundError(`Execution ${executionId} not found`);
     }
 
     const execution = executionRecord as unknown as ToolExecution;
 
     if (execution.status !== ToolExecutionStatus.APPROVAL_REQUIRED) {
-      throw new Error(`Execution ${executionId} does not require approval`);
+      throw new InternalServerError(`Execution ${executionId} does not require approval`);
     }
 
     // Update approval status
@@ -365,7 +365,7 @@ export class ToolExecutor {
     // Now execute the tool
     const tool = await this.toolRegistry.getTool(execution.toolId);
     if (!tool) {
-      throw new Error(`Tool ${execution.toolId} not found`);
+      throw new NotFoundError(`Tool ${execution.toolId} not found`);
     }
     return await this.performExecution(execution, tool);
   }

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils';
+import { logger, ConflictError, InternalServerError } from '@uaip/utils';
 import { KnowledgeItem, SourceType } from '@uaip/types';
 import { EmbeddingService } from './embedding_service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
@@ -159,7 +159,7 @@ export class ReconciliationService {
       return conflicts.slice(0, options.maxConflictsPerBatch || conflicts.length);
     } catch (error) {
       logger.error('Error detecting conflicts:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Conflict detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -291,7 +291,7 @@ export class ReconciliationService {
       };
     } catch (error) {
       logger.error('Error resolving conflicts:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Conflict resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -339,7 +339,7 @@ export class ReconciliationService {
       return mergedItems;
     } catch (error) {
       logger.error('Error merging duplicates:', error);
-      throw new Error(
+      throw new ConflictError(
         `Duplicate merging failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

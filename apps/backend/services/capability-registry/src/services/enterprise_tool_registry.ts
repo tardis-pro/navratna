@@ -4,7 +4,7 @@
  * Handles Jira, Confluence, Slack, and other enterprise tools
  */
 
-import { logger } from '@uaip/utils';
+import { logger, AuthorizationError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
 import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
@@ -73,7 +73,7 @@ export class EnterpriseToolRegistry {
         useEnterpriseMatrix
       )
     ) {
-      throw new Error(
+      throw new ValidationError(
         `Service lacks required database permissions for tool registry (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`
       );
     }
@@ -102,7 +102,7 @@ export class EnterpriseToolRegistry {
 
       // Check permissions
       if (!this.hasPermissionToRegister(tool)) {
-        throw new Error(`Insufficient permissions to register tool: ${tool.id}`);
+        throw new AuthorizationError(`Insufficient permissions to register tool: ${tool.id}`);
       }
 
       // Initialize rate limiter if configured
@@ -164,13 +164,13 @@ export class EnterpriseToolRegistry {
       // Validate tool exists
       const tool = this.tools.get(request.toolId);
       if (!tool) {
-        throw new Error(`Tool not found: ${request.toolId}`);
+        throw new NotFoundError(`Tool not found: ${request.toolId}`);
       }
 
       // Validate operation exists
       const operation = tool.operations.find((op) => op.id === request.operation);
       if (!operation) {
-        throw new Error(`Operation not found: ${request.operation}`);
+        throw new NotFoundError(`Operation not found: ${request.operation}`);
       }
 
       // Security checks
@@ -533,7 +533,7 @@ export class EnterpriseToolRegistry {
     const responseData = this.asRecord(response);
 
     if (!responseData.success) {
-      throw new Error(`Sandbox execution failed: ${String(responseData.error || 'unknown error')}`);
+      throw new InternalServerError(`Sandbox execution failed: ${String(responseData.error || 'unknown error')}`);
     }
 
     return responseData.data;
@@ -549,7 +549,7 @@ export class EnterpriseToolRegistry {
   ): Promise<unknown> {
     const adapter = this.toolInstances.get(tool.id);
     if (!adapter) {
-      throw new Error(`No adapter found for tool: ${tool.id}`);
+      throw new NotFoundError(`No adapter found for tool: ${tool.id}`);
     }
 
     const adapterExecutor = adapter as {
@@ -564,19 +564,19 @@ export class EnterpriseToolRegistry {
    */
   private validateToolDefinition(tool: ToolDefinition): void {
     if (!tool.id || !tool.name) {
-      throw new Error('Tool must have id and name');
+      throw new ValidationError('Tool must have id and name');
     }
     if (!tool.operations || tool.operations.length === 0) {
-      throw new Error('Tool must have at least one operation');
+      throw new ValidationError('Tool must have at least one operation');
     }
     if (!tool.authentication) {
-      throw new Error('Tool must define authentication method');
+      throw new ValidationError('Tool must define authentication method');
     }
     if (!tool.sandboxing) {
-      throw new Error('Tool must define sandboxing configuration');
+      throw new ValidationError('Tool must define sandboxing configuration');
     }
     if (!tool.compliance) {
-      throw new Error('Tool must define compliance configuration');
+      throw new ValidationError('Tool must define compliance configuration');
     }
   }
 
@@ -596,7 +596,7 @@ export class EnterpriseToolRegistry {
     const context = this.asRecord(securityContext);
     const level = typeof context.level === 'number' ? context.level : 0;
     if (level < operation.securityLevel) {
-      throw new Error(
+      throw new ValidationError(
         `Insufficient security level. Required: ${operation.securityLevel}, Provided: ${level}`
       );
     }
@@ -608,7 +608,7 @@ export class EnterpriseToolRegistry {
         permissions.includes(perm)
       );
       if (!hasPermissions) {
-        throw new Error('Missing required permissions');
+        throw new AuthorizationError('Missing required permissions');
       }
     }
   }
@@ -617,7 +617,7 @@ export class EnterpriseToolRegistry {
     // Implement JSON Schema validation
     // For now, basic validation
     if (!input) {
-      throw new Error('Input parameters required');
+      throw new ValidationError('Input parameters required');
     }
   }
 
@@ -625,7 +625,7 @@ export class EnterpriseToolRegistry {
     // Implement JSON Schema validation
     // For now, basic validation
     if (output === undefined || output === null) {
-      throw new Error('Tool returned no output');
+      throw new InternalServerError('Tool returned no output');
     }
   }
 
@@ -638,7 +638,7 @@ export class EnterpriseToolRegistry {
 
     const allowed = await limiter.checkLimit(userId);
     if (!allowed) {
-      throw new Error('Rate limit exceeded');
+      throw new RateLimitError('Rate limit exceeded');
     }
   }
 

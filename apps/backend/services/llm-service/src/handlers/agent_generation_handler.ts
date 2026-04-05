@@ -1,6 +1,6 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import type { AgentGenerationRequest } from '@uaip/types';
 
 export class AgentGenerationHandler {
@@ -33,11 +33,11 @@ export class AgentGenerationHandler {
       data;
 
     if (!requestId) {
-      throw new Error('RequestId is required');
+      throw new ValidationError('RequestId is required');
     }
 
     if (!messages || !Array.isArray(messages)) {
-      throw new Error('Messages array is required');
+      throw new ValidationError('Messages array is required');
     }
 
     return {
@@ -66,7 +66,7 @@ export class AgentGenerationHandler {
     const agent = await agentRepository.getActiveAgentById(agentId);
 
     if (!agent) {
-      throw new Error(`Agent ${agentId} not found`);
+      throw new NotFoundError(`Agent ${agentId} not found`);
     }
 
     logger.info('Loaded agent with persona for generation', {

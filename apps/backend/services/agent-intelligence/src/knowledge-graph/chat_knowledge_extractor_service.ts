@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { KnowledgeType, SourceType, KnowledgeItem } from '@uaip/types';
 import { ParsedConversation, ParsedMessage } from './chat_parser_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
@@ -257,7 +257,7 @@ export class ChatKnowledgeExtractorService {
       };
     } catch (error) {
       logger.error('Error extracting knowledge from conversations:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Knowledge extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

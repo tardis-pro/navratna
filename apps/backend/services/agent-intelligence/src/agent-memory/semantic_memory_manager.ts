@@ -1,6 +1,7 @@
 import { KnowledgeItem, SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
 
+import { InternalServerError } from '@uaip/utils';
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
 
@@ -43,7 +44,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     } catch (error) {
       console.error('Concept storage error:', error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to store concept: ${message}`, { cause: error });
+      throw new InternalServerError(`Failed to store concept: ${message}`, { cause: error });
     }
   }
 

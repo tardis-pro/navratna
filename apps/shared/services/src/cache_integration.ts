@@ -4,7 +4,7 @@ import { CachedUserKnowledgeService } from './cached_user_knowledge_service';
 import { CachedUserLLMProviderRepository } from './database/repositories/cached_user_l_l_m_provider_repository';
 import { CachedLLMProviderRepository } from './database/repositories/cached_l_l_m_provider_repository';
 import { KnowledgeGraphService } from './knowledge-graph/knowledge_graph_service';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 
 /**
  * Cache Integration Service
@@ -78,7 +78,7 @@ export class CacheIntegration {
    */
   public getUserService(): CachedUserService {
     if (!this.cachedUserService) {
-      throw new Error('Cache integration not initialized. Call initialize() first.');
+      throw new InternalServerError('Cache integration not initialized. Call initialize() first.');
     }
     return this.cachedUserService;
   }
@@ -88,7 +88,7 @@ export class CacheIntegration {
    */
   public getUserKnowledgeService(): CachedUserKnowledgeService {
     if (!this.cachedUserKnowledgeService) {
-      throw new Error(
+      throw new InternalServerError(
         'User knowledge service not initialized. Ensure KnowledgeGraphService is provided during initialization.'
       );
     }
@@ -100,7 +100,7 @@ export class CacheIntegration {
    */
   public getUserLLMProviderRepository(): CachedUserLLMProviderRepository {
     if (!this.cachedUserLLMProviderRepository) {
-      throw new Error('Cache integration not initialized. Call initialize() first.');
+      throw new InternalServerError('Cache integration not initialized. Call initialize() first.');
     }
     return this.cachedUserLLMProviderRepository;
   }

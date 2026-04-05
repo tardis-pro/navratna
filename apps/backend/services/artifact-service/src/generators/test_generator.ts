@@ -4,7 +4,7 @@
 import { ArtifactConversationContext } from '@uaip/types';
 
 import { ArtifactGenerator } from '../interfaces';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 
 export class TestGenerator implements ArtifactGenerator {
   private readonly supportedType = 'test';
@@ -70,7 +70,7 @@ export class TestGenerator implements ArtifactGenerator {
       return this.generateTestCode(functionName, testRequirements, language, framework);
     } catch (error) {
       logger.error('Test generation failed:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Test generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

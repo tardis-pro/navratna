@@ -11,7 +11,7 @@ import {
   EnvironmentFactors,
   KnowledgeItem,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
 import { LLMService } from '@uaip/llm-service';
@@ -101,7 +101,7 @@ export class AgentContextService {
       // Get agent data through event bus
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error('Agent not found');
+        throw new NotFoundError('Agent not found');
       }
 
       // Retrieve relevant knowledge

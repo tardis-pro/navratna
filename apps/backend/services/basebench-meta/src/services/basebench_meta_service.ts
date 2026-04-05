@@ -10,7 +10,7 @@ import type {
   BaseBenchTaskFamily,
   BaseBenchTestCase,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 
 import { baseBenchMetaCases } from '../fixtures/basebench_meta_cases.js';
 import { BaseBenchScoringService } from './basebench_scoring_service.js';
@@ -225,12 +225,12 @@ export class BaseBenchMetaService {
 
   private resolveCase(caseId?: string): BaseBenchTestCase {
     if (!caseId) {
-      throw new Error('caseId is required when testCase is not provided');
+      throw new ValidationError('caseId is required when testCase is not provided');
     }
 
     const testCase = this.cases.get(caseId);
     if (!testCase) {
-      throw new Error(`BaseBench case not found: ${caseId}`);
+      throw new NotFoundError(`BaseBench case not found: ${caseId}`);
     }
 
     return testCase;

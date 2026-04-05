@@ -5,7 +5,7 @@
  */
 
 import { Agent, AgentMetrics } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { AgentIntelligenceStore } from './agent_intelligence_store.js';
@@ -812,7 +812,7 @@ export class AgentMetricsService {
 
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 
@@ -892,7 +892,7 @@ export class AgentMetricsService {
       return value;
     }
 
-    throw new Error(`Invalid ${fieldName}: must be a string`);
+    throw new ValidationError(`Invalid ${fieldName}: must be a string`);
   }
 
   private getNumberValue(value: unknown): number | undefined {
@@ -909,7 +909,7 @@ export class AgentMetricsService {
 
   private parseTimeRange(value: unknown): { start: Date; end: Date } {
     if (!this.isRecord(value)) {
-      throw new Error('Invalid timeRange: must be an object with start and end dates');
+      throw new ValidationError('Invalid timeRange: must be an object with start and end dates');
     }
 
     const start = this.parseDate(value.start, 'timeRange.start');
@@ -929,7 +929,7 @@ export class AgentMetricsService {
       }
     }
 
-    throw new Error(`Invalid ${fieldName}: must be a valid date`);
+    throw new ValidationError(`Invalid ${fieldName}: must be a valid date`);
   }
 
   private parseMetricsOptions(value: unknown): {
@@ -977,7 +977,7 @@ export class AgentMetricsService {
     metadata?: Record<string, unknown>;
   } {
     if (!this.isRecord(value)) {
-      throw new Error('Invalid activity: must be an object');
+      throw new ValidationError('Invalid activity: must be an object');
     }
 
     const type = this.requireStringValue(value.type, 'activity.type');

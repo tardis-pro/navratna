@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { KnowledgeItem } from '@uaip/types';
 import {} from './concept_extractor_service.js';
 import { DomainOntology } from './ontology_builder_service.js';
@@ -127,7 +127,7 @@ export class TaxonomyGeneratorService {
       }
 
       if (items.length === 0) {
-        throw new Error('No knowledge items provided for taxonomy generation');
+        throw new InternalServerError('No knowledge items provided for taxonomy generation');
       }
 
       const detectedDomain = domain || this.detectDomain(items);
@@ -234,7 +234,7 @@ export class TaxonomyGeneratorService {
       };
     } catch (error) {
       logger.error('Error generating taxonomy:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Taxonomy generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

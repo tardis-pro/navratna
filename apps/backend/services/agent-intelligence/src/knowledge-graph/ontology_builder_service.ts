@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import { KnowledgeIngestRequest, KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
 import {
   ConceptExtractorService,
@@ -104,7 +104,7 @@ export class OntologyBuilderService {
       if (!items) {
         items = (await this.knowledgeRepository.findByDomain(domain)) as unknown as KnowledgeItem[];
         if (items.length === 0) {
-          throw new Error(`No knowledge items found for domain: ${domain}`);
+          throw new NotFoundError(`No knowledge items found for domain: ${domain}`);
         }
       }
 
@@ -191,7 +191,7 @@ export class OntologyBuilderService {
       };
     } catch (error) {
       logger.error(`Error building domain ontology for ${domain}:`, error);
-      throw new Error(
+      throw new InternalServerError(
         `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -476,7 +476,7 @@ export class OntologyBuilderService {
       );
     } catch (error) {
       logger.error('Error saving ontology to knowledge graph:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

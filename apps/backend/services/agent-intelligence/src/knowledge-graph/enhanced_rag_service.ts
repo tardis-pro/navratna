@@ -1,6 +1,7 @@
 import { TEIEmbeddingService, TEIHealthStatus } from './tei_embedding_service.js';
 import { QdrantService } from './qdrant_service.js';
 
+import { InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 interface _VectorSearchResult {
   id: string;
   score: number;
@@ -53,7 +54,7 @@ export class EnhancedRAGService {
     } = options;
 
     if (!query || query.trim().length === 0) {
-      throw new Error('Query cannot be empty');
+      throw new ValidationError('Query cannot be empty');
     }
 
     try {
@@ -102,7 +103,7 @@ export class EnhancedRAGService {
       return results;
     } catch (error) {
       console.error('Enhanced semantic search failed:', error);
-      throw new Error(`Semantic search failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Semantic search failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -157,7 +158,7 @@ export class EnhancedRAGService {
       await this.vectorStore.upsert(vectorDocuments);
     } catch (error) {
       console.error('Document indexing failed:', error);
-      throw new Error(`Failed to index documents: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to index documents: ${error.message}`, { cause: error });
     }
   }
 
@@ -173,7 +174,7 @@ export class EnhancedRAGService {
       // Get the document and its embedding
       const document = await this.vectorStore.getById(documentId);
       if (!document || !document.embedding) {
-        throw new Error(`Document ${documentId} not found or missing embedding`);
+        throw new NotFoundError(`Document ${documentId} not found or missing embedding`);
       }
 
       // Search for similar documents
@@ -197,7 +198,7 @@ export class EnhancedRAGService {
         }));
     } catch (error) {
       console.error('Similar documents search failed:', error);
-      throw new Error(`Failed to find similar documents: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to find similar documents: ${error.message}`, { cause: error });
     }
   }
 

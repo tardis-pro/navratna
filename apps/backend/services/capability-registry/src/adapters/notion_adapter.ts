@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError } from '@uaip/utils'
 import { BaseOAuthAdapter, type OAuthConfig, type OAuthTokens, type ToolOperation } from './base_oauth_adapter.js'
 import type {
   NotionAdapterConfig,
@@ -41,7 +41,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '<unreadable>')
       logger.error('Notion API request failed', { url, status: response.status, body: errorBody.slice(0, 500) })
-      throw new Error(`Notion API request failed: ${response.status} ${response.statusText}`)
+      throw new ExternalServiceError(`Notion API request failed: ${response.status} ${response.statusText}`)
     }
 
     return response

@@ -16,7 +16,7 @@ import { ChatParserService } from './chat_parser_service.js';
 import { ChatKnowledgeExtractorService } from './chat_knowledge_extractor_service.js';
 import { BatchProcessorService } from './batch_processor_service.js';
 import { KnowledgeGraphService } from './knowledge_graph_service.js';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, InternalServerError, NotFoundError } from '@uaip/utils';
 
 export interface BootstrapConfig {
   enableAutoSync: boolean;
@@ -192,7 +192,7 @@ export class KnowledgeBootstrapService {
   private async checkQdrantService(): Promise<void> {
     const isHealthy = await this.qdrantService.isHealthy();
     if (!isHealthy) {
-      throw new Error('Qdrant service is not healthy');
+      throw new ExternalServiceError('Qdrant service is not healthy');
     }
 
     // Ensure collection exists
@@ -204,7 +204,7 @@ export class KnowledgeBootstrapService {
     // Test Neo4j connection
     const testResult = await this.graphDb.runQuery('RETURN 1 as test', {});
     if (!testResult.records || testResult.records.length === 0) {
-      throw new Error('Neo4j service is not responding');
+      throw new ExternalServiceError('Neo4j service is not responding');
     }
     logger.info('✅ Neo4j service is ready');
   }
@@ -213,7 +213,7 @@ export class KnowledgeBootstrapService {
     // Test embedding generation
     const testEmbedding = await this.embeddingService.generateEmbedding('test');
     if (!testEmbedding || testEmbedding.length === 0) {
-      throw new Error('Embedding service is not working');
+      throw new ExternalServiceError('Embedding service is not working');
     }
     logger.info('✅ Embedding service is ready');
   }
@@ -260,7 +260,7 @@ export class KnowledgeBootstrapService {
     }
 
     // All retries failed
-    throw new Error(
+    throw new InternalServerError(
       `Universal sync failed after ${this.config.retryAttempts} attempts. Last error: ${lastError?.message}`
     );
   }
@@ -299,7 +299,7 @@ export class KnowledgeBootstrapService {
 
     const item = await this.knowledgeRepository.findById(itemId);
     if (!item) {
-      throw new Error(`Knowledge item not found: ${itemId}`);
+      throw new NotFoundError(`Knowledge item not found: ${itemId}`);
     }
 
     // Convert to entity format for sync service
@@ -307,13 +307,13 @@ export class KnowledgeBootstrapService {
     const entity = knowledgeItems.find((e) => e.id === itemId);
 
     if (!entity) {
-      throw new Error(`Knowledge item entity not found: ${itemId}`);
+      throw new NotFoundError(`Knowledge item entity not found: ${itemId}`);
     }
 
     const result = await this.syncService.syncKnowledgeItem(entity);
 
     if (!result.success) {
-      throw new Error(`Failed to sync knowledge item ${itemId}: ${result.error}`);
+      throw new InternalServerError(`Failed to sync knowledge item ${itemId}: ${result.error}`);
     }
   }
 

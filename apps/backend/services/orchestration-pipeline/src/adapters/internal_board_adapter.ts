@@ -1,7 +1,7 @@
 import { getControlDb } from '@uaip/shared-services';
 import { and, eq, sql } from '@uaip/shared-services/drizzle/clients';
 import { projects, tasks, users } from '@uaip/shared-services/drizzle/control';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import type {
   BoardConfig,
   BoardEpic,
@@ -171,7 +171,7 @@ export class InternalBoardAdapter implements BoardProvider {
     const [owner] = await db.select({ id: users.id }).from(users).limit(1);
 
     if (!owner) {
-      throw new Error('Cannot create board project: no users exist in control plane');
+      throw new InternalServerError('Cannot create board project: no users exist in control plane');
     }
 
     return owner.id;
@@ -254,7 +254,7 @@ export class InternalBoardAdapter implements BoardProvider {
       const [epic] = await db.select().from(tasks).where(eq(tasks.id, epicId)).limit(1);
 
       if (!epic) {
-        throw new Error(`Epic not found: ${epicId}`);
+        throw new NotFoundError(`Epic not found: ${epicId}`);
       }
 
       const [created] = await db
@@ -304,7 +304,7 @@ export class InternalBoardAdapter implements BoardProvider {
         .returning({ id: tasks.id });
 
       if (!updated) {
-        throw new Error(`Board item not found: ${itemId}`);
+        throw new NotFoundError(`Board item not found: ${itemId}`);
       }
 
       logger.info('Internal board item status updated', {
@@ -327,7 +327,7 @@ export class InternalBoardAdapter implements BoardProvider {
       const [story] = await db.select().from(tasks).where(eq(tasks.id, storyId)).limit(1);
 
       if (!story) {
-        throw new Error(`Story not found: ${storyId}`);
+        throw new NotFoundError(`Story not found: ${storyId}`);
       }
 
       const metadata = {

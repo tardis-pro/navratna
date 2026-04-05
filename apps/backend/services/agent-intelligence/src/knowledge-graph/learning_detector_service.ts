@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import { ParsedConversation, ParsedMessage } from './chat_parser_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
 import { EmbeddingService } from './embedding_service.js';
@@ -386,7 +386,7 @@ export class LearningDetectorService {
       return validatedMoments;
     } catch (error) {
       logger.error('Learning moment detection failed', { error: error.message });
-      throw new Error(`Learning moment detection failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Learning moment detection failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -422,7 +422,7 @@ export class LearningDetectorService {
     const participantMoments = moments.filter((m) => m.learner === participant);
 
     if (participantMoments.length === 0) {
-      throw new Error(`No learning moments found for participant: ${participant}`);
+      throw new NotFoundError(`No learning moments found for participant: ${participant}`);
     }
 
     // Sort moments by timestamp

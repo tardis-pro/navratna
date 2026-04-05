@@ -6,7 +6,7 @@
 
 import { WebSocket, WebSocketServer } from 'ws';
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, ValidationError } from '@uaip/utils';
 import { validateServiceAccess, SERVICE_ACCESS_MATRIX, AccessLevel } from '@uaip/shared-services';
 import { config } from '../config/index.js';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -127,7 +127,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Validate server parameter before creating WebSocket server
     if (!server || typeof server !== 'object' || !server.listen) {
-      throw new Error('Invalid HTTP server provided to EnterpriseWebSocketHandler');
+      throw new ValidationError('Invalid HTTP server provided to EnterpriseWebSocketHandler');
     }
 
     // Create WebSocket server with Zero Trust configuration
@@ -659,7 +659,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
       }
 
       if (!publishSuccess) {
-        throw new Error(`Failed to publish agent chat request after ${maxRetries} attempts`);
+        throw new ExternalServiceError(`Failed to publish agent chat request after ${maxRetries} attempts`);
       }
     } catch (error) {
       logger.error('Agent chat handling error', { connectionId, agentId, error });

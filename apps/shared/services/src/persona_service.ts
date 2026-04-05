@@ -16,7 +16,7 @@ import {
 } from '@uaip/types';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, InternalServerError } from '@uaip/utils';
 import { PersonaRepository } from './database/repositories/agent_repository';
 import type { Persona as PersonaRow, NewPersona } from './database/drizzle/schemas/intelligence_schema';
 
@@ -199,7 +199,7 @@ export class PersonaService {
 
       const existingPersona = await this.getPersona(id);
       if (!existingPersona) {
-        throw new Error(`Persona not found: ${id}`);
+        throw new NotFoundError(`Persona not found: ${id}`);
       }
 
       const updatedPersona = { ...existingPersona, ...updates };
@@ -217,7 +217,7 @@ export class PersonaService {
       });
 
       if (!updatedEntity) {
-        throw new Error(`Failed to update persona: ${id}`);
+        throw new InternalServerError(`Failed to update persona: ${id}`);
       }
 
       const persona = this.entityToPersona(updatedEntity);
@@ -244,7 +244,7 @@ export class PersonaService {
 
       const persona = await this.getPersona(id);
       if (!persona) {
-        throw new Error(`Persona not found: ${id}`);
+        throw new NotFoundError(`Persona not found: ${id}`);
       }
 
       const usageCount = await this.getPersonaUsageCount(id);
@@ -597,7 +597,7 @@ export class PersonaService {
     try {
       const templatePersona = await this.getPersona(templateId);
       if (!templatePersona) {
-        throw new Error(`Template persona not found: ${templateId}`);
+        throw new NotFoundError(`Template persona not found: ${templateId}`);
       }
 
       const personaRequest: CreatePersonaRequest = {

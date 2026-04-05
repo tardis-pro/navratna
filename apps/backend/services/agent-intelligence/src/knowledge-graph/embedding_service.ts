@@ -1,5 +1,6 @@
 import { ContextRequest } from '@uaip/types';
 
+import { ExternalServiceError, InternalServerError, ValidationError } from '@uaip/utils';
 export class EmbeddingService {
   protected openaiApiKey: string;
   protected embeddingModel: string;
@@ -28,14 +29,14 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        throw new ExternalServiceError(`OpenAI API error: ${response.statusText}`);
       }
 
       const data = await response.json();
       return data.data[0].embedding;
     } catch (error) {
       console.error('Embedding generation error:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to generate embedding: ${error.message}`, { cause: error });
     }
   }
 
@@ -75,7 +76,7 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        throw new ExternalServiceError(`OpenAI API error: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -181,7 +182,7 @@ export class EmbeddingService {
 
   async calculateSimilarity(embedding1: number[], embedding2: number[]): Promise<number> {
     if (embedding1.length !== embedding2.length) {
-      throw new Error('Embeddings must have the same dimension');
+      throw new ValidationError('Embeddings must have the same dimension');
     }
 
     // Calculate cosine similarity

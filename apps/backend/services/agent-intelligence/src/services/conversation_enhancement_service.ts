@@ -8,7 +8,7 @@
 
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import { Persona, Agent, AgentSchema, Discussion } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
@@ -509,7 +509,7 @@ export class ConversationEnhancementService extends EventEmitter {
           return await this.analyzeConversationPatterns(request);
 
         default:
-          throw new Error(`Unknown analysis type: ${analysisType}`);
+          throw new ValidationError(`Unknown analysis type: ${analysisType}`);
       }
     } catch (error) {
       logger.error('Failed to analyze conversation', {
@@ -535,7 +535,7 @@ export class ConversationEnhancementService extends EventEmitter {
       const persona2 = await this.getPersonaById(persona2Id);
 
       if (!persona1 || !persona2) {
-        throw new Error('One or both personas not found');
+        throw new NotFoundError('One or both personas not found');
       }
 
       // Use shared cross-breeding utility
@@ -573,7 +573,7 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       const persona = await this.getPersonaById(personaId);
       if (!persona) {
-        throw new Error(`Persona ${personaId} not found`);
+        throw new NotFoundError(`Persona ${personaId} not found`);
       }
 
       // Determine response enhancement

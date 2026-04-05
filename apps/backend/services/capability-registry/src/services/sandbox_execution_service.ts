@@ -1,5 +1,5 @@
 import { EventBusService } from '@uaip/infra';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -178,7 +178,7 @@ export class SandboxExecutionService {
           "if (operation === 'add' || operation === 'addition') value = operands.reduce((a, b) => a + Number(b || 0), 0);" +
           "else if (operation === 'multiply' || operation === 'multiplication') value = operands.reduce((a, b) => a * Number(b || 1), 1);" +
           "else if (operation === 'subtract' || operation === 'subtraction') value = operands.reduce((a, b, i) => (i === 0 ? Number(b || 0) : a - Number(b || 0)), 0);" +
-          "else if (operation === 'divide' || operation === 'division') value = operands.reduce((a, b, i) => { const n = Number(b || 0); if (i === 0) return n; if (n === 0) throw new Error('Division by zero'); return a / n; }, 0);" +
+           "else if (operation === 'divide' || operation === 'division') value = operands.reduce((a, b, i) => { const n = Number(b || 0); if (i === 0) return n; if (n === 0) throw new Error('Division by zero'); return a / n; }, 0);" +
           'else value = null;' +
           "result = { operation, operands, result: value, runtime: 'node' };" +
           "} else if (toolId === 'text-analysis') {" +
@@ -260,7 +260,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded', { cause: error });
+        throw new ExternalServiceError('Execution timeout exceeded', { cause: error });
       }
       throw error;
     }
@@ -286,7 +286,7 @@ export class SandboxExecutionService {
       const message = error instanceof Error ? error.message : String(error);
       if (message.toLowerCase().includes('timed out')) {
         execution.status = 'timeout';
-        throw new Error('Execution timeout exceeded', { cause: error });
+        throw new ExternalServiceError('Execution timeout exceeded', { cause: error });
       }
       throw error;
     }

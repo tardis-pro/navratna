@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils'
+import { logger, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
 import type {
   GitHubCheckRunPayload,
@@ -18,7 +18,7 @@ interface CICheckResult {
 function getGitHubToken(): string {
   const token = process.env.GITHUB_TOKEN
   if (!token) {
-    throw new Error('GITHUB_TOKEN environment variable is required')
+    throw new ValidationError('GITHUB_TOKEN environment variable is required')
   }
   return token
 }

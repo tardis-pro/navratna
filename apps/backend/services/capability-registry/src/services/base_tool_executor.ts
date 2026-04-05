@@ -2,7 +2,7 @@
 // Contains the core logic for executing different types of tools
 // Part of capability-registry microservice
 
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, InternalServerError, ValidationError } from '@uaip/utils';
 import { OAuthCapabilityDiscovery } from './oauth_capability_discovery.js';
 import { SlackAdapter } from '../adapters/slack_adapter.js';
 import { JiraAdapter } from '../adapters/jira_adapter.js';
@@ -48,7 +48,7 @@ export class BaseToolExecutor {
         if (toolId.startsWith('oauth-')) {
           return this.executeOAuthTool(toolId, parameters);
         }
-        throw new Error(`Unknown tool: ${toolId}`);
+        throw new InternalServerError(`Unknown tool: ${toolId}`);
     }
   }
 
@@ -59,7 +59,7 @@ export class BaseToolExecutor {
     const operands = Array.isArray(p.operands) ? p.operands.map((n) => Number(n)) : [];
 
     if (!operation || !operands || !Array.isArray(operands)) {
-      throw new Error('Math calculator requires operation and operands array');
+      throw new ValidationError('Math calculator requires operation and operands array');
     }
 
     let result: number;
@@ -83,34 +83,34 @@ export class BaseToolExecutor {
       case 'division':
         result = operands.reduce((quotient: number, num: number, index: number) => {
           if (index === 0) return num;
-          if (num === 0) throw new Error('Division by zero');
+          if (num === 0) throw new InternalServerError('Division by zero');
           return quotient / num;
         });
         break;
       case 'power':
-        if (operands.length !== 2) throw new Error('Power operation requires exactly 2 operands');
+        if (operands.length !== 2) throw new ValidationError('Power operation requires exactly 2 operands');
         result = Math.pow(operands[0], operands[1]);
         break;
       case 'sqrt':
         if (operands.length !== 1)
-          throw new Error('Square root operation requires exactly 1 operand');
-        if (operands[0] < 0) throw new Error('Cannot calculate square root of negative number');
+          throw new ValidationError('Square root operation requires exactly 1 operand');
+        if (operands[0] < 0) throw new ValidationError('Cannot calculate square root of negative number');
         result = Math.sqrt(operands[0]);
         break;
       case 'sin':
-        if (operands.length !== 1) throw new Error('Sine operation requires exactly 1 operand');
+        if (operands.length !== 1) throw new ValidationError('Sine operation requires exactly 1 operand');
         result = Math.sin(operands[0]);
         break;
       case 'cos':
-        if (operands.length !== 1) throw new Error('Cosine operation requires exactly 1 operand');
+        if (operands.length !== 1) throw new ValidationError('Cosine operation requires exactly 1 operand');
         result = Math.cos(operands[0]);
         break;
       case 'tan':
-        if (operands.length !== 1) throw new Error('Tangent operation requires exactly 1 operand');
+        if (operands.length !== 1) throw new ValidationError('Tangent operation requires exactly 1 operand');
         result = Math.tan(operands[0]);
         break;
       default:
-        throw new Error(`Unsupported math operation: ${operation}`);
+        throw new ValidationError(`Unsupported math operation: ${operation}`);
     }
 
     return {
@@ -128,7 +128,7 @@ export class BaseToolExecutor {
     const analysisType = asString(p.analysisType) ?? 'all';
 
     if (!text || typeof text !== 'string') {
-      throw new Error('Text analysis requires a text string');
+      throw new ValidationError('Text analysis requires a text string');
     }
 
     const results: Record<string, unknown> = {
@@ -295,10 +295,10 @@ export class BaseToolExecutor {
 
       case 'parse':
         const dateString = asString(p.dateString);
-        if (!dateString) throw new Error('Parse operation requires dateString parameter');
+        if (!dateString) throw new ValidationError('Parse operation requires dateString parameter');
 
         const parsed = new Date(dateString);
-        if (isNaN(parsed.getTime())) throw new Error('Invalid date string');
+        if (isNaN(parsed.getTime())) throw new ValidationError('Invalid date string');
 
         results.parsed = {
           iso: parsed.toISOString(),
@@ -313,10 +313,10 @@ export class BaseToolExecutor {
         const unit = asString(p.unit);
         const date = asString(p.date) ?? now.toISOString();
         if (!amount || !unit)
-          throw new Error('Add/subtract operations require amount and unit parameters');
+          throw new InternalServerError('Add/subtract operations require amount and unit parameters');
 
         const baseDate = new Date(date);
-        if (isNaN(baseDate.getTime())) throw new Error('Invalid base date');
+        if (isNaN(baseDate.getTime())) throw new ValidationError('Invalid base date');
 
         const multiplier = operation === 'subtract' ? -1 : 1;
         const resultDate = this.addTimeUnit(baseDate, amount * multiplier, unit);
@@ -332,11 +332,11 @@ export class BaseToolExecutor {
         const startDate = asString(p.startDate);
         const endDate = asString(p.endDate);
         if (!startDate || !endDate)
-          throw new Error('Diff operation requires startDate and endDate parameters');
+          throw new ValidationError('Diff operation requires startDate and endDate parameters');
 
         const start = new Date(startDate);
         const end = new Date(endDate);
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) throw new Error('Invalid date(s)');
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) throw new ValidationError('Invalid date(s)');
 
         const diffMs = end.getTime() - start.getTime();
         results.difference = {
@@ -349,7 +349,7 @@ export class BaseToolExecutor {
         break;
 
       default:
-        throw new Error(`Unsupported time operation: ${operation}`);
+        throw new ValidationError(`Unsupported time operation: ${operation}`);
     }
 
     return results;
@@ -364,7 +364,7 @@ export class BaseToolExecutor {
     const max = typeof p.max === 'number' ? p.max : 1000000;
 
     if (count < 1 || count > 100) {
-      throw new Error('Count must be between 1 and 100');
+      throw new ValidationError('Count must be between 1 and 100');
     }
 
     const ids: number[] = [];
@@ -395,7 +395,7 @@ export class BaseToolExecutor {
         break;
 
       default:
-        throw new Error(
+        throw new ValidationError(
           `Unsupported ID type: ${type}. Supported types: sequential, random, timestamp`
         );
     }
@@ -416,7 +416,7 @@ export class BaseToolExecutor {
     const encoding = asString(p.encoding) ?? 'utf8';
 
     if (!filePath) {
-      throw new Error('File reader requires filePath parameter');
+      throw new ValidationError('File reader requires filePath parameter');
     }
 
     // Simulate file reading (in real implementation, this would read actual files)
@@ -463,7 +463,7 @@ export class BaseToolExecutor {
     const language = asString(p.language) ?? 'en';
 
     if (!query) {
-      throw new Error('Web search requires query parameter');
+      throw new ValidationError('Web search requires query parameter');
     }
 
     // Simulate web search results
@@ -573,7 +573,7 @@ export class BaseToolExecutor {
         result.setFullYear(result.getFullYear() + amount);
         break;
       default:
-        throw new Error(`Unsupported time unit: ${unit}`);
+        throw new ValidationError(`Unsupported time unit: ${unit}`);
     }
 
     return result;
@@ -591,7 +591,7 @@ export class BaseToolExecutor {
       // Extract server name from dynamic tool ID (e.g., 'mcp-calculator-add' -> 'calculator', tool: 'add')
       const parts = toolId.split('-');
       if (parts.length < 3) {
-        throw new Error(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-server-tool`);
+        throw new ValidationError(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-server-tool`);
       }
 
       const serverName = parts[1]; // e.g., 'calculator'
@@ -613,7 +613,7 @@ export class BaseToolExecutor {
     } catch (error) {
       logger.error(`MCP tool execution failed for ${toolId}:`, error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`MCP execution failed: ${message}`, { cause: error });
+      throw new ExternalServiceError(`MCP execution failed: ${message}`, { cause: error });
     }
   }
 
@@ -625,7 +625,7 @@ export class BaseToolExecutor {
       // Extract provider and action from tool ID (e.g., 'oauth-github-list-repos' -> 'github', 'list-repos')
       const parts = toolId.split('-');
       if (parts.length < 3) {
-        throw new Error(`Invalid OAuth tool ID format: ${toolId}. Expected: oauth-provider-action`);
+        throw new ValidationError(`Invalid OAuth tool ID format: ${toolId}. Expected: oauth-provider-action`);
       }
 
       const provider = parts[1]; // e.g., 'github'
@@ -671,7 +671,7 @@ export class BaseToolExecutor {
     } catch (error) {
       logger.error(`OAuth tool execution failed for ${toolId}:`, error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`OAuth execution failed: ${message}`, { cause: error });
+      throw new ExternalServiceError(`OAuth execution failed: ${message}`, { cause: error });
     }
   }
 
@@ -702,7 +702,7 @@ export class BaseToolExecutor {
         return adapter.execute(this.toCamelCase(action), parameters);
       }
       default:
-        throw new Error(`Unsupported OAuth provider: ${provider}`);
+        throw new ValidationError(`Unsupported OAuth provider: ${provider}`);
     }
   }
 
@@ -788,7 +788,7 @@ export class BaseToolExecutor {
         url = 'https://api.github.com/user';
         break;
       default:
-        throw new Error(`Unsupported GitHub OAuth action: ${action}`);
+        throw new ValidationError(`Unsupported GitHub OAuth action: ${action}`);
     }
 
     const response = await fetch(url, {
@@ -803,7 +803,7 @@ export class BaseToolExecutor {
         typeof responseBody?.message === 'string'
           ? responseBody.message
           : 'GitHub API request failed';
-      throw new Error(`GitHub API error (${response.status}): ${errorMessage}`);
+      throw new ExternalServiceError(`GitHub API error (${response.status}): ${errorMessage}`);
     }
 
     return responseBody;
@@ -833,7 +833,7 @@ export class BaseToolExecutor {
 
   private requiredString(value: unknown, key: string): string {
     if (typeof value !== 'string' || value.length === 0) {
-      throw new Error(`Missing required OAuth parameter: ${key}`);
+      throw new ValidationError(`Missing required OAuth parameter: ${key}`);
     }
     return value;
   }

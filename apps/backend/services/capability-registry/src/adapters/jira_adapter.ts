@@ -5,7 +5,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra';
 import type { JiraOperationOutcome, JiraOperationStatus } from '@uaip/types';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
@@ -107,7 +107,7 @@ export class JiraAdapter {
         case 'addComment':
           return await this.addComment(parameters);
         default:
-          throw new Error(`Unknown operation: ${operationId}`);
+          throw new InternalServerError(`Unknown operation: ${operationId}`);
       }
     } catch (error) {
       logger.error('Jira operation failed', { error, operationId });
@@ -148,7 +148,7 @@ export class JiraAdapter {
   private async updateIssue(parameters: unknown): Promise<unknown> {
     const { issueIdOrKey, fields, notifyUsers = true } = (parameters as JiraUpdateParams) ?? {};
     if (!issueIdOrKey || !fields) {
-      throw new Error('updateIssue requires issueIdOrKey and fields');
+      throw new ValidationError('updateIssue requires issueIdOrKey and fields');
     }
 
     const _response = await this.axiosInstance.put(
@@ -215,7 +215,7 @@ export class JiraAdapter {
   private async getActiveSprint(parameters: unknown): Promise<unknown> {
     const { projectKey } = (parameters as JiraSprintParams) ?? {};
     if (!projectKey) {
-      throw new Error('getActiveSprint requires projectKey');
+      throw new ValidationError('getActiveSprint requires projectKey');
     }
 
     // First, get the board ID for the project
@@ -263,7 +263,7 @@ export class JiraAdapter {
   private async addComment(parameters: unknown): Promise<unknown> {
     const { issueIdOrKey, body } = (parameters as JiraCommentParams) ?? {};
     if (!issueIdOrKey || !body) {
-      throw new Error('addComment requires issueIdOrKey and body');
+      throw new ValidationError('addComment requires issueIdOrKey and body');
     }
 
     const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/comment`, { body });
@@ -364,7 +364,7 @@ export class JiraAdapter {
       const refreshToken = process.env.JIRA_REFRESH_TOKEN;
 
       if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Jira OAuth2 credentials not configured');
+        throw new InternalServerError('Jira OAuth2 credentials not configured');
       }
 
       // Exchange refresh token for access token
@@ -392,7 +392,7 @@ export class JiraAdapter {
       });
     } catch (error) {
       logger.error('Jira authentication failed', { error });
-      throw new Error('Failed to authenticate with Jira', { cause: error });
+      throw new AuthenticationError('Failed to authenticate with Jira', { cause: error });
     }
   }
 
@@ -401,7 +401,7 @@ export class JiraAdapter {
    */
   private async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken) {
-      throw new Error('No refresh token available');
+      throw new AuthenticationError('No refresh token available');
     }
 
     try {
@@ -437,7 +437,7 @@ export class JiraAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Jira token', { cause: error });
+      throw new AuthenticationError('Failed to refresh Jira token', { cause: error });
     }
   }
 

@@ -5,7 +5,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
 interface ConfluenceCreatePageParams {
@@ -119,7 +119,7 @@ export class ConfluenceAdapter {
         case 'addAttachment':
           return await this.addAttachment(parameters);
         default:
-          throw new Error(`Unknown operation: ${operationId}`);
+          throw new InternalServerError(`Unknown operation: ${operationId}`);
       }
     } catch (error) {
       logger.error('Confluence operation failed', { error, operationId });
@@ -195,7 +195,7 @@ export class ConfluenceAdapter {
       message = 'Updated via API',
     } = (parameters as ConfluenceUpdatePageParams) ?? {};
     if (!pageId) {
-      throw new Error('updatePage requires pageId');
+      throw new ValidationError('updatePage requires pageId');
     }
 
     // Get current page version if not provided
@@ -295,7 +295,7 @@ export class ConfluenceAdapter {
     const { pageId, expand = ['version', 'space', 'body.storage', 'metadata.labels'] } =
       (parameters as ConfluenceGetPageParams) ?? {};
     if (!pageId) {
-      throw new Error('getPage requires pageId');
+      throw new ValidationError('getPage requires pageId');
     }
 
     const response = await this.axiosInstance.get(`/content/${pageId}`, {
@@ -317,7 +317,7 @@ export class ConfluenceAdapter {
       comment = 'File attached via API',
     } = (parameters as ConfluenceAttachmentParams) ?? {};
     if (!pageId || !file) {
-      throw new Error('addAttachment requires pageId and file');
+      throw new ValidationError('addAttachment requires pageId and file');
     }
 
     const formData = new FormData();
@@ -378,7 +378,7 @@ export class ConfluenceAdapter {
       const refreshToken = process.env.CONFLUENCE_REFRESH_TOKEN;
 
       if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Confluence OAuth2 credentials not configured');
+        throw new InternalServerError('Confluence OAuth2 credentials not configured');
       }
 
       // Exchange refresh token for access token
@@ -406,7 +406,7 @@ export class ConfluenceAdapter {
       });
     } catch (error) {
       logger.error('Confluence authentication failed', { error });
-      throw new Error('Failed to authenticate with Confluence', { cause: error });
+      throw new AuthenticationError('Failed to authenticate with Confluence', { cause: error });
     }
   }
 
@@ -415,7 +415,7 @@ export class ConfluenceAdapter {
    */
   private async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken) {
-      throw new Error('No refresh token available');
+      throw new AuthenticationError('No refresh token available');
     }
 
     try {
@@ -451,7 +451,7 @@ export class ConfluenceAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Confluence token', { cause: error });
+      throw new AuthenticationError('Failed to refresh Confluence token', { cause: error });
     }
   }
 

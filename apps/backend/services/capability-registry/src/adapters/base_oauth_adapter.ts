@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, ExternalServiceError, NotFoundError } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 
 export interface OAuthConfig {
@@ -79,7 +79,7 @@ export abstract class BaseOAuthAdapter {
       });
 
       if (!response.ok) {
-        throw new Error(`Token exchange failed: ${response.statusText}`);
+        throw new AuthenticationError(`Token exchange failed: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -116,7 +116,7 @@ export abstract class BaseOAuthAdapter {
       });
 
       if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.statusText}`);
+        throw new AuthenticationError(`Token refresh failed: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -143,7 +143,7 @@ export abstract class BaseOAuthAdapter {
   ): Promise<unknown> {
     const operation = this.operations.get(operationId);
     if (!operation) {
-      throw new Error(`Operation ${operationId} not found`);
+      throw new NotFoundError(`Operation ${operationId} not found`);
     }
 
     // Check if token needs refresh
@@ -181,7 +181,7 @@ export abstract class BaseOAuthAdapter {
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      throw new ExternalServiceError(`API request failed: ${response.status} ${response.statusText}`);
     }
 
     return response;
