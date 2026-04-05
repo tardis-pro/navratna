@@ -222,7 +222,7 @@ export class DriftDetectionService {
         .limit(500)
 
       const symbols = rows.map((r) => {
-        const meta = typeof r.metadata === 'object' && r.metadata !== null ? r.metadata as Record<string, unknown> : null
+        const meta = typeof r.metadata === 'object' && r.metadata !== null && !Array.isArray(r.metadata) ? r.metadata : null
         return {
           name: typeof meta?.title === 'string' ? meta.title : '',
           file: typeof meta?.file === 'string' ? meta.file : '',

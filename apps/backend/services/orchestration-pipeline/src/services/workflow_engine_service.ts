@@ -119,7 +119,8 @@ export class WorkflowEngineService {
 
   private getQueue(): RepeatableQueue {
     // @ts-expect-error -- getOrCreateQueue is an internal BullMQ extension not in the EventBusService public interface
-    return (this.eventBusService as EventBusWithInternalQueue).getOrCreateQueue(WORKFLOW_QUEUE_EVENT);
+    const bus: EventBusWithInternalQueue = this.eventBusService;
+    return bus.getOrCreateQueue(WORKFLOW_QUEUE_EVENT);
   }
 
   private buildRepeatOptions(definition: WorkflowDefinition): RepeatOptions | null {

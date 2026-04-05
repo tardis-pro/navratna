@@ -1,4 +1,13 @@
 import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+type JiraSyncPayload = { issueKey?: string; status?: StoryStatus };
+function isJiraSyncPayload(v: unknown): v is JiraSyncPayload {
+  return isRecord(v);
+}
 import { EventBusService } from '@uaip/infra'
 import type {
   JiraWebhookPayload,
@@ -214,13 +223,12 @@ export function initJiraSyncEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('rdlo.story.status.changed', async (data: unknown) => {
-      if (typeof data !== 'object' || data === null) return;
-      const payload = data as { issueKey?: string; status?: StoryStatus }
-      if (payload.issueKey && payload.status) {
-        await syncStatusToJira(payload.issueKey, payload.status).catch((error) => {
+      if (!isJiraSyncPayload(data)) return;
+      if (data.issueKey && data.status) {
+        await syncStatusToJira(data.issueKey, data.status).catch((error) => {
           logger.error('Bidirectional Jira sync failed', {
             error: error instanceof Error ? error.message : String(error),
-            issueKey: payload.issueKey,
+            issueKey: data.issueKey,
           })
         })
       }

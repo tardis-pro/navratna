@@ -129,12 +129,15 @@ type TaskSharedInput = {
 
 type AssigneeType = 'human' | 'agent';
 
+function isAssigneeType(value: string | undefined): value is AssigneeType {
+  return value === 'human' || value === 'agent';
+}
+
 function buildSharedTaskFields(v: TaskSharedInput) {
-  const validAssigneeTypes = new Set<string>(['human', 'agent']);
   return {
     priority: v.priority,
     type: v.type,
-    assigneeType: (v.assigneeType && validAssigneeTypes.has(v.assigneeType) ? v.assigneeType : undefined) as AssigneeType | undefined,
+    assigneeType: isAssigneeType(v.assigneeType) ? v.assigneeType : undefined,
     assignedToUserId: v.assignedToUserId,
     assignedToAgentId: v.assignedToAgentId,
     dueDate: v.dueDate ? new Date(v.dueDate) : undefined,

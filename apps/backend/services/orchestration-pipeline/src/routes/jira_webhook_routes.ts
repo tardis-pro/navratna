@@ -55,13 +55,16 @@ const jiraWebhookBodySchema = z.object({
   changelog: jiraWebhookChangelogSchema.optional(),
 })
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 function isJiraWebhookPayload(data: unknown): data is JiraWebhookPayload {
-  if (typeof data !== 'object' || data === null) return false
-  const d = data as Record<string, unknown>
+  if (!isRecord(data)) return false
   return (
-    typeof d['webhookEvent'] === 'string' &&
-    typeof d['timestamp'] === 'number' &&
-    typeof d['user'] === 'object' && d['user'] !== null
+    typeof data['webhookEvent'] === 'string' &&
+    typeof data['timestamp'] === 'number' &&
+    typeof data['user'] === 'object' && data['user'] !== null
   )
 }
 

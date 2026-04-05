@@ -32,6 +32,18 @@ import {
   SetupProjectWorkspaceWorkflow,
 } from './workflows/setup_project_workspace_workflow.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isEventMessage(v: unknown): v is EventMessage {
+  return isRecord(v);
+}
+
+function isSetupProjectWorkspaceInput(v: unknown): v is SetupProjectWorkspaceInput {
+  return isRecord(v) && typeof v['projectId'] === 'string' && typeof v['userId'] === 'string';
+}
+
 export class OrchestrationEngine extends EventEmitter {
   private validator: OperationValidator;
   private stepExecutionManager: StepExecutionManager;
@@ -246,16 +258,12 @@ export class OrchestrationEngine extends EventEmitter {
 
   private extractSetupProjectWorkspaceInput(operation: Operation): SetupProjectWorkspaceInput {
     // @ts-expect-error -- workspaceSetupInput is a runtime extension of Operation not in the static type
-    const fromTopLevel = operation.workspaceSetupInput as SetupProjectWorkspaceInput | undefined;
-    if (fromTopLevel) return fromTopLevel;
+    const fromTopLevel: unknown = operation.workspaceSetupInput;
+    if (isSetupProjectWorkspaceInput(fromTopLevel)) return fromTopLevel;
 
     const ctx = operation.context;
-    const fromContext = (
-      typeof ctx === 'object' && ctx !== null && 'workspaceSetupInput' in ctx
-        ? (ctx as Record<string, unknown>)['workspaceSetupInput']
-        : undefined
-    ) as SetupProjectWorkspaceInput | undefined;
-    if (fromContext) return fromContext;
+    const fromContext = isRecord(ctx) ? ctx['workspaceSetupInput'] : undefined;
+    if (isSetupProjectWorkspaceInput(fromContext)) return fromContext;
 
     throw new OperationError('Missing workspace setup input', 'VALIDATION_ERROR');
   }
@@ -476,31 +484,28 @@ export class OrchestrationEngine extends EventEmitter {
     await this.eventBusService.subscribe(
       'operation.command.pause',
       async (event: EventBusMessage) => {
-        if (typeof event.data !== 'object' || event.data === null) return;
-        const data = event.data as EventMessage;
-        await this.pauseOperation(data.operationId!, data.reason);
+        if (!isEventMessage(event.data)) return;
+        await this.pauseOperation(event.data.operationId!, event.data.reason);
       }
     );
 
     await this.eventBusService.subscribe(
       'operation.command.resume',
       async (event: EventBusMessage) => {
-        if (typeof event.data !== 'object' || event.data === null) return;
-        const data = event.data as EventMessage;
-        await this.resumeOperation(data.operationId!, data.checkpointId);
+        if (!isEventMessage(event.data)) return;
+        await this.resumeOperation(event.data.operationId!, event.data.checkpointId);
       }
     );
 
     await this.eventBusService.subscribe(
       'operation.command.cancel',
       async (event: EventBusMessage) => {
-        if (typeof event.data !== 'object' || event.data === null) return;
-        const data = event.data as EventMessage;
+        if (!isEventMessage(event.data)) return;
         await this.cancelOperation(
-          data.operationId!,
-          data.reason,
-          data.compensate ?? false,
-          data.force ?? false
+          event.data.operationId!,
+          event.data.reason,
+          typeof event.data.compensate === 'boolean' ? event.data.compensate : false,
+          typeof event.data.force === 'boolean' ? event.data.force : false
         );
       }
     );

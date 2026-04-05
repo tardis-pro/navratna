@@ -366,7 +366,11 @@ export class StepExecutionManager extends EventEmitter {
 
   private toRecord(value: unknown): Record<string, unknown> {
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      return value as Record<string, unknown>
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) {
+        result[k] = v;
+      }
+      return result;
     }
 
     return {}
@@ -375,10 +379,9 @@ export class StepExecutionManager extends EventEmitter {
   private getNestedProperty(obj: Record<string, unknown>, path: string[]): unknown {
     return path.reduce<unknown>(
       (current, prop) => {
-        if (typeof current === 'object' && current !== null) {
-          return (current as Record<string, unknown>)[prop];
-        }
-        return undefined;
+        if (typeof current !== 'object' || current === null || Array.isArray(current)) return undefined;
+        const rec: Record<string, unknown> = Object.fromEntries(Object.entries(current));
+        return rec[prop];
       },
       obj
     );
@@ -422,8 +425,9 @@ export class StepExecutionManager extends EventEmitter {
 
     for (const segment of segments) {
       if (current === null || current === undefined) return undefined;
-      if (typeof current !== 'object') return undefined;
-      current = (current as Record<string, unknown>)[segment];
+      if (typeof current !== 'object' || Array.isArray(current)) return undefined;
+      const rec: Record<string, unknown> = Object.fromEntries(Object.entries(current));
+      current = rec[segment];
     }
 
     return current;

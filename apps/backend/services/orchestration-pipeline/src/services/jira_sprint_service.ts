@@ -1,4 +1,8 @@
 import { logger, ExternalServiceError, NotFoundError, ValidationError } from '@uaip/utils'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 import type { JiraSprintConfig, JiraPriorityMapping } from '@uaip/types'
 
 interface JiraSprintServiceConfig {
@@ -120,10 +124,9 @@ export async function assignToSprint(sprintId: number, issueKeys: string[]): Pro
       headers: { 'Accept': 'application/json', 'Authorization': authHeader },
     })
     if (response.ok) {
-      const rawData = await response.json()
-      const data = typeof rawData === 'object' && rawData !== null && 'id' in rawData ? rawData as { id: string } : null
-      if (!data) continue
-      issueIds.push(data.id)
+      const rawData: unknown = await response.json()
+      if (!isRecord(rawData) || typeof rawData['id'] !== 'string') continue
+      issueIds.push(rawData['id'])
     }
   }
 
