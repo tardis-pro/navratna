@@ -121,7 +121,6 @@ export class OAuthProviderService {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
-        // @ts-expect-error -- Argument type mismatch
         this.providers.set(provider.id, provider as unknown);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
@@ -159,10 +158,9 @@ export class OAuthProviderService {
         revokeUrl: (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl,
         isEnabled: providerConfig.isEnabled || true,
       });
-      // @ts-expect-error -- Argument type mismatch
       this.providers.set(savedProvider.id, savedProvider as unknown);
 
-      const savedProviderAgentCfg = savedProvider.agentConfig as OAuthProviderAgentConfig | undefined;
+      const savedProviderAgentCfg = savedProvider.configuration as OAuthProviderAgentConfig | undefined;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
         details: {
@@ -265,8 +263,6 @@ export class OAuthProviderService {
         codeVerifier: codeVerifier,
       });
 
-      // Build authorization URL with proper parameters
-      // @ts-expect-error -- Argument type mismatch
       const params = new URLSearchParams({
         client_id: provider.clientId,
         redirect_uri: redirectUri,
@@ -320,24 +316,17 @@ export class OAuthProviderService {
         throw new ApiError(400, 'Invalid or expired OAuth state', 'INVALID_STATE');
       }
 
-      // Map entity to expected format
       const oauthState: OAuthState = {
-        // @ts-expect-error -- Type not assignable
         state: oauthStateEntity.state,
-        // @ts-expect-error -- Type not assignable
         providerId: oauthStateEntity.providerId,
-        // @ts-expect-error -- Type not assignable
-        redirectUri: oauthStateEntity.redirectUri,
-        // @ts-expect-error -- Type not assignable
-        codeVerifier: oauthStateEntity.codeVerifier,
-        scope: [], // This will be set from provider
-        // @ts-expect-error -- Type not assignable
-        userType: oauthStateEntity.userType,
-        // @ts-expect-error -- Missing properties in type
-        agentCapabilities: oauthStateEntity.agentCapabilities,
-        // @ts-expect-error -- Missing properties in type
+        redirectUri: oauthStateEntity.redirectUrl,
+        codeVerifier: (oauthStateEntity.metadata as Record<string, unknown>)?.codeVerifier as string | undefined,
+        scope: [],
+        // @ts-expect-error -- Drizzle OAuthState has no userType; stored in metadata
+        userType: (oauthStateEntity.metadata as Record<string, unknown>)?.userType,
+        // @ts-expect-error -- Drizzle OAuthState has no agentCapabilities; stored in metadata
+        agentCapabilities: (oauthStateEntity.metadata as Record<string, unknown>)?.agentCapabilities,
         createdAt: oauthStateEntity.createdAt,
-        // @ts-expect-error -- Missing properties in type
         expiresAt: oauthStateEntity.expiresAt,
       };
 
@@ -605,12 +594,11 @@ export class OAuthProviderService {
   ): Promise<AgentOAuthConnection | null> {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
-      if (!connection || !connection.isActive) {
+      if (!connection) {
         return null;
       }
 
-      // Check token expiration and refresh if needed
-      if (connection.tokenExpiresAt && connection.tokenExpiresAt < new Date()) {
+      if (connection.expiresAt && connection.expiresAt < new Date()) {
         return await this.refreshAgentToken(connection);
       }
 
@@ -920,7 +908,6 @@ export class OAuthProviderService {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
       if (connection) {
-        // @ts-expect-error -- Argument type mismatch
         await this.oauthService.deactivateOAuthConnection(connection.id);
         return true;
       }

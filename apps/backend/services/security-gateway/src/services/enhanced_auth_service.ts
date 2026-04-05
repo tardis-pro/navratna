@@ -373,11 +373,11 @@ export class EnhancedAuthService {
         throw new ApiError(400, 'Invalid or expired MFA challenge', 'INVALID_MFA_CHALLENGE');
       }
 
-      if (challenge.isVerified) {
+      if (challenge.verifiedAt !== null) {
         throw new ApiError(400, 'MFA challenge already verified', 'CHALLENGE_ALREADY_VERIFIED');
       }
 
-      if (challenge.attempts >= challenge.maxAttempts) {
+      if (challenge.attempts >= 5) {
         throw new ApiError(400, 'Maximum MFA attempts exceeded', 'MAX_ATTEMPTS_EXCEEDED');
       }
 
@@ -385,11 +385,12 @@ export class EnhancedAuthService {
       await this.mfaService.incrementAttempts(challengeId);
 
       // Verify response based on method
-      // @ts-expect-error -- Argument type mismatch
-      const decryptedChallenge = await this.decryptChallenge(challenge.challenge);
+      const decryptedChallenge = await this.decryptChallenge(
+        (challenge.challengeData as Record<string, unknown>)?.challenge as string
+      );
       let verified = false;
 
-      switch (challenge.method) {
+      switch (challenge.challengeType as MFAMethod) {
         case MFAMethod.TOTP:
           verified = this.verifyTOTPResponse(response, decryptedChallenge);
           break;
@@ -403,42 +404,37 @@ export class EnhancedAuthService {
 
       if (verified) {
         // Mark challenge as verified using the MFA service verify method
-        // @ts-expect-error -- Argument type mismatch
         await this.mfaService.verifyMFAChallenge(challenge.userId, response);
 
         // Update session to mark MFA as verified
-        // @ts-expect-error -- Argument type mismatch
-        const session = await this.sessionService.findSession(challenge.sessionId);
+        const sessionId = (challenge.challengeData as Record<string, unknown>)?.sessionId as string | undefined;
+        const session = sessionId ? await this.sessionService.findSessionById(sessionId) : null;
         if (session) {
-          session.mfaVerified = true;
-          // @ts-expect-error -- Argument type mismatch
-          await this.sessionService.updateSession(session.id, session);
+          await this.sessionService.updateSession(session.id, { mfaVerified: true });
         }
 
         await this.auditService.logEvent({
           eventType: AuditEventType.MFA_SUCCESS,
-          // @ts-expect-error -- Type not assignable
           userId: challenge.userId,
           details: {
-            method: challenge.method,
+            method: challenge.challengeType,
             challengeId,
           },
         });
 
         logger.info('MFA challenge verified successfully', {
           userId: challenge.userId,
-          method: challenge.method,
+          method: challenge.challengeType,
           challengeId,
         });
 
-        return { verified: true, session };
+        return { verified: true, session: session as unknown as Session };
       } else {
         await this.auditService.logEvent({
           eventType: AuditEventType.MFA_FAILED,
-          // @ts-expect-error -- Type not assignable
           userId: challenge.userId,
           details: {
-            method: challenge.method,
+            method: challenge.challengeType,
             challengeId,
             attempts: challenge.attempts,
           },
@@ -465,7 +461,6 @@ export class EnhancedAuthService {
         throw new ApiError(401, 'Invalid or inactive session', 'INVALID_SESSION');
       }
 
-      // @ts-expect-error -- Argument type mismatch
       const user = await this.userService.findUserById(session.userId);
       if (!user) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
@@ -477,33 +472,24 @@ export class EnhancedAuthService {
       // Build enhanced security context
       const securityContext: EnhancedSecurityContext = {
         userId: user.id,
-        // @ts-expect-error -- Type not assignable
         sessionId: session.id,
         userType: user.userType,
-        // @ts-expect-error -- Type not assignable
-        ipAddress: session.ipAddress,
-        // @ts-expect-error -- Type not assignable
-        userAgent: session.userAgent,
+        ipAddress: session.ipAddress ?? undefined,
+        userAgent: session.userAgent ?? undefined,
         department: user.department,
         role: user.role,
         permissions: Array.isArray(permissions)
           ? permissions.map((p: PermissionEntry) => (typeof p === 'string' ? p : (p.resource ?? '')))
           : [],
         securityLevel: user.securityClearance,
-        // @ts-expect-error -- Missing properties in type
         lastAuthentication: session.createdAt,
-        // @ts-expect-error -- Type not assignable
         mfaVerified: session.mfaVerified,
-        // @ts-expect-error -- Type not assignable
-        riskScore: session.riskScore,
-        // @ts-expect-error -- Type not assignable
+        riskScore: Number(session.riskScore),
         authenticationMethod: session.authenticationMethod,
-        // @ts-expect-error -- Type not assignable
-        oauthProvider: session.oauthProvider,
-        // @ts-expect-error -- Missing properties in type
-        agentCapabilities: session.agentCapabilities,
+        oauthProvider: session.oauthProvider ?? undefined,
+        agentCapabilities: session.agentCapabilities ?? undefined,
         deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust)?.isTrusted ?? false,
-        locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session),
+        locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session as unknown as Session),
         agentContext:
           user.userType === UserType.AGENT
             ? {
@@ -623,7 +609,7 @@ export class EnhancedAuthService {
     ipAddress?: string,
     userAgent?: string,
     agentCapabilities?: AgentCapability[]
-  ): Promise<Session> {
+  ) {
     const session: Session = {
       id: crypto.randomUUID(),
       userId: user.id,
@@ -644,11 +630,13 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return await this.sessionService.createSession(user.id, session.sessionToken, {
+    const created = await this.sessionService.createSession(user.id, session.sessionToken, {
       deviceInfo: session.deviceInfo,
       agentCapabilities: session.agentCapabilities,
       metadata: session.metadata,
     });
+    // Drizzle returns riskScore as string (decimal); normalize to number for @uaip/types Session
+    return { ...created, riskScore: Number(created.riskScore) } as Session;
   }
 
   private async generateJWTTokens(
@@ -733,9 +721,10 @@ export class EnhancedAuthService {
       );
       return connection !== null;
     }
-    // Fallback: check through database
+    // Fallback: check through database — Drizzle AgentOAuthConnection has no providerType/isActive;
+    // check for any non-expired connection (provider matching is done at the service level)
     const providers = await this.oauthDomainService.findAgentOAuthConnections(agentId);
-    return providers.some((p) => p.providerType === providerType && p.isActive);
+    return providers.some((p) => !p.expiresAt || p.expiresAt > new Date());
   }
 
   private isLocationTrusted(user: EnhancedUser, session: Session): boolean {
