@@ -43,7 +43,8 @@ export class DevLoopOrchestrator {
     await this.eventBusService.subscribe(
       `${DEVLOOP_CHECKPOINT_PREFIX}.resume`,
       async (event: EventBusMessage) => {
-        const loopId = (event.data as Record<string, unknown>)?.loopId as string | undefined
+        const eventData = typeof event.data === 'object' && event.data !== null ? event.data as Record<string, unknown> : null
+        const loopId = typeof eventData?.loopId === 'string' ? eventData.loopId : undefined
         if (loopId && this.activeLoops.has(loopId)) {
           const state = this.activeLoops.get(loopId)!
           if (state.status === 'paused') {

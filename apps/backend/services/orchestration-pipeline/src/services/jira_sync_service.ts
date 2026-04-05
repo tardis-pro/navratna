@@ -111,7 +111,7 @@ export async function syncStatusToJira(issueKey: string, status: StoryStatus): P
     throw new ExternalServiceError(`Failed to get transitions for ${issueKey}: ${transitionsResponse.status}`)
   }
 
-  const transitionsData = (await transitionsResponse.json()) as {
+  const transitionsData = await transitionsResponse.json() as {
     transitions: Array<{ id: string; name: string }>
   }
 
@@ -214,7 +214,8 @@ export function initJiraSyncEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('rdlo.story.status.changed', async (data: unknown) => {
-      const payload = data as { issueKey: string; status: StoryStatus }
+      if (typeof data !== 'object' || data === null) return;
+      const payload = data as { issueKey?: string; status?: StoryStatus }
       if (payload.issueKey && payload.status) {
         await syncStatusToJira(payload.issueKey, payload.status).catch((error) => {
           logger.error('Bidirectional Jira sync failed', {

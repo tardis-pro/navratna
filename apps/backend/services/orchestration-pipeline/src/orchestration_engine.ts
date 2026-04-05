@@ -245,16 +245,16 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private extractSetupProjectWorkspaceInput(operation: Operation): SetupProjectWorkspaceInput {
-    const fromTopLevel = (
-      operation as unknown as { workspaceSetupInput?: SetupProjectWorkspaceInput }
-    ).workspaceSetupInput;
+    // @ts-expect-error -- workspaceSetupInput is a runtime extension of Operation not in the static type
+    const fromTopLevel = operation.workspaceSetupInput as SetupProjectWorkspaceInput | undefined;
     if (fromTopLevel) return fromTopLevel;
 
+    const ctx = operation.context;
     const fromContext = (
-      operation.context as unknown as {
-        workspaceSetupInput?: SetupProjectWorkspaceInput;
-      }
-    )?.workspaceSetupInput;
+      typeof ctx === 'object' && ctx !== null && 'workspaceSetupInput' in ctx
+        ? (ctx as Record<string, unknown>)['workspaceSetupInput']
+        : undefined
+    ) as SetupProjectWorkspaceInput | undefined;
     if (fromContext) return fromContext;
 
     throw new OperationError('Missing workspace setup input', 'VALIDATION_ERROR');
@@ -476,6 +476,7 @@ export class OrchestrationEngine extends EventEmitter {
     await this.eventBusService.subscribe(
       'operation.command.pause',
       async (event: EventBusMessage) => {
+        if (typeof event.data !== 'object' || event.data === null) return;
         const data = event.data as EventMessage;
         await this.pauseOperation(data.operationId!, data.reason);
       }
@@ -484,6 +485,7 @@ export class OrchestrationEngine extends EventEmitter {
     await this.eventBusService.subscribe(
       'operation.command.resume',
       async (event: EventBusMessage) => {
+        if (typeof event.data !== 'object' || event.data === null) return;
         const data = event.data as EventMessage;
         await this.resumeOperation(data.operationId!, data.checkpointId);
       }
@@ -492,12 +494,13 @@ export class OrchestrationEngine extends EventEmitter {
     await this.eventBusService.subscribe(
       'operation.command.cancel',
       async (event: EventBusMessage) => {
+        if (typeof event.data !== 'object' || event.data === null) return;
         const data = event.data as EventMessage;
         await this.cancelOperation(
           data.operationId!,
           data.reason,
-          data.compensate as boolean,
-          data.force as boolean
+          data.compensate ?? false,
+          data.force ?? false
         );
       }
     );

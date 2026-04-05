@@ -1,12 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { logger, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
+import {
+  WebhookEventSource,
+} from '@uaip/types'
 import type {
   GitHubWebhookEventType,
   GitHubWebhookPayload,
   WebhookEvent,
   WebhookValidationResult,
-  WebhookEventSource,
 } from '@uaip/types'
 
 const GITHUB_EVENT_TOPIC_MAP: Record<string, string> = {
@@ -47,19 +49,19 @@ export function validateGitHubWebhook(
   eventType: string | null
 ): WebhookValidationResult {
   if (!signatureHeader) {
-    return { valid: false, error: 'Missing X-Hub-Signature-256 header', source: 'github' as WebhookEventSource, eventType: eventType ?? 'unknown' }
+    return { valid: false, error: 'Missing X-Hub-Signature-256 header', source: WebhookEventSource.GITHUB, eventType: eventType ?? 'unknown' }
   }
 
   if (!eventType) {
-    return { valid: false, error: 'Missing X-GitHub-Event header', source: 'github' as WebhookEventSource, eventType: 'unknown' }
+    return { valid: false, error: 'Missing X-GitHub-Event header', source: WebhookEventSource.GITHUB, eventType: 'unknown' }
   }
 
   const isValid = validateGitHubSignature(payload, signatureHeader)
   if (!isValid) {
-    return { valid: false, error: 'Invalid HMAC signature', source: 'github' as WebhookEventSource, eventType }
+    return { valid: false, error: 'Invalid HMAC signature', source: WebhookEventSource.GITHUB, eventType }
   }
 
-  return { valid: true, source: 'github' as WebhookEventSource, eventType }
+  return { valid: true, source: WebhookEventSource.GITHUB, eventType }
 }
 
 export async function routeGitHubWebhookEvent(
@@ -75,7 +77,7 @@ export async function routeGitHubWebhookEvent(
 
   const event: WebhookEvent<GitHubWebhookPayload> = {
     id: deliveryId,
-    source: 'github' as WebhookEventSource,
+    source: WebhookEventSource.GITHUB,
     eventType,
     timestamp: new Date().toISOString(),
     payload,

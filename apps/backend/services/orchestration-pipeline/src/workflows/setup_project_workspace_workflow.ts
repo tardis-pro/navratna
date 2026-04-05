@@ -129,7 +129,7 @@ export class SetupProjectWorkspaceWorkflow {
       throw new ExternalServiceError(`GitHub API error: ${error.message || response.statusText}`);
     }
 
-    const repo = (await response.json()) as { full_name: string; clone_url: string };
+    const repo = await response.json() as { full_name: string; clone_url: string };
     return {
       fullName: repo.full_name,
       cloneUrl: repo.clone_url,

@@ -302,11 +302,12 @@ export class LinearBoardAdapter implements BoardProvider {
   }
 
   mapPriorityFromComplexity(complexityScore: number): LinearPriority {
-    const thresholds = [
-      { complexityScore: 0.9, linearPriority: 1 as LinearPriority },
-      { complexityScore: 0.7, linearPriority: 2 as LinearPriority },
-      { complexityScore: 0.4, linearPriority: 3 as LinearPriority },
-      { complexityScore: 0.0, linearPriority: 4 as LinearPriority },
+    type Threshold = { complexityScore: number; linearPriority: LinearPriority };
+    const thresholds: Threshold[] = [
+      { complexityScore: 0.9, linearPriority: 1 },
+      { complexityScore: 0.7, linearPriority: 2 },
+      { complexityScore: 0.4, linearPriority: 3 },
+      { complexityScore: 0.0, linearPriority: 4 },
     ]
 
     for (const threshold of thresholds) {
@@ -406,7 +407,7 @@ export class LinearBoardAdapter implements BoardProvider {
       throw new ExternalServiceError(`Linear API failed: ${response.status} ${response.statusText}`)
     }
 
-    const json = (await response.json()) as GraphQLResponse<T>
+    const json = await response.json() as GraphQLResponse<T>
 
     if (json.errors && json.errors.length > 0) {
       const messages = json.errors.map((e) => e.message).join('; ')

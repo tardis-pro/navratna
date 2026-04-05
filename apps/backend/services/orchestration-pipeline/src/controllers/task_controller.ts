@@ -127,11 +127,14 @@ type TaskSharedInput = {
   sprint?: string;
 };
 
+type AssigneeType = 'human' | 'agent';
+
 function buildSharedTaskFields(v: TaskSharedInput) {
+  const validAssigneeTypes = new Set<string>(['human', 'agent']);
   return {
-    priority: v.priority as CreateTaskRequest['priority'],
-    type: v.type as CreateTaskRequest['type'],
-    assigneeType: v.assigneeType as CreateTaskRequest['assigneeType'],
+    priority: v.priority,
+    type: v.type,
+    assigneeType: (v.assigneeType && validAssigneeTypes.has(v.assigneeType) ? v.assigneeType : undefined) as AssigneeType | undefined,
     assignedToUserId: v.assignedToUserId,
     assignedToAgentId: v.assignedToAgentId,
     dueDate: v.dueDate ? new Date(v.dueDate) : undefined,
@@ -183,25 +186,25 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse<TaskEntity[]>> {
     try {
-      const { projectId } = params as { projectId: string };
+      const projectId = params['projectId'] ?? '';
       const filters: TaskFilters = { ...query, projectId };
 
       if (query.status && typeof query.status === 'string') {
-        filters.status = query.status.split(',') as TaskFilters['status'];
+        filters.status = query.status.split(',');
       }
       if (query.priority && typeof query.priority === 'string') {
-        filters.priority = query.priority.split(',') as TaskFilters['priority'];
+        filters.priority = query.priority.split(',');
       }
       if (query.tags && typeof query.tags === 'string') {
         filters.tags = query.tags.split(',');
       }
       if (query.isOverdue === 'true') filters.isOverdue = true;
       if (query.isBlocked === 'true') filters.isBlocked = true;
-      if (query.dueDateBefore) {
-        filters.dueDateBefore = new Date(query.dueDateBefore as string);
+      if (query.dueDateBefore && typeof query.dueDateBefore === 'string') {
+        filters.dueDateBefore = new Date(query.dueDateBefore);
       }
-      if (query.dueDateAfter) {
-        filters.dueDateAfter = new Date(query.dueDateAfter as string);
+      if (query.dueDateAfter && typeof query.dueDateAfter === 'string') {
+        filters.dueDateAfter = new Date(query.dueDateAfter);
       }
 
       const tasks = await this.taskService.getTasksByProject(projectId, filters);
@@ -214,7 +217,7 @@ export class TaskController {
 
   async getTask({ params, set }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
-      const { taskId } = params as { taskId: string };
+      const taskId = params['taskId'] ?? '';
       const task = await this.taskService.getTaskById(taskId);
       if (!task) {
         set.status = 404;
@@ -234,7 +237,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
-      const { projectId } = params as { projectId: string };
+      const projectId = params['projectId'] ?? '';
       const authError = requireAuth(user?.id, set);
       if (authError) return authError;
       const userId = user!.id;
@@ -264,7 +267,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
-      const { taskId } = params as { taskId: string };
+      const taskId = params['taskId'] ?? '';
       const authError = requireAuth(user?.id, set);
       if (authError) return authError;
       const userId = user!.id;
@@ -273,7 +276,7 @@ export class TaskController {
       const updateRequest: UpdateTaskRequest = {
         title: validatedData.title,
         description: validatedData.description,
-        status: validatedData.status as UpdateTaskRequest['status'],
+        status: validatedData.status,
         ...buildSharedTaskFields(validatedData),
         customFields: validatedData.customFields,
         updatedBy: userId,
@@ -294,7 +297,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
-      const { taskId } = params as { taskId: string };
+      const taskId = params['taskId'] ?? '';
       const authError = requireAuth(user?.id, set);
       if (authError) return authError;
       const userId = user!.id;
@@ -303,7 +306,7 @@ export class TaskController {
       const assignRequest: TaskAssignmentRequest = {
         taskId,
         assignedBy: userId,
-        assigneeType: validatedData.assigneeType as TaskAssignmentRequest['assigneeType'],
+        assigneeType: validatedData.assigneeType,
         assignedToUserId: validatedData.assignedToUserId,
         assignedToAgentId: validatedData.assignedToAgentId,
         reason: validatedData.reason,
@@ -326,7 +329,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse<TaskAssignmentSuggestion[]>> {
     try {
-      const { taskId } = params as { taskId: string };
+      const taskId = params['taskId'] ?? '';
       const suggestions = await this.taskService.getTaskAssignmentSuggestions(taskId);
       return { success: true, data: suggestions };
     } catch (error) {
@@ -341,7 +344,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
-      const { taskId } = params as { taskId: string };
+      const taskId = params['taskId'] ?? '';
       const validatedData = progressUpdateSchema.parse(body);
       const task = await this.taskService.updateTaskProgress(
         taskId,
@@ -361,7 +364,7 @@ export class TaskController {
 
   async deleteTask({ params, user, set }: AuthenticatedContext): Promise<TaskControllerResponse> {
     try {
-      const { taskId } = params as { taskId: string };
+      const taskId = params['taskId'] ?? '';
       const authError = requireAuth(user?.id, set);
       if (authError) return authError;
 
@@ -378,7 +381,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse<Record<string, unknown>>> {
     try {
-      const { projectId } = params as { projectId: string };
+      const projectId = params['projectId'] ?? '';
       const statistics = await this.taskService.getTaskStatistics(projectId);
       return { success: true, data: statistics };
     } catch (error) {
@@ -394,7 +397,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse<TaskEntity[]>> {
     try {
-      const { userId } = params as { userId: string };
+      const userId = params['userId'] ?? '';
       const currentUserId = user?.id;
 
       if (userId !== currentUserId && !user?.isAdmin) {
@@ -421,7 +424,7 @@ export class TaskController {
     set,
   }: AuthenticatedContext): Promise<TaskControllerResponse<TaskEntity[]>> {
     try {
-      const { agentId } = params as { agentId: string };
+      const agentId = params['agentId'] ?? '';
       const _filters: TaskFilters = { assignedToAgentId: agentId, ...query };
 
       return {

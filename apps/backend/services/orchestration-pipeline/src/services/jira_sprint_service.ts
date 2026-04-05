@@ -120,7 +120,9 @@ export async function assignToSprint(sprintId: number, issueKeys: string[]): Pro
       headers: { 'Accept': 'application/json', 'Authorization': authHeader },
     })
     if (response.ok) {
-      const data = (await response.json()) as { id: string }
+      const rawData = await response.json()
+      const data = typeof rawData === 'object' && rawData !== null && 'id' in rawData ? rawData as { id: string } : null
+      if (!data) continue
       issueIds.push(data.id)
     }
   }

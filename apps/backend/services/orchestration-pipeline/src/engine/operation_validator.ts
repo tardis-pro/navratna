@@ -164,7 +164,7 @@ export class OperationValidator {
     visited: Set<string>,
     visiting: Set<string>
   ): void {
-    const stepId = step.id as string;
+    const stepId = typeof step.id === 'string' ? step.id : String(step.id ?? '');
     if (visiting.has(stepId)) {
       throw new OperationError(
         `Circular dependency detected involving step ${stepId}`,
@@ -178,8 +178,8 @@ export class OperationValidator {
 
     visiting.add(stepId);
 
-    if (step.dependsOn) {
-      for (const depId of step.dependsOn as string[]) {
+    if (Array.isArray(step.dependsOn)) {
+      for (const depId of step.dependsOn.filter((d): d is string => typeof d === 'string')) {
         const depStep = allSteps.find((s) => s.id === depId);
         if (depStep) {
           this.checkCircularDependencies(depStep, allSteps, visited, visiting);

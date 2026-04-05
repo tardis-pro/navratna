@@ -5,30 +5,65 @@ import type { JiraWebhookPayload } from '@uaip/types'
 import { validateJiraWebhook, routeJiraWebhookEvent } from '../services/jira_webhook_service.js'
 import { onJiraStatusChange } from '../services/jira_sync_service.js'
 
+const jiraWebhookUserSchema = z.object({
+  accountId: z.string(),
+  displayName: z.string(),
+  emailAddress: z.string().optional(),
+})
+
+const jiraWebhookIssueSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  fields: z.object({
+    summary: z.string(),
+    status: z.object({ name: z.string(), id: z.string() }),
+    issuetype: z.object({ name: z.string() }),
+    priority: z.object({ name: z.string() }),
+    assignee: jiraWebhookUserSchema.nullable(),
+    labels: z.array(z.string()),
+    parent: z.object({ key: z.string() }).optional(),
+  }),
+})
+
+const jiraWebhookSprintSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  state: z.enum(['active', 'closed', 'future']),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  completeDate: z.string().optional(),
+  goal: z.string().optional(),
+})
+
+const jiraWebhookChangelogSchema = z.object({
+  items: z.array(z.object({
+    field: z.string(),
+    fieldtype: z.string(),
+    from: z.string().nullable(),
+    fromString: z.string().nullable(),
+    to: z.string().nullable(),
+    toString: z.string().nullable(),
+  })),
+})
+
 const jiraWebhookBodySchema = z.object({
-  webhookEvent: z.string(),
+  webhookEvent: z.enum(['issue_updated', 'issue_created', 'issue_deleted', 'sprint_started', 'sprint_completed', 'sprint_created']),
   timestamp: z.number(),
-  user: z.object({
-    accountId: z.string(),
-    displayName: z.string(),
-  }).passthrough(),
-  issue: z.object({
-    id: z.string(),
-    key: z.string(),
-    fields: z.record(z.unknown()),
-  }).passthrough().optional(),
-  sprint: z.record(z.unknown()).optional(),
-  changelog: z.object({
-    items: z.array(z.object({
-      field: z.string(),
-      fieldtype: z.string(),
-      from: z.string().nullable(),
-      fromString: z.string().nullable(),
-      to: z.string().nullable(),
-      toString: z.string().nullable(),
-    })),
-  }).optional(),
-}).passthrough()
+  user: jiraWebhookUserSchema,
+  issue: jiraWebhookIssueSchema.optional(),
+  sprint: jiraWebhookSprintSchema.optional(),
+  changelog: jiraWebhookChangelogSchema.optional(),
+})
+
+function isJiraWebhookPayload(data: unknown): data is JiraWebhookPayload {
+  if (typeof data !== 'object' || data === null) return false
+  const d = data as Record<string, unknown>
+  return (
+    typeof d['webhookEvent'] === 'string' &&
+    typeof d['timestamp'] === 'number' &&
+    typeof d['user'] === 'object' && d['user'] !== null
+  )
+}
 
 export function registerJiraWebhookRoutes() {
   return new Elysia()
@@ -51,7 +86,11 @@ export function registerJiraWebhookRoutes() {
       return { success: false, error: 'Invalid webhook payload' }
     }
 
-    const payload = parsed.data as unknown as JiraWebhookPayload
+    if (!isJiraWebhookPayload(parsed.data)) {
+      ctx.set.status = 400
+      return { success: false, error: 'Invalid webhook payload structure' }
+    }
+    const payload = parsed.data
 
     routeJiraWebhookEvent(payload, deliveryId).catch((error) => {
       logger.error('Async Jira webhook processing failed', {

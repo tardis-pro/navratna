@@ -285,7 +285,7 @@ export class StepExecutionManager extends EventEmitter {
 
   private calculateBackoff(step: ExecutionStep): number {
     const baseDelay = 1000; // 1 second
-    const multiplier = (step.retryPolicy?.backoffMultiplier as number) || 2;
+    const multiplier = typeof step.retryPolicy?.backoffMultiplier === 'number' ? step.retryPolicy.backoffMultiplier : 2;
     const attempt = step.retryCount || 1;
     return baseDelay * Math.pow(multiplier, attempt - 1);
   }
@@ -374,7 +374,12 @@ export class StepExecutionManager extends EventEmitter {
 
   private getNestedProperty(obj: Record<string, unknown>, path: string[]): unknown {
     return path.reduce<unknown>(
-      (current, prop) => (current as Record<string, unknown>)?.[prop],
+      (current, prop) => {
+        if (typeof current === 'object' && current !== null) {
+          return (current as Record<string, unknown>)[prop];
+        }
+        return undefined;
+      },
       obj
     );
   }
@@ -514,10 +519,10 @@ export class StepExecutionManager extends EventEmitter {
       case '!==': return lhs !== rhs;
       case '==': return lhs == rhs;
       case '!=': return lhs != rhs;
-      case '>': return (lhs as number) > (rhs as number);
-      case '>=': return (lhs as number) >= (rhs as number);
-      case '<': return (lhs as number) < (rhs as number);
-      case '<=': return (lhs as number) <= (rhs as number);
+      case '>': return typeof lhs === 'number' && typeof rhs === 'number' && lhs > rhs;
+      case '>=': return typeof lhs === 'number' && typeof rhs === 'number' && lhs >= rhs;
+      case '<': return typeof lhs === 'number' && typeof rhs === 'number' && lhs < rhs;
+      case '<=': return typeof lhs === 'number' && typeof rhs === 'number' && lhs <= rhs;
       default: throw new ValidationError(`Unknown comparison operator: ${op}`);
     }
   }

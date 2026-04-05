@@ -95,7 +95,7 @@ export async function pollCheckRuns(
     return []
   }
 
-  const data = (await response.json()) as {
+  const data = await response.json() as {
     check_runs: Array<{
       id: number
       name: string

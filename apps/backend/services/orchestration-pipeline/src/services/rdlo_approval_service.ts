@@ -355,8 +355,8 @@ export class RDLOApprovalService {
   }
 
   private getTimeoutQueue(): DelayableQueue {
-    const withQueue = this.eventBusService as unknown as EventBusWithInternalQueue
-    return withQueue.getOrCreateQueue(RDLO_APPROVAL_TIMEOUT_EVENT)
+    // @ts-expect-error -- getOrCreateQueue is an internal BullMQ extension not in the EventBusService public interface
+    return (this.eventBusService as EventBusWithInternalQueue).getOrCreateQueue(RDLO_APPROVAL_TIMEOUT_EVENT)
   }
 
   private async getStoredApprovalById(approvalId: string): Promise<StoredPendingApproval | null> {
