@@ -63,14 +63,34 @@ export class JWTValidator {
 
   public static verify(token: string): JWTPayload {
     try {
-      const decoded = jwt.verify(token, this.JWT_SECRET, {
+      const rawDecoded = jwt.verify(token, this.JWT_SECRET, {
         issuer: JWT_ISSUER,
         audience: JWT_AUDIENCE,
-      }) as JWTPayload;
+      });
 
-      if (!decoded.userId || !decoded.email || !decoded.role) {
+      if (typeof rawDecoded === 'string') {
+        throw new ApiError(401, 'Invalid token format', 'INVALID_TOKEN');
+      }
+
+      const userId = rawDecoded['userId'];
+      const email = rawDecoded['email'];
+      const role = rawDecoded['role'];
+      const sessionId = rawDecoded['sessionId'];
+
+      if (typeof userId !== 'string' || typeof email !== 'string' || typeof role !== 'string') {
         throw new ApiError(401, 'Invalid token payload', 'INVALID_TOKEN');
       }
+
+      const decoded: JWTPayload = {
+        userId,
+        email,
+        role,
+        sessionId: typeof sessionId === 'string' ? sessionId : undefined,
+        iat: typeof rawDecoded.iat === 'number' ? rawDecoded.iat : 0,
+        exp: typeof rawDecoded.exp === 'number' ? rawDecoded.exp : 0,
+        iss: typeof rawDecoded.iss === 'string' ? rawDecoded.iss : undefined,
+        aud: typeof rawDecoded.aud === 'string' ? rawDecoded.aud : undefined,
+      };
 
       if (decoded.exp && Date.now() >= decoded.exp * 1000) {
         throw new ApiError(401, 'Token expired', 'TOKEN_EXPIRED');

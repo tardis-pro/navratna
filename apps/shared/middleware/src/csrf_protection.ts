@@ -2,6 +2,10 @@ import { Elysia } from 'elysia';
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 interface CSRFConfig {
   headerName?: string;
   cookieName?: string;
@@ -76,9 +80,8 @@ export class CSRFProtection {
     let token = request.headers.get(this.config.headerName);
 
     // Check body
-    const bodyObj = body as Record<string, unknown> | null;
-    if (!token && bodyObj && bodyObj._csrf) {
-      token = bodyObj._csrf as string;
+    if (!token && isRecord(body) && typeof body._csrf === 'string') {
+      token = body._csrf;
     }
 
     // Check query

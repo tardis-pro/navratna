@@ -4,6 +4,22 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { APIKeyContext, APIKey } from '@uaip/types';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isAPIKeyContext(value: unknown): value is APIKeyContext {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value['id'] === 'string' &&
+    typeof value['serviceName'] === 'string' &&
+    Array.isArray(value['permissions']) &&
+    Array.isArray(value['scopes'])
+  );
+}
+
+const nullApiKey: APIKeyContext | null = null;
+
 interface APIKeyConfig {
   headerName?: string;
   queryParam?: string;
@@ -206,7 +222,7 @@ export class APIKeyAuthService {
 
         // Skip authentication for certain paths
         if (this.config.skipPaths.some((path) => url.pathname.startsWith(path))) {
-          return { apiKey: null as APIKeyContext | null };
+          return { apiKey: nullApiKey };
         }
 
         // Extract API key from header or query parameter
@@ -217,7 +233,7 @@ export class APIKeyAuthService {
         if (!apiKeyValue) {
           set.status = 401;
           return {
-            apiKey: null as APIKeyContext | null,
+            apiKey: nullApiKey,
             apiKeyError: {
               success: false,
               error: {
@@ -240,7 +256,7 @@ export class APIKeyAuthService {
 
             set.status = 401;
             return {
-              apiKey: null as APIKeyContext | null,
+              apiKey: nullApiKey,
               apiKeyError: {
                 success: false,
                 error: {
@@ -254,7 +270,7 @@ export class APIKeyAuthService {
           if (!this.config.allowedServices.includes(apiKey.serviceName)) {
             set.status = 403;
             return {
-              apiKey: null as APIKeyContext | null,
+              apiKey: nullApiKey,
               apiKeyError: {
                 success: false,
                 error: {
@@ -275,19 +291,18 @@ export class APIKeyAuthService {
             method: request.method,
           });
 
-          return {
-            apiKey: {
-              id: apiKey.id,
-              serviceName: apiKey.serviceName,
-              permissions: apiKey.permissions,
-              scopes: apiKey.scopes,
-            } as APIKeyContext,
+          const apiKeyCtx: APIKeyContext = {
+            id: apiKey.id,
+            serviceName: apiKey.serviceName,
+            permissions: apiKey.permissions,
+            scopes: apiKey.scopes,
           };
+          return { apiKey: apiKeyCtx };
         } catch (error) {
           logger.error('API key authentication error:', error);
           set.status = 500;
           return {
-            apiKey: null as APIKeyContext | null,
+            apiKey: nullApiKey,
             apiKeyError: {
               success: false,
               error: {
@@ -339,7 +354,18 @@ export class APIKeyAuthService {
   }
 
   private extractApiKeyCtx(ctx: unknown): { apiKey: APIKeyContext | null; set: { status: number } } {
-    return ctx as unknown as { apiKey: APIKeyContext | null; set: { status: number } };
+    if (!isRecord(ctx)) {
+      return { apiKey: nullApiKey, set: { status: 500 } };
+    }
+    const apiKey = isAPIKeyContext(ctx.apiKey) ? ctx.apiKey : nullApiKey;
+    const rawSet = isRecord(ctx.set) ? ctx.set : undefined;
+    const set: { status: number } = rawSet
+      ? {
+          get status() { return typeof rawSet.status === 'number' ? rawSet.status : 500; },
+          set status(v: number) { rawSet.status = v; },
+        }
+      : { status: 500 };
+    return { apiKey, set };
   }
 
   private missingKeyResponse(set: { status: number }): {

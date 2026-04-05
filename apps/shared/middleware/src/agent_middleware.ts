@@ -9,34 +9,68 @@ export type { AgentContext, AgentExecution };
 // Agent validation schemas
 const agentIdSchema = z.string().uuid();
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isAgentContext(value: unknown): value is AgentContext {
+  if (!isRecord(value)) return false;
+  return typeof value['agentId'] === 'string';
+}
+
+function isAgentExecution(value: unknown): value is AgentExecution {
+  if (!isRecord(value)) return false;
+  return typeof value['startTime'] === 'number';
+}
+
+type AgentGuardCtx = {
+  agentContext: AgentContext | null;
+  set: Record<string, unknown>;
+};
+
+function isAgentGuardCtx(value: unknown): value is AgentGuardCtx {
+  if (!isRecord(value)) return false;
+  const agentContext = value.agentContext;
+  const set = value.set;
+  return (agentContext === null || isAgentContext(agentContext)) && isRecord(set);
+}
+
+function makeTypedSet(rawSet: Record<string, unknown>): { status: number } {
+  return {
+    get status() { return typeof rawSet.status === 'number' ? rawSet.status : 200; },
+    set status(v: number) { rawSet.status = v; },
+  };
+}
+
+const nullAgentContext: AgentContext | null = null;
+
 function withAgentGuard(
   ctx: unknown,
   callback: (agentContext: AgentContext, set: { status: number }) => unknown
 ): unknown {
-  const { agentContext, set } = ctx as {
-    agentContext: AgentContext | null;
-    set: { status: number };
-  };
-  if (!agentContext) {
+  if (!isAgentGuardCtx(ctx)) {
+    return { error: 'Agent context required' };
+  }
+  const set = makeTypedSet(ctx.set);
+  if (!ctx.agentContext) {
     set.status = 401;
     return { error: 'Agent context required' };
   }
-  return callback(agentContext, set);
+  return callback(ctx.agentContext, set);
 }
 
 export function loadAgentContext(app: Elysia): Elysia {
-  return app.derive(({ params, ...ctx }) => {
-    const user = (ctx as unknown as { user?: { id: string } } /* Elysia middleware injects user context that TypeScript cannot infer through nested derive/guard groups */).user;
-    const agentId = (params as Record<string, string>)?.agentId;
+  return app.derive(({ params }) => {
+    const agentId = typeof params['agentId'] === 'string' ? params['agentId'] : undefined;
 
     if (!agentId) {
-      return { agentContext: null as AgentContext | null };
+      return { agentContext: nullAgentContext };
     }
 
     const validation = agentIdSchema.safeParse(agentId);
     if (!validation.success) {
       return {
-        agentContext: null as AgentContext | null,
+        agentContext: nullAgentContext,
         agentValidationError: {
           error: 'Invalid agent ID format',
           details: validation.error.errors,
@@ -47,7 +81,7 @@ export function loadAgentContext(app: Elysia): Elysia {
     // Set basic context - calling service should populate with actual agent data
     const context: AgentContext = {
       agentId,
-      userId: user?.id || 'system',
+      userId: 'system',
       permissions: [],
       securityLevel: SecurityLevel.LOW,
       role: AgentRole.ASSISTANT,
@@ -55,10 +89,7 @@ export function loadAgentContext(app: Elysia): Elysia {
       metadata: {},
     };
 
-    logger.debug('Agent context initialized', {
-      agentId,
-      userId: user?.id,
-    });
+    logger.debug('Agent context initialized', { agentId });
 
     return { agentContext: context };
   });
@@ -117,8 +148,7 @@ export function requireSecurityLevel(minLevel: SecurityLevel) {
 export function trackAgentOperation(operationName: string) {
   return (app: Elysia) => {
     return app
-      .derive((ctx) => {
-        const agentContext = (ctx as unknown as { agentContext?: AgentContext } /* Elysia middleware injects agentContext that TypeScript cannot infer through nested derive/guard groups */).agentContext;
+      .derive(() => {
         const agentExecution: AgentExecution = {
           startTime: Date.now(),
           operations: [operationName],
@@ -126,7 +156,6 @@ export function trackAgentOperation(operationName: string) {
         };
 
         logger.debug('Agent operation started', {
-          agentId: agentContext?.agentId,
           operation: operationName,
           timestamp: new Date(),
         });
@@ -134,22 +163,19 @@ export function trackAgentOperation(operationName: string) {
         return { agentExecution };
       })
       .onAfterResponse((ctx) => {
-        const { agentContext, agentExecution, set } = ctx as unknown as { /* Elysia middleware injects agentContext/agentExecution that TypeScript cannot infer through nested derive/guard groups */
-          agentContext?: AgentContext;
-          agentExecution?: AgentExecution;
-          set: { status?: number | string };
-        };
+        const agentExecution = ctx.agentExecution;
+        const statusRaw = isRecord(ctx.set) ? ctx.set['status'] : undefined;
+
         if (agentExecution) {
           const result = {
             operation: operationName,
             duration: Date.now() - agentExecution.startTime,
-            status: typeof set.status === 'number' ? set.status : 200,
+            status: typeof statusRaw === 'number' ? statusRaw : 200,
           };
 
           agentExecution.results.push(result);
 
           logger.debug('Agent operation completed', {
-            agentId: agentContext?.agentId,
             operation: operationName,
             duration: result.duration,
             status: result.status,
@@ -166,8 +192,7 @@ export function agentRateLimit(maxRequests = 100, windowMs = 60000) {
     return app.guard({
       beforeHandle(ctx) {
         return withAgentGuard(ctx, (agentContext, set) => {
-          const { user } = ctx as unknown as { user?: { id: string } } /* Elysia middleware injects user context that TypeScript cannot infer through nested derive/guard groups */;
-          const key = `${agentContext.agentId}:${user?.id || 'anonymous'}`;
+          const key = `${agentContext.agentId}:anonymous`;
           const now = Date.now();
           const windowStart = now - windowMs;
 
@@ -238,25 +263,24 @@ export function executeAgentOperation(
 ) {
   return (app: Elysia) => {
     return app.derive(async (ctx) => {
-      const { agentContext, body, query, params, set } = ctx as unknown as { /* Elysia middleware injects agentContext that TypeScript cannot infer through nested derive/guard groups */
-        agentContext?: AgentContext;
-        body?: unknown;
-        query?: Record<string, unknown>;
-        params?: Record<string, unknown>;
-        set: { status: number };
-      };
+      const agentContextRaw: unknown = Reflect.get(ctx, 'agentContext');
+      const agentContext = isAgentContext(agentContextRaw) ? agentContextRaw : undefined;
+
       if (!agentContext) {
-        set.status = 401;
+        ctx.set.status = 401;
         return {
           operationError: { error: 'Agent context required' },
         };
       }
 
       try {
+        const bodyObj = isRecord(ctx.body) ? ctx.body : {};
+        const queryObj: Record<string, unknown> = ctx.query;
+        const paramsObj: Record<string, unknown> = ctx.params;
         const result = await operationHandler(agentContext, {
-          ...((body as object) || {}),
-          ...(query || {}),
-          ...(params || {}),
+          ...bodyObj,
+          ...queryObj,
+          ...paramsObj,
         });
 
         return {
@@ -284,15 +308,13 @@ export function executeAgentOperation(
 export function executeAgentTool(toolName: string) {
   return (app: Elysia) => {
     return app.derive((ctx) => {
-      const { agentContext, body } = ctx as unknown as { /* Elysia middleware injects agentContext that TypeScript cannot infer through nested derive/guard groups */
-        agentContext?: AgentContext;
-        body?: unknown;
-      };
+      const agentContextRaw: unknown = Reflect.get(ctx, 'agentContext');
+      const agentContext = isAgentContext(agentContextRaw) ? agentContextRaw : undefined;
       if (agentContext) {
         logger.debug('Agent tool execution started', {
           agentId: agentContext.agentId,
           toolName,
-          parameters: body,
+          parameters: ctx.body,
         });
       }
       return { executingTool: toolName };

@@ -3,6 +3,10 @@ import { ZodError } from 'zod';
 import { logger, logError, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 // Custom error class
 export class AppError extends Error {
   public statusCode: number;
@@ -34,7 +38,7 @@ export function errorHandler(app: Elysia): Elysia {
     let message = 'An unexpected error occurred';
     let details: Record<string, unknown> | undefined;
 
-    const err = error as Error;
+    const err = error instanceof Error ? error : new Error(String(error));
 
     // Handle different error types
     if (err instanceof AppError) {
@@ -42,14 +46,23 @@ export function errorHandler(app: Elysia): Elysia {
       errorCode = err.code || 'APPLICATION_ERROR';
       message = err.message;
       details = err.details;
-    } else if (
-      err instanceof ApiError ||
-      (err as unknown as { name: string }).name === 'ApiError'
-    ) {
-      statusCode = (err as unknown as { statusCode: number }).statusCode;
-      errorCode = (err as unknown as { code: string }).code;
+    } else if (err instanceof ApiError) {
+      statusCode = err.statusCode;
+      errorCode = err.code;
       message = err.message;
-      details = (err as unknown as { details?: Record<string, unknown> }).details;
+      details = err.details;
+    } else if (
+      err.name === 'ApiError' &&
+      'statusCode' in err &&
+      'code' in err
+    ) {
+      // Cross-package ApiError: duck-type check for when instanceof fails
+      statusCode = typeof err.statusCode === 'number' ? err.statusCode : 500;
+      errorCode = typeof err.code === 'string' ? err.code : 'APPLICATION_ERROR';
+      message = err.message;
+      details = 'details' in err && isRecord(err.details)
+        ? err.details
+        : undefined;
     } else if (err instanceof ZodError) {
       statusCode = 400;
       errorCode = 'VALIDATION_ERROR';
