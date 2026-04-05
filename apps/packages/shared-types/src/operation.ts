@@ -374,12 +374,8 @@ export class OperationError extends Error {
     this.details = details;
     this.timestamp = new Date();
 
-    // Maintains proper stack trace for where our error was thrown (only available on V8)
-    const ErrorWithStackTrace = Error as unknown as {
-      captureStackTrace?: (target: object, constructor?: new (...args: never[]) => Error) => void;
-    };
-    if (typeof ErrorWithStackTrace.captureStackTrace === 'function') {
-      ErrorWithStackTrace.captureStackTrace(this, OperationError);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, OperationError);
     }
   }
 }

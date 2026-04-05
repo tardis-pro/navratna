@@ -19,6 +19,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/ms": "^2.1.0",
     "@types/node": "catalog:backend",
     "rimraf": "catalog:",
     "typescript": "catalog:"

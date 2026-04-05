@@ -74,14 +74,14 @@ export type UAIPEvent<T = Record<string, unknown>> = Omit<UAIPEventBase, 'data'>
 };
 
 // Helper function to create UAIPEvent
-export function createUAIPEvent<T>(
+export function createUAIPEvent<T extends Record<string, unknown>>(
   type: string,
   source: string,
   data: T,
   actor: Actor,
   tenant: Tenant,
   correlationId?: string
-): UAIPEvent {
+): UAIPEvent<T> {
   return {
     id: randomUUID(),
     type,
@@ -90,7 +90,7 @@ export function createUAIPEvent<T>(
     correlationId: correlationId || randomUUID(),
     actor,
     tenant,
-    data: data as Record<string, unknown>,
+    data,
     version: '1',
   };
 }

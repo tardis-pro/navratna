@@ -1592,6 +1592,9 @@ importers:
         specifier: 'catalog:'
         version: 3.25.67
     devDependencies:
+      '@types/ms':
+        specifier: ^2.1.0
+        version: 2.1.0
       rimraf:
         specifier: 'catalog:'
         version: 6.1.3
@@ -1630,6 +1633,9 @@ importers:
         specifier: 'catalog:'
         version: 3.25.67
     devDependencies:
+      '@types/ms':
+        specifier: ^2.1.0
+        version: 2.1.0
       '@types/node':
         specifier: catalog:backend
         version: 22.19.15
