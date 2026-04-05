@@ -24,12 +24,16 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return isRecord(value) ? value : {};
 }
 
 function getHeader(headers: unknown, name: string): string | undefined {
-  const h = headers as Record<string, unknown> | undefined;
+  const h = isRecord(headers) ? headers : undefined;
   const v = h?.[name] ?? h?.[name.toLowerCase()];
   return typeof v === 'string' ? v : undefined;
 }

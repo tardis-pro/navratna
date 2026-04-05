@@ -6,9 +6,24 @@
  */
 
 import { EventBusService } from '@uaip/infra';
-import type { EventBusMessage } from '@uaip/types';
-import type { JiraOperationOutcome } from '@uaip/types';
+import type { EventBusMessage, JiraOperationOutcome } from '@uaip/types';
 import { logger } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isJiraOperationOutcome(v: unknown): v is JiraOperationOutcome {
+  return (
+    isRecord(v) &&
+    typeof v.operationType === 'string' &&
+    typeof v.issueKey === 'string' &&
+    typeof v.agentId === 'string' &&
+    typeof v.operationId === 'string' &&
+    typeof v.status === 'string' &&
+    typeof v.timestamp === 'string'
+  );
+}
 
 const JIRA_OPERATION_EVENT = 'jira.operation.completed';
 const LEARNING_OPERATION_EVENT = 'agent.learning.operation';
@@ -40,8 +55,11 @@ export class JiraOutcomeBridgeService {
     await this.eventBus.subscribe(
       JIRA_OPERATION_EVENT,
       async (message: EventBusMessage) => {
-        const outcome = message.data as JiraOperationOutcome;
-        await this.forwardToLearningService(outcome);
+        if (!isJiraOperationOutcome(message.data)) {
+          logger.warn('Received invalid JiraOperationOutcome payload', { data: message.data });
+          return;
+        }
+        await this.forwardToLearningService(message.data);
       },
       { queue: 'capability-registry.jira-outcome-bridge' }
     );

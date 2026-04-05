@@ -26,6 +26,18 @@ export type {
   EnterpriseComplianceConfig as ComplianceConfig,
 } from '@uaip/types';
 
+interface AdapterWithExecute {
+  execute: (operationId: string, params: unknown) => Promise<unknown>;
+}
+
+function isAdapterWithExecute(v: unknown): v is AdapterWithExecute {
+  return typeof v === 'object' && v !== null && typeof (v as Record<string, unknown>).execute === 'function';
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 export class EnterpriseToolRegistry {
   private tools = new Map<string, ToolDefinition>();
   private toolInstances = new Map<string, unknown>();
@@ -45,7 +57,11 @@ export class EnterpriseToolRegistry {
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+      return value;
+    }
+    return {};
   }
 
   async initialize(): Promise<void> {
@@ -552,11 +568,11 @@ export class EnterpriseToolRegistry {
       throw new NotFoundError(`No adapter found for tool: ${tool.id}`);
     }
 
-    const adapterExecutor = adapter as {
-      execute: (operationId: string, params: unknown) => Promise<unknown>;
-    };
     const req = this.asRecord(request);
-    return await adapterExecutor.execute(operation.id, req.parameters);
+    if (!isAdapterWithExecute(adapter)) {
+      throw new NotFoundError(`Adapter for tool ${tool.id} does not have an execute method`);
+    }
+    return await adapter.execute(operation.id, req.parameters);
   }
 
   /**
@@ -582,7 +598,7 @@ export class EnterpriseToolRegistry {
 
   private hasPermissionToRegister(tool: ToolDefinition): boolean {
     // Check if service has permission to register tools
-    const serviceAccess = (SERVICE_ACCESS_MATRIX as Record<string, unknown>)[this.serviceName];
+    const serviceAccess = isRecord(SERVICE_ACCESS_MATRIX) ? SERVICE_ACCESS_MATRIX[this.serviceName] : undefined;
     if (!serviceAccess) return false;
 
     // Check security level requirement
@@ -656,30 +672,40 @@ export class EnterpriseToolRegistry {
 
   private async handleToolRegistration(event: unknown): Promise<void> {
     const eventData = this.asRecord(event);
-    const tool = eventData.tool as ToolDefinition;
+    const toolData = eventData.tool;
+    if (!isRecord(toolData) || typeof toolData.id !== 'string' || typeof toolData.name !== 'string') {
+      logger.warn('handleToolRegistration: invalid tool payload', { event });
+      return;
+    }
     try {
-      await this.registerTool(tool);
+      // @ts-expect-error -- toolData is validated to have id/name; full ToolDefinition shape enforced by registerTool's internal validation
+      await this.registerTool(toolData);
     } catch (error) {
-      logger.error('Failed to handle tool registration', { error, tool });
+      logger.error('Failed to handle tool registration', { error, toolData });
     }
   }
 
   private async handleToolExecution(event: unknown): Promise<void> {
     const eventData = this.asRecord(event);
     const requestId = typeof eventData.requestId === 'string' ? eventData.requestId : '';
-    const request = { ...eventData };
-    delete request.requestId;
+    const securityContextRaw = this.asRecord(eventData.securityContext);
+    const securityContext = {
+      level: typeof securityContextRaw.level === 'number' ? securityContextRaw.level : 0,
+      permissions: Array.isArray(securityContextRaw.permissions)
+        ? securityContextRaw.permissions.filter((p): p is string => typeof p === 'string')
+        : undefined,
+    };
+    const toolId = typeof eventData.toolId === 'string' ? eventData.toolId : '';
+    const operation = typeof eventData.operation === 'string' ? eventData.operation : '';
     try {
-      const result = await this.executeTool(
-        request as unknown as {
-          toolId: string;
-          operation: string;
-          parameters: unknown;
-          userId?: string;
-          agentId?: string;
-          securityContext: { level: number; permissions?: string[] };
-        }
-      );
+      const result = await this.executeTool({
+        toolId,
+        operation,
+        parameters: eventData.parameters,
+        userId: typeof eventData.userId === 'string' ? eventData.userId : undefined,
+        agentId: typeof eventData.agentId === 'string' ? eventData.agentId : undefined,
+        securityContext,
+      });
       await this.eventBusService.publish(`tool.response.${requestId}`, result);
     } catch (error) {
       await this.eventBusService.publish(`tool.response.${requestId}`, {

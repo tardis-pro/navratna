@@ -15,11 +15,21 @@ import { EventBusService } from '@uaip/infra';
 import { logger, DatabaseError, NotFoundError } from '@uaip/utils';
 import { z } from 'zod';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
+function isToolCategory(v: unknown): v is ToolCategory {
+  return toolCategoryValues.has(v);
+}
+
 export class ToolRegistry {
   private toolService: ToolService;
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (isRecord(value)) return value;
+    return {};
   }
 
   private asString(value: unknown, fallback = ''): string {
@@ -143,28 +153,23 @@ export class ToolRegistry {
 
   // Tool Registration and Management
   async registerTool(tool: Partial<ToolDefinition>): Promise<void> {
-    // Validate tool definition
-    const validatedTool = tool as ToolDefinition;
-
     try {
-      // Store in PostgreSQL
-
       // Transform and create node in Neo4j
-      const transformedTool = this.transformValidatedToToolDefinition(validatedTool);
+      const transformedTool = this.transformValidatedToToolDefinition(tool);
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node creation requested', { toolId: transformedTool.id });
 
       // Use ToolService for tool management
       await this.toolService.createTool({
-        name: validatedTool.name,
-        displayName: validatedTool.name, // Use name as displayName
-        description: validatedTool.description,
-        category: this.mapStringToToolCategory(validatedTool.category),
-        isEnabled: validatedTool.isEnabled,
-        version: validatedTool.version,
-        inputSchema: validatedTool.parameters as Record<string, unknown>,
-        outputSchema: validatedTool.returnType as Record<string, unknown>,
-        securityLevel: this.toSecurityLevel(validatedTool.securityLevel),
+        name: tool.name ?? '',
+        displayName: tool.name ?? '', // Use name as displayName
+        description: tool.description ?? '',
+        category: this.mapStringToToolCategory(tool.category),
+        isEnabled: tool.isEnabled,
+        version: tool.version ?? '1.0.0',
+        inputSchema: isRecord(tool.parameters) ? tool.parameters : {},
+        outputSchema: isRecord(tool.returnType) ? tool.returnType : {},
+        securityLevel: this.toSecurityLevel(tool.securityLevel),
       });
 
       logger.info(`Tool registered successfully: ${tool.id}`);
@@ -188,15 +193,10 @@ export class ToolRegistry {
     // Validate ID
     const validatedId = z.string().parse(id);
 
-    // Validate updates
-    const validatedUpdates = updates as Partial<ToolDefinition>;
-
     try {
-      // Update in PostgreSQL
-
       // Update node in Neo4j
       // Transform and update node in Neo4j
-      const _transformedUpdates = this.transformValidatedToToolDefinition(validatedUpdates);
+      const _transformedUpdates = this.transformValidatedToToolDefinition(updates);
       // Neo4j operations now handled by knowledge graph service
       logger.debug('Tool node update requested', { toolId: validatedId });
 
@@ -209,15 +209,12 @@ export class ToolRegistry {
         updatedAt: new Date(),
       };
 
-      if (validatedUpdates.name) entityUpdates.name = validatedUpdates.name;
-      if (validatedUpdates.description) entityUpdates.description = validatedUpdates.description;
-      if (validatedUpdates.version) entityUpdates.version = validatedUpdates.version;
-      if (validatedUpdates.category)
-        entityUpdates.category = validatedUpdates.category as ToolCategory;
-      if (validatedUpdates.isEnabled !== undefined)
-        entityUpdates.isEnabled = validatedUpdates.isEnabled;
-      if (validatedUpdates.securityLevel)
-        entityUpdates.securityLevel = validatedUpdates.securityLevel as SecurityLevel;
+      if (updates.name) entityUpdates.name = updates.name;
+      if (updates.description) entityUpdates.description = updates.description;
+      if (updates.version) entityUpdates.version = updates.version;
+      if (updates.category) entityUpdates.category = updates.category;
+      if (updates.isEnabled !== undefined) entityUpdates.isEnabled = updates.isEnabled;
+      if (updates.securityLevel) entityUpdates.securityLevel = updates.securityLevel;
 
       await toolRepo.updateTool(validatedId, entityUpdates);
 
@@ -303,7 +300,7 @@ export class ToolRegistry {
     logger.info(`Getting tools with category: ${category}, enabled: ${enabled}`);
 
     if (category) {
-      const entities = await this.toolService.findToolsByCategory(category as ToolCategory);
+      const entities = await this.toolService.findToolsByCategory(this.mapStringToToolCategory(category));
       const tools = entities.map((e) => this.transformEntityToInterface(e));
       if (enabled !== undefined) {
         return tools.filter((tool) => tool.isEnabled === enabled);
@@ -364,9 +361,6 @@ export class ToolRegistry {
     toToolId: string,
     relationship: ToolRelationship
   ): Promise<void> {
-    // Validate relationship
-    const validatedRelationship = relationship as ToolRelationship;
-
     // Verify both tools exist
     const fromTool = await this.getTool(fromToolId);
     const toTool = await this.getTool(toToolId);
@@ -382,11 +376,11 @@ export class ToolRegistry {
     const _relationshipData = {
       sourceToolId: fromToolId,
       targetToolId: toToolId,
-      relationshipType: validatedRelationship.type as ToolRelationship['relationshipType'],
-      type: validatedRelationship.type,
-      strength: validatedRelationship.strength,
-      reason: validatedRelationship.reason,
-      metadata: validatedRelationship.metadata,
+      relationshipType: relationship.relationshipType,
+      type: relationship.type,
+      strength: relationship.strength,
+      reason: relationship.reason,
+      metadata: relationship.metadata,
     } satisfies ToolRelationship;
 
     // Neo4j operations now handled by knowledge graph service
@@ -419,7 +413,7 @@ export class ToolRegistry {
           return [...acc.filter((r) => r.toolId !== current.toolId), current];
         }
         return acc;
-      }, [] as ToolRecommendation[]);
+      }, [] satisfies ToolRecommendation[]);
 
       return uniqueRecommendations.sort((a, b) => b.score - a.score).slice(0, limit);
     } catch (error) {
@@ -608,19 +602,38 @@ export class ToolRegistry {
         const successfulUses = this.asNumber(statRecord.successfulUses);
         const avgExecutionTime = this.asNumber(statRecord.avgExecutionTime);
 
-        return {
+        const successRate = totalUses > 0 ? successfulUses / totalUses : 0;
+        const metrics: AgentCapabilityMetrics = {
           id: `${this.asString(statRecord.agentId)}_${this.asString(statRecord.toolId)}`,
           agentId: this.asString(statRecord.agentId),
-          toolId: this.asString(statRecord.toolId),
-          totalExecutions: totalUses,
-          successfulExecutions: successfulUses,
-          totalExecutionTime: avgExecutionTime * totalUses,
-          averageExecutionTime: avgExecutionTime,
-          successRate: totalUses > 0 ? successfulUses / totalUses : 0,
-          lastUsed: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as unknown as AgentCapabilityMetrics; // stub: field mapping approximation
+          capabilityId: this.asString(statRecord.toolId),
+          performanceMetrics: {
+            successRate,
+            averageExecutionTime: avgExecutionTime,
+            errorRate: 1 - successRate,
+            resourceUtilization: 0,
+          },
+          usageMetrics: {
+            totalExecutions: totalUses,
+            uniqueContexts: 0,
+            peakConcurrency: 0,
+            lastUsed: new Date(),
+          },
+          qualityMetrics: {
+            accuracy: successRate,
+            reliability: successRate,
+            consistency: 1,
+            adaptability: 1,
+          },
+          securityMetrics: {
+            authorizationSuccess: 1,
+            validationRate: 1,
+            complianceScore: 1,
+            riskLevel: 'low',
+          },
+          timestamp: new Date(),
+        };
+        return metrics;
       });
     } catch (error) {
       logger.error(`Failed to get capability metrics for agent ${agentId}:`, error);
@@ -705,8 +718,8 @@ export class ToolRegistry {
 
   private mapStringToToolCategory(category: unknown): ToolCategory {
     // If it's already a ToolCategory, return as is
-    if (Object.values(ToolCategory).includes(category as ToolCategory)) {
-      return category as ToolCategory;
+    if (isToolCategory(category)) {
+      return category;
     }
 
     // Map string to ToolCategory enum
@@ -775,6 +788,43 @@ export class ToolRegistry {
       });
     }
 
-    return transformed as Partial<ToolDefinition>;
+    return this.recordToPartialToolDefinition(transformed);
+  }
+
+  private recordToPartialToolDefinition(r: Record<string, unknown>): Partial<ToolDefinition> {
+    const result: Partial<ToolDefinition> = {};
+    if (typeof r.id === 'string') result.id = r.id;
+    if (typeof r.name === 'string') result.name = r.name;
+    if (typeof r.description === 'string') result.description = r.description;
+    if (isToolCategory(r.category)) result.category = r.category;
+    if (isRecord(r.parameters)) result.parameters = r.parameters;
+    if (isRecord(r.returnType)) result.returnType = r.returnType;
+    if (Array.isArray(r.examples)) {
+      result.examples = r.examples.map((ex, i) => {
+        const exRec = isRecord(ex) ? ex : {};
+        return {
+          name: typeof exRec.name === 'string' ? exRec.name : `Example ${i + 1}`,
+          description: typeof exRec.description === 'string' ? exRec.description : `Example usage ${i + 1}`,
+          input: isRecord(exRec.input) ? exRec.input : {},
+          expectedOutput: exRec.expectedOutput ?? exRec.output ?? 'Expected output',
+        };
+      });
+    }
+    if (typeof r.securityLevel === 'string') {
+      result.securityLevel = this.toSecurityLevel(r.securityLevel);
+    }
+    if (typeof r.costEstimate === 'number') result.costEstimate = r.costEstimate;
+    if (typeof r.executionTimeEstimate === 'number') result.executionTimeEstimate = r.executionTimeEstimate;
+    if (typeof r.requiresApproval === 'boolean') result.requiresApproval = r.requiresApproval;
+    if (Array.isArray(r.dependencies)) {
+      result.dependencies = r.dependencies.filter((d): d is string => typeof d === 'string');
+    }
+    if (typeof r.version === 'string') result.version = r.version;
+    if (typeof r.author === 'string') result.author = r.author;
+    if (Array.isArray(r.tags)) {
+      result.tags = r.tags.filter((t): t is string => typeof t === 'string');
+    }
+    if (typeof r.isEnabled === 'boolean') result.isEnabled = r.isEnabled;
+    return result;
   }
 }

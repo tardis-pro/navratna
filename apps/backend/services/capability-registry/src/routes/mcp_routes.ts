@@ -11,12 +11,14 @@ import { MCPResourceDiscoveryService } from '../services/mcp_resource_discovery_
  * Strips all secret fields from in-memory server state before sending to
  * clients. httpHeaders contains live API keys and must NEVER leave the process.
  */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function sanitizeServerState(s: unknown) {
-  const state = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>;
+  const state: Record<string, unknown> = isRecord(s) ? s : {};
   const { config, _httpHeaders: _ignoredHttpHeaders, ...rest } = state;
-  const cfg = (config && typeof config === 'object' ? config : undefined) as
-    | Record<string, unknown>
-    | undefined;
+  const cfg: Record<string, unknown> | undefined = isRecord(config) ? config : undefined;
   return {
     ...rest,
     config: cfg

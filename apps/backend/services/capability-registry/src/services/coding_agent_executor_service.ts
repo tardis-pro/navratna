@@ -13,6 +13,12 @@ type AgentEvent = {
   [key: string]: unknown;
 };
 
+function extractEventType(event: unknown): string | undefined {
+  if (typeof event !== 'object' || event === null) return undefined;
+  const rec = event as Record<string, unknown>;
+  return typeof rec.type === 'string' ? rec.type : undefined;
+}
+
 export interface LLMCredential {
   provider: string;
   type: 'api_key' | 'oauth';
@@ -142,9 +148,8 @@ export class CodingAgentExecutor extends EventEmitter {
       });
 
       session.subscribe?.((event: unknown) => {
-        const ev = event as AgentEvent;
         const agentEvent: CodingAgentEvent = {
-          type: this.mapEventType(typeof ev.type === 'string' ? ev.type : 'error'),
+          type: this.mapEventType(extractEventType(event) ?? 'error'),
           sessionId,
           payload: event,
           timestamp: new Date(),

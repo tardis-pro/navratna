@@ -57,7 +57,11 @@ export class SandboxExecutionService {
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+      return value;
+    }
+    return {};
   }
 
   static getInstance(): SandboxExecutionService {

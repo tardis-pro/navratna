@@ -76,7 +76,11 @@ export class MCPResourceDiscoveryService extends EventEmitter {
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+      return value;
+    }
+    return {};
   }
 
   public static getInstance(): MCPResourceDiscoveryService {
@@ -393,8 +397,8 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     if (lowerName.includes('update')) capabilities.push('update');
 
     // Add capabilities based on input schema
-    if (inputSchema.properties && typeof inputSchema.properties === 'object') {
-      const properties = Object.keys(inputSchema.properties as Record<string, unknown>);
+    if (inputSchema.properties !== null && typeof inputSchema.properties === 'object') {
+      const properties = Object.keys(inputSchema.properties);
       if (properties.includes('path')) capabilities.push('file-operations');
       if (properties.includes('url')) capabilities.push('network-operations');
       if (properties.includes('query')) capabilities.push('data-operations');

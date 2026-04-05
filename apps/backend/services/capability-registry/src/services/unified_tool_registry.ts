@@ -11,6 +11,19 @@ import { EventBusService } from '@uaip/infra';
 import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
 import { z } from 'zod';
 
+const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
+function isToolCategory(v: unknown): v is ToolCategory { return toolCategoryValues.has(v); }
+
+const securityLevelValues = new Set<unknown>(Object.values(SecurityLevel));
+function isSecurityLevel(v: unknown): v is SecurityLevel { return securityLevelValues.has(v); }
+
+type RateLimitUsageData = { requests: number[]; lastReset: number };
+function isRateLimitUsageData(v: unknown): v is RateLimitUsageData {
+  if (typeof v !== 'object' || v === null) return false;
+  return 'requests' in v && Array.isArray((v as { requests: unknown }).requests) &&
+    'lastReset' in v && typeof (v as { lastReset: unknown }).lastReset === 'number';
+}
+
 // Enhanced tool definition that combines both standard and enterprise features
 export interface UnifiedToolDefinition extends ToolDefinition {
   // Enterprise features
@@ -252,7 +265,37 @@ export class UnifiedToolRegistry {
   private isInitialized = false;
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+      return value;
+    }
+    return {};
+  }
+
+  private recordToToolDefinition(record: Record<string, unknown>): ToolDefinition {
+    const rl = record.rateLimits;
+    const rlRecord = typeof rl === 'object' && rl !== null ? (rl as Record<string, unknown>) : null;
+    return {
+      id: typeof record.id === 'string' ? record.id : '',
+      name: typeof record.name === 'string' ? record.name : '',
+      description: typeof record.description === 'string' ? record.description : '',
+      category: isToolCategory(record.category) ? record.category : ToolCategory.SYSTEM,
+      isEnabled: typeof record.isEnabled === 'boolean' ? record.isEnabled : true,
+      version: typeof record.version === 'string' ? record.version : '1.0.0',
+      author: typeof record.author === 'string' ? record.author : '',
+      securityLevel: isSecurityLevel(record.securityLevel) ? record.securityLevel : SecurityLevel.LOW,
+      tags: Array.isArray(record.tags) ? record.tags.filter((t): t is string => typeof t === 'string') : [],
+      parameters: typeof record.parameters === 'object' && record.parameters !== null ? (record.parameters as import('@uaip/types').JSONSchema) : {},
+      returnType: typeof record.returnType === 'object' && record.returnType !== null ? (record.returnType as import('@uaip/types').JSONSchema) : {},
+      examples: [],
+      requiresApproval: typeof record.requiresApproval === 'boolean' ? record.requiresApproval : false,
+      dependencies: Array.isArray(record.dependencies) ? record.dependencies.filter((d): d is string => typeof d === 'string') : [],
+      rateLimits: rlRecord ? {
+        maxCallsPerMinute: typeof rlRecord.maxCallsPerMinute === 'number' ? rlRecord.maxCallsPerMinute : undefined,
+        maxCallsPerHour: typeof rlRecord.maxCallsPerHour === 'number' ? rlRecord.maxCallsPerHour : undefined,
+        maxConcurrentExecutions: typeof rlRecord.maxConcurrentExecutions === 'number' ? rlRecord.maxConcurrentExecutions : undefined,
+      } : undefined,
+    };
   }
 
   private asString(value: unknown, fallback = ''): string {
@@ -303,10 +346,10 @@ export class UnifiedToolRegistry {
         name: validated.name,
         displayName: validated.name, // Use name as displayName
         description: validated.description,
-        category: validated.category as ToolCategory,
+        category: isToolCategory(validated.category) ? validated.category : ToolCategory.SYSTEM,
         isEnabled: validated.isEnabled,
         version: validated.version,
-        securityLevel: validated.securityLevel as SecurityLevel,
+        securityLevel: isSecurityLevel(validated.securityLevel) ? validated.securityLevel : SecurityLevel.LOW,
       });
 
       // Register operations if provided (simplified for now)
@@ -360,10 +403,10 @@ export class UnifiedToolRegistry {
 
       // Convert to UnifiedToolDefinition and enhance with graph data if available
       const unifiedTools: UnifiedToolDefinition[] = tools.map((tool) => ({
-        ...(tool as unknown as ToolDefinition),
-        recommendations: [] as ToolRecommendation[],
-        relationships: [] as ToolRelationship[],
-        projectContext: [] as ProjectContext[],
+        ...this.recordToToolDefinition(tool),
+        recommendations: [] satisfies ToolRecommendation[],
+        relationships: [] satisfies ToolRelationship[],
+        projectContext: [] satisfies ProjectContext[],
       }));
 
       if (this.toolService.neo4jService) {
@@ -400,12 +443,11 @@ export class UnifiedToolRegistry {
       const tool = await this.toolService.findToolById(toolId);
       if (!tool) return null;
 
-      // Convert to UnifiedToolDefinition
       return {
-        ...(tool as unknown as ToolDefinition),
-        recommendations: [] as ToolRecommendation[],
-        relationships: [] as ToolRelationship[],
-        projectContext: [] as ProjectContext[],
+        ...this.recordToToolDefinition(tool),
+        recommendations: [] satisfies ToolRecommendation[],
+        relationships: [] satisfies ToolRelationship[],
+        projectContext: [] satisfies ProjectContext[],
       };
     } catch (error) {
       logger.error('Failed to get tool', { error, toolId });
@@ -436,10 +478,10 @@ export class UnifiedToolRegistry {
 
       // Convert to UnifiedToolDefinition for additional features
       const tool: UnifiedToolDefinition = {
-        ...(baseTool as unknown as ToolDefinition),
-        recommendations: [] as ToolRecommendation[],
-        relationships: [] as ToolRelationship[],
-        projectContext: [] as ProjectContext[],
+        ...this.recordToToolDefinition(baseTool),
+        recommendations: [] satisfies ToolRecommendation[],
+        relationships: [] satisfies ToolRelationship[],
+        projectContext: [] satisfies ProjectContext[],
       };
 
       // Security checks
@@ -589,8 +631,10 @@ export class UnifiedToolRegistry {
             'ENHANCES',
             'REQUIRES',
           ];
-          const relationshipType = validTypes.includes(typeValue as ToolRelationship['type'])
-            ? (typeValue as ToolRelationship['type'])
+          const validTypeSet = new Set<unknown>(validTypes);
+          const isToolRelationshipType = (v: unknown): v is ToolRelationship['type'] => validTypeSet.has(v);
+          const relationshipType: ToolRelationship['type'] = isToolRelationshipType(typeValue)
+            ? typeValue
             : 'SIMILAR_TO';
 
           return {
@@ -704,10 +748,10 @@ export class UnifiedToolRegistry {
       const usageKey = `rate_limit:${key}`;
       const usageData = await this.toolService.getRedisService().get(usageKey);
 
-      const usage: { requests: number[]; lastReset: number } =
-        typeof usageData === 'string'
-          ? (JSON.parse(usageData) as { requests: number[]; lastReset: number })
-          : { requests: [], lastReset: now };
+      const parsedUsage: unknown = typeof usageData === 'string' ? JSON.parse(usageData) : null;
+      const usage: RateLimitUsageData = isRateLimitUsageData(parsedUsage)
+        ? parsedUsage
+        : { requests: [], lastReset: now };
 
       // Clean old requests outside window
       usage.requests = usage.requests.filter((time: number) => now - time < rateLimit.window);
@@ -880,9 +924,9 @@ export class UnifiedToolRegistry {
       }
 
       // Get category-based recommendations
-      if (context.category) {
+      if (context.category && isToolCategory(context.category)) {
         const categoryRecs = await this.toolService.getToolsByCategory(
-          context.category as ToolCategory
+          context.category
         );
         recommendations.push(
           ...categoryRecs.map((tool: Record<string, unknown>) => ({

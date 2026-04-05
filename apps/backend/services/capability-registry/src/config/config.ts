@@ -64,13 +64,14 @@ function validateConfig(): void {
   // Shared config validation is handled by @uaip/config
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function getNestedValue(obj: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((current, key) => {
-    if (typeof current !== 'object' || current === null) {
-      return undefined;
-    }
-    const record = current as Record<string, unknown>;
-    return record[key];
+    if (!isRecord(current)) return undefined;
+    return current[key];
   }, obj);
 }
 

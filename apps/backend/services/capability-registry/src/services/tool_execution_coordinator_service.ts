@@ -76,6 +76,20 @@ interface ToolExecutionResponse {
  * Central coordinator for tool execution requests
  * Listens to tool.execute.request events and routes them to appropriate executors
  */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isToolExecutionStatus(v: unknown): v is ToolExecutionStatus {
+  return (
+    isRecord(v) &&
+    typeof v.requestId === 'string' &&
+    typeof v.toolId === 'string' &&
+    typeof v.status === 'string' &&
+    typeof v.startTime === 'number'
+  );
+}
+
 export class ToolExecutionCoordinator {
   private static instance: ToolExecutionCoordinator;
   private eventBus: EventBusService;
@@ -83,7 +97,7 @@ export class ToolExecutionCoordinator {
   private redis: typeof redisCacheService;
   private toolRegistry: UnifiedToolRegistry;
   private isListening = false;
-  private executionTimeout = 300000; // 5 minutes default
+  private executionTimeout = 300000;
 
   private asString(value: unknown): string | null {
     return typeof value === 'string' ? value : null;
@@ -161,14 +175,15 @@ export class ToolExecutionCoordinator {
           });
           // Publish cached result if available
           if (existingStatus.status === 'COMPLETED' && existingStatus.result) {
-            await this.eventBus.publish(`tool.response.${requestId}`, {
+            const cachedResponse: ToolExecutionResponse = {
               requestId,
               toolId: event.toolId,
               status: 'SUCCESS',
               result: existingStatus.result,
               executionTime: Date.now() - startTime,
               metadata: { duplicated: true, originalRequestId: existingStatus.requestId },
-            } as ToolExecutionResponse);
+            };
+            await this.eventBus.publish(`tool.response.${requestId}`, cachedResponse);
           }
           return;
         }
@@ -184,7 +199,7 @@ export class ToolExecutionCoordinator {
             toolId: event.toolId,
             requiredApproval: approvalResult.requiredApproval,
           });
-          await this.eventBus.publish(`tool.response.${requestId}`, {
+          const blockedResponse: ToolExecutionResponse = {
             requestId,
             toolId: event.toolId,
             status: 'ERROR',
@@ -195,7 +210,8 @@ export class ToolExecutionCoordinator {
               requiredApproval: approvalResult.requiredApproval,
               approvalRequestId: approvalResult.approvalRequestId,
             },
-          } as ToolExecutionResponse);
+          };
+          await this.eventBus.publish(`tool.response.${requestId}`, blockedResponse);
           return;
         }
       }
@@ -443,7 +459,8 @@ export class ToolExecutionCoordinator {
         return null;
       }
 
-      return JSON.parse(cached) as ToolExecutionStatus;
+      const parsed: unknown = JSON.parse(cached);
+      return isToolExecutionStatus(parsed) ? parsed : null;
     } catch (error) {
       logger.error('Failed to get execution status from Redis', error);
       return null;

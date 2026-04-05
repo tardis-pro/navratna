@@ -10,29 +10,15 @@ import { EventBusService } from '@uaip/infra';
 import type { JiraOperationOutcome, JiraOperationStatus } from '@uaip/types';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
-interface JiraUpdateParams {
-  issueIdOrKey?: string;
-  fields?: Record<string, unknown>;
-  notifyUsers?: boolean;
-}
-
-interface JiraSearchParams {
-  jql?: string;
-  fields?: string[];
-  maxResults?: number;
-  startAt?: number;
-}
-
-interface JiraSprintParams {
-  projectKey?: string;
-}
-
-interface JiraCommentParams {
-  issueIdOrKey?: string;
-  body?: string;
-}
-
 const JIRA_OPERATION_COMPLETED_EVENT = 'jira.operation.completed';
+
+function toRecord(v: unknown): Record<string, unknown> {
+  if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+    return v;
+  }
+  return {};
+}
 
 export class JiraAdapter {
   private toolDefinition: ToolDefinition;
@@ -146,7 +132,10 @@ export class JiraAdapter {
    * Update an existing issue
    */
   private async updateIssue(parameters: unknown): Promise<unknown> {
-    const { issueIdOrKey, fields, notifyUsers = true } = (parameters as JiraUpdateParams) ?? {};
+    const p = toRecord(parameters);
+    const issueIdOrKey = typeof p.issueIdOrKey === 'string' ? p.issueIdOrKey : undefined;
+    const fields = p.fields !== undefined && typeof p.fields === 'object' && p.fields !== null ? (p.fields as Record<string, unknown>) : undefined;
+    const notifyUsers = typeof p.notifyUsers === 'boolean' ? p.notifyUsers : true;
     if (!issueIdOrKey || !fields) {
       throw new ValidationError('updateIssue requires issueIdOrKey and fields');
     }
@@ -177,12 +166,11 @@ export class JiraAdapter {
    * Search for issues using JQL
    */
   private async searchIssues(parameters: unknown): Promise<unknown> {
-    const {
-      jql,
-      fields = [],
-      maxResults = 50,
-      startAt = 0,
-    } = (parameters as JiraSearchParams) ?? {};
+    const p = toRecord(parameters);
+    const jql = typeof p.jql === 'string' ? p.jql : undefined;
+    const fields = Array.isArray(p.fields) ? (p.fields as string[]) : [];
+    const maxResults = typeof p.maxResults === 'number' ? p.maxResults : 50;
+    const startAt = typeof p.startAt === 'number' ? p.startAt : 0;
 
     const response = await this.axiosInstance.post('/search', {
       jql,
@@ -213,7 +201,8 @@ export class JiraAdapter {
    * Get active sprint for a project
    */
   private async getActiveSprint(parameters: unknown): Promise<unknown> {
-    const { projectKey } = (parameters as JiraSprintParams) ?? {};
+    const p = toRecord(parameters);
+    const projectKey = typeof p.projectKey === 'string' ? p.projectKey : undefined;
     if (!projectKey) {
       throw new ValidationError('getActiveSprint requires projectKey');
     }
@@ -261,7 +250,9 @@ export class JiraAdapter {
    * Add a comment to an issue
    */
   private async addComment(parameters: unknown): Promise<unknown> {
-    const { issueIdOrKey, body } = (parameters as JiraCommentParams) ?? {};
+    const p = toRecord(parameters);
+    const issueIdOrKey = typeof p.issueIdOrKey === 'string' ? p.issueIdOrKey : undefined;
+    const body = typeof p.body === 'string' ? p.body : undefined;
     if (!issueIdOrKey || !body) {
       throw new ValidationError('addComment requires issueIdOrKey and body');
     }
@@ -355,7 +346,8 @@ export class JiraAdapter {
   private async authenticate(): Promise<void> {
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
+      const authRecord = toRecord(authConfig);
+      const tokenUrl = typeof authRecord.tokenUrl === 'string' ? authRecord.tokenUrl : undefined;
 
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
@@ -369,7 +361,7 @@ export class JiraAdapter {
 
       // Exchange refresh token for access token
       const response = await axios.post(
-        oauthConfig.tokenUrl,
+        tokenUrl,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -406,12 +398,13 @@ export class JiraAdapter {
 
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
+      const authRecord2 = toRecord(authConfig);
+      const tokenUrl2 = typeof authRecord2.tokenUrl === 'string' ? authRecord2.tokenUrl : undefined;
       const clientId = process.env.JIRA_CLIENT_ID;
       const clientSecret = process.env.JIRA_CLIENT_SECRET;
 
       const response = await axios.post(
-        oauthConfig.tokenUrl,
+        tokenUrl2,
         {
           grant_type: 'refresh_token',
           client_id: clientId,

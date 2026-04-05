@@ -10,6 +10,14 @@ import type {
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
 
+function toRecord(v: unknown): Record<string, unknown> {
+  if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+    return v
+  }
+  return {}
+}
+
 export class NotionAdapter extends BaseOAuthAdapter {
   constructor(adapterConfig: NotionAdapterConfig) {
     const oauthConfig: OAuthConfig = {
@@ -29,11 +37,16 @@ export class NotionAdapter extends BaseOAuthAdapter {
     options: RequestInit,
     tokens: OAuthTokens
   ): Promise<Response> {
+    const existingHeaders = toRecord(options.headers)
+    const stringHeaders: Record<string, string> = {}
+    for (const [k, v] of Object.entries(existingHeaders)) {
+      if (typeof v === 'string') stringHeaders[k] = v
+    }
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${tokens.accessToken}`,
       'Notion-Version': NOTION_VERSION,
       'Accept': 'application/json',
-      ...(options.headers as Record<string, string> ?? {}),
+      ...stringHeaders,
     }
 
     const response = await fetch(url, { ...options, headers })
@@ -54,7 +67,10 @@ export class NotionAdapter extends BaseOAuthAdapter {
       description: 'Creates a new page in Notion',
       parameters: { parentId: 'string', title: 'string', content: 'string' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { parentId, title, content } = params as { parentId: string; title: string; content: string }
+        const p = toRecord(params)
+        const parentId = typeof p.parentId === 'string' ? p.parentId : ''
+        const title = typeof p.title === 'string' ? p.title : ''
+        const content = typeof p.content === 'string' ? p.content : ''
         return this.createPage(parentId, title, content, tokens)
       },
     })
@@ -65,7 +81,9 @@ export class NotionAdapter extends BaseOAuthAdapter {
       description: 'Updates a page in Notion',
       parameters: { pageId: 'string', properties: 'object' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { pageId, properties } = params as { pageId: string; properties: Record<string, unknown> }
+        const p = toRecord(params)
+        const pageId = typeof p.pageId === 'string' ? p.pageId : ''
+        const properties = toRecord(p.properties)
         return this.updatePage(pageId, properties, tokens)
       },
     })
@@ -76,7 +94,8 @@ export class NotionAdapter extends BaseOAuthAdapter {
       description: 'Retrieves a page from Notion',
       parameters: { pageId: 'string' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { pageId } = params as { pageId: string }
+        const p = toRecord(params)
+        const pageId = typeof p.pageId === 'string' ? p.pageId : ''
         return this.getPage(pageId, tokens)
       },
     })
@@ -87,7 +106,9 @@ export class NotionAdapter extends BaseOAuthAdapter {
       description: 'Queries a Notion database',
       parameters: { databaseId: 'string', filter: 'object' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { databaseId, filter } = params as { databaseId: string; filter?: Record<string, unknown> }
+        const p = toRecord(params)
+        const databaseId = typeof p.databaseId === 'string' ? p.databaseId : ''
+        const filter = p.filter !== undefined ? toRecord(p.filter) : undefined
         return this.queryDatabase(databaseId, filter, tokens)
       },
     })
@@ -98,7 +119,8 @@ export class NotionAdapter extends BaseOAuthAdapter {
       description: 'Searches across Notion workspace',
       parameters: { query: 'string' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { query } = params as { query: string }
+        const p = toRecord(params)
+        const query = typeof p.query === 'string' ? p.query : ''
         return this.search(query, tokens)
       },
     })
@@ -109,7 +131,9 @@ export class NotionAdapter extends BaseOAuthAdapter {
       description: 'Appends blocks to a Notion page',
       parameters: { pageId: 'string', blocks: 'array' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { pageId, blocks } = params as { pageId: string; blocks: NotionBlockContent[] }
+        const p = toRecord(params)
+        const pageId = typeof p.pageId === 'string' ? p.pageId : ''
+        const blocks = Array.isArray(p.blocks) ? (p.blocks as NotionBlockContent[]) : []
         return this.appendBlocks(pageId, blocks, tokens)
       },
     })
@@ -142,7 +166,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
       tokens
     )
 
-    const data = (await response.json()) as Record<string, unknown>
+    const data = toRecord(await response.json())
     return this.mapToNotionPage(data)
   }
 
@@ -161,7 +185,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
       tokens
     )
 
-    const data = (await response.json()) as Record<string, unknown>
+    const data = toRecord(await response.json())
     return this.mapToNotionPage(data)
   }
 
@@ -172,7 +196,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
       tokens
     )
 
-    const data = (await response.json()) as Record<string, unknown>
+    const data = toRecord(await response.json())
     return this.mapToNotionPage(data)
   }
 
@@ -196,9 +220,10 @@ export class NotionAdapter extends BaseOAuthAdapter {
       tokens
     )
 
-    const data = (await response.json()) as { results: Array<Record<string, unknown>> }
+    const responseData = toRecord(await response.json())
+    const results = Array.isArray(responseData.results) ? responseData.results : []
     return {
-      results: data.results.map((item) => this.mapToNotionPage(item)),
+      results: results.map((item) => this.mapToNotionPage(toRecord(item))),
     }
   }
 
@@ -213,9 +238,10 @@ export class NotionAdapter extends BaseOAuthAdapter {
       tokens
     )
 
-    const data = (await response.json()) as { results: Array<Record<string, unknown>> }
+    const responseData = toRecord(await response.json())
+    const results = Array.isArray(responseData.results) ? responseData.results : []
     return {
-      results: data.results.map((item) => this.mapToNotionPage(item)),
+      results: results.map((item) => this.mapToNotionPage(toRecord(item))),
     }
   }
 
@@ -301,20 +327,30 @@ export class NotionAdapter extends BaseOAuthAdapter {
   }
 
   private mapToNotionPage(data: Record<string, unknown>): NotionPage {
-    const parent = data.parent as Record<string, unknown> | undefined
-    const properties = data.properties as Record<string, unknown> | undefined
-    const titleProp = properties?.title ?? properties?.Name
-    const titleArray = (titleProp as Record<string, unknown>)?.title as Array<{ plain_text: string }> | undefined
+    const parent = toRecord(data.parent)
+    const properties = toRecord(data.properties)
+    const titleProp = toRecord(properties.title ?? properties.Name)
+    const titleArr = Array.isArray(titleProp.title) ? titleProp.title : []
+    const firstTitle = toRecord(titleArr[0])
+    const title = typeof firstTitle.plain_text === 'string' ? firstTitle.plain_text : 'Untitled'
+
+    const parentId = typeof parent.page_id === 'string'
+      ? parent.page_id
+      : typeof parent.database_id === 'string'
+        ? parent.database_id
+        : typeof parent.workspace === 'string'
+          ? parent.workspace
+          : undefined
 
     return {
-      id: data.id as string,
-      title: titleArray?.[0]?.plain_text ?? 'Untitled',
-      url: data.url as string ?? '',
-      parentId: (parent?.page_id ?? parent?.database_id ?? parent?.workspace) as string | undefined,
-      parentType: parent?.type === 'database_id' ? 'database' : parent?.type === 'page_id' ? 'page' : 'workspace',
-      lastEditedAt: data.last_edited_time as string ?? '',
-      createdAt: data.created_time as string ?? '',
-      archived: (data.archived as boolean) ?? false,
+      id: typeof data.id === 'string' ? data.id : '',
+      title,
+      url: typeof data.url === 'string' ? data.url : '',
+      parentId,
+      parentType: parent.type === 'database_id' ? 'database' : parent.type === 'page_id' ? 'page' : 'workspace',
+      lastEditedAt: typeof data.last_edited_time === 'string' ? data.last_edited_time : '',
+      createdAt: typeof data.created_time === 'string' ? data.created_time : '',
+      archived: typeof data.archived === 'boolean' ? data.archived : false,
     }
   }
 }

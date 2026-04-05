@@ -15,8 +15,12 @@ interface OAuthTokenInfo {
   expiresAt?: string;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return isRecord(value) ? value : {};
 }
 
 function asString(value: unknown): string | undefined {
@@ -818,7 +822,13 @@ export class BaseToolExecutor {
       case 'send-message': {
         const channelId = this.requiredString(parameters.channelId, 'channelId');
         const text = this.requiredString(parameters.text, 'text');
-        return adapter.sendMessage(channelId, text, parameters.options);
+        const rawOpts = parameters.options;
+        let opts: Record<string, unknown> = {};
+        if (typeof rawOpts === 'object' && rawOpts !== null && !Array.isArray(rawOpts)) {
+          // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+          opts = rawOpts;
+        }
+        return adapter.sendMessage(channelId, text, opts);
       }
       case 'list-channels':
         return adapter.listChannels(parameters);

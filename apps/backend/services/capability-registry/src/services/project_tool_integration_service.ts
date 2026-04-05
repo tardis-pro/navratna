@@ -59,12 +59,17 @@ export class ProjectToolIntegrationService {
     private eventBusService: EventBusService
   ) {
     this.toolRegistry = new UnifiedToolRegistry(eventBusService);
-    this.projectService = new ProjectManagementService(databaseService as any);
+    // @ts-expect-error -- DatabaseService from @uaip/infra/database is structurally compatible with @uaip/shared-services DatabaseService at runtime
+    this.projectService = new ProjectManagementService(databaseService);
     this.setupEventSubscriptions();
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
+      return value;
+    }
+    return {};
   }
 
   async initialize(): Promise<void> {
@@ -580,9 +585,8 @@ export class ProjectToolIntegrationService {
 
     const sensitiveFields = ['password', 'token', 'key', 'secret', 'credential'];
     const sanitized: { [key: string]: JsonValue } = {};
-    const record = data as Record<string, unknown>;
 
-    for (const [key, value] of Object.entries(record)) {
+    for (const [key, value] of Object.entries(data)) {
       if (sensitiveFields.some((field) => key.toLowerCase().includes(field))) {
         sanitized[key] = '[REDACTED]';
         continue;

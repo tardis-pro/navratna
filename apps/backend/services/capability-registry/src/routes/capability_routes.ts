@@ -8,33 +8,34 @@ const CAPABILITY_INJECTED_EVENT = 'capability.injected';
 
 const MCP_TOOL_REQUIRED_FIELDS = ['name', 'description', 'inputSchema'] as const;
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function validateMcpToolSchema(body: unknown): string | null {
-  if (!body || typeof body !== 'object') {
+  if (!isRecord(body)) {
     return 'Request body must be an object';
   }
 
-  const record = body as Record<string, unknown>;
-
   for (const field of MCP_TOOL_REQUIRED_FIELDS) {
-    if (!record[field]) {
+    if (!body[field]) {
       return `Missing required field: ${field}`;
     }
   }
 
-  if (typeof record.name !== 'string' || record.name.trim().length === 0) {
+  if (typeof body.name !== 'string' || body.name.trim().length === 0) {
     return 'name must be a non-empty string';
   }
 
-  if (typeof record.description !== 'string') {
+  if (typeof body.description !== 'string') {
     return 'description must be a string';
   }
 
-  if (typeof record.inputSchema !== 'object' || record.inputSchema === null) {
+  if (!isRecord(body.inputSchema)) {
     return 'inputSchema must be a JSON Schema object';
   }
 
-  const schema = record.inputSchema as Record<string, unknown>;
-  if (schema.type !== 'object') {
+  if (body.inputSchema.type !== 'object') {
     return 'inputSchema.type must be "object"';
   }
 
@@ -96,7 +97,7 @@ export function registerCapabilityRoutes(controller?: CapabilityController){
       try {
         const result = await capabilityController.registerCapability(ctx);
         const eventBus = EventBusService.getInstance();
-        const body = ctx.body as Record<string, unknown>;
+        const body = isRecord(ctx.body) ? ctx.body : {};
 
         await eventBus.publish(CAPABILITY_INJECTED_EVENT, {
           name: body.name,

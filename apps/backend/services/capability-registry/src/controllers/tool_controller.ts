@@ -8,6 +8,56 @@ import { ToolDefinition, ToolCategory, SecurityLevel, ToolRelationship } from '@
 import { logger } from '@uaip/utils';
 import { z } from 'zod';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
+function isToolCategory(v: unknown): v is ToolCategory {
+  return toolCategoryValues.has(v);
+}
+
+const securityLevelValues = new Set<unknown>(Object.values(SecurityLevel));
+function isSecurityLevel(v: unknown): v is SecurityLevel {
+  return securityLevelValues.has(v);
+}
+
+function isStringArray(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((item) => typeof item === 'string');
+}
+
+type JSONSchemaRecord = ToolDefinition['parameters'];
+function isJSONSchema(v: unknown): v is JSONSchemaRecord {
+  return isRecord(v);
+}
+
+type ToolExampleArray = ToolDefinition['examples'];
+function isToolExampleArray(v: unknown): v is ToolExampleArray {
+  return Array.isArray(v);
+}
+
+function toQueryString(val: unknown): string | undefined {
+  return typeof val === 'string' ? val : undefined;
+}
+
+function toQueryFloat(val: unknown, fallback: number): number {
+  return typeof val === 'string' ? parseFloat(val) : fallback;
+}
+
+function toQueryInt(val: unknown, fallback?: number): number | undefined {
+  return typeof val === 'string' ? parseInt(val, 10) : fallback;
+}
+
+function extractParamId(params: Record<string, unknown> | undefined): string {
+  const v = (params ?? {}).id;
+  return typeof v === 'string' ? v : '';
+}
+
+function extractParamAgentId(params: Record<string, unknown> | undefined): string {
+  const v = (params ?? {}).agentId;
+  return typeof v === 'string' ? v : '';
+}
+
 interface ElysiaCtx {
   query?: Record<string, unknown>;
   params?: Record<string, unknown>;
@@ -46,7 +96,7 @@ const ExecuteToolSchema = z.object({
 
 const AddRelationshipSchema = z.object({
   toToolId: z.string(),
-  type: z.enum(['DEPENDS_ON', 'SIMILAR_TO', 'REPLACES', 'ENHANCES', 'REQUIRES']),
+  type: z.enum(['DEPENDS_ON', 'SIMILAR_TO', 'COMPLEMENTS', 'REPLACES', 'ALTERNATIVE_TO']),
   strength: z.number().min(0).max(1),
   reason: z.string().optional(),
   metadata: z.object({}).passthrough().optional(),
@@ -70,19 +120,24 @@ export class ToolController {
       let tools;
 
       if (search) {
-        logger.info(`Searching for tools with search: ${search}`);
-        tools = await this.toolRegistry.searchTools(search as string);
+        const searchStr = typeof search === 'string' ? search : String(search);
+        logger.info(`Searching for tools with search: ${searchStr}`);
+        tools = await this.toolRegistry.searchTools(searchStr);
       } else if (tags) {
-        const tagArray = Array.isArray(tags) ? (tags as string[]) : [tags as string];
+        const tagArray = Array.isArray(tags)
+          ? tags.map((t) => (typeof t === 'string' ? t : String(t)))
+          : [typeof tags === 'string' ? tags : String(tags)];
         logger.info(`Searching for tools with tags: ${tagArray}`);
         tools = await this.toolRegistry.getToolsByTags(tagArray);
       } else if (securityLevel) {
-        logger.info(`Searching for tools with security level: ${securityLevel}`);
-        tools = await this.toolRegistry.getToolsBySecurityLevel(securityLevel as string);
+        const securityLevelStr = typeof securityLevel === 'string' ? securityLevel : String(securityLevel);
+        logger.info(`Searching for tools with security level: ${securityLevelStr}`);
+        tools = await this.toolRegistry.getToolsBySecurityLevel(securityLevelStr);
       } else {
         const enabledFilter = enabled !== undefined ? enabled === 'true' : undefined;
-        logger.info(`Searching for tools with category: ${category} and enabled: ${enabledFilter}`);
-        tools = await this.toolRegistry.getTools(category as string, enabledFilter);
+        const categoryStr = toQueryString(category);
+        logger.info(`Searching for tools with category: ${categoryStr} and enabled: ${enabledFilter}`);
+        tools = await this.toolRegistry.getTools(categoryStr, enabledFilter);
       }
 
       return {
@@ -107,7 +162,7 @@ export class ToolController {
   async getTool({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
       logger.info(`getTool called - Params: ${JSON.stringify(params ?? {})}`);
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
       if (!id) {
         set.status = 400;
         return {
@@ -180,7 +235,7 @@ export class ToolController {
   // PUT /api/v1/tools/:id
   async updateTool({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
 
       const validationResult = z.string().safeParse(id);
       if (!validationResult.success) return this.buildInvalidIdResponse(set);
@@ -213,7 +268,7 @@ export class ToolController {
   // DELETE /api/v1/tools/:id
   async unregisterTool({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
 
       const validationResult = z.string().safeParse(id);
       if (!validationResult.success) return this.buildInvalidIdResponse(set);
@@ -242,7 +297,7 @@ export class ToolController {
   // POST /api/v1/tools/:id/execute
   async executeTool({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
 
       const validationResult = z.string().safeParse(id);
       if (!validationResult.success) return this.buildInvalidIdResponse(set);
@@ -282,7 +337,7 @@ export class ToolController {
   // GET /api/v1/executions/:id
   async getExecution({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
       const execution = await this.toolExecutor.getExecution(id);
 
       if (!execution) {
@@ -316,10 +371,10 @@ export class ToolController {
       const { toolId, agentId, status, limit } = query ?? {};
 
       const executions = await this.toolExecutor.getExecutions(
-        toolId as string,
-        agentId as string,
-        status as string,
-        limit ? parseInt(limit as string) : undefined
+        toQueryString(toolId),
+        toQueryString(agentId),
+        toQueryString(status),
+        toQueryInt(limit)
       );
 
       return {
@@ -344,8 +399,8 @@ export class ToolController {
   // POST /api/v1/executions/:id/approve
   async approveExecution({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
-      const bodyData = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+      const id = extractParamId(params);
+      const bodyData = isRecord(body) ? body : {};
       const approvedBy = typeof bodyData.approvedBy === 'string' ? bodyData.approvedBy : '';
 
       if (!approvedBy) {
@@ -378,7 +433,7 @@ export class ToolController {
   // POST /api/v1/executions/:id/cancel
   async cancelExecution({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
       const cancelled = await this.toolExecutor.cancelExecution(id);
 
       if (!cancelled) {
@@ -412,15 +467,16 @@ export class ToolController {
   // GET /api/v1/tools/:id/related
   async getRelatedTools({ params, query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
 
       const validationResult = z.string().safeParse(id);
       if (!validationResult.success) return this.buildInvalidIdResponse(set);
 
       const { types, minStrength } = query ?? {};
 
-      const relationshipTypes = types ? (types as string).split(',') : undefined;
-      const minStrengthValue = minStrength ? parseFloat(minStrength as string) : 0.5;
+      const typesStr = toQueryString(types);
+      const relationshipTypes = typesStr ? typesStr.split(',') : undefined;
+      const minStrengthValue = toQueryFloat(minStrength, 0.5);
 
       const relatedTools = await this.toolRegistry.getRelatedTools(
         validationResult.data,
@@ -450,13 +506,13 @@ export class ToolController {
   // POST /api/v1/tools/:id/relationships
   async addRelationship({ params, body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
       const validatedRelationship = AddRelationshipSchema.parse(body);
 
       await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, {
         sourceToolId: id,
         targetToolId: validatedRelationship.toToolId,
-        relationshipType: validatedRelationship.type as ToolRelationship['relationshipType'],
+        relationshipType: validatedRelationship.type,
         type: validatedRelationship.type,
         strength: validatedRelationship.strength,
         reason: validatedRelationship.reason,
@@ -502,9 +558,9 @@ export class ToolController {
       }
 
       const recommendations = await this.toolRegistry.getRecommendations(
-        agentId as string,
-        context as string,
-        limit ? parseInt(limit as string) : 5
+        toQueryString(agentId) ?? '',
+        toQueryString(context),
+        toQueryInt(limit) ?? 5
       );
 
       return {
@@ -529,13 +585,13 @@ export class ToolController {
   // GET /api/v1/tools/:id/similar
   async getSimilarTools({ params, query, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
       const { minSimilarity, limit } = query ?? {};
 
       const similarTools = await this.toolRegistry.findSimilarTools(
         id,
-        minSimilarity ? parseFloat(minSimilarity as string) : 0.6,
-        limit ? parseInt(limit as string) : 5
+        toQueryFloat(minSimilarity, 0.6),
+        toQueryInt(limit) ?? 5
       );
 
       return {
@@ -560,7 +616,7 @@ export class ToolController {
   // GET /api/v1/tools/:id/dependencies
   async getToolDependencies({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const id = typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+      const id = extractParamId(params);
       const dependencies = await this.toolRegistry.getToolDependencies(id);
 
       return {
@@ -590,9 +646,9 @@ export class ToolController {
       const { toolId, agentId, days } = query ?? {};
 
       const stats = await this.toolRegistry.getUsageStats(
-        toolId as string,
-        agentId as string,
-        days ? parseInt(days as string) : 30
+        toQueryString(toolId),
+        toQueryString(agentId),
+        toQueryInt(days) ?? 30
       );
 
       return {
@@ -617,8 +673,8 @@ export class ToolController {
       const { category, limit } = query ?? {};
 
       const popularTools = await this.toolRegistry.getPopularTools(
-        category as string,
-        limit ? parseInt(limit as string) : 10
+        toQueryString(category),
+        toQueryInt(limit) ?? 10
       );
 
       return {
@@ -643,8 +699,7 @@ export class ToolController {
   // GET /api/v1/analytics/agent/:agentId/preferences
   async getAgentPreferences({ params, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const agentId =
-        typeof (params ?? {}).agentId === 'string' ? ((params ?? {}).agentId as string) : '';
+      const agentId = extractParamAgentId(params);
       const preferences = await this.toolRegistry.getAgentToolPreferences(agentId);
 
       return {
@@ -780,10 +835,7 @@ export class ToolController {
     // Transform examples to proper ToolExample format
     if (transformed.examples && Array.isArray(transformed.examples)) {
       transformed.examples = transformed.examples.map((example: unknown, index: number) => {
-        const ex =
-          example && typeof example === 'object'
-            ? (example as Record<string, unknown>)
-            : ({} as Record<string, unknown>);
+        const ex = isRecord(example) ? example : {};
         return {
           name: typeof ex.name === 'string' ? ex.name : `Example ${index + 1}`,
           description:
@@ -817,24 +869,56 @@ export class ToolController {
   }
 
   private transformToToolDefinition(validatedTool: unknown): ToolDefinition {
-    const transformed =
-      validatedTool && typeof validatedTool === 'object'
-        ? ({ ...validatedTool } as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
-
+    const transformed = isRecord(validatedTool) ? { ...validatedTool } : {};
     this.applyToolDefinitionTransforms(transformed);
-
-    return transformed as unknown as ToolDefinition;
+    return this.recordToToolDefinition(transformed);
   }
 
   private transformToPartialToolDefinition(validatedTool: unknown): Partial<ToolDefinition> {
-    const transformed =
-      validatedTool && typeof validatedTool === 'object'
-        ? ({ ...validatedTool } as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
-
+    const transformed = isRecord(validatedTool) ? { ...validatedTool } : {};
     this.applyToolDefinitionTransforms(transformed);
+    return this.recordToPartialToolDefinition(transformed);
+  }
 
-    return transformed as Partial<ToolDefinition>;
+  private recordToToolDefinition(r: Record<string, unknown>): ToolDefinition {
+    return {
+      id: typeof r.id === 'string' ? r.id : '',
+      name: typeof r.name === 'string' ? r.name : '',
+      description: typeof r.description === 'string' ? r.description : '',
+      category: isToolCategory(r.category) ? r.category : ToolCategory.API,
+      parameters: isJSONSchema(r.parameters) ? r.parameters : {},
+      returnType: isJSONSchema(r.returnType) ? r.returnType : {},
+      examples: isToolExampleArray(r.examples) ? r.examples : [],
+      securityLevel: isSecurityLevel(r.securityLevel) ? r.securityLevel : SecurityLevel.MEDIUM,
+      costEstimate: typeof r.costEstimate === 'number' ? r.costEstimate : undefined,
+      executionTimeEstimate: typeof r.executionTimeEstimate === 'number' ? r.executionTimeEstimate : undefined,
+      requiresApproval: typeof r.requiresApproval === 'boolean' ? r.requiresApproval : false,
+      dependencies: isStringArray(r.dependencies) ? r.dependencies : [],
+      version: typeof r.version === 'string' ? r.version : '1.0.0',
+      author: typeof r.author === 'string' ? r.author : '',
+      tags: isStringArray(r.tags) ? r.tags : [],
+      isEnabled: typeof r.isEnabled === 'boolean' ? r.isEnabled : true,
+    };
+  }
+
+  private recordToPartialToolDefinition(r: Record<string, unknown>): Partial<ToolDefinition> {
+    const result: Partial<ToolDefinition> = {};
+    if (typeof r.id === 'string') result.id = r.id;
+    if (typeof r.name === 'string') result.name = r.name;
+    if (typeof r.description === 'string') result.description = r.description;
+    if (isToolCategory(r.category)) result.category = r.category;
+    if (isJSONSchema(r.parameters)) result.parameters = r.parameters;
+    if (isJSONSchema(r.returnType)) result.returnType = r.returnType;
+    if (isToolExampleArray(r.examples)) result.examples = r.examples;
+    if (isSecurityLevel(r.securityLevel)) result.securityLevel = r.securityLevel;
+    if (typeof r.costEstimate === 'number') result.costEstimate = r.costEstimate;
+    if (typeof r.executionTimeEstimate === 'number') result.executionTimeEstimate = r.executionTimeEstimate;
+    if (typeof r.requiresApproval === 'boolean') result.requiresApproval = r.requiresApproval;
+    if (isStringArray(r.dependencies)) result.dependencies = r.dependencies;
+    if (typeof r.version === 'string') result.version = r.version;
+    if (typeof r.author === 'string') result.author = r.author;
+    if (isStringArray(r.tags)) result.tags = r.tags;
+    if (typeof r.isEnabled === 'boolean') result.isEnabled = r.isEnabled;
+    return result;
   }
 }
