@@ -38,8 +38,9 @@ const contactQuerySchema = z.object({
   search: z.string().max(100).optional(),
 });
 
-function getContactMeta(contact: { metadata?: Record<string, unknown> | null }) {
-  return (contact.metadata ?? {}) as Record<string, unknown>;
+function getContactMeta(contact: { metadata?: Record<string, unknown> | null }): Record<string, unknown> {
+  const empty: Record<string, unknown> = {};
+  return contact.metadata ?? empty;
 }
 
 function getContactStatus(contact: { metadata?: Record<string, unknown> | null }): string {

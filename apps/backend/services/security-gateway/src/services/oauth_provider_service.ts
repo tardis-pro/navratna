@@ -155,12 +155,16 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
-        revokeUrl: (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl,
+        revokeUrl: typeof (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl === 'string'
+          ? (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl
+          : undefined,
         isEnabled: providerConfig.isEnabled || true,
       });
       this.providers.set(savedProvider.id, savedProvider as unknown);
 
-      const savedProviderAgentCfg = savedProvider.configuration as OAuthProviderAgentConfig | undefined;
+      const savedProviderAgentCfg = typeof savedProvider.configuration === 'object' && savedProvider.configuration !== null
+        ? (savedProvider.configuration as OAuthProviderAgentConfig)
+        : undefined;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
         details: {
@@ -320,7 +324,12 @@ export class OAuthProviderService {
         state: oauthStateEntity.state,
         providerId: oauthStateEntity.providerId,
         redirectUri: oauthStateEntity.redirectUrl,
-        codeVerifier: (oauthStateEntity.metadata as Record<string, unknown>)?.codeVerifier as string | undefined,
+        codeVerifier: (() => {
+          const meta = typeof oauthStateEntity.metadata === 'object' && oauthStateEntity.metadata !== null
+            ? (oauthStateEntity.metadata as Record<string, unknown>)
+            : {};
+          return typeof meta.codeVerifier === 'string' ? meta.codeVerifier : undefined;
+        })(),
         scope: [],
         // @ts-expect-error -- Drizzle OAuthState has no userType; stored in metadata
         userType: (oauthStateEntity.metadata as Record<string, unknown>)?.userType,

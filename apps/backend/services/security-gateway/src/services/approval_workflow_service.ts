@@ -89,7 +89,9 @@ export class ApprovalWorkflowService {
         operationId: savedWorkflow.operationId,
         requiredApprovers: savedWorkflow.requiredApprovers,
         currentApprovers: savedWorkflow.currentApprovers,
-        status: savedWorkflow.status as ApprovalStatus,
+        status: Object.values(ApprovalStatus).includes(savedWorkflow.status as ApprovalStatus)
+          ? (savedWorkflow.status as ApprovalStatus)
+          : ApprovalStatus.PENDING,
         expiresAt: savedWorkflow.expiresAt,
         metadata: savedWorkflow.metadata,
         createdAt: savedWorkflow.createdAt,
@@ -396,7 +398,7 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      await this.processInBatches(workflows as Array<{ id: string }>, async (workflowEntity) => {
+      await this.processInBatches(workflows.filter((w): w is typeof w & { id: string } => typeof (w as Record<string, unknown>).id === 'string'), async (workflowEntity) => {
         try {
           logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
           await this.expireWorkflow(workflowEntity.id);
@@ -742,7 +744,9 @@ export class ApprovalWorkflowService {
       operationId: entity.operationId,
       requiredApprovers: entity.requiredApprovers,
       currentApprovers: entity.currentApprovers,
-      status: entity.status as ApprovalStatus,
+      status: Object.values(ApprovalStatus).includes(entity.status as ApprovalStatus)
+        ? (entity.status as ApprovalStatus)
+        : ApprovalStatus.PENDING,
       expiresAt: entity.expiresAt,
       metadata: entity.metadata,
       createdAt: entity.createdAt,

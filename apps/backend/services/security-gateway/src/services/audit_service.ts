@@ -651,7 +651,9 @@ export class AuditService {
   private mapEntityToAuditEvent(entity: AuditEventEntity): AuditEvent {
     return {
       id: entity.id ?? '',
-      eventType: (entity.eventType ?? AuditEventType.USER_ACTION) as AuditEventType,
+      eventType: Object.values(AuditEventType).includes(entity.eventType as AuditEventType)
+        ? (entity.eventType as AuditEventType)
+        : AuditEventType.USER_ACTION,
       userId: entity.userId ?? undefined,
       agentId: entity.agentId ?? undefined,
       resourceType: entity.resourceType ?? undefined,
@@ -659,7 +661,9 @@ export class AuditService {
       details: entity.details ?? {},
       ipAddress: entity.ipAddress ?? undefined,
       userAgent: entity.userAgent ?? undefined,
-      riskLevel: (entity.riskLevel ?? undefined) as SecurityLevel | undefined,
+      riskLevel: entity.riskLevel != null && Object.values(SecurityLevel).includes(entity.riskLevel as SecurityLevel)
+        ? (entity.riskLevel as SecurityLevel)
+        : undefined,
       timestamp: entity.timestamp ?? new Date(),
       createdAt: entity.createdAt ?? new Date(),
       updatedAt: entity.updatedAt ?? new Date(),

@@ -105,7 +105,9 @@ export function registerAuditRoutes() {
         const result = await repo.searchAuditLogs({
           ...value,
           offset,
-          eventType: value.eventType as AuditEventType | undefined,
+          eventType: value.eventType != null && Object.values(AuditEventType).includes(value.eventType as AuditEventType)
+            ? (value.eventType as AuditEventType)
+            : undefined,
         });
         return {
           message: 'Audit logs retrieved successfully',

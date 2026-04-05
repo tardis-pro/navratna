@@ -372,7 +372,8 @@ export function registerAuthRoutes() {
       try {
         const authUser = await getAuthUser(headers.authorization);
         const { userService, auditService } = await getServices();
-        const { refreshToken } = (body as Record<string, string | undefined>);
+        const bodyRecord = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+        const refreshToken = typeof bodyRecord.refreshToken === 'string' ? bodyRecord.refreshToken : undefined;
   
         if (refreshToken) {
           await userService.revokeRefreshToken(refreshToken);
@@ -646,7 +647,7 @@ export function registerAuthRoutes() {
         );
   
         await auditService.logEvent({
-          eventType: 'internal_token_issued' as AuditEventType,
+          eventType: AuditEventType.TOKEN_REFRESH,
           userId: serviceName,
           resourceType: 'internal_token',
           resourceId: validKey.id,

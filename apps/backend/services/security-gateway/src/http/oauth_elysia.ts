@@ -186,11 +186,15 @@ export function registerOAuthRoutes() {
         const { enhancedAuthService, auditService } = getServices();
         const ipAddress = request.headers.get('x-forwarded-for') || '';
         const userAgent = headers['user-agent'];
+        const validOAuthProviderTypes = new Set<string>(Object.values(OAuthProviderType));
+        const requestedProviders = (validated.requested_providers ?? []).filter(
+          (p): p is OAuthProviderType => validOAuthProviderTypes.has(p)
+        );
         const authResult = await enhancedAuthService.authenticateAgent({
           agentId: validated.agent_id,
           agentToken: validated.agent_token,
           capabilities: validated.capabilities,
-          requestedProviders: (validated.requested_providers || []) as OAuthProviderType[],
+          requestedProviders,
           ipAddress,
           userAgent,
         });
