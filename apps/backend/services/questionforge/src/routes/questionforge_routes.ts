@@ -5,10 +5,12 @@ import { withNginxAuth } from '@uaip/middleware';
 import { QuestionForgeService } from '../services/question_forge_service.js';
 import { InterviewCaptureService } from '../services/interview_capture_service.js';
 
-interface RouteContext {
-  body: Record<string, unknown>;
-  set: { status: number };
-  params: Record<string, string>;
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isQuestion(v: unknown): v is Question {
+  return isRecord(v) && typeof v.id === 'string' && typeof v.text === 'string';
 }
 
 export function registerQuestionForgeRoutes(
@@ -17,10 +19,13 @@ export function registerQuestionForgeRoutes(
 ) {
   return new Elysia().group('/api/v1/questionforge', (g) =>
     withNginxAuth(g)
-      // Run the full QuestionForge pipeline
       .post('/forge', async ({ body, set }) => {
         try {
-          const { projectBriefText, inputType, stakeholderRoles, agentPersonaIds } = body as Record<string, unknown>;
+          if (!isRecord(body)) {
+            set.status = 400;
+            return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid request body' } };
+          }
+          const { projectBriefText, inputType, stakeholderRoles, agentPersonaIds } = body;
 
           if (!projectBriefText || typeof projectBriefText !== 'string') {
             set.status = 400;
@@ -31,10 +36,14 @@ export function registerQuestionForgeRoutes(
           }
 
           const result = await forgeService.forge({
-            projectBriefText: projectBriefText as string,
-            inputType: inputType as string | undefined,
-            stakeholderRoles: (stakeholderRoles ?? []) as string[],
-            agentPersonaIds: (agentPersonaIds ?? []) as string[],
+            projectBriefText,
+            inputType: typeof inputType === 'string' ? inputType : undefined,
+            stakeholderRoles: Array.isArray(stakeholderRoles)
+              ? stakeholderRoles.filter((r): r is string => typeof r === 'string')
+              : [],
+            agentPersonaIds: Array.isArray(agentPersonaIds)
+              ? agentPersonaIds.filter((id): id is string => typeof id === 'string')
+              : [],
           });
 
           return {
@@ -55,15 +64,15 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      // Create an interview session from a forge result
       .post('/interviews', async ({ body, set }) => {
         try {
-          const { projectBriefId: _pbId, stakeholderRole: _sr, questions: _q } = body as Record<string, unknown>;
-          const projectBriefId = _pbId as string;
-          const stakeholderRole = _sr as string;
-          const questions = _q as string[];
+          if (!isRecord(body)) {
+            set.status = 400;
+            return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid request body' } };
+          }
+          const { projectBriefId, stakeholderRole, questions } = body;
 
-          if (!projectBriefId || !stakeholderRole || !(questions as unknown[])?.length) {
+          if (typeof projectBriefId !== 'string' || typeof stakeholderRole !== 'string' || !Array.isArray(questions) || questions.length === 0) {
             set.status = 400;
             return {
               success: false,
@@ -75,9 +84,9 @@ export function registerQuestionForgeRoutes(
           }
 
           const session = interviewService.createSession(
-            projectBriefId as string,
-            stakeholderRole as string,
-            questions as unknown as Question[]
+            projectBriefId,
+            stakeholderRole,
+            questions.filter(isQuestion)
           );
           return { success: true, data: session };
         } catch (error) {
@@ -90,7 +99,6 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      // Get interview session
       .get('/interviews/:sessionId', async ({ params, set }) => {
         try {
           const session = interviewService.getSession(params.sessionId);
@@ -112,10 +120,13 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      // Record an answer in an interview session
       .post('/interviews/:sessionId/answers', async ({ params, body, set }) => {
         try {
-          const { questionId, answer } = body as Record<string, unknown>;
+          if (!isRecord(body)) {
+            set.status = 400;
+            return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid request body' } };
+          }
+          const { questionId, answer } = body;
 
           if (!questionId || !answer) {
             set.status = 400;
@@ -126,9 +137,9 @@ export function registerQuestionForgeRoutes(
           }
 
           const result = await interviewService.recordAnswer(
-            params.sessionId as string,
-            questionId as string,
-            answer as string
+            params.sessionId,
+            typeof questionId === 'string' ? questionId : String(questionId),
+            typeof answer === 'string' ? answer : String(answer)
           );
           return { success: true, data: result };
         } catch (error) {
@@ -141,18 +152,13 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      // Get next question in interview
       .get('/interviews/:sessionId/next', async ({ params, set }) => {
         try {
           const question = interviewService.nextQuestion(params.sessionId);
           if (!question) {
-            return { success: true, data: null as null, message: 'No more questions' as string };
+            return { success: true, data: null, message: 'No more questions' };
           }
-          const resp: { success: boolean; data: Question } = {
-            success: true,
-            data: question as Question,
-          };
-          return resp;
+          return { success: true, data: question };
         } catch (error) {
           logger.error('Failed to get next question', { error });
           set.status = 500;
@@ -163,7 +169,6 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      // Complete interview session
       .post('/interviews/:sessionId/complete', async ({ params, set }) => {
         try {
           const result = await interviewService.completeSession(params.sessionId);
@@ -178,7 +183,6 @@ export function registerQuestionForgeRoutes(
         }
       })
 
-      // Pause/resume interview
       .post('/interviews/:sessionId/pause', async ({ params, set }) => {
         try {
           interviewService.pauseSession(params.sessionId);

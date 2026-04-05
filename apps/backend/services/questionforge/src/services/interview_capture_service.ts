@@ -273,7 +273,7 @@ export class InterviewCaptureService {
       content: '',
       projectBriefId: session.projectBriefId,
       confidence: 1,
-      tags: [] as string[],
+      tags: new Array<string>(),
       createdAt: new Date(),
       updatedAt: new Date(),
     }));

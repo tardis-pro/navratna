@@ -7,9 +7,31 @@ import {
   Assumption,
   Contradiction,
 } from '@uaip/types';
-import type { ForgeRequest, ForgeResult, InterviewSession } from '@uaip/types';
+import type {
+  ForgeRequest,
+  ForgeResult,
+  InterviewSession,
+  CouncilDebateResult,
+  CouncilAgentAnalysis,
+} from '@uaip/types/questionforge';
 import { EventBusService } from '@uaip/shared-services';
 import { logger, NotFoundError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isQuestion(v: unknown): v is Question {
+  return isRecord(v) && typeof v.id === 'string' && typeof v.text === 'string';
+}
+
+function isQuestionCategory(v: unknown): v is QuestionCategory {
+  return typeof v === 'string' && Object.values(QuestionCategory).some((c) => c === v);
+}
+
+function isQuestionPhase(v: unknown): v is QuestionPhase {
+  return typeof v === 'string' && Object.values(QuestionPhase).some((p) => p === v);
+}
 
 import { InputNormalizerService } from './input_normalizer_service.js';
 import { QuestionRankerService } from './question_ranker_service.js';
@@ -99,9 +121,7 @@ export class QuestionForgeService {
 
       // Step 3: Extract and deduplicate questions from debate results
       logger.info('Step 3: Extracting and deduplicating questions', { projectBriefId });
-      const rawQuestions = this.extractQuestionsFromDebate(
-        debateResult as unknown as Record<string, unknown>
-      );
+      const rawQuestions = this.extractQuestionsFromDebate(debateResult);
       const deduplicatedQuestions = this.deduplicateQuestions(rawQuestions);
 
       logger.info('Questions extracted', {
@@ -112,8 +132,8 @@ export class QuestionForgeService {
 
       // Step 4: Rank questions
       logger.info('Step 4: Ranking questions', { projectBriefId });
-      const assumptions: Assumption[] =
-        (debateResult as unknown as { assumptions?: Assumption[] }).assumptions ?? [];
+      // CouncilDebateResult does not expose assumptions directly; use empty array for ranking
+      const assumptions: Assumption[] = [];
       const contradictions: Contradiction[] = debateResult.contradictions ?? [];
       const scores = this.questionRanker.rankQuestions(
         deduplicatedQuestions,
@@ -130,7 +150,7 @@ export class QuestionForgeService {
       // Step 5: Generate stakeholder-specific packs
       logger.info('Step 5: Generating question packs', { projectBriefId });
       const stakeholderRoles = request.stakeholderRoles ?? [];
-      const questionPacks = this.questionPackGenerator.generatePacks({
+      const questionPacks: Map<string, unknown> = this.questionPackGenerator.generatePacks({
         projectBriefId,
         questions: rankedQuestions,
         assumptions,
@@ -143,7 +163,10 @@ export class QuestionForgeService {
       logger.info('Step 6: Preparing interview scripts', { projectBriefId });
       const interviewScripts = new Map<string, unknown>();
       for (const [role, pack] of questionPacks.entries()) {
-        const orderedQuestions = (pack.questions as Question[])
+        const packQuestions: Question[] = isRecord(pack) && Array.isArray(pack.questions)
+          ? pack.questions.filter(isQuestion)
+          : [];
+        const orderedQuestions = packQuestions
           .slice()
           .sort((a: Question, b: Question) => b.priority - a.priority);
         interviewScripts.set(role, {
@@ -159,10 +182,10 @@ export class QuestionForgeService {
         projectBriefId,
         normalizedBrief,
         debateResult,
-        questionPacks: Object.fromEntries(questionPacks) as ForgeResult['questionPacks'],
+        questionPacks,
         topAssumptions: assumptions,
         contradictions,
-        interviewScripts: Object.fromEntries(interviewScripts) as ForgeResult['interviewScripts'],
+        interviewScripts,
         metadata: {
           totalQuestions: rankedQuestions.length,
           totalAssumptions: assumptions.length,
@@ -216,23 +239,28 @@ export class QuestionForgeService {
       throw new NotFoundError(`Forge result not found: ${forgeResultId}`);
     }
 
-    const script = (forgeResult.interviewScripts as Record<string, unknown>)[stakeholderRole] as
-      | (typeof forgeResult.interviewScripts)[string]
-      | undefined;
+    const script = forgeResult.interviewScripts.get(stakeholderRole);
     if (!script) {
       throw new NotFoundError(`No interview script found for stakeholder role: ${stakeholderRole}`);
     }
 
-    const session = {
+    const scriptRecord = isRecord(script) ? script : {};
+    const scriptQuestions: Question[] = Array.isArray(scriptRecord.questions)
+      ? scriptRecord.questions.filter(isQuestion)
+      : [];
+
+    const now = new Date();
+    const session: InterviewSession = {
       id: randomUUID(),
-      forgeResultId,
+      projectBriefId: forgeResultId,
       stakeholderRole,
-      questions: script.questions,
+      questions: scriptQuestions,
       currentQuestionIndex: 0,
       answers: [],
       status: 'pending',
-      createdAt: new Date().toISOString(),
-    } as unknown as InterviewSession;
+      createdAt: now,
+      updatedAt: now,
+    };
 
     logger.info('Interview session created', {
       sessionId: session.id,
@@ -271,31 +299,35 @@ export class QuestionForgeService {
   /**
    * Convert AgentAnalysis questions from debate results into typed Question objects.
    */
-  extractQuestionsFromDebate(debateResult: Record<string, unknown>): Question[] {
+  extractQuestionsFromDebate(debateResult: CouncilDebateResult): Question[] {
     const questions: Question[] = [];
-    const agentAnalyses = debateResult.agentAnalyses ?? debateResult.analyses ?? [];
+    const agentAnalyses = debateResult.round1Analyses ?? [];
 
-    for (const analysis of agentAnalyses as unknown[]) {
-      const a = analysis as Record<string, unknown>;
-      const agentQuestions = (a.questions ?? a.generatedQuestions ?? []) as unknown[];
-      const stakeholderId = a.agentId ?? a.personaId;
-      const stakeholderName = a.agentName ?? a.personaName ?? stakeholderId;
+    for (const analysis of agentAnalyses) {
+      const agentQuestions = analysis.questions ?? [];
+      const stakeholderId = analysis.agentId;
+      const stakeholderName = analysis.agentRole ?? stakeholderId;
 
-      for (const _q of agentQuestions) {
-        const q = _q as Record<string, unknown>;
+      for (const rawQ of agentQuestions) {
+        const q: Record<string, unknown> = isRecord(rawQ) ? rawQ : { text: String(rawQ) };
         const question: Question = {
-          id: (q.id as string | undefined) ?? randomUUID(),
-          projectBriefId: (debateResult.projectBriefId as string | undefined) ?? '',
-          stakeholderId: stakeholderId as string | undefined,
-          stakeholderName: stakeholderName as string | undefined,
-          category:
-            (q.category as QuestionCategory | undefined) ?? QuestionCategory.ASSUMPTION_REVEAL,
-          text: typeof q === 'string' ? q : ((q.text ?? q.question ?? '') as string),
+          id: typeof q.id === 'string' ? q.id : randomUUID(),
+          projectBriefId: debateResult.debateId ?? '',
+          stakeholderId,
+          stakeholderName,
+          category: isQuestionCategory(q.category)
+            ? q.category
+            : QuestionCategory.ASSUMPTION_REVEAL,
+          text: typeof rawQ === 'string' ? rawQ : (typeof q.text === 'string' ? q.text : typeof q.question === 'string' ? q.question : ''),
           intent:
-            (q.intent as string | undefined) ?? 'Discover hidden assumptions and stakeholder needs',
-          priority: (q.priority as number | undefined) ?? 5,
-          phase: (q.phase as QuestionPhase | undefined) ?? QuestionPhase.DISCOVERY,
-          tags: (q.tags as string[] | undefined) ?? [],
+            typeof q.intent === 'string'
+              ? q.intent
+              : 'Discover hidden assumptions and stakeholder needs',
+          priority: typeof q.priority === 'number' ? q.priority : 5,
+          phase: isQuestionPhase(q.phase)
+            ? q.phase
+            : QuestionPhase.DISCOVERY,
+          tags: Array.isArray(q.tags) ? q.tags.filter((t): t is string => typeof t === 'string') : [],
           status: QuestionStatus.DRAFT,
           usageCount: 0,
           createdAt: new Date(),
