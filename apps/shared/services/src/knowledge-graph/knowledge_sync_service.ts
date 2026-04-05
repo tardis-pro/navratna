@@ -1013,7 +1013,12 @@ export class KnowledgeSyncService {
       `;
 
       const params = {
-        oldId: (item.metadata.originalProperties as { id?: string } | undefined)?.id || null,
+        oldId: (() => {
+          const orig = item.metadata.originalProperties;
+          if (typeof orig !== 'object' || orig === null || !('id' in orig)) return null;
+          const origId = (orig as Record<string, unknown>).id;
+          return typeof origId === 'string' ? origId : null;
+        })(),
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,

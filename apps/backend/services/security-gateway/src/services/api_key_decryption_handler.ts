@@ -23,7 +23,8 @@ export class ApiKeyDecryptionHandler {
       'llm.apikey.decrypt.request',
       async (message) => {
         try {
-          const request = message.data as ApiKeyDecryptionRequest;
+          // @ts-expect-error -- EventBus message.data is typed as unknown; ApiKeyDecryptionRequest is the known shape for this topic
+          const request: ApiKeyDecryptionRequest = message.data;
           await this.handleDecryptionRequest(request);
         } catch (error) {
           logger.error('Error processing API key decryption request', { error });

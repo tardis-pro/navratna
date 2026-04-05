@@ -54,24 +54,26 @@ import type {
   AgentSkill,
   PersonaTrait,
   ConversationalStyle,
-  PersonaStatus,
-  PersonaVisibility,
   PersonaValidation,
   PersonaUsageStats,
   PersonaTone,
   PersonaStyle,
   PersonaEnergyLevel,
+  DiscussionState,
+  DiscussionSettings,
+  TurnStrategyConfig,
+  SourceType,
+  ArtifactType,
+  ValidationResult,
+} from '@uaip/types';
+import {
+  PersonaStatus,
+  PersonaVisibility,
   LLMProviderType,
   LLMProviderStatus,
   DiscussionStatus,
   DiscussionVisibility,
-  DiscussionState,
-  DiscussionSettings,
-  TurnStrategyConfig,
   KnowledgeType,
-  SourceType,
-  ArtifactType,
-  ValidationResult,
   MessageType,
 } from '@uaip/types';
 import { base, llmPreferenceCommonColumns } from './schema_base';
@@ -102,11 +104,11 @@ export const personas = pgTable(
     status: text('status')
       .$type<PersonaStatus>()
       .notNull()
-      .default('draft' as PersonaStatus),
+      .default(PersonaStatus.DRAFT),
     visibility: text('visibility')
       .$type<PersonaVisibility>()
       .notNull()
-      .default('private' as PersonaVisibility),
+      .default(PersonaVisibility.PRIVATE),
     // cross-plane ref: control.users.id — no DB FK
     createdBy: varchar('created_by').notNull(),
     organizationId: varchar('organization_id'),
@@ -282,7 +284,7 @@ export const knowledgeItems = pgTable(
     type: text('type')
       .$type<KnowledgeType>()
       .notNull()
-      .default('factual' as KnowledgeType),
+      .default(KnowledgeType.FACTUAL),
     sourceType: text('source_type').$type<SourceType>().notNull(),
     sourceIdentifier: varchar('source_identifier', { length: 255 }).notNull(),
     sourceUrl: text('source_url'),
@@ -336,11 +338,11 @@ export const discussions = pgTable('discussions', {
   status: text('status')
     .$type<DiscussionStatus>()
     .notNull()
-    .default('draft' as DiscussionStatus),
+    .default(DiscussionStatus.DRAFT),
   visibility: text('visibility')
     .$type<DiscussionVisibility>()
     .notNull()
-    .default('private' as DiscussionVisibility),
+    .default(DiscussionVisibility.PRIVATE),
   // cross-plane ref: control.users.id — no DB FK
   createdBy: uuid('created_by').notNull(),
   organizationId: uuid('organization_id'),
@@ -401,7 +403,7 @@ export const discussionMessages = pgTable('discussion_messages', {
   messageType: text('message_type')
     .$type<MessageType>()
     .notNull()
-    .default('message' as MessageType),
+    .default(MessageType.MESSAGE),
   replyToMessageId: uuid('reply_to_message_id'),
   attachments: text('attachments').array().notNull().default([]),
   reactions: jsonb('reactions').$type<Record<string, string[]>>(),
@@ -566,7 +568,7 @@ export const llmProviders = pgTable(
     type: text('type')
       .$type<LLMProviderType>()
       .notNull()
-      .default('custom' as LLMProviderType),
+      .default(LLMProviderType.CUSTOM),
     baseUrl: varchar('base_url', { length: 500 }).notNull(),
     apiKeyEncrypted: text('api_key_encrypted'),
     defaultModel: varchar('default_model', { length: 255 }),
@@ -580,7 +582,7 @@ export const llmProviders = pgTable(
     status: text('status')
       .$type<LLMProviderStatus>()
       .notNull()
-      .default('active' as LLMProviderStatus),
+      .default(LLMProviderStatus.ACTIVE),
     isActive: boolean('is_active').notNull().default(true),
     priority: integer('priority').notNull().default(0),
     totalTokensUsed: integer('total_tokens_used').notNull().default(0),

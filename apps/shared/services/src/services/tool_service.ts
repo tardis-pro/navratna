@@ -3,6 +3,7 @@ import { BaseDomainService } from './base_domain_service';
 import {
   ToolRepository,
   ToolExecutionRepository,
+  ToolExecutionRow,
   ToolUsageRepository,
   ToolAssignmentRepository,
   BaseCreateToolParams,
@@ -308,7 +309,7 @@ export class ToolService extends BaseDomainService {
     );
   }
 
-  public async getToolExecution(executionId: string): Promise<Record<string, unknown> | null> {
+  public async getToolExecution(executionId: string): Promise<ToolExecutionRow | null> {
     const executionRepo = this.getToolExecutionRepository();
     return await executionRepo.getToolExecution(executionId);
   }

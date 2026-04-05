@@ -576,13 +576,13 @@ export class PersonaService {
       const entities = await this.databaseService.executeQuery<PersonaRow>(query, params);
 
       return entities.map((entity) => ({
-        id: entity.id as string,
-        name: entity.name as string,
-        description: entity.description as string,
+        id: entity.id,
+        name: entity.name,
+        description: entity.description ?? '',
         category: 'general',
-        traits: entity.traits as string[],
-        expertise: entity.expertise as string[],
-        usageCount: (entity.totalInteractions as number) || 0,
+        traits: entity.traits.map((t) => (typeof t === 'string' ? t : String(t))),
+        expertise: entity.expertise,
+        usageCount: entity.totalInteractions,
       }));
     } catch (error) {
       logger.error('Failed to get persona templates', { error: error instanceof Error ? error.message : String(error), category, });

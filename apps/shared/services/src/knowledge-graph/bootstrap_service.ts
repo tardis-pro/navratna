@@ -168,10 +168,10 @@ export class KnowledgeBootstrapService {
     ];
 
     const results = await Promise.allSettled(serviceChecks);
-    const failures = results.filter((r) => r.status === 'rejected');
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
     if (failures.length > 0) {
-      const errors = failures.map((f) => (f as PromiseRejectedResult).reason);
+      const errors = failures.map((f) => f.reason);
       logger.warn('Some services are not ready:', errors);
 
       // Continue with degraded functionality
@@ -236,7 +236,7 @@ export class KnowledgeBootstrapService {
         return; // Success!
       } catch (error) {
         attempt++;
-        lastError = error as Error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt < this.config.retryAttempts) {
           logger.warn(
@@ -443,9 +443,7 @@ export class KnowledgeBootstrapService {
     }
 
     // Check Qdrant sync status
-    const qdrantInfo = (await this.qdrantService.getCollectionInfo()) as {
-      result?: { points_count?: number };
-    };
+    const qdrantInfo = await this.qdrantService.getCollectionInfo();
     const syncedToQdrant = qdrantInfo.result?.points_count || 0;
 
     // Estimate fully synced items (conservative approach)
@@ -617,11 +615,9 @@ export class KnowledgeBootstrapService {
       // Count domain occurrences from tags and metadata
       for (const item of items) {
         // From metadata domain
-        if (item.metadata.domain) {
-          domainCounts.set(
-            item.metadata.domain as string,
-            (domainCounts.get(item.metadata.domain as string) || 0) + 1
-          );
+        if (typeof item.metadata.domain === 'string') {
+          const domain = item.metadata.domain;
+          domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
         }
 
         // From tags (exclude common system tags)

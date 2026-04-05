@@ -33,6 +33,15 @@ interface OAuthTokenResponse {
 type OAuthProviderConfigWithRevoke = OAuthProviderConfig & { revokeUrl?: string };
 type OAuthProviderAgentConfig = { allowAgentAccess?: boolean };
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function getRevokeUrl(config: OAuthProviderConfig): string | undefined {
+  const rec = config as Record<string, unknown>;
+  return typeof rec.revokeUrl === 'string' ? rec.revokeUrl : undefined;
+}
+
 interface OAuthUserInfo {
   id: string;
   email?: string;
@@ -155,9 +164,7 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
-        revokeUrl: typeof (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl === 'string'
-          ? (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl
-          : undefined,
+        revokeUrl: getRevokeUrl(providerConfig),
         isEnabled: providerConfig.isEnabled || true,
       });
       this.providers.set(savedProvider.id, savedProvider as unknown);

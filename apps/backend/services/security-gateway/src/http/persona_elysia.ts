@@ -6,6 +6,10 @@ import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 const userService = UserService.getInstance();
 
 const defaultOnboardingProgress = {
@@ -283,14 +287,8 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        const persona: Record<string, unknown> =
-          entity.userPersona !== null && typeof entity.userPersona === 'object'
-            ? (entity.userPersona as Record<string, unknown>)
-            : {};
-        const behavioral: Record<string, unknown> =
-          entity.behavioralPatterns !== null && typeof entity.behavioralPatterns === 'object'
-            ? (entity.behavioralPatterns as Record<string, unknown>)
-            : {};
+        const persona: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
+        const behavioral: Record<string, unknown> = isRecord(entity.behavioralPatterns) ? entity.behavioralPatterns : {};
         const recommendations = await generatePersonaRecommendations(persona, behavioral);
         return recommendations;
       } catch {
@@ -329,10 +327,7 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        const personaRecord: Record<string, unknown> =
-          entity.userPersona !== null && typeof entity.userPersona === 'object'
-            ? (entity.userPersona as Record<string, unknown>)
-            : {};
+        const personaRecord: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
         const compatible = await getCompatibleAgents(personaRecord);
         return compatible;
       } catch {
@@ -352,14 +347,8 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        const personaRec: Record<string, unknown> =
-          entity.userPersona !== null && typeof entity.userPersona === 'object'
-            ? (entity.userPersona as Record<string, unknown>)
-            : {};
-        const behavioralRec: Record<string, unknown> =
-          entity.behavioralPatterns !== null && typeof entity.behavioralPatterns === 'object'
-            ? (entity.behavioralPatterns as Record<string, unknown>)
-            : {};
+        const personaRec: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
+        const behavioralRec: Record<string, unknown> = isRecord(entity.behavioralPatterns) ? entity.behavioralPatterns : {};
         const workspace = await generateOptimizedWorkspace(personaRec, behavioralRec);
         return workspace;
       } catch {

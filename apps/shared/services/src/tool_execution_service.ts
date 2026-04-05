@@ -9,6 +9,7 @@ import {
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './database_service';
 import { EventBusService } from './event_bus_service';
+import { ToolExecutionRow } from './database/repositories/tool_repository';
 
 type ToolRequestInput =
   | string
@@ -291,10 +292,9 @@ export class ToolExecutionService {
   /**
    * Get tool execution status
    */
-  async getExecution(executionId: string): Promise<ToolExecutionType | null> {
+  async getExecution(executionId: string): Promise<ToolExecutionRow | null> {
     try {
-      const result = await this.databaseService.tools.getToolExecution(executionId);
-      return result as unknown as ToolExecutionType | null;
+      return await this.databaseService.tools.getToolExecution(executionId);
     } catch (error) {
       logger.error(`Failed to get tool execution ${executionId}:`, error);
       return null;

@@ -66,7 +66,7 @@ export class QdrantService {
     if (typeof data !== 'object' || data === null || !('result' in data)) {
       return [];
     }
-    const result = (data as { result: unknown }).result;
+    const { result } = data as { result: unknown };
     if (!Array.isArray(result)) {
       return [];
     }
@@ -500,7 +500,7 @@ export class QdrantService {
       if (typeof data !== 'object' || data === null || !('result' in data)) {
         return [];
       }
-      const result = (data as { result: unknown }).result;
+      const { result } = data as { result: unknown };
       if (!Array.isArray(result)) {
         return [];
       }
@@ -565,17 +565,20 @@ export class QdrantService {
       if (typeof data !== 'object' || data === null || !('result' in data)) {
         return null;
       }
-      const result = (data as { result: unknown }).result;
+      const { result } = data as { result: unknown };
       if (typeof result !== 'object' || result === null) {
         return null;
       }
-      const r = result as Record<string, unknown>;
-      const payload = typeof r.payload === 'object' && r.payload !== null
-        ? (r.payload as Record<string, unknown>)
-        : {};
+      const r: Record<string, unknown> = result as Record<string, unknown>;
+      const payload: Record<string, unknown> =
+        typeof r.payload === 'object' && r.payload !== null
+          ? (r.payload as Record<string, unknown>)
+          : {};
       return {
         id: typeof r.id === 'string' ? r.id : String(r.id ?? ''),
-        embedding: Array.isArray(r.vector) ? (r.vector as number[]) : [],
+        embedding: Array.isArray(r.vector)
+          ? r.vector.filter((v): v is number => typeof v === 'number')
+          : [],
         content: payload.content,
         metadata: payload,
       };
@@ -604,20 +607,28 @@ export class QdrantService {
         throw new Error(`Qdrant scroll failed: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as {
-        result?: {
-          points?: Array<{
-            id: string | number;
-            vector: number[];
-            payload: Record<string, unknown>;
-          }>;
-        };
-      };
-      return (data.result?.points ?? []).map((p) => ({
-        id: String(p.id),
-        vector: p.vector ?? [],
-        payload: p.payload ?? {},
-      }));
+      const rawData: unknown = await response.json();
+      const rawPoints: unknown[] = (() => {
+        if (typeof rawData !== 'object' || rawData === null || !('result' in rawData)) return [];
+        const res = (rawData as Record<string, unknown>).result;
+        if (typeof res !== 'object' || res === null || !('points' in (res as Record<string, unknown>))) return [];
+        const pts = (res as Record<string, unknown>).points;
+        return Array.isArray(pts) ? pts : [];
+      })();
+      return rawPoints
+        .filter(
+          (item): item is { id: string | number; vector: number[]; payload: Record<string, unknown> } =>
+            typeof item === 'object' &&
+            item !== null &&
+            'id' in item &&
+            'vector' in item &&
+            'payload' in item
+        )
+        .map((p) => ({
+          id: String(p.id),
+          vector: p.vector ?? [],
+          payload: p.payload ?? {},
+        }));
     } catch (error) {
       console.error('Qdrant scroll error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);

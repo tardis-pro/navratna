@@ -33,7 +33,7 @@ function getArr<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
-  const values = Object.values(enumObj) as string[];
+  const values: string[] = Object.values(enumObj);
   return typeof v === 'string' && values.includes(v) ? (v as T[keyof T]) : undefined;
 }
 
@@ -158,7 +158,7 @@ export class ToolDatabase {
         status: updates.status,
         output:
           typeof updates.result === 'object' && updates.result !== null
-            ? Object.assign({} as Record<string, unknown>, updates.result)
+            ? { ...updates.result as Record<string, unknown> }
             : undefined,
         error: updates.error ? JSON.stringify(updates.error) : undefined,
         metadata: updates.metadata,
@@ -237,7 +237,7 @@ export class ToolDatabase {
       if (toolId) {
         const stats = await this.databaseService.tools.getToolUsageStats(toolId, days);
         return [
-          typeof stats === 'object' && stats !== null ? Object.assign({} as Record<string, unknown>, stats) : {},
+          typeof stats === 'object' && stats !== null ? { ...stats as Record<string, unknown> } : {},
         ];
       } else {
         // Return empty array for general stats without toolId
@@ -255,7 +255,7 @@ export class ToolDatabase {
     const result: Record<string, unknown> = {};
 
     // Copy all fields that don't need conversion
-    const toolRecord = tool as Record<string, unknown>;
+    const toolRecord: Record<string, unknown> = { ...tool };
     Object.keys(toolRecord).forEach((key) => {
       if (key !== 'category' && key !== 'securityLevel') {
         result[key] = toolRecord[key];

@@ -29,7 +29,7 @@ export function registerToolPreferenceRoutes() {
     .get('/:userId/tool-preferences', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params } = ctx;
-      const { userId } = params as Record<string, string>;
+      const { userId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
@@ -46,7 +46,7 @@ export function registerToolPreferenceRoutes() {
     .get('/:userId/available-tools', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params } = ctx;
-      const { userId } = params as Record<string, string>;
+      const { userId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
@@ -63,7 +63,7 @@ export function registerToolPreferenceRoutes() {
     .post('/:userId/tools/set-preferences', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params, body } = ctx;
-      const { userId } = params as Record<string, string>;
+      const { userId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
@@ -97,7 +97,7 @@ export function registerToolPreferenceRoutes() {
     .get('/:userId/tool-preferences/:toolId', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params } = ctx;
-      const { userId, toolId } = params as Record<string, string>;
+      const { userId, toolId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
@@ -118,7 +118,7 @@ export function registerToolPreferenceRoutes() {
     .get('/:userId/favorite-tools', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params } = ctx;
-      const { userId } = params as Record<string, string>;
+      const { userId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
@@ -135,7 +135,7 @@ export function registerToolPreferenceRoutes() {
     .get('/:userId/tool-usage-stats', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params } = ctx;
-      const { userId } = params as Record<string, string>;
+      const { userId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {
@@ -152,7 +152,7 @@ export function registerToolPreferenceRoutes() {
     .post('/:userId/tools/:toolId/check-access', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, params } = ctx;
-      const { userId, toolId } = params as Record<string, string>;
+      const { userId, toolId } = params;
       if (user.id !== userId && user.role !== 'system_admin' && user.role !== 'admin') {
         set.status = 403;
         return {

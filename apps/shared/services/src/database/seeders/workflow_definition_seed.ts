@@ -138,7 +138,7 @@ export class WorkflowDefinitionSeed extends BaseSeed {
             sessionKey: workflow.sessionKey,
             model: workflow.model,
             trigger: workflow.trigger,
-            steps: workflow.steps as unknown as { type: 'bash' | 'agentTurn' | 'httpCall'; [key: string]: unknown }[],
+            steps: [...workflow.steps] as { type: 'bash' | 'agentTurn' | 'httpCall'; [key: string]: unknown }[],
             delivery: workflow.delivery,
             enabled: workflow.enabled,
           })

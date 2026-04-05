@@ -244,31 +244,29 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
    * Fetch with retry logic
    */
   private async fetchWithRetry(url: string, options?: RequestInit): Promise<Response> {
-    let lastError: Error;
+    let lastError: Error = new Error('No attempts made');
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
         // oxlint-disable-next-line no-await-in-loop
         const response = await this.fetchWithTimeout(url, options);
 
-        // Don't retry on client errors (4xx), only on server errors (5xx) and network issues
         if (response.ok || (response.status >= 400 && response.status < 500)) {
           return response;
         }
 
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       } catch (error) {
-        lastError = error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt === this.retryAttempts) {
           break;
         }
 
-        // Exponential backoff: 1s, 2s, 4s...
         const delay = Math.pow(2, attempt - 1) * 1000;
         console.warn(
           `TEI request failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${delay}ms:`,
-          error.message
+          lastError.message
         );
 
         // oxlint-disable-next-line no-await-in-loop

@@ -89,9 +89,7 @@ export class ApprovalWorkflowService {
         operationId: savedWorkflow.operationId,
         requiredApprovers: savedWorkflow.requiredApprovers,
         currentApprovers: savedWorkflow.currentApprovers,
-        status: Object.values(ApprovalStatus).includes(savedWorkflow.status as ApprovalStatus)
-          ? (savedWorkflow.status as ApprovalStatus)
-          : ApprovalStatus.PENDING,
+        status: Object.values(ApprovalStatus).find((s) => s === savedWorkflow.status) ?? ApprovalStatus.PENDING,
         expiresAt: savedWorkflow.expiresAt,
         metadata: savedWorkflow.metadata,
         createdAt: savedWorkflow.createdAt,
@@ -744,9 +742,7 @@ export class ApprovalWorkflowService {
       operationId: entity.operationId,
       requiredApprovers: entity.requiredApprovers,
       currentApprovers: entity.currentApprovers,
-      status: Object.values(ApprovalStatus).includes(entity.status as ApprovalStatus)
-        ? (entity.status as ApprovalStatus)
-        : ApprovalStatus.PENDING,
+      status: Object.values(ApprovalStatus).find((s) => s === entity.status) ?? ApprovalStatus.PENDING,
       expiresAt: entity.expiresAt,
       metadata: entity.metadata,
       createdAt: entity.createdAt,

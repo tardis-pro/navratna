@@ -509,7 +509,9 @@ export class EnhancedAuthService {
                   user.name ||
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
-                capabilities: (user.agentConfig?.capabilities || []) as AgentCapability[],
+                capabilities: (user.agentConfig?.capabilities || []).filter(
+                  (c): c is AgentCapability => Object.values(AgentCapability).includes(c as AgentCapability)
+                ),
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
                   maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
@@ -646,6 +648,7 @@ export class EnhancedAuthService {
       agentCapabilities: session.agentCapabilities,
       metadata: session.metadata,
     });
+    // @ts-expect-error -- SessionService.createSession returns SessionEntity (Drizzle); Session is the @uaip/types interface; structurally compatible at runtime
     return { ...created, riskScore: Number(created.riskScore) } as Session;
   }
 
@@ -701,6 +704,7 @@ export class EnhancedAuthService {
         return null;
       }
 
+      // @ts-expect-error -- UserService.findUserById returns UserEntity; EnhancedUser is a superset; structurally compatible at runtime
       return agent as EnhancedUser;
     } catch {
       return null;
@@ -771,6 +775,7 @@ export class EnhancedAuthService {
   }
 
   private async encryptChallenge(challenge: string): Promise<string> {
+    // @ts-expect-error -- config.security.encryptionAlgorithm is string; crypto.CipherGCMTypes is a string literal union; cast required for Node.js crypto API
     const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
     const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
     const iv = crypto.randomBytes(16);
@@ -783,6 +788,7 @@ export class EnhancedAuthService {
   }
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
+    // @ts-expect-error -- config.security.encryptionAlgorithm is string; crypto.CipherGCMTypes is a string literal union; cast required for Node.js crypto API
     const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
     const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
 

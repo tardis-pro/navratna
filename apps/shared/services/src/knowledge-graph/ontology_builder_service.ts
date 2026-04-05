@@ -401,9 +401,7 @@ export class OntologyBuilderService {
       // Save concepts to knowledge graph
       for (const item of conceptItems) {
         // oxlint-disable-next-line no-await-in-loop
-        const createdItem = await this.knowledgeRepository.create(
-          item as unknown as Record<string, unknown>
-        );
+        const createdItem = await this.knowledgeRepository.create(item);
 
         // Sync to Neo4j and Qdrant
         // oxlint-disable-next-line no-await-in-loop
@@ -435,9 +433,7 @@ export class OntologyBuilderService {
       // Save relationships to knowledge graph
       for (const item of relationshipItems) {
         // oxlint-disable-next-line no-await-in-loop
-        const createdItem = await this.knowledgeRepository.create(
-          item as unknown as Record<string, unknown>
-        );
+        const createdItem = await this.knowledgeRepository.create(item);
         // oxlint-disable-next-line no-await-in-loop
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
@@ -462,9 +458,7 @@ export class OntologyBuilderService {
         accessLevel: 'public',
       };
 
-      const createdMetadataItem = await this.knowledgeRepository.create(
-        ontologyMetadataItem as unknown as Record<string, unknown>
-      );
+      const createdMetadataItem = await this.knowledgeRepository.create(ontologyMetadataItem);
       await this.knowledgeSync.syncKnowledgeItem(createdMetadataItem);
 
       logger.info(

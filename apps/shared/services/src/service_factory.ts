@@ -52,7 +52,8 @@ export class ServiceFactory {
     await Promise.all(
       Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
         try {
-          const svc = serviceInstance as Record<string, unknown>;
+          if (typeof serviceInstance !== 'object' || serviceInstance === null) return;
+          const svc: Record<string, unknown> = serviceInstance as Record<string, unknown>;
           await callback(serviceName, svc);
         } catch (error) {
           this.logger.error(`Service operation error: ${serviceName}`, {
@@ -381,7 +382,8 @@ export class ServiceFactory {
 
     await this.forEachService(async (serviceName, svc) => {
       if (svc && typeof svc['isHealthy'] === 'function') {
-        services[serviceName] = await (svc['isHealthy'] as () => Promise<boolean>)();
+        const isHealthyFn = svc['isHealthy'] as () => Promise<boolean>;
+        services[serviceName] = await isHealthyFn();
       } else {
         services[serviceName] = !!svc;
       }
@@ -490,7 +492,8 @@ export class ServiceFactory {
 
     await this.forEachService(async (_name, svc) => {
       if (svc && typeof svc['close'] === 'function') {
-        await (svc['close'] as () => Promise<void>)();
+        const closeFn = svc['close'] as () => Promise<void>;
+        await closeFn();
       }
     });
 

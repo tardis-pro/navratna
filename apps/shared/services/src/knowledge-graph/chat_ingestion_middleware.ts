@@ -198,7 +198,8 @@ export class ChatIngestionMiddleware {
           return { validatedOptions: options };
         } catch (error: unknown) {
           const errMsg = error instanceof Error ? error.message : String(error);
-          const errDetails = error instanceof Error && 'errors' in error && Array.isArray((error as { errors?: unknown[] }).errors) ? (error as { errors: unknown[] }).errors : [];
+          const errWithDetails = error instanceof Error && 'errors' in error ? error as Error & { errors?: unknown[] } : null;
+          const errDetails: unknown[] = Array.isArray(errWithDetails?.errors) ? errWithDetails.errors : [];
           logger.error('Chat ingestion validation failed', { error: errMsg });
           set.status = 400;
           return {

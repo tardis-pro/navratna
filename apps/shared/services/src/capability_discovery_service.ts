@@ -109,7 +109,8 @@ export class CapabilityDiscoveryService {
           ? (rawCapabilities as Record<string, unknown>)
           : {};
 
-      const toStringArr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
+      const toStringArr = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((item): item is string => typeof item === 'string') : [];
       const capabilityIds = [
         ...toStringArr(configuredCapabilities.tools),
         ...toStringArr(configuredCapabilities.artifacts),
@@ -248,16 +249,18 @@ export class CapabilityDiscoveryService {
 
   private mapCapabilityFromDB(row: CapabilityRow): Capability {
     const meta = row.metadata ?? {};
-    const validTypes = Object.values(CapabilityType) as string[];
+    const validTypes: string[] = Object.values(CapabilityType);
     const type: Capability['type'] = validTypes.includes(row.type)
       ? (row.type as Capability['type'])
       : CapabilityType.TOOL;
-    const validStatuses = Object.values(CapabilityStatus) as string[];
+    const validStatuses: string[] = Object.values(CapabilityStatus);
     const rawStatus = typeof meta.status === 'string' ? meta.status : '';
     const status: Capability['status'] = validStatuses.includes(rawStatus)
       ? (rawStatus as Capability['status'])
       : CapabilityStatus.ACTIVE;
-    const deps = Array.isArray(meta.dependencies) ? (meta.dependencies as string[]) : [];
+    const deps = Array.isArray(meta.dependencies)
+      ? meta.dependencies.filter((d): d is string => typeof d === 'string')
+      : [];
     return {
       id: row.id,
       name: row.name,
@@ -323,7 +326,7 @@ export class CapabilityDiscoveryService {
       return {
         minimumSecurityLevel,
         requiredPermissions: Array.isArray(req.requiredPermissions)
-          ? (req.requiredPermissions as string[])
+          ? req.requiredPermissions.filter((p): p is string => typeof p === 'string')
           : [],
         sensitiveData: Boolean(req.sensitiveData),
         auditRequired: Boolean(req.auditRequired),

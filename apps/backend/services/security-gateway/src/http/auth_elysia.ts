@@ -21,6 +21,10 @@ import {
 import { AuditService } from '../services/audit_service.js';
 import { AuditEventType } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 // Lazy singletons for dependent services
 let userServiceSingleton: UserService | null = null;
 let auditServiceSingleton: AuditService | null = null;
@@ -299,7 +303,8 @@ export function registerAuthRoutes() {
   
     // POST /refresh
     .post('/refresh', async ({ set, cookie }) => {
-      const refreshToken = cookie['refresh_token']?.value as string | undefined;
+      const rawCookieValue: unknown = cookie['refresh_token']?.value;
+      const refreshToken = typeof rawCookieValue === 'string' ? rawCookieValue : undefined;
       if (!refreshToken) {
         set.status = 401;
         return { error: 'Unauthorized', message: 'No refresh token provided' };
@@ -372,7 +377,7 @@ export function registerAuthRoutes() {
       try {
         const authUser = await getAuthUser(headers.authorization);
         const { userService, auditService } = await getServices();
-        const bodyRecord = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+        const bodyRecord: Record<string, unknown> = isRecord(body) ? body : {};
         const refreshToken = typeof bodyRecord.refreshToken === 'string' ? bodyRecord.refreshToken : undefined;
   
         if (refreshToken) {

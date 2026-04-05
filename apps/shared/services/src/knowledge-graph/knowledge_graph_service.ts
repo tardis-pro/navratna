@@ -195,9 +195,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       };
     } catch (error) {
       console.error('Knowledge search error:', error);
-      const wrappedError = new Error(`Knowledge search failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
-      throw wrappedError;
+      throw new Error(`Knowledge search failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -232,9 +230,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
         });
 
         // Store embeddings in vector database with scope metadata
-        const requestedCollectionType = (
-          item.source?.metadata as Record<string, unknown> | undefined
-        )?.collectionType;
+        const requestedCollectionType = item.source?.metadata?.collectionType;
         const collectionType =
           requestedCollectionType === 'episodic' || requestedCollectionType === 'semantic'
             ? requestedCollectionType
@@ -307,7 +303,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       // Vector search succeeded — hydrate from Postgres
       if (results.length > 0) {
-        return this.repository.applyFilters((context.scope as Record<string, unknown>) || {});
+        return this.repository.applyFilters({ ...context.scope });
       }
 
       // Qdrant empty or returned nothing — fall back to Postgres scope/text search
@@ -727,13 +723,22 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     }
   ) {
     const startTime = Date.now();
-    const results = {
+    type ReconcileResults = {
+      domain: string;
+      conceptExtraction: unknown;
+      ontologyBuilding: unknown;
+      taxonomyGeneration: unknown;
+      conflictDetection: Parameters<ReconciliationService['resolveConflicts']>[0];
+      conflictResolution: unknown;
+      processingTime: number;
+    };
+    const results: ReconcileResults = {
       domain: domain || 'all',
-      conceptExtraction: null as unknown,
-      ontologyBuilding: null as unknown,
-      taxonomyGeneration: null as unknown,
-      conflictDetection: [] as Parameters<ReconciliationService['resolveConflicts']>[0],
-      conflictResolution: null as unknown,
+      conceptExtraction: null,
+      ontologyBuilding: null,
+      taxonomyGeneration: null,
+      conflictDetection: [],
+      conflictResolution: null,
       processingTime: 0,
     };
 
@@ -1040,7 +1045,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
               confidence: item.confidence,
               tags: item.tags,
               source: {
-                type: 'AGENT_INTERACTION' as SourceType,
+                type: SourceType.AGENT_INTERACTION,
                 identifier: 'chat-ingestion',
                 metadata: {
                   context: item.context,
@@ -1065,11 +1070,11 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
           this.ingest([
             {
               content: `Q: ${qa.question}\nA: ${qa.answer}`,
-              type: 'PROCEDURAL' as KnowledgeType,
+              type: KnowledgeType.PROCEDURAL,
               confidence: qa.confidence,
               tags: qa.tags,
               source: {
-                type: 'AGENT_INTERACTION' as SourceType,
+                type: SourceType.AGENT_INTERACTION,
                 identifier: 'chat-qa-extraction',
                 metadata: {
                   question: qa.question,
@@ -1093,10 +1098,10 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
           this.ingest([
             {
               content: decision.decision,
-              type: 'EXPERIENTIAL' as KnowledgeType,
+              type: KnowledgeType.EXPERIENTIAL,
               confidence: decision.confidence,
               source: {
-                type: 'AGENT_INTERACTION' as SourceType,
+                type: SourceType.AGENT_INTERACTION,
                 identifier: 'chat-decision-extraction',
                 metadata: {
                   reasoning: decision.reasoning,
