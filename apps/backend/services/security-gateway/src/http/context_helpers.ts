@@ -7,7 +7,6 @@ interface ContextWithUser {
 }
 
 export function getAuthUser(ctx: unknown): UserContext {
-  // @ts-expect-error -- Elysia middleware injects user into context but TypeScript cannot infer through unknown
   const context = ctx as ContextWithUser;
   if (!context.user?.id) {
     throw new AuthenticationError('Authentication required: no user in context');
@@ -16,7 +15,6 @@ export function getAuthUser(ctx: unknown): UserContext {
 }
 
 export function getOptionalAuthUser(ctx: unknown): UserContext | null {
-  // @ts-expect-error -- Elysia middleware injects user into context but TypeScript cannot infer through unknown
   const context = ctx as ContextWithUser;
   return context.user?.id ? context.user : null;
 }

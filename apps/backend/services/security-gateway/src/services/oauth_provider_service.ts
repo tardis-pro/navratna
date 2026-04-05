@@ -38,8 +38,9 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function getRevokeUrl(config: OAuthProviderConfig): string | undefined {
-  const rec = config as Record<string, unknown>;
-  return typeof rec.revokeUrl === 'string' ? rec.revokeUrl : undefined;
+  // @ts-expect-error -- OAuthProviderConfig doesn't declare revokeUrl; accessing via index for optional extension field
+  const revokeUrl: unknown = config.revokeUrl;
+  return typeof revokeUrl === 'string' ? revokeUrl : undefined;
 }
 
 interface OAuthUserInfo {
@@ -169,8 +170,9 @@ export class OAuthProviderService {
       });
       this.providers.set(savedProvider.id, savedProvider as unknown);
 
-      const savedProviderAgentCfg = typeof savedProvider.configuration === 'object' && savedProvider.configuration !== null
-        ? (savedProvider.configuration as OAuthProviderAgentConfig)
+      const savedProviderCfgRec = isRecord(savedProvider.configuration) ? savedProvider.configuration : undefined;
+      const savedProviderAgentCfg: OAuthProviderAgentConfig | undefined = savedProviderCfgRec
+        ? { allowAgentAccess: typeof savedProviderCfgRec.allowAgentAccess === 'boolean' ? savedProviderCfgRec.allowAgentAccess : undefined }
         : undefined;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -339,9 +341,9 @@ export class OAuthProviderService {
         })(),
         scope: [],
         // @ts-expect-error -- Drizzle OAuthState has no userType; stored in metadata
-        userType: (oauthStateEntity.metadata as Record<string, unknown>)?.userType,
+        userType: isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata.userType : undefined,
         // @ts-expect-error -- Drizzle OAuthState has no agentCapabilities; stored in metadata
-        agentCapabilities: (oauthStateEntity.metadata as Record<string, unknown>)?.agentCapabilities,
+        agentCapabilities: isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata.agentCapabilities : undefined,
         createdAt: oauthStateEntity.createdAt,
         expiresAt: oauthStateEntity.expiresAt,
       };
