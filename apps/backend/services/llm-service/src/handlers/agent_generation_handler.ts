@@ -1,7 +1,7 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { logger, NotFoundError, ValidationError } from '@uaip/utils';
-import type { AgentGenerationRequest } from '@uaip/types';
+import type { AgentGenerationRequest, LLMResponse } from '@uaip/types';
 
 export class AgentGenerationHandler {
   constructor(
@@ -83,7 +83,7 @@ export class AgentGenerationHandler {
   private async generateResponse(
     request: AgentGenerationRequest,
     agent: Record<string, unknown> | null
-  ): Promise<Record<string, unknown>> {
+  ): Promise<LLMResponse> {
     const prompt = this.buildPromptFromMessages(request.messages);
 
     // Build system prompt from agent persona if available, otherwise use request.systemPrompt
@@ -101,10 +101,10 @@ export class AgentGenerationHandler {
     // Use user-specific service if agent has user context
     if (agent?.createdBy) {
       try {
-        return (await this.userLLMService.generateResponse(
+        return await this.userLLMService.generateResponse(
           agent.createdBy as string,
           generationRequest
-        )) as unknown as Record<string, unknown>;
+        );
       } catch (error) {
         logger.warn('UserLLMService failed, falling back to global', {
           agentId: agent.id,
@@ -115,7 +115,7 @@ export class AgentGenerationHandler {
     }
 
     // Fall back to global service
-    return (await this.llmService.generateResponse(generationRequest)) as unknown as Record<string, unknown>;
+    return await this.llmService.generateResponse(generationRequest);
   }
 
   private buildPromptFromMessages(messages: Array<{ content: string; sender?: string }>): string {
@@ -187,7 +187,7 @@ export class AgentGenerationHandler {
   private async publishResponse(
     requestId: string,
     agentId: string | undefined,
-    response: Record<string, unknown>
+    response: LLMResponse
   ): Promise<void> {
     await this.eventBus.publish('llm.agent.generate.response', {
       requestId,
@@ -202,9 +202,9 @@ export class AgentGenerationHandler {
     });
   }
 
-  private calculateConfidence(response: Record<string, unknown>): number {
+  private calculateConfidence(response: LLMResponse): number {
     if (response.error) return 0;
-    const content = response.content as string | undefined;
+    const content = response.content;
     if (!content?.trim()) return 0.1;
 
     let confidence = 0.8;
