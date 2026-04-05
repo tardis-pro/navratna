@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, type Stats } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, type Dirent, type Stats } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
@@ -76,7 +76,8 @@ function parseJsonSafe(filePath: string): unknown {
   if (!text) return null
 
   try {
-    return JSON.parse(text) as unknown
+    const result: unknown = JSON.parse(text)
+    return result
   } catch {
     return null
   }
@@ -87,13 +88,9 @@ function walkDirectory(rootPath: string, depth = 0): string[] {
     return []
   }
 
-  let dirents: Array<{ isDirectory: () => boolean; isFile: () => boolean; name: string }>
+  let dirents: Dirent[]
   try {
-    dirents = readdirSync(rootPath, { withFileTypes: true }) as Array<{
-      isDirectory: () => boolean
-      isFile: () => boolean
-      name: string
-    }>
+    dirents = readdirSync(rootPath, { withFileTypes: true })
   } catch {
     return []
   }
@@ -537,9 +534,10 @@ export class RepoIngestionService {
       const intelligenceDb = getIntelligenceDb()
       const [createdKnowledgeItem] = await intelligenceDb
         .insert(knowledgeItems)
+        // @ts-expect-error -- 'repo-context' extends KnowledgeType enum not yet updated; db column is text
         .values({
           content: JSON.stringify(repoContext),
-          type: 'repo-context' as unknown as typeof knowledgeItems.$inferInsert['type'],
+          type: 'repo-context',
           sourceType: sourceIsGitUrl ? SourceType.GIT_REPOSITORY : SourceType.FILE_SYSTEM,
           sourceIdentifier: trimmedSource,
           sourceUrl: sourceIsGitUrl ? trimmedSource : undefined,

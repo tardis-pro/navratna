@@ -12,7 +12,11 @@ import { artifactFeature } from '../../artifact-service/src/feature.js'
 import { llmFeature } from '../../llm-service/src/feature.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
 
-const DEGRADED_P95_THRESHOLD_MS = 1000 as const
+const DEGRADED_P95_THRESHOLD_MS = 1000
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
 
 const roundToTwo = (value: number): number => Number(value.toFixed(2))
 const toMegabytes = (bytes: number): number => roundToTwo(bytes / (1024 * 1024))
@@ -73,10 +77,7 @@ class NavratnaCoreService extends BaseService {
         logger.error('Server not available for Socket.IO request')
         return new Response('Server not available', { status: 503 })
       }
-      return this.bunEngine.handleRequest(
-        request,
-        server as Parameters<typeof this.bunEngine.handleRequest>[1]
-      )
+      return this.bunEngine.handleRequest(request, server)
     })
 
     this.app.get('/health', () => ({
@@ -176,9 +177,12 @@ class NavratnaCoreService extends BaseService {
 
       this.io.use(async (socket: Socket, next: (err?: Error) => void) => {
         try {
-          const userId = socket.handshake.headers['x-user-id'] as string | undefined
-          const userEmail = socket.handshake.headers['x-user-email'] as string | undefined
-          const userRole = socket.handshake.headers['x-user-role'] as string | undefined
+          const rawUserId = socket.handshake.headers['x-user-id']
+          const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId
+          const rawEmail = socket.handshake.headers['x-user-email']
+          const userEmail = Array.isArray(rawEmail) ? rawEmail[0] : rawEmail
+          const rawRole = socket.handshake.headers['x-user-role']
+          const userRole = Array.isArray(rawRole) ? rawRole[0] : rawRole
 
           if (userId) {
             const UUID_REGEX =
@@ -197,16 +201,22 @@ class NavratnaCoreService extends BaseService {
             return next()
           }
 
+          const rawAuthToken: unknown = socket.handshake.auth?.token
+          const authToken = typeof rawAuthToken === 'string' ? rawAuthToken : undefined
+          const rawQueryToken = socket.handshake.query?.token
+          const queryToken = typeof rawQueryToken === 'string' ? rawQueryToken
+            : Array.isArray(rawQueryToken) && typeof rawQueryToken[0] === 'string' ? rawQueryToken[0]
+            : undefined
           const token =
-            socket.handshake.auth?.token ||
-            (socket.handshake.headers?.authorization as string | undefined)?.replace('Bearer ', '') ||
-            socket.handshake.query?.token
+            authToken ||
+            socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+            queryToken
 
           if (!token) {
             return next(new Error('Authentication required'))
           }
 
-          const authResponse = await this.validateSocketIOToken(token as string)
+          const authResponse = await this.validateSocketIOToken(token)
           if (!authResponse.valid) {
             return next(new Error(`Authentication failed: ${authResponse.reason}`))
           }
@@ -245,12 +255,13 @@ class NavratnaCoreService extends BaseService {
     await this.eventBusService.subscribe(
       'security.auth.response',
       async (event: EventBusMessage) => {
-        const eventData = event.data as Record<string, unknown> | undefined
-        const correlationId = eventData?.correlationId as string | undefined
+        const rawData = event.data
+        if (!isRecord(rawData)) return
+        const correlationId = typeof rawData.correlationId === 'string' ? rawData.correlationId : undefined
         if (correlationId && this.authResponseHandlers.has(correlationId)) {
           const handler = this.authResponseHandlers.get(correlationId)
           if (handler) {
-            handler(eventData as Record<string, unknown>)
+            handler(rawData)
             this.authResponseHandlers.delete(correlationId)
           }
         }
@@ -295,16 +306,16 @@ class NavratnaCoreService extends BaseService {
 
       this.authResponseHandlers.set(correlationId, (response: Record<string, unknown>) => {
         clearTimeout(timeoutId)
-        resolveOnce(
-          response as {
-            valid: boolean
-            userId?: string
-            sessionId?: string
-            securityLevel?: number
-            complianceFlags?: string[]
-            reason?: string
-          }
-        )
+        resolveOnce({
+          valid: response.valid === true,
+          userId: typeof response.userId === 'string' ? response.userId : undefined,
+          sessionId: typeof response.sessionId === 'string' ? response.sessionId : undefined,
+          securityLevel: typeof response.securityLevel === 'number' ? response.securityLevel : undefined,
+          complianceFlags: Array.isArray(response.complianceFlags)
+            ? response.complianceFlags.filter((f): f is string => typeof f === 'string')
+            : undefined,
+          reason: typeof response.reason === 'string' ? response.reason : undefined,
+        })
       })
 
       this.eventBusService
@@ -356,12 +367,12 @@ class NavratnaCoreService extends BaseService {
 
         if (!response.ok) {
           // oxlint-disable-next-line no-await-in-loop
-          const errorBody = await response.json().catch((): null => null)
+          const errorBody: unknown = await response.json().catch((): null => null)
           return {
             valid: false,
-            reason:
-              (errorBody as Record<string, unknown> | null)?.error?.toString() ||
-              'Authentication failed',
+            reason: isRecord(errorBody) && errorBody.error !== undefined
+              ? String(errorBody.error)
+              : 'Authentication failed',
           }
         }
 

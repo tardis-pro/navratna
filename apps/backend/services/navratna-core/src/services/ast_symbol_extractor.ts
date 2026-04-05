@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, type Dirent } from 'node:fs'
 import { join, relative } from 'node:path'
 import * as ts from 'typescript'
 import type { AstExtractionResult, ImportInfo, SymbolInfo } from '@uaip/types'
@@ -22,13 +22,9 @@ function walkSourceFiles(rootPath: string): string[] {
   const files: string[] = []
 
   const walk = (currentPath: string): void => {
-    let entries: Array<{ isDirectory: () => boolean; isFile: () => boolean; name: string }>
+    let entries: Dirent[]
     try {
-      entries = readdirSync(currentPath, { withFileTypes: true }) as Array<{
-        isDirectory: () => boolean
-        isFile: () => boolean
-        name: string
-      }>
+      entries = readdirSync(currentPath, { withFileTypes: true })
     } catch (error) {
       logger.warn('Failed to read directory during AST extraction', {
         currentPath,
