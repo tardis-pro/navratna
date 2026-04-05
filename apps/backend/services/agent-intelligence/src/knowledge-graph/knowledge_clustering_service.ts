@@ -4,6 +4,14 @@ import { KnowledgeType, SourceType } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service.js';
 import { logger, NotFoundError } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isKnowledgeType(v: unknown): v is KnowledgeType {
+  return typeof v === 'string' && (Object.values(KnowledgeType) as string[]).includes(v);
+}
+
 export interface KnowledgeCluster {
   clusterId: string;
   primaryVector: QdrantPoint;
@@ -135,9 +143,7 @@ export class KnowledgeClusteringService {
       return searchResults.map((result) => {
         const rawPayload = result.payload;
         const knowledgeTypeRaw = rawPayload.knowledgeType;
-        const knowledgeType: KnowledgeType = Object.values(KnowledgeType).includes(knowledgeTypeRaw as KnowledgeType)
-          ? (knowledgeTypeRaw as KnowledgeType)
-          : KnowledgeType.FACTUAL;
+        const knowledgeType: KnowledgeType = isKnowledgeType(knowledgeTypeRaw) ? knowledgeTypeRaw : KnowledgeType.FACTUAL;
         const originalMeta = rawPayload.originalMetadata;
         return {
           id: result.id.toString(),
@@ -145,10 +151,10 @@ export class KnowledgeClusteringService {
           payload: {
             content: String(rawPayload.content ?? ''),
             knowledgeType,
-            tags: Array.isArray(rawPayload.tags) ? (rawPayload.tags as string[]) : [],
+            tags: Array.isArray(rawPayload.tags) ? rawPayload.tags.filter((x): x is string => typeof x === 'string') : [],
             confidence: typeof rawPayload.confidence === 'number' ? rawPayload.confidence : 0,
             sourceType: String(rawPayload.sourceType ?? ''),
-            originalMetadata: typeof originalMeta === 'object' && originalMeta !== null ? (originalMeta as Record<string, unknown>) : {},
+            originalMetadata: isRecord(originalMeta) ? originalMeta : {},
           },
         };
       });
@@ -206,9 +212,7 @@ export class KnowledgeClusteringService {
       const rawPoints = await this.qdrantService.scrollAll(10000);
       return rawPoints.map((point) => {
         const knowledgeTypeRaw = point.payload.knowledgeType;
-        const knowledgeType: KnowledgeType = Object.values(KnowledgeType).includes(knowledgeTypeRaw as KnowledgeType)
-          ? (knowledgeTypeRaw as KnowledgeType)
-          : KnowledgeType.FACTUAL;
+        const knowledgeType: KnowledgeType = isKnowledgeType(knowledgeTypeRaw) ? knowledgeTypeRaw : KnowledgeType.FACTUAL;
         const originalMeta = point.payload.originalMetadata;
         return {
           id: point.id,
@@ -216,10 +220,10 @@ export class KnowledgeClusteringService {
           payload: {
             content: String(point.payload.content ?? ''),
             knowledgeType,
-            tags: Array.isArray(point.payload.tags) ? (point.payload.tags as string[]) : [],
+            tags: Array.isArray(point.payload.tags) ? point.payload.tags.filter((x): x is string => typeof x === 'string') : [],
             confidence: typeof point.payload.confidence === 'number' ? point.payload.confidence : 0,
             sourceType: String(point.payload.sourceType ?? ''),
-            originalMetadata: typeof originalMeta === 'object' && originalMeta !== null ? (originalMeta as Record<string, unknown>) : {},
+            originalMetadata: isRecord(originalMeta) ? originalMeta : {},
           },
         };
       });

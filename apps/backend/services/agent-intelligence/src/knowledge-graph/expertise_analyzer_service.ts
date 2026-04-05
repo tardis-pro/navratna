@@ -630,7 +630,7 @@ export class ExpertiseAnalyzerService {
    */
   private isValidExpertiseIndicatorType(s: string): s is ExpertiseIndicator['type'] {
     const validTypes: ExpertiseIndicator['type'][] = ['technical_depth', 'teaching_ability', 'problem_solving', 'domain_knowledge', 'experience_sharing', 'mentoring', 'innovation', 'leadership'];
-    return (validTypes as string[]).includes(s);
+    return validTypes.some((t) => t === s);
   }
 
   private async analyzeExpertiseIndicators(evidence: string[]): Promise<ExpertiseIndicator[]> {

@@ -28,6 +28,22 @@ export interface AgentCoreConfig {
   securityLevel: number;
 }
 
+type DefaultIntelligenceConfig = {
+  analysisDepth: 'basic' | 'intermediate' | 'advanced';
+  contextWindowSize: number;
+  decisionThreshold: number;
+  learningEnabled: boolean;
+  collaborationMode: 'independent' | 'collaborative' | 'supervised';
+};
+
+type DefaultSecurityContext = {
+  securityLevel: 'low' | 'medium' | 'high' | 'critical';
+  allowedCapabilities: string[];
+  restrictedDomains: string[];
+  approvalRequired: boolean;
+  auditLevel: 'minimal' | 'standard' | 'comprehensive';
+};
+
 interface CreateCommandEvent {
   requestId: string;
   data: CreateAgentRequest;
@@ -163,26 +179,20 @@ export class AgentCoreService {
       // Generate agent ID
       const agentId = uuidv4();
 
-      // Create default intelligence config
-      const defaultIntelligenceConfig = {
-        analysisDepth: 'intermediate' as 'basic' | 'intermediate' | 'advanced',
+      const defaultIntelligenceConfig: DefaultIntelligenceConfig = {
+        analysisDepth: 'intermediate',
         contextWindowSize: 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
-        collaborationMode: 'collaborative' as 'independent' | 'collaborative' | 'supervised',
+        collaborationMode: 'collaborative',
       };
 
-      // Create default security context
-      const defaultSecurityContext = {
-        securityLevel: (agentData.securityLevel || 'medium') as
-          | 'low'
-          | 'medium'
-          | 'high'
-          | 'critical',
+      const defaultSecurityContext: DefaultSecurityContext = {
+        securityLevel: agentData.securityLevel ?? 'medium',
         allowedCapabilities: agentData.capabilities || [],
         restrictedDomains: new Array<string>(),
         approvalRequired: false,
-        auditLevel: 'standard' as 'minimal' | 'standard' | 'comprehensive',
+        auditLevel: 'standard',
       };
 
       const agent: Agent = {

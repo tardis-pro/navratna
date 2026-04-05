@@ -41,9 +41,13 @@ export interface EnvironmentFactors {
   memorySystemStatus: string;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 function isEnvironmentFactors(value: unknown): value is EnvironmentFactors {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const v = value;
   return (
     typeof v.timeOfDay === 'number' &&
     typeof v.userLoad === 'number' &&
@@ -386,7 +390,7 @@ export class AgentInitializationService {
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const agentId = typeof event.agentId === 'string' ? event.agentId : '';
     const rawConfig = event.configuration;
-    const configuration: Record<string, unknown> = typeof rawConfig === 'object' && rawConfig !== null ? (rawConfig as Record<string, unknown>) : {};
+    const configuration: Record<string, unknown> = isRecord(rawConfig) ? rawConfig : {};
     const rawEnv = event.environmentFactors;
     const environmentFactors: EnvironmentFactors | undefined = isEnvironmentFactors(rawEnv) ? rawEnv : undefined;
     try {
@@ -409,7 +413,7 @@ export class AgentInitializationService {
     }
     const agent: Agent = rawAgent;
     const rawReqs = event.requirements;
-    const requirements: Record<string, unknown> = typeof rawReqs === 'object' && rawReqs !== null ? (rawReqs as Record<string, unknown>) : {};
+    const requirements: Record<string, unknown> = isRecord(rawReqs) ? rawReqs : {};
     try {
       const capabilities = await this.configureAgentCapabilities(agent, requirements);
       await this.respondToRequest(requestId, { success: true, data: capabilities });
@@ -424,7 +428,7 @@ export class AgentInitializationService {
   private async handleAnalyzeEnvironment(event: Record<string, unknown>): Promise<void> {
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const rawCtx = event.conversationContext;
-    const conversationContext: Record<string, unknown> = typeof rawCtx === 'object' && rawCtx !== null ? (rawCtx as Record<string, unknown>) : {};
+    const conversationContext: Record<string, unknown> = isRecord(rawCtx) ? rawCtx : {};
     try {
       const environment = this.analyzeEnvironmentFactors(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: environment });
@@ -510,9 +514,10 @@ export class AgentInitializationService {
   private async getAgentData(agentId: string): Promise<Agent | null> {
     try {
       const response = await this.eventBusService.request('agent.query.get', { agentId });
-      if (typeof response === 'object' && response !== null && 'success' in response) {
-        const typed = response as { success?: boolean; data?: Agent };
-        return typed.success ? (typed.data ?? null) : null;
+      if (isRecord(response) && 'success' in response) {
+        const success = response.success === true;
+        const data = 'data' in response && isAgent(response.data) ? response.data : undefined;
+        return success ? (data ?? null) : null;
       }
       return null;
     } catch (error) {

@@ -1,5 +1,13 @@
 import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isPlainTextItem(v: unknown): v is { plain_text: string } {
+  return isRecord(v) && typeof v['plain_text'] === 'string';
+}
 import type {
   NotionSyncConfig,
   NotionSyncResult,
@@ -186,16 +194,12 @@ export async function importFromNotion(
   _targetRepoId: string
 ): Promise<{ content: string; title: string }> {
   const page = await notionRequest<Record<string, unknown>>(`/pages/${notionPageId}`, 'GET')
-  const properties = typeof page.properties === 'object' && page.properties !== null
-    ? (page.properties as Record<string, unknown>)
-    : undefined;
-  const rawTitleProp = properties?.title ?? properties?.Name;
-  const titleProp = typeof rawTitleProp === 'object' && rawTitleProp !== null
-    ? (rawTitleProp as Record<string, unknown>)
-    : undefined;
-  const rawTitleArray = titleProp?.title;
+  const properties = isRecord(page.properties) ? page.properties : undefined;
+  const rawTitleProp = properties?.['title'] ?? properties?.['Name'];
+  const titleProp = isRecord(rawTitleProp) ? rawTitleProp : undefined;
+  const rawTitleArray = titleProp?.['title'];
   const titleArray = Array.isArray(rawTitleArray)
-    ? (rawTitleArray as Array<{ plain_text: string }>)
+    ? rawTitleArray.filter(isPlainTextItem)
     : undefined;
   const title = titleArray?.[0]?.plain_text ?? 'Imported Page'
 
@@ -207,12 +211,10 @@ export async function importFromNotion(
   for (const block of blocksResponse.results) {
     const blockType = typeof block.type === 'string' ? block.type : '';
     const rawBlockData = block[blockType];
-    const blockData = typeof rawBlockData === 'object' && rawBlockData !== null
-      ? (rawBlockData as Record<string, unknown>)
-      : undefined;
-    const rawRichText = blockData?.rich_text;
+    const blockData = isRecord(rawBlockData) ? rawBlockData : undefined;
+    const rawRichText = blockData?.['rich_text'];
     const richText = Array.isArray(rawRichText)
-      ? (rawRichText as Array<{ plain_text: string }>)
+      ? rawRichText.filter(isPlainTextItem)
       : undefined;
     const text = richText?.map((rt) => rt.plain_text).join('') ?? ''
 

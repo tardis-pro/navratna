@@ -1164,7 +1164,11 @@ export class AgentEventOrchestrator {
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+    return this.isRecord(value) ? value : {};
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 
   private getContextString(

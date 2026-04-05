@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { Elysia } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import { logger } from '@uaip/utils'
-import type { CognitivePortraitRequest, TrustAction } from '@uaip/types'
+import type { CognitivePortraitRequest } from '@uaip/types'
+import { TrustAction } from '@uaip/types'
 import {
   getPortrait,
   updateTrustCalibration,
@@ -49,7 +50,8 @@ export function registerCognitivePortraitRoutes() {
         }
 
         try {
-          const action = parsed.data.action as TrustAction;
+          const validActions = Object.values(TrustAction);
+          const action = validActions.find(a => a === parsed.data.action) ?? TrustAction.ACCEPT;
           const trust = await updateTrustCalibration(
             userId,
             action,

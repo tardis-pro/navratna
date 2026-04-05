@@ -458,20 +458,20 @@ export class KnowledgeGraphService {
         interactionType,
         timestamp: interactionTimestamp,
       },
-      interaction?.userId as string | undefined,
-      interaction?.agentId as string | undefined
+      typeof interaction?.userId === 'string' ? interaction.userId : undefined,
+      typeof interaction?.agentId === 'string' ? interaction.agentId : undefined
     );
 
     if (syncResult.success && interaction?.entityId) {
       await this.repository.createRelationships([
         {
-          sourceId: interaction.entityId as string,
+          sourceId: typeof interaction.entityId === 'string' ? interaction.entityId : String(interaction.entityId),
           targetId: syncResult.knowledgeItemId,
           relationshipType: 'HAS_INTERACTION',
           strength: 0.85,
           metadata: {
-            userId: interaction?.userId as string | undefined,
-            agentId: interaction?.agentId as string | undefined,
+            userId: typeof interaction?.userId === 'string' ? interaction.userId : undefined,
+            agentId: typeof interaction?.agentId === 'string' ? interaction.agentId : undefined,
             summary: `Interaction linked: ${interactionType}`,
           },
         },
@@ -547,7 +547,7 @@ export class KnowledgeGraphService {
         context,
         initializedAt: contextTimestamp,
       },
-      context?.userId as string | undefined,
+      typeof context?.userId === 'string' ? context.userId : undefined,
       agentId
     );
 
@@ -563,12 +563,12 @@ export class KnowledgeGraphService {
     if (context?.baseKnowledgeItemId) {
       await this.repository.createRelationships([
         {
-          sourceId: context.baseKnowledgeItemId as string,
+          sourceId: typeof context.baseKnowledgeItemId === 'string' ? context.baseKnowledgeItemId : String(context.baseKnowledgeItemId),
           targetId: syncResult.knowledgeItemId,
           relationshipType: 'INITIALIZES_CONTEXT',
           strength: 0.8,
           metadata: {
-            userId: context?.userId as string | undefined,
+            userId: typeof context?.userId === 'string' ? context.userId : undefined,
             agentId,
             summary: `Initial context for agent ${agentId}`,
           },

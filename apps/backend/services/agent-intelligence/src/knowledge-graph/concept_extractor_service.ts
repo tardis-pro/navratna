@@ -254,7 +254,7 @@ export class ConceptExtractorService {
 
   private isValidRelationshipType(s: string): s is ConceptRelationship['relationshipType'] {
     const validTypes: ConceptRelationship['relationshipType'][] = ['IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR'];
-    return (validTypes as string[]).includes(s);
+    return validTypes.some((t) => t === s);
   }
 
   private async extractRelationships(

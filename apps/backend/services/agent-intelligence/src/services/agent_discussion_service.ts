@@ -398,8 +398,8 @@ export class AgentDiscussionService {
           sender: typeof m.sender === 'string' ? m.sender : typeof m.role === 'string' ? m.role : 'user',
           content: String(m.content),
           role: typeof m.role === 'string' ? m.role : undefined,
-          timestamp: m.timestamp instanceof Date || typeof m.timestamp === 'string' ? m.timestamp as Date | string : undefined,
-          metadata: typeof m.metadata === 'object' && m.metadata !== null ? (m.metadata as Record<string, unknown>) : undefined,
+          timestamp: m['timestamp'] instanceof Date || typeof m['timestamp'] === 'string' ? m['timestamp'] : undefined,
+          metadata: isRecord(m['metadata']) ? m['metadata'] : undefined,
         }));
       const contextualKnowledge: KnowledgeItem[] = this.knowledgeGraphService
         ? await this.knowledgeGraphService.getContextualKnowledge({

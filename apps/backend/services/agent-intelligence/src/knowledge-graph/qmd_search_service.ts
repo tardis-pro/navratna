@@ -138,7 +138,7 @@ export class QmdSearchService {
         id: String(r.id),
         content: String(r.content ?? ''),
         summary: r.summary != null ? String(r.summary) : undefined,
-        tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+        tags: Array.isArray(r.tags) ? r.tags.filter((x): x is string => typeof x === 'string') : [],
         confidence: parseFloat(String(r.confidence)) || 0.8,
         sourceType: String(r.sourceType || 'UNKNOWN'),
         rank: parseFloat(String(r.rank)) || 0,

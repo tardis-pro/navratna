@@ -11,6 +11,23 @@ import {
 import { KnowledgeRepository } from '@uaip/shared-services';
 import type { KnowledgeRow } from '../../../../../shared/services/src/database/repositories/knowledge_repository.js';
 
+type RelationshipType = ConceptRelationship['relationshipType'];
+
+const VALID_RELATIONSHIP_TYPES: RelationshipType[] = ['IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR'];
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isRelationshipType(v: unknown): v is RelationshipType {
+  return typeof v === 'string' && (VALID_RELATIONSHIP_TYPES as string[]).includes(v);
+}
+
+function isConceptProperty(v: unknown): v is ConceptProperty {
+  if (!isRecord(v)) return false;
+  return typeof v['name'] === 'string' && typeof v['value'] === 'string' && typeof v['confidence'] === 'number';
+}
+
 function mapRowToKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
   return {
     id: row.id,
@@ -561,10 +578,10 @@ export class OntologyBuilderService {
             ? itemMetadata.domain
             : domain;
         const properties = Array.isArray(itemMetadata.properties)
-          ? (itemMetadata.properties as ConceptProperty[])
+          ? itemMetadata.properties.filter(isConceptProperty)
           : [];
         const instances = Array.isArray(itemMetadata.instances)
-          ? (itemMetadata.instances as string[])
+          ? itemMetadata.instances.filter((x): x is string => typeof x === 'string')
           : [];
         const itemTags = Array.isArray(item.tags) ? item.tags : [];
 
@@ -586,7 +603,6 @@ export class OntologyBuilderService {
         };
       });
 
-      const validRelationshipTypes: ConceptRelationship['relationshipType'][] = ['IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR'];
       const relationships: ConceptRelationship[] = relationshipItems
         .map((item) => {
           const itemMetadata: Record<string, unknown> = item.metadata ?? {};
@@ -599,20 +615,15 @@ export class OntologyBuilderService {
               ? itemMetadata.targetConceptId
               : null;
           const rawRelType = itemMetadata.relationshipType;
-          const relationshipType =
-            typeof rawRelType === 'string' && validRelationshipTypes.includes(rawRelType as ConceptRelationship['relationshipType'])
-              ? (rawRelType as ConceptRelationship['relationshipType'])
-              : null;
+          const relationshipType = isRelationshipType(rawRelType) ? rawRelType : null;
 
           if (!sourceConceptId || !targetConceptId || !relationshipType) {
             return null;
           }
 
-          const evidence =
-            Array.isArray(itemMetadata.evidence) &&
-            (itemMetadata.evidence as unknown[]).every((entry) => typeof entry === 'string')
-              ? (itemMetadata.evidence as string[])
-              : [];
+          const evidence = Array.isArray(itemMetadata.evidence)
+            ? itemMetadata.evidence.filter((entry): entry is string => typeof entry === 'string')
+            : [];
 
           return {
             sourceConceptId,

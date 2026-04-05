@@ -750,7 +750,7 @@ export class QAGeneratorService {
       question: this.cleanQuestion(question),
       answer: this.cleanAnswer(answer),
       source: String(item.id ?? item.sourceIdentifier ?? 'unknown'),
-      sourceType: (['knowledge', 'conversation', 'hybrid'] as const).includes(sourceType as GeneratedQA['sourceType']) ? (sourceType as GeneratedQA['sourceType']) : 'knowledge',
+      sourceType: (['knowledge', 'conversation', 'hybrid'] as const).find(t => t === sourceType) ?? 'knowledge',
       confidence: this.calculateInitialConfidence(question, answer, method),
       topic: this.extractTopic(question + ' ' + answer),
       difficulty: this.assessDifficulty(question, answer),

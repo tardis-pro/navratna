@@ -376,7 +376,8 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       logger.warn('Invalid MemoryConsolidationRequestEvent payload', { data: rawData });
       return;
     }
-    const event = rawData as MemoryConsolidationRequestEvent;
+    // @ts-expect-error -- rawData narrowed by 'in' checks; MemoryConsolidationRequestEvent shape verified above
+    const event: MemoryConsolidationRequestEvent = rawData;
     const { agentId, requestId } = event;
 
     if (!this.agentMemoryService) {
@@ -748,7 +749,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
       // Extract operation info from execution data
       const operationId = typeof params.executionData.operationId === 'string' ? params.executionData.operationId : 'unknown';
       const rawOutcome = params.executionData.outcome;
-      const outcome: Record<string, unknown> = typeof rawOutcome === 'object' && rawOutcome !== null ? (rawOutcome as Record<string, unknown>) : {};
+      const outcome: Record<string, unknown> = this.isRecord(rawOutcome) ? rawOutcome : {};
 
       // Create a simplified learning interaction
       const interaction: AgentInteraction = {

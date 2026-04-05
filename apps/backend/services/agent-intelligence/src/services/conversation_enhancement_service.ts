@@ -15,6 +15,10 @@ import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService, EventBusMessage } from '@uaip/infra/event_bus';
 import { Agent as AgentEntity, UserEntity } from '@uaip/shared-services';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {
   recentTopics: string[];
@@ -118,12 +122,12 @@ type PersonaFormalityValue = 'formal' | 'very_informal' | 'informal' | 'neutral'
 
 function toPersonaTone(value: unknown): PersonaToneValue {
   const valid: PersonaToneValue[] = ['formal', 'casual', 'friendly', 'professional', 'academic', 'creative', 'analytical'];
-  return valid.includes(value as PersonaToneValue) ? (value as PersonaToneValue) : 'professional';
+  return valid.find(t => t === value) ?? 'professional';
 }
 
 function toPersonaFormality(value: unknown): PersonaFormalityValue {
   const valid: PersonaFormalityValue[] = ['formal', 'very_informal', 'informal', 'neutral', 'very_formal'];
-  return valid.includes(value as PersonaFormalityValue) ? (value as PersonaFormalityValue) : 'formal';
+  return valid.find(t => t === value) ?? 'formal';
 }
 
 interface EventWithDataPayload {
@@ -148,13 +152,12 @@ const toLLMEventPayload = (
   if ('data' in event && typeof event.data === 'object' && event.data !== null) {
     return event.data as EventWithDataPayload['data'];
   }
-  // event is Record<string, unknown> — extract known fields into EventWithDataPayload['data'] shape
-  const e = event as Record<string, unknown>;
+  const e: Record<string, unknown> = isRecord(event) ? event : {};
   return {
-    requestId: typeof e.requestId === 'string' ? e.requestId : undefined,
-    content: typeof e.content === 'string' ? e.content : undefined,
-    confidence: typeof e.confidence === 'number' ? e.confidence : undefined,
-    error: typeof e.error === 'object' && e.error !== null ? (e.error as Record<string, unknown>) : undefined,
+    requestId: typeof e['requestId'] === 'string' ? e['requestId'] : undefined,
+    content: typeof e['content'] === 'string' ? e['content'] : undefined,
+    confidence: typeof e['confidence'] === 'number' ? e['confidence'] : undefined,
+    error: isRecord(e['error']) ? e['error'] : undefined,
   };
 };
 
@@ -288,7 +291,7 @@ export class ConversationEnhancementService extends EventEmitter {
         await this.llmRequestTracker.addPendingRequest(
           requestId,
           (response) => {
-            const r = typeof response === 'object' && response !== null ? (response as Record<string, unknown>) : {};
+            const r = isRecord(response) ? response : {};
             resolve({
               content: typeof r['content'] === 'string' ? r['content'] : '',
               confidence: typeof r['confidence'] === 'number' ? r['confidence'] : 0,

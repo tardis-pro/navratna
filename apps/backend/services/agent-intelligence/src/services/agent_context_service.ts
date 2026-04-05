@@ -16,6 +16,10 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
 import { LLMService } from '@uaip/llm-service';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 interface LLMContextAnalysis {
   userIntent?: { primary?: string; confidence?: number };
   contextualFactors?: Record<string, unknown>;
@@ -234,7 +238,20 @@ export class AgentContextService {
       });
 
       const parsed: unknown = JSON.parse(llmResponse.content);
-      return typeof parsed === 'object' && parsed !== null ? (parsed as LLMContextAnalysis) : null;
+      if (!isRecord(parsed)) return null;
+      const userIntentRaw = parsed.userIntent;
+      const userIntent: LLMContextAnalysis['userIntent'] = isRecord(userIntentRaw)
+        ? {
+            primary: typeof userIntentRaw.primary === 'string' ? userIntentRaw.primary : undefined,
+            confidence: typeof userIntentRaw.confidence === 'number' ? userIntentRaw.confidence : undefined,
+          }
+        : undefined;
+      return {
+        userIntent,
+        contextualFactors: isRecord(parsed.contextualFactors) ? parsed.contextualFactors : undefined,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : undefined,
+        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.filter((x): x is string => typeof x === 'string') : undefined,
+      };
     } catch (error) {
       logger.warn('LLM context analysis failed, falling back to basic analysis', { error });
       return null;
@@ -299,7 +316,7 @@ export class AgentContextService {
 
   private async handleUpdateContext(event: Record<string, unknown>): Promise<void> {
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
-    const rawContextUpdate = typeof event.contextUpdate === 'object' && event.contextUpdate !== null ? (event.contextUpdate as Record<string, unknown>) : {};
+    const rawContextUpdate = isRecord(event.contextUpdate) ? event.contextUpdate : {};
     const knowledgeItemId = typeof rawContextUpdate.knowledgeItemId === 'string' ? rawContextUpdate.knowledgeItemId : undefined;
     const contextUpdate = rawContextUpdate as Partial<KnowledgeItem>;
     try {

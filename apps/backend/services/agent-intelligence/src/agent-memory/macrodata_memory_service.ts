@@ -13,6 +13,10 @@
 
 import { logger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 /** Minimal interface compatible with both pg.Pool (via adapter) and raw query executors */
 export interface QueryExecutor {
   query(sql: string, params?: unknown[]): Promise<unknown[]>;
@@ -158,8 +162,8 @@ export class MacrodataMemoryService {
       if (!rows.length) return '';
 
       const rawAgent = rows[0];
-      if (typeof rawAgent !== 'object' || rawAgent === null) return '';
-      const agent = rawAgent as Record<string, unknown>;
+      if (!isRecord(rawAgent)) return '';
+      const agent = rawAgent;
       const persona =
         typeof agent.persona === 'string' ? JSON.parse(agent.persona) : (agent.persona ?? {});
       const caps =
@@ -169,10 +173,10 @@ export class MacrodataMemoryService {
 
       const lines: string[] = [`Name: ${agent.name}`];
       if (persona.role) lines.push(`Role: ${persona.role}`);
-      if (persona.expertise?.length)
-        lines.push(`Expertise: ${(persona.expertise as string[]).join(', ')}`);
-      if (caps.languages?.length)
-        lines.push(`Languages: ${(caps.languages as string[]).join(', ')}`);
+      if (Array.isArray(persona.expertise) && persona.expertise.length)
+        lines.push(`Expertise: ${persona.expertise.filter((x: unknown): x is string => typeof x === 'string').join(', ')}`);
+      if (Array.isArray(caps.languages) && caps.languages.length)
+        lines.push(`Languages: ${caps.languages.filter((x: unknown): x is string => typeof x === 'string').join(', ')}`);
 
       return lines.join('\n');
     } catch {

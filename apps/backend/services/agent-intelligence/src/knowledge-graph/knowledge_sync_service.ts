@@ -11,6 +11,18 @@ import { ToolGraphDatabase } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding_service.js';
 import { logger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isKnowledgeType(v: unknown): v is KnowledgeType {
+  return typeof v === 'string' && (Object.values(KnowledgeType) as string[]).includes(v);
+}
+
+function isUserEntity(v: unknown): v is UserEntity {
+  return isRecord(v) && typeof v['id'] === 'string';
+}
+
 export interface KnowledgeSyncResult {
   success: boolean;
   knowledgeItemId: string;
@@ -57,7 +69,7 @@ export class KnowledgeSyncService {
         userId,
       ]);
       const userRow: unknown = userRows.rows[0];
-      const user: UserEntity | undefined = typeof userRow === 'object' && userRow !== null ? (userRow as UserEntity) : undefined;
+      const user: UserEntity | undefined = isUserEntity(userRow) ? userRow : undefined;
 
       if (!knowledgeItem || !user) {
         return {
@@ -470,7 +482,7 @@ export class KnowledgeSyncService {
           identifier: `direct-${itemId}`,
           metadata,
         },
-        tags: Array.isArray(metadata.tags) ? (metadata.tags as string[]) : [],
+        tags: Array.isArray(metadata.tags) ? metadata.tags.filter((x): x is string => typeof x === 'string') : [],
         confidence: typeof metadata.confidence === 'number' ? metadata.confidence : 0.8,
         accessLevel: typeof metadata.accessLevel === 'string' ? metadata.accessLevel : 'STANDARD',
         userId,
@@ -790,7 +802,7 @@ export class KnowledgeSyncService {
             itemsMap.set(id, {
               id,
               content: String(point.payload.content ?? ''),
-              type: Object.values(KnowledgeType).includes(point.payload.type as KnowledgeType) ? (point.payload.type as KnowledgeType) : KnowledgeType.FACTUAL,
+              type: isKnowledgeType(point.payload.type) ? point.payload.type : KnowledgeType.FACTUAL,
               metadata: {},
               source: 'qdrant',
               existsIn: { postgres: false, neo4j: false, qdrant: true },
@@ -989,8 +1001,8 @@ export class KnowledgeSyncService {
 
       const params = {
         oldId:
-          (typeof item.metadata.originalProperties === 'object' && item.metadata.originalProperties !== null
-            ? (item.metadata.originalProperties as Record<string, unknown>).id
+          (isRecord(item.metadata.originalProperties)
+            ? item.metadata.originalProperties['id']
             : null) ?? null,
         newId: pgEntity.id,
         content: pgEntity.content,

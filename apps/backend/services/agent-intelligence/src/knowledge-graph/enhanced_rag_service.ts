@@ -2,6 +2,10 @@ import { TEIEmbeddingService, TEIHealthStatus } from './tei_embedding_service.js
 import { QdrantService } from './qdrant_service.js';
 
 import { InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 interface _VectorSearchResult {
   id: string;
   score: number;
@@ -84,7 +88,7 @@ export class EnhancedRAGService {
           return {
             id: c.id,
             content: String(c.payload?.content ?? ''),
-            metadata: typeof meta === 'object' && meta !== null ? (meta as Record<string, unknown>) : {},
+            metadata: isRecord(meta) ? meta : {},
             score: c.score,
           };
         });
@@ -96,11 +100,11 @@ export class EnhancedRAGService {
           return {
             id: candidate.id,
             content: String(candidate.payload?.content ?? ''),
-            metadata: typeof meta === 'object' && meta !== null ? (meta as Record<string, unknown>) : {},
+            metadata: isRecord(meta) ? meta : {},
             score: candidate.score,
             originalScore: candidate.score,
             rank: index + 1,
-            embedding: includeEmbeddings && Array.isArray(emb) ? (emb as number[]) : undefined,
+            embedding: includeEmbeddings && Array.isArray(emb) ? emb.filter((x): x is number => typeof x === 'number') : undefined,
           };
         });
       }
@@ -198,7 +202,7 @@ export class EnhancedRAGService {
           return {
             id: candidate.id,
             content: String(candidate.payload?.content ?? ''),
-            metadata: typeof meta === 'object' && meta !== null ? (meta as Record<string, unknown>) : {},
+            metadata: isRecord(meta) ? meta : {},
             score: candidate.score,
             originalScore: candidate.score,
             rank: index + 1,

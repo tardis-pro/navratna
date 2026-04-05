@@ -1,5 +1,9 @@
 import { logger } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 import type {
   CognitivePortrait,
   UserCognitiveProfile,
@@ -314,31 +318,28 @@ export function initCognitivePortraitEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('user.decision.override', async (data: unknown) => {
-      if (typeof data !== 'object' || data === null) return;
-      const payload = data as Record<string, unknown>;
-      const userId = typeof payload.userId === 'string' ? payload.userId : '';
-      const agentId = typeof payload.agentId === 'string' ? payload.agentId : '';
-      const context = typeof payload.context === 'string' ? payload.context : '';
+      if (!isRecord(data)) return;
+      const userId = typeof data['userId'] === 'string' ? data['userId'] : '';
+      const agentId = typeof data['agentId'] === 'string' ? data['agentId'] : '';
+      const context = typeof data['context'] === 'string' ? data['context'] : '';
       if (userId) {
         await updateTrustCalibration(userId, TrustAction.OVERRIDE, agentId, context)
       }
     })
 
     eventBus.subscribe('user.decision.accept', async (data: unknown) => {
-      if (typeof data !== 'object' || data === null) return;
-      const payload = data as Record<string, unknown>;
-      const userId = typeof payload.userId === 'string' ? payload.userId : '';
-      const agentId = typeof payload.agentId === 'string' ? payload.agentId : '';
-      const context = typeof payload.context === 'string' ? payload.context : '';
+      if (!isRecord(data)) return;
+      const userId = typeof data['userId'] === 'string' ? data['userId'] : '';
+      const agentId = typeof data['agentId'] === 'string' ? data['agentId'] : '';
+      const context = typeof data['context'] === 'string' ? data['context'] : '';
       if (userId) {
         await updateTrustCalibration(userId, TrustAction.ACCEPT, agentId, context)
       }
     })
 
     eventBus.subscribe('user.interaction', async (data: unknown) => {
-      if (typeof data !== 'object' || data === null) return;
-      const payload = data as Record<string, unknown>;
-      const userId = typeof payload.userId === 'string' ? payload.userId : '';
+      if (!isRecord(data)) return;
+      const userId = typeof data['userId'] === 'string' ? data['userId'] : '';
       if (userId) {
         portraitCache.delete(userId)
       }

@@ -1,6 +1,10 @@
 import { initializeDatabase, getIntelligencePool, closeDatabase } from '@uaip/shared-services';
 
 import { ExternalServiceError, InternalServerError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 const {
   TEI_EMBEDDING_URL = 'http://tei-embeddings:80',
   QDRANT_URL = 'http://qdrant:6333',
@@ -23,16 +27,16 @@ async function teiEmbed(texts: string[]): Promise<number[][]> {
   }
   const data: unknown = await res.json();
   if (Array.isArray(data)) return data.filter((row): row is number[] => Array.isArray(row));
-  const asRecord = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
-  const embeddings = Array.isArray(asRecord.embeddings) ? asRecord.embeddings : null;
+  const asRecord = isRecord(data) ? data : {};
+  const embeddings = Array.isArray(asRecord['embeddings']) ? asRecord['embeddings'] : null;
   return (embeddings ?? []).filter((row): row is number[] => Array.isArray(row));
 }
 
 async function qdrantCollectionInfo(): Promise<{ result?: { points_count?: number } }> {
   const res = await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}`);
   const raw: unknown = await res.json();
-  const obj = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
-  const result = typeof obj.result === 'object' && obj.result !== null ? (obj.result as Record<string, unknown>) : undefined;
+  const obj = isRecord(raw) ? raw : {};
+  const result = isRecord(obj['result']) ? obj['result'] : undefined;
   return { result: result ? { points_count: typeof result.points_count === 'number' ? result.points_count : undefined } : undefined };
 }
 

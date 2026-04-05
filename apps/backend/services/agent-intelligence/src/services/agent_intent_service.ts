@@ -53,9 +53,13 @@ const WORDS_SHORT_THRESHOLD = 3;
 const MIN_INTENT_CONFIDENCE = 0.1;
 const MAX_INTENT_CONFIDENCE = 1;
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 function isIntentAnalysis(value: unknown): value is IntentAnalysis {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const v = value;
   return (
     typeof v.primary === 'string' &&
     Array.isArray(v.secondary) &&
@@ -468,7 +472,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const userRequest = typeof event.userRequest === 'string' ? event.userRequest : '';
     const rawCtx = event.conversationContext;
-    const conversationContext: Record<string, unknown> = typeof rawCtx === 'object' && rawCtx !== null ? (rawCtx as Record<string, unknown>) : {};
+    const conversationContext: Record<string, unknown> = isRecord(rawCtx) ? rawCtx : {};
     const agent = isAgentObject(event.agent) ? event.agent : undefined;
     const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
@@ -497,10 +501,10 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const agent = isAgentObject(event.agent) ? event.agent : undefined;
     const rawCtx2 = event.contextAnalysis;
-    const contextAnalysis: Record<string, unknown> = typeof rawCtx2 === 'object' && rawCtx2 !== null ? (rawCtx2 as Record<string, unknown>) : {};
+    const contextAnalysis: Record<string, unknown> = isRecord(rawCtx2) ? rawCtx2 : {};
     const intentAnalysis = isIntentAnalysis(event.intentAnalysis) ? event.intentAnalysis : ({ primary: '', secondary: [], confidence: 0, entities: [], sentiment: '', complexity: '', urgency: '' } satisfies IntentAnalysis);
     const rawConstraints = event.constraints;
-    const constraints: Record<string, unknown> | undefined = typeof rawConstraints === 'object' && rawConstraints !== null ? (rawConstraints as Record<string, unknown>) : undefined;
+    const constraints: Record<string, unknown> | undefined = isRecord(rawConstraints) ? rawConstraints : undefined;
     const relevantKnowledge = isKnowledgeItemArray(event.relevantKnowledge) ? event.relevantKnowledge : [];
     const similarEpisodes = isEpisodeArray(event.similarEpisodes) ? event.similarEpisodes : [];
     const userId = typeof event.userId === 'string' ? event.userId : undefined;
@@ -532,7 +536,7 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   private async handleGenerateExplanation(event: Record<string, unknown>): Promise<void> {
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const rawCtx3 = event.contextAnalysis;
-    const contextAnalysis: Record<string, unknown> = typeof rawCtx3 === 'object' && rawCtx3 !== null ? (rawCtx3 as Record<string, unknown>) : {};
+    const contextAnalysis: Record<string, unknown> = isRecord(rawCtx3) ? rawCtx3 : {};
     const intentAnalysis = isIntentAnalysis(event.intentAnalysis) ? event.intentAnalysis : ({ primary: '', secondary: [], confidence: 0, entities: [], sentiment: '', complexity: '', urgency: '' } satisfies IntentAnalysis);
     const actionRecommendations = isActionRecommendationArray(event.actionRecommendations) ? event.actionRecommendations : [];
     const confidence = typeof event.confidence === 'number' ? event.confidence : 0;
@@ -569,14 +573,14 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
   private async handleCalculateConfidence(event: Record<string, unknown>): Promise<void> {
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const rawCtx4 = event.contextAnalysis;
-    const contextAnalysis: Record<string, unknown> = typeof rawCtx4 === 'object' && rawCtx4 !== null ? (rawCtx4 as Record<string, unknown>) : {};
+    const contextAnalysis: Record<string, unknown> = isRecord(rawCtx4) ? rawCtx4 : {};
     const intentAnalysis = isIntentAnalysis(event.intentAnalysis) ? event.intentAnalysis : ({ primary: '', secondary: [], confidence: 0, entities: [], sentiment: '', complexity: '', urgency: '' } satisfies IntentAnalysis);
     const actionRecommendations = isActionRecommendationArray(event.actionRecommendations) ? event.actionRecommendations : [];
     const rawIntelConfig = event.intelligenceConfig;
-    const intelligenceConfig: Record<string, unknown> = typeof rawIntelConfig === 'object' && rawIntelConfig !== null ? (rawIntelConfig as Record<string, unknown>) : {};
+    const intelligenceConfig: Record<string, unknown> = isRecord(rawIntelConfig) ? rawIntelConfig : {};
     const relevantKnowledge = isKnowledgeItemArray(event.relevantKnowledge) ? event.relevantKnowledge : [];
     const rawWm = event.workingMemory;
-    const workingMemory: Record<string, unknown> | undefined = typeof rawWm === 'object' && rawWm !== null ? (rawWm as Record<string, unknown>) : undefined;
+    const workingMemory: Record<string, unknown> | undefined = isRecord(rawWm) ? rawWm : undefined;
     try {
       const confidence = this.calculateEnhancedConfidence(
         contextAnalysis,

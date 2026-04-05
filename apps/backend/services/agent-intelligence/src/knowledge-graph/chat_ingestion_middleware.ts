@@ -3,6 +3,10 @@ import { ChatParserService } from './chat_parser_service.js';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 export interface ProcessedChatFile {
   id: string;
   originalName: string;
@@ -113,7 +117,7 @@ export class ChatIngestionMiddleware {
         const body: unknown = ctx?.body;
         // @ts-expect-error — Elysia middleware injects body/set but TS can't infer through groups
         const set: { status?: number | string } | undefined = ctx?.set;
-        const requestBody: Record<string, unknown> = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+        const requestBody: Record<string, unknown> = isRecord(body) ? body : {};
         const filesRaw = requestBody.files;
         const files = Array.isArray(filesRaw) ? filesRaw : undefined;
 
@@ -129,8 +133,14 @@ export class ChatIngestionMiddleware {
 
         // Validate file limits
         for (const rawFile of files) {
-          type RawFileShape = { size?: number; mimetype?: string; type?: string; originalname?: string; name?: string };
-        const file: RawFileShape = typeof rawFile === 'object' && rawFile !== null ? (rawFile as RawFileShape) : {};
+          const fileRecord = isRecord(rawFile) ? rawFile : {};
+          const file = {
+            size: typeof fileRecord.size === 'number' ? fileRecord.size : undefined,
+            mimetype: typeof fileRecord.mimetype === 'string' ? fileRecord.mimetype : undefined,
+            type: typeof fileRecord.type === 'string' ? fileRecord.type : undefined,
+            originalname: typeof fileRecord.originalname === 'string' ? fileRecord.originalname : undefined,
+            name: typeof fileRecord.name === 'string' ? fileRecord.name : undefined,
+          };
           if (file.size > MAX_FILE_SIZE) {
             if (set) set.status = 413;
             return {
@@ -170,7 +180,7 @@ export class ChatIngestionMiddleware {
         const uploadedFiles: Record<string, unknown>[] | undefined = (ctx as UploadContext)?.uploadedFiles;
 
         try {
-          const requestBody: Record<string, unknown> = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+          const requestBody: Record<string, unknown> = isRecord(body) ? body : {};
 
           // Validate request body options
           const options = ChatIngestionOptionsSchema.parse(requestBody);
@@ -249,7 +259,7 @@ export class ChatIngestionMiddleware {
           type UploadedFileShape = { originalname?: string; name?: string; size: number };
           const typedFiles = uploadedFiles.filter(
             (f): f is UploadedFileShape =>
-              typeof f === 'object' && f !== null && typeof (f as UploadedFileShape).size === 'number'
+              isRecord(f) && typeof f.size === 'number'
           );
 
           for (const file of typedFiles) {
