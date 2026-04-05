@@ -63,7 +63,9 @@ export default function WorkspacePage() {
   const [workspaceState, setWorkspaceState] = useState<StoredWorkspaceState | null>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      return raw ? (JSON.parse(raw) as StoredWorkspaceState) : null;
+      // @ts-expect-error -- JSON.parse returns any; runtime shape matches StoredWorkspaceState
+      const parsed: StoredWorkspaceState = JSON.parse(raw);
+      return raw ? parsed : null;
     } catch {
       return null;
     }
@@ -79,9 +81,8 @@ export default function WorkspacePage() {
   const [sessions, setSessions] = useState<Array<{ sessionId: string; createdAt: number }>>(() => {
     try {
       const raw = localStorage.getItem(sessionsKey);
-      const parsed = raw
-        ? (JSON.parse(raw) as Array<{ sessionId: string; createdAt: number }>)
-        : [];
+      // @ts-expect-error -- JSON.parse returns any; runtime shape matches Array<{sessionId, createdAt}>
+      const parsed: Array<{ sessionId: string; createdAt: number }> = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -307,7 +308,7 @@ export default function WorkspacePage() {
                   />
                   <Select
                     value={repoVisibility}
-                    onValueChange={(v) => setRepoVisibility(v as RepoVisibility)}
+                    onValueChange={(v) => { if (v === 'public' || v === 'private') setRepoVisibility(v); }}
                   >
                     <SelectTrigger className="bg-black/30 border-white/10 text-white">
                       <SelectValue placeholder="Visibility" />

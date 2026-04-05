@@ -129,14 +129,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const selectedModelObj = allModels.find((model) => model.id === selectedModel);
 
   // Group models by API type and source
-  const groupedModels = allModels.reduce(
+  type ModelGroup = { apiType: string; source: string; models: ModelOption[] };
+  const groupedModels = allModels.reduce<Record<string, ModelGroup>>(
     (acc, model) => {
       const sourceId =
         model.source || `fallback-${model.id || Math.random().toString(36).substr(2, 9)}`;
       const key = `${model.apiType}-${sourceId}`;
       if (!acc[key]) {
         acc[key] = {
-          apiType: model.apiType,
+          apiType: model.apiType ?? '',
           source: model.source || 'Unknown Source',
           models: [],
         };
@@ -144,7 +145,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       acc[key].models.push(model);
       return acc;
     },
-    {} as Record<string, { apiType: string; source: string; models: ModelOption[] }>
+    {}
   );
 
   const borderClass =

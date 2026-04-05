@@ -220,11 +220,15 @@ export const csrfService = CSRFService.getInstance();
  * Higher-order function to add CSRF protection to API calls
  */
 function injectCSRFHeaders(args: unknown[], headers: Record<string, string>): void {
-  const lastArg = args[args.length - 1] as Record<string, unknown> | undefined;
-  if (lastArg && typeof lastArg === 'object' && lastArg['headers']) {
-    Object.assign(lastArg['headers'], headers);
-  } else if (lastArg && typeof lastArg === 'object') {
-    lastArg['headers'] = { ...(lastArg['headers'] as object), ...headers };
+  const lastArg = args[args.length - 1];
+  if (lastArg !== null && typeof lastArg === 'object') {
+    // @ts-expect-error -- lastArg is narrowed to object but TS can't index unknown objects without a cast
+    const argObj: Record<string, unknown> = lastArg;
+    if (argObj['headers'] !== null && typeof argObj['headers'] === 'object') {
+      Object.assign(argObj['headers'], headers);
+    } else {
+      argObj['headers'] = { ...headers };
+    }
   } else {
     args.push({ headers });
   }

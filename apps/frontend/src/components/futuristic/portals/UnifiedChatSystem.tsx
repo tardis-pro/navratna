@@ -319,7 +319,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       const confidence = typeof wsPayload.confidence === 'number' ? wsPayload.confidence : undefined;
       const memoryEnhanced = typeof wsPayload.memoryEnhanced === 'boolean' ? wsPayload.memoryEnhanced : undefined;
       const knowledgeUsed = typeof wsPayload.knowledgeUsed === 'number' ? wsPayload.knowledgeUsed : undefined;
-      const toolsExecuted = Array.isArray(wsPayload.toolsExecuted) ? wsPayload.toolsExecuted as ChatMessage['toolsExecuted'] : undefined;
+      // @ts-expect-error -- wsPayload.toolsExecuted is unknown[]; ChatMessage['toolsExecuted'] is the expected runtime shape
+      const toolsExecuted: ChatMessage['toolsExecuted'] = Array.isArray(wsPayload.toolsExecuted) ? wsPayload.toolsExecuted : undefined;
       const messageId = typeof wsPayload.messageId === 'string' ? wsPayload.messageId : undefined;
 
       if (agentId && wsFallbackTimeouts.current[agentId]) {

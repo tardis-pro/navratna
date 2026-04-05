@@ -81,7 +81,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+    const color = itemConfig.theme?.[theme as keyof typeof THEMES] || itemConfig.color;
     return color ? `  --color-${key}: ${color};` : null;
   })
   .join('\n')}
@@ -137,7 +137,7 @@ const ChartTooltipContent = React.forwardRef<
       const itemConfig = getPayloadConfigFromPayload(config, item, key);
       const value =
         !labelKey && typeof label === 'string'
-          ? config[label as keyof typeof config]?.label || label
+          ? config[label]?.label || label
           : itemConfig?.label;
 
       if (labelFormatter) {
@@ -308,17 +308,19 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
 
   let configLabelKey: string = key;
 
-  if (key in payload && typeof payload[key as keyof typeof payload] === 'string') {
-    configLabelKey = payload[key as keyof typeof payload] as string;
-  } else if (
-    payloadPayload &&
-    key in payloadPayload &&
-    typeof payloadPayload[key as keyof typeof payloadPayload] === 'string'
-  ) {
-    configLabelKey = payloadPayload[key as keyof typeof payloadPayload] as string;
+  // @ts-expect-error -- payload is narrowed to non-null object but TS can't index it without a cast
+  const payloadRecord: Record<string, unknown> = payload;
+  if (key in payload && typeof payloadRecord[key] === 'string') {
+    configLabelKey = payloadRecord[key];
+  } else if (payloadPayload) {
+    // @ts-expect-error -- payloadPayload is narrowed to non-null object but TS can't index it without a cast
+    const payloadPayloadRecord: Record<string, unknown> = payloadPayload;
+    if (key in payloadPayload && typeof payloadPayloadRecord[key] === 'string') {
+      configLabelKey = payloadPayloadRecord[key];
+    }
   }
 
-  return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
+  return configLabelKey in config ? config[configLabelKey] : config[key];
 }
 
 export {

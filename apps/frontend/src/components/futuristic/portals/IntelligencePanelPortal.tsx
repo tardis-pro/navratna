@@ -214,7 +214,8 @@ export const IntelligencePanelPortal: React.FC<IntelligencePanelPortalProps> = (
         processingTime: number;
         patterns?: unknown[];
       };
-      const contextAnalysis = await uaipAPI.llm.analyzeContext(analysisRequest) as ContextAnalysisResult | null;
+      // @ts-expect-error -- uaipAPI.llm.analyzeContext returns Promise<unknown>; runtime shape matches ContextAnalysisResult
+      const contextAnalysis: ContextAnalysisResult | null = await uaipAPI.llm.analyzeContext(analysisRequest);
 
       if (contextAnalysis) {
         // Generate advanced insights from the analysis

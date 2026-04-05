@@ -145,8 +145,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Execute Security flows using UAIP API
   const executeSecurityFlow = async (flow: string, params: unknown) => {
     switch (flow) {
-      case 'login':
-        return await uaipAPI.client.auth.login(params as { email: string; password: string });
+      case 'login': {
+        // @ts-expect-error -- params is unknown at call site; login expects {email, password} at runtime
+        const loginParams: { email: string; password: string } = params;
+        return await uaipAPI.client.auth.login(loginParams);
+      }
       case 'logout':
         return await uaipAPI.client.auth.logout();
       case 'refreshToken':
@@ -265,7 +268,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     const handleRateLimit = (e: Event) => {
-      const retryAfter = (e as CustomEvent<{ retryAfter: number }>).detail?.retryAfter ?? 60;
+      const detail: unknown = e instanceof CustomEvent ? e.detail : undefined;
+      // @ts-expect-error -- detail is narrowed to object with 'retryAfter' key but TS can't index unknown
+      const retryAfterRaw: unknown = typeof detail === 'object' && detail !== null && 'retryAfter' in detail ? detail['retryAfter'] : undefined;
+      const retryAfter = typeof retryAfterRaw === 'number' ? retryAfterRaw : 60;
       window.dispatchEvent(
         new CustomEvent('toast', {
           detail: {

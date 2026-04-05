@@ -109,13 +109,13 @@ const KNOWLEDGE_NODE_STYLES = {
   },
 };
 
-type KnowledgeNodeStyleKey = keyof typeof KNOWLEDGE_NODE_STYLES;
+type KnowledgeNodeColorKey = Exclude<keyof typeof KNOWLEDGE_NODE_STYLES, 'common'>;
 
-const isKnowledgeNodeStyleKey = (v: string): v is KnowledgeNodeStyleKey =>
-  v in KNOWLEDGE_NODE_STYLES;
+const isKnowledgeNodeColorKey = (v: string): v is KnowledgeNodeColorKey =>
+  v in KNOWLEDGE_NODE_STYLES && v !== 'common';
 
-const getKnowledgeNodeStyle = (knowledgeType: string) =>
-  isKnowledgeNodeStyleKey(knowledgeType)
+const getKnowledgeNodeStyle = (knowledgeType: string): (typeof KNOWLEDGE_NODE_STYLES)[KnowledgeNodeColorKey] =>
+  isKnowledgeNodeColorKey(knowledgeType)
     ? KNOWLEDGE_NODE_STYLES[knowledgeType]
     : KNOWLEDGE_NODE_STYLES.default;
 
@@ -393,10 +393,11 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     // Filter nodes based on search term
-    const allNodes = getNodes();
+    // @ts-expect-error -- getNodes() returns Node[]; KnowledgeNode extends Node with compatible data shape
+    const allNodes: KnowledgeNode[] = getNodes();
     if (term) {
       const _filteredNodes = allNodes.filter((node) => {
-        const d = (node as KnowledgeNode).data;
+        const d = node.data;
         return (
           d.label.toLowerCase().includes(term.toLowerCase()) ||
           d.tags.some((tag: string) => tag.toLowerCase().includes(term.toLowerCase()))
@@ -585,11 +586,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
                     className="ml-2"
                     style={{
                       backgroundColor:
-                        (
-                          KNOWLEDGE_NODE_STYLES[
-                            selectedNode.data.knowledgeType as keyof typeof KNOWLEDGE_NODE_STYLES
-                          ] as { backgroundColor?: string } | undefined
-                        )?.backgroundColor ?? '#64748b',
+                        getKnowledgeNodeStyle(selectedNode.data.knowledgeType).backgroundColor ?? '#64748b',
                     }}
                   >
                     {selectedNode.data.knowledgeType}

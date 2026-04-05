@@ -343,7 +343,7 @@ const computeEdges = (dag: TaskDAG, layoutNodes: LayoutNode[]): EdgeLine[] => {
         status: edgeStatus,
       };
     })
-    .filter(Boolean) as EdgeLine[];
+    .filter((e): e is EdgeLine => e !== null);
 };
 
 const EDGE_STROKE_COLORS: Record<TaskNodeStatus, string> = {

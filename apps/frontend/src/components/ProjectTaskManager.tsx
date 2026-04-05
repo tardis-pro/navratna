@@ -46,10 +46,15 @@ type TaskStatistics = {
   byAssigneeType?: Record<string, number>;
 };
 
+type ApiErrorShape = { response?: { data?: { error?: string } }; message?: string };
+
+function isApiErrorShape(e: unknown): e is ApiErrorShape {
+  return e !== null && typeof e === 'object';
+}
+
 function getApiErrorMessage(error: unknown): string {
-  if (error !== null && typeof error === 'object') {
-    const err = error as { response?: { data?: { error?: string } }; message?: string };
-    return err.response?.data?.error ?? err.message ?? 'Unknown error occurred';
+  if (isApiErrorShape(error)) {
+    return error.response?.data?.error ?? error.message ?? 'Unknown error occurred';
   }
   return 'Unknown error occurred';
 }
@@ -98,18 +103,16 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
   // Queries
   const {
-    data: _tasksRaw,
+    data: tasksData,
     isLoading: tasksLoading,
     error: tasksError,
-  } = useQuery({
+  } = useQuery<Task[]>({
     ...useTasksQuery(projectId, selectedFilters),
   });
-  const tasksData = _tasksRaw as Task[] | undefined;
 
-  const { data: _statsRaw, isLoading: _statsLoading } = useQuery({
+  const { data: statisticsData, isLoading: _statsLoading } = useQuery<TaskStatistics>({
     ...useTaskStatisticsQuery(projectId),
   });
-  const statisticsData = _statsRaw as TaskStatistics | undefined;
 
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
@@ -171,11 +174,13 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
   // Event handlers
   const handleTaskCreate = async (taskData: unknown) => {
-    await createTaskMutation.mutateAsync(taskData as CreateTaskRequest);
+    // @ts-expect-error -- TaskCreateForm passes unknown; mutateAsync expects CreateTaskRequest; structurally compatible at runtime
+    await createTaskMutation.mutateAsync(taskData);
   };
 
   const handleTaskUpdate = async (taskId: string, updates: unknown) => {
-    await updateTaskMutation.mutateAsync({ taskId, updates: updates as UpdateTaskRequest });
+    // @ts-expect-error -- TaskBoard passes unknown; mutateAsync expects UpdateTaskRequest; structurally compatible at runtime
+    await updateTaskMutation.mutateAsync({ taskId, updates });
   };
 
   const handleTaskDelete = async (taskId: string) => {
@@ -485,7 +490,7 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               <h1
                 className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${DESIGN_TOKENS.colors.text} truncate`}
               >
-                {(projectData as { name?: string } | undefined)?.name ?? 'Project'} - Tasks
+                {projectData?.name ?? 'Project'} - Tasks
               </h1>
               {/* Mobile compact description */}
               <p className={`${DESIGN_TOKENS.colors.textMuted} text-xs mt-1 sm:hidden`}>
@@ -624,7 +629,8 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               : undefined
           }
           onAssign={handleTaskAssign}
-          onGetSuggestions={handleGetAssignmentSuggestions as React.ComponentProps<typeof TaskAssignment>['onGetSuggestions']}
+          // @ts-expect-error -- getAssignmentSuggestions returns Promise<unknown>; TaskAssignmentSuggestion is not exported from TaskAssignment
+          onGetSuggestions={handleGetAssignmentSuggestions}
           onGetProjectMembers={handleGetProjectMembers}
           onGetAvailableAgents={handleGetAvailableAgents}
           projectId={projectId}

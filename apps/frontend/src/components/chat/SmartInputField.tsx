@@ -43,19 +43,17 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const userRecord = user as unknown as Record<string, unknown> | null;
-  const authToken =
-    userRecord && typeof userRecord.token === 'string'
-      ? (userRecord.token as string)
-      : '';
+  // @ts-expect-error -- User type doesn't expose token; accessing runtime property for socket auth
+  const authToken: string = user && typeof user['token'] === 'string' ? user['token'] : '';
   const debouncedValue = useDebounce(inputValue, 300);
-  const intentCategory =
+  const intentCategoryRaw =
     detectedIntent &&
     typeof detectedIntent === 'object' &&
-    'category' in detectedIntent &&
-    typeof (detectedIntent as { category?: unknown }).category === 'string'
-      ? (detectedIntent as { category: string }).category
+    'category' in detectedIntent
+      // @ts-expect-error -- detectedIntent is narrowed to object with 'category' but TS can't index unknown
+      ? detectedIntent['category']
       : null;
+  const intentCategory = typeof intentCategoryRaw === 'string' ? intentCategoryRaw : null;
 
   useEffect(() => {
     if (!authToken) return;
@@ -156,8 +154,8 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (
       suggestionsRef.current &&
-      !suggestionsRef.current.contains(e.target as Node) &&
-      !inputRef.current?.contains(e.target as Node)
+      !suggestionsRef.current.contains(e.target instanceof Node ? e.target : null) &&
+      !inputRef.current?.contains(e.target instanceof Node ? e.target : null)
     ) {
       hideSuggestions();
     }

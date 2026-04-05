@@ -244,7 +244,7 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
                 ? 'sop'
                 : 'action',
         title: s.text,
-        description: s.metadata?.description as string | undefined,
+        description: typeof s.metadata?.description === 'string' ? s.metadata.description : undefined,
         relevanceScore: s.score,
         icon: s.type === 'ai_generated' ? '⚡' : s.type === 'topic' ? '📚' : '📋',
       }));

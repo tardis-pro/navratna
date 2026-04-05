@@ -105,12 +105,12 @@ export const ChatHistoryManager: React.FC<ChatHistoryManagerProps> = ({ onOpenCh
     return matchesSearch && matchesAgent && matchesPersistent;
   });
 
-  const groupedSessions: GroupedSessions = filteredSessions.reduce((groups, session) => {
+  const groupedSessions: GroupedSessions = filteredSessions.reduce<GroupedSessions>((groups, session) => {
     const group = getTimeGroup(session.lastActivity || session.createdAt);
     if (!groups[group]) groups[group] = [];
     groups[group].push(session);
     return groups;
-  }, {} as GroupedSessions);
+  }, {});
 
   // Sort groups by time relevance
   const sortedGroups = Object.entries(groupedSessions).sort(([a], [b]) => {

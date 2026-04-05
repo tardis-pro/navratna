@@ -172,23 +172,34 @@ export const UnifiedToolPortal: React.FC = () => {
 
   const loadAgents = async () => {
     try {
-      const result = await uaipAPI.agents.list() as unknown;
-      // Handle different response structures
-      type AgentResult = { data?: { agents?: Agent[] }; agents?: Agent[]; } | Agent[];
-      const agentsArray = Array.isArray(result)
-        ? result
-        : (result as AgentResult & { data?: { agents?: Agent[] } })?.data?.agents &&
-            Array.isArray((result as { data?: { agents?: Agent[] } }).data?.agents)
-          ? (result as { data: { agents: Agent[] } }).data.agents
-          : (result as AgentResult & { agents?: Agent[] })?.agents &&
-              Array.isArray((result as { agents?: Agent[] }).agents)
-            ? (result as { agents: Agent[] }).agents
-            : (result as AgentResult & { data?: Agent[] })?.data &&
-                Array.isArray((result as { data?: Agent[] }).data)
-              ? (result as { data: Agent[] }).data
-              : [];
-
-      setAgents(agentsArray);
+      const result = await uaipAPI.agents.list();
+      // Handle different response structures from the untyped API
+      function extractAgentsArray(r: unknown): Agent[] {
+        if (Array.isArray(r)) {
+          // @ts-expect-error -- uaipAPI.agents.list() returns unknown[]; runtime shape matches Agent[]
+          return r;
+        }
+        if (r !== null && typeof r === 'object') {
+          const obj = r as Record<string, unknown>;
+          if (Array.isArray(obj['agents'])) {
+            // @ts-expect-error -- runtime shape matches Agent[]
+            return obj['agents'];
+          }
+          if (typeof obj['data'] === 'object' && obj['data'] !== null) {
+            const data = obj['data'] as Record<string, unknown>;
+            if (Array.isArray(data['agents'])) {
+              // @ts-expect-error -- runtime shape matches Agent[]
+              return data['agents'];
+            }
+            if (Array.isArray(obj['data'])) {
+              // @ts-expect-error -- runtime shape matches Agent[]
+              return obj['data'];
+            }
+          }
+        }
+        return [];
+      }
+      setAgents(extractAgentsArray(result));
     } catch (error) {
       logger.error('Failed to load agents:', error);
       setAgents([]);

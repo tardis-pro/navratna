@@ -841,10 +841,9 @@ export class DiscussionManager implements IDiscussionManager {
    * @returns Object containing arrays of agent IDs that agree or disagree
    */
   public detectAgreementDisagreement(): { agrees: string[]; disagrees: string[] } {
-    const result = {
-      agrees: [] as string[],
-      disagrees: [] as string[],
-    };
+    const agrees: string[] = [];
+    const disagrees: string[] = [];
+    const result = { agrees, disagrees };
 
     // Only analyze if we have enough messages
     if (this.state.messageHistory.length < 3) {

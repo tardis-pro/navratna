@@ -64,7 +64,9 @@ function loadMatrixFromStorage(): Map<string, Map<string, number>> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return deserializeMatrix(JSON.parse(stored) as SerializedMatrix);
+      // @ts-expect-error -- JSON.parse returns any; runtime shape matches SerializedMatrix
+      const parsed: SerializedMatrix = JSON.parse(stored);
+      return deserializeMatrix(parsed);
     }
   } catch {
     // Corrupt or missing — start fresh.

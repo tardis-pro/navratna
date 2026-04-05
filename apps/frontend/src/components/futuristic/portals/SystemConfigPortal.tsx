@@ -114,13 +114,15 @@ export const SystemConfigPortal: React.FC<SystemConfigPortalProps> = ({ classNam
     setConfig((prev) => {
       const newConfig = { ...prev };
       const keys = path.split('.');
-      let current = newConfig as Record<string, unknown>;
+      // @ts-expect-error -- dynamic key traversal of typed config object; runtime shape is always Record<string, unknown>
+      let current: Record<string, unknown> = newConfig;
 
       for (let i = 0; i < keys.length - 1; i++) {
         if (typeof current[keys[i]] !== 'object' || current[keys[i]] === null) {
           current[keys[i]] = {};
         }
-        current = current[keys[i]] as Record<string, unknown>;
+        // @ts-expect-error -- nested config traversal; runtime shape is always Record<string, unknown>
+        current = current[keys[i]];
       }
 
       current[keys[keys.length - 1]] = value;

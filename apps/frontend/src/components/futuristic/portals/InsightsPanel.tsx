@@ -48,11 +48,11 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
   // Extract unique types and statuses for filters
   const insightTypes: string[] = [
     'all',
-    ...(Array.from(new Set(insights.data.map((insight) => insight.type))) as string[]),
+    ...Array.from(new Set<string>(insights.data.map((insight) => insight.type))),
   ];
   const insightStatuses: string[] = [
     'all',
-    ...(Array.from(new Set(insights.data.map((insight) => insight.status))) as string[]),
+    ...Array.from(new Set<string>(insights.data.map((insight) => insight.status))),
   ];
 
   const getImpactColor = (impact: string) => {

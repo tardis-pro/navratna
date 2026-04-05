@@ -124,40 +124,43 @@ export const useAssignmentSuggestionsQuery = (taskId: string) => {
 };
 
 // Utility functions
+type TaskStatusColorMap = Record<string, string>;
+const TASK_STATUS_COLORS: TaskStatusColorMap = {
+  todo: 'bg-gray-100 text-gray-800',
+  in_progress: 'bg-blue-100 text-blue-800',
+  in_review: 'bg-yellow-100 text-yellow-800',
+  blocked: 'bg-red-100 text-red-800',
+  completed: 'bg-green-100 text-green-800',
+  cancelled: 'bg-gray-100 text-gray-500',
+};
 export const getTaskStatusColor = (status: string) => {
-  const colors = {
-    todo: 'bg-gray-100 text-gray-800',
-    in_progress: 'bg-blue-100 text-blue-800',
-    in_review: 'bg-yellow-100 text-yellow-800',
-    blocked: 'bg-red-100 text-red-800',
-    completed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-gray-100 text-gray-500',
-  };
-  return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  return TASK_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800';
 };
 
+type TaskPriorityColorMap = Record<string, string>;
+const TASK_PRIORITY_COLORS: TaskPriorityColorMap = {
+  low: 'bg-gray-500',
+  medium: 'bg-blue-500',
+  high: 'bg-orange-500',
+  urgent: 'bg-red-500',
+};
 export const getTaskPriorityColor = (priority: string) => {
-  const colors = {
-    low: 'bg-gray-500',
-    medium: 'bg-blue-500',
-    high: 'bg-orange-500',
-    urgent: 'bg-red-500',
-  };
-  return colors[priority as keyof typeof colors] || 'bg-gray-500';
+  return TASK_PRIORITY_COLORS[priority] ?? 'bg-gray-500';
 };
 
+type TaskTypeIconMap = Record<string, string>;
+const TASK_TYPE_ICONS: TaskTypeIconMap = {
+  feature: '✨',
+  bug: '🐛',
+  enhancement: '🔧',
+  research: '🔍',
+  documentation: '📝',
+  testing: '🧪',
+  deployment: '🚀',
+  maintenance: '⚙️',
+};
 export const getTaskTypeIcon = (type: string) => {
-  const icons = {
-    feature: '✨',
-    bug: '🐛',
-    enhancement: '🔧',
-    research: '🔍',
-    documentation: '📝',
-    testing: '🧪',
-    deployment: '🚀',
-    maintenance: '⚙️',
-  };
-  return icons[type as keyof typeof icons] || '📋';
+  return TASK_TYPE_ICONS[type] ?? '📋';
 };
 
 export const formatTaskNumber = (taskNumber: string) => {
@@ -190,14 +193,19 @@ export const getTimeUntilDue = (dueDate?: string) => {
   }
 };
 
+type TaskWithMetrics = { metrics?: { completionPercentage?: number; estimatedTime?: number; timeSpent?: number } };
+type TaskWithAssignee = { assigneeType?: string; assignedToUser?: { name?: string; email?: string }; assignedToAgent?: { name?: string } };
+
 export const calculateTaskProgress = (task: unknown) => {
-  const t = task as { metrics?: { completionPercentage?: number } };
+  // @ts-expect-error -- task is unknown at runtime; TaskWithMetrics is the expected shape
+  const t: TaskWithMetrics = task;
   if (!t?.metrics) return 0;
   return t.metrics.completionPercentage || 0;
 };
 
 export const getEstimatedVsActualTime = (task: unknown) => {
-  const t = task as { metrics?: { estimatedTime?: number; timeSpent?: number } };
+  // @ts-expect-error -- task is unknown at runtime; TaskWithMetrics is the expected shape
+  const t: TaskWithMetrics = task;
   if (!t?.metrics) return { estimated: 0, actual: 0, variance: 0 };
 
   const estimated = t.metrics.estimatedTime || 0;
@@ -208,11 +216,8 @@ export const getEstimatedVsActualTime = (task: unknown) => {
 };
 
 export const getTaskAssigneeDisplay = (task: unknown) => {
-  const t = task as {
-    assigneeType?: string;
-    assignedToUser?: { name?: string; email?: string };
-    assignedToAgent?: { name?: string };
-  };
+  // @ts-expect-error -- task is unknown at runtime; TaskWithAssignee is the expected shape
+  const t: TaskWithAssignee = task;
   if (!t.assigneeType) return 'Unassigned';
 
   const prefix = t.assigneeType === 'agent' ? '🤖' : '👤';

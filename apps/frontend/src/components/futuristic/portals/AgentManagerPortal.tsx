@@ -8,11 +8,15 @@ import { AgentEditModal } from '../../AgentEditModal';
 import type { FrontendAgentState as AgentState } from '@uaip/types';
 import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
 
-const createAgentStateFromBackend = (data: unknown): AgentState => data as AgentState;
+// @ts-expect-error -- API response is untyped; runtime shape matches AgentState
+const createAgentStateFromBackend = (data: unknown): AgentState => data;
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip_api';
 import { edenRequest } from '../../../api/eden';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
+
+const AGENT_ROLE_VALUES = new Set(Object.values(AgentRole));
+const isAgentRole = (v: string): v is AgentRole => AGENT_ROLE_VALUES.has(v as AgentRole);
 import {
   Users,
   Plus,
@@ -242,7 +246,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   // Form state for create/edit
   const [agentForm, setAgentForm] = useState({
     name: '',
-    role: 'assistant' as AgentRole,
+    role: AgentRole.ASSISTANT,
     modelId: '',
     providerId: '',
     personaId: '',
@@ -442,7 +446,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     setSelectedAgentId(null);
     setAgentForm({
       name: '',
-      role: 'assistant' as AgentRole,
+      role: AgentRole.ASSISTANT,
       modelId: '',
       providerId: '',
       personaId: '',
@@ -561,7 +565,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         // Reset form and navigate back
         setAgentForm({
           name: '',
-          role: 'assistant' as AgentRole,
+          role: AgentRole.ASSISTANT,
           modelId: '',
           providerId: '',
           personaId: '',
@@ -698,7 +702,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
     if (filterStatus !== 'all') {
       filtered = filtered.filter((agent) => {
-        const status = (agent as unknown as { status?: string }).status ?? 'active';
+        const status = agent.status ?? 'active';
         if (filterStatus === 'active') return status === 'active';
         if (filterStatus === 'inactive') return status !== 'active';
         if (filterStatus === 'healthy') return status === 'active' || status === 'healthy';
@@ -710,18 +714,18 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'role') return a.role.localeCompare(b.role);
       if (sortBy === 'status') {
-        const sa = (a as unknown as { status?: string }).status ?? '';
-        const sb = (b as unknown as { status?: string }).status ?? '';
+        const sa = a.status ?? '';
+        const sb = b.status ?? '';
         return sa.localeCompare(sb);
       }
       if (sortBy === 'created') {
-        const ca = (a as unknown as { createdAt?: string }).createdAt ?? '';
-        const cb = (b as unknown as { createdAt?: string }).createdAt ?? '';
+        const ca = a.createdAt ?? '';
+        const cb = b.createdAt ?? '';
         return ca.localeCompare(cb);
       }
       if (sortBy === 'updated') {
-        const ua = (a as unknown as { updatedAt?: string }).updatedAt ?? '';
-        const ub = (b as unknown as { updatedAt?: string }).updatedAt ?? '';
+        const ua = a.updatedAt ?? '';
+        const ub = b.updatedAt ?? '';
         return ub.localeCompare(ua);
       }
       return a.name.localeCompare(b.name);
@@ -1418,9 +1422,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Role</label>
           <select
             value={agentForm.role}
-            onChange={(e) =>
-              setAgentForm((prev) => ({ ...prev, role: e.target.value as AgentRole }))
-            }
+            onChange={(e) => {
+              const role = isAgentRole(e.target.value) ? e.target.value : AgentRole.ASSISTANT;
+              setAgentForm((prev) => ({ ...prev, role }));
+            }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
           >
             <option value="assistant">Assistant</option>

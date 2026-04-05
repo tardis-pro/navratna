@@ -157,12 +157,10 @@ class APIClientClass {
       }
 
       if (error instanceof Error && 'statusCode' in error) {
-        const statusCode = typeof Reflect.get(error, 'statusCode') === 'number'
-          ? (Reflect.get(error, 'statusCode') as number)
-          : undefined;
-        const code = typeof Reflect.get(error, 'code') === 'string'
-          ? (Reflect.get(error, 'code') as string)
-          : undefined;
+        const rawStatusCode = Reflect.get(error, 'statusCode');
+        const statusCode = typeof rawStatusCode === 'number' ? rawStatusCode : undefined;
+        const rawCode = Reflect.get(error, 'code');
+        const code = typeof rawCode === 'string' ? rawCode : undefined;
         const details = Reflect.get(error, 'details');
         throw new APIClientError(error.message, code, details, statusCode);
       }

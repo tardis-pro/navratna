@@ -265,7 +265,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 {trendingItems.map((trend, index) => {
                   if (!trend.item) return null;
 
-                  const IconComponent = (trend.item.icon || Activity) as unknown as IconWithSizeProps;
+                  // @ts-expect-error -- icon field is a Lucide component; runtime shape matches IconWithSizeProps
+                  const IconComponent: IconWithSizeProps = trend.item.icon || Activity;
 
                   return (
                     <motion.div
@@ -328,7 +329,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 </h4>
                 <div className="space-y-2">
                   {activityStats.mostUsedItems.slice(0, 3).map((item, _index) => {
-                    const IconComponent = (item.icon || Activity) as unknown as IconWithSizeProps;
+                    // @ts-expect-error -- icon field is a Lucide component; runtime shape matches IconWithSizeProps
+                    const IconComponent: IconWithSizeProps = item.icon || Activity;
                     return (
                       <div
                         key={item.id}

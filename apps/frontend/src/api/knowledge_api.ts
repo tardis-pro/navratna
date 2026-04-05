@@ -8,6 +8,14 @@ import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
+
+function toNumberRecord(v: Record<string, unknown>): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const [k, val] of Object.entries(v)) {
+    if (typeof val === 'number') result[k] = val;
+  }
+  return result;
+}
 import type {
   KnowledgeItem,
   KnowledgeUploadRequest,
@@ -72,8 +80,11 @@ export const knowledgeAPI = {
     }
 
     // Transform backend response to expected format
-    return (searchData['items'] as unknown[]).map((rawItem: unknown) => {
+    const rawItems: unknown[] = Array.isArray(searchData['items']) ? searchData['items'] : [];
+    return rawItems.map((rawItem: unknown) => {
       const item: Record<string, unknown> = isRecord(rawItem) ? rawItem : {};
+      const rawTags = item['tags'];
+      const tags: string[] = Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : [];
       return {
         item: {
           id: typeof item['id'] === 'string' ? item['id'] : '',
@@ -82,7 +93,7 @@ export const knowledgeAPI = {
             : 'Untitled',
           content: typeof item['content'] === 'string' ? item['content'] : '',
           type: 'document' as const,
-          tags: Array.isArray(item['tags']) ? (item['tags'] as string[]) : [],
+          tags,
           createdAt: typeof item['createdAt'] === 'string' ? item['createdAt'] : '',
           updatedAt: typeof item['updatedAt'] === 'string' ? item['updatedAt'] : '',
           metadata: isRecord(item['metadata']) ? item['metadata'] : undefined,
@@ -116,7 +127,8 @@ export const knowledgeAPI = {
       return [];
     }
 
-    return items as KnowledgeItem[];
+    // @ts-expect-error -- items is any[] after Array.isArray; KnowledgeItem[] is structurally compatible at runtime
+    return items;
   },
 
   async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {
@@ -136,8 +148,8 @@ export const knowledgeAPI = {
       const stats: Record<string, unknown> = isRecord(raw) ? raw : {};
       const userStats = {
         totalItems: typeof stats['totalItems'] === 'number' ? stats['totalItems'] : 0,
-        itemsByType: isRecord(stats['itemsByType']) ? (stats['itemsByType'] as Record<string, number>) : {},
-        recentActivity: isRecord(stats['recentActivity']) ? (stats['recentActivity'] as Record<string, number>) : {},
+        itemsByType: isRecord(stats['itemsByType']) ? toNumberRecord(stats['itemsByType']) : {},
+        recentActivity: isRecord(stats['recentActivity']) ? toNumberRecord(stats['recentActivity']) : {},
       };
       const generalStats: Record<string, unknown> = isRecord(stats['generalKnowledge']) ? stats['generalKnowledge'] : {};
 
@@ -145,7 +157,7 @@ export const knowledgeAPI = {
         totalItems: userStats.totalItems + (typeof generalStats['totalItems'] === 'number' ? generalStats['totalItems'] : 0),
         itemsByType: {
           ...userStats.itemsByType,
-          ...(isRecord(generalStats['itemsByType']) ? (generalStats['itemsByType'] as Record<string, number>) : {}),
+          ...(isRecord(generalStats['itemsByType']) ? toNumberRecord(generalStats['itemsByType']) : {}),
         },
         itemsByCategory: {},
         totalRelations: 0,
@@ -199,10 +211,10 @@ export const knowledgeAPI = {
 
       // Safely access with defaults
       const nodes: Record<string, unknown>[] = Array.isArray(response['nodes'])
-        ? (response['nodes'] as Record<string, unknown>[])
+        ? response['nodes']
         : [];
       const edges: Record<string, unknown>[] = Array.isArray(response['edges'])
-        ? (response['edges'] as Record<string, unknown>[])
+        ? response['edges']
         : [];
 
       return {

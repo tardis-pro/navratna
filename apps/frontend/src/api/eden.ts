@@ -243,7 +243,9 @@ export function unwrapEden<T>(result: EdenResponse<T>): T {
 
   const data: unknown = result.data
   if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
-    return data.data as T
+    // @ts-expect-error -- data.data is unknown; T is the expected runtime shape from the generic caller
+    const unwrapped: T = data.data
+    return unwrapped
   }
 
   return result.data

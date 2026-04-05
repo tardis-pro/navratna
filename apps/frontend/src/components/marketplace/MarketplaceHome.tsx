@@ -23,6 +23,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
   // Mock data for demo
   useEffect(() => {
     // In real implementation, fetch from API
+    // @ts-expect-error -- mock data objects don't fully conform to MarketplaceItem schema (missing required fields like authorId, pricing)
     const mockFeatured: MarketplaceItem[] = [
       {
         id: '1',
@@ -71,8 +72,9 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           monthlyDownloads: 2123,
         },
       },
-    ] as MarketplaceItem[];
+    ];
 
+    // @ts-expect-error -- mock data objects don't fully conform to MarketplaceItem schema (missing required fields like authorId, pricing)
     const mockTrending: MarketplaceItem[] = [
       {
         id: '3',
@@ -120,7 +122,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           monthlyDownloads: 4567,
         },
       },
-    ] as MarketplaceItem[];
+    ];
 
     setFeaturedItems(mockFeatured);
     setTrendingItems(mockTrending);

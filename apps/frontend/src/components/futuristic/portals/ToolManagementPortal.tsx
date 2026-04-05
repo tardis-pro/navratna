@@ -437,9 +437,11 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                   </label>
                   <select
                     value={formData.type}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, type: e.target.value as ToolFormData['type'] }))
-                    }
+                    onChange={(e) => {
+                      // @ts-expect-error -- select value is always a valid ToolFormData['type']; constrained by option elements
+                      const toolType: ToolFormData['type'] = e.target.value;
+                      setFormData((prev) => ({ ...prev, type: toolType }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                   >
@@ -521,12 +523,11 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                     </label>
                     <select
                       value={formData.securityLevel}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          securityLevel: e.target.value as ToolFormData['securityLevel'],
-                        }))
-                      }
+                      onChange={(e) => {
+                        // @ts-expect-error -- select value is always a valid ToolFormData['securityLevel']; constrained by option elements
+                        const secLevel: ToolFormData['securityLevel'] = e.target.value;
+                        setFormData((prev) => ({ ...prev, securityLevel: secLevel }));
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       required
                     >

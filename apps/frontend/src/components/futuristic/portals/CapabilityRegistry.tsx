@@ -38,9 +38,7 @@ export const CapabilityRegistry: React.FC<CapabilityRegistryPortalProps> = ({
 
   const categories: string[] = [
     'all',
-    ...(Array.from(
-      new Set(capabilities.data.map((cap) => cap.category || 'Uncategorized'))
-    ) as string[]),
+    ...Array.from(new Set<string>(capabilities.data.map((cap) => cap.category || 'Uncategorized'))),
   ];
 
   const filteredCapabilities = capabilities.data.filter((cap) => {

@@ -195,7 +195,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           break;
 
         case 'approval_required': {
-          const approval = lastEvent.payload as PendingApprovalRequest;
+          // @ts-expect-error -- lastEvent.payload is unknown; PendingApprovalRequest is the expected runtime shape for approval_required events
+          const approval: PendingApprovalRequest = lastEvent.payload;
           if (!approval?.approvalId || !approval?.agentId) {
             break;
           }

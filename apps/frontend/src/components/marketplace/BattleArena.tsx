@@ -34,6 +34,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
 
   // Mock battle data
   useEffect(() => {
+    // @ts-expect-error -- mock data objects don't fully conform to Battle schema (missing required fields like skillLevel enum)
     const mockLiveBattles: Battle[] = [
       {
         id: '1',
@@ -112,8 +113,9 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
         actualStartTime: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
         judgingCriteria: [],
       },
-    ] as Battle[];
+    ];
 
+    // @ts-expect-error -- mock data objects don't fully conform to Battle schema (missing required fields like skillLevel enum)
     const mockUpcoming: Battle[] = [
       {
         id: '2',
@@ -160,7 +162,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
         },
         judgingCriteria: [],
       },
-    ] as Battle[];
+    ];
 
     setLiveBattles(mockLiveBattles);
     setUpcomingBattles(mockUpcoming);

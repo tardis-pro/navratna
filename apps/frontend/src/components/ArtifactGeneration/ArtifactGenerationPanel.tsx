@@ -37,6 +37,9 @@ import type {
   ArtifactParticipant as Participant,
   ArtifactGenerationResult as GenerationResult,
 } from '@uaip/types';
+
+const ARTIFACT_TYPE_VALUES = new Set<string>(['code', 'test', 'documentation', 'prd', 'config', 'deployment', 'script', 'template', 'report', 'analysis', 'code-diff', 'workflow']);
+const isArtifactType = (v: string): v is ArtifactType => ARTIFACT_TYPE_VALUES.has(v);
 import { logger } from '@/utils/browser_logger';
 
 interface ArtifactGenerationPanelProps {
@@ -288,7 +291,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                 <label className="text-sm font-medium mb-2 block">Artifact Type</label>
                 <Select
                   value={selectedType}
-                  onValueChange={(value) => setSelectedType(value as ArtifactType)}
+                  onValueChange={(value) => { if (isArtifactType(value)) setSelectedType(value); }}
                 >
                   <SelectTrigger>
                     <SelectValue />

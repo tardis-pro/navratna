@@ -208,7 +208,7 @@ export function MaterializableBlock({
           title={`${block.expression} state`}
         >
           <span style={{ opacity: 0 }}>
-            {(EXPRESSION_ICONS as Record<string, React.ReactNode>)[block.expression]}
+            {EXPRESSION_ICONS[block.expression]}
           </span>
         </div>
 

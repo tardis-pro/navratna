@@ -32,9 +32,9 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-const AGENT_SKILL_SOURCES = ['inline', 'filesystem', 'registry'] as const;
+const AGENT_SKILL_SOURCES = new Set<string>(['inline', 'filesystem', 'registry']);
 function isAgentSkillSource(v: string): v is AgentSkill['source'] {
-  return (AGENT_SKILL_SOURCES as readonly string[]).includes(v);
+  return AGENT_SKILL_SOURCES.has(v);
 }
 
 interface AgentEditModalProps {
@@ -149,7 +149,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         temperature: agent.temperature,
         maxTokens: agent.maxTokens,
         systemPrompt: agent.systemPrompt,
-        skills: (agent as unknown).skills || [],
+        skills: agent.skills || [],
       });
     }
   }, [agent, isOpen]);
@@ -980,7 +980,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   );
 
   const renderSkillsTab = () => {
-    const skills: AgentSkill[] = (formData as unknown).skills || [];
+    const skills: AgentSkill[] = formData.skills || [];
     const [showAddForm, setShowAddForm] = useState(false);
     const [editIndex, setEditIndex] = useState<number | null>(null);
     const [newSkill, setNewSkill] = useState<Partial<AgentSkill>>({
