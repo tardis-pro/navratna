@@ -12,6 +12,8 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+type CSSCustomProperties = React.CSSProperties & Record<`--${string}`, string | number>;
+
 const SIDEBAR_COOKIE_NAME = 'sidebar:state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = '16rem';
@@ -126,7 +128,7 @@ const SidebarProvider = React.forwardRef<
                 '--sidebar-width': SIDEBAR_WIDTH,
                 '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
                 ...style,
-              } as React.CSSProperties
+              } satisfies CSSCustomProperties
             }
             className={cn(
               'group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar',
@@ -190,7 +192,7 @@ const Sidebar = React.forwardRef<
             style={
               {
                 '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
-              } as React.CSSProperties
+              } satisfies CSSCustomProperties
             }
             side={side}
           >
@@ -647,7 +649,7 @@ const SidebarMenuSkeleton = React.forwardRef<
         style={
           {
             '--skeleton-width': width,
-          } as React.CSSProperties
+          } satisfies CSSCustomProperties
         }
       />
     </div>

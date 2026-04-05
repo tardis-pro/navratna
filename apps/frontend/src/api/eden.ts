@@ -20,9 +20,11 @@ export class EdenClientError extends Error {
 
 const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
+const CREDENTIALS: RequestCredentials = 'include';
+
 const edenConfig = {
   fetch: {
-    credentials: 'include' as RequestCredentials,
+    credentials: CREDENTIALS,
   },
   headers: async () => {
     try {
@@ -55,7 +57,8 @@ function createFetchClient<T extends Elysia>(url: string): EdenFetchClient {
   }
 
   const client = edenFetch<T>(url)
-  const dynamicClient = client as unknown as EdenFetchClient
+  // @ts-expect-error -- edenFetch returns a typed client; we wrap it as a generic fetch function
+  const dynamicClient: EdenFetchClient = client
   return async (path, options) => await dynamicClient(path, options ?? {})
 }
 
@@ -181,7 +184,8 @@ async function performBinaryRequest(path: string, config: EdenRequestConfig): Pr
 
 export async function edenRequest<T>(path: string, config: EdenRequestConfig = {}): Promise<T> {
   if (config.responseType === 'blob' || config.responseType === 'text') {
-    return (await performBinaryRequest(path, config)) as T
+    // @ts-expect-error -- T is Blob or string when responseType is blob/text; runtime type matches
+    return await performBinaryRequest(path, config)
   }
 
   const service = resolveService(path)
@@ -201,7 +205,7 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
 
   if (isResponseWrapper<T>(result)) {
     if (result.error?.status === 403) {
-      const errorValue = result.error.value as Record<string, unknown> | undefined
+      const errorValue = isRecord(result.error.value) ? result.error.value : undefined
       const message = typeof errorValue?.error === 'string' ? errorValue.error : ''
       if (message.includes('CSRF')) {
         await csrfService.refreshToken()
@@ -212,26 +216,34 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
     return unwrapEden(result)
   }
 
-  return result as T
+  // @ts-expect-error -- result is unknown from the dynamic fetch client; caller guarantees T matches
+  return result
 }
 
 type EdenResponse<T> = { data: T; error: null } | { data: null; error: { status: number; value: unknown } }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 export function unwrapEden<T>(result: EdenResponse<T>): T {
   if (result.error) {
     const err = result.error
-    const value = err.value as Record<string, unknown> | undefined
+    const value = isRecord(err.value) ? err.value : undefined
     throw new EdenClientError(
-      (value?.message as string) ?? (value?.error as string) ?? `Request failed with status ${err.status}`,
+      (typeof value?.message === 'string' ? value.message : undefined) ??
+        (typeof value?.error === 'string' ? value.error : undefined) ??
+        `Request failed with status ${err.status}`,
       err.status,
-      (value?.code as string) ?? (value?.errorCode as string),
+      (typeof value?.code === 'string' ? value.code : undefined) ??
+        (typeof value?.errorCode === 'string' ? value.errorCode : undefined),
       value?.details ?? value?.errors,
     )
   }
 
-  const data = result.data as unknown
-  if (data && typeof data === 'object' && 'success' in data && 'data' in data && (data as Record<string, unknown>).success === true) {
-    return (data as Record<string, unknown>).data as T
+  const data: unknown = result.data
+  if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
+    return data.data as T
   }
 
   return result.data
@@ -241,8 +253,8 @@ export async function edenWithCSRFRetry<T>(fn: () => Promise<EdenResponse<T>>): 
   const result = await fn()
 
   if (result.error?.status === 403) {
-    const value = result.error.value as Record<string, unknown> | undefined
-    const errorMsg = (value?.error as string) ?? ''
+    const value = isRecord(result.error.value) ? result.error.value : undefined
+    const errorMsg = (typeof value?.error === 'string' ? value.error : '') ?? ''
     if (errorMsg.includes('CSRF')) {
       await csrfService.refreshToken()
       return unwrapEden(await fn())

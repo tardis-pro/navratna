@@ -28,6 +28,15 @@ import {
 import { Sparkles } from 'lucide-react';
 import { logger } from '@/utils/browser_logger';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+const AGENT_SKILL_SOURCES = ['inline', 'filesystem', 'registry'] as const;
+function isAgentSkillSource(v: string): v is AgentSkill['source'] {
+  return (AGENT_SKILL_SOURCES as readonly string[]).includes(v);
+}
+
 interface AgentEditModalProps {
   agentId: string;
   isOpen: boolean;
@@ -445,12 +454,12 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
             body: {
               toolsToAssign: [
                 {
-                  toolId: (tool as Record<string, unknown>).id,
-                  toolName: (tool as Record<string, unknown>).name,
-                  serverName: (tool as Record<string, unknown>).serverName,
+                  toolId: isRecord(tool) ? tool.id : undefined,
+                  toolName: isRecord(tool) ? tool.name : undefined,
+                  serverName: isRecord(tool) ? tool.serverName : undefined,
                   enabled: true,
                   priority: 1,
-                  parameters: (tool as Record<string, unknown>).parameters || {},
+                  parameters: isRecord(tool) && tool.parameters ? tool.parameters : {},
                 },
               ],
             },
@@ -467,7 +476,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       try {
         await edenRequest(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { method: 'DELETE' });
         setAssignedTools((prev) =>
-          (prev as Array<Record<string, unknown>>).filter((t) => t['toolId'] !== toolId)
+          prev.filter((t) => isRecord(t) && t['toolId'] !== toolId)
         );
       } catch (error) {
         logger.error('Error removing tool:', error);
@@ -478,8 +487,8 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       try {
         await edenRequest(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { method: 'PUT', body: { enabled } });
         setAssignedTools((prev) =>
-          (prev as Array<Record<string, unknown>>).map((t) =>
-            t['toolId'] === toolId ? { ...t, enabled } : t
+          prev.map((t) =>
+            isRecord(t) && t['toolId'] === toolId ? { ...t, enabled } : t
           )
         );
       } catch (error) {
@@ -1075,7 +1084,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                     onChange={(e) =>
                       setNewSkill((p: Partial<AgentSkill>) => ({
                         ...p,
-                        source: e.target.value as AgentSkill['source'],
+                        source: isAgentSkillSource(e.target.value) ? e.target.value : 'inline',
                       }))
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
@@ -1276,7 +1285,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                           value={skill.source}
                           onChange={(e) =>
                             handleUpdateSkill(index, {
-                              source: e.target.value as AgentSkill['source'],
+                              source: isAgentSkillSource(e.target.value) ? e.target.value : 'inline',
                             })
                           }
                           className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"

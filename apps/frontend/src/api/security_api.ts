@@ -53,8 +53,9 @@ export const securityAPI = {
     limit?: number;
     isActive?: boolean;
   }): Promise<SecurityPolicy[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      security.policies.get({ query: options as unknown as Record<string, unknown> })
+      security.policies.get({ query })
     );
   },
 
@@ -91,8 +92,9 @@ export const securityAPI = {
     startDate?: string;
     endDate?: string;
   }): Promise<SecurityEvent[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      security.events.get({ query: options as unknown as Record<string, unknown> })
+      security.events.get({ query })
     );
   },
 

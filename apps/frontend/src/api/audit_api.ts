@@ -18,8 +18,9 @@ const audit = gatewayClient.api.v1.audit;
 
 export const auditAPI = {
   async getLogs(options?: AuditLogOptions): Promise<AuditEvent[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      audit.logs.get({ query: options as Record<string, unknown> | undefined })
+      audit.logs.get({ query })
     );
   },
 

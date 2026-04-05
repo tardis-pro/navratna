@@ -35,6 +35,10 @@ import {
 } from '@uaip/types';
 import { logger } from '@/utils/browser_logger';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 interface ChatMessage {
   id: string;
   content: string;
@@ -55,6 +59,11 @@ interface ChatMessage {
     timestamp: string;
   }>;
   metadata?: Record<string, unknown>;
+}
+
+function toToolsExecuted(v: unknown): ChatMessage['toolsExecuted'] {
+  // @ts-expect-error -- Array<unknown> from API; runtime elements match ChatMessage toolsExecuted shape
+  return Array.isArray(v) ? v : undefined;
 }
 
 interface ChatWindow {
@@ -279,7 +288,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   // Conversation Intelligence for floating windows
   const _floatingConversationIntelligence = useMemo(() => {
-    return chatWindows.reduce(
+    type ConversationIntelligenceMap = Record<string, { agentId: string; conversationId: string; topic: string }>;
+    return chatWindows.reduce<ConversationIntelligenceMap>(
       (acc, window) => {
         acc[window.id] = {
           agentId: window.agentId,
@@ -288,7 +298,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         };
         return acc;
       },
-      {} as Record<string, { agentId: string; conversationId: string; topic: string }>
+      {}
     );
   }, [chatWindows, conversationTopics]);
 
@@ -302,15 +312,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // Listen for WebSocket agent responses
   useEffect(() => {
     if (lastEvent && lastEvent.type === 'agent_response') {
-      const wsPayload = lastEvent.payload as Record<string, unknown>;
-      const agentId = wsPayload.agentId as string;
-      const response = wsPayload.response as string;
-      const agentName = wsPayload.agentName as string;
-      const confidence = wsPayload.confidence as number | undefined;
-      const memoryEnhanced = wsPayload.memoryEnhanced as boolean | undefined;
-      const knowledgeUsed = wsPayload.knowledgeUsed as number | undefined;
-      const toolsExecuted = wsPayload.toolsExecuted as ChatMessage['toolsExecuted'];
-      const messageId = wsPayload.messageId as string | undefined;
+      const wsPayload: Record<string, unknown> = isRecord(lastEvent.payload) ? lastEvent.payload : {};
+      const agentId = typeof wsPayload.agentId === 'string' ? wsPayload.agentId : '';
+      const response = typeof wsPayload.response === 'string' ? wsPayload.response : '';
+      const agentName = typeof wsPayload.agentName === 'string' ? wsPayload.agentName : '';
+      const confidence = typeof wsPayload.confidence === 'number' ? wsPayload.confidence : undefined;
+      const memoryEnhanced = typeof wsPayload.memoryEnhanced === 'boolean' ? wsPayload.memoryEnhanced : undefined;
+      const knowledgeUsed = typeof wsPayload.knowledgeUsed === 'number' ? wsPayload.knowledgeUsed : undefined;
+      const toolsExecuted = Array.isArray(wsPayload.toolsExecuted) ? wsPayload.toolsExecuted as ChatMessage['toolsExecuted'] : undefined;
+      const messageId = typeof wsPayload.messageId === 'string' ? wsPayload.messageId : undefined;
 
       if (agentId && wsFallbackTimeouts.current[agentId]) {
         clearTimeout(wsFallbackTimeouts.current[agentId]);
@@ -763,7 +773,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           confidence: restResponse.confidence,
           memoryEnhanced: restResponse.memoryEnhanced,
           knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
           agentId: window.agentId,
         };
 
@@ -913,7 +923,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           confidence: restResponse.confidence,
           memoryEnhanced: restResponse.memoryEnhanced,
           knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
         };
         setPortalMessages((prev) => [...prev, agentMessage]);
         setConversationHistory((prev) => [
@@ -987,7 +997,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   // Listen for agent chat open events
   useEffect(() => {
-    const handleOpenAgentChat = (event: CustomEvent) => {
+    const handleOpenAgentChat = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
       const { agentId, agentName, sessionId } = event.detail;
       if (sessionId) {
         // Resume specific session
@@ -997,7 +1008,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
     };
 
-    const handleOpenNewAgentChat = (event: CustomEvent) => {
+    const handleOpenNewAgentChat = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
       const { agentId, agentName, forceNew } = event.detail;
       if (forceNew) {
         openNewChatWindow(agentId, agentName);
@@ -1006,12 +1018,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
     };
 
-    window.addEventListener('openAgentChat', handleOpenAgentChat as EventListener);
-    window.addEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
+    window.addEventListener('openAgentChat', handleOpenAgentChat);
+    window.addEventListener('openNewAgentChat', handleOpenNewAgentChat);
 
     return () => {
-      window.removeEventListener('openAgentChat', handleOpenAgentChat as EventListener);
-      window.removeEventListener('openNewAgentChat', handleOpenNewAgentChat as EventListener);
+      window.removeEventListener('openAgentChat', handleOpenAgentChat);
+      window.removeEventListener('openNewAgentChat', handleOpenNewAgentChat);
     };
   }, [openChatWindow, openChatWindowWithSession, openNewChatWindow]);
 
@@ -1237,7 +1249,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           confidence: restResponse.confidence,
           memoryEnhanced: restResponse.memoryEnhanced,
           knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
           agentId: window.agentId,
         };
 
@@ -1372,7 +1384,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           confidence: restResponse.confidence,
           memoryEnhanced: restResponse.memoryEnhanced,
           knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: restResponse.toolsExecuted as ChatMessage['toolsExecuted'],
+          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
         };
 
         setPortalMessages((prev) => [...prev, agentMessage]);
@@ -1456,10 +1468,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         if (chatWindows.length > 0) {
           const latestWindow = chatWindows[chatWindows.length - 1];
           setFocusedWindow(latestWindow.id);
-          const inputElement = document.querySelector(
-            `#chat-input-${latestWindow.id}`
-          ) as HTMLInputElement;
-          inputElement?.focus();
+          const inputElement = document.querySelector(`#chat-input-${latestWindow.id}`);
+          if (inputElement instanceof HTMLInputElement) {
+            inputElement.focus();
+          }
         }
       }
 

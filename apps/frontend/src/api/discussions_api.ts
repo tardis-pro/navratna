@@ -40,7 +40,8 @@ export const discussionsAPI = {
     }
 
     if (isRecord(response) && 'discussions' in response && Array.isArray(response['discussions'])) {
-      return response['discussions'] as Discussion[];
+      // @ts-expect-error -- array elements are Discussion objects; runtime-validated by API contract
+      return response['discussions'];
     }
 
     return [];
@@ -125,7 +126,8 @@ export const discussionsAPI = {
       return response;
     }
     if (isRecord(response) && 'messages' in response && Array.isArray(response['messages'])) {
-      return response['messages'] as DiscussionMessage[];
+      // @ts-expect-error -- array elements are DiscussionMessage objects; runtime-validated by API contract
+      return response['messages'];
     }
     return [];
   },

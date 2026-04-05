@@ -3,6 +3,8 @@ import * as RechartsPrimitive from 'recharts';
 
 import { cn } from '@/lib/utils';
 
+type CSSCustomProperties = React.CSSProperties & Record<`--${string}`, string | number>;
+
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: '', dark: '.dark' } as const;
 
@@ -203,7 +205,7 @@ const ChartTooltipContent = React.forwardRef<
                             {
                               '--color-bg': indicatorColor,
                               '--color-border': indicatorColor,
-                            } as React.CSSProperties
+                            } satisfies CSSCustomProperties
                           }
                         />
                       )

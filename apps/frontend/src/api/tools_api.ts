@@ -34,7 +34,8 @@ const tools = gatewayClient.api.v1.tools;
 
 export const toolsAPI = {
   async list(options?: ToolListOptions): Promise<Tool[]> {
-    return edenWithCSRFRetry(() => tools.get({ query: options as Record<string, unknown> }));
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
+    return edenWithCSRFRetry(() => tools.get({ query }));
   },
 
   async get(id: string): Promise<Tool> {

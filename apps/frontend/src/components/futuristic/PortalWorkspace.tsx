@@ -1186,10 +1186,14 @@ export const PortalWorkspace: React.FC = () => {
 
   // Handle portal launching from custom events
   useEffect(() => {
-    const handleLaunchPortal = (event: CustomEvent) => {
+    const isPortalConfigKey = (v: unknown): v is keyof typeof PORTAL_CONFIGS =>
+      typeof v === 'string' && v in PORTAL_CONFIGS;
+
+    const handleLaunchPortal = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
       const { portalType } = event.detail;
-      if (portalType && PORTAL_CONFIGS[portalType as keyof typeof PORTAL_CONFIGS]) {
-        createPortal(portalType as keyof typeof PORTAL_CONFIGS);
+      if (isPortalConfigKey(portalType)) {
+        createPortal(portalType);
       }
     };
 
@@ -1198,18 +1202,17 @@ export const PortalWorkspace: React.FC = () => {
     };
 
     const handleShowHelp = () => {
-      // TODO: Implement help overlay
       alert('Help overlay coming soon! Use hot corners or Ctrl+K to access portals.');
     };
 
-    window.addEventListener('launchPortal', handleLaunchPortal as EventListener);
-    window.addEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
-    window.addEventListener('showHelp', handleShowHelp as EventListener);
+    window.addEventListener('launchPortal', handleLaunchPortal);
+    window.addEventListener('closeAllPortals', handleCloseAllPortals);
+    window.addEventListener('showHelp', handleShowHelp);
 
     return () => {
-      window.removeEventListener('launchPortal', handleLaunchPortal as EventListener);
-      window.removeEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
-      window.removeEventListener('showHelp', handleShowHelp as EventListener);
+      window.removeEventListener('launchPortal', handleLaunchPortal);
+      window.removeEventListener('closeAllPortals', handleCloseAllPortals);
+      window.removeEventListener('showHelp', handleShowHelp);
     };
   }, [createPortal]);
 

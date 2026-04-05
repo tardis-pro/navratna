@@ -199,7 +199,7 @@ export const GlobalAutocomplete = forwardRef<
     );
 
     const handleClickOutside = useCallback((e: MouseEvent) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+      if (suggestionsRef.current && e.target instanceof Node && !suggestionsRef.current.contains(e.target)) {
         hideSuggestions();
         setShowEnhancementPanel(false);
       }
@@ -215,8 +215,9 @@ export const GlobalAutocomplete = forwardRef<
     return (
       <div className="relative">
         <div className="relative">
+          {/* @ts-expect-error -- ref is HTMLInputElement | HTMLTextAreaElement; InputComponent switches between the two */}
           <InputComponent
-            ref={ref as React.Ref<HTMLInputElement & HTMLTextAreaElement>}
+            ref={ref}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}

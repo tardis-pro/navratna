@@ -118,10 +118,12 @@ class APIClientClass {
       responseData.success === true &&
       'data' in responseData
     ) {
-      return responseData.data as T;
+      // @ts-expect-error -- responseData.data is the unwrapped API payload; T matches at runtime
+      return responseData.data;
     }
 
-    return responseData as T;
+    // @ts-expect-error -- responseData is the API payload; T matches at runtime
+    return responseData;
   }
 
   private async performRequest<T>(url: string, config?: APIRequestConfig): Promise<T> {

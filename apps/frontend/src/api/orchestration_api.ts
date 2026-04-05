@@ -77,7 +77,8 @@ export const orchestrationAPI = {
   },
 
   async listOperations(options?: OperationListOptions): Promise<Operation[]> {
-    return edenWithCSRFRetry(() => operations.get({ query: options as unknown as Record<string, unknown> }));
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
+    return edenWithCSRFRetry(() => operations.get({ query }));
   },
 
   async getOperation(operationId: string): Promise<Operation> {
@@ -97,7 +98,8 @@ export const orchestrationAPI = {
     limit?: number;
     isActive?: boolean;
   }): Promise<WorkflowDefinition[]> {
-    return edenWithCSRFRetry(() => workflows.get({ query: options as unknown as Record<string, unknown> }));
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
+    return edenWithCSRFRetry(() => workflows.get({ query }));
   },
 
   async getWorkflow(workflowId: string): Promise<WorkflowDefinition> {
