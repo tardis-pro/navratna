@@ -36,7 +36,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     } catch (error) {
       logger.error(`BaseRepository.findById failed for ${this.tableName}`, {
         id,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -65,7 +65,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     } catch (error) {
       logger.error(`BaseRepository.findMany failed for ${this.tableName}`, {
         conditions,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -88,7 +88,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       return result.rows[0] as T;
     } catch (error) {
       logger.error(`BaseRepository.create failed for ${this.tableName}`, {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -109,7 +109,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     } catch (error) {
       logger.error(`BaseRepository.update failed for ${this.tableName}`, {
         id,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -124,7 +124,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     } catch (error) {
       logger.error(`BaseRepository.delete failed for ${this.tableName}`, {
         id,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -140,7 +140,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     } catch (error) {
       logger.error(`BaseRepository.count failed for ${this.tableName}`, {
         conditions,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

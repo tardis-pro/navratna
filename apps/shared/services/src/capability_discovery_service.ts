@@ -1,6 +1,18 @@
 import { DatabaseService } from './database_service';
 import { logger, ApiError } from '@uaip/utils';
-import { Capability, CapabilitySearchQuery, CapabilitySearchResult } from '@uaip/types';
+import { Capability, CapabilitySearchQuery, CapabilitySearchResult, CapabilityStatus, CapabilityType } from '@uaip/types';
+
+type CapabilityRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  type: string;
+  configuration: Record<string, unknown> | null;
+  isEnabled: boolean;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export type CapabilitySearchParams = {
   query?: string;
@@ -85,17 +97,23 @@ export class CapabilityDiscoveryService {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      const intelligenceConfig =
-        (agentConfig.metadata?.intelligenceConfig as Record<string, unknown> | undefined) ||
-        (agentConfig.intelligenceConfig as Record<string, unknown> | undefined);
-      const configuredCapabilities =
-        (intelligenceConfig?.capabilities as Record<string, unknown> | undefined) || {};
+      const rawIntelligenceConfig =
+        agentConfig.metadata?.intelligenceConfig ?? agentConfig.intelligenceConfig;
+      const intelligenceConfig: Record<string, unknown> =
+        typeof rawIntelligenceConfig === 'object' && rawIntelligenceConfig !== null
+          ? (rawIntelligenceConfig as Record<string, unknown>)
+          : {};
+      const rawCapabilities = intelligenceConfig.capabilities;
+      const configuredCapabilities: Record<string, unknown> =
+        typeof rawCapabilities === 'object' && rawCapabilities !== null
+          ? (rawCapabilities as Record<string, unknown>)
+          : {};
 
-      // Get capabilities from database
+      const toStringArr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
       const capabilityIds = [
-        ...((configuredCapabilities.tools as string[]) || []),
-        ...((configuredCapabilities.artifacts as string[]) || []),
-        ...((configuredCapabilities.hybrid as string[]) || []),
+        ...toStringArr(configuredCapabilities.tools),
+        ...toStringArr(configuredCapabilities.artifacts),
+        ...toStringArr(configuredCapabilities.hybrid),
       ];
 
       if (capabilityIds.length === 0) {
@@ -228,23 +246,32 @@ export class CapabilityDiscoveryService {
 
   // Private helper methods
 
-  private mapCapabilityFromDB(row: unknown): Capability {
-    const r = row as Record<string, unknown>;
+  private mapCapabilityFromDB(row: CapabilityRow): Capability {
+    const meta = row.metadata ?? {};
+    const validTypes = Object.values(CapabilityType) as string[];
+    const type: Capability['type'] = validTypes.includes(row.type)
+      ? (row.type as Capability['type'])
+      : CapabilityType.TOOL;
+    const validStatuses = Object.values(CapabilityStatus) as string[];
+    const rawStatus = typeof meta.status === 'string' ? meta.status : '';
+    const status: Capability['status'] = validStatuses.includes(rawStatus)
+      ? (rawStatus as Capability['status'])
+      : CapabilityStatus.ACTIVE;
+    const deps = Array.isArray(meta.dependencies) ? (meta.dependencies as string[]) : [];
     return {
-      id: r.id as string,
-      name: r.name as string,
-      description: r.description as string,
-      type: r.type as Capability['type'],
-      status: r.status as Capability['status'],
-      metadata: (r.metadata as Record<string, unknown>) || {},
-      toolConfig: (r.tool_config as Capability['toolConfig']) || undefined,
-      artifactConfig: (r.artifact_config as Capability['artifactConfig']) || undefined,
-      dependencies: (r.dependencies as string[]) || [],
-      securityRequirements: this.parseSecurityRequirements(r.security_requirements),
-      resourceRequirements:
-        (r.resource_requirements as Capability['resourceRequirements']) || undefined,
-      createdAt: r.created_at as Date,
-      updatedAt: r.updated_at as Date,
+      id: row.id,
+      name: row.name,
+      description: row.description ?? '',
+      type,
+      status,
+      metadata: { tags: [], version: '1.0.0', ...meta },
+      toolConfig: undefined,
+      artifactConfig: undefined,
+      dependencies: deps,
+      securityRequirements: this.parseSecurityRequirements(meta.securityRequirements),
+      resourceRequirements: undefined,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 
@@ -284,11 +311,17 @@ export class CapabilityDiscoveryService {
       }
     }
 
-    if (typeof requirements === 'object') {
+    if (typeof requirements === 'object' && requirements !== null) {
       const req = requirements as Record<string, unknown>;
+      const VALID_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
+      type SecurityLevelValue = (typeof VALID_LEVELS)[number];
+      const rawLevel = req.minimumSecurityLevel;
+      const minimumSecurityLevel: SecurityLevelValue =
+        typeof rawLevel === 'string' && (VALID_LEVELS as readonly string[]).includes(rawLevel)
+          ? (rawLevel as SecurityLevelValue)
+          : 'medium';
       return {
-        minimumSecurityLevel:
-          (req.minimumSecurityLevel as 'low' | 'medium' | 'high' | 'critical') || 'medium',
+        minimumSecurityLevel,
         requiredPermissions: Array.isArray(req.requiredPermissions)
           ? (req.requiredPermissions as string[])
           : [],

@@ -17,7 +17,7 @@ export class AuditRepository {
       const [row] = await this.db.select().from(auditEvents).where(eq(auditEvents.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('AuditRepository.getAuditLogById failed', { id, error: (error as Error).message });
+      logger.error('AuditRepository.getAuditLogById failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -61,7 +61,7 @@ export class AuditRepository {
       const [row] = await this.db.insert(auditEvents).values(insert).returning();
       return row;
     } catch (error) {
-      logger.error('AuditRepository.createAuditEvent failed', { error: (error as Error).message });
+      logger.error('AuditRepository.createAuditEvent failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -107,7 +107,7 @@ export class AuditRepository {
 
       return { logs, total: Number(total) };
     } catch (error) {
-      logger.error('AuditRepository.searchAuditLogs failed', { error: (error as Error).message });
+      logger.error('AuditRepository.searchAuditLogs failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -140,7 +140,7 @@ export class AuditRepository {
         recentActivity: allInWindow.slice(0, 10),
       };
     } catch (error) {
-      logger.error('AuditRepository.getStats failed', { error: (error as Error).message });
+      logger.error('AuditRepository.getStats failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -153,7 +153,7 @@ export class AuditRepository {
         .orderBy(auditEvents.eventType);
       return rows.map((r) => r.eventType);
     } catch (error) {
-      logger.error('AuditRepository.getEventTypes failed', { error: (error as Error).message });
+      logger.error('AuditRepository.getEventTypes failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -169,7 +169,7 @@ export class AuditRepository {
       const logs = await this.db.select().from(auditEvents).where(where).orderBy(desc(auditEvents.createdAt)).limit(filters.limit ?? 20).offset(filters.offset ?? 0);
       return { logs, total: Number(total) };
     } catch (error) {
-      logger.error('AuditRepository.getUserActivity failed', { error: (error as Error).message });
+      logger.error('AuditRepository.getUserActivity failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

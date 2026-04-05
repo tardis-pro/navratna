@@ -70,7 +70,7 @@ export class ResourceManagerService extends EventEmitter {
         availableResources: { memory: availableMemory, cpu: availableCpu },
       };
     } catch (error) {
-      logger.error('Failed to check resource availability', { error: (error as Error).message });
+      logger.error('Failed to check resource availability', { error: error instanceof Error ? error.message : String(error) });
       return {
         available: false,
         reason: 'Resource availability check failed',
@@ -115,7 +115,7 @@ export class ResourceManagerService extends EventEmitter {
     } catch (error) {
       logger.error('Failed to allocate resources', {
         operationId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -151,7 +151,7 @@ export class ResourceManagerService extends EventEmitter {
     } catch (error) {
       logger.error('Failed to release resources', {
         operationId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -201,7 +201,7 @@ export class ResourceManagerService extends EventEmitter {
     } catch (error) {
       logger.error('Failed to update resource usage', {
         operationId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -290,7 +290,7 @@ export class ResourceManagerService extends EventEmitter {
         logger.info('Cleaned up expired allocations', { count: expiredOperations.length });
       }
     } catch (error) {
-      logger.error('Failed to cleanup expired allocations', { error: (error as Error).message });
+      logger.error('Failed to cleanup expired allocations', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -303,7 +303,7 @@ export class ResourceManagerService extends EventEmitter {
         await this.cleanupExpiredAllocations();
         this.emit('resourceStatistics', this.getResourceStatistics());
       } catch (error) {
-        logger.error('Resource monitoring failed', { error: (error as Error).message });
+        logger.error('Resource monitoring failed', { error: error instanceof Error ? error.message : String(error) });
       }
     }, 30000); // Every 30 seconds
   }
@@ -334,7 +334,7 @@ export class ResourceManagerService extends EventEmitter {
 
       logger.info('Resource manager shutdown completed');
     } catch (error) {
-      logger.error('Error during resource manager shutdown', { error: (error as Error).message });
+      logger.error('Error during resource manager shutdown', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 }

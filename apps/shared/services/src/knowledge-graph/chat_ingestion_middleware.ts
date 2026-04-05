@@ -195,16 +195,17 @@ export class ChatIngestionMiddleware {
             userId: options.userId,
           });
 
-          return { validatedOptions: options as ChatIngestionOptions };
+          return { validatedOptions: options };
         } catch (error: unknown) {
-          const err = error as Error & { errors?: unknown[] };
-          logger.error('Chat ingestion validation failed', { error: err.message });
+          const errMsg = error instanceof Error ? error.message : String(error);
+          const errDetails = error instanceof Error && 'errors' in error && Array.isArray((error as { errors?: unknown[] }).errors) ? (error as { errors: unknown[] }).errors : [];
+          logger.error('Chat ingestion validation failed', { error: errMsg });
           set.status = 400;
           return {
             validationError: {
               error: 'Invalid request',
-              message: err.message,
-              details: err.errors || [],
+              message: errMsg,
+              details: errDetails,
             },
           };
         }
@@ -249,7 +250,7 @@ export class ChatIngestionMiddleware {
                 );
               }
             } catch (error: unknown) {
-              const err = error as Error;
+              const err = error instanceof Error ? error : new Error(String(error));
               validationErrors.push(`File ${file.originalname || file.name}: ${err.message}`);
             }
           }
@@ -284,7 +285,7 @@ export class ChatIngestionMiddleware {
 
           return { chatFiles: processedFiles, validationWarnings: validationErrors };
         } catch (error: unknown) {
-          const err = error as Error;
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error('File format validation failed', { error: err.message });
           set.status = 500;
           return {
@@ -341,7 +342,7 @@ export class ChatIngestionMiddleware {
               // Update file validation metadata
               file.validationResult.metadata.estimatedConversations = conversations.length;
             } catch (error: unknown) {
-              const err = error as Error;
+              const err = error instanceof Error ? error : new Error(String(error));
               parseResults.push({
                 fileId: file.id,
                 fileName: file.originalName,
@@ -380,7 +381,7 @@ export class ChatIngestionMiddleware {
 
           return { parseResults };
         } catch (error: unknown) {
-          const err = error as Error;
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error('File content parsing failed', { error: err.message });
           set.status = 500;
           return {
@@ -433,7 +434,7 @@ export class ChatIngestionMiddleware {
 
           return { chatIngestionJob: job };
         } catch (error: unknown) {
-          const err = error as Error;
+          const err = error instanceof Error ? error : new Error(String(error));
           logger.error('Job creation failed', { error: err.message });
           set.status = 500;
           return {
@@ -467,7 +468,7 @@ export class ChatIngestionMiddleware {
     userId: string
   ): Promise<ProcessedChatFile> {
     const fileName = file.originalname || file.name || 'unknown';
-    const content = file.buffer?.toString('utf-8') || (file.content as string) || '';
+    const content = file.buffer?.toString('utf-8') || file.content || '';
 
     // Detect platform from file name or content
     const platform = this.detectPlatform(fileName, content);

@@ -24,6 +24,12 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { PersonaService } from './persona_service';
 import { logger, NotFoundError, ValidationError, InternalServerError } from '@uaip/utils';
 
+type ParticipantRoleValue = DiscussionParticipantType['role'];
+const VALID_PARTICIPANT_ROLES = ['participant', 'moderator', 'observer', 'facilitator'] as const;
+function toParticipantRole(role: string): ParticipantRoleValue {
+  return VALID_PARTICIPANT_ROLES.find((r) => r === role) ?? 'participant';
+}
+
 export interface DiscussionServiceConfig {
   databaseService: DatabaseService;
   eventBusService: EventBusService;
@@ -105,16 +111,15 @@ export class DiscussionService {
     ).ParticipantManagementService(this.databaseService)
 
     const participants = await participantManagementService.getDiscussionParticipants(
-      discussion.id as string
+      typeof discussion.id === 'string' ? discussion.id : String(discussion.id)
     )
 
-    return {
+    const hydrated = {
       ...discussion,
-      participants: participants.map((participant) => ({
-        ...participant,
-        role: participant.role as DiscussionParticipantType['role'],
-      })),
-    } as DiscussionType
+      participants: participants.map((participant) => ({ ...participant })),
+    };
+    // @ts-expect-error -- databaseService returns Record<string,unknown>; shape matches DiscussionType at runtime
+    return hydrated;
   }
 
   // ===== DISCUSSION LIFECYCLE MANAGEMENT =====
@@ -138,19 +143,19 @@ export class DiscussionService {
       });
 
       // Initialize discussion state
-      const initialState = {
+      const initialState: DiscussionState = {
         currentTurn: {
           turnNumber: 0,
         },
-        phase: 'initialization' as const,
+        phase: 'initialization',
         messageCount: 0,
         activeParticipants: 0,
         consensusLevel: 0,
         engagementScore: 0,
         topicDrift: 0,
-        keyPoints: [] as DiscussionState['keyPoints'],
-        decisions: [] as DiscussionState['decisions'],
-        actionItems: [] as DiscussionState['actionItems'],
+        keyPoints: [],
+        decisions: [],
+        actionItems: [],
       };
 
       // Create discussion in database
@@ -193,7 +198,7 @@ export class DiscussionService {
         'discussions',
         discussionData
       );
-      const discussionId = createdDiscussion.id as string;
+      const discussionId = typeof createdDiscussion.id === 'string' ? createdDiscussion.id : String(createdDiscussion.id);
 
       if (request.createdBy) {
         await this.addUserParticipant(discussionId, request.createdBy);
@@ -235,7 +240,7 @@ export class DiscussionService {
       logger.info('Discussion created successfully', { discussionId: discussion.id });
       return discussion;
     } catch (error) {
-      logger.error('Failed to create discussion', { error: (error as Error).message, request });
+      logger.error('Failed to create discussion', { error: error instanceof Error ? error.message : String(error), request });
       throw error;
     }
   }
@@ -267,10 +272,7 @@ export class DiscussionService {
 
       return null;
     } catch (error) {
-      logger.error('Failed to get discussion', {
-        error: (error as Error).message,
-        discussionId: id,
-      });
+      logger.error('Failed to get discussion', { error: error instanceof Error ? error.message : String(error), discussionId: id, });
       throw error;
     }
   }
@@ -325,10 +327,7 @@ export class DiscussionService {
       logger.info('Discussion updated successfully', { discussionId: id });
       return discussion;
     } catch (error) {
-      logger.error('Failed to update discussion', {
-        error: (error as Error).message,
-        discussionId: id,
-      });
+      logger.error('Failed to update discussion', { error: error instanceof Error ? error.message : String(error), discussionId: id, });
       throw error;
     }
   }
@@ -391,10 +390,7 @@ export class DiscussionService {
       logger.info('Discussion started successfully', { discussionId: id });
       return refreshedDiscussion;
     } catch (error) {
-      logger.error('Failed to start discussion', {
-        error: (error as Error).message,
-        discussionId: id,
-      });
+      logger.error('Failed to start discussion', { error: error instanceof Error ? error.message : String(error), discussionId: id, });
       throw error;
     }
   }
@@ -460,10 +456,7 @@ export class DiscussionService {
       logger.info('Discussion ended successfully', { discussionId: id });
       return updatedDiscussion;
     } catch (error) {
-      logger.error('Failed to end discussion', {
-        error: (error as Error).message,
-        discussionId: id,
-      });
+      logger.error('Failed to end discussion', { error: error instanceof Error ? error.message : String(error), discussionId: id, });
       throw error;
     }
   }
@@ -566,16 +559,10 @@ export class DiscussionService {
         role: participant.role,
       });
 
-      return {
-        ...participant,
-        role: participant.role as DiscussionParticipantType['role'],
-      } as DiscussionParticipantType;
+      return { ...participant, role: toParticipantRole(participant.role) };
     } catch (error) {
-      logger.error('Failed to add participant', {
-        error: (error as Error).message,
-        discussionId,
-        agentId: participantRequest.agentId,
-      });
+      logger.error('Failed to add participant', { error: error instanceof Error ? error.message : String(error), discussionId,
+      agentId: participantRequest.agentId, });
       throw error;
     }
   }
@@ -616,7 +603,7 @@ export class DiscussionService {
           userId,
           participantId: existingParticipant.id,
         });
-        return existingParticipant as DiscussionParticipantType;
+        return existingParticipant;
       }
 
       const maxParticipants = discussion.settings?.maxParticipants || this.maxParticipants;
@@ -634,7 +621,7 @@ export class DiscussionService {
         throw new ValidationError(`Discussion has reached maximum participants limit: ${maxParticipants}`);
       }
 
-      const user = await this.databaseService.findById('users', userId);
+      const user = await this.databaseService.findById<{ firstName?: string; email?: string }>('users', userId);
       if (!user) {
         throw new NotFoundError(`User not found: ${userId}`);
       }
@@ -643,10 +630,7 @@ export class DiscussionService {
         await import('./participant_management_service')
       ).ParticipantManagementService(this.databaseService);
 
-      const displayName =
-        options?.displayName ||
-        (user as { name?: string; email?: string }).name ||
-        (user as { email?: string }).email;
+      const displayName = options?.displayName || user.firstName || user.email;
 
       const participant = await participantManagementService.createUserParticipant({
         discussionId,
@@ -683,16 +667,10 @@ export class DiscussionService {
         role: participant.role,
       });
 
-      return {
-        ...participant,
-        role: participant.role as DiscussionParticipantType['role'],
-      } as DiscussionParticipantType;
+      return { ...participant, role: toParticipantRole(participant.role) };
     } catch (error) {
-      logger.error('Failed to add user participant', {
-        error: (error as Error).message,
-        discussionId,
-        userId,
-      });
+      logger.error('Failed to add user participant', { error: error instanceof Error ? error.message : String(error), discussionId,
+      userId, });
       throw error;
     }
   }
@@ -742,11 +720,8 @@ export class DiscussionService {
 
       logger.info('Participant removed successfully', { discussionId, participantId });
     } catch (error) {
-      logger.error('Failed to remove participant', {
-        error: (error as Error).message,
-        discussionId,
-        participantId,
-      });
+      logger.error('Failed to remove participant', { error: error instanceof Error ? error.message : String(error), discussionId,
+      participantId, });
       throw error;
     }
   }
@@ -817,7 +792,7 @@ export class DiscussionService {
 
       // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
-        messageCount: ((participant.messageCount as number) ?? 0) + 1,
+        messageCount: (typeof participant.messageCount === 'number' ? participant.messageCount : 0) + 1,
         lastMessageAt: new Date(),
       });
 
@@ -852,11 +827,8 @@ export class DiscussionService {
       });
       return message;
     } catch (error) {
-      logger.error('Failed to send message', {
-        error: (error as Error).message,
-        discussionId,
-        participantId,
-      });
+      logger.error('Failed to send message', { error: error instanceof Error ? error.message : String(error), discussionId,
+      participantId, });
       throw error;
     }
   }
@@ -877,7 +849,7 @@ export class DiscussionService {
         {
           take: limit,
           skip: offset,
-          order: { createdAt: 'ASC' } as Record<string, 'ASC' | 'DESC'>,
+          order: { createdAt: 'ASC' as const } satisfies Record<string, 'ASC' | 'DESC'>,
         }
       );
 
@@ -892,7 +864,7 @@ export class DiscussionService {
         hasMore: offset + messages.length < total,
       };
     } catch (error) {
-      logger.error('Failed to get messages', { error: (error as Error).message, discussionId });
+      logger.error('Failed to get messages', { error: error instanceof Error ? error.message : String(error), discussionId });
       throw error;
     }
   }
@@ -948,7 +920,7 @@ export class DiscussionService {
 
       logger.debug('Turn advanced successfully', { discussionId, nextParticipantId });
     } catch (error) {
-      logger.error('Failed to advance turn', { error: (error as Error).message, discussionId });
+      logger.error('Failed to advance turn', { error: error instanceof Error ? error.message : String(error), discussionId });
       throw error;
     }
   }
@@ -995,7 +967,7 @@ export class DiscussionService {
         hasMore: offset + result.discussions.length < result.total,
       };
     } catch (error) {
-      logger.error('Failed to search discussions', { error: (error as Error).message, filters });
+      logger.error('Failed to search discussions', { error: error instanceof Error ? error.message : String(error), filters });
       throw error;
     }
   }
@@ -1070,10 +1042,7 @@ export class DiscussionService {
         },
       };
     } catch (error) {
-      logger.error('Failed to get discussion analytics', {
-        error: (error as Error).message,
-        discussionId,
-      });
+      logger.error('Failed to get discussion analytics', { error: error instanceof Error ? error.message : String(error), discussionId, });
       return null;
     }
   }
@@ -1256,10 +1225,7 @@ export class DiscussionService {
       logger.info('Discussion paused successfully', { discussionId: id });
       return updatedDiscussion;
     } catch (error) {
-      logger.error('Failed to pause discussion', {
-        error: (error as Error).message,
-        discussionId: id,
-      });
+      logger.error('Failed to pause discussion', { error: error instanceof Error ? error.message : String(error), discussionId: id, });
       throw error;
     }
   }
@@ -1295,10 +1261,7 @@ export class DiscussionService {
       logger.info('Discussion resumed successfully', { discussionId: id });
       return updatedDiscussion;
     } catch (error) {
-      logger.error('Failed to resume discussion', {
-        error: (error as Error).message,
-        discussionId: id,
-      });
+      logger.error('Failed to resume discussion', { error: error instanceof Error ? error.message : String(error), discussionId: id, });
       throw error;
     }
   }
@@ -1350,11 +1313,8 @@ export class DiscussionService {
         hasEventBusService: !!this.eventBusService,
       });
     } catch (error) {
-      logger.error('Failed to emit discussion event', {
-        error: (error as Error).message,
-        discussionId,
-        type,
-      });
+      logger.error('Failed to emit discussion event', { error: error instanceof Error ? error.message : String(error), discussionId,
+      type, });
     }
   }
 }

@@ -9,6 +9,12 @@ import {
   type NewOperation,
 } from '../drizzle/schemas/control_schema';
 import { logger } from '@uaip/utils';
+import { OperationStatus } from '@uaip/types';
+
+const OPERATION_STATUS_VALUES = Object.values(OperationStatus) as string[];
+function isOperationStatus(v: string): v is OperationStatus {
+  return OPERATION_STATUS_VALUES.includes(v);
+}
 
 export class OperationRepository {
   private get db() {
@@ -20,7 +26,7 @@ export class OperationRepository {
       const [row] = await this.db.insert(operations).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('OperationRepository.createOperation failed', { error: (error as Error).message });
+      logger.error('OperationRepository.createOperation failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -30,7 +36,7 @@ export class OperationRepository {
       const [row] = await this.db.select().from(operations).where(eq(operations.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('OperationRepository.findById failed', { id, error: (error as Error).message });
+      logger.error('OperationRepository.findById failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -43,16 +49,17 @@ export class OperationRepository {
     try {
       return this.db.select().from(operations).where(eq(operations.agentId, agentId)).orderBy(desc(operations.createdAt));
     } catch (error) {
-      logger.error('OperationRepository.findByAgentId failed', { error: (error as Error).message });
+      logger.error('OperationRepository.findByAgentId failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
 
   async findByStatus(status: string): Promise<Operation[]> {
     try {
-      return this.db.select().from(operations).where(eq(operations.status, status as Operation['status'])).orderBy(desc(operations.createdAt));
+      const statusValue = isOperationStatus(status) ? status : OperationStatus.PENDING;
+      return this.db.select().from(operations).where(eq(operations.status, statusValue)).orderBy(desc(operations.createdAt));
     } catch (error) {
-      logger.error('OperationRepository.findByStatus failed', { error: (error as Error).message });
+      logger.error('OperationRepository.findByStatus failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -64,7 +71,7 @@ export class OperationRepository {
       const rows = await this.db.select().from(operations).where(where).orderBy(desc(operations.createdAt)).limit(options.limit ?? 50).offset(options.offset ?? 0);
       return { operations: rows, total: Number(total) };
     } catch (error) {
-      logger.error('OperationRepository.findByUserId failed', { error: (error as Error).message });
+      logger.error('OperationRepository.findByUserId failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -74,7 +81,7 @@ export class OperationRepository {
       const [row] = await this.db.update(operations).set(data).where(eq(operations.id, id)).returning();
       return row ?? null;
     } catch (error) {
-      logger.error('OperationRepository.update failed', { id, error: (error as Error).message });
+      logger.error('OperationRepository.update failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -84,7 +91,7 @@ export class OperationRepository {
       const [row] = await this.db.select({ status: operations.status, progress: operations.progress }).from(operations).where(eq(operations.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('OperationRepository.getOperationStatus failed', { error: (error as Error).message });
+      logger.error('OperationRepository.getOperationStatus failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -99,7 +106,7 @@ export class OperationStateRepository {
     try {
       await this.db.insert(operationStates).values({ operationId, state });
     } catch (error) {
-      logger.error('OperationStateRepository.saveOperationState failed', { error: (error as Error).message });
+      logger.error('OperationStateRepository.saveOperationState failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -109,7 +116,7 @@ export class OperationStateRepository {
       const [row] = await this.db.select().from(operationStates).where(eq(operationStates.operationId, operationId)).limit(1);
       return row?.state ?? null;
     } catch (error) {
-      logger.error('OperationStateRepository.getOperationState failed', { error: (error as Error).message });
+      logger.error('OperationStateRepository.getOperationState failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -134,9 +141,10 @@ export class OperationCheckpointRepository {
 
   async saveCheckpoint(operationId: string, data: Record<string, unknown>): Promise<void> {
     try {
-      await this.db.insert(operationCheckpoints).values({ operationId, stepIndex: (data['stepIndex'] as number) ?? 0, data });
+      const stepIndex = typeof data['stepIndex'] === 'number' ? data['stepIndex'] : 0;
+      await this.db.insert(operationCheckpoints).values({ operationId, stepIndex, data });
     } catch (error) {
-      logger.error('OperationCheckpointRepository.saveCheckpoint failed', { error: (error as Error).message });
+      logger.error('OperationCheckpointRepository.saveCheckpoint failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -145,7 +153,7 @@ export class OperationCheckpointRepository {
     try {
       return this.db.select().from(operationCheckpoints).where(eq(operationCheckpoints.operationId, operationId));
     } catch (error) {
-      logger.error('OperationCheckpointRepository.listCheckpoints failed', { error: (error as Error).message });
+      logger.error('OperationCheckpointRepository.listCheckpoints failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -171,7 +179,7 @@ export class OperationCheckpointRepository {
       logger.error('OperationCheckpointRepository.getCheckpoint failed', {
         operationId,
         checkpointId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -188,7 +196,7 @@ export class StepResultRepository {
       const [row] = await this.db.insert(stepResults).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('StepResultRepository.create failed', { error: (error as Error).message });
+      logger.error('StepResultRepository.create failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -197,7 +205,7 @@ export class StepResultRepository {
     try {
       return this.db.select().from(stepResults).where(eq(stepResults.operationId, operationId));
     } catch (error) {
-      logger.error('StepResultRepository.findByOperation failed', { error: (error as Error).message });
+      logger.error('StepResultRepository.findByOperation failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

@@ -96,7 +96,8 @@ const snakeToCamel = (value: string): string => value.replace(/_([a-z])/g, (_m, 
 
 const mapRowToCamelCase = <TRow extends Record<string, unknown>>(row: TRow): TRow => {
   const mappedEntries = Object.entries(row).map(([key, val]) => [snakeToCamel(key), val] as const);
-  return Object.fromEntries(mappedEntries) as TRow;
+  // @ts-expect-error -- Object.fromEntries cannot preserve generic TRow shape; entries are structurally identical
+  return Object.fromEntries(mappedEntries);
 };
 
 const mapRowsToCamelCase = <TRow extends Record<string, unknown>>(rows: TRow[]): TRow[] =>
@@ -131,7 +132,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
     q += ' LIMIT 1';
     const result = await this.pool.query<T>(q, vals);
     const row = result.rows[0];
-    return row ? mapRowToCamelCase(row as Record<string, unknown>) as T : null;
+    return row ? mapRowToCamelCase(row) : null;
   }
 
   async find(opts?: {
@@ -141,7 +142,7 @@ class DrizzleRepository<T extends ObjectLiteral> {
     skip?: number;
   }): Promise<T[]> {
     const keys = Object.keys(opts?.where ?? {});
-    const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
+    const vals: SqlParameter[] = Object.values(opts?.where ?? {});
     let q = `SELECT * FROM "${this.table}"`;
     if (keys.length > 0)
       q += ` WHERE ${keys.map((k, i) => { const col = camelToSnake(k); assertSafeColumnName(col); return `"${col}" = $${i + 1}`; }).join(' AND ')}`;
@@ -154,12 +155,12 @@ class DrizzleRepository<T extends ObjectLiteral> {
     if (opts?.take) q += ` LIMIT ${opts.take}`;
     if (opts?.skip) q += ` OFFSET ${opts.skip}`;
     const result = await this.pool.query<T>(q, vals);
-    return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as T[];
+    return mapRowsToCamelCase(result.rows);
   }
 
   async count(opts?: { where?: Partial<T> }): Promise<number> {
     const keys = Object.keys(opts?.where ?? {});
-    const vals: SqlParameter[] = Object.values(opts?.where ?? {}) as SqlParameter[];
+    const vals: SqlParameter[] = Object.values(opts?.where ?? {});
     let q = `SELECT COUNT(*)::int AS cnt FROM "${this.table}"`;
     if (keys.length > 0)
       q += ` WHERE ${keys.map((k, i) => { const col = camelToSnake(k); assertSafeColumnName(col); return `"${col}" = $${i + 1}`; }).join(' AND ')}`;
@@ -168,20 +169,17 @@ class DrizzleRepository<T extends ObjectLiteral> {
   }
 
   async save(entity: Partial<T>): Promise<T> {
-    const rec = entity as Record<string, JsonValue>;
+    const rec: Record<string, JsonValue> = entity;
     if (rec.id) {
       const keys = Object.keys(rec).filter((k) => k !== 'id');
       for (const k of keys) assertSafeColumnName(camelToSnake(k));
       const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
-      const vals: SqlParameter[] = [
-        rec.id as SqlParameter,
-        ...keys.map((k) => rec[k] as SqlParameter),
-      ];
+      const vals: SqlParameter[] = [rec.id, ...keys.map((k) => rec[k])];
       const result = await this.pool.query<T>(
         `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1 RETURNING *`,
         vals
       );
-      return mapRowToCamelCase(result.rows[0] as Record<string, unknown>) as T;
+      return mapRowToCamelCase(result.rows[0]);
     }
     const keys = Object.keys(rec);
     for (const k of keys) assertSafeColumnName(camelToSnake(k));
@@ -192,18 +190,16 @@ class DrizzleRepository<T extends ObjectLiteral> {
       `INSERT INTO "${this.table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
       vals
     );
-    return mapRowToCamelCase(result.rows[0] as Record<string, unknown>) as T;
+    return mapRowToCamelCase(result.rows[0]);
   }
 
   async update(id: string, data: Partial<T>): Promise<void> {
-    const keys = Object.keys(data as Record<string, JsonValue>);
+    const rec: Record<string, JsonValue> = data;
+    const keys = Object.keys(rec);
     if (keys.length === 0) return;
     for (const k of keys) assertSafeColumnName(camelToSnake(k));
     const set = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
-    const vals: SqlParameter[] = [
-      id,
-      ...keys.map((k) => (data as Record<string, JsonValue>)[k] as SqlParameter),
-    ];
+    const vals: SqlParameter[] = [id, ...keys.map((k) => rec[k])];
     await this.pool.query(
       `UPDATE "${this.table}" SET ${set}, updated_at = NOW() WHERE id = $1`,
       vals
@@ -299,14 +295,14 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
 
   async getMany(): Promise<T[]> {
     const result = await this.pool.query<T>(this.buildQuery(), this.params);
-    return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as T[];
+    return mapRowsToCamelCase(result.rows);
   }
 
   async getOne(): Promise<T | null> {
     this.limitVal = 1;
     const result = await this.pool.query<T>(this.buildQuery(), this.params);
     const row = result.rows[0];
-    return row ? (mapRowToCamelCase(row as Record<string, unknown>) as T) : null;
+    return row ? mapRowToCamelCase(row) : null;
   }
 
   async getCount(): Promise<number> {
@@ -315,8 +311,8 @@ class DrizzleQueryBuilder<T extends ObjectLiteral> {
   }
 
   async getRawMany(): Promise<Record<string, JsonValue>[]> {
-    const result = await this.pool.query(this.buildQuery(), this.params);
-    return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as Record<string, JsonValue>[];
+    const result = await this.pool.query<Record<string, JsonValue>>(this.buildQuery(), this.params);
+    return mapRowsToCamelCase(result.rows);
   }
 }
 import { UserService } from './services/user_service';
@@ -510,8 +506,8 @@ export class DatabaseService {
       this.logger.info('Database seeded and knowledge synced successfully', { stats });
     } catch (seedError) {
       this.logger.error('Database seeding failed, but continuing service initialization', {
-        error: seedError.message,
-        stack: seedError.stack,
+        error: seedError instanceof Error ? seedError.message : String(seedError),
+        stack: seedError instanceof Error ? seedError.stack : undefined,
       });
     }
   }
@@ -859,21 +855,23 @@ export class DatabaseService {
       const pool = INTELLIGENCE_TABLES.has(tableName) ? getIntelligencePool() : getControlPool();
 
       if (records.length === 1) {
-        const keys = Object.keys(records[0]);
+        const rec0: Record<string, JsonValue> = records[0];
+        const keys = Object.keys(rec0);
         const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        const vals = keys.map((k) => (records[0] as Record<string, JsonValue>)[k]);
+        const vals = keys.map((k) => rec0[k]);
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`, vals);
       } else {
-        const keys = Object.keys(records[0]);
+        const rec0: Record<string, JsonValue> = records[0];
+        const keys = Object.keys(rec0);
         const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
         const valuesClauses = records
-          .map((rec, idx) => {
+          .map((_rec, idx) => {
             const placeholders = keys.map((_, i) => `$${idx * keys.length + i + 1}`).join(', ');
             return `(${placeholders})`;
           })
           .join(', ');
-        const vals = records.flatMap((rec) => keys.map((k) => (rec as Record<string, JsonValue>)[k]));
+        const vals = records.flatMap((rec) => { const r: Record<string, JsonValue> = rec; return keys.map((k) => r[k]); });
         await pool.query(`INSERT INTO "${tableName}" (${cols}) VALUES ${valuesClauses}`, vals);
       }
 
@@ -962,8 +960,8 @@ export class DatabaseService {
       const tableMatch = query.match(/FROM\s+"?(\w+)"?/i);
       const tableName = tableMatch?.[1] ?? '';
       const pool = INTELLIGENCE_TABLES.has(tableName) ? getIntelligencePool() : getControlPool();
-      const result = await pool.query(query, parameters);
-      return mapRowsToCamelCase(result.rows as Record<string, unknown>[]) as T[];
+      const result = await pool.query<T>(query, parameters);
+      return mapRowsToCamelCase(result.rows);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Query execution failed', { query, error: errorMessage });
@@ -989,10 +987,9 @@ export class DatabaseService {
   /**
    * Get operation state
    */
-  public async getOperationState(operationId: string): Promise<JsonObject | null> {
+  public async getOperationState(operationId: string): Promise<Record<string, unknown> | null> {
     await this.ensureInitialized();
-    const state = await this.operationService.getOperationStateRepository().getOperationState(operationId);
-    return (state as JsonObject | null) ?? null;
+    return this.operationService.getOperationStateRepository().getOperationState(operationId);
   }
 
   /**
@@ -1025,24 +1022,21 @@ export class DatabaseService {
   public async getCheckpoint(
     operationId: string,
     checkpointId: string
-  ): Promise<JsonObject | null> {
+  ): Promise<Record<string, unknown> | null> {
     await this.ensureInitialized();
     const checkpoints = await this.operationService
       .getOperationCheckpointRepository()
       .listCheckpoints(operationId);
     const checkpoint = checkpoints.find((item) => item.id === checkpointId);
-    return (checkpoint?.data as JsonObject | undefined) ?? null;
+    return checkpoint?.data ?? null;
   }
 
-  /**
-   * List checkpoints
-   */
-  public async listCheckpoints(operationId: string): Promise<JsonObject[]> {
+  public async listCheckpoints(operationId: string): Promise<Record<string, unknown>[]> {
     await this.ensureInitialized();
     const checkpoints = await this.operationService
       .getOperationCheckpointRepository()
       .listCheckpoints(operationId);
-    return checkpoints.map((checkpoint) => checkpoint.data as JsonObject);
+    return checkpoints.map((checkpoint) => checkpoint.data);
   }
 
   /**
@@ -1080,7 +1074,8 @@ export class DatabaseService {
   ): Promise<T | null> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
-    return await repository.findOne({ where: { id } as Partial<T> });
+    // @ts-expect-error -- { id: string } satisfies Partial<T> at runtime (T extends { id: string }) but TS can't narrow in generic context
+    return await repository.findOne({ where: { id } });
   }
 
   public async update<T extends ObjectLiteral & { id: string }>(
@@ -1091,7 +1086,8 @@ export class DatabaseService {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     await repository.update(id, data);
-    return await repository.findOne({ where: { id } as Partial<T> });
+    // @ts-expect-error -- { id: string } satisfies Partial<T> at runtime (T extends { id: string }) but TS can't narrow in generic context
+    return await repository.findOne({ where: { id } });
   }
 
   public async delete<T extends ObjectLiteral>(tableName: string, id: string): Promise<boolean> {
@@ -1109,7 +1105,8 @@ export class DatabaseService {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     return await repository.find({
-      where: conditions as Partial<T>,
+      // @ts-expect-error -- Partial<ObjectLiteral> is assignable to Partial<T extends ObjectLiteral> at runtime but TS can't narrow generics here
+      where: conditions,
       order: options?.order,
       take: options?.take,
       skip: options?.skip,

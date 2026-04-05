@@ -93,7 +93,7 @@ export class AgentTaskTypeResolver {
     } catch (error) {
       logger.error('Error determining task type, using default', {
         agentId: agent.id,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         taskType: LLMTaskType.REASONING,
       });
       return LLMTaskType.REASONING;
@@ -111,7 +111,7 @@ export class AgentTaskTypeResolver {
     } catch (error) {
       logger.error('Error fetching agent LLM preferences', {
         agentId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       return [];
     }

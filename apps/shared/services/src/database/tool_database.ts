@@ -10,8 +10,32 @@ import {
   ToolCategory,
   ToolExecutionStatus,
   ToolExample,
+  ToolExecutionError,
+  SecurityLevel,
 } from '@uaip/types';
 import { DatabaseService } from '../database_service';
+
+function getStr(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback;
+}
+function getNum(v: unknown, fallback?: number): number | undefined {
+  return typeof v === 'number' ? v : fallback;
+}
+function getBool(v: unknown, fallback: boolean): boolean {
+  return typeof v === 'boolean' ? v : fallback;
+}
+function getRecord(v: unknown): Record<string, unknown> | undefined {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : undefined;
+}
+function getArr<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
+  const values = Object.values(enumObj) as string[];
+  return typeof v === 'string' && values.includes(v) ? (v as T[keyof T]) : undefined;
+}
 
 export class ToolDatabase {
   private databaseService: DatabaseService;
@@ -38,8 +62,8 @@ export class ToolDatabase {
         description: tool.description,
         category: tool.category,
         version: tool.version,
-        inputSchema: tool.parameters as Record<string, unknown>,
-        outputSchema: tool.returnType as Record<string, unknown>,
+        inputSchema: tool.parameters,
+        outputSchema: tool.returnType,
         securityLevel: tool.securityLevel,
         maxRetries: 3,
         timeout: 30000,
@@ -47,7 +71,7 @@ export class ToolDatabase {
       await this.databaseService.tools.createTool(toolData);
       logger.info(`Tool created: ${tool.id}`);
     } catch (error) {
-      logger.error('Error creating tool', { tool, error: (error as Error).message });
+      logger.error('Error creating tool', { tool, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -57,7 +81,7 @@ export class ToolDatabase {
       const entity = await this.databaseService.tools.findToolById(id);
       return entity ? this.convertEntityToTool(entity) : null;
     } catch (error) {
-      logger.error('Error getting tool', { id, error: (error as Error).message });
+      logger.error('Error getting tool', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -67,7 +91,7 @@ export class ToolDatabase {
       const entities = await this.databaseService.tools.findActiveTools();
       return entities.map((entity) => this.convertEntityToTool(entity));
     } catch (error) {
-      logger.error('Error getting tools', { category, error: (error as Error).message });
+      logger.error('Error getting tools', { category, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -81,7 +105,7 @@ export class ToolDatabase {
       }
       logger.info(`Tool updated: ${id}`);
     } catch (error) {
-      logger.error('Error updating tool', { id, updates, error: (error as Error).message });
+      logger.error('Error updating tool', { id, updates, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -94,7 +118,7 @@ export class ToolDatabase {
       }
       logger.info(`Tool deleted: ${id}`);
     } catch (error) {
-      logger.error('Error deleting tool', { id, error: (error as Error).message });
+      logger.error('Error deleting tool', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -104,7 +128,7 @@ export class ToolDatabase {
       const entities = await this.databaseService.tools.searchTools(query);
       return entities.map((entity) => this.convertEntityToTool(entity));
     } catch (error) {
-      logger.error('Error searching tools', { query, error: (error as Error).message });
+      logger.error('Error searching tools', { query, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -123,7 +147,7 @@ export class ToolDatabase {
       await this.databaseService.tools.createExecution(executionData);
       logger.debug(`Tool execution created`);
     } catch (error) {
-      logger.error('Error creating tool execution', { execution, error: (error as Error).message });
+      logger.error('Error creating tool execution', { execution, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -134,10 +158,10 @@ export class ToolDatabase {
         status: updates.status,
         output:
           typeof updates.result === 'object' && updates.result !== null
-            ? (updates.result as Record<string, unknown>)
+            ? Object.assign({} as Record<string, unknown>, updates.result)
             : undefined,
         error: updates.error ? JSON.stringify(updates.error) : undefined,
-        metadata: updates.metadata as Record<string, unknown> | undefined,
+        metadata: updates.metadata,
         duration: updates.executionTimeMs,
       });
       if (!result) {
@@ -145,11 +169,8 @@ export class ToolDatabase {
       }
       logger.debug(`Tool execution updated: ${id}`);
     } catch (error) {
-      logger.error('Error updating tool execution', {
-        id,
-        updates,
-        error: (error as Error).message,
-      });
+      logger.error('Error updating tool execution', { id,
+      updates, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -159,7 +180,7 @@ export class ToolDatabase {
       const result = await this.databaseService.tools.findExecutionById(id);
       return result ? this.convertEntityToExecution(result) : null;
     } catch (error) {
-      logger.error('Error getting tool execution', { id, error: (error as Error).message });
+      logger.error('Error getting tool execution', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -182,12 +203,9 @@ export class ToolDatabase {
         return [];
       }
     } catch (error) {
-      logger.error('Error getting tool executions', {
-        toolId,
-        agentId,
-        limit,
-        error: (error as Error).message,
-      });
+      logger.error('Error getting tool executions', { toolId,
+      agentId,
+      limit, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -205,7 +223,7 @@ export class ToolDatabase {
 
       logger.debug(`Tool usage recorded for tool: ${usage.toolId}`);
     } catch (error) {
-      logger.error('Error recording tool usage', { usage, error: (error as Error).message });
+      logger.error('Error recording tool usage', { usage, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -219,18 +237,15 @@ export class ToolDatabase {
       if (toolId) {
         const stats = await this.databaseService.tools.getToolUsageStats(toolId, days);
         return [
-          typeof stats === 'object' && stats !== null ? (stats as Record<string, unknown>) : {},
+          typeof stats === 'object' && stats !== null ? Object.assign({} as Record<string, unknown>, stats) : {},
         ];
       } else {
         // Return empty array for general stats without toolId
         return [];
       }
     } catch (error) {
-      logger.error('Error getting tool usage stats', {
-        toolId,
-        days,
-        error: (error as Error).message,
-      });
+      logger.error('Error getting tool usage stats', { toolId,
+      days, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -240,10 +255,10 @@ export class ToolDatabase {
     const result: Record<string, unknown> = {};
 
     // Copy all fields that don't need conversion
-    Object.keys(tool).forEach((key) => {
+    const toolRecord = tool as Record<string, unknown>;
+    Object.keys(toolRecord).forEach((key) => {
       if (key !== 'category' && key !== 'securityLevel') {
-        // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic property copy between compatible types
-        (result as any)[key] = (tool as any)[key];
+        result[key] = toolRecord[key];
       }
     });
 
@@ -260,52 +275,48 @@ export class ToolDatabase {
 
   private convertEntityToTool(entity: Record<string, unknown>): ToolDefinition {
     return {
-      id: entity.id as string,
-      name: entity.name as string,
-      description: entity.description as string,
-      version: entity.version as string,
-      category: (entity.category as ToolCategory) || ToolCategory.API,
-      parameters: (entity.parameters as Record<string, unknown>) || {
-        type: 'object',
-        properties: {},
-      },
-      returnType: (entity.returnType as Record<string, unknown>) || {
-        type: 'object',
-        properties: {},
-      },
-      securityLevel: entity.security_level as string as ToolDefinition['securityLevel'],
-      requiresApproval: (entity.requires_approval as boolean) || false,
-      isEnabled: (entity.is_enabled as boolean) ?? true,
-      executionTimeEstimate: entity.execution_time_estimate as number | undefined,
-      costEstimate: entity.cost_estimate as number | undefined,
-      author: (entity.author as string) || '',
-      tags: (entity.tags as string[]) || [],
-      dependencies: (entity.dependencies as string[]) || [],
-      rateLimits: entity.rate_limits as Record<string, unknown> | undefined,
-      examples: (entity.examples as ToolExample[]) || [],
+      id: getStr(entity.id),
+      name: getStr(entity.name),
+      description: getStr(entity.description),
+      version: getStr(entity.version),
+      category: toEnum(ToolCategory, entity.category) ?? ToolCategory.API,
+      parameters: getRecord(entity.parameters) ?? { type: 'object', properties: {} },
+      returnType: getRecord(entity.returnType) ?? { type: 'object', properties: {} },
+      securityLevel: toEnum(SecurityLevel, entity.security_level) ?? SecurityLevel.LOW,
+      requiresApproval: getBool(entity.requires_approval, false),
+      isEnabled: getBool(entity.is_enabled, true),
+      executionTimeEstimate: getNum(entity.execution_time_estimate),
+      costEstimate: getNum(entity.cost_estimate),
+      author: getStr(entity.author),
+      tags: getArr<string>(entity.tags),
+      dependencies: getArr<string>(entity.dependencies),
+      rateLimits: getRecord(entity.rate_limits),
+      examples: getArr<ToolExample>(entity.examples),
     };
   }
 
   private convertEntityToExecution(entity: Record<string, unknown>): ToolExecution {
     return {
-      id: entity.id as string,
-      toolId: entity.tool_id as string,
-      agentId: (entity.agent_id as string) || '',
-      parameters: (entity.parameters as Record<string, unknown>) || {},
-      status: (entity.status as ToolExecutionStatus) || ToolExecutionStatus.PENDING,
-      startTime: (entity.created_at as Date) || new Date(),
-      endTime: entity.end_time as Date | undefined,
-      result: entity.result as unknown,
-      error: entity.error as ToolExecution['error'],
+      id: getStr(entity.id),
+      toolId: getStr(entity.tool_id),
+      agentId: getStr(entity.agent_id),
+      parameters: getRecord(entity.parameters) ?? {},
+      status: toEnum(ToolExecutionStatus, entity.status) ?? ToolExecutionStatus.PENDING,
+      startTime: entity.created_at instanceof Date ? entity.created_at : new Date(),
+      endTime: entity.end_time instanceof Date ? entity.end_time : undefined,
+      result: entity.result,
+      error: typeof entity.error === 'string' && entity.error !== ''
+        ? ({ type: 'unknown' as const, message: entity.error, recoverable: false } satisfies ToolExecutionError)
+        : undefined,
       approvalRequired: false,
       approvedBy: undefined,
       approvedAt: undefined,
-      cost: entity.cost as number | undefined,
-      executionTimeMs: entity.duration as number | undefined,
+      cost: getNum(entity.cost),
+      executionTimeMs: getNum(entity.duration),
       retryCount: 0,
       maxRetries: 3,
-      metadata: entity.metadata as Record<string, unknown> | undefined,
-      success: (entity.success as boolean) || false,
+      metadata: getRecord(entity.metadata),
+      success: getBool(entity.success, false),
       data: entity.result,
     };
   }
