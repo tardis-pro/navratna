@@ -17,92 +17,76 @@ export class DebateHandler {
   }
 
   private setupEventSubscriptions(): void {
-    // Define event data types
-    interface DebateStartedData {
-      debateId: string;
-      discussionId?: string;
-      topic: string;
-      proposition: string;
-      participants: string[];
-    }
-
-    interface DebateArgumentData {
-      debateId: string;
-      argument: Argument;
-    }
-
-    interface DebateVoteData {
-      debateId: string;
-      vote: Vote;
-    }
-
-    interface DebateConcludedData {
-      debateId: string;
-      consensus: ConsensusResult;
-      metadata: Record<string, unknown>;
-    }
-
-    interface DebateRequestData {
-      debateId: string;
-      agentId: string;
-      prompt: string;
-      systemPrompt: string;
-    }
-
     // Broadcast debate events to WebSocket clients
     this.eventBus.subscribe('debate.started', async (event) => {
-      const data = event.data as DebateStartedData;
-      this.broadcastToDiscussion(data.discussionId, 'debate:started', data);
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const data = raw as Record<string, unknown>;
+      const discussionId = typeof data['discussionId'] === 'string' ? data['discussionId'] : undefined;
+      this.broadcastToDiscussion(discussionId, 'debate:started', data);
     });
 
     this.eventBus.subscribe('debate.argument.added', async (event) => {
-      const data = event.data as DebateArgumentData;
-      const debate = this.debateOrchestrator.getDebate(data.debateId);
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const data = raw as Record<string, unknown>;
+      const debateId = typeof data['debateId'] === 'string' ? data['debateId'] : '';
+      const debate = this.debateOrchestrator.getDebate(debateId);
       if (debate?.discussionId) {
         this.broadcastToDiscussion(debate.discussionId, 'debate:argument', data);
       }
     });
 
     this.eventBus.subscribe('debate.vote.added', async (event) => {
-      const data = event.data as DebateVoteData;
-      const debate = this.debateOrchestrator.getDebate(data.debateId);
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const data = raw as Record<string, unknown>;
+      const debateId = typeof data['debateId'] === 'string' ? data['debateId'] : '';
+      const debate = this.debateOrchestrator.getDebate(debateId);
       if (debate?.discussionId) {
         this.broadcastToDiscussion(debate.discussionId, 'debate:vote', data);
       }
     });
 
     this.eventBus.subscribe('debate.concluded', async (event) => {
-      const data = event.data as DebateConcludedData;
-      const debate = this.debateOrchestrator.getDebate(data.debateId);
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const data = raw as Record<string, unknown>;
+      const debateId = typeof data['debateId'] === 'string' ? data['debateId'] : '';
+      const debate = this.debateOrchestrator.getDebate(debateId);
       if (debate?.discussionId) {
         this.broadcastToDiscussion(debate.discussionId, 'debate:concluded', {
-          debateId: data.debateId,
-          consensus: data.consensus,
-          metadata: data.metadata,
+          debateId,
+          consensus: data['consensus'],
+          metadata: data['metadata'],
         });
       }
     });
 
     // Handle debate argument requests - route to agents
     this.eventBus.subscribe('debate.argument.request', async (event) => {
-      const data = event.data as DebateRequestData;
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const data = raw as Record<string, unknown>;
       await this.eventBus.publish('agent.discussion.participate', {
-        agentId: data.agentId,
-        discussionId: data.debateId,
-        prompt: data.prompt,
-        systemPrompt: data.systemPrompt,
+        agentId: typeof data['agentId'] === 'string' ? data['agentId'] : '',
+        discussionId: typeof data['debateId'] === 'string' ? data['debateId'] : '',
+        prompt: typeof data['prompt'] === 'string' ? data['prompt'] : '',
+        systemPrompt: typeof data['systemPrompt'] === 'string' ? data['systemPrompt'] : '',
         responseType: 'debate_argument',
       });
     });
 
     // Handle debate vote requests
     this.eventBus.subscribe('debate.vote.request', async (event) => {
-      const data = event.data as DebateRequestData;
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const data = raw as Record<string, unknown>;
       await this.eventBus.publish('agent.discussion.participate', {
-        agentId: data.agentId,
-        discussionId: data.debateId,
-        prompt: data.prompt,
-        systemPrompt: data.systemPrompt,
+        agentId: typeof data['agentId'] === 'string' ? data['agentId'] : '',
+        discussionId: typeof data['debateId'] === 'string' ? data['debateId'] : '',
+        prompt: typeof data['prompt'] === 'string' ? data['prompt'] : '',
+        systemPrompt: typeof data['systemPrompt'] === 'string' ? data['systemPrompt'] : '',
         responseType: 'debate_vote',
       });
     });

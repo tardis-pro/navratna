@@ -34,7 +34,11 @@ export async function useRedisAuthState(redis: Redis): Promise<{
     try {
       const raw = await redis.get(credsKey);
       if (raw) {
-        return JSON.parse(raw, BufferJSON.reviver) as AuthenticationCreds;
+        const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
+        // Baileys AuthenticationCreds is a complex object — validate minimally and trust the shape
+        if (typeof parsed === 'object' && parsed !== null) {
+          return parsed as AuthenticationCreds;
+        }
       }
     } catch (err) {
       logger.warn('Failed to parse stored WhatsApp creds, reinitialising', { err });
@@ -69,7 +73,10 @@ export async function useRedisAuthState(redis: Redis): Promise<{
             try {
               const raw = await redis.get(redisKey);
               if (raw) {
-                result[id] = JSON.parse(raw, BufferJSON.reviver) as SignalDataTypeMap[T];
+                const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
+                if (parsed !== null && parsed !== undefined) {
+                  result[id] = parsed as SignalDataTypeMap[T];
+                }
               }
             } catch (err) {
               logger.warn('Error reading signal key from Redis', { type, id, err });

@@ -128,10 +128,12 @@ export class DiscussionWebSocketHandler implements IWebSocketHandler {
       }
 
       // Continue with connection setup if allowed
+      const rawUserAgent = request.headers['user-agent'];
+      const userAgent = Array.isArray(rawUserAgent) ? rawUserAgent[0] : rawUserAgent;
       await this.continueConnectionSetup(
         connection,
         request.socket.remoteAddress,
-        request.headers['user-agent'] as string
+        userAgent
       );
     } catch (error) {
       logger.error('Error handling WebSocket connection', {
@@ -411,7 +413,7 @@ export class DiscussionWebSocketHandler implements IWebSocketHandler {
 
           const result = await this.orchestrationService.updateWorkingMemoryContext(
             connection.discussionId,
-            context as Record<string, unknown>,
+            context,
             connection.participantId || connection.userId
           );
 

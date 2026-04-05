@@ -317,13 +317,14 @@ export class EventDrivenDiscussionService extends EventEmitter {
    * Handle discussion response events
    */
   private handleDiscussionResponse(event: Record<string, unknown>): void {
-    const eventData = event as Record<string, unknown>;
+    const eventData = event;
     const { requestId, data, error } = eventData;
-    const pending = this.pendingRequests.get(requestId as string);
+    const pending = this.pendingRequests.get(typeof requestId === 'string' ? requestId : '');
 
+    const requestIdStr = typeof requestId === 'string' ? requestId : '';
     if (pending) {
       clearTimeout(pending.timeout);
-      this.pendingRequests.delete(requestId as string);
+      this.pendingRequests.delete(requestIdStr);
 
       if (error) {
         pending.reject(new Error(String(error)));
@@ -333,17 +334,15 @@ export class EventDrivenDiscussionService extends EventEmitter {
     }
   }
 
-  /**
-   * Handle discussion error events
-   */
   private handleDiscussionError(event: Record<string, unknown>): void {
-    const eventData = event as Record<string, unknown>;
+    const eventData = event;
     const { requestId, error } = eventData;
-    const pending = this.pendingRequests.get(requestId as string);
+    const pending = this.pendingRequests.get(typeof requestId === 'string' ? requestId : '');
 
+    const requestIdStr = typeof requestId === 'string' ? requestId : '';
     if (pending) {
       clearTimeout(pending.timeout);
-      this.pendingRequests.delete(requestId as string);
+      this.pendingRequests.delete(requestIdStr);
       pending.reject(new Error(String(error)));
     }
   }

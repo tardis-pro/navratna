@@ -237,13 +237,16 @@ export class TaskNotificationHandler {
     }
 
     const progressUpdate: TaskProgressUpdate = {
-      ...(data as TaskProgressUpdate),
+      taskId: data.taskId,
+      projectId: data.projectId,
+      completionPercentage: data.completionPercentage,
+      timeSpent: data.timeSpent,
+      timestamp: new Date(),
       actor: {
         id: userId,
         name: socket.data.user?.name || 'Unknown User',
         type: 'user',
       },
-      timestamp: new Date(),
     };
 
     // Broadcast to project subscribers
@@ -326,34 +329,74 @@ export class TaskNotificationHandler {
     }
   }
 
+  private extractTaskEventData(raw: unknown): TaskEventData | null {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const d = raw as Record<string, unknown>;
+    if (typeof d['taskId'] !== 'string' || typeof d['projectId'] !== 'string') return null;
+    return {
+      taskId: d['taskId'],
+      projectId: d['projectId'],
+      task: (typeof d['task'] === 'object' && d['task'] !== null ? d['task'] : {}) as TaskSummary,
+      changes: typeof d['changes'] === 'object' && d['changes'] !== null
+        ? (d['changes'] as Record<string, { old: unknown; new: unknown }>)
+        : undefined,
+      actor: typeof d['actor'] === 'object' && d['actor'] !== null
+        ? (d['actor'] as TaskNotificationActor)
+        : undefined,
+      completionPercentage: typeof d['completionPercentage'] === 'number' ? d['completionPercentage'] : undefined,
+    };
+  }
+
+  private extractProjectTaskStats(raw: unknown): ProjectTaskStats | null {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const d = raw as Record<string, unknown>;
+    if (typeof d['projectId'] !== 'string') return null;
+    return {
+      projectId: d['projectId'],
+      total: typeof d['total'] === 'number' ? d['total'] : 0,
+      byStatus: (typeof d['byStatus'] === 'object' && d['byStatus'] !== null ? d['byStatus'] : {}) as Record<string, number>,
+      byPriority: (typeof d['byPriority'] === 'object' && d['byPriority'] !== null ? d['byPriority'] : {}) as Record<string, number>,
+      byAssigneeType: (typeof d['byAssigneeType'] === 'object' && d['byAssigneeType'] !== null ? d['byAssigneeType'] : {}) as Record<string, number>,
+      completionRate: typeof d['completionRate'] === 'number' ? d['completionRate'] : 0,
+      lastUpdated: d['lastUpdated'] instanceof Date ? d['lastUpdated'] : new Date(),
+    };
+  }
+
   private setupEventListeners(): void {
     // Listen for task events from the event bus
     this.eventBusService.subscribe('task.created', async (data) => {
-      this.handleTaskNotification('task_created', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_created', taskData);
     });
 
     this.eventBusService.subscribe('task.updated', async (data) => {
-      this.handleTaskNotification('task_updated', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_updated', taskData);
     });
 
     this.eventBusService.subscribe('task.assigned', async (data) => {
-      this.handleTaskNotification('task_assigned', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_assigned', taskData);
     });
 
     this.eventBusService.subscribe('task.status_changed', async (data) => {
-      this.handleTaskNotification('task_status_changed', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_status_changed', taskData);
     });
 
     this.eventBusService.subscribe('task.completed', async (data) => {
-      this.handleTaskNotification('task_completed', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_completed', taskData);
     });
 
     this.eventBusService.subscribe('task.deleted', async (data) => {
-      this.handleTaskNotification('task_deleted', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_deleted', taskData);
     });
 
     this.eventBusService.subscribe('project.stats_updated', async (data) => {
-      this.handleProjectStatsUpdate(data.data as ProjectTaskStats);
+      const stats = this.extractProjectTaskStats(data.data);
+      if (stats) this.handleProjectStatsUpdate(stats);
     });
   }
 

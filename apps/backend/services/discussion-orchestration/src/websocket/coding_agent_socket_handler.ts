@@ -49,15 +49,18 @@ export class CodingAgentSocketHandler {
 
     ns.on('connection', async (socket: Socket) => {
       try {
-        const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
+        const nginxUserIdRaw = socket.handshake.headers['x-user-id'];
+        const nginxUserId = typeof nginxUserIdRaw === 'string' ? nginxUserIdRaw : undefined;
         let userId: string;
 
         if (nginxUserId && /^[0-9a-f-]{36}$/i.test(nginxUserId)) {
           userId = nginxUserId;
         } else {
+          const authToken = socket.handshake.auth?.token;
+          const queryToken = socket.handshake.query?.token;
           let token =
-            (socket.handshake.auth?.token as string | undefined) ||
-            (socket.handshake.query?.token as string | undefined);
+            (typeof authToken === 'string' ? authToken : undefined) ||
+            (typeof queryToken === 'string' ? queryToken : undefined);
           if (!token) {
             const cookieHeader = socket.handshake.headers.cookie;
             if (cookieHeader) {
@@ -139,8 +142,18 @@ export class CodingAgentSocketHandler {
 
   private subscribeToEventBus(): void {
     this.eventBus.subscribe('coding.agent.event', async (event) => {
-      const data = event.data as CodingAgentEventData;
-      if (!data?.sessionId) return;
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      if (!('sessionId' in raw) || typeof raw.sessionId !== 'string') return;
+      if (!('type' in raw) || typeof raw.type !== 'string') return;
+      const payloadRaw = 'payload' in raw && typeof raw.payload === 'object' && raw.payload !== null ? raw.payload : {};
+      const data: CodingAgentEventData = {
+        type: raw.type,
+        sessionId: raw.sessionId,
+        // @ts-expect-error -- narrowed to non-null object; structurally matches Record<string, unknown>
+        payload: payloadRaw,
+        timestamp: 'timestamp' in raw && (typeof raw.timestamp === 'string' || raw.timestamp instanceof Date) ? raw.timestamp : new Date(),
+      };
       this.broadcastToSession(data.sessionId, data);
     });
 

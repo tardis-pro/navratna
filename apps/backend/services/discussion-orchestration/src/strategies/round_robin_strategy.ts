@@ -27,6 +27,9 @@ export interface TurnStrategyInterface {
     discussion: Discussion,
     _config?: TurnStrategyConfig
   ): Promise<number>;
+
+  getStrategyDescription?(): string;
+  getStrategyConfig?(): Partial<TurnStrategyConfig>;
 }
 
 export class RoundRobinStrategy implements TurnStrategyInterface {

@@ -246,14 +246,10 @@ export class TurnStrategyService {
     const strategies = [];
 
     for (const [type, strategy] of this.strategies) {
-      const strategyWithMethods = strategy as TurnStrategyInterface & {
-        getStrategyDescription?: () => string;
-        getStrategyConfig?: () => Partial<TurnStrategyConfig>;
-      };
       strategies.push({
         type,
-        description: strategyWithMethods.getStrategyDescription?.() || `${type} strategy`,
-        config: strategyWithMethods.getStrategyConfig?.() || {},
+        description: strategy.getStrategyDescription?.() || `${type} strategy`,
+        config: strategy.getStrategyConfig?.() || {},
       });
     }
 
@@ -419,15 +415,18 @@ export class TurnStrategyService {
           // This would be handled by the discussion orchestration service
           return { success: true, message: 'Turn advance initiated' };
 
-        case 'select_next_participant':
+        case 'select_next_participant': {
+          const participantId = typeof params?.participantId === 'string' ? params.participantId : null;
           if (
             discussion.turnStrategy.strategy === TurnStrategy.MODERATED &&
-            params?.participantId
+            participantId
           ) {
-            const moderatedStrategy = strategy as ModeratedStrategy;
-            const success = await moderatedStrategy.selectNextParticipant(
+            if (!(strategy instanceof ModeratedStrategy)) {
+              return { success: false, message: 'Strategy is not a ModeratedStrategy instance' };
+            }
+            const success = await strategy.selectNextParticipant(
               moderatorId,
-              params.participantId as string,
+              participantId,
               discussion
             );
             return {
@@ -436,6 +435,7 @@ export class TurnStrategyService {
             };
           }
           return { success: false, message: 'Invalid action for current strategy' };
+        }
 
         default:
           return { success: false, message: 'Unknown moderator action' };
@@ -586,7 +586,7 @@ export class TurnStrategyService {
   ): Promise<{ success: boolean; errors: string[] }> {
     try {
       // Validate the new configuration
-      const fullConfig = { ...discussion.turnStrategy, ...newConfig } as TurnStrategyConfig;
+      const fullConfig: TurnStrategyConfig = { ...discussion.turnStrategy, ...newConfig };
       const validation = this.validateStrategyConfig(discussion.turnStrategy.strategy, fullConfig);
 
       if (!validation.isValid) {

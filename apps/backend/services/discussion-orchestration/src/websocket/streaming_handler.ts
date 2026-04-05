@@ -143,46 +143,46 @@ export class StreamingHandler {
   }
 
   private subscribeToEventBus(): void {
-    // Define common event data type
-    interface StreamEventData {
-      sessionId: string;
-      chunk?: unknown;
-      error?: string;
-      [key: string]: unknown;
-    }
+    const extractSessionId = (raw: unknown): string => {
+      if (typeof raw === 'object' && raw !== null && 'sessionId' in raw) {
+        const v = (raw as Record<string, unknown>)['sessionId'];
+        return typeof v === 'string' ? v : '';
+      }
+      return '';
+    };
 
     // Stream start
     this.eventBus.subscribe('llm.stream.start', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_START, data);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_START, event.data);
     });
 
     // Stream chunks
     this.eventBus.subscribe('llm.stream.chunk', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_CHUNK, data);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_CHUNK, event.data);
     });
 
     // Stream end
     this.eventBus.subscribe('llm.stream.end', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_END, data);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_END, event.data);
       // Cleanup subscribers
-      this.sessionSubscribers.delete(data.sessionId);
+      this.sessionSubscribers.delete(sessionId);
     });
 
     // Stream error
     this.eventBus.subscribe('llm.stream.error', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_ERROR, data);
-      this.sessionSubscribers.delete(data.sessionId);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_ERROR, event.data);
+      this.sessionSubscribers.delete(sessionId);
     });
 
     // Stream cancelled
     this.eventBus.subscribe('llm.stream.cancel', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_CANCEL, data);
-      this.sessionSubscribers.delete(data.sessionId);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_CANCEL, event.data);
+      this.sessionSubscribers.delete(sessionId);
     });
 
     logger.info('Subscribed to streaming events');

@@ -126,7 +126,10 @@ export class RedisSessionManager {
         return null;
       }
 
-      const session = JSON.parse(sessionData) as WebSocketSession;
+      const parsed: unknown = JSON.parse(sessionData);
+      if (typeof parsed !== 'object' || parsed === null) return null;
+      // @ts-expect-error -- JSON shape validated minimally; trusts Redis write path
+      const session: WebSocketSession = parsed;
 
       // Convert date strings back to Date objects
       session.connectedAt = new Date(session.connectedAt);
@@ -298,7 +301,10 @@ export class RedisSessionManager {
         return true;
       }
 
-      const limits = JSON.parse(rateLimitData) as RateLimitData;
+      const parsedLimits: unknown = JSON.parse(rateLimitData);
+      if (typeof parsedLimits !== 'object' || parsedLimits === null) return true;
+      // @ts-expect-error -- JSON shape validated minimally; trusts Redis write path
+      const limits: RateLimitData = parsedLimits;
       const now = Date.now();
       const typeLimit = limits[type];
 

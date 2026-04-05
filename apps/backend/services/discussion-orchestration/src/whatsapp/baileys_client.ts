@@ -23,16 +23,15 @@ export interface BaileysClientEvents {
 }
 
 /** Minimal pino-compatible logger that suppresses Baileys internal output. */
-const silentLogger = {
+const silentLogger: Parameters<typeof makeWASocket>[0]['logger'] = {
   level: 'silent',
-  fatal: () => {},
   error: () => {},
   warn: () => {},
   info: () => {},
   debug: () => {},
   trace: () => {},
   child: () => silentLogger,
-} as unknown as Parameters<typeof makeWASocket>[0]['logger'];
+};
 
 /**
  * BaileysClient — manages a single WhatsApp Web session via Baileys.
@@ -166,13 +165,17 @@ export class BaileysClient extends EventEmitter {
         }
 
         if (connection === 'close') {
-          const boom = lastDisconnect?.error as Boom | undefined;
+          const err = lastDisconnect?.error;
+          const boom = err instanceof Boom ? err : null;
           const statusCode = boom?.output?.statusCode;
+          const disconnectReasonMap: Record<number, string> = Object.fromEntries(
+            Object.entries(DisconnectReason)
+              .filter(([, v]) => typeof v === 'number')
+              .map(([k, v]) => [v as number, k])
+          );
           const reason =
             typeof statusCode === 'number'
-              ? ((DisconnectReason[
-                  statusCode as unknown as keyof typeof DisconnectReason
-                ] as unknown as string) ?? `code ${statusCode}`)
+              ? (disconnectReasonMap[statusCode] ?? `code ${statusCode}`)
               : `code ${statusCode}`;
 
           this.logger.warn('WhatsApp connection closed', { statusCode, reason });

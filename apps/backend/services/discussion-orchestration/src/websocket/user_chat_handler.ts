@@ -512,16 +512,16 @@ export class UserChatHandler {
   private setupEventBusSubscriptions(): void {
     // Subscribe to agent chat responses to forward them back to Socket.IO clients
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
-      const { socketId, agentId, response, agentName, messageId, userId, ...metadata } =
-        event.data as {
-          socketId: string;
-          agentId: string;
-          response: string;
-          agentName: string;
-          messageId: string;
-          userId?: string;
-          [key: string]: unknown;
-        };
+      const isRecord = (v: unknown): v is Record<string, unknown> =>
+        typeof v === 'object' && v !== null && !Array.isArray(v);
+      const data = isRecord(event.data) ? event.data : {};
+      const socketId = typeof data.socketId === 'string' ? data.socketId : '';
+      const agentId = typeof data.agentId === 'string' ? data.agentId : '';
+      const response = typeof data.response === 'string' ? data.response : '';
+      const agentName = typeof data.agentName === 'string' ? data.agentName : '';
+      const messageId = typeof data.messageId === 'string' ? data.messageId : '';
+      const userId = typeof data.userId === 'string' ? data.userId : undefined;
+      const { socketId: _s, agentId: _a, response: _r, agentName: _an, messageId: _m, userId: _u, ...metadata } = data;
 
       // Find the socket by ID and send the response
       const socket = socketId ? this.io.sockets.sockets.get(socketId) : undefined;
@@ -535,7 +535,8 @@ export class UserChatHandler {
       };
 
       if (socket) {
-        const socketUserId = socket.data?.user?.userId as string | undefined;
+        const rawSocketUserId = socket.data?.user?.userId;
+        const socketUserId = typeof rawSocketUserId === 'string' ? rawSocketUserId : undefined;
 
         if (userId && socketUserId && socketUserId !== userId) {
           this.logger.warn('Blocked cross-lane agent response delivery', {
@@ -585,29 +586,19 @@ export class UserChatHandler {
     });
 
     this.eventBusService.subscribe('approval:required', async (event) => {
-      const {
-        approvalId,
-        agentId,
-        userId,
-        socketId,
-        toolId,
-        toolDescription,
-        riskLevel,
-        parameters,
-        securityLevel,
-        timestamp,
-      } = event.data as {
-        approvalId: string;
-        agentId: string;
-        userId?: string;
-        socketId?: string;
-        toolId: string;
-        toolDescription: string;
-        riskLevel: string;
-        parameters?: Record<string, unknown>;
-        securityLevel?: string;
-        timestamp?: string;
-      };
+      const isRecord = (v: unknown): v is Record<string, unknown> =>
+        typeof v === 'object' && v !== null && !Array.isArray(v);
+      const approvalData = isRecord(event.data) ? event.data : {};
+      const approvalId = typeof approvalData.approvalId === 'string' ? approvalData.approvalId : '';
+      const agentId = typeof approvalData.agentId === 'string' ? approvalData.agentId : '';
+      const userId = typeof approvalData.userId === 'string' ? approvalData.userId : undefined;
+      const socketId = typeof approvalData.socketId === 'string' ? approvalData.socketId : undefined;
+      const toolId = typeof approvalData.toolId === 'string' ? approvalData.toolId : '';
+      const toolDescription = typeof approvalData.toolDescription === 'string' ? approvalData.toolDescription : '';
+      const riskLevel = typeof approvalData.riskLevel === 'string' ? approvalData.riskLevel : '';
+      const parameters = isRecord(approvalData.parameters) ? approvalData.parameters : undefined;
+      const securityLevel = typeof approvalData.securityLevel === 'string' ? approvalData.securityLevel : undefined;
+      const timestamp = typeof approvalData.timestamp === 'string' ? approvalData.timestamp : undefined;
 
       const approvalPayload = {
         approvalId,

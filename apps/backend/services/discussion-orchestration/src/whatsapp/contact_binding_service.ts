@@ -108,7 +108,11 @@ export class ContactBindingService {
     try {
       const raw = await this.redis.get(`${SELECTING_PREFIX}${jid}`);
       if (!raw) return null;
-      return JSON.parse(raw) as PendingSelection;
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null) return null;
+      const p = parsed as Record<string, unknown>;
+      if (!Array.isArray(p['agents']) || typeof p['expiresAt'] !== 'number') return null;
+      return { agents: p['agents'] as AgentSummary[], expiresAt: p['expiresAt'] };
     } catch {
       return null;
     }
@@ -135,7 +139,9 @@ export class ContactBindingService {
     try {
       const raw = await this.redis.get(AGENTS_CACHE_KEY);
       if (!raw) return null;
-      return JSON.parse(raw) as AgentSummary[];
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return null;
+      return parsed as AgentSummary[];
     } catch {
       return null;
     }

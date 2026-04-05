@@ -182,8 +182,8 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   }
 
   private getAgreementScore(participant: DiscussionParticipant): number {
-    const metadata = participant.metadata as Record<string, unknown> | undefined;
-    const raw = metadata?.agreementScore;
+    const metadata = participant.metadata;
+    const raw = metadata?.['agreementScore'];
     if (typeof raw === 'number') {
       return raw;
     }
@@ -348,12 +348,12 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): { participantId: string; moderatorId: string; timestamp: Date } | null {
     // This would check discussion state for pending moderator selections
     // For now, return null - in real implementation, this would check discussion.state.metadata
-    const metadata = discussion.metadata as Record<string, unknown> | undefined;
-    return (
-      (metadata?.pendingModeratorSelection as
-        | { participantId: string; moderatorId: string; timestamp: Date }
-        | undefined) || null
-    );
+    const metadata = discussion.metadata;
+    const sel = metadata?.['pendingModeratorSelection'];
+    if (typeof sel === 'object' && sel !== null && 'participantId' in sel) {
+      return sel as { participantId: string; moderatorId: string; timestamp: Date };
+    }
+    return null;
   }
 
   private hasModeratorApproval(
@@ -362,20 +362,23 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): boolean {
     // Check if participant has received moderator approval
     // This would typically be stored in discussion state or participant metadata
-    const metadata = _discussion.metadata as Record<string, unknown> | undefined;
-    const approvals = (metadata?.moderatorApprovals as string[] | undefined) || [];
-    return approvals.includes(participant.id);
+    const metadata = _discussion.metadata;
+    const approvals = Array.isArray(metadata?.['moderatorApprovals'])
+      ? (metadata['moderatorApprovals'] as string[])
+      : [];
+    return approvals.includes(participant.id ?? '');
   }
 
   private hasModeratorAdvancedTurn(
     discussion: Discussion
   ): { moderatorId: string; timestamp: Date } | null {
     // Check if moderator has explicitly advanced the turn
-    const metadata = discussion.metadata as Record<string, unknown> | undefined;
-    return (
-      (metadata?.moderatorTurnAdvance as { moderatorId: string; timestamp: Date } | undefined) ||
-      null
-    );
+    const metadata = discussion.metadata;
+    const adv = metadata?.['moderatorTurnAdvance'];
+    if (typeof adv === 'object' && adv !== null && 'moderatorId' in adv) {
+      return adv as { moderatorId: string; timestamp: Date };
+    }
+    return null;
   }
 
   private hasParticipantIndicatedCompletion(
@@ -384,8 +387,8 @@ export class ModeratedStrategy implements TurnStrategyInterface {
   ): boolean {
     // Check if participant has indicated they're done with their turn
     // This could be through specific keywords, commands, or explicit signals
-    const metadata = participant.metadata as Record<string, unknown> | undefined;
-    return metadata?.turnCompleted === true;
+    const metadata = participant.metadata;
+    return metadata?.['turnCompleted'] === true;
   }
 
   // Public methods for moderator actions
