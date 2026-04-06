@@ -97,7 +97,8 @@ export class OpenAIProvider extends BaseProvider {
       const isCustomProvider =
         this.config.baseUrl && !this.config.baseUrl.includes('api.openai.com');
 
-      const allDataModels: Array<Record<string, unknown>> = (data.data as unknown[]).filter(
+      const rawDataArray = Array.isArray(data.data) ? data.data : [];
+      const allDataModels: Array<Record<string, unknown>> = rawDataArray.filter(
         (m): m is Record<string, unknown> => OpenAIProvider.isRecord(m)
       );
       let chatModels: Array<Record<string, unknown>>;

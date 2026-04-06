@@ -973,7 +973,8 @@ export class LLMService {
 
   private getPreferredProviderType(agent: Record<string, unknown>): string | undefined {
     const cfg = agent.configuration;
-    const cfgRecord = typeof cfg === 'object' && cfg !== null ? (cfg as Record<string, unknown>) : null;
+    const cfgEmpty: Record<string, unknown> = {};
+    const cfgRecord = typeof cfg === 'object' && cfg !== null ? Object.assign(cfgEmpty, cfg) : null;
     const modelId =
       cfgRecord !== null && typeof cfgRecord.model === 'string'
         ? cfgRecord.model

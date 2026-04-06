@@ -4,11 +4,10 @@ import { ApiKeyDecryptionRequest, ApiKeyDecryptionResponse } from '../interfaces
 import { v4 as uuidv4 } from 'uuid';
 
 function isApiKeyDecryptionResponse(value: unknown): value is ApiKeyDecryptionResponse {
+  if (typeof value !== 'object' || value === null) return false;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Record<string, unknown>).requestId === 'string' &&
-    typeof (value as Record<string, unknown>).success === 'boolean'
+    typeof Reflect.get(value, 'requestId') === 'string' &&
+    typeof Reflect.get(value, 'success') === 'boolean'
   );
 }
 

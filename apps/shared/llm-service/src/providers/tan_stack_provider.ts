@@ -54,13 +54,8 @@ export class TanStackProvider extends BaseProvider {
       const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
       const model = request.model || this.config.defaultModel || 'gpt-4o';
 
-      const response = await chat({
-        adapter,
-        model,
-        messages,
-        maxTokens: request.maxTokens || 2000,
-        temperature: request.temperature || 0.7,
-      } as Parameters<typeof chat>[0]);
+      // @ts-expect-error -- adapter is unknown; model/maxTokens/temperature are runtime-valid but not in TextActivityOptions type
+      const response = await chat({ adapter, model, messages, maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 });
 
       // Collect full response from stream
       let content = '';
@@ -97,13 +92,8 @@ export class TanStackProvider extends BaseProvider {
     const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
     const model = request.model || this.config.defaultModel || 'gpt-4o';
 
-    const stream = await chat({
-      adapter,
-      model,
-      messages,
-      maxTokens: request.maxTokens || 2000,
-      temperature: request.temperature || 0.7,
-    } as Parameters<typeof chat>[0]);
+    // @ts-expect-error -- adapter is unknown; model/maxTokens/temperature are runtime-valid but not in TextActivityOptions type
+    const stream = await chat({ adapter, model, messages, maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 });
 
     let tokenIndex = 0;
 

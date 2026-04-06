@@ -52,13 +52,12 @@ interface UserLLMProviderDbRow {
 }
 
 function isUserLLMProviderDbRow(v: unknown): v is UserLLMProviderDbRow {
+  if (typeof v !== 'object' || v === null) return false;
   return (
-    typeof v === 'object' &&
-    v !== null &&
-    typeof (v as Record<string, unknown>).id === 'string' &&
-    typeof (v as Record<string, unknown>).userId === 'string' &&
-    typeof (v as Record<string, unknown>).providerId === 'string' &&
-    typeof (v as Record<string, unknown>).isDefault === 'boolean'
+    typeof Reflect.get(v, 'id') === 'string' &&
+    typeof Reflect.get(v, 'userId') === 'string' &&
+    typeof Reflect.get(v, 'providerId') === 'string' &&
+    typeof Reflect.get(v, 'isDefault') === 'boolean'
   );
 }
 
