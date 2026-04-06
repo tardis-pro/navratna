@@ -195,8 +195,8 @@ export abstract class BaseService {
 
   protected async initializeDatabase(): Promise<void> {
     try {
-      await this.databaseService.isHealthy();
       await drizzleService.initialize();
+      await this.databaseService.isHealthy();
       logger.info(`${this.config.name}: Database initialized`);
 
       const { seedDatabase } = await import('./database/seeders/index');

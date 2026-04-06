@@ -17,11 +17,11 @@ processors:
 
 exporters:
   clickhousetraces:
-    datasource: tcp://signoz-clickhouse:9000/?database=signoz_traces
+    datasource: tcp://signoz-clickhouse:9000/signoz_traces
   clickhousemetricswrite:
-    datasource: tcp://signoz-clickhouse:9000/?database=signoz_metrics
+    endpoint: tcp://signoz-clickhouse:9000/signoz_metrics
   clickhouselogsexporter:
-    datasource: tcp://signoz-clickhouse:9000/?database=signoz_logs
+    dsn: tcp://signoz-clickhouse:9000/?database=signoz_logs
 
 extensions:
   health_check:

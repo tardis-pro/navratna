@@ -26,6 +26,7 @@ services:
   neo4j:
     image: neo4j:2025.04.0-community-bullseye
     container_name: uaip-neo4j-dev
+    hostname: uaip-neo4j
     environment:
       NEO4J_AUTH: ${NEO4J_AUTH:-neo4j/uaip_dev_password}
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
@@ -85,7 +86,7 @@ services:
     networks:
       - uaip-network
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:6333/health']
+      test: ['CMD-SHELL', 'bash -c "exec 3<>/dev/tcp/localhost/6333 && echo -e \"GET /healthz HTTP/1.0\r\nHost: localhost\r\n\r\n\" >&3 && head -1 <&3 | grep -q 200"']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -135,6 +136,8 @@ services:
     container_name: uaip-signoz-clickhouse
     volumes:
       - signoz_clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-config/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./clickhouse-config/signoz-databases.sql:/docker-entrypoint-initdb.d/signoz-databases.sql:ro
     ulimits:
       nofile:
         soft: 262144
@@ -167,7 +170,7 @@ services:
       signoz-clickhouse:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'curl -sf http://localhost:13133/ || exit 1']
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:13133/ || exit 1']
       interval: 15s
       timeout: 5s
       retries: 5
@@ -182,6 +185,8 @@ services:
       - ClickHouseUrl=tcp://signoz-clickhouse:9000
       - STORAGE=clickhouse
       - GODEBUG=netdns=go
+    volumes:
+      - signoz_query_data:/var/lib/signoz
     networks:
       - uaip-network
     depends_on:
@@ -190,7 +195,7 @@ services:
       signoz-otel-collector:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'curl -sf http://localhost:8085/api/v1/health || exit 1']
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/api/v1/health | grep -q ok || exit 1']
       interval: 15s
       timeout: 5s
       retries: 5
@@ -215,6 +220,116 @@ services:
   # ==========================================================================
   # Sentry — Self-hosted error tracking & performance monitoring
   # ==========================================================================
+
+  sentry-kafka:
+    image: apache/kafka:3.7.1
+    container_name: uaip-sentry-kafka
+    environment:
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qg'
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@sentry-kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://sentry-kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - sentry_kafka_data:/var/lib/kafka/data
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    profiles:
+      - monitoring
+
+  sentry-snuba-api:
+    image: getsentry/snuba:24.6.0
+    container_name: uaip-sentry-snuba-api
+    environment:
+      SNUBA_SETTINGS: docker
+      DEFAULT_BROKERS: sentry-kafka:9092
+      CLICKHOUSE_HOST: signoz-clickhouse
+      REDIS_HOST: sentry-redis
+      UWSGI_MAX_REQUESTS: '10000'
+      UWSGI_DISABLE_LOGGING: 'true'
+    networks:
+      - uaip-network
+    depends_on:
+      sentry-kafka:
+        condition: service_healthy
+      signoz-clickhouse:
+        condition: service_healthy
+      sentry-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:1218/health || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - monitoring
+
+  sentry-snuba-consumer:
+    image: getsentry/snuba:24.6.0
+    container_name: uaip-sentry-snuba-consumer
+    command: consumer --storage errors --auto-offset-reset=latest --max-batch-time-ms 750
+    environment:
+      SNUBA_SETTINGS: docker
+      DEFAULT_BROKERS: sentry-kafka:9092
+      CLICKHOUSE_HOST: signoz-clickhouse
+      REDIS_HOST: sentry-redis
+    networks:
+      - uaip-network
+    depends_on:
+      sentry-snuba-api:
+        condition: service_healthy
+    profiles:
+      - monitoring
+
+  sentry-snuba-outcomes-consumer:
+    image: getsentry/snuba:24.6.0
+    container_name: uaip-sentry-snuba-outcomes
+    command: consumer --storage outcomes_raw --auto-offset-reset=earliest --max-batch-time-ms 750
+    environment:
+      SNUBA_SETTINGS: docker
+      DEFAULT_BROKERS: sentry-kafka:9092
+      CLICKHOUSE_HOST: signoz-clickhouse
+      REDIS_HOST: sentry-redis
+    networks:
+      - uaip-network
+    depends_on:
+      sentry-snuba-api:
+        condition: service_healthy
+    profiles:
+      - monitoring
+
+  sentry-snuba-replacer:
+    image: getsentry/snuba:24.6.0
+    container_name: uaip-sentry-snuba-replacer
+    command: replacer --storage errors --auto-offset-reset=latest --max-batch-size 3
+    environment:
+      SNUBA_SETTINGS: docker
+      DEFAULT_BROKERS: sentry-kafka:9092
+      CLICKHOUSE_HOST: signoz-clickhouse
+      REDIS_HOST: sentry-redis
+    networks:
+      - uaip-network
+    depends_on:
+      sentry-snuba-api:
+        condition: service_healthy
+    profiles:
+      - monitoring
+
   sentry-postgres:
     image: postgres:16-alpine
     container_name: uaip-sentry-postgres
@@ -249,20 +364,14 @@ services:
     profiles:
       - monitoring
 
-  sentry-web:
+  sentry-init:
     image: getsentry/sentry:24.6.0
-    container_name: uaip-sentry-web
-    ports:
-      - '9000:9000'
+    container_name: uaip-sentry-init
+    command: upgrade --noinput
     environment:
       SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
-      SENTRY_POSTGRES_HOST: sentry-postgres
-      SENTRY_POSTGRES_PORT: 5432
-      SENTRY_DB_USER: sentry
-      SENTRY_DB_PASSWORD: sentry_password
-      SENTRY_DB_NAME: sentry
-      SENTRY_REDIS_HOST: sentry-redis
-      SENTRY_REDIS_PORT: 6379
+    volumes:
+      - ./sentry-config/sentry.conf.py:/etc/sentry/sentry.conf.py:ro
     networks:
       - uaip-network
     depends_on:
@@ -270,6 +379,28 @@ services:
         condition: service_healthy
       sentry-redis:
         condition: service_healthy
+      sentry-kafka:
+        condition: service_healthy
+      sentry-snuba-api:
+        condition: service_healthy
+    restart: on-failure
+    profiles:
+      - monitoring
+
+  sentry-web:
+    image: getsentry/sentry:24.6.0
+    container_name: uaip-sentry-web
+    ports:
+      - '9000:9000'
+    environment:
+      SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
+    volumes:
+      - ./sentry-config/sentry.conf.py:/etc/sentry/sentry.conf.py:ro
+    networks:
+      - uaip-network
+    depends_on:
+      sentry-init:
+        condition: service_completed_successfully
     profiles:
       - monitoring
 
@@ -279,13 +410,8 @@ services:
     command: run worker
     environment:
       SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
-      SENTRY_POSTGRES_HOST: sentry-postgres
-      SENTRY_POSTGRES_PORT: 5432
-      SENTRY_DB_USER: sentry
-      SENTRY_DB_PASSWORD: sentry_password
-      SENTRY_DB_NAME: sentry
-      SENTRY_REDIS_HOST: sentry-redis
-      SENTRY_REDIS_PORT: 6379
+    volumes:
+      - ./sentry-config/sentry.conf.py:/etc/sentry/sentry.conf.py:ro
     networks:
       - uaip-network
     depends_on:
@@ -299,13 +425,8 @@ services:
     command: run cron
     environment:
       SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
-      SENTRY_POSTGRES_HOST: sentry-postgres
-      SENTRY_POSTGRES_PORT: 5432
-      SENTRY_DB_USER: sentry
-      SENTRY_DB_PASSWORD: sentry_password
-      SENTRY_DB_NAME: sentry
-      SENTRY_REDIS_HOST: sentry-redis
-      SENTRY_REDIS_PORT: 6379
+    volumes:
+      - ./sentry-config/sentry.conf.py:/etc/sentry/sentry.conf.py:ro
     networks:
       - uaip-network
     depends_on:
@@ -325,6 +446,8 @@ volumes:
   prometheus_data:
   grafana_data:
   signoz_clickhouse_data:
+  signoz_query_data:
+  sentry_kafka_data:
   sentry_postgres_data:
   sentry_redis_data:
 

@@ -77,10 +77,28 @@ function makePool(urlEnvVar: string, fallbackEnvVar = 'POSTGRES_URL'): pg.Pool {
 export type IntelligenceDB = NodePgDatabase<typeof intelligenceSchema>;
 export type ControlDB = NodePgDatabase<typeof controlSchema>;
 
-let _intelligenceDb: IntelligenceDB | null = null;
-let _controlDb: ControlDB | null = null;
-let _intelligencePool: pg.Pool | null = null;
-let _controlPool: pg.Pool | null = null;
+// Store plane state on globalThis to prevent dual-module-instance bugs.
+// Bun resolves src/ and dist/ as separate modules (tsconfig paths vs package.json exports),
+// so module-level variables would be duplicated. globalThis is shared across all copies.
+interface DrizzlePlaneState {
+  intelligenceDb: IntelligenceDB | null;
+  controlDb: ControlDB | null;
+  intelligencePool: pg.Pool | null;
+  controlPool: pg.Pool | null;
+}
+
+const GLOBAL_KEY = '__uaip_drizzle_planes__' as const;
+function getPlaneState(): DrizzlePlaneState {
+  if (!(globalThis as Record<string, unknown>)[GLOBAL_KEY]) {
+    (globalThis as Record<string, unknown>)[GLOBAL_KEY] = {
+      intelligenceDb: null,
+      controlDb: null,
+      intelligencePool: null,
+      controlPool: null,
+    };
+  }
+  return (globalThis as Record<string, unknown>)[GLOBAL_KEY] as DrizzlePlaneState;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Initializer — call once at service startup
@@ -90,26 +108,27 @@ export async function initializePlanes(): Promise<{
   intelligenceDb: IntelligenceDB;
   controlDb: ControlDB;
 }> {
-  if (_intelligenceDb && _controlDb) {
-    return { intelligenceDb: _intelligenceDb, controlDb: _controlDb };
+  const state = getPlaneState();
+  if (state.intelligenceDb && state.controlDb) {
+    return { intelligenceDb: state.intelligenceDb, controlDb: state.controlDb };
   }
 
   // Intelligence plane (PC-A)
-  _intelligencePool = makePool('POSTGRES_URL_INTELLIGENCE');
-  const iClient = await _intelligencePool.connect();
+  state.intelligencePool = makePool('POSTGRES_URL_INTELLIGENCE');
+  const iClient = await state.intelligencePool.connect();
   await iClient.query('SELECT 1');
   iClient.release();
-  _intelligenceDb = drizzle(_intelligencePool, {
+  state.intelligenceDb = drizzle(state.intelligencePool, {
     schema: intelligenceSchema,
     logger: process.env.NODE_ENV === 'development',
   });
 
   // Control plane (PC-B)
-  _controlPool = makePool('POSTGRES_URL_CONTROL');
-  const cClient = await _controlPool.connect();
+  state.controlPool = makePool('POSTGRES_URL_CONTROL');
+  const cClient = await state.controlPool.connect();
   await cClient.query('SELECT 1');
   cClient.release();
-  _controlDb = drizzle(_controlPool, {
+  state.controlDb = drizzle(state.controlPool, {
     schema: controlSchema,
     logger: process.env.NODE_ENV === 'development',
   });
@@ -125,7 +144,7 @@ export async function initializePlanes(): Promise<{
     topology: singleNode ? 'single-node' : 'multi-machine',
   });
 
-  return { intelligenceDb: _intelligenceDb, controlDb: _controlDb };
+  return { intelligenceDb: state.intelligenceDb, controlDb: state.controlDb };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,21 +152,24 @@ export async function initializePlanes(): Promise<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function getIntelligenceDb(): IntelligenceDB {
-  if (!_intelligenceDb)
+  const state = getPlaneState();
+  if (!state.intelligenceDb)
     throw new Error('Intelligence plane not initialized. Call initializePlanes().');
-  return _intelligenceDb;
+  return state.intelligenceDb;
 }
 
 export function getControlDb(): ControlDB {
-  if (!_controlDb) throw new Error('Control plane not initialized. Call initializePlanes().');
-  return _controlDb;
+  const state = getPlaneState();
+  if (!state.controlDb) throw new Error('Control plane not initialized. Call initializePlanes().');
+  return state.controlDb;
 }
 
 export async function closePlanes(): Promise<void> {
-  await _intelligencePool?.end();
-  await _controlPool?.end();
-  _intelligenceDb = _controlDb = null;
-  _intelligencePool = _controlPool = null;
+  const state = getPlaneState();
+  await state.intelligencePool?.end();
+  await state.controlPool?.end();
+  state.intelligenceDb = state.controlDb = null;
+  state.intelligencePool = state.controlPool = null;
   logger.info('Drizzle plane connections closed');
 }
 
@@ -171,9 +193,10 @@ export async function checkPlanesHealth(): Promise<{
     }
   };
 
+  const state = getPlaneState();
   const [intelligence, control] = await Promise.all([
-    check(_intelligencePool),
-    check(_controlPool),
+    check(state.intelligencePool),
+    check(state.controlPool),
   ]);
 
   return { intelligence, control };
@@ -240,13 +263,15 @@ export const CrossPlaneGuard = {
 } as const;
 
 export function getIntelligencePool(): pg.Pool {
-  if (!_intelligencePool) throw new Error('Intelligence pool not initialized.');
-  return _intelligencePool;
+  const state = getPlaneState();
+  if (!state.intelligencePool) throw new Error('Intelligence pool not initialized.');
+  return state.intelligencePool;
 }
 
 export function getControlPool(): pg.Pool {
-  if (!_controlPool) throw new Error('Control pool not initialized.');
-  return _controlPool;
+  const state = getPlaneState();
+  if (!state.controlPool) throw new Error('Control pool not initialized.');
+  return state.controlPool;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
