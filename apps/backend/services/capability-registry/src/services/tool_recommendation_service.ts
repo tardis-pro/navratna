@@ -3,6 +3,10 @@ import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 import type { ToolDefinition } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 interface RecommendationContext {
   userId?: string;
   agentId?: string;
@@ -31,7 +35,7 @@ export class ToolRecommendationService {
   private eventBus: EventBusService;
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return isRecord(value) ? value : {};
   }
 
   private asString(value: unknown, fallback = ''): string {

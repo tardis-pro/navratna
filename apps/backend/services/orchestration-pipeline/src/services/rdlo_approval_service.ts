@@ -10,29 +10,9 @@ import type {
   StoredPendingApproval,
 } from '@uaip/types'
 import { OperationStatus, RDLOApprovalGate } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils'
 
 type ApprovalStatus = PendingApproval['status']
-
-// BullMQ queue contract is an EventBusService internal implementation detail.
-interface DelayableQueue {
-  add(
-    name: string,
-    data: Record<string, unknown>,
-    opts: {
-      jobId: string
-      delay: number
-      removeOnComplete: number
-      removeOnFail: number
-      attempts: number
-    }
-  ): Promise<unknown>
-}
-
-// Internal queue accessor is intentionally local to avoid leaking transport internals.
-interface EventBusWithInternalQueue {
-  getOrCreateQueue(eventType: string): DelayableQueue
-}
 
 const RDLO_APPROVAL_PENDING_EVENT = 'rdlo.approval.pending'
 const RDLO_APPROVAL_TIMEOUT_EVENT = 'rdlo.approval.timeout'
@@ -127,7 +107,7 @@ export class RDLOApprovalService {
 
     const approval: StoredPendingApproval | null = this.toStoredPendingApproval(created)
     if (!approval) {
-      throw new Error(`Failed to parse created approval ${created.id}`)
+      throw new InternalServerError(`Failed to parse created approval ${created.id}`)
     }
 
     await this.eventBusService.publish(RDLO_APPROVAL_PENDING_EVENT, {
@@ -150,7 +130,7 @@ export class RDLOApprovalService {
 
     const current = await this.getStoredApprovalById(approvalId)
     if (!current) {
-      throw new Error(`Approval ${approvalId} not found`)
+      throw new NotFoundError(`Approval ${approvalId} not found`)
     }
 
     if (current.status !== 'pending') {
@@ -221,12 +201,12 @@ export class RDLOApprovalService {
       .limit(1)
 
     if (!row) {
-      throw new Error(`Approval ${id} not found`)
+      throw new NotFoundError(`Approval ${id} not found`)
     }
 
     const current = this.toStoredPendingApproval(row)
     if (!current) {
-      throw new Error(`Approval ${id} has malformed metadata`)
+      throw new InternalServerError(`Approval ${id} has malformed metadata`)
     }
 
     if (current.status !== 'pending') {
@@ -260,7 +240,7 @@ export class RDLOApprovalService {
 
     const approval = this.toStoredPendingApproval(updated)
     if (!approval) {
-      throw new Error(`Failed to parse resolved approval ${id}`)
+      throw new InternalServerError(`Failed to parse resolved approval ${id}`)
     }
 
     await this.eventBusService.publish(this.responseEventFor(id), {
@@ -354,9 +334,8 @@ export class RDLOApprovalService {
     )
   }
 
-  private getTimeoutQueue(): DelayableQueue {
-    const withQueue = this.eventBusService as unknown as EventBusWithInternalQueue
-    return withQueue.getOrCreateQueue(RDLO_APPROVAL_TIMEOUT_EVENT)
+  private getTimeoutQueue() {
+    return this.eventBusService.getOrCreateQueue(RDLO_APPROVAL_TIMEOUT_EVENT)
   }
 
   private async getStoredApprovalById(approvalId: string): Promise<StoredPendingApproval | null> {

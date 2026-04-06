@@ -6,44 +6,36 @@ import { AgentLLMPreferenceRepository } from '../database/repositories/agent_l_l
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 import { EventBusService } from '../event_bus_service';
 import type { Agent, NewAgent } from '../database/drizzle/schemas/intelligence_schema';
-
-type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
-type JsonObject = { [key: string]: JsonValue };
+import type { CapabilityRow } from '../database/repositories/capability_repository';
 
 interface Capability {
   id: string;
   name: string;
   description?: string;
   type: string;
-  configuration?: JsonObject;
+  configuration?: Record<string, unknown>;
   isEnabled: boolean;
-  metadata?: JsonObject;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const toCapability = (
-  row: Record<
-    string,
-    JsonValue | Date | Record<string, string | number | boolean | null>
-  >
-): Capability => ({
-  id: String(row.id ?? ''),
-  name: String(row.name ?? ''),
-  description: typeof row.description === 'string' ? row.description : undefined,
-  type: String(row.type ?? ''),
+const toCapability = (row: CapabilityRow): Capability => ({
+  id: row.id,
+  name: row.name,
+  description: row.description ?? undefined,
+  type: row.type,
   configuration:
     row.configuration && typeof row.configuration === 'object'
-      ? (row.configuration as JsonObject)
+      ? { ...row.configuration }
       : undefined,
-  isEnabled: Boolean(row.isEnabled),
+  isEnabled: row.isEnabled,
   metadata:
     row.metadata && typeof row.metadata === 'object'
-      ? (row.metadata as JsonObject)
+      ? { ...row.metadata }
       : undefined,
-  createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(),
-  updatedAt: row.updatedAt instanceof Date ? row.updatedAt : new Date(),
+  createdAt: row.createdAt,
+  updatedAt: row.updatedAt,
 });
 
 export class AgentService extends BaseDomainService {
@@ -97,21 +89,21 @@ export class AgentService extends BaseDomainService {
     const result = await agentRepo.createAgent({
       name: data.name,
       description: data.description,
-      role: (data.role || AgentRole.ASSISTANT) as Agent['role'],
+      role: data.role ?? AgentRole.ASSISTANT,
       personaId: data.personaId || defaultPersona.id,
       systemPrompt: data.instructions,
       modelId: data.modelId || 'gpt-4',
       temperature: data.temperature,
       maxTokens: data.maxTokens,
-      securityLevel: (data.securityLevel || SecurityLevel.MEDIUM) as Agent['securityLevel'],
-      status: (data.status || AgentStatus.IDLE) as string,
+      securityLevel: data.securityLevel ?? SecurityLevel.MEDIUM,
+      status: data.status ?? AgentStatus.IDLE,
       isActive: true,
       createdBy: data.createdBy || 'system',
       version: '1.0.0',
       tags: [],
       capabilities: [],
-      intelligenceConfig: (data.intelligenceConfig || {}) as Agent['intelligenceConfig'],
-      securityContext: (data.securityContext || {}) as Agent['securityContext'],
+      intelligenceConfig: data.intelligenceConfig ?? {},
+      securityContext: data.securityContext ?? {},
     });
     return result;
   }
@@ -138,7 +130,7 @@ export class AgentService extends BaseDomainService {
 
     const updatedAgent = await this.getAgentRepository().updateAgent(
       id,
-      data as Partial<NewAgent>
+      data
     );
 
     if (
@@ -153,7 +145,7 @@ export class AgentService extends BaseDomainService {
       } catch (error) {
         logger.error('Failed to publish agent config change event', {
           agentId: id,
-          error: (error as Error).message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -202,7 +194,7 @@ export class AgentService extends BaseDomainService {
   }
 
   public async updateAgentStatus(id: string, status: AgentStatus): Promise<boolean> {
-    const result = await this.getAgentRepository().updateAgent(id, { status: status as string });
+    const result = await this.getAgentRepository().updateAgent(id, { status });
     return result !== null;
   }
 
@@ -224,21 +216,12 @@ export class AgentService extends BaseDomainService {
       isEnabled: data.isActive ?? true,
       metadata: {},
     });
-    return toCapability(
-      result as Record<string, JsonValue | Date | Record<string, string | number | boolean | null>>
-    );
+    return toCapability(result);
   }
 
   public async findCapabilityById(id: string): Promise<Capability | null> {
     const result = await this.getCapabilityRepository().findById(id);
-    return result
-      ? toCapability(
-          result as Record<
-            string,
-            JsonValue | Date | Record<string, string | number | boolean | null>
-          >
-        )
-      : null;
+    return result ? toCapability(result) : null;
   }
 
   public async assignCapabilityToAgent(agentId: string, capabilityId: string): Promise<void> {
@@ -248,7 +231,7 @@ export class AgentService extends BaseDomainService {
     const capability = await this.getCapabilityRepository().findById(capabilityId);
     if (!capability) throw new Error('Capability not found');
 
-    const agentCapabilities = (agent.capabilities || []) as string[];
+    const agentCapabilities = agent.capabilities ?? [];
     if (!agentCapabilities.includes(capabilityId)) {
       agentCapabilities.push(capabilityId);
       await this.getAgentRepository().updateAgent(agent.id, { capabilities: agentCapabilities });
@@ -259,7 +242,7 @@ export class AgentService extends BaseDomainService {
     const agent = await this.findAgentById(agentId);
     if (!agent) throw new Error('Agent not found');
 
-    const agentCapabilities = (agent.capabilities || []) as string[];
+    const agentCapabilities = agent.capabilities ?? [];
     const filtered = agentCapabilities.filter((cap) => cap !== capabilityId);
     await this.getAgentRepository().updateAgent(agent.id, { capabilities: filtered });
   }
@@ -267,14 +250,26 @@ export class AgentService extends BaseDomainService {
   public async createBulkAgents(agents: Array<Partial<Agent>>): Promise<Agent[]> {
     const results: Agent[] = [];
     for (const agentData of agents) {
-      const created = await this.createAgent({ name: agentData.name || 'Agent', ...agentData } as Parameters<typeof this.createAgent>[0]);
+      const created = await this.createAgent({
+        name: agentData.name ?? 'Agent',
+        description: agentData.description,
+        role: agentData.role,
+        instructions: agentData.systemPrompt,
+        modelId: agentData.modelId,
+        temperature: agentData.temperature,
+        maxTokens: agentData.maxTokens,
+        personaId: agentData.personaId,
+        intelligenceConfig: agentData.intelligenceConfig,
+        securityContext: agentData.securityContext,
+        createdBy: agentData.createdBy,
+      });
       results.push(created);
     }
     return results;
   }
 
   public async findAgentsByRole(role: AgentRole): Promise<Agent[]> {
-    const results = await this.getAgentRepository().findMany({ role: role as string });
+    const results = await this.getAgentRepository().findMany({ role });
     return results;
   }
 }

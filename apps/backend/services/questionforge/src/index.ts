@@ -5,6 +5,14 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ForgeRequest } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isForgeRequest(v: unknown): v is ForgeRequest {
+  return isRecord(v) && typeof v.projectBriefText === 'string';
+}
+
 import { QuestionForgeService } from './services/question_forge_service.js';
 import { InterviewCaptureService } from './services/interview_capture_service.js';
 import { registerQuestionForgeRoutes } from './routes/questionforge_routes.js';
@@ -45,7 +53,10 @@ class QuestionForgeApp extends BaseService {
       await this.subscribeWithErrorHandling(
         'questionforge.forge.request',
         async (data) => {
-          const result = await this.forgeService.forge(data as ForgeRequest);
+          if (!isForgeRequest(data)) {
+            throw new Error('Invalid forge request: missing projectBriefText');
+          }
+          const result = await this.forgeService.forge(data);
           return {
             ...result,
             questionPacks: result.questionPacks,

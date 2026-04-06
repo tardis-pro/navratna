@@ -19,6 +19,31 @@ export type {
   OntologyProposal,
 } from './process_archaeology_types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+type FieldHint = { name: string; table?: string; samples?: string[] };
+type EndpointHint = { path: string; method?: string; responseFields?: string[]; sampleResponse?: Record<string, unknown> };
+type FileHint = { path: string; language?: string; exports?: string[]; imports?: string[] };
+type SaaSObject = { name: string; fields?: string[]; sampleRecords?: Array<Record<string, unknown>> };
+
+function isFieldHint(v: unknown): v is FieldHint {
+  return isRecord(v) && typeof v.name === 'string';
+}
+
+function isEndpointHint(v: unknown): v is EndpointHint {
+  return isRecord(v) && typeof v.path === 'string';
+}
+
+function isFileHint(v: unknown): v is FileHint {
+  return isRecord(v) && typeof v.path === 'string';
+}
+
+function isSaaSObject(v: unknown): v is SaaSObject {
+  return isRecord(v) && typeof v.name === 'string';
+}
+
 import type {
   DataSource,
   DiscoveredEntity,
@@ -323,8 +348,11 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const tables = (config.tables as string[]) ?? [];
-    const schemas = (config.schemas as Record<string, Record<string, unknown>>) ?? {};
+    const tables = Array.isArray(config.tables) ? config.tables.filter((x): x is string => typeof x === 'string') : [];
+    const rawSchemas = isRecord(config.schemas) ? config.schemas : {};
+    const schemas: Record<string, Record<string, unknown>> = Object.fromEntries(
+      Object.entries(rawSchemas).filter((entry): entry is [string, Record<string, unknown>] => isRecord(entry[1]))
+    );
 
     // Discover tables
     for (const tableName of tables) {
@@ -359,11 +387,7 @@ export class ProcessArchaeologyService {
 
     // Fallback: if no tables provided but there are field-level hints
     if (tables.length === 0 && config.fields && Array.isArray(config.fields)) {
-      for (const field of config.fields as Array<{
-        name: string;
-        table?: string;
-        samples?: string[];
-      }>) {
+      for (const field of config.fields.filter(isFieldHint)) {
         entities.push({
           id: uuidv4(),
           sourceId: source.id,
@@ -382,13 +406,9 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const endpoints =
-      (config.endpoints as Array<{
-        path: string;
-        method?: string;
-        responseFields?: string[];
-        sampleResponse?: Record<string, unknown>;
-      }>) ?? [];
+    const endpoints: EndpointHint[] = Array.isArray(config.endpoints)
+      ? config.endpoints.filter(isEndpointHint)
+      : [];
 
     for (const ep of endpoints) {
       entities.push({
@@ -429,13 +449,9 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const files =
-      (config.files as Array<{
-        path: string;
-        language?: string;
-        exports?: string[];
-        imports?: string[];
-      }>) ?? [];
+    const files: FileHint[] = Array.isArray(config.files)
+      ? config.files.filter(isFileHint)
+      : [];
 
     for (const file of files) {
       entities.push({
@@ -469,7 +485,7 @@ export class ProcessArchaeologyService {
     }
 
     // Discover models / interfaces from config hints
-    const models = (config.models as string[]) ?? [];
+    const models = Array.isArray(config.models) ? config.models.filter((x): x is string => typeof x === 'string') : [];
     for (const modelName of models) {
       entities.push({
         id: uuidv4(),
@@ -487,8 +503,11 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const filePaths = (config.filePaths as string[]) ?? [];
-    const headers = (config.headers as Record<string, string[]>) ?? {};
+    const filePaths = Array.isArray(config.filePaths) ? config.filePaths.filter((x): x is string => typeof x === 'string') : [];
+    const rawHeaders = isRecord(config.headers) ? config.headers : {};
+    const headers: Record<string, string[]> = Object.fromEntries(
+      Object.entries(rawHeaders).filter((entry): entry is [string, string[]] => Array.isArray(entry[1]))
+    );
 
     for (const filePath of filePaths) {
       entities.push({
@@ -526,12 +545,9 @@ export class ProcessArchaeologyService {
     const entities: DiscoveredEntity[] = [];
     const config = source.connectionConfig;
 
-    const objects =
-      (config.objects as Array<{
-        name: string;
-        fields?: string[];
-        sampleRecords?: Array<Record<string, unknown>>;
-      }>) ?? [];
+    const objects: SaaSObject[] = Array.isArray(config.objects)
+      ? config.objects.filter(isSaaSObject)
+      : [];
 
     for (const obj of objects) {
       entities.push({
@@ -723,7 +739,10 @@ export class ProcessArchaeologyService {
     tableName: string,
     fieldName: string
   ): string[] | undefined {
-    const sampleData = config.sampleData as Record<string, Record<string, unknown>[]> | undefined;
+    const rawSampleData = isRecord(config.sampleData) ? config.sampleData : undefined;
+    const sampleData: Record<string, Record<string, unknown>[]> | undefined = rawSampleData
+      ? Object.fromEntries(Object.entries(rawSampleData).filter((entry): entry is [string, Record<string, unknown>[]] => Array.isArray(entry[1])))
+      : undefined;
     if (!sampleData || !sampleData[tableName]) {
       return undefined;
     }

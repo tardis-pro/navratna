@@ -1,5 +1,6 @@
 import { EventBusService, getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
 import { eq, and, ilike } from '@uaip/shared-services/drizzle/clients'
+import { KnowledgeType, SourceType } from '@uaip/types'
 import type {
   BoardProvider,
   DriftReport,
@@ -221,10 +222,10 @@ export class DriftDetectionService {
         .limit(500)
 
       const symbols = rows.map((r) => {
-        const meta = r.metadata as Record<string, unknown> | null
+        const meta = typeof r.metadata === 'object' && r.metadata !== null && !Array.isArray(r.metadata) ? r.metadata : null
         return {
-          name: (meta?.title as string) ?? '',
-          file: (meta?.file as string) ?? '',
+          name: typeof meta?.title === 'string' ? meta.title : '',
+          file: typeof meta?.file === 'string' ? meta.file : '',
           exported: true,
         }
       })
@@ -253,9 +254,9 @@ export class DriftDetectionService {
       })
 
       await db.insert(knowledgeItems).values({
-        type: 'drift-snapshot' as unknown as typeof knowledgeItems.$inferInsert['type'],
+        type: KnowledgeType.EPISODIC,
         content,
-        sourceType: 'drift-detection' as unknown as typeof knowledgeItems.$inferInsert['sourceType'],
+        sourceType: SourceType.FILE_SYSTEM,
         sourceIdentifier: repoSource,
         tags: ['drift-snapshot'],
         confidence: 1.0,

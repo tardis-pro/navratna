@@ -31,7 +31,8 @@ export class EmbeddingService extends BaseEmbeddingService {
       throw new Error(`OpenAI API error: ${response.statusText}`);
     }
 
-    return (await response.json()) as { data: Array<{ embedding: number[] }> };
+    const json = await response.json() as { data: Array<{ embedding: number[] }> };
+    return json;
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
@@ -40,8 +41,8 @@ export class EmbeddingService extends BaseEmbeddingService {
       return data.data[0].embedding;
     } catch (error) {
       console.error('Embedding generation error:', error);
-      const wrappedError = new Error(`Failed to generate embedding: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }

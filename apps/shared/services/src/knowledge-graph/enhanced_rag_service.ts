@@ -1,3 +1,4 @@
+import { VectorSearchResult } from '@uaip/types';
 import { TEIEmbeddingService } from './tei_embedding_service';
 import { QdrantService } from '../qdrant_service';
 
@@ -24,32 +25,45 @@ export interface SearchOptions {
   filters?: Record<string, unknown>;
 }
 
-function mapCandidateToResult(candidate: VectorCandidate, index: number, includeEmbeddings = false): EnhancedSearchResult {
-  return {
-    id: candidate.id,
-    content: candidate.payload?.content || '',
-    metadata: candidate.payload?.metadata,
-    score: candidate.score,
-    originalScore: candidate.score,
-    rank: index + 1,
-    embedding: includeEmbeddings ? candidate.payload?.embedding : undefined,
-  };
-}
-
-type VectorCandidate = {
-  id: string;
-  score: number;
-  payload?: {
-    content?: string;
-    metadata?: Record<string, unknown>;
-    embedding?: number[];
-  };
-};
+type VectorCandidate = VectorSearchResult;
 
 type StoredVectorDocument = {
   id: string;
   embedding?: number[];
 };
+
+function getPayloadString(payload: Record<string, unknown>, key: string): string {
+  const val = payload[key];
+  return typeof val === 'string' ? val : '';
+}
+
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function getPayloadRecord(payload: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  const val = payload[key];
+  return isPlainRecord(val) ? val : undefined;
+}
+
+function getPayloadNumberArray(payload: Record<string, unknown>, key: string): number[] | undefined {
+  const val = payload[key];
+  if (!Array.isArray(val)) return undefined;
+  return val.filter((item): item is number => typeof item === 'number');
+}
+
+function mapCandidateToResult(candidate: VectorCandidate, index: number, includeEmbeddings = false): EnhancedSearchResult {
+  const payload = candidate.payload;
+  return {
+    id: candidate.id,
+    content: getPayloadString(payload, 'content'),
+    metadata: getPayloadRecord(payload, 'metadata'),
+    score: candidate.score,
+    originalScore: candidate.score,
+    rank: index + 1,
+    embedding: includeEmbeddings ? getPayloadNumberArray(payload, 'embedding') : undefined,
+  };
+}
 
 export class EnhancedRAGService {
   constructor(
@@ -83,11 +97,11 @@ export class EnhancedRAGService {
 
       // Step 2: Vector similarity search (get more candidates for reranking)
       const searchLimit = useReranking ? Math.max(rerankTopK, topK * 2) : topK;
-      const candidates = (await this.vectorStore.search(queryEmbedding, {
+      const candidates = await this.vectorStore.search(queryEmbedding, {
         limit: searchLimit,
         threshold: minScore,
         filters: filters,
-      })) as VectorCandidate[];
+      });
 
       // Filter by minimum score
       const filteredCandidates = candidates.filter((c) => c.score >= minScore);
@@ -100,12 +114,19 @@ export class EnhancedRAGService {
 
       if (useReranking && filteredCandidates.length > 1) {
         // Step 3: Rerank results for better relevance
-        const candidatesWithContent = filteredCandidates.map((c) => ({
-          id: c.id,
-          content: c.payload?.content || '',
-          metadata: c.payload?.metadata,
-          score: c.score,
-        }));
+        const candidatesWithContent = filteredCandidates.map((c) => {
+          const rawMeta = c.payload?.metadata;
+          const metadata: Record<string, unknown> | undefined =
+            rawMeta !== null && typeof rawMeta === 'object'
+              ? Object.fromEntries(Object.entries(rawMeta))
+              : undefined;
+          return {
+            id: c.id,
+            content: typeof c.payload?.content === 'string' ? c.payload.content : '',
+            metadata,
+            score: c.score,
+          };
+        });
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
         // Use vector similarity scores only
@@ -115,8 +136,8 @@ export class EnhancedRAGService {
       return results;
     } catch (error) {
       console.error('Enhanced semantic search failed:', error);
-      const wrappedError = new Error(`Semantic search failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Semantic search failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -172,8 +193,8 @@ export class EnhancedRAGService {
       await this.vectorStore.upsert(vectorDocuments);
     } catch (error) {
       console.error('Document indexing failed:', error);
-      const wrappedError = new Error(`Failed to index documents: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to index documents: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -188,17 +209,20 @@ export class EnhancedRAGService {
   ): Promise<EnhancedSearchResult[]> {
     try {
       // Get the document and its embedding
-      const document = (await this.vectorStore.getById(documentId)) as StoredVectorDocument | null;
+      const docResult = await this.vectorStore.getById(documentId);
+      const document: StoredVectorDocument | null = docResult
+        ? { id: docResult.id, embedding: Array.isArray(docResult.embedding) ? docResult.embedding : undefined }
+        : null;
       if (!document || !document.embedding) {
         throw new Error(`Document ${documentId} not found or missing embedding`);
       }
 
       // Search for similar documents
-      const candidates = (await this.vectorStore.search(document.embedding, {
-        limit: topK + 1, // +1 to exclude the original document
+      const candidates = await this.vectorStore.search(document.embedding, {
+        limit: topK + 1,
         threshold: minScore,
         filters: { exclude_ids: [documentId] },
-      })) as VectorCandidate[];
+      });
 
       // Filter by minimum score and format results
       return candidates
@@ -207,8 +231,8 @@ export class EnhancedRAGService {
         .map((c, i) => mapCandidateToResult(c, i));
     } catch (error) {
       console.error('Similar documents search failed:', error);
-      const wrappedError = new Error(`Failed to find similar documents: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to find similar documents: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }

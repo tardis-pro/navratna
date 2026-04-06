@@ -1,4 +1,4 @@
-import { ThoughtStep, ThoughtChain, ThoughtType, ThoughtStepSchema } from '@uaip/types';
+import { ThoughtStep, ThoughtChain, ThoughtType, ThoughtStepSchema, ThoughtTypeSchema } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -30,9 +30,14 @@ export class ThoughtParserService {
       const [, type, confidence, thoughtContent] = match;
 
       try {
+        const parsedType = ThoughtTypeSchema.safeParse(type);
+        if (!parsedType.success) {
+          logger.warn('Unknown thought type, skipping step:', { type });
+          continue;
+        }
         const step: ThoughtStep = {
           id: uuidv4(),
-          type: type as ThoughtType,
+          type: parsedType.data,
           content: thoughtContent.trim(),
           confidence: parseFloat(confidence),
           timestamp: Date.now(),
@@ -66,9 +71,14 @@ export class ThoughtParserService {
 
     const [fullMatch, type, confidence, content] = match;
 
+    const parsedType = ThoughtTypeSchema.safeParse(type);
+    if (!parsedType.success) {
+      return { thought: null, remaining: buffer };
+    }
+
     const thought: ThoughtStep = {
       id: uuidv4(),
-      type: type as ThoughtType,
+      type: parsedType.data,
       content: content.trim(),
       confidence: parseFloat(confidence),
       timestamp: Date.now(),

@@ -1,6 +1,23 @@
 import { ContextRequest } from '@uaip/types';
 import { BaseEmbeddingService } from './base_embedding_service.js';
 
+function isNumberMatrix(v: unknown): v is number[][] {
+  return Array.isArray(v) && v.every((row) => Array.isArray(row) && row.every((n) => typeof n === 'number'));
+}
+
+function isRerankResultArray(v: unknown): v is RerankResult[] {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        'index' in item && typeof (item as { index: unknown }).index === 'number' &&
+        'score' in item && typeof (item as { score: unknown }).score === 'number'
+    )
+  );
+}
+
 export interface RerankResult {
   index: number;
   score: number;
@@ -94,14 +111,13 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       const data = await response.json();
 
       // TEI returns array of embeddings, we want the first one for single input
-      const dataArr = data as unknown[];
-      return (
-        Array.isArray(dataArr) && Array.isArray(dataArr[0]) ? dataArr[0] : dataArr
-      ) as number[];
+      const dataArr: unknown[] = Array.isArray(data) ? data : [];
+      const embedding = (Array.isArray(dataArr[0]) ? dataArr[0] : dataArr) as number[];
+      return embedding;
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
-      const wrappedError = new Error(`Failed to generate embedding: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -129,7 +145,7 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
         batches.push(validTexts.slice(i, i + batchSize));
       }
 
-      const batchPromises = batches.map(async (batch) => {
+      const batchPromises = batches.map(async (batch): Promise<number[][]> => {
         const response = await this.fetchWithRetry(`${this.embeddingBaseUrl}/embed`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -140,15 +156,19 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
           throw new Error(`TEI batch embedding error: ${response.status} ${response.statusText}`);
         }
 
-        return response.json();
+        const jsonData: unknown = await response.json();
+        if (!isNumberMatrix(jsonData)) {
+          throw new Error('TEI batch embedding response is not a valid number matrix');
+        }
+        return jsonData;
       });
 
       const batchResults = await Promise.all(batchPromises);
-      return (batchResults.flat() as unknown[]).flat() as number[][];
+      return batchResults.flat();
     } catch (error) {
       console.error('TEI batch embedding generation failed:', error);
-      const wrappedError = new Error(`Failed to generate batch embeddings: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to generate batch embeddings: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -185,7 +205,11 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
         throw new Error(`TEI reranking error: ${response.status} ${response.statusText}`);
       }
 
-      const results = (await response.json()) as RerankResult[];
+      const rawResults: unknown = await response.json();
+      if (!isRerankResultArray(rawResults)) {
+        throw new Error('TEI reranking response is not a valid RerankResult array');
+      }
+      const results = rawResults;
 
       // Sort by score descending and optionally limit results
       results.sort((a, b) => b.score - a.score);
@@ -193,8 +217,8 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       return topK ? results.slice(0, topK) : results;
     } catch (error) {
       console.error('TEI reranking failed:', error);
-      const wrappedError = new Error(`Failed to rerank documents: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to rerank documents: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -231,9 +255,9 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         const wrappedError = new Error(`Request timeout after ${this.timeout}ms`);
-        (wrappedError as Error & { cause?: unknown }).cause = error;
+        Object.assign(wrappedError, { cause: error });
         throw wrappedError;
       }
       throw error;
@@ -244,31 +268,29 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
    * Fetch with retry logic
    */
   private async fetchWithRetry(url: string, options?: RequestInit): Promise<Response> {
-    let lastError: Error;
+    let lastError: Error = new Error('No attempts made');
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
         // oxlint-disable-next-line no-await-in-loop
         const response = await this.fetchWithTimeout(url, options);
 
-        // Don't retry on client errors (4xx), only on server errors (5xx) and network issues
         if (response.ok || (response.status >= 400 && response.status < 500)) {
           return response;
         }
 
         throw new Error(`Server error: ${response.status} ${response.statusText}`);
       } catch (error) {
-        lastError = error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt === this.retryAttempts) {
           break;
         }
 
-        // Exponential backoff: 1s, 2s, 4s...
         const delay = Math.pow(2, attempt - 1) * 1000;
         console.warn(
           `TEI request failed (attempt ${attempt}/${this.retryAttempts}), retrying in ${delay}ms:`,
-          error.message
+          lastError.message
         );
 
         // oxlint-disable-next-line no-await-in-loop

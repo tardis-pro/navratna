@@ -2,7 +2,7 @@
 // Extends @uaip/config for shared configuration patterns
 
 import { config as baseConfig, Config } from '@uaip/config';
-import { createLogger } from '@uaip/utils';
+import { createLogger, ValidationError } from '@uaip/utils';
 
 // Initialize logger for this service
 const logger = createLogger({
@@ -57,20 +57,21 @@ function validateConfig(): void {
   for (const path of required) {
     const value = getNestedValue(config, path);
     if (!value) {
-      throw new Error(`Missing required configuration: ${path}`);
+      throw new ValidationError(`Missing required configuration: ${path}`);
     }
   }
 
   // Shared config validation is handled by @uaip/config
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function getNestedValue(obj: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((current, key) => {
-    if (typeof current !== 'object' || current === null) {
-      return undefined;
-    }
-    const record = current as Record<string, unknown>;
-    return record[key];
+    if (!isRecord(current)) return undefined;
+    return current[key];
   }, obj);
 }
 

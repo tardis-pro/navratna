@@ -85,7 +85,7 @@ const ToolManagementPortal = lazy(() =>
 
 interface PortalInstance {
   id: string;
-  type: keyof typeof PORTAL_CONFIGS;
+  type: string;
   title: string;
   component: React.ComponentType<unknown>;
   position: { x: number; y: number };
@@ -103,7 +103,20 @@ interface ViewportSize {
   isDesktop: boolean;
 }
 
-const PORTAL_CONFIGS = {
+type PortalConfigEntry = {
+  title: string;
+  component: React.ComponentType<unknown>;
+  defaultSize: {
+    desktop: { width: number; height: number };
+    tablet: { width: number; height: number };
+    mobile: { width: number; height: number };
+  };
+  type: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+};
+
+const PORTAL_CONFIGS: Record<string, PortalConfigEntry> = {
   'agent-hub': {
     title: 'Agent Hub',
     component: (props: unknown) => <AgentManagerPortal {...props} mode="hub" defaultView="grid" />,
@@ -806,7 +819,7 @@ const HotCornerMenu: React.FC<{
   corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   groupKey?: keyof typeof PORTAL_GROUPS;
   portals: PortalInstance[];
-  togglePortal: (type: keyof typeof PORTAL_CONFIGS) => void;
+  togglePortal: (type: string) => void;
   closeAll?: () => void;
   systemStatus?: string;
   systemMetrics?: unknown;
@@ -907,10 +920,10 @@ const HotCornerMenu: React.FC<{
 
       // Only update if style actually changed
       setPopoverStyle((prevStyle) => {
+        const prevRecord = prevStyle satisfies Record<string, unknown>;
+        const nextRecord = newStyle satisfies Record<string, unknown>;
         const hasChanged = Object.keys(newStyle).some(
-          (key) =>
-            prevStyle[key as keyof React.CSSProperties] !==
-            newStyle[key as keyof React.CSSProperties]
+          (key) => prevRecord[key] !== nextRecord[key]
         );
         return hasChanged ? newStyle : prevStyle;
       });
@@ -972,7 +985,7 @@ const HotCornerMenu: React.FC<{
             )}
             {group &&
               group.portals.map((portalKey, idx) => {
-                const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
+                const config = PORTAL_CONFIGS[portalKey];
                 const isActive = portals.some((p) => p.type === portalKey);
                 const Icon = config.icon;
                 const hotkey = hotkeys[idx];
@@ -981,7 +994,7 @@ const HotCornerMenu: React.FC<{
                     key={portalKey}
                     onClick={(e) => {
                       e.stopPropagation();
-                      togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+                      togglePortal(portalKey);
                       setShow(false);
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all duration-200 ${isActive ? `${group.colorClasses.bg} ${group.colorClasses.text}` : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/70 hover:text-white'}`}
@@ -1173,7 +1186,7 @@ export const PortalWorkspace: React.FC = () => {
   }, []);
 
   const togglePortal = useCallback(
-    (type: keyof typeof PORTAL_CONFIGS) => {
+    (type: string) => {
       const existingPortal = portals.find((p) => p.type === type);
       if (existingPortal) {
         closePortal(existingPortal.id);
@@ -1186,10 +1199,14 @@ export const PortalWorkspace: React.FC = () => {
 
   // Handle portal launching from custom events
   useEffect(() => {
-    const handleLaunchPortal = (event: CustomEvent) => {
+    const isPortalConfigKey = (v: unknown): v is keyof typeof PORTAL_CONFIGS =>
+      typeof v === 'string' && v in PORTAL_CONFIGS;
+
+    const handleLaunchPortal = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
       const { portalType } = event.detail;
-      if (portalType && PORTAL_CONFIGS[portalType as keyof typeof PORTAL_CONFIGS]) {
-        createPortal(portalType as keyof typeof PORTAL_CONFIGS);
+      if (isPortalConfigKey(portalType)) {
+        createPortal(portalType);
       }
     };
 
@@ -1198,18 +1215,17 @@ export const PortalWorkspace: React.FC = () => {
     };
 
     const handleShowHelp = () => {
-      // TODO: Implement help overlay
       alert('Help overlay coming soon! Use hot corners or Ctrl+K to access portals.');
     };
 
-    window.addEventListener('launchPortal', handleLaunchPortal as EventListener);
-    window.addEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
-    window.addEventListener('showHelp', handleShowHelp as EventListener);
+    window.addEventListener('launchPortal', handleLaunchPortal);
+    window.addEventListener('closeAllPortals', handleCloseAllPortals);
+    window.addEventListener('showHelp', handleShowHelp);
 
     return () => {
-      window.removeEventListener('launchPortal', handleLaunchPortal as EventListener);
-      window.removeEventListener('closeAllPortals', handleCloseAllPortals as EventListener);
-      window.removeEventListener('showHelp', handleShowHelp as EventListener);
+      window.removeEventListener('launchPortal', handleLaunchPortal);
+      window.removeEventListener('closeAllPortals', handleCloseAllPortals);
+      window.removeEventListener('showHelp', handleShowHelp);
     };
   }, [createPortal]);
 
@@ -1376,21 +1392,21 @@ export const PortalWorkspace: React.FC = () => {
       HOTKEYS.core.forEach((hotkey, idx) => {
         if (matchHotkey(hotkey)) {
           const portalKey = PORTAL_GROUPS.core.portals[idx];
-          if (portalKey) togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+          if (portalKey) togglePortal(portalKey);
         }
       });
       // Intelligence
       HOTKEYS.intelligence.forEach((hotkey, idx) => {
         if (matchHotkey(hotkey)) {
           const portalKey = PORTAL_GROUPS.intelligence.portals[idx];
-          if (portalKey) togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+          if (portalKey) togglePortal(portalKey);
         }
       });
       // System
       HOTKEYS.system.forEach((hotkey, idx) => {
         if (matchHotkey(hotkey)) {
           const portalKey = PORTAL_GROUPS.system.portals[idx];
-          if (portalKey) togglePortal(portalKey as keyof typeof PORTAL_CONFIGS);
+          if (portalKey) togglePortal(portalKey);
         }
       });
     };
@@ -1578,14 +1594,14 @@ export const PortalWorkspace: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     {group.portals.map((portalKey) => {
-                      const config = PORTAL_CONFIGS[portalKey as keyof typeof PORTAL_CONFIGS];
+                      const config = PORTAL_CONFIGS[portalKey];
                       const isActive = portals.some((p) => p.type === portalKey);
                       const Icon = config.icon;
 
                       return (
                         <motion.button
                           key={portalKey}
-                          onClick={() => togglePortal(portalKey as keyof typeof PORTAL_CONFIGS)}
+                          onClick={() => togglePortal(portalKey)}
                           className={`
                             flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 relative w-full
                             ${

@@ -76,9 +76,9 @@ export class StreamingService extends EventEmitter {
     this.activeStreams.set(sessionId, activeStream);
 
     // Start streaming in background
-    this.processStream(sessionId, request).catch((error) => {
+    this.processStream(sessionId, request).catch((error: unknown) => {
       logger.error(`Stream error for session ${sessionId}:`, error);
-      this.handleStreamError(sessionId, error as Error);
+      this.handleStreamError(sessionId, error instanceof Error ? error : new Error(String(error)));
     });
 
     // Emit start event

@@ -120,16 +120,21 @@ export const UnifiedToolPortal: React.FC = () => {
   const loadTools = async () => {
     try {
       // Load regular tools
-      const regularResult = await uaipAPI.tools.list() as unknown;
-      const regularTools = Array.isArray(regularResult)
-        ? regularResult
-        : (regularResult as { data?: { tools?: Tool[] }; tools?: Tool[] })?.data?.tools &&
-            Array.isArray((regularResult as { data?: { tools?: Tool[] } }).data?.tools)
-          ? (regularResult as { data: { tools: Tool[] } }).data.tools
-          : (regularResult as { tools?: Tool[] })?.tools &&
-              Array.isArray((regularResult as { tools?: Tool[] }).tools)
-            ? (regularResult as { tools: Tool[] }).tools
-            : [];
+      const regularResult = await uaipAPI.tools.list();
+      function extractToolsArray(result: unknown): Tool[] {
+        if (Array.isArray(result)) return result satisfies Tool[];
+        if (result !== null && typeof result === 'object') {
+          const obj = result satisfies Record<string, unknown>;
+          const data = obj['data'];
+          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+            const dataObj = data satisfies Record<string, unknown>;
+            if (Array.isArray(dataObj['tools'])) return dataObj['tools'] satisfies Tool[];
+          }
+          if (Array.isArray(obj['tools'])) return obj['tools'] satisfies Tool[];
+        }
+        return [];
+      }
+      const regularTools = extractToolsArray(regularResult);
 
       // Load MCP tools
       let mcpTools: Tool[] = [];
@@ -172,23 +177,23 @@ export const UnifiedToolPortal: React.FC = () => {
 
   const loadAgents = async () => {
     try {
-      const result = await uaipAPI.agents.list() as unknown;
-      // Handle different response structures
-      type AgentResult = { data?: { agents?: Agent[] }; agents?: Agent[]; } | Agent[];
-      const agentsArray = Array.isArray(result)
-        ? result
-        : (result as AgentResult & { data?: { agents?: Agent[] } })?.data?.agents &&
-            Array.isArray((result as { data?: { agents?: Agent[] } }).data?.agents)
-          ? (result as { data: { agents: Agent[] } }).data.agents
-          : (result as AgentResult & { agents?: Agent[] })?.agents &&
-              Array.isArray((result as { agents?: Agent[] }).agents)
-            ? (result as { agents: Agent[] }).agents
-            : (result as AgentResult & { data?: Agent[] })?.data &&
-                Array.isArray((result as { data?: Agent[] }).data)
-              ? (result as { data: Agent[] }).data
-              : [];
-
-      setAgents(agentsArray);
+      const result = await uaipAPI.agents.list();
+      // Handle different response structures from the untyped API
+      function extractAgentsArray(r: unknown): Agent[] {
+        if (Array.isArray(r)) return r satisfies Agent[];
+        if (r !== null && typeof r === 'object') {
+          const obj = r satisfies Record<string, unknown>;
+          if (Array.isArray(obj['agents'])) return obj['agents'] satisfies Agent[];
+          const data = obj['data'];
+          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+            const dataObj = data satisfies Record<string, unknown>;
+            if (Array.isArray(dataObj['agents'])) return dataObj['agents'] satisfies Agent[];
+          }
+          if (Array.isArray(obj['data'])) return obj['data'] satisfies Agent[];
+        }
+        return [];
+      }
+      setAgents(extractAgentsArray(result));
     } catch (error) {
       logger.error('Failed to load agents:', error);
       setAgents([]);

@@ -16,7 +16,7 @@ import {
 } from '@uaip/types';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, InternalServerError } from '@uaip/utils';
 import { PersonaRepository } from './database/repositories/agent_repository';
 import type { Persona as PersonaRow, NewPersona } from './database/drizzle/schemas/intelligence_schema';
 
@@ -128,30 +128,31 @@ export class PersonaService {
         updatedAt: new Date(),
       };
 
-      const savedEntity = await this.personaRepo.createPersona({
+      const newPersonaRecord: NewPersona = {
         name: personaData.name,
         role: personaData.role,
         description: personaData.description,
-        traits: personaData.traits as _PersonaTrait[],
-        expertise: personaData.expertise as string[],
+        traits: personaData.traits,
+        expertise: personaData.expertise,
         background: personaData.background,
         systemPrompt: personaData.systemPrompt,
-        conversationalStyle: personaData.conversationalStyle as ConversationalStyle,
-        status: personaData.status as PersonaStatus,
-        visibility: personaData.visibility as PersonaVisibility,
+        conversationalStyle: personaData.conversationalStyle,
+        status: personaData.status,
+        visibility: personaData.visibility,
         createdBy: personaData.createdBy,
-        organizationId: personaData.organizationId as string | undefined,
-        teamId: personaData.teamId as string | undefined,
+        organizationId: personaData.organizationId,
+        teamId: personaData.teamId,
         version: personaData.version,
-        parentPersonaId: personaData.parentPersonaId as string | undefined,
-        tags: personaData.tags as string[],
-        validation: personaData.validation as PersonaValidation | undefined,
-        usageStats: personaData.usageStats as PersonaUsageStats | undefined,
-        configuration: personaData.configuration as JsonObject | undefined,
-        capabilities: personaData.capabilities as string[],
-        restrictions: personaData.restrictions as JsonObject | undefined,
-        metadata: personaData.metadata as JsonObject | undefined,
-      } as NewPersona);
+        parentPersonaId: personaData.parentPersonaId,
+        tags: personaData.tags,
+        validation: personaData.validation,
+        usageStats: personaData.usageStats,
+        configuration: personaData.configuration,
+        capabilities: personaData.capabilities,
+        restrictions: personaData.restrictions,
+        metadata: personaData.metadata,
+      };
+      const savedEntity = await this.personaRepo.createPersona(newPersonaRecord);
       const persona = this.entityToPersona(savedEntity);
 
       this.cachePersona(persona);
@@ -166,7 +167,7 @@ export class PersonaService {
       logger.info('Persona created successfully', { personaId: persona.id });
       return persona;
     } catch (error) {
-      logger.error('Failed to create persona', { error: (error as Error).message, request });
+      logger.error('Failed to create persona', { error: error instanceof Error ? error.message : String(error), request });
       throw error;
     }
   }
@@ -188,7 +189,7 @@ export class PersonaService {
       this.cachePersona(persona);
       return persona;
     } catch (error) {
-      logger.error('Failed to get persona', { error: (error as Error).message, personaId: id });
+      logger.error('Failed to get persona', { error: error instanceof Error ? error.message : String(error), personaId: id });
       throw error;
     }
   }
@@ -199,25 +200,39 @@ export class PersonaService {
 
       const existingPersona = await this.getPersona(id);
       if (!existingPersona) {
-        throw new Error(`Persona not found: ${id}`);
+        throw new NotFoundError(`Persona not found: ${id}`);
       }
 
       const updatedPersona = { ...existingPersona, ...updates };
       const validation = await this.validatePersona(updatedPersona);
 
-      const updateData: Record<string, JsonValue> = { ...updates };
-      if (updates.expertise) {
-        updateData.expertise = this.extractExpertiseNames(updates.expertise);
-      }
-
-      const updatedEntity = await this.personaRepo.updatePersona(id, {
-        ...(updateData as Partial<NewPersona>),
-        validation: validation as PersonaValidation | undefined,
+      const updateData: Partial<NewPersona> = {
+        name: updates.name,
+        role: updates.role,
+        description: updates.description,
+        background: updates.background,
+        systemPrompt: updates.systemPrompt,
+        conversationalStyle: updates.conversationalStyle,
+        status: updates.status,
+        visibility: updates.visibility,
+        tags: updates.tags,
+        capabilities: updates.capabilities,
+        restrictions: updates.restrictions,
+        configuration: updates.configuration,
+        metadata: updates.metadata,
+        teamId: updates.teamId,
+        organizationId: updates.organizationId,
+        parentPersonaId: updates.parentPersonaId,
+        traits: updates.traits,
+        expertise: updates.expertise ? this.extractExpertiseNames(updates.expertise) : undefined,
+        validation,
         version: existingPersona.version + 1,
-      });
+      };
+
+      const updatedEntity = await this.personaRepo.updatePersona(id, updateData);
 
       if (!updatedEntity) {
-        throw new Error(`Failed to update persona: ${id}`);
+        throw new InternalServerError(`Failed to update persona: ${id}`);
       }
 
       const persona = this.entityToPersona(updatedEntity);
@@ -233,7 +248,7 @@ export class PersonaService {
       logger.info('Persona updated successfully', { personaId: id });
       return persona;
     } catch (error) {
-      logger.error('Failed to update persona', { error: (error as Error).message, personaId: id });
+      logger.error('Failed to update persona', { error: error instanceof Error ? error.message : String(error), personaId: id });
       throw error;
     }
   }
@@ -244,7 +259,7 @@ export class PersonaService {
 
       const persona = await this.getPersona(id);
       if (!persona) {
-        throw new Error(`Persona not found: ${id}`);
+        throw new NotFoundError(`Persona not found: ${id}`);
       }
 
       const usageCount = await this.getPersonaUsageCount(id);
@@ -269,7 +284,7 @@ export class PersonaService {
 
       logger.info('Persona deleted successfully', { personaId: id });
     } catch (error) {
-      logger.error('Failed to delete persona', { error: (error as Error).message, personaId: id });
+      logger.error('Failed to delete persona', { error: error instanceof Error ? error.message : String(error), personaId: id });
       throw error;
     }
   }
@@ -290,9 +305,7 @@ export class PersonaService {
 
       // Get total count
       const countQuery = `SELECT COUNT(*)::int as cnt FROM "personas"${whereClause ? ` WHERE ${whereClause}` : ''}`;
-      const countResult = (await this.databaseService.executeQuery(countQuery, params)) as Array<{
-        cnt: number;
-      }>;
+      const countResult = await this.databaseService.executeQuery<{ cnt: number }>(countQuery, params);
       const total = countResult[0]?.cnt ?? 0;
 
       // Get paginated results
@@ -355,7 +368,7 @@ export class PersonaService {
         hasMore: offset + personas.length < total,
       };
     } catch (error) {
-      logger.error('Failed to search personas', { error: (error as Error).message, filters });
+      logger.error('Failed to search personas', { error: error instanceof Error ? error.message : String(error), filters });
       throw error;
     }
   }
@@ -377,10 +390,7 @@ export class PersonaService {
 
       return recommendations;
     } catch (error) {
-      logger.error('Failed to get persona recommendations', {
-        error: (error as Error).message,
-        userId,
-      });
+      logger.error('Failed to get persona recommendations', { error: error instanceof Error ? error.message : String(error), userId, });
       throw error;
     }
   }
@@ -439,7 +449,7 @@ export class PersonaService {
         validatedAt: new Date(),
       };
     } catch (error) {
-      logger.error('Persona validation failed', { error: (error as Error).message });
+      logger.error('Persona validation failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -484,10 +494,7 @@ export class PersonaService {
         commonIssues,
       };
     } catch (error) {
-      logger.error('Failed to get persona analytics', {
-        error: (error as Error).message,
-        personaId,
-      });
+      logger.error('Failed to get persona analytics', { error: error instanceof Error ? error.message : String(error), personaId, });
       throw error;
     }
   }
@@ -547,10 +554,7 @@ export class PersonaService {
         timestamp: new Date(),
       });
     } catch (error) {
-      logger.error('Failed to update persona usage', {
-        error: (error as Error).message,
-        personaId,
-      });
+      logger.error('Failed to update persona usage', { error: error instanceof Error ? error.message : String(error), personaId, });
       throw error;
     }
   }
@@ -572,19 +576,16 @@ export class PersonaService {
       const entities = await this.databaseService.executeQuery<PersonaRow>(query, params);
 
       return entities.map((entity) => ({
-        id: entity.id as string,
-        name: entity.name as string,
-        description: entity.description as string,
+        id: entity.id,
+        name: entity.name,
+        description: entity.description ?? '',
         category: 'general',
-        traits: entity.traits as string[],
-        expertise: entity.expertise as string[],
-        usageCount: (entity.totalInteractions as number) || 0,
+        traits: entity.traits.map((t) => (typeof t === 'string' ? t : String(t))),
+        expertise: entity.expertise,
+        usageCount: entity.totalInteractions,
       }));
     } catch (error) {
-      logger.error('Failed to get persona templates', {
-        error: (error as Error).message,
-        category,
-      });
+      logger.error('Failed to get persona templates', { error: error instanceof Error ? error.message : String(error), category, });
       throw error;
     }
   }
@@ -597,7 +598,7 @@ export class PersonaService {
     try {
       const templatePersona = await this.getPersona(templateId);
       if (!templatePersona) {
-        throw new Error(`Template persona not found: ${templateId}`);
+        throw new NotFoundError(`Template persona not found: ${templateId}`);
       }
 
       const personaRequest: CreatePersonaRequest = {
@@ -633,10 +634,7 @@ export class PersonaService {
 
       return persona;
     } catch (error) {
-      logger.error('Failed to create persona from template', {
-        error: (error as Error).message,
-        templateId,
-      });
+      logger.error('Failed to create persona from template', { error: error instanceof Error ? error.message : String(error), templateId, });
       throw error;
     }
   }
@@ -859,21 +857,20 @@ export class PersonaService {
    * Convert entity record to Persona type
    */
   private entityToPersona(entity: PersonaRow): Persona {
-    const expertise = (entity.expertise as string[]) || [];
-    const _traits = (entity.traits as string[]) || [];
-    const tags = (entity.tags as string[]) || [];
-    const capabilities = (entity.capabilities as string[]) || [];
-    const restrictions = (entity.restrictions as JsonObject) || {};
-    const configuration = (entity.configuration as JsonObject) || {};
-    const validation = entity.validation as PersonaValidation | undefined;
-    const usageStats = entity.usageStats as PersonaUsageStats | undefined;
+    const expertise = entity.expertise || [];
+    const tags = entity.tags || [];
+    const capabilities = entity.capabilities || [];
+    const restrictions = entity.restrictions || {};
+    const configuration = entity.configuration || {};
+    const validation: PersonaValidation | undefined = entity.validation ?? undefined;
+    const usageStats: PersonaUsageStats | undefined = entity.usageStats ?? undefined;
 
     return {
-      id: entity.id as string,
-      name: entity.name as string,
-      role: entity.role as string,
-      description: entity.description as string,
-      traits: entity.traits as Persona['traits'],
+      id: entity.id,
+      name: entity.name,
+      role: entity.role,
+      description: entity.description,
+      traits: entity.traits,
       expertise: expertise.map(
         (expName: string, index: number): ExpertiseDomain => ({
           id: `${Date.now()}-${index}`,
@@ -881,37 +878,37 @@ export class PersonaService {
           description: '',
           category: 'general',
           level: 'intermediate',
-          keywords: [] as string[],
-          relatedDomains: [] as string[],
+          keywords: [],
+          relatedDomains: [],
         })
       ),
-      background: entity.background as string | undefined,
-      systemPrompt: entity.systemPrompt as string,
-      conversationalStyle: entity.conversationalStyle as ConversationalStyle,
-      status: entity.status as PersonaStatus,
-      visibility: entity.visibility as PersonaVisibility,
-      createdBy: entity.createdBy as string,
-      organizationId: entity.organizationId as string | undefined,
-      teamId: entity.teamId as string | undefined,
-      version: entity.version as number,
-      parentPersonaId: entity.parentPersonaId as string | undefined,
+      background: entity.background ?? undefined,
+      systemPrompt: entity.systemPrompt,
+      conversationalStyle: entity.conversationalStyle,
+      status: entity.status,
+      visibility: entity.visibility,
+      createdBy: entity.createdBy,
+      organizationId: entity.organizationId ?? undefined,
+      teamId: entity.teamId ?? undefined,
+      version: entity.version,
+      parentPersonaId: entity.parentPersonaId ?? undefined,
       tags,
       validation,
       usageStats: usageStats || {
-        totalUsages: (entity.totalInteractions as number) || 0,
+        totalUsages: entity.totalInteractions || 0,
         uniqueUsers: 0,
         averageSessionDuration: 0,
-        lastUsedAt: entity.lastUsedAt as Date | undefined,
+        lastUsedAt: entity.lastUsedAt ?? undefined,
         popularityScore: 0,
-        feedbackScore: entity.userSatisfaction as number | undefined,
+        feedbackScore: entity.userSatisfaction ?? undefined,
         feedbackCount: 0,
       },
       configuration,
       capabilities,
       restrictions,
-      metadata: entity.metadata as JsonObject | undefined,
-      createdAt: entity.createdAt as Date,
-      updatedAt: entity.updatedAt as Date,
+      metadata: entity.metadata ?? undefined,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
     };
   }
 
@@ -955,7 +952,7 @@ export class PersonaService {
         hasMore: searchResult.hasMore,
       };
     } catch (error) {
-      logger.error('Failed to get personas for display', { error: (error as Error).message });
+      logger.error('Failed to get personas for display', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -992,10 +989,7 @@ export class PersonaService {
         conversationalStyle: persona.conversationalStyle,
       };
     } catch (error) {
-      logger.error('Failed to get persona for display', {
-        error: (error as Error).message,
-        personaId: id,
-      });
+      logger.error('Failed to get persona for display', { error: error instanceof Error ? error.message : String(error), personaId: id, });
       throw error;
     }
   }
@@ -1042,11 +1036,8 @@ export class PersonaService {
         })),
       };
     } catch (error) {
-      logger.error('Failed to search personas', {
-        error: (error as Error).message,
-        query,
-        expertiseFilter,
-      });
+      logger.error('Failed to search personas', { error: error instanceof Error ? error.message : String(error), query,
+      expertiseFilter, });
       throw error;
     }
   }

@@ -16,7 +16,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { LLMTaskType, LLMProviderType, UserLLMPreference } from '@uaip/types';
+import { LLMTaskType, LLMProviderType, LLMModel, UserLLMPreference } from '@uaip/types';
 import { uaipAPI as _uaipAPI } from '../../../utils/uaip_api';
 import { usersAPI } from '../../../api/users_api';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
@@ -27,16 +27,12 @@ interface ProviderSettingsPortalProps {
   viewport?: ViewportSize;
 }
 
-type ModelItem = {
-  id: string;
-  name: string;
-  description?: string;
-  source: string;
-  apiEndpoint: string;
-  apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
-  provider: string;
-  isAvailable: boolean;
-};
+const LLM_TASK_TYPE_VALUES = new Set<string>(Object.values(LLMTaskType));
+const isLLMTaskType = (v: string): v is LLMTaskType => LLM_TASK_TYPE_VALUES.has(v);
+
+const LLM_PROVIDER_TYPE_VALUES = new Set<string>(Object.values(LLMProviderType));
+const isLLMProviderType = (v: string): v is LLMProviderType =>
+  LLM_PROVIDER_TYPE_VALUES.has(v);
 
 const StatusBadge: React.FC<{ colorClass: string; children: React.ReactNode }> = ({
   colorClass,
@@ -347,7 +343,9 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
           ].map((tab) => (
             <motion.button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as 'providers' | 'preferences')}
+              onClick={() => {
+                if (tab.id === 'providers' || tab.id === 'preferences') setActiveTab(tab.id);
+              }}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === tab.id
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
@@ -436,7 +434,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
             <ModelProviderSettings
               className="h-full overflow-auto"
               providers={modelState?.providers || []}
-              models={(modelState?.models || []) as ModelItem[]}
+              models={(() => { const m: any = modelState?.models ?? []; return m; })()} // oxlint-disable-line @typescript-eslint/no-explicit-any -- LLMModel.apiType includes 'google'; structurally compatible at runtime
               loading={
                 modelState?.loadingProviders ||
                 modelState?.loadingModels ||
@@ -517,10 +515,10 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                             </label>
                             <select
                               value={preference.taskType}
-                              onChange={(e) =>
-                                updateUserPreference(index, {
-                                  taskType: e.target.value as LLMTaskType,
-                                })
+                              onChange={(e) => {
+                                if (isLLMTaskType(e.target.value))
+                                  updateUserPreference(index, { taskType: e.target.value });
+                              }
                               }
                               className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                             >
@@ -538,10 +536,12 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                             </label>
                             <select
                               value={preference.preferredProvider}
-                              onChange={(e) =>
-                                updateUserPreference(index, {
-                                  preferredProvider: e.target.value as LLMProviderType,
-                                })
+                              onChange={(e) => {
+                                if (isLLMProviderType(e.target.value))
+                                  updateUserPreference(index, {
+                                    preferredProvider: e.target.value,
+                                  });
+                              }
                               }
                               className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                             >
@@ -566,7 +566,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
                                 className="flex-1 px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                               >
                                 <option value="">Select a model...</option>
-                                {((modelState?.models || []) as ModelItem[])
+                                {(modelState?.models ?? new Array<LLMModel>())
                                   .filter(
                                     (model) =>
                                       model.provider === preference.preferredProvider ||

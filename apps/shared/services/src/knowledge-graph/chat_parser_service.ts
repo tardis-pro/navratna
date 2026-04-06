@@ -6,6 +6,12 @@ export type { ParsedMessage, ParsedConversation, ChatParsingResult } from '@uaip
 
 type ChatPlatform = ParsedConversation['platform'];
 
+const VALID_CHAT_PLATFORMS: readonly ChatPlatform[] = ['claude', 'gpt', 'whatsapp', 'generic'];
+
+function isChatPlatform(v: string): v is ChatPlatform {
+  return (VALID_CHAT_PLATFORMS as readonly string[]).includes(v);
+}
+
 type ImportedMessage = {
   timestamp?: string | Date;
   role?: string;
@@ -19,7 +25,7 @@ type ImportedConversation = {
 };
 
 export class ChatParserService {
-  private readonly platformDetectors = {
+  private readonly platformDetectors: Record<ChatPlatform, RegExp[]> = {
     claude: [/Claude|Anthropic/i, /Human:|Assistant:/i, /"role":\s*"(human|assistant)"/i],
     gpt: [
       /ChatGPT|OpenAI/i,
@@ -32,6 +38,7 @@ export class ChatParserService {
       /\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}\s*-\s*.+?:/i,
       /WhatsApp Chat with/i,
     ],
+    generic: [],
   };
 
   async parseFile(content: string, filename: string): Promise<ChatParsingResult> {
@@ -94,12 +101,12 @@ export class ChatParserService {
       const wrappedError = new Error(
         `Chat parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
 
-  detectPlatform(content: string, filename: string): string {
+  detectPlatform(content: string, filename: string): ChatPlatform {
     const lowerFilename = filename.toLowerCase();
 
     // Check filename patterns first
@@ -108,11 +115,12 @@ export class ChatParserService {
     if (lowerFilename.includes('whatsapp') || lowerFilename.includes('chat.txt')) return 'whatsapp';
 
     // Check content patterns
-    for (const [platform, patterns] of Object.entries(this.platformDetectors)) {
+    for (const platform of Object.keys(this.platformDetectors) as Array<keyof typeof this.platformDetectors>) {
+      const patterns = this.platformDetectors[platform];
       const matchCount = patterns.filter((pattern) => pattern.test(content)).length;
       if (matchCount >= 2) {
         // Require at least 2 pattern matches for confidence
-        return platform;
+        if (isChatPlatform(platform)) return platform;
       }
     }
 
@@ -158,7 +166,7 @@ export class ChatParserService {
   private parseTextFormat(
     content: string,
     filename: string,
-    format: string,
+    format: ChatPlatform,
     detectSender: (line: string) => { sender: string; lineContent: string } | null
   ): ParsedConversation[] {
     const lines = content.split('\n');
@@ -316,7 +324,7 @@ export class ChatParserService {
   private convertImportedConversation(
     data: ImportedConversation,
     filename: string,
-    format: string,
+    format: ChatPlatform,
     mapRole: (role: string) => string
   ): ParsedConversation {
     const messages: ParsedMessage[] = [];
@@ -366,7 +374,7 @@ export class ChatParserService {
 
   private createConversationFromMessages(
     messages: ParsedMessage[],
-    platform: string,
+    platform: ChatPlatform,
     filename: string,
     id?: string,
     title?: string
@@ -391,7 +399,7 @@ export class ChatParserService {
     return [
       {
         id: id || uuidv4(),
-        platform: platform as ChatPlatform,
+        platform,
         title: title || `${platform} conversation from ${filename}`,
         participants,
         messages,
@@ -407,13 +415,13 @@ export class ChatParserService {
   }
 
   private createEmptyConversation(
-    platform: string,
+    platform: ChatPlatform,
     filename: string,
     id?: string
   ): ParsedConversation {
     return {
       id: id || uuidv4(),
-      platform: platform as ChatPlatform,
+      platform,
       title: `Empty ${platform} conversation from ${filename}`,
       participants: [],
       messages: [],

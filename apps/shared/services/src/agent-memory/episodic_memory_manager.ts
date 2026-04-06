@@ -1,13 +1,39 @@
 import { Episode, EpisodicQuery, KnowledgeType, SourceType } from '@uaip/types';
+import type { KnowledgeItem } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
 import { DatabaseService } from '../database_service';
 
-export function extractItemMetadata(item: unknown): { record: Record<string, unknown>; source: Record<string, unknown> | undefined; metadata: Record<string, unknown> | undefined } {
-  const record = item as Record<string, unknown>;
-  const source = record.source as Record<string, unknown> | undefined;
-  const metadata = (source?.metadata || record.metadata) as Record<string, unknown> | undefined;
-  return { record, source, metadata };
+function getStr(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback;
+}
+function getNum(v: unknown, fallback = 0): number {
+  return typeof v === 'number' ? v : fallback;
+}
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isEpisodeContext(v: unknown): v is Episode['context'] {
+  if (!isRecord(v)) return false;
+  return v.when instanceof Date || typeof v.when === 'string' || v.when !== undefined;
+}
+function isEpisodeExperience(v: unknown): v is Episode['experience'] {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v.actions) && Array.isArray(v.decisions) && Array.isArray(v.outcomes);
+}
+function isEpisodeSignificance(v: unknown): v is Episode['significance'] {
+  if (!isRecord(v)) return false;
+  return typeof v.importance === 'number';
+}
+function isEpisodeConnections(v: unknown): v is Episode['connections'] {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v.relatedEpisodes);
+}
+
+export function extractItemMetadata(item: KnowledgeItem): { metadata: Record<string, unknown> | undefined } {
+  const metadata = isRecord(item.metadata) ? item.metadata : undefined;
+  return { metadata };
 }
 
 export class EpisodicMemoryManager {
@@ -220,64 +246,71 @@ Learnings: ${episode.experience.learnings.join('; ')}
 Significance: Importance=${episode.significance.importance}, Novelty=${episode.significance.novelty}, Success=${episode.significance.success}, Impact=${episode.significance.impact}`;
   }
 
-  private contentToEpisode(item: unknown): Episode {
-    const { record, source, metadata } = extractItemMetadata(item);
+  private contentToEpisode(item: KnowledgeItem): Episode {
+    const { metadata } = extractItemMetadata(item);
 
     if (!metadata) {
       return this.parseEpisodeFromContent(item);
     }
 
+    const defaultContext: Episode['context'] = {
+      when: new Date(item.createdAt),
+      where: 'unknown',
+      who: [],
+      what: item.content.substring(0, 100),
+      why: 'unknown',
+      how: 'unknown',
+    };
+    const defaultExperience: Episode['experience'] = {
+      actions: [],
+      decisions: [],
+      outcomes: [],
+      emotions: [],
+      learnings: [],
+    };
+    const defaultSignificance: Episode['significance'] = {
+      importance: item.confidence || 0.5,
+      novelty: 0.5,
+      success: 0.5,
+      impact: 0.5,
+    };
+    const defaultConnections: Episode['connections'] = {
+      relatedEpisodes: [],
+      triggeredBy: [],
+      ledTo: [],
+      similarTo: [],
+    };
+
+    const rawType = getStr(metadata.episodeType) || 'learning';
+    const validTypes = ['discussion', 'operation', 'learning', 'problem_solving', 'collaboration'] as const;
+    type EpisodeType = Episode['type'];
+    const episodeType: EpisodeType = validTypes.find((t) => t === rawType) ?? 'learning';
+
     return {
-      agentId: metadata.agentId as string,
-      episodeId: (source?.identifier as string) || (record.id as string),
-      type: (metadata.episodeType as Episode['type']) || 'learning',
-      context: (metadata.context as Episode['context']) || {
-        when: new Date(record.createdAt as string),
-        where: 'unknown',
-        who: [],
-        what: (record.content as string).substring(0, 100),
-        why: 'unknown',
-        how: 'unknown',
-      },
-      experience: (metadata.experience as Episode['experience']) || {
-        actions: [],
-        decisions: [],
-        outcomes: [],
-        emotions: [],
-        learnings: [],
-      },
-      significance: (metadata.significance as Episode['significance']) || {
-        importance: (record.confidence as number) || 0.5,
-        novelty: 0.5,
-        success: 0.5,
-        impact: 0.5,
-      },
-      connections: (metadata.connections as Episode['connections']) || {
-        relatedEpisodes: [],
-        triggeredBy: [],
-        ledTo: [],
-        similarTo: [],
-      },
+      agentId: getStr(metadata.agentId, 'unknown'),
+      episodeId: item.sourceIdentifier || item.id,
+      type: episodeType,
+      context: isEpisodeContext(metadata.context) ? metadata.context : defaultContext,
+      experience: isEpisodeExperience(metadata.experience) ? metadata.experience : defaultExperience,
+      significance: isEpisodeSignificance(metadata.significance) ? metadata.significance : defaultSignificance,
+      connections: isEpisodeConnections(metadata.connections) ? metadata.connections : defaultConnections,
     };
   }
 
-  private parseEpisodeFromContent(item: unknown): Episode {
-    // Basic parsing from content when metadata is not available
-    const record = item as Record<string, unknown>;
-    const content = (record.content as string) || '';
+  private parseEpisodeFromContent(item: KnowledgeItem): Episode {
+    const content = item.content;
     const lines = content.split('\n');
 
     let episodeType = 'learning';
-    const context = {
-      when: new Date(record.createdAt as string),
+    const context: Episode['context'] = {
+      when: new Date(item.createdAt),
       where: 'unknown',
-      who: [] as string[],
+      who: [],
       what: content.substring(0, 100),
       why: 'unknown',
       how: 'unknown',
     };
 
-    // Try to extract information from content
     for (const line of lines) {
       if (line.startsWith('Episode:')) {
         episodeType = line.replace('Episode:', '').trim();
@@ -291,10 +324,14 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
       }
     }
 
+    const validTypes = ['discussion', 'operation', 'learning', 'problem_solving', 'collaboration'] as const;
+    type EpisodeType = Episode['type'];
+    const safeType: EpisodeType = validTypes.find((t) => t === episodeType) ?? 'learning';
+
     return {
-      agentId: (record.createdBy as string) || 'unknown',
-      episodeId: record.id as string,
-      type: episodeType as Episode['type'],
+      agentId: item.createdBy ?? 'unknown',
+      episodeId: item.id,
+      type: safeType,
       context,
       experience: {
         actions: [],
@@ -304,7 +341,7 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
         learnings: [],
       },
       significance: {
-        importance: (record.confidence as number) || 0.5,
+        importance: getNum(item.confidence, 0.5),
         novelty: 0.5,
         success: 0.5,
         impact: 0.5,

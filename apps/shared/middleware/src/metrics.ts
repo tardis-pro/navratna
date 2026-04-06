@@ -6,20 +6,20 @@ import type { ErrorContext } from '@uaip/types';
 
 // Helper to get-or-create metrics — prevents duplicate registration on hot-reload / multiple imports
 function getOrCreateCounter(opts: ConstructorParameters<typeof Counter>[0]): Counter {
-  const existing = register.getSingleMetric(opts.name as string);
-  if (existing) return existing as Counter;
+  const existing = register.getSingleMetric(opts.name);
+  if (existing instanceof Counter) return existing;
   return new Counter(opts);
 }
 
 function getOrCreateHistogram(opts: ConstructorParameters<typeof Histogram>[0]): Histogram {
-  const existing = register.getSingleMetric(opts.name as string);
-  if (existing) return existing as Histogram;
+  const existing = register.getSingleMetric(opts.name);
+  if (existing instanceof Histogram) return existing;
   return new Histogram(opts);
 }
 
 function getOrCreateGauge(opts: ConstructorParameters<typeof Gauge>[0]): Gauge {
-  const existing = register.getSingleMetric(opts.name as string);
-  if (existing) return existing as Gauge;
+  const existing = register.getSingleMetric(opts.name);
+  if (existing instanceof Gauge) return existing;
   return new Gauge(opts);
 }
 
@@ -112,7 +112,7 @@ export function metricsMiddleware(app: Elysia): Elysia {
     .onAfterResponse(({ request, set }) => {
       const url = new URL(request.url);
       const route = url.pathname;
-      const statusCode = (set.status as number) || 200;
+      const statusCode = typeof set.status === 'number' ? set.status : 200;
 
       httpRequestsTotal.inc({
         method: request.method,
@@ -133,7 +133,7 @@ export function metricsMiddleware(app: Elysia): Elysia {
         const duration = (Date.now() - metricsStartTime) / 1000;
         const url = new URL(request.url);
         const route = url.pathname;
-        const statusCode = (set.status as number) || 200;
+        const statusCode = typeof set.status === 'number' ? set.status : 200;
 
         httpRequestDuration.observe(
           {
@@ -326,7 +326,7 @@ export function errorTrackingMiddleware(serviceName: string) {
         endpoint: url.pathname,
         userId: request.headers.get('x-user-id') || undefined,
         requestId: request.headers.get('x-request-id') || undefined,
-        severity: (set.status as number) >= 500 ? 'critical' : 'error',
+        severity: typeof set.status === 'number' && set.status >= 500 ? 'critical' : 'error',
         metadata: {
           method: request.method,
           url: request.url,
@@ -334,7 +334,7 @@ export function errorTrackingMiddleware(serviceName: string) {
         },
       };
 
-      recordError(error as Error, context);
+      recordError(error, context);
     });
   };
 }

@@ -118,15 +118,15 @@ export class DatabaseService {
     }
   }
 
-  public getEntityManager(): { query: (sql: string, params?: unknown[]) => Promise<unknown[]> } {
+  public getEntityManager(): { query: <T = unknown>(sql: string, params?: unknown[]) => Promise<T[]> } {
     return this.pgService.getEntityManager();
   }
 
   public async executeQuery<T = unknown>(query: string, parameters?: unknown[]): Promise<T[]> {
     await this.ensureInitialized();
     try {
-      const result = await this.pgService.getEntityManager().query(query, parameters);
-      return result as T[];
+      const result = await this.pgService.getEntityManager().query<T>(query, parameters);
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Query execution failed', { query, error: errorMessage });
@@ -141,7 +141,7 @@ export class DatabaseService {
   private resolveTableName(tableOrEntity: unknown): string {
     if (typeof tableOrEntity === 'string') return tableOrEntity;
     if (typeof tableOrEntity === 'function') {
-      const raw = (tableOrEntity as { name: string }).name
+      const raw = tableOrEntity.name
         .replace(/Entity$/, '')
         .replace(
           /([A-Z])/g,

@@ -208,10 +208,10 @@ export class CacheManager {
       llmProviderRepository: this.cachedLLMProviderRepository !== null,
     };
 
-    let statistics = {
+    let statistics: { totalKeys: number; keysByPattern: Record<string, number>; memoryUsage: string | undefined } = {
       totalKeys: 0,
-      keysByPattern: {} as Record<string, number>,
-      memoryUsage: undefined as string | undefined,
+      keysByPattern: {},
+      memoryUsage: undefined,
     };
 
     if (client) {

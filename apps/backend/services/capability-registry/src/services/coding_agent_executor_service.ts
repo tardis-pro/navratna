@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import { WorkspaceManager } from './workspace_manager_service.js';
 
 type AgentSession = {
@@ -12,6 +12,15 @@ type AgentEvent = {
   type?: string;
   [key: string]: unknown;
 };
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function extractEventType(event: unknown): string | undefined {
+  if (!isRecord(event)) return undefined;
+  return typeof event.type === 'string' ? event.type : undefined;
+}
 
 export interface LLMCredential {
   provider: string;
@@ -102,14 +111,21 @@ export class CodingAgentExecutor extends EventEmitter {
         return { sessionId, ready: true };
       }
 
-      const mod = piModule as {
+      type PiAgentModule = {
         createAgentSession?: (args: Record<string, unknown>) => Promise<{ session: AgentSession }>;
         AuthStorage?: { inMemory: (data: Record<string, unknown>) => unknown };
         SessionManager?: { inMemory: () => unknown };
       };
+      function isPiAgentModule(v: unknown): v is PiAgentModule {
+        return isRecord(v);
+      }
+      if (!isPiAgentModule(piModule)) {
+        throw new NotFoundError('pi-coding-agent module has unexpected shape');
+      }
+      const mod = piModule;
 
       if (!mod.createAgentSession || !mod.AuthStorage || !mod.SessionManager) {
-        throw new Error('pi-coding-agent module is missing expected exports');
+        throw new NotFoundError('pi-coding-agent module is missing expected exports');
       }
 
       const authData: Record<string, unknown> = {};
@@ -132,7 +148,7 @@ export class CodingAgentExecutor extends EventEmitter {
 
       const workspace = await this.workspaceManager.getWorkspace(workspaceId);
       if (!workspace) {
-        throw new Error(`Workspace ${workspaceId} not found or not ready`);
+        throw new NotFoundError(`Workspace ${workspaceId} not found or not ready`);
       }
 
       const { session } = await mod.createAgentSession({
@@ -142,9 +158,8 @@ export class CodingAgentExecutor extends EventEmitter {
       });
 
       session.subscribe?.((event: unknown) => {
-        const ev = event as AgentEvent;
         const agentEvent: CodingAgentEvent = {
-          type: this.mapEventType(typeof ev.type === 'string' ? ev.type : 'error'),
+          type: this.mapEventType(extractEventType(event) ?? 'error'),
           sessionId,
           payload: event,
           timestamp: new Date(),
@@ -169,7 +184,7 @@ export class CodingAgentExecutor extends EventEmitter {
 
   async prompt(sessionId: string, message: string): Promise<void> {
     const entry = this.activeSessions.get(sessionId);
-    if (!entry) throw new Error(`Session ${sessionId} not found`);
+    if (!entry) throw new NotFoundError(`Session ${sessionId} not found`);
 
     logger.info('Sending prompt to coding agent', { sessionId, messageLength: message.length });
     await entry.session.prompt(message);

@@ -35,8 +35,9 @@ export const capabilitiesAPI = {
   },
 
   async list(options?: CapabilityListOptions): Promise<Capability[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      capabilities.get({ query: options as Record<string, unknown> })
+      capabilities.get({ query })
     );
   },
 

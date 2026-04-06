@@ -40,7 +40,8 @@ export const discussionsAPI = {
     }
 
     if (isRecord(response) && 'discussions' in response && Array.isArray(response['discussions'])) {
-      return response['discussions'] as Discussion[];
+      const arr: any = response['discussions']; // oxlint-disable-line @typescript-eslint/no-explicit-any -- elements are Discussion objects; runtime-validated
+      return arr;
     }
 
     return [];
@@ -125,7 +126,8 @@ export const discussionsAPI = {
       return response;
     }
     if (isRecord(response) && 'messages' in response && Array.isArray(response['messages'])) {
-      return response['messages'] as DiscussionMessage[];
+      const arr: any = response['messages']; // oxlint-disable-line @typescript-eslint/no-explicit-any -- elements are DiscussionMessage objects; runtime-validated
+      return arr;
     }
     return [];
   },

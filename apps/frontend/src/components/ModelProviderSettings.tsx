@@ -542,22 +542,21 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       logger.error('Failed to delete provider:', err);
 
       // Check if this is a provider-in-use error
-      // APIClientError has code directly on the error object
       if (
         typeof err === 'object' &&
-        err &&
+        err !== null &&
         'code' in err &&
-        (err as { code?: string }).code === 'PROVIDER_IN_USE'
+        typeof err.code === 'string'
       ) {
-        alert(
-          `Cannot delete provider: ${(err as { message?: string }).message ?? 'Provider in use'}`
-        );
-      } else if (typeof err === 'object' && err && 'message' in err) {
-        alert(
-          `Failed to delete provider: ${(err as { message?: string }).message ?? 'Unknown error'}`
-        );
+        const errCode = err.code;
+        alert(`Failed to delete provider: ${errCode}`);
       } else {
-        alert('Failed to delete provider. Please try again.');
+        const errMessage = (
+          typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string'
+            ? err.message
+            : 'Unknown error'
+        );
+        alert(`Failed to delete provider: ${errMessage}`);
       }
     }
   };

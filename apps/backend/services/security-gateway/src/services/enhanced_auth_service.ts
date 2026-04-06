@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { UserService, OAuthService, MFAService, SessionService } from '@uaip/shared-services';
 import { JWTValidator as _JWTValidator, generateAuthTokens } from '@uaip/middleware';
@@ -6,6 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import {
   EnhancedUser,
+  UserEntity,
   Session,
   EnhancedSecurityContext,
   MFAChallenge,
@@ -24,6 +25,34 @@ import { OAuthProviderService } from './oauth_provider_service.js';
 import { AuditService } from './audit_service.js';
 import { config } from '@uaip/config';
 import * as speakeasy from 'speakeasy';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isOAuthProviderType(v: unknown): v is OAuthProviderType {
+  return typeof v === 'string' && (Object.values(OAuthProviderType) as string[]).includes(v);
+}
+
+function toEnhancedUser(entity: UserEntity): EnhancedUser {
+  const agentConfig = entity.agentConfig ?? undefined;
+  return {
+    ...entity,
+    agentConfig: agentConfig
+      ? {
+          ...agentConfig,
+          allowedProviders: (agentConfig.allowedProviders ?? []).filter(isOAuthProviderType),
+        }
+      : undefined,
+    oauthProviders: [],
+    mfaMethods: [],
+    mfaEnabled: false,
+  };
+}
+
+function isMFAMethod(v: unknown): v is MFAMethod {
+  return typeof v === 'string' && new Set<string>(Object.values(MFAMethod)).has(v);
+}
 
 type OAuthUserInfoParam = {
   email?: string;
@@ -58,6 +87,21 @@ type OAuthServiceExtended = {
   getAgentConnection: (agentId: string, providerType: OAuthProviderType) => Promise<unknown>;
 };
 
+const CIPHER_GCM_TYPES = ['aes-128-gcm', 'aes-192-gcm', 'aes-256-gcm', 'chacha20-poly1305'] as const;
+
+function isCipherGCMType(v: string): v is crypto.CipherGCMTypes {
+  return (CIPHER_GCM_TYPES as readonly string[]).includes(v);
+}
+
+function isOAuthServiceExtended(v: unknown): v is OAuthServiceExtended {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'getAgentConnection' in v &&
+    typeof v.getAgentConnection === 'function'
+  );
+}
+
 export class EnhancedAuthService {
   private userService: UserService;
   private oauthDomainService: OAuthService;
@@ -91,7 +135,11 @@ export class EnhancedAuthService {
 
       // Find or create user
       // Try to find user by email first, then by OAuth connection
-      let user: EnhancedUser | null = (await this.userService.findUserByEmail(userInfo.email)) as EnhancedUser | null;
+      let user: EnhancedUser | null = null;
+      const foundByEmail = await this.userService.findUserByEmail(userInfo.email);
+      if (foundByEmail) {
+        user = toEnhancedUser(foundByEmail);
+      }
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
@@ -100,19 +148,21 @@ export class EnhancedAuthService {
           provider.id
         );
         if (oauthConnection) {
-          // @ts-expect-error -- Argument type mismatch
-          user = await this.userService.findUserById(oauthConnection.agentId);
+          const foundById = await this.userService.findUserById(oauthConnection.agentId);
+          if (foundById) {
+            user = toEnhancedUser(foundById);
+          }
         }
       }
 
       if (!user) {
-        user = (await this.createUserFromOAuth(
+        user = await this.createUserFromOAuth(
           userInfo,
           provider,
           oauthState
-        )) as unknown as EnhancedUser;
+        );
       } else {
-        await this.updateUserOAuthConnection(user as unknown, tokens, provider, userInfo);
+        await this.updateUserOAuthConnection(user, tokens, provider, userInfo);
       }
 
       // Create session
@@ -287,8 +337,8 @@ export class EnhancedAuthService {
 
         return { success: true, connection };
       } else {
-        // Update user OAuth connection
-        await this.updateUserOAuthConnection(user as unknown, tokens, provider, userInfo);
+        const enhancedUser = toEnhancedUser(user);
+        await this.updateUserOAuthConnection(enhancedUser, tokens, provider, userInfo);
 
         await this.auditService.logEvent({
           eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -320,7 +370,7 @@ export class EnhancedAuthService {
   ): Promise<MFAChallenge> {
     const user = await this.userService.findUserById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundError('User not found');
     }
 
     // For now, allow any MFA method - this should be configured from user preferences
@@ -336,7 +386,7 @@ export class EnhancedAuthService {
         challenge = crypto.randomInt(100000, 1000000).toString();
         break;
       default:
-        throw new Error(`Unsupported MFA method: ${method}`);
+        throw new ValidationError(`Unsupported MFA method: ${method}`);
     }
 
     const mfaChallenge: MFAChallenge = {
@@ -355,7 +405,7 @@ export class EnhancedAuthService {
     await this.mfaService.createMFAChallenge(userId, method, sessionId);
 
     // Send challenge to user (implementation depends on method)
-    await this.sendMFAChallenge(user as unknown, mfaChallenge, challenge);
+    await this.sendMFAChallenge(user, mfaChallenge, challenge);
 
     return mfaChallenge;
   }
@@ -366,18 +416,18 @@ export class EnhancedAuthService {
   public async verifyMFAChallenge(
     challengeId: string,
     response: string
-  ): Promise<{ verified: boolean; session?: Session }> {
+  ): Promise<{ verified: boolean; session?: Session | Awaited<ReturnType<typeof this.sessionService.findSessionById>> }> {
     try {
       const challenge = await this.mfaService.findMFAChallenge(challengeId);
       if (!challenge || challenge.expiresAt < new Date()) {
         throw new ApiError(400, 'Invalid or expired MFA challenge', 'INVALID_MFA_CHALLENGE');
       }
 
-      if (challenge.isVerified) {
+      if (challenge.verifiedAt !== null) {
         throw new ApiError(400, 'MFA challenge already verified', 'CHALLENGE_ALREADY_VERIFIED');
       }
 
-      if (challenge.attempts >= challenge.maxAttempts) {
+      if (challenge.attempts >= 5) {
         throw new ApiError(400, 'Maximum MFA attempts exceeded', 'MAX_ATTEMPTS_EXCEEDED');
       }
 
@@ -385,11 +435,17 @@ export class EnhancedAuthService {
       await this.mfaService.incrementAttempts(challengeId);
 
       // Verify response based on method
-      // @ts-expect-error -- Argument type mismatch
-      const decryptedChallenge = await this.decryptChallenge(challenge.challenge);
+      const challengeDataRecord: Record<string, unknown> = typeof challenge.challengeData === 'object' && challenge.challengeData !== null
+        ? challenge.challengeData
+        : {};
+      const rawChallenge = challengeDataRecord.challenge;
+      const decryptedChallenge = await this.decryptChallenge(
+        typeof rawChallenge === 'string' ? rawChallenge : ''
+      );
       let verified = false;
 
-      switch (challenge.method) {
+      const challengeType = isMFAMethod(challenge.challengeType) ? challenge.challengeType : null;
+      switch (challengeType) {
         case MFAMethod.TOTP:
           verified = this.verifyTOTPResponse(response, decryptedChallenge);
           break;
@@ -403,31 +459,28 @@ export class EnhancedAuthService {
 
       if (verified) {
         // Mark challenge as verified using the MFA service verify method
-        // @ts-expect-error -- Argument type mismatch
         await this.mfaService.verifyMFAChallenge(challenge.userId, response);
 
         // Update session to mark MFA as verified
-        // @ts-expect-error -- Argument type mismatch
-        const session = await this.sessionService.findSession(challenge.sessionId);
+        const rawSessionId = challengeDataRecord.sessionId;
+        const sessionId = typeof rawSessionId === 'string' ? rawSessionId : undefined;
+        const session = sessionId ? await this.sessionService.findSessionById(sessionId) : null;
         if (session) {
-          session.mfaVerified = true;
-          // @ts-expect-error -- Argument type mismatch
-          await this.sessionService.updateSession(session.id, session);
+          await this.sessionService.updateSession(session.id, { mfaVerified: true });
         }
 
         await this.auditService.logEvent({
           eventType: AuditEventType.MFA_SUCCESS,
-          // @ts-expect-error -- Type not assignable
           userId: challenge.userId,
           details: {
-            method: challenge.method,
+            method: challenge.challengeType,
             challengeId,
           },
         });
 
         logger.info('MFA challenge verified successfully', {
           userId: challenge.userId,
-          method: challenge.method,
+          method: challenge.challengeType,
           challengeId,
         });
 
@@ -435,10 +488,9 @@ export class EnhancedAuthService {
       } else {
         await this.auditService.logEvent({
           eventType: AuditEventType.MFA_FAILED,
-          // @ts-expect-error -- Type not assignable
           userId: challenge.userId,
           details: {
-            method: challenge.method,
+            method: challenge.challengeType,
             challengeId,
             attempts: challenge.attempts,
           },
@@ -465,11 +517,11 @@ export class EnhancedAuthService {
         throw new ApiError(401, 'Invalid or inactive session', 'INVALID_SESSION');
       }
 
-      // @ts-expect-error -- Argument type mismatch
-      const user = await this.userService.findUserById(session.userId);
-      if (!user) {
+      const rawUser = await this.userService.findUserById(session.userId);
+      if (!rawUser) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }
+      const user = toEnhancedUser(rawUser);
 
       // Get user permissions - for now, derive from role
       const permissions = this.getUserPermissionsFromRole(user.role);
@@ -477,33 +529,24 @@ export class EnhancedAuthService {
       // Build enhanced security context
       const securityContext: EnhancedSecurityContext = {
         userId: user.id,
-        // @ts-expect-error -- Type not assignable
         sessionId: session.id,
         userType: user.userType,
-        // @ts-expect-error -- Type not assignable
-        ipAddress: session.ipAddress,
-        // @ts-expect-error -- Type not assignable
-        userAgent: session.userAgent,
+        ipAddress: session.ipAddress ?? undefined,
+        userAgent: session.userAgent ?? undefined,
         department: user.department,
         role: user.role,
         permissions: Array.isArray(permissions)
           ? permissions.map((p: PermissionEntry) => (typeof p === 'string' ? p : (p.resource ?? '')))
           : [],
         securityLevel: user.securityClearance,
-        // @ts-expect-error -- Missing properties in type
         lastAuthentication: session.createdAt,
-        // @ts-expect-error -- Type not assignable
         mfaVerified: session.mfaVerified,
-        // @ts-expect-error -- Type not assignable
-        riskScore: session.riskScore,
-        // @ts-expect-error -- Type not assignable
+        riskScore: Number(session.riskScore),
         authenticationMethod: session.authenticationMethod,
-        // @ts-expect-error -- Type not assignable
-        oauthProvider: session.oauthProvider,
-        // @ts-expect-error -- Missing properties in type
-        agentCapabilities: session.agentCapabilities,
-        deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust)?.isTrusted ?? false,
-        locationTrusted: this.isLocationTrusted(user as unknown as EnhancedUser, session),
+        oauthProvider: session.oauthProvider ?? undefined,
+        agentCapabilities: session.agentCapabilities ?? undefined,
+        deviceTrusted: isRecord(session.deviceInfo) && typeof session.deviceInfo['isTrusted'] === 'boolean' ? session.deviceInfo['isTrusted'] : false,
+        locationTrusted: this.isLocationTrusted(user, session),
         agentContext:
           user.userType === UserType.AGENT
             ? {
@@ -512,7 +555,9 @@ export class EnhancedAuthService {
                   user.name ||
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
-                capabilities: (user.agentConfig?.capabilities || []) as AgentCapability[],
+                capabilities: (user.agentConfig?.capabilities || []).filter(
+                  (c): c is AgentCapability => new Set<string>(Object.values(AgentCapability)).has(c)
+                ),
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
                   maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
@@ -563,13 +608,12 @@ export class EnhancedAuthService {
           capabilities: oauthState.agentCapabilities,
         },
       ],
-      // @ts-expect-error -- Type not assignable
       agentConfig:
         oauthState.userType === UserType.AGENT
           ? {
               capabilities: oauthState.agentCapabilities || [],
               maxConcurrentSessions: 5,
-              allowedProviders: [provider.type] as unknown[],
+              allowedProviders: provider.type ? [provider.type] : [],
               securityLevel: SecurityLevel.MEDIUM,
               monitoring: {
                 logLevel: 'standard',
@@ -582,8 +626,15 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    // @ts-expect-error -- Argument type mismatch
-    return (await this.userService.createUser(user as unknown)) as unknown as EnhancedUser;
+    await this.userService.createUser({
+      email: user.email || `${userInfo.id}@${provider.type}.oauth`,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      department: user.department,
+      isOAuthUser: true,
+    });
+    return user;
   }
 
   private async updateUserOAuthConnection(
@@ -623,7 +674,7 @@ export class EnhancedAuthService {
     ipAddress?: string,
     userAgent?: string,
     agentCapabilities?: AgentCapability[]
-  ): Promise<Session> {
+  ) {
     const session: Session = {
       id: crypto.randomUUID(),
       userId: user.id,
@@ -644,11 +695,12 @@ export class EnhancedAuthService {
       updatedAt: new Date(),
     };
 
-    return await this.sessionService.createSession(user.id, session.sessionToken, {
+    const created = await this.sessionService.createSession(user.id, session.sessionToken, {
       deviceInfo: session.deviceInfo,
       agentCapabilities: session.agentCapabilities,
       metadata: session.metadata,
     });
+    return { ...created, riskScore: Number(created.riskScore) };
   }
 
   private async generateJWTTokens(
@@ -660,9 +712,9 @@ export class EnhancedAuthService {
       sessionId: session.id,
       email: user.email,
       role: user.role,
-      userType: user.userType as string,
-      securityLevel: user.securityClearance as unknown as number,
-      agentCapabilities: session.agentCapabilities as unknown as string[],
+      userType: String(user.userType),
+      securityLevel: typeof user.securityClearance === 'number' ? user.securityClearance : 0,
+      agentCapabilities: Array.isArray(session.agentCapabilities) ? session.agentCapabilities.map(String) : [],
     };
 
     const tokens = generateAuthTokens(payload);
@@ -693,17 +745,20 @@ export class EnhancedAuthService {
 
   private async verifyAgentToken(token: string): Promise<EnhancedUser | null> {
     try {
-      const decoded = jwt.verify(token, config.jwt.secret) as jwt.JwtPayload;
-      if (!decoded || typeof decoded === 'string' || !decoded.userId) {
+      const decoded = jwt.verify(token, config.jwt.secret);
+      if (!decoded || typeof decoded === 'string') {
         return null;
       }
-
-      const agent = await this.userService.findUserById(decoded.userId);
+      if (typeof decoded['userId'] !== 'string') {
+        return null;
+      }
+      const userId = decoded['userId'];
+      const agent = await this.userService.findUserById(userId);
       if (!agent || agent.userType !== UserType.AGENT) {
         return null;
       }
 
-      return agent as unknown as EnhancedUser;
+      return toEnhancedUser(agent);
     } catch {
       return null;
     }
@@ -721,24 +776,18 @@ export class EnhancedAuthService {
     agentId: string,
     providerType: OAuthProviderType
   ): Promise<boolean> {
-    // Check if the OAuth provider service has the method
-    const extendedOAuthService = this.oauthProviderService as unknown as OAuthServiceExtended;
-    if (
-      'getAgentConnection' in this.oauthProviderService &&
-      typeof extendedOAuthService.getAgentConnection === 'function'
-    ) {
-      const connection = await extendedOAuthService.getAgentConnection(
-        agentId,
-        providerType
-      );
+    const oauthSvc: unknown = this.oauthProviderService;
+    if (isOAuthServiceExtended(oauthSvc)) {
+      const connection = await oauthSvc.getAgentConnection(agentId, providerType);
       return connection !== null;
     }
-    // Fallback: check through database
+    // Fallback: check through database — Drizzle AgentOAuthConnection has no providerType/isActive;
+    // check for any non-expired connection (provider matching is done at the service level)
     const providers = await this.oauthDomainService.findAgentOAuthConnections(agentId);
-    return providers.some((p) => p.providerType === providerType && p.isActive);
+    return providers.some((p) => !p.expiresAt || p.expiresAt > new Date());
   }
 
-  private isLocationTrusted(user: EnhancedUser, session: Session): boolean {
+  private isLocationTrusted(user: Pick<EnhancedUser, 'securityPreferences'>, session: Pick<Session, 'ipAddress'>): boolean {
     if (!session.ipAddress) return false;
     const trustedDevices = user.securityPreferences?.trustedDevices ?? [];
     const now = new Date();
@@ -771,7 +820,11 @@ export class EnhancedAuthService {
   }
 
   private async encryptChallenge(challenge: string): Promise<string> {
-    const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
+    const rawAlg = config.security.encryptionAlgorithm;
+    if (!isCipherGCMType(rawAlg)) {
+      throw new Error(`Unsupported cipher algorithm: ${rawAlg}`);
+    }
+    const algorithm = rawAlg;
     const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
@@ -783,7 +836,11 @@ export class EnhancedAuthService {
   }
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
-    const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
+    const rawAlg = config.security.encryptionAlgorithm;
+    if (!isCipherGCMType(rawAlg)) {
+      throw new Error(`Unsupported cipher algorithm: ${rawAlg}`);
+    }
+    const algorithm = rawAlg;
     const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
 
     const [ivHex, encrypted] = encryptedChallenge.split(':');
@@ -814,7 +871,7 @@ export class EnhancedAuthService {
   }
 
   private async sendMFAChallenge(
-    _user: EnhancedUser,
+    _user: unknown,
     _challenge: MFAChallenge,
     _code: string
   ): Promise<void> {

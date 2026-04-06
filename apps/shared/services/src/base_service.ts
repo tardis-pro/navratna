@@ -472,7 +472,11 @@ export abstract class BaseService {
 
       try {
         const eventData = event.data;
-        const data = (eventData as Record<string, unknown>)?.data ?? eventData;
+        let dataWrapper: { data: unknown } | null = null;
+        if (typeof eventData === 'object' && eventData !== null && 'data' in eventData) {
+          dataWrapper = eventData as { data: unknown };
+        }
+        const data = dataWrapper?.data ?? eventData;
         logger.info(`${prefix}: Processing event`, { data });
 
         const result = await handler(data);

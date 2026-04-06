@@ -4,7 +4,7 @@
 import { ArtifactConversationContext } from '@uaip/types';
 
 import { TemplateManager } from '../templates/template_manager.js';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { ArtifactGenerator } from '../interfaces';
 
 export class CodeGenerator implements ArtifactGenerator {
@@ -96,7 +96,7 @@ export class CodeGenerator implements ArtifactGenerator {
       return generatedCode;
     } catch (error) {
       logger.error('Code generation failed:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Code generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -185,7 +185,7 @@ export class CodeGenerator implements ArtifactGenerator {
   console.log('${functionName} called');
   
   // Add your implementation here
-  throw new Error('Function not yet implemented');
+  throw new InternalServerError('Function not yet implemented');
 }
 
 // Example usage:
@@ -245,7 +245,7 @@ function ${functionName}() {
     console.log("${functionName} called");
     
     // Add your implementation here
-    throw new Error("Function not yet implemented");
+    throw new InternalServerError("Function not yet implemented");
 }
 
 // Example usage:

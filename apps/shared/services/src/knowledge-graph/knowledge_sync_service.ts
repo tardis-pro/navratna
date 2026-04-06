@@ -652,7 +652,7 @@ export class KnowledgeSyncService {
       targetId: rel.targetId,
       relType: rel.relationshipType,
       confidence: rel.strength,
-      summary: rel.metadata?.summary as string | undefined,
+      summary: typeof rel.metadata?.summary === 'string' ? rel.metadata.summary : undefined,
       createdAt: rel.createdAt.toISOString(),
       updatedAt: rel.updatedAt.toISOString(),
     };
@@ -790,7 +790,7 @@ export class KnowledgeSyncService {
     // 3. Discover from Qdrant
     try {
       // Get collection info to see how many points we have
-      const collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
+      const collectionInfo = await this.qdrantService.getCollectionInfo();
       const pointsCount = collectionInfo.result?.points_count || 0;
 
       if (pointsCount > 0) {
@@ -885,7 +885,7 @@ export class KnowledgeSyncService {
         filters: {},
       });
 
-      return searchResult as unknown as QdrantPoint[];
+      return searchResult.map((r) => ({ payload: r.payload }));
     } catch (error) {
       logger.warn('Failed to scroll Qdrant points:', error);
       return [];
@@ -1013,7 +1013,12 @@ export class KnowledgeSyncService {
       `;
 
       const params = {
-        oldId: (item.metadata.originalProperties as { id?: string } | undefined)?.id || null,
+        oldId: (() => {
+          const orig = item.metadata.originalProperties;
+          if (typeof orig !== 'object' || orig === null || !('id' in orig)) return null;
+          const origId = (orig as { id: unknown })['id'];
+          return typeof origId === 'string' ? origId : null;
+        })(),
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,

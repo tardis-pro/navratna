@@ -6,6 +6,10 @@ import type {
 } from '@uaip/types';
 import { config } from '@uaip/config';
 
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 export class QdrantService {
   private qdrantUrl: string;
   private isConnected: boolean = false;
@@ -52,11 +56,29 @@ export class QdrantService {
     }
   }
 
-  private mapSearchPoints(data: Record<string, unknown>): VectorSearchResult[] {
-    return (data.result as unknown[]).map((item: unknown) => {
-      const point = item as { id: string; score: number; payload: Record<string, unknown> };
-      return { id: point.id, score: point.score, payload: point.payload };
-    });
+  private isQdrantPoint(v: unknown): v is { id: string; score: number; payload: Record<string, unknown> } {
+    return (
+      typeof v === 'object' &&
+      v !== null &&
+      'id' in v &&
+      'score' in v &&
+      'payload' in v
+    );
+  }
+
+  private mapSearchPoints(data: unknown): VectorSearchResult[] {
+    if (typeof data !== 'object' || data === null || !('result' in data)) {
+      return [];
+    }
+      const result: unknown = (data as { result: unknown })['result'];
+      if (!Array.isArray(result)) {
+        return [];
+      }
+      return result.filter(this.isQdrantPoint).map((point) => ({
+      id: point.id,
+      score: point.score,
+      payload: point.payload,
+    }));
   }
 
   private async deleteByIds(workingUrl: string, collectionName: string, ids: string[]): Promise<void> {
@@ -143,7 +165,7 @@ export class QdrantService {
         throw new Error(`Qdrant search failed: ${response.statusText} - ${errorText}`);
       }
 
-      const data = (await response.json()) as Record<string, unknown>;
+      const data: unknown = await response.json();
       return this.mapSearchPoints(data);
     } catch (error) {
       console.error('Qdrant search error:', error);
@@ -478,11 +500,19 @@ export class QdrantService {
         throw new Error(`Qdrant get points failed: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as Record<string, unknown>;
-      return (data.result as unknown[]).map((item: unknown) => {
-        const point = item as { id: string; vector: number[]; payload: Record<string, unknown> };
-        return { id: point.id, vector: point.vector, payload: point.payload };
-      });
+      const data: unknown = await response.json();
+      if (typeof data !== 'object' || data === null || !('result' in data)) {
+        return [];
+      }
+      const result: unknown = (data as { result: unknown }).result;
+      if (!Array.isArray(result)) {
+        return [];
+      }
+      return result
+        .filter((item): item is { id: string; vector: number[]; payload: Record<string, unknown> } =>
+          typeof item === 'object' && item !== null && 'id' in item && 'vector' in item && 'payload' in item
+        )
+        .map((point) => ({ id: point.id, vector: point.vector, payload: point.payload }));
     } catch (error) {
       console.error('Qdrant get points error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);
@@ -535,13 +565,25 @@ export class QdrantService {
         throw new Error(`Qdrant get failed: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as Record<string, unknown>;
-      const result = data.result as Record<string, unknown>;
-      const payload = result.payload as Record<string, unknown>;
+      const data: unknown = await response.json();
+      if (!isPlainRecord(data) || !('result' in data)) {
+        return null;
+      }
+      const result: unknown = data['result'];
+      if (!isPlainRecord(result)) {
+        return null;
+      }
+      const r: Record<string, unknown> = result;
+      const payload: Record<string, unknown> =
+        typeof r.payload === 'object' && r.payload !== null
+          ? { ...r.payload }
+          : {};
       return {
-        id: result.id as string,
-        embedding: result.vector as number[],
-        content: payload?.content,
+        id: typeof r.id === 'string' ? r.id : String(r.id ?? ''),
+        embedding: Array.isArray(r.vector)
+          ? r.vector.filter((v): v is number => typeof v === 'number')
+          : [],
+        content: payload.content,
         metadata: payload,
       };
     } catch (error) {
@@ -569,20 +611,28 @@ export class QdrantService {
         throw new Error(`Qdrant scroll failed: ${response.statusText}`);
       }
 
-      const data = (await response.json()) as {
-        result?: {
-          points?: Array<{
-            id: string | number;
-            vector: number[];
-            payload: Record<string, unknown>;
-          }>;
-        };
-      };
-      return (data.result?.points ?? []).map((p) => ({
-        id: String(p.id),
-        vector: p.vector ?? [],
-        payload: p.payload ?? {},
-      }));
+      const rawData: unknown = await response.json();
+      const rawPoints: unknown[] = (() => {
+        if (typeof rawData !== 'object' || rawData === null || !('result' in rawData)) return [];
+        const res: unknown = (rawData as { result: unknown })['result'];
+        if (typeof res !== 'object' || res === null || !('points' in res)) return [];
+        const pts: unknown = (res as { points: unknown })['points'];
+        return Array.isArray(pts) ? pts : [];
+      })();
+      return rawPoints
+        .filter(
+          (item): item is { id: string | number; vector: number[]; payload: Record<string, unknown> } =>
+            typeof item === 'object' &&
+            item !== null &&
+            'id' in item &&
+            'vector' in item &&
+            'payload' in item
+        )
+        .map((p) => ({
+          id: String(p.id),
+          vector: p.vector ?? [],
+          payload: p.payload ?? {},
+        }));
     } catch (error) {
       console.error('Qdrant scroll error:', error);
       const _errMsg = error instanceof Error ? error.message : String(error);

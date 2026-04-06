@@ -497,7 +497,7 @@ const SecurityPortalContent: React.FC<{
   const securityEventsQuery = useQuery({
     queryKey: ['security', 'events'],
     queryFn: async () => {
-      const payload = await auditAPI.getLogs({ limit: 20, sortOrder: 'DESC' as never });
+      const payload = await auditAPI.getLogs({ limit: 20, sortOrder: 'desc' });
       return parseEventsPayload(payload);
     },
     staleTime: STALE_TIMES.DEFAULT,

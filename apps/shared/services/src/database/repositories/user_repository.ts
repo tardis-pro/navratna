@@ -372,7 +372,7 @@ export class UserRepository {
         securityClearance: user.securityClearance ?? undefined,
       };
     } catch (error) {
-      logger.error('Error getting user auth details', { userId, error: (error as Error).message });
+      logger.error('Error getting user auth details', { userId, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -430,7 +430,7 @@ export class UserRepository {
         })),
       };
     } catch (error) {
-      logger.error('Error getting user permissions', { userId, error: (error as Error).message });
+      logger.error('Error getting user permissions', { userId, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -479,7 +479,7 @@ export class UserRepository {
         recentActivityCount: row.recentActivityCount,
       };
     } catch (error) {
-      logger.error('Error getting user risk data', { userId, error: (error as Error).message });
+      logger.error('Error getting user risk data', { userId, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -510,7 +510,7 @@ export class UserRepository {
       const result = await pool.query<{ name: string }>(query, [userId]);
       return result.rows[0]?.name ?? null;
     } catch (error) {
-      logger.error('Error getting user highest role', { userId, error: (error as Error).message });
+      logger.error('Error getting user highest role', { userId, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -685,7 +685,7 @@ export class PasswordResetTokenRepository {
       logger.error('Error getting user by OAuth provider', {
         providerId,
         providerUserId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     }

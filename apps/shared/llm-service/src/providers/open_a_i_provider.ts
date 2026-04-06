@@ -29,8 +29,8 @@ export class OpenAIProvider extends BaseProvider {
         throw new Error('Invalid response format from OpenAI');
       }
 
-      const choices = Array.isArray(data.choices)
-        ? (data.choices as Array<Record<string, unknown>>)
+      const choices: Array<Record<string, unknown>> = Array.isArray(data.choices)
+        ? data.choices.filter((c): c is Record<string, unknown> => OpenAIProvider.isRecord(c))
         : [];
       const firstChoice = choices[0];
       const message =
@@ -97,14 +97,16 @@ export class OpenAIProvider extends BaseProvider {
       const isCustomProvider =
         this.config.baseUrl && !this.config.baseUrl.includes('api.openai.com');
 
+      const rawDataArray = Array.isArray(data.data) ? data.data : [];
+      const allDataModels: Array<Record<string, unknown>> = rawDataArray.filter(
+        (m): m is Record<string, unknown> => OpenAIProvider.isRecord(m)
+      );
       let chatModels: Array<Record<string, unknown>>;
       if (isOpenRouterModels || isCustomProvider) {
-        // For OpenRouter and custom providers, include all models (they usually only return chat models anyway)
-        chatModels = data.data as Array<Record<string, unknown>>;
+        chatModels = allDataModels;
       } else {
-        // For OpenAI, filter to only chat models
-        chatModels = (data.data as Array<Record<string, unknown>>).filter(
-          (model: Record<string, unknown>) =>
+        chatModels = allDataModels.filter(
+          (model) =>
             (OpenAIProvider.toString(model.id) || '').includes('gpt') ||
             (OpenAIProvider.toString(model.id) || '').includes('chat')
         );

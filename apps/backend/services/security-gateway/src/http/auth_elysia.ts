@@ -21,6 +21,10 @@ import {
 import { AuditService } from '../services/audit_service.js';
 import { AuditEventType } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 // Lazy singletons for dependent services
 let userServiceSingleton: UserService | null = null;
 let auditServiceSingleton: AuditService | null = null;
@@ -90,6 +94,15 @@ type TokenInfo = {
   user: { id: string; email: string; role: string; isActive?: boolean };
   [key: string]: unknown;
 };
+
+function isTokenInfo(v: unknown): v is TokenInfo {
+  return (
+    isRecord(v) &&
+    'expiresAt' in v &&
+    'user' in v &&
+    typeof v['user'] === 'object'
+  );
+}
 
 // Token generation now handled by shared generateAuthTokens from @uaip/middleware
 
@@ -299,7 +312,8 @@ export function registerAuthRoutes() {
   
     // POST /refresh
     .post('/refresh', async ({ set, cookie }) => {
-      const refreshToken = cookie['refresh_token']?.value as string | undefined;
+      const rawCookieValue: unknown = cookie['refresh_token']?.value;
+      const refreshToken = typeof rawCookieValue === 'string' ? rawCookieValue : undefined;
       if (!refreshToken) {
         set.status = 401;
         return { error: 'Unauthorized', message: 'No refresh token provided' };
@@ -308,7 +322,8 @@ export function registerAuthRoutes() {
         // Verify refresh token signature (throws on invalid/expired)
         jwt.verify(refreshToken, config.jwt.refreshSecret);
         const { userService } = await getServices();
-        const tokenData = await userService.getRefreshTokenWithUser(refreshToken) as TokenInfo | null;
+        const rawToken = await userService.getRefreshTokenWithUser(refreshToken);
+        const tokenData: TokenInfo | null = isTokenInfo(rawToken) ? rawToken : null;
         if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
           set.status = 401;
           return { error: 'Invalid Token', message: 'Refresh token not found or expired' };
@@ -372,7 +387,8 @@ export function registerAuthRoutes() {
       try {
         const authUser = await getAuthUser(headers.authorization);
         const { userService, auditService } = await getServices();
-        const { refreshToken } = (body as Record<string, string | undefined>);
+        const bodyRecord: Record<string, unknown> = isRecord(body) ? body : {};
+        const refreshToken = typeof bodyRecord.refreshToken === 'string' ? bodyRecord.refreshToken : undefined;
   
         if (refreshToken) {
           await userService.revokeRefreshToken(refreshToken);
@@ -646,7 +662,7 @@ export function registerAuthRoutes() {
         );
   
         await auditService.logEvent({
-          eventType: 'internal_token_issued' as AuditEventType,
+          eventType: AuditEventType.TOKEN_REFRESH,
           userId: serviceName,
           resourceType: 'internal_token',
           resourceId: validKey.id,

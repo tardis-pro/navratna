@@ -53,7 +53,7 @@ export class AgentTaskTypeResolver {
       }
 
       const capabilityBasedTaskType = this.mapCapabilitiesToTaskType(
-        (agent.capabilities || []) as string[]
+        agent.capabilities || []
       );
       if (capabilityBasedTaskType) {
         logger.info('Task type determined from agent capabilities', {
@@ -93,7 +93,7 @@ export class AgentTaskTypeResolver {
     } catch (error) {
       logger.error('Error determining task type, using default', {
         agentId: agent.id,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         taskType: LLMTaskType.REASONING,
       });
       return LLMTaskType.REASONING;
@@ -111,7 +111,7 @@ export class AgentTaskTypeResolver {
     } catch (error) {
       logger.error('Error fetching agent LLM preferences', {
         agentId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       return [];
     }
@@ -123,7 +123,10 @@ export class AgentTaskTypeResolver {
   ): LLMTaskType {
     const pref = preferences[0];
     if (pref?.taskType && typeof pref.taskType === 'string') {
-      return pref.taskType as LLMTaskType;
+      const matched = Object.values(LLMTaskType).find((t) => t === pref.taskType);
+      if (matched !== undefined) {
+        return matched;
+      }
     }
     return LLMTaskType.REASONING;
   }

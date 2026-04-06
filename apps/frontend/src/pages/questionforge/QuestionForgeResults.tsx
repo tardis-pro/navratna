@@ -18,7 +18,8 @@ import { InterviewCaptureView } from './InterviewCaptureView';
 export default function QuestionForgeResults() {
   const location = useLocation();
   const navigate = useNavigate();
-  const forgeResult = location.state?.forgeResult as ForgeResult | undefined;
+  const locationStateAny: any = location.state; // oxlint-disable-line @typescript-eslint/no-explicit-any -- location.state is unknown in React Router v6; runtime shape is {forgeResult: ForgeResult}
+  const forgeResult: ForgeResult | undefined = locationStateAny?.forgeResult;
 
   const [activeTab, setActiveTab] = useState('packs');
   const [interviewSession, setInterviewSession] = useState<InterviewSession | null>(null);

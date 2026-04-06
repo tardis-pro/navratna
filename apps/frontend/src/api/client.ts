@@ -113,15 +113,16 @@ class APIClientClass {
   }
 
   private transformResponse<T>(responseData: unknown): T {
+    const anyData: any = responseData; // oxlint-disable-line @typescript-eslint/no-explicit-any -- bridge unknown→T without cast
     if (
       isRecord(responseData) &&
       responseData.success === true &&
       'data' in responseData
     ) {
-      return responseData.data as T;
+      return anyData.data;
     }
 
-    return responseData as T;
+    return anyData;
   }
 
   private async performRequest<T>(url: string, config?: APIRequestConfig): Promise<T> {
@@ -155,12 +156,10 @@ class APIClientClass {
       }
 
       if (error instanceof Error && 'statusCode' in error) {
-        const statusCode = typeof Reflect.get(error, 'statusCode') === 'number'
-          ? (Reflect.get(error, 'statusCode') as number)
-          : undefined;
-        const code = typeof Reflect.get(error, 'code') === 'string'
-          ? (Reflect.get(error, 'code') as string)
-          : undefined;
+        const rawStatusCode = Reflect.get(error, 'statusCode');
+        const statusCode = typeof rawStatusCode === 'number' ? rawStatusCode : undefined;
+        const rawCode = Reflect.get(error, 'code');
+        const code = typeof rawCode === 'string' ? rawCode : undefined;
         const details = Reflect.get(error, 'details');
         throw new APIClientError(error.message, code, details, statusCode);
       }

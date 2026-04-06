@@ -149,12 +149,13 @@ describe('Layer 3: Cognitive Evals', () => {
     const request = vi.fn(async () => ({ success: false, data: null }));
     const subscribe = vi.fn(async () => undefined);
 
+    // @ts-expect-error — test mock: partial stub satisfies DatabaseService for unit testing
+    const mockDb153: DatabaseService = {};
+    // @ts-expect-error — test mock: partial stub satisfies EventBusService for unit testing
+    const mockEbs153: EventBusService = { publish, request, subscribe };
     const planningService = new AgentPlanningService({
-      databaseService: {} as DatabaseService,
-      eventBusService: { publish, request, subscribe } as Record<
-        string,
-        unknown
-      > as EventBusService,
+      databaseService: mockDb153,
+      eventBusService: mockEbs153,
       serviceName: 'agent-planning-test',
       securityLevel: 2,
     });
@@ -200,13 +201,17 @@ describe('Layer 3: Cognitive Evals', () => {
         result: 'create artifact ready',
       });
 
+    // @ts-expect-error — test mock: partial stub satisfies DatabaseService for unit testing
+    const mockDb203: DatabaseService = {};
+    // @ts-expect-error — test mock: partial stub satisfies EventBusService for unit testing
+    const mockEbs203: EventBusService = {
+      subscribe: vi.fn(async () => undefined),
+      publish: vi.fn(async () => undefined),
+      request: toolExecutionRequest,
+    };
     const planningService = new AgentPlanningService({
-      databaseService: {} as DatabaseService,
-      eventBusService: {
-        subscribe: vi.fn(async () => undefined),
-        publish: vi.fn(async () => undefined),
-        request: toolExecutionRequest,
-      } as Record<string, unknown> as EventBusService,
+      databaseService: mockDb203,
+      eventBusService: mockEbs203,
       serviceName: 'agent-planning-test',
       securityLevel: 2,
     });

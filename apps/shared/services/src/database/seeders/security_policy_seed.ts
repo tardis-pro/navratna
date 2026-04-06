@@ -1,6 +1,12 @@
 import { getControlDb } from '../drizzle/clients/index';
-import { securityPolicies } from '../../database/drizzle/schemas/control_schema';
+import {
+  securityPolicies,
+  type SecurityPolicy,
+} from '../../database/drizzle/schemas/control_schema';
 import { BaseSeed } from './base_seed';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type SecurityPolicyInsert = InferInsertModel<typeof securityPolicies>;
 
 export class SecurityPolicySeed extends BaseSeed {
   private db = getControlDb();
@@ -9,20 +15,20 @@ export class SecurityPolicySeed extends BaseSeed {
     super('SecurityPolicies');
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<SecurityPolicy[]> {
     const seedData = await this.getSeedData();
 
     for (const policy of seedData) {
       await this.db
         .insert(securityPolicies)
-        .values(policy as any)
+        .values(policy)
         .onConflictDoNothing();
     }
 
     return await this.db.select().from(securityPolicies);
   }
 
-  async getSeedData(): Promise<any[]> {
+  async getSeedData(): Promise<SecurityPolicyInsert[]> {
     const defaultRestrictions = {
       timeRestrictions: { allowedHours: [9, 17], allowedDays: [1, 2, 3, 4, 5], timezone: 'UTC' },
       environmentRestrictions: ['production'],

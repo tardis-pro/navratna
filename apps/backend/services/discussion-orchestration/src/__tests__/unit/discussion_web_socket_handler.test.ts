@@ -12,7 +12,7 @@ describe('DiscussionWebSocketHandler', () => {
     vi.clearAllMocks();
 
     // Setup mock implementations
-    (mockWebSocketHandler.handleConnection as unknown).mockReturnValue({
+    mockWebSocketHandler.handleConnection.mockReturnValue({
       ws: { on: vi.fn(), send: vi.fn() },
       discussionId: 'discussion-123',
       userId: 'user-123',
@@ -21,14 +21,14 @@ describe('DiscussionWebSocketHandler', () => {
       lastPing: new Date(),
     });
 
-    (mockWebSocketHandler.broadcastToDiscussion as unknown).mockImplementation(
+    mockWebSocketHandler.broadcastToDiscussion.mockImplementation(
       (discussionId, event) => {
         expect(discussionId).toBe('discussion-123');
         expect(event).toBeDefined();
       }
     );
 
-    (mockWebSocketHandler.getStats as unknown).mockReturnValue({
+    mockWebSocketHandler.getStats.mockReturnValue({
       totalConnections: 2,
       discussionsWithConnections: 1,
       connectionsByDiscussion: {
@@ -36,7 +36,7 @@ describe('DiscussionWebSocketHandler', () => {
       },
     });
 
-    (mockWebSocketHandler.cleanup as unknown).mockImplementation(() => {
+    mockWebSocketHandler.cleanup.mockImplementation(() => {
       // Simulate cleanup of all connections and timers
     });
 

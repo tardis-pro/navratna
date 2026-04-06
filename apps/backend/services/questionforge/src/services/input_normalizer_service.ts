@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { EventBusService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import type { NormalizedBrief } from '@uaip/types';
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a structured data extraction engine. Given a project brief, notes, or transcript, extract the following information and return it as valid JSON only — no markdown, no explanation, no wrapping.
@@ -87,7 +87,7 @@ export class InputNormalizerService {
       // Attempt to find JSON object in the response
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No valid JSON found in LLM response');
+        throw new NotFoundError('No valid JSON found in LLM response');
       }
       parsed = JSON.parse(jsonMatch[0]);
     }
@@ -118,10 +118,10 @@ export class InputNormalizerService {
         description: asString(c.description, ''),
         type: asEnum(
           c.type,
-          ['technical', 'business', 'legal', 'timeline', 'resource'],
-          'business'
-        ) as 'technical' | 'business' | 'legal' | 'timeline' | 'resource',
-        severity: asEnum(c.severity, ['hard', 'soft'], 'soft') as 'hard' | 'soft',
+          ['technical', 'business', 'legal', 'timeline', 'resource'] as const,
+          'business' as const
+        ),
+        severity: asEnum(c.severity, ['hard', 'soft'] as const, 'soft' as const),
       })),
       successMetrics: asArray(parsed.successMetrics).map((m: Record<string, unknown>) => ({
         metric: asString(m.metric, ''),
@@ -458,10 +458,8 @@ export class InputNormalizerService {
       'requirements',
       'mixed',
     ];
-    if ((validTypes as string[]).includes(lower)) {
-      return lower as NormalizedBrief['metadata']['inputType'];
-    }
-    return 'brief';
+    const matched = validTypes.find((t) => t === lower);
+    return matched ?? 'brief';
   }
 }
 
@@ -475,9 +473,10 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function asEnum<T extends string>(value: unknown, allowed: T[], fallback: T): T {
-  if (typeof value === 'string' && allowed.includes(value as T)) {
-    return value as T;
+function asEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  if (typeof value === 'string') {
+    const match = allowed.find((a) => a === value);
+    if (match !== undefined) return match;
   }
   return fallback;
 }

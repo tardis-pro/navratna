@@ -298,7 +298,7 @@ export class BatchProcessorService {
             extractedFrom: 'chat',
           },
           source: {
-            type: 'AGENT_INTERACTION' as SourceType,
+            type: SourceType.AGENT_INTERACTION,
             identifier: 'chat',
           },
           userId,
@@ -320,7 +320,7 @@ export class BatchProcessorService {
             extractedFrom: 'chat',
           },
           source: {
-            type: 'AGENT_INTERACTION' as SourceType,
+            type: SourceType.AGENT_INTERACTION,
             identifier: 'chat',
           },
           userId,
@@ -339,11 +339,11 @@ export class BatchProcessorService {
             outcome: decision.outcome,
             confidence: decision.confidence,
             context: decision.context,
-            tags: [] as string[],
+            tags: new Array<string>(),
             extractedFrom: 'chat',
           },
           source: {
-            type: 'AGENT_INTERACTION' as SourceType,
+            type: SourceType.AGENT_INTERACTION,
             identifier: 'chat',
           },
           userId,

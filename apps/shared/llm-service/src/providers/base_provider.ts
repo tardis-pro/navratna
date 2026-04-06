@@ -119,7 +119,12 @@ export abstract class BaseProvider {
         }
 
         // eslint-disable-next-line no-await-in-loop -- sequential retry required
-        const data = (await response.json()) as Record<string, unknown>;
+        const rawData: unknown = await response.json();
+        const emptyRecord: Record<string, unknown> = {};
+        const data: Record<string, unknown> =
+          typeof rawData === 'object' && rawData !== null
+            ? Object.assign(emptyRecord, rawData)
+            : {};
         logger.info(`${this.name} ${label} successful`, { attempt, status: response.status });
 
         return data;

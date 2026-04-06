@@ -20,10 +20,11 @@ describe('Textarea', () => {
     const onChange = vi.fn();
     render(<Textarea aria-label="comment" onChange={onChange} />);
 
-    const textarea = screen.getByLabelText('comment') as HTMLTextAreaElement;
-    fireEvent.change(textarea, { target: { value: 'Updated details' } });
+    const textareaEl = screen.getByLabelText('comment');
+    if (!(textareaEl instanceof HTMLTextAreaElement)) throw new Error('Expected textarea');
+    fireEvent.change(textareaEl, { target: { value: 'Updated details' } });
 
-    expect(textarea.value).toBe('Updated details');
+    expect(textareaEl.value).toBe('Updated details');
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

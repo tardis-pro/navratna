@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { KnowledgeItem, KnowledgeType } from '@uaip/types';
 import { ContentClassifier } from './content_classifier_service.js';
 import { EmbeddingService } from './embedding_service.js';
@@ -147,7 +147,7 @@ export class ConceptExtractorService {
       return result;
     } catch (error) {
       logger.error('Error extracting concepts:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Concept extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -203,7 +203,7 @@ export class ConceptExtractorService {
                 id: conceptId,
                 name: cleanName,
                 definition: cleanDefinition,
-                domain: (sourceItem.metadata.domain as string) || this.inferDomain(sourceItem.tags),
+                domain: (typeof sourceItem.metadata.domain === 'string' ? sourceItem.metadata.domain : null) || this.inferDomain(sourceItem.tags),
                 confidence: 0.8,
                 properties: [],
                 instances: [],
@@ -252,6 +252,11 @@ export class ConceptExtractorService {
     }
   }
 
+  private isValidRelationshipType(s: string): s is ConceptRelationship['relationshipType'] {
+    const validTypes: ConceptRelationship['relationshipType'][] = ['IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR'];
+    return validTypes.some((t) => t === s);
+  }
+
   private async extractRelationships(
     content: string,
     concepts: Map<string, ConceptNode>,
@@ -259,6 +264,7 @@ export class ConceptExtractorService {
     _sourceItem: KnowledgeItem
   ): Promise<void> {
     for (const [relType, patterns] of Object.entries(this.conceptPatterns.relationships)) {
+      if (!this.isValidRelationshipType(relType)) continue;
       for (const pattern of patterns) {
         let match;
         pattern.lastIndex = 0;
@@ -274,7 +280,7 @@ export class ConceptExtractorService {
               relationships.push({
                 sourceConceptId: sourceId,
                 targetConceptId: targetId,
-                relationshipType: relType as ConceptRelationship['relationshipType'],
+                relationshipType: relType,
                 confidence: 0.75,
                 evidence: [fullMatch.trim()],
               });

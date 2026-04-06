@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService as _DatabaseService } from '@uaip/infra/database';
 import { EventBusService as _EventBusService } from '@uaip/infra/event_bus';
@@ -221,14 +221,16 @@ export class NotificationService {
       headers: {
         'Content-Type': 'application/json',
         Authorization: String(webhookConfig.authHeader || ''),
-        // @ts-expect-error -- Argument type mismatch
-        'X-UAIP-Signature': this.generateWebhookSignature(payload, webhookConfig.secret),
+        'X-UAIP-Signature': this.generateWebhookSignature(
+          payload,
+          typeof webhookConfig.secret === 'string' ? webhookConfig.secret : undefined
+        ),
       },
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      throw new Error(`Webhook request failed: ${response.status} ${response.statusText}`);
+      throw new ExternalServiceError(`Webhook request failed: ${response.status} ${response.statusText}`);
     }
 
     logger.info('Webhook notification sent', {
@@ -254,7 +256,7 @@ export class NotificationService {
     }
 
     const message = this.getSMSMessage(notification);
-    const provider = (smsConfig.provider as string)?.toLowerCase();
+    const provider = typeof smsConfig.provider === 'string' ? smsConfig.provider.toLowerCase() : '';
 
     logger.info('Sending SMS notification', {
       recipientId: notification.recipientId,
@@ -293,7 +295,7 @@ export class NotificationService {
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Twilio API error ${response.status}: ${errorText}`);
+          throw new ExternalServiceError(`Twilio API error ${response.status}: ${errorText}`);
         }
 
         logger.info('SMS sent via Twilio', {
@@ -317,7 +319,7 @@ export class NotificationService {
         });
 
         if (!response.ok) {
-          throw new Error(`SMS webhook error ${response.status}`);
+          throw new ExternalServiceError(`SMS webhook error ${response.status}`);
         }
 
         logger.info('SMS sent via webhook', { recipientId: notification.recipientId });
@@ -677,10 +679,8 @@ export class NotificationService {
       const approvalNotification: ApprovalNotification = {
         type: notification.type,
         recipientId: notification.recipient,
-        // @ts-expect-error -- Type not assignable
-        workflowId: notification.data?.workflowId,
-        // @ts-expect-error -- Type not assignable
-        operationId: notification.data?.operationId,
+        workflowId: typeof notification.data?.workflowId === 'string' ? notification.data.workflowId : '',
+        operationId: typeof notification.data?.operationId === 'string' ? notification.data.operationId : '',
         metadata: {
           subject: notification.subject,
           message: notification.message,

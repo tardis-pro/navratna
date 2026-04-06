@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import Redis from 'ioredis';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { createLogger } from '@uaip/utils';
+import { createLogger, InternalServerError } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import { BaileysClient, type WAConnectionState } from './baileys_client.js';
 import type { WhatsAppIncomingMessage } from './message_mapper.js';
@@ -34,19 +34,26 @@ const AGENT_INTELLIGENCE_URL =
 
 async function fetchAgentsFromService(): Promise<AgentSummary[]> {
   const res = await fetch(`${AGENT_INTELLIGENCE_URL}/api/v1/agents?limit=50`);
-  if (!res.ok) throw new Error(`Agent Intelligence responded ${res.status}`);
+  if (!res.ok) throw new InternalServerError(`Agent Intelligence responded ${res.status}`);
 
-  const body = (await res.json()) as { success: boolean; data: Record<string, unknown>[] };
+  const body: unknown = await res.json();
+  if (typeof body !== 'object' || body === null || !('success' in body) || !('data' in body)) return [];
   if (!body.success || !Array.isArray(body.data)) return [];
+  const dataItems: unknown[] = body.data;
 
-  return body.data
-    .map((a) => ({
-      id: String(a['id'] ?? ''),
-      name: String(a['name'] ?? 'Unknown Agent'),
-      description: String(
-        (a['persona'] as Record<string, unknown> | undefined)?.['role'] ?? a['description'] ?? ''
-      ),
-    }))
+  return dataItems
+    .filter((a): a is Record<string, unknown> => typeof a === 'object' && a !== null)
+    .map((a) => {
+      const personaRaw = a['persona'];
+      const personaRole = typeof personaRaw === 'object' && personaRaw !== null && 'role' in personaRaw && typeof personaRaw.role === 'string'
+        ? personaRaw.role
+        : undefined;
+      return {
+        id: String(a['id'] ?? ''),
+        name: String(a['name'] ?? 'Unknown Agent'),
+        description: String(personaRole ?? a['description'] ?? ''),
+      };
+    })
     .filter((a) => a.id);
 }
 
@@ -216,7 +223,7 @@ export class WhatsAppHandler {
           await this.client.sendText(data.jid, data.text);
           socket.emit('wa:send_ack', { jid: data.jid, ok: true });
         } catch (err) {
-          socket.emit('wa:error', { message: (err as Error).message });
+          socket.emit('wa:error', { message: err instanceof Error ? err.message : String(err) });
         }
       });
 
@@ -237,7 +244,7 @@ export class WhatsAppHandler {
           });
           await this.broadcastBindings();
         } catch (err) {
-          socket.emit('wa:error', { message: (err as Error).message });
+          socket.emit('wa:error', { message: err instanceof Error ? err.message : String(err) });
         }
       });
 
@@ -251,7 +258,7 @@ export class WhatsAppHandler {
           logger.info('Admin removed contact binding', { jid: data.jid, userId });
           await this.broadcastBindings();
         } catch (err) {
-          socket.emit('wa:error', { message: (err as Error).message });
+          socket.emit('wa:error', { message: err instanceof Error ? err.message : String(err) });
         }
       });
 
@@ -388,28 +395,32 @@ export class WhatsAppHandler {
   private subscribeEventBus(): void {
     this.eventBus
       .subscribe('agent.chat.response', async (event) => {
-        const data = event.data as {
-          messageId?: string;
-          response?: Record<string, unknown>;
-          agentName?: string;
-        };
+        const raw = event.data;
+        if (typeof raw !== 'object' || raw === null) return;
+        const messageId = 'messageId' in raw && typeof raw.messageId === 'string' ? raw.messageId : undefined;
+        const agentName = 'agentName' in raw && typeof raw.agentName === 'string' ? raw.agentName : undefined;
+        const responseField = 'response' in raw ? raw.response : undefined;
+        function isRecord(v: unknown): v is Record<string, unknown> {
+          return typeof v === 'object' && v !== null && !Array.isArray(v);
+        }
+        const responseRaw: Record<string, unknown> | undefined = isRecord(responseField) ? responseField : undefined;
 
-        if (!data.messageId?.startsWith(WA_MSG_ID_PREFIX)) return;
+        if (!messageId?.startsWith(WA_MSG_ID_PREFIX)) return;
 
-        const jid = await this.redis.get(`${WA_PENDING_PREFIX}${data.messageId}`);
+        const jid = await this.redis.get(`${WA_PENDING_PREFIX}${messageId}`);
         if (!jid) {
           logger.warn('No pending JID found for WhatsApp response', {
-            messageId: data.messageId,
+            messageId,
           });
           return;
         }
 
-        await this.redis.del(`${WA_PENDING_PREFIX}${data.messageId}`);
+        await this.redis.del(`${WA_PENDING_PREFIX}${messageId}`);
 
-        const responseText = this.extractResponseText(data.response);
+        const responseText = responseRaw ? this.extractResponseText(responseRaw) : '';
         if (!responseText) {
           logger.warn('Empty agent response for WhatsApp — skipping send', {
-            messageId: data.messageId,
+            messageId,
           });
           return;
         }
@@ -418,8 +429,8 @@ export class WhatsAppHandler {
           await this.client.sendText(jid, responseText);
           logger.info('Agent response sent to WhatsApp user', {
             jid,
-            agentName: data.agentName,
-            messageId: data.messageId,
+            agentName,
+            messageId,
           });
         } catch (err) {
           logger.error('Failed to send agent response to WhatsApp', { jid, err });
@@ -483,31 +494,33 @@ export class WhatsAppHandler {
   }
 
   private extractResponseText(response: Record<string, unknown>): string {
-    if (typeof response === 'string') return response;
-    if (response && typeof response === 'object') {
-      const r = response as Record<string, unknown>;
-      const text = r['text'] ?? r['content'] ?? r['message'] ?? r['response'];
-      if (typeof text === 'string') return text;
-    }
+    const text = response['text'] ?? response['content'] ?? response['message'] ?? response['response'];
+    if (typeof text === 'string') return text;
     return '';
   }
 
   /** Resolve the authenticated userId from nginx header, socket.data, or JWT token. */
   private async resolveUserId(socket: Socket): Promise<string | null> {
     // 1. Nginx-forwarded header (production path)
-    const nginxId = socket.handshake.headers['x-user-id'] as string | undefined;
+    const nginxIdRaw = socket.handshake.headers['x-user-id'];
+    const nginxId = typeof nginxIdRaw === 'string' ? nginxIdRaw : undefined;
     if (nginxId) return nginxId;
 
     // 2. Middleware-populated socket.data (if auth middleware is applied globally)
-    if (socket.data?.user?.userId) return socket.data.user.userId as string;
+    const socketUserId = socket.data?.user?.userId;
+    if (typeof socketUserId === 'string') return socketUserId;
 
     // 3. JWT token from socket handshake auth (dev / direct connection)
-    const token = socket.handshake.auth?.token as string | undefined;
+    const tokenRaw = socket.handshake.auth?.token;
+    const token = typeof tokenRaw === 'string' ? tokenRaw : undefined;
     if (!token) return null;
 
     try {
       const decoded = await validateJWTToken(token);
-      if (decoded?.valid && decoded?.userId) return decoded.userId as string;
+      if (decoded?.valid && decoded?.userId) {
+        const userId = decoded.userId;
+        return typeof userId === 'string' ? userId : null;
+      }
     } catch {
       // invalid token — fall through to null
     }

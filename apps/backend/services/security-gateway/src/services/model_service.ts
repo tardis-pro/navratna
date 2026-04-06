@@ -58,17 +58,18 @@ export class ModelService {
   }
 
   private transformToLegacyFormat(model: Record<string, unknown>): ModelForUser {
-    const providerName = (model.apiType as string) || 'unknown';
+    const providerName = typeof model.apiType === 'string' ? model.apiType : 'unknown';
+    const name = typeof model.name === 'string' ? model.name : '';
     return {
-      id: `${providerName}-${model.name}`,
-      name: model.name as string,
-      description: (model.description as string) || `${model.name} from ${providerName}`,
+      id: `${providerName}-${name}`,
+      name,
+      description: typeof model.description === 'string' ? model.description : `${name} from ${providerName}`,
       source: providerName,
-      apiEndpoint: model.apiEndpoint as string | undefined,
-      apiType: model.apiType as string | undefined,
+      apiEndpoint: typeof model.apiEndpoint === 'string' ? model.apiEndpoint : undefined,
+      apiType: typeof model.apiType === 'string' ? model.apiType : undefined,
       provider: providerName,
-      providerId: model.providerId as string,
-      isAvailable: (model.isEnabled as boolean) ?? true,
+      providerId: typeof model.providerId === 'string' ? model.providerId : '',
+      isAvailable: typeof model.isEnabled === 'boolean' ? model.isEnabled : true,
       isDefault: false,
     };
   }

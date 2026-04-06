@@ -7,7 +7,7 @@ import type {
   StorySpec,
   StoryStatus,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError } from '@uaip/utils'
 import { randomUUID } from 'node:crypto'
 
 interface GitHubAdapterConfig {
@@ -87,6 +87,10 @@ export class GitHubBoardAdapter implements BoardProvider {
       }
     )
 
+    if (!milestone) {
+      throw new ExternalServiceError('GitHub milestones POST returned no data')
+    }
+
     return {
       id: String(milestone.number),
       projectId,
@@ -115,6 +119,10 @@ export class GitHubBoardAdapter implements BoardProvider {
         assignees: spec.assignee ? [spec.assignee] : undefined,
       }
     )
+
+    if (!issue) {
+      throw new ExternalServiceError('GitHub issues POST returned no data')
+    }
 
     return {
       id: String(issue.number),
@@ -162,7 +170,7 @@ export class GitHubBoardAdapter implements BoardProvider {
       'GET'
     )
 
-    return issues.map((issue) => ({
+    return (issues ?? []).map((issue) => ({
       id: String(issue.number),
       epicId: issue.milestone ? String(issue.milestone.number) : projectId,
       title: issue.title,
@@ -185,7 +193,7 @@ export class GitHubBoardAdapter implements BoardProvider {
     return 'backlog'
   }
 
-  private async githubRequest<T>(path: string, method: string, body?: unknown): Promise<T> {
+  private async githubRequest<T>(path: string, method: string, body?: unknown): Promise<T | undefined> {
     const url = path.startsWith('http') ? path : `${GITHUB_API_BASE}${path}`
 
     const headers: Record<string, string> = {
@@ -210,13 +218,14 @@ export class GitHubBoardAdapter implements BoardProvider {
         status: response.status,
         body: errorBody.slice(0, 500),
       })
-      throw new Error(`GitHub API ${method} ${path} failed: ${response.status} ${response.statusText}`)
+      throw new ExternalServiceError(`GitHub API ${method} ${path} failed: ${response.status} ${response.statusText}`)
     }
 
     if (response.status === 204) {
-      return undefined as T
+      return undefined
     }
 
-    return (await response.json()) as T
+    const data: T = await response.json()
+    return data
   }
 }

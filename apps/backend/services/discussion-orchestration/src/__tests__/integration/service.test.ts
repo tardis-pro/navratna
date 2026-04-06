@@ -15,7 +15,7 @@ describe('Discussion Orchestration Service Integration', () => {
     vi.clearAllMocks();
 
     // Setup integration test scenarios
-    (mockIntegrationService.createDiscussionFlow as unknown).mockResolvedValue({
+    mockIntegrationService.createDiscussionFlow.mockResolvedValue({
       success: true,
       discussion: {
         id: 'discussion-123',
@@ -38,7 +38,7 @@ describe('Discussion Orchestration Service Integration', () => {
       ],
     });
 
-    (mockIntegrationService.realTimeCollaborationFlow as unknown).mockResolvedValue({
+    mockIntegrationService.realTimeCollaborationFlow.mockResolvedValue({
       success: true,
       messages: [
         { id: 'msg-1', content: 'Hello everyone!', participantId: 'participant-1' },
@@ -54,7 +54,7 @@ describe('Discussion Orchestration Service Integration', () => {
       events: [{ type: 'message_sent' }, { type: 'turn_changed' }, { type: 'reaction_added' }],
     });
 
-    (mockIntegrationService.turnManagementFlow as unknown).mockResolvedValue({
+    mockIntegrationService.turnManagementFlow.mockResolvedValue({
       success: true,
       turnSequence: [
         { participant: 'participant-1', duration: 300, completed: true },
@@ -69,7 +69,7 @@ describe('Discussion Orchestration Service Integration', () => {
       ],
     });
 
-    (mockIntegrationService.participantManagementFlow as unknown).mockResolvedValue({
+    mockIntegrationService.participantManagementFlow.mockResolvedValue({
       success: true,
       participantActions: [
         { action: 'join', participantId: 'participant-1', timestamp: new Date() },
@@ -84,7 +84,7 @@ describe('Discussion Orchestration Service Integration', () => {
       },
     });
 
-    (mockIntegrationService.eventBroadcastingFlow as unknown).mockResolvedValue({
+    mockIntegrationService.eventBroadcastingFlow.mockResolvedValue({
       success: true,
       broadcastEvents: [
         { type: 'discussion_created', recipients: 0 },
@@ -97,7 +97,7 @@ describe('Discussion Orchestration Service Integration', () => {
       eventDeliveryRate: 100,
     });
 
-    (mockIntegrationService.errorHandlingFlow as unknown).mockResolvedValue({
+    mockIntegrationService.errorHandlingFlow.mockResolvedValue({
       success: true,
       errorScenarios: [
         {
@@ -112,7 +112,7 @@ describe('Discussion Orchestration Service Integration', () => {
       resilience: 'high',
     });
 
-    (mockIntegrationService.cleanup as unknown).mockResolvedValue({
+    mockIntegrationService.cleanup.mockResolvedValue({
       success: true,
       cleanedResources: ['timers', 'connections', 'cache', 'event_listeners'],
       resourcesReleased: true,

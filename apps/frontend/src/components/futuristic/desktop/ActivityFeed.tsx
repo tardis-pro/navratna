@@ -171,7 +171,12 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
         <div className="flex items-center space-x-2">
           <select
             value={selectedTimeRange}
-            onChange={(e) => setSelectedTimeRange(e.target.value as 'today' | 'week' | 'month')}
+            onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'today' || value === 'week' || value === 'month') {
+                    setSelectedTimeRange(value);
+                  }
+                }}
             className="bg-slate-800/50 border border-slate-600/50 text-white text-xs rounded px-2 py-1"
           >
             <option value="today">Today</option>
@@ -265,7 +270,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 {trendingItems.map((trend, index) => {
                   if (!trend.item) return null;
 
-                  const IconComponent = (trend.item.icon || Activity) as unknown as IconWithSizeProps;
+                  const iconAny: any = trend.item.icon || Activity; // oxlint-disable-line @typescript-eslint/no-explicit-any -- icon field is a Lucide component; runtime shape matches IconWithSizeProps
+                  const IconComponent: IconWithSizeProps = iconAny;
 
                   return (
                     <motion.div
@@ -328,7 +334,8 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 </h4>
                 <div className="space-y-2">
                   {activityStats.mostUsedItems.slice(0, 3).map((item, _index) => {
-                    const IconComponent = (item.icon || Activity) as unknown as IconWithSizeProps;
+                    const iconAny2: any = item.icon || Activity; // oxlint-disable-line @typescript-eslint/no-explicit-any -- icon field is a Lucide component; runtime shape matches IconWithSizeProps
+                    const IconComponent: IconWithSizeProps = iconAny2;
                     return (
                       <div
                         key={item.id}

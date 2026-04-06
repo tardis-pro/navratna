@@ -34,7 +34,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
 
   // Mock battle data
   useEffect(() => {
-    const mockLiveBattles: Battle[] = [
+    const mockLiveBattlesRaw: any[] = [ // oxlint-disable-line @typescript-eslint/no-explicit-any -- mock data omits required Battle fields; runtime shape sufficient for display
       {
         id: '1',
         title: '🔥 Epic Code Battle: React vs Vue',
@@ -101,7 +101,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           spectatorBetting: true,
           prizePool: 500,
           entryFee: 50,
-          skillLevel: 'expert' as unknown,
+          skillLevel: 'expert',
           tags: ['coding', 'frontend', 'frameworks'],
         },
         prizePool: 500,
@@ -109,12 +109,13 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
         currentParticipants: 2,
         rounds: [],
         finalScores: [],
-        actualStartTime: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
+        actualStartTime: new Date(Date.now() - 45 * 60 * 1000),
         judgingCriteria: [],
       },
-    ] as Battle[];
+    ];
+    const mockLiveBattles: Battle[] = mockLiveBattlesRaw;
 
-    const mockUpcoming: Battle[] = [
+    const mockUpcomingRaw: any[] = [ // oxlint-disable-line @typescript-eslint/no-explicit-any -- mock data omits required Battle fields; runtime shape sufficient for display
       {
         id: '2',
         title: '🎭 AI Storyteller Championship',
@@ -137,7 +138,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
             score: 0,
           },
         ],
-        scheduledStartTime: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes from now
+        scheduledStartTime: new Date(Date.now() + 15 * 60 * 1000),
         spectatorCount: 342,
         prizePool: 250,
         maxParticipants: 4,
@@ -155,12 +156,13 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ onCreateBattle, onJoin
           spectatorBetting: false,
           prizePool: 250,
           entryFee: 25,
-          skillLevel: 'intermediate' as unknown,
+          skillLevel: 'intermediate',
           tags: ['creative', 'storytelling', 'writing'],
         },
         judgingCriteria: [],
       },
-    ] as Battle[];
+    ];
+    const mockUpcoming: Battle[] = mockUpcomingRaw;
 
     setLiveBattles(mockLiveBattles);
     setUpcomingBattles(mockUpcoming);

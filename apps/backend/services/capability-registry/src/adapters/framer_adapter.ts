@@ -11,6 +11,41 @@ import type {
 
 const FRAMER_API_BASE = 'https://api.framer.com/v1'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function toRecord(v: unknown): Record<string, unknown> {
+  return isRecord(v) ? v : {}
+}
+
+function isFramerStyleTokens(v: unknown): v is FramerStyleTokens {
+  const r = toRecord(v)
+  return typeof r.colors === 'object' && r.colors !== null
+}
+
+function mapToFramerProject(data: Record<string, unknown>): FramerProject {
+  return {
+    id: typeof data.id === 'string' ? data.id : '',
+    name: typeof data.name === 'string' ? data.name : '',
+    url: typeof data.url === 'string' ? data.url : '',
+    previewUrl: typeof data.previewUrl === 'string' ? data.previewUrl : undefined,
+    publishedUrl: typeof data.publishedUrl === 'string' ? data.publishedUrl : undefined,
+    createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
+    updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : '',
+  }
+}
+
+function mapToFramerComponent(data: Record<string, unknown>): FramerComponent {
+  return {
+    id: typeof data.id === 'string' ? data.id : '',
+    projectId: typeof data.projectId === 'string' ? data.projectId : '',
+    name: typeof data.name === 'string' ? data.name : '',
+    description: typeof data.description === 'string' ? data.description : '',
+    styleTokens: isFramerStyleTokens(data.styleTokens) ? data.styleTokens : undefined,
+  }
+}
+
 export class FramerAdapter extends BaseOAuthAdapter {
   private readonly teamId?: string
 
@@ -35,7 +70,9 @@ export class FramerAdapter extends BaseOAuthAdapter {
       description: 'Creates a new Framer project',
       parameters: { name: 'string', description: 'string' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { name, description } = params as { name: string; description: string }
+        const p = toRecord(params)
+        const name = typeof p.name === 'string' ? p.name : ''
+        const description = typeof p.description === 'string' ? p.description : ''
         return this.createProject(name, description, tokens)
       },
     })
@@ -46,12 +83,11 @@ export class FramerAdapter extends BaseOAuthAdapter {
       description: 'Generates a component from description and style tokens',
       parameters: { projectId: 'string', name: 'string', description: 'string', styleTokens: 'object' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { projectId, name, description, styleTokens } = params as {
-          projectId: string
-          name: string
-          description: string
-          styleTokens?: FramerStyleTokens
-        }
+        const p = toRecord(params)
+        const projectId = typeof p.projectId === 'string' ? p.projectId : ''
+        const name = typeof p.name === 'string' ? p.name : ''
+        const description = typeof p.description === 'string' ? p.description : ''
+        const styleTokens = isFramerStyleTokens(p.styleTokens) ? p.styleTokens : undefined
         return this.generateComponent(projectId, name, description, styleTokens, tokens)
       },
     })
@@ -62,7 +98,8 @@ export class FramerAdapter extends BaseOAuthAdapter {
       description: 'Publishes a Framer project',
       parameters: { projectId: 'string' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { projectId } = params as { projectId: string }
+        const p = toRecord(params)
+        const projectId = typeof p.projectId === 'string' ? p.projectId : ''
         return this.publishProject(projectId, tokens)
       },
     })
@@ -73,7 +110,8 @@ export class FramerAdapter extends BaseOAuthAdapter {
       description: 'Gets the preview URL for a Framer project',
       parameters: { projectId: 'string' },
       execute: async (params: unknown, tokens: OAuthTokens) => {
-        const { projectId } = params as { projectId: string }
+        const p = toRecord(params)
+        const projectId = typeof p.projectId === 'string' ? p.projectId : ''
         return this.getProject(projectId, tokens)
       },
     })
@@ -95,7 +133,8 @@ export class FramerAdapter extends BaseOAuthAdapter {
       },
       tokens
     )
-    return (await response.json()) as FramerProject
+    const projectData = toRecord(await response.json())
+    return mapToFramerProject(projectData)
   }
 
   private async getProject(projectId: string, tokens: OAuthTokens): Promise<FramerProject> {
@@ -104,7 +143,8 @@ export class FramerAdapter extends BaseOAuthAdapter {
       { method: 'GET' },
       tokens
     )
-    return (await response.json()) as FramerProject
+    const projectData = toRecord(await response.json())
+    return mapToFramerProject(projectData)
   }
 
   private async generateComponent(
@@ -123,7 +163,8 @@ export class FramerAdapter extends BaseOAuthAdapter {
       },
       tokens
     )
-    return (await response.json()) as FramerComponent
+    const componentData = toRecord(await response.json())
+    return mapToFramerComponent(componentData)
   }
 
   private async publishProject(
@@ -135,7 +176,8 @@ export class FramerAdapter extends BaseOAuthAdapter {
       { method: 'POST' },
       tokens
     )
-    return (await response.json()) as { publishedUrl: string }
+    const data = toRecord(await response.json())
+    return { publishedUrl: typeof data.publishedUrl === 'string' ? data.publishedUrl : '' }
   }
 
   // ─── Prototype generation orchestration ────────────────────────────────
@@ -196,28 +238,38 @@ export class FramerAdapter extends BaseOAuthAdapter {
   }
 
   extractStyleTokensFromTailwind(tailwindConfig: Record<string, unknown>): FramerStyleTokens {
-    const theme = (tailwindConfig.theme ?? {}) as Record<string, unknown>
-    const extend = (theme.extend ?? {}) as Record<string, unknown>
-    const colors = (extend.colors ?? theme.colors ?? {}) as Record<string, string>
-    const fontFamily = (extend.fontFamily ?? theme.fontFamily ?? {}) as Record<string, string[]>
-    const spacing = (extend.spacing ?? theme.spacing ?? {}) as Record<string, string>
-    const borderRadius = (extend.borderRadius ?? theme.borderRadius ?? {}) as Record<string, string>
+    const theme = toRecord(tailwindConfig.theme)
+    const extend = toRecord(theme.extend)
+    const colorsRaw = toRecord(extend.colors ?? theme.colors)
+    const fontFamilyRaw = toRecord(extend.fontFamily ?? theme.fontFamily)
+    const spacingRaw = toRecord(extend.spacing ?? theme.spacing)
+    const borderRadiusRaw = toRecord(extend.borderRadius ?? theme.borderRadius)
 
-    const flatColors: Record<string, string> = {}
-    for (const [key, value] of Object.entries(colors)) {
-      if (typeof value === 'string') {
-        flatColors[key] = value
-      }
+    const colors: Record<string, string> = {}
+    for (const [k, v] of Object.entries(colorsRaw)) {
+      if (typeof v === 'string') colors[k] = v
+    }
+    const fontFamily: Record<string, string[]> = {}
+    for (const [k, v] of Object.entries(fontFamilyRaw)) {
+      if (Array.isArray(v)) fontFamily[k] = v.filter((s): s is string => typeof s === 'string')
+    }
+    const spacing: Record<string, string> = {}
+    for (const [k, v] of Object.entries(spacingRaw)) {
+      if (typeof v === 'string') spacing[k] = v
+    }
+    const borderRadius: Record<string, string> = {}
+    for (const [k, v] of Object.entries(borderRadiusRaw)) {
+      if (typeof v === 'string') borderRadius[k] = v
     }
 
     const primaryFont = Object.values(fontFamily)[0]
 
     return {
-      colors: flatColors,
+      colors,
       fontFamily: Array.isArray(primaryFont) ? primaryFont[0] : undefined,
       fontSize: undefined,
-      spacing: typeof spacing === 'object' ? spacing : undefined,
-      borderRadius: typeof borderRadius === 'object' ? borderRadius : undefined,
+      spacing: Object.keys(spacing).length > 0 ? spacing : undefined,
+      borderRadius: Object.keys(borderRadius).length > 0 ? borderRadius : undefined,
     }
   }
 }

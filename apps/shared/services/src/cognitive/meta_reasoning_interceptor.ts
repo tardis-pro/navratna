@@ -10,6 +10,14 @@ import type {
 } from '@uaip/types';
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -54,15 +62,15 @@ export class MetaReasoningInterceptor {
 
   private setupEventHandlers(): void {
     this.eventBus.subscribe('agent.action.error', async (event) => {
-      const data = event.data as { agentId: string };
-      if (data?.agentId) {
+      const data: unknown = event.data;
+      if (isRecord(data) && typeof data.agentId === 'string') {
         this.recordError(data.agentId);
       }
     });
 
     this.eventBus.subscribe('agent.action.success', async (event) => {
-      const data = event.data as { agentId: string };
-      if (data?.agentId) {
+      const data: unknown = event.data;
+      if (isRecord(data) && typeof data.agentId === 'string') {
         this.recordSuccess(data.agentId);
       }
     });
@@ -387,8 +395,8 @@ export class MetaReasoningInterceptor {
 
       this.eventBus.subscribe(`agent.delegate.response.${requestId}`, async (event) => {
         clearTimeout(timeout);
-        const data = event.data as { agentId?: string };
-        resolve(data?.agentId ?? null);
+          const data = event.data as { agentId?: string };
+          resolve(data?.agentId ?? null);
       });
 
       this.eventBus.publish('agent.delegate.request', {

@@ -1,5 +1,5 @@
 import { DatabaseService } from './database_service';
-import { logger, ApiError } from '@uaip/utils';
+import { logger, ApiError, ValidationError } from '@uaip/utils';
 import {
   SecurityValidationResult,
   RiskAssessment,
@@ -104,7 +104,7 @@ export class SecurityValidationService {
     } catch (error) {
       logger.error('Error validating operation security', {
         securityContext,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw new ApiError(500, 'Security validation failed', 'SECURITY_ERROR');
     }
@@ -169,7 +169,7 @@ export class SecurityValidationService {
     } catch (error) {
       logger.error('Error assessing plan risk', {
         planId: plan.id,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw new ApiError(500, 'Risk assessment failed', 'RISK_ASSESSMENT_ERROR');
     }
@@ -220,7 +220,7 @@ export class SecurityValidationService {
       logger.error('Error filtering sensitive data', {
         userId,
         operation,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -249,7 +249,7 @@ export class SecurityValidationService {
     } catch (error) {
       logger.error('Error creating approval workflow', {
         operationId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw new ApiError(500, 'Failed to create approval workflow', 'WORKFLOW_ERROR');
     }
@@ -258,7 +258,9 @@ export class SecurityValidationService {
   // Private helper methods
 
   private static asRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+    if (typeof value !== 'object' || value === null) return {};
+    const target: Record<string, unknown> = {};
+    return Object.assign(target, value);
   }
 
   private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
@@ -276,7 +278,7 @@ export class SecurityValidationService {
 
       return { valid: true };
     } catch (error) {
-      logger.error('Error validating user auth', { userId, error: (error as Error).message });
+      logger.error('Error validating user auth', { userId, error: error instanceof Error ? error.message : String(error) });
       return { valid: false, reason: 'Authentication error' };
     }
   }
@@ -292,13 +294,8 @@ export class SecurityValidationService {
   }> {
     try {
       const permissions = await this.databaseService.getUserPermissions(userId);
-      const permissionRecord = SecurityValidationService.asRecord(permissions);
-      const rolePermissions = Array.isArray(permissionRecord.rolePermissions)
-        ? (permissionRecord.rolePermissions as Array<{ operations?: string[] }>)
-        : [];
-      const directPermissions = Array.isArray(permissionRecord.directPermissions)
-        ? (permissionRecord.directPermissions as Array<{ operations?: string[] }>)
-        : [];
+      const rolePermissions = permissions.rolePermissions ?? [];
+      const directPermissions = permissions.directPermissions ?? [];
 
       const userPermissions = new Set<string>();
 
@@ -331,7 +328,7 @@ export class SecurityValidationService {
       logger.error('Error getting user permissions', {
         userId,
         operation,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       return { hasPermission: false, granted: [], required: [operation] };
     }
@@ -711,7 +708,7 @@ export class SecurityValidationService {
     } catch (error) {
       logger.error('Error getting user data access level', {
         userId,
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       return 'viewer'; // Default to most restrictive on error
     }
@@ -726,7 +723,7 @@ export class SecurityValidationService {
       case RiskLevel.HIGH:
         return SecurityLevel.HIGH;
       default:
-        throw new Error('Invalid risk level');
+        throw new ValidationError('Invalid risk level');
     }
   }
 }

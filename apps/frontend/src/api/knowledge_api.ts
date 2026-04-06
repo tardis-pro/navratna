@@ -4,6 +4,18 @@
  */
 
 import { gatewayClient, edenWithCSRFRetry, edenRequest } from './eden';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function toNumberRecord(v: Record<string, unknown>): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const [k, val] of Object.entries(v)) {
+    if (typeof val === 'number') result[k] = val;
+  }
+  return result;
+}
 import type {
   KnowledgeItem,
   KnowledgeUploadRequest,
@@ -53,12 +65,12 @@ export const knowledgeAPI = {
     const raw = await edenWithCSRFRetry(() => knowledge.search.get({ query }));
 
     // Backend returns {success: true, data: {items: [], ...}} OR {items: [], totalCount: number, searchMetadata: {}}
-    const response = (raw as unknown) as Record<string, unknown>;
+    const response: Record<string, unknown> = isRecord(raw) ? raw : {};
 
     // Handle both wrapped and unwrapped response formats
     let searchData: Record<string, unknown> = response;
-    if (response['success'] && response['data'] && typeof response['data'] === 'object') {
-      searchData = (response['data'] as unknown) as Record<string, unknown>;
+    if (response['success'] && isRecord(response['data'])) {
+      searchData = response['data'];
     }
 
     // Validate response structure
@@ -68,24 +80,27 @@ export const knowledgeAPI = {
     }
 
     // Transform backend response to expected format
-    return (searchData['items'] as unknown[]).map((rawItem: unknown) => {
-      const item = (rawItem as unknown) as Record<string, unknown>;
+    const rawItems: unknown[] = Array.isArray(searchData['items']) ? searchData['items'] : [];
+    return rawItems.map((rawItem: unknown) => {
+      const item: Record<string, unknown> = isRecord(rawItem) ? rawItem : {};
+      const rawTags = item['tags'];
+      const tags: string[] = Array.isArray(rawTags) ? rawTags.filter((t): t is string => typeof t === 'string') : [];
       return {
         item: {
-          id: item['id'] as string,
+          id: typeof item['id'] === 'string' ? item['id'] : '',
           title: typeof item['content'] === 'string'
-            ? (item['content'] as string).substring(0, 100) + '...'
+            ? item['content'].substring(0, 100) + '...'
             : 'Untitled',
-          content: item['content'] as string,
+          content: typeof item['content'] === 'string' ? item['content'] : '',
           type: 'document' as const,
-          tags: Array.isArray(item['tags']) ? (item['tags'] as string[]) : [],
-          createdAt: item['createdAt'] as string,
-          updatedAt: item['updatedAt'] as string,
-          metadata: (item['metadata'] as unknown) as Record<string, unknown> | undefined,
+          tags,
+          createdAt: typeof item['createdAt'] === 'string' ? item['createdAt'] : '',
+          updatedAt: typeof item['updatedAt'] === 'string' ? item['updatedAt'] : '',
+          metadata: isRecord(item['metadata']) ? item['metadata'] : undefined,
         },
-        score: typeof item['confidence'] === 'number' ? (item['confidence'] as number) : 0.8,
-        highlights: [] as string[],
-        relatedItems: [] as string[],
+        score: typeof item['confidence'] === 'number' ? item['confidence'] : 0.8,
+        highlights: new Array<string>(),
+        relatedItems: new Array<string>(),
       };
     });
   },
@@ -103,13 +118,8 @@ export const knowledgeAPI = {
 
     // Handle wrapped response format: { success: true, data: [...], meta: {...} }
     let items: unknown = raw;
-    if (
-      items !== null &&
-      typeof items === 'object' &&
-      'success' in (items as Record<string, unknown>) &&
-      'data' in (items as Record<string, unknown>)
-    ) {
-      items = (items as Record<string, unknown>)['data'];
+    if (isRecord(items) && 'success' in items && 'data' in items) {
+      items = items['data'];
     }
 
     if (!Array.isArray(items)) {
@@ -117,7 +127,8 @@ export const knowledgeAPI = {
       return [];
     }
 
-    return items as KnowledgeItem[];
+    const itemsAny: any = items; // oxlint-disable-line @typescript-eslint/no-explicit-any -- items is unknown[]; KnowledgeItem[] is structurally compatible at runtime
+    return itemsAny;
   },
 
   async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {
@@ -134,23 +145,23 @@ export const knowledgeAPI = {
       const raw = await edenWithCSRFRetry(() => knowledge.stats.get());
 
       // Safely access nested properties with defaults
-      const stats = (raw !== null && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+      const stats: Record<string, unknown> = isRecord(raw) ? raw : {};
       const userStats = {
-        totalItems: (stats['totalItems'] as number) || 0,
-        itemsByType: (stats['itemsByType'] as Record<string, number>) || {},
-        recentActivity: (stats['recentActivity'] as Record<string, number>) || {},
+        totalItems: typeof stats['totalItems'] === 'number' ? stats['totalItems'] : 0,
+        itemsByType: isRecord(stats['itemsByType']) ? toNumberRecord(stats['itemsByType']) : {},
+        recentActivity: isRecord(stats['recentActivity']) ? toNumberRecord(stats['recentActivity']) : {},
       };
-      const generalStats = (stats['generalKnowledge'] as Record<string, unknown>) || {};
+      const generalStats: Record<string, unknown> = isRecord(stats['generalKnowledge']) ? stats['generalKnowledge'] : {};
 
       return {
-        totalItems: userStats.totalItems + ((generalStats['totalItems'] as number) || 0),
+        totalItems: userStats.totalItems + (typeof generalStats['totalItems'] === 'number' ? generalStats['totalItems'] : 0),
         itemsByType: {
           ...userStats.itemsByType,
-          ...((generalStats['itemsByType'] as Record<string, number>) || {}),
+          ...(isRecord(generalStats['itemsByType']) ? toNumberRecord(generalStats['itemsByType']) : {}),
         },
         itemsByCategory: {},
         totalRelations: 0,
-        recentUploads: (userStats.recentActivity['itemsThisWeek'] as number) || 0,
+        recentUploads: typeof userStats.recentActivity['itemsThisWeek'] === 'number' ? userStats.recentActivity['itemsThisWeek'] : 0,
         storageUsed: 0,
         topTags: [], // TODO: Add top tags when backend provides them
       };
@@ -196,37 +207,33 @@ export const knowledgeAPI = {
       if (options?.types?.length) query['types'] = options.types.join(',');
 
       const raw = await edenWithCSRFRetry(() => knowledge.graph.get({ query }));
-      const response = (raw !== null && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+      const response: Record<string, unknown> = isRecord(raw) ? raw : {};
 
       // Safely access with defaults
-      const nodes = Array.isArray(response['nodes'])
-        ? (response['nodes'] as Record<string, unknown>[])
+      const nodes: Record<string, unknown>[] = Array.isArray(response['nodes'])
+        ? response['nodes']
         : [];
-      const edges = Array.isArray(response['edges'])
-        ? (response['edges'] as Record<string, unknown>[])
+      const edges: Record<string, unknown>[] = Array.isArray(response['edges'])
+        ? response['edges']
         : [];
 
       return {
         nodes: nodes.map((node) => {
-          const nodeData = (
-            node['data'] !== null && typeof node['data'] === 'object' ? node['data'] : {}
-          ) as Record<string, unknown>;
+          const nodeData: Record<string, unknown> = isRecord(node['data']) ? node['data'] : {};
           return {
-            id: node['id'] as string,
-            label: (nodeData['label'] as string) || (node['id'] as string),
-            type: (nodeData['knowledgeType'] as string) || 'knowledge',
-            properties: (node['data'] as unknown) as Record<string, unknown> | undefined,
+            id: typeof node['id'] === 'string' ? node['id'] : '',
+            label: typeof nodeData['label'] === 'string' ? nodeData['label'] : (typeof node['id'] === 'string' ? node['id'] : ''),
+            type: typeof nodeData['knowledgeType'] === 'string' ? nodeData['knowledgeType'] : 'knowledge',
+            properties: isRecord(node['data']) ? node['data'] : undefined,
           };
         }),
         edges: edges.map((edge) => {
-          const edgeData = (
-            edge['data'] !== null && typeof edge['data'] === 'object' ? edge['data'] : {}
-          ) as Record<string, unknown>;
+          const edgeData: Record<string, unknown> = isRecord(edge['data']) ? edge['data'] : {};
           return {
-            source: edge['source'] as string,
-            target: edge['target'] as string,
-            type: (edgeData['relationshipType'] as string) || 'related',
-            properties: (edge['data'] as unknown) as Record<string, unknown> | undefined,
+            source: typeof edge['source'] === 'string' ? edge['source'] : '',
+            target: typeof edge['target'] === 'string' ? edge['target'] : '',
+            type: typeof edgeData['relationshipType'] === 'string' ? edgeData['relationshipType'] : 'related',
+            properties: isRecord(edge['data']) ? edge['data'] : undefined,
           };
         }),
       };

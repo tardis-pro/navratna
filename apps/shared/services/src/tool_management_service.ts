@@ -32,6 +32,10 @@ type AgentCapabilityMetricRow = {
   last_used: Date;
 };
 
+function objectKeys<T extends object>(obj: T): Array<keyof T> {
+  return Object.keys(obj) as Array<keyof T>;
+}
+
 export class ToolManagementService {
   private logger = createLogger({
     serviceName: 'tool-management-service',
@@ -42,7 +46,7 @@ export class ToolManagementService {
   async createTool(toolData: NewToolDefinition): Promise<ToolDefinition> {
     try {
       const pool = getControlPool();
-      const keys = Object.keys(toolData) as Array<keyof NewToolDefinition>;
+      const keys = objectKeys(toolData);
       const values = keys.map((key) => toolData[key]);
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
@@ -50,7 +54,7 @@ export class ToolManagementService {
       const result = await pool.query(queryStr, values);
       return result.rows[0];
     } catch (error) {
-      this.logger.error('Failed to create tool', { error: (error as Error).message });
+      this.logger.error('Failed to create tool', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -74,7 +78,7 @@ export class ToolManagementService {
       );
       return result.rows[0] ?? null;
     } catch (error) {
-      this.logger.error('Failed to update tool', { error: (error as Error).message, toolId });
+      this.logger.error('Failed to update tool', { error: error instanceof Error ? error.message : String(error), toolId });
       throw error;
     }
   }
@@ -85,7 +89,7 @@ export class ToolManagementService {
       const result = await pool.query(`DELETE FROM "tool_definitions" WHERE id = $1`, [toolId]);
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
-      this.logger.error('Failed to delete tool', { error: (error as Error).message, toolId });
+      this.logger.error('Failed to delete tool', { error: error instanceof Error ? error.message : String(error), toolId });
       throw error;
     }
   }
@@ -98,7 +102,7 @@ export class ToolManagementService {
       ]);
       return rows.rows[0] ?? null;
     } catch (error) {
-      this.logger.error('Failed to get tool', { error: (error as Error).message, toolId });
+      this.logger.error('Failed to get tool', { error: error instanceof Error ? error.message : String(error), toolId });
       throw error;
     }
   }
@@ -109,7 +113,7 @@ export class ToolManagementService {
       const result = await pool.query(`SELECT * FROM "tool_definitions" ORDER BY created_at DESC`);
       return result.rows;
     } catch (error) {
-      this.logger.error('Failed to get tools', { error: (error as Error).message });
+      this.logger.error('Failed to get tools', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -143,7 +147,7 @@ export class ToolManagementService {
         agentId: usageData.agentId,
       });
     } catch (error) {
-      this.logger.error('Failed to record tool usage', { error: (error as Error).message });
+      this.logger.error('Failed to record tool usage', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -182,7 +186,7 @@ export class ToolManagementService {
       };
     } catch (error) {
       this.logger.error('Failed to get tool usage stats', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         toolId,
       });
       throw error;
@@ -233,7 +237,7 @@ export class ToolManagementService {
         );
       }
     } catch (error) {
-      this.logger.error('Failed to update capability metrics', { error: (error as Error).message });
+      this.logger.error('Failed to update capability metrics', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -248,7 +252,7 @@ export class ToolManagementService {
       return result.rows;
     } catch (error) {
       this.logger.error('Failed to get agent capability metrics', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         agentId,
       });
       throw error;

@@ -10,8 +10,12 @@ import {
   CouncilDebateConfig,
   CouncilAgentAnalysis,
   Round2Challenge,
-  CouncilDebateResult,
 } from '@uaip/types';
+import type { CouncilDebateResult } from '@uaip/types/questionforge';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
 export type AgentAnalysis = CouncilAgentAnalysis;
 
@@ -47,11 +51,12 @@ export class DebateFlowExtension {
    */
   private setupResponseListener(): void {
     this.eventBus.subscribe('questionforge.llm.response', async (event) => {
-      const { requestId, content, error } = event.data as {
-        requestId: string;
-        content?: string;
-        error?: string;
-      };
+      const raw = event.data;
+      if (!isRecord(raw)) return;
+      const requestId = typeof raw.requestId === 'string' ? raw.requestId : undefined;
+      const content = typeof raw.content === 'string' ? raw.content : undefined;
+      const error = typeof raw.error === 'string' ? raw.error : undefined;
+      if (!requestId) return;
 
       const pending = this.pendingResponses.get(requestId);
       if (!pending) return;
@@ -166,7 +171,7 @@ export class DebateFlowExtension {
         analysis.agentRole = role;
         return analysis;
       } catch (err) {
-        logger.error('Round 1 agent failed', { agentId, role, error: (err as Error).message });
+        logger.error('Round 1 agent failed', { agentId, role, error: err instanceof Error ? err.message : String(err) });
         return this.emptyAnalysis(agentId, role);
       }
     });
@@ -217,7 +222,7 @@ export class DebateFlowExtension {
       logger.error('Cross-examination failed', {
         challengerId: challenger.agentId,
         targetId: target.agentId,
-        error: (err as Error).message,
+        error: err instanceof Error ? err.message : String(err),
       });
       return {
         challengerId: challenger.agentId,
@@ -360,7 +365,8 @@ Rules:
   // ─── Response parsers ─────────────────────────────────────────────────────
 
   parseRound1Response(raw: string): AgentAnalysis {
-    const json = this.extractJSON(raw) as Record<string, unknown>;
+    const parsed = this.extractJSON(raw);
+    const json: Record<string, unknown> = isRecord(parsed) ? parsed : {};
 
     return {
       agentId: '', // filled in by caller
@@ -378,7 +384,8 @@ Rules:
     mergedQuestions: string[];
     escalatedBlockers: string[];
   } {
-    const json = this.extractJSON(raw) as Record<string, unknown>;
+    const parsed = this.extractJSON(raw);
+    const json: Record<string, unknown> = isRecord(parsed) ? parsed : {};
 
     return {
       challenge: typeof json.challenge === 'string' ? json.challenge : '',
@@ -408,16 +415,16 @@ Rules:
     const synthesizedQuestions: Question[] = deduplicatedQuestions.map((q) => ({
       id: randomUUID(),
       projectBriefId,
-      category: 'assumption_reveal' as QuestionCategory,
+      category: QuestionCategory.ASSUMPTION_REVEAL,
       text: q.text,
       intent: q.whyItMatters,
       priority: Math.round(q.confidence * 100),
-      phase: 'discovery' as QuestionPhase,
+      phase: QuestionPhase.DISCOVERY,
       tags: q.targetStakeholder ? [q.targetStakeholder] : [],
-      status: 'pending' as QuestionStatus,
+      status: QuestionStatus.DRAFT,
       usageCount: 0,
-      createdAt: new Date().toISOString() as unknown as Date,
-      updatedAt: new Date().toISOString() as unknown as Date,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }));
 
     // Detect contradictions from conflicting assumptions across agents
@@ -431,7 +438,7 @@ Rules:
 
     return {
       debateId,
-      round1Analyses: round1 as unknown as CouncilDebateResult['round1Analyses'],
+      round1Analyses: round1,
       round2Challenges: round2,
       synthesizedQuestions,
       contradictions,
@@ -612,7 +619,7 @@ Rules:
     try {
       return JSON.parse(jsonStr.substring(start, end + 1));
     } catch (err) {
-      logger.warn('Failed to parse JSON from LLM response', { error: (err as Error).message });
+      logger.warn('Failed to parse JSON from LLM response', { error: err instanceof Error ? err.message : String(err) });
       return {};
     }
   }

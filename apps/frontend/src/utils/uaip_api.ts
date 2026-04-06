@@ -63,8 +63,6 @@ import type {
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
   _KnowledgeRelationship,
-  KnowledgeType,
-  SourceType,
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
@@ -1045,8 +1043,8 @@ export const uaipAPI = {
 
     async getKnowledgeStats(): Promise<{
       totalItems: number;
-      itemsByType: Record<KnowledgeType, number>;
-      itemsBySource: Record<SourceType, number>;
+      itemsByType: Record<string, number>;
+      itemsBySource: Record<string, number>;
       recentActivity: Array<{
         date: string;
         uploads: number;
@@ -1066,8 +1064,8 @@ export const uaipAPI = {
 
         return {
           totalItems,
-          itemsByType: combinedItemsByType as Record<KnowledgeType, number>,
-          itemsBySource: (stats.itemsByCategory || {}) as Record<SourceType, number>,
+          itemsByType: combinedItemsByType,
+          itemsBySource: stats.itemsByCategory || {},
           recentActivity: [
             {
               date: new Date().toISOString().split('T')[0],
@@ -1092,8 +1090,8 @@ export const uaipAPI = {
         // Return mock data to prevent infinite loops
         return {
           totalItems: 0,
-          itemsByType: {} as Record<KnowledgeType, number>,
-          itemsBySource: {} as Record<SourceType, number>,
+          itemsByType: {},
+          itemsBySource: {},
           recentActivity: [
             {
               date: new Date().toISOString().split('T')[0],

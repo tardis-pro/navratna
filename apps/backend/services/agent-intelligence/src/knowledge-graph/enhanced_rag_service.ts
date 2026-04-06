@@ -1,6 +1,11 @@
 import { TEIEmbeddingService, TEIHealthStatus } from './tei_embedding_service.js';
 import { QdrantService } from './qdrant_service.js';
 
+import { InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 interface _VectorSearchResult {
   id: string;
   score: number;
@@ -53,7 +58,7 @@ export class EnhancedRAGService {
     } = options;
 
     if (!query || query.trim().length === 0) {
-      throw new Error('Query cannot be empty');
+      throw new ValidationError('Query cannot be empty');
     }
 
     try {
@@ -78,31 +83,36 @@ export class EnhancedRAGService {
       let results: EnhancedSearchResult[];
 
       if (useReranking && filteredCandidates.length > 1) {
-        const candidatesWithContent = filteredCandidates.map((c) => ({
-          id: c.id,
-          content: String(c.payload?.content ?? ''),
-          metadata: (c.payload?.metadata ?? {}) as Record<string, unknown>,
-          score: c.score,
-        }));
+        const candidatesWithContent = filteredCandidates.map((c) => {
+          const meta = c.payload?.metadata;
+          return {
+            id: c.id,
+            content: String(c.payload?.content ?? ''),
+            metadata: isRecord(meta) ? meta : {},
+            score: c.score,
+          };
+        });
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
-        results = filteredCandidates.slice(0, topK).map((candidate, index) => ({
-          id: candidate.id,
-          content: String(candidate.payload?.content ?? ''),
-          metadata: (candidate.payload?.metadata ?? {}) as Record<string, unknown>,
-          score: candidate.score,
-          originalScore: candidate.score,
-          rank: index + 1,
-          embedding: includeEmbeddings
-            ? (candidate.payload?.embedding as number[] | undefined)
-            : undefined,
-        }));
+        results = filteredCandidates.slice(0, topK).map((candidate, index) => {
+          const meta = candidate.payload?.metadata;
+          const emb = candidate.payload?.embedding;
+          return {
+            id: candidate.id,
+            content: String(candidate.payload?.content ?? ''),
+            metadata: isRecord(meta) ? meta : {},
+            score: candidate.score,
+            originalScore: candidate.score,
+            rank: index + 1,
+            embedding: includeEmbeddings && Array.isArray(emb) ? emb.filter((x): x is number => typeof x === 'number') : undefined,
+          };
+        });
       }
 
       return results;
     } catch (error) {
       console.error('Enhanced semantic search failed:', error);
-      throw new Error(`Semantic search failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Semantic search failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -157,7 +167,7 @@ export class EnhancedRAGService {
       await this.vectorStore.upsert(vectorDocuments);
     } catch (error) {
       console.error('Document indexing failed:', error);
-      throw new Error(`Failed to index documents: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to index documents: ${error.message}`, { cause: error });
     }
   }
 
@@ -173,7 +183,7 @@ export class EnhancedRAGService {
       // Get the document and its embedding
       const document = await this.vectorStore.getById(documentId);
       if (!document || !document.embedding) {
-        throw new Error(`Document ${documentId} not found or missing embedding`);
+        throw new NotFoundError(`Document ${documentId} not found or missing embedding`);
       }
 
       // Search for similar documents
@@ -187,17 +197,20 @@ export class EnhancedRAGService {
       return candidates
         .filter((c) => c.score >= minScore)
         .slice(0, topK)
-        .map((candidate, index) => ({
-          id: candidate.id,
-          content: String(candidate.payload?.content ?? ''),
-          metadata: (candidate.payload?.metadata ?? {}) as Record<string, unknown>,
-          score: candidate.score,
-          originalScore: candidate.score,
-          rank: index + 1,
-        }));
+        .map((candidate, index) => {
+          const meta = candidate.payload?.metadata;
+          return {
+            id: candidate.id,
+            content: String(candidate.payload?.content ?? ''),
+            metadata: isRecord(meta) ? meta : {},
+            score: candidate.score,
+            originalScore: candidate.score,
+            rank: index + 1,
+          };
+        });
     } catch (error) {
       console.error('Similar documents search failed:', error);
-      throw new Error(`Failed to find similar documents: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to find similar documents: ${error.message}`, { cause: error });
     }
   }
 

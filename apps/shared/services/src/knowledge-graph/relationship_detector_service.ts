@@ -349,9 +349,9 @@ export class RelationshipDetector {
           relationshipType: rel.relationshipType,
           confidence: rel.strength,
           createdAt: rel.createdAt,
-          userId: rel.metadata?.userId as string | undefined,
-          agentId: rel.metadata?.agentId as string | undefined,
-          summary: rel.metadata?.summary as string | undefined,
+          userId: typeof rel.metadata?.userId === 'string' ? rel.metadata.userId : undefined,
+          agentId: typeof rel.metadata?.agentId === 'string' ? rel.metadata.agentId : undefined,
+          summary: typeof rel.metadata?.summary === 'string' ? rel.metadata.summary : undefined,
         }));
     } catch (error) {
       console.error('Strong relationship retrieval error:', error);

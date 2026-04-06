@@ -3,6 +3,7 @@ import {
   CritiqueItem,
   CritiqueConfig,
   CritiqueCriteria,
+  CritiqueCriteriaSchema,
   DEFAULT_CRITIQUE_CONFIG,
   CRITIQUE_SYSTEM_PROMPT,
 } from '@uaip/types';
@@ -182,8 +183,10 @@ Evaluate this response using the criteria specified.`;
       const issueMatch = details.match(/Issue:\s*(.+?)(?=Suggestion:|$)/s);
       const suggestionMatch = details.match(/Suggestion:\s*(.+)/s);
 
+      const parsed = CritiqueCriteriaSchema.safeParse(criteria);
+      const criteriaTyped: CritiqueCriteria = parsed.success ? parsed.data : 'relevance';
       items.push({
-        criteria: criteria as CritiqueCriteria,
+        criteria: criteriaTyped,
         score: parseFloat(score),
         issue: issueMatch?.[1]?.trim(),
         suggestion: suggestionMatch?.[1]?.trim(),

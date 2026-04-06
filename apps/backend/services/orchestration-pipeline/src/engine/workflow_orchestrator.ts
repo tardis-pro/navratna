@@ -16,7 +16,7 @@ import {
   CheckpointType,
   OperationMetrics,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { StateManagerService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { StepExecutionManager, StepExecutionContext } from './step_execution_manager.js';
@@ -119,7 +119,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       // Check for failures
       const failures = results.filter((r) => r.status === 'rejected');
       if (failures.length > 0) {
-        throw new Error(`Step execution failed: ${failures[0].reason}`);
+        throw new InternalServerError(`Step execution failed: ${failures[0].reason}`);
       }
 
       // Update completed steps
@@ -207,7 +207,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       }
 
       if (currentGroup.length === 0) {
-        throw new Error('Circular dependency detected in workflow steps');
+        throw new ValidationError('Circular dependency detected in workflow steps');
       }
 
       // Remove executed steps from remaining
@@ -360,7 +360,7 @@ export class WorkflowOrchestrator extends EventEmitter {
   public async pauseWorkflow(workflowId: string): Promise<void> {
     const workflow = this.activeWorkflows.get(workflowId);
     if (!workflow) {
-      throw new Error('Workflow not found');
+      throw new NotFoundError('Workflow not found');
     }
 
     workflow.status = OperationStatus.PAUSED;
@@ -371,7 +371,7 @@ export class WorkflowOrchestrator extends EventEmitter {
   public async resumeWorkflow(workflowId: string, checkpointId?: string): Promise<void> {
     const workflow = this.activeWorkflows.get(workflowId);
     if (!workflow) {
-      throw new Error('Workflow not found');
+      throw new NotFoundError('Workflow not found');
     }
 
     if (checkpointId) {

@@ -7,7 +7,7 @@ import type {
   StorySpec,
   StoryStatus,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError } from '@uaip/utils'
 import { randomUUID } from 'node:crypto'
 
 interface JiraAdapterConfig {
@@ -86,6 +86,10 @@ export class JiraBoardAdapter implements BoardProvider {
       }
     )
 
+    if (!created) {
+      throw new ExternalServiceError('Jira issue POST returned no data')
+    }
+
     return {
       id: created.key,
       projectId: this.projectKey,
@@ -118,6 +122,10 @@ export class JiraBoardAdapter implements BoardProvider {
       { fields }
     )
 
+    if (!created) {
+      throw new ExternalServiceError('Jira issue POST returned no data')
+    }
+
     return {
       id: created.key,
       epicId,
@@ -139,7 +147,7 @@ export class JiraBoardAdapter implements BoardProvider {
     )
 
     const targetName = STATUS_MAP[status]
-    const transition = transitions.transitions.find((t) => t.name === targetName)
+    const transition = transitions?.transitions.find((t) => t.name === targetName)
     if (!transition) {
       logger.warn('No matching Jira transition found', { itemId, status, targetName })
       return
@@ -177,7 +185,7 @@ export class JiraBoardAdapter implements BoardProvider {
       }
     )
 
-    return result.issues.map((issue) => ({
+    return (result?.issues ?? []).map((issue) => ({
       id: issue.key,
       epicId: projectId,
       title: issue.fields.summary,
@@ -209,7 +217,7 @@ export class JiraBoardAdapter implements BoardProvider {
     }
   }
 
-  private async jiraRequest<T>(path: string, method: string, body?: unknown): Promise<T> {
+  private async jiraRequest<T>(path: string, method: string, body?: unknown): Promise<T | undefined> {
     const url = `${this.baseUrl}${path}`
     const headers: Record<string, string> = {
       'Accept': 'application/json',
@@ -232,13 +240,14 @@ export class JiraBoardAdapter implements BoardProvider {
         status: response.status,
         body: errorBody.slice(0, 500),
       })
-      throw new Error(`Jira API ${method} ${path} failed: ${response.status} ${response.statusText}`)
+      throw new ExternalServiceError(`Jira API ${method} ${path} failed: ${response.status} ${response.statusText}`)
     }
 
     if (response.status === 204) {
-      return undefined as T
+      return undefined
     }
 
-    return (await response.json()) as T
+    const data: T = await response.json()
+    return data
   }
 }

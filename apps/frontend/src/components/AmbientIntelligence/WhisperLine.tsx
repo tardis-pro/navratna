@@ -133,10 +133,10 @@ export function WhisperLine({
             className="ml-1 shrink-0 rounded p-0.5 transition-colors"
             style={{ color: COLORS.dismiss }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.color = COLORS.dismissHover;
+              e.currentTarget.style.color = COLORS.dismissHover;
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.color = COLORS.dismiss;
+              e.currentTarget.style.color = COLORS.dismiss;
             }}
             aria-label="Dismiss explanation"
           >

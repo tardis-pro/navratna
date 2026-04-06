@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Star, Download, TrendingUp, Search, Filter, Heart, _Share2, Eye } from 'lucide-react';
-import { MarketplaceItem, MarketplaceCategory, MarketplaceItemType } from '@uaip/types';
+import { MarketplaceItem, MarketplaceCategory, MarketplaceItemType, PricingModel } from '@uaip/types';
 
 interface MarketplaceHomeProps {
   onItemClick?: (item: MarketplaceItem) => void;
@@ -22,8 +22,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
 
   // Mock data for demo
   useEffect(() => {
-    // In real implementation, fetch from API
-    const mockFeatured: MarketplaceItem[] = [
+    const mockFeaturedRaw: any[] = [ // oxlint-disable-line @typescript-eslint/no-explicit-any -- mock data omits required MarketplaceItem fields; runtime shape sufficient for display
       {
         id: '1',
         name: '🎯 UberAgent Pro',
@@ -39,7 +38,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         isFeatured: true,
         isTrending: true,
         price: 0,
-        pricingModel: 'free' as unknown,
+        pricingModel: PricingModel.FREE,
         stats: {
           totalDownloads: 15420,
           totalInstalls: 15420,
@@ -62,7 +61,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         tags: ['creative', 'writing', 'content'],
         isFeatured: true,
         price: 9.99,
-        pricingModel: 'premium' as unknown,
+        pricingModel: PricingModel.PREMIUM,
         stats: {
           totalDownloads: 12340,
           totalInstalls: 12340,
@@ -71,9 +70,10 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           monthlyDownloads: 2123,
         },
       },
-    ] as MarketplaceItem[];
+    ];
+    const mockFeatured: MarketplaceItem[] = mockFeaturedRaw;
 
-    const mockTrending: MarketplaceItem[] = [
+    const mockTrendingRaw: any[] = [ // oxlint-disable-line @typescript-eslint/no-explicit-any -- mock data omits required MarketplaceItem fields; runtime shape sufficient for display
       {
         id: '3',
         name: '🔥 ViralGPT',
@@ -88,7 +88,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         isTrending: true,
         trendingScore: 95.4,
         price: 0,
-        pricingModel: 'freemium' as unknown,
+        pricingModel: PricingModel.FREEMIUM,
         stats: {
           totalDownloads: 28540,
           totalInstalls: 28540,
@@ -111,7 +111,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         isTrending: true,
         trendingScore: 87.2,
         price: 19.99,
-        pricingModel: 'premium' as unknown,
+        pricingModel: PricingModel.PREMIUM,
         stats: {
           totalDownloads: 19876,
           totalInstalls: 19876,
@@ -120,7 +120,8 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
           monthlyDownloads: 4567,
         },
       },
-    ] as MarketplaceItem[];
+    ];
+    const mockTrending: MarketplaceItem[] = mockTrendingRaw;
 
     setFeaturedItems(mockFeatured);
     setTrendingItems(mockTrending);

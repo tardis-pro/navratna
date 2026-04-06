@@ -178,7 +178,7 @@ export class WorkflowPersistenceService {
     successRate: number;
   }> {
     const executions = workflowId
-      ? ([this.workflows.get(workflowId)].filter(Boolean) as WorkflowExecution[])
+      ? ([this.workflows.get(workflowId)].filter((w): w is WorkflowExecution => w !== undefined))
       : Array.from(this.workflows.values());
 
     const totalExecutions = executions.length;

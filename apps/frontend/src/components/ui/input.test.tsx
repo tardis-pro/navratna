@@ -20,10 +20,11 @@ describe('Input', () => {
     const onChange = vi.fn();
     render(<Input aria-label="email" onChange={onChange} />);
 
-    const input = screen.getByLabelText('email') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'user@example.com' } });
+    const inputEl = screen.getByLabelText('email');
+    if (!(inputEl instanceof HTMLInputElement)) throw new Error('Expected input');
+    fireEvent.change(inputEl, { target: { value: 'user@example.com' } });
 
-    expect(input.value).toBe('user@example.com');
+    expect(inputEl.value).toBe('user@example.com');
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

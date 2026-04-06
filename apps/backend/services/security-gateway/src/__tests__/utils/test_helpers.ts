@@ -141,6 +141,7 @@ export function createMockRedis() {
  * Create test user entity
  */
 export function createTestUser(overrides: Partial<UserEntity> = {}): UserEntity {
+  // @ts-expect-error — test mock: partial stub satisfies UserEntity for unit testing
   return {
     id: 'test-user-' + Math.random().toString(36).substr(2, 9),
     email: 'test@example.com',
@@ -150,13 +151,14 @@ export function createTestUser(overrides: Partial<UserEntity> = {}): UserEntity 
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as UserEntity;
+  };
 }
 
 /**
  * Create test agent entity
  */
 export function createTestAgent(userId: string, overrides: Partial<AgentEntity> = {}): AgentEntity {
+  // @ts-expect-error — test mock: partial stub satisfies AgentEntity for unit testing
   return {
     id: 'test-agent-' + Math.random().toString(36).substr(2, 9),
     name: 'Test Agent',
@@ -172,7 +174,7 @@ export function createTestAgent(userId: string, overrides: Partial<AgentEntity> 
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as AgentEntity;
+  };
 }
 
 /**
@@ -181,6 +183,7 @@ export function createTestAgent(userId: string, overrides: Partial<AgentEntity> 
 export function createTestSecurityPolicy(
   overrides: Partial<SecurityPolicyEntity> = {}
 ): SecurityPolicyEntity {
+  // @ts-expect-error — test mock: partial stub satisfies SecurityPolicyEntity for unit testing
   return {
     id: 'test-policy-' + Math.random().toString(36).substr(2, 9),
     name: 'Test Security Policy',
@@ -198,7 +201,7 @@ export function createTestSecurityPolicy(
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as SecurityPolicyEntity;
+  };
 }
 
 /**
@@ -207,6 +210,7 @@ export function createTestSecurityPolicy(
 export function createTestOAuthProvider(
   overrides: Partial<OAuthProviderEntity> = {}
 ): OAuthProviderEntity {
+  // @ts-expect-error — test mock: partial stub satisfies OAuthProviderEntity for unit testing
   return {
     id: 'test-provider-' + Math.random().toString(36).substr(2, 9),
     name: 'Test Provider',
@@ -234,7 +238,7 @@ export function createTestOAuthProvider(
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
-  } as OAuthProviderEntity;
+  };
 }
 
 /**
@@ -292,6 +296,7 @@ export async function assertAuditLogExists(
     throw new Error(`Audit log not found with criteria: ${JSON.stringify(criteria)}`);
   }
 
+  // @ts-expect-error — pg query result row is unknown; AuditLogEntity shape is guaranteed by the SQL query
   return result.rows[0] as AuditLogEntity;
 }
 

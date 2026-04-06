@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { createLogger } from '@uaip/utils';
+import { createLogger, ExternalServiceError, InternalServerError } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import {
   ConversationIntelligenceEventType,
@@ -45,11 +45,11 @@ export class ConversationIntelligenceHandler {
     try {
       ciNamespace = this.io.of('/conversation_intelligence');
       if (!ciNamespace) {
-        throw new Error('Failed to create conversation intelligence namespace');
+        throw new ExternalServiceError('Failed to create conversation intelligence namespace');
       }
     } catch (error) {
       this.logger.error('Failed to create namespace:', error);
-      throw new Error(
+      throw new InternalServerError(
         'Namespace creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
         { cause: error }
       );
@@ -63,9 +63,11 @@ export class ConversationIntelligenceHandler {
         });
 
         // Check for nginx-forwarded user headers first (preferred path)
-        const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
+        const rawUserId = socket.handshake.headers['x-user-id'];
+        const nginxUserId = typeof rawUserId === 'string' ? rawUserId : undefined;
 
-        const nginxUserRole = socket.handshake.headers['x-user-role'] as string | undefined;
+        const rawUserRole = socket.handshake.headers['x-user-role'];
+        const nginxUserRole = typeof rawUserRole === 'string' ? rawUserRole : undefined;
 
         let userId: string;
 
@@ -141,8 +143,10 @@ export class ConversationIntelligenceHandler {
 
           userId = decoded.userId;
         }
-        const agentId = socket.handshake.query.agentId as string;
-        const conversationId = socket.handshake.query.conversationId as string;
+        const rawAgentId = socket.handshake.query.agentId;
+        const agentId = typeof rawAgentId === 'string' ? rawAgentId : '';
+        const rawConversationId = socket.handshake.query.conversationId;
+        const conversationId = typeof rawConversationId === 'string' ? rawConversationId : '';
 
         // Handle global user LLM provider
         const effectiveAgentId = agentId === 'global-user-llm' ? `user-${userId}` : agentId;
@@ -341,7 +345,7 @@ export class ConversationIntelligenceHandler {
 
       // Enhanced context for global user LLM requests
       const isGlobalUserLLM = connection.agentId.startsWith('user-');
-      const contextData = requestData.context as Record<string, unknown> | undefined;
+      const contextData = requestData.context;
       const enhancedContext = {
         ...contextData,
         isGlobalUserLLM,

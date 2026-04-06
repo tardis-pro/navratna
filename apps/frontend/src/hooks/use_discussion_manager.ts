@@ -95,7 +95,7 @@ export function useDiscussionManager(config: DiscussionManagerConfig): Discussio
         content: msg.content,
         sender: msg.participantId,
         timestamp: new Date(msg.createdAt),
-        type: msg.messageType === 'message' ? 'response' : (msg.messageType as unknown),
+        type: msg.messageType === 'question' ? 'question' : msg.messageType === 'system' ? 'system' : 'response',
         replyTo: msg.replyTo,
       }));
 

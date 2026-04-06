@@ -195,7 +195,8 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           break;
 
         case 'approval_required': {
-          const approval = lastEvent.payload as PendingApprovalRequest;
+          const payloadAny: any = lastEvent.payload; // oxlint-disable-line @typescript-eslint/no-explicit-any -- payload is unknown; PendingApprovalRequest is the expected runtime shape
+          const approval: PendingApprovalRequest = payloadAny;
           if (!approval?.approvalId || !approval?.agentId) {
             break;
           }

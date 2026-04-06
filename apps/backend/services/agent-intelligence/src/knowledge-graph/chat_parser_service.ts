@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, ValidationError } from '@uaip/utils';
 
 export interface ParsedMessage {
   id: string;
@@ -105,7 +105,7 @@ export class ChatParserService {
       };
     } catch (error) {
       logger.error('Error parsing chat file:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Chat parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -417,6 +417,13 @@ export class ChatParserService {
     };
   }
 
+  private toPlatform(platform: string): ParsedConversation['platform'] {
+    if (platform === 'claude' || platform === 'gpt' || platform === 'whatsapp') {
+      return platform;
+    }
+    return 'generic';
+  }
+
   private createConversationFromMessages(
     messages: ParsedMessage[],
     platform: string,
@@ -444,7 +451,7 @@ export class ChatParserService {
     return [
       {
         id: id || uuidv4(),
-        platform: platform as ParsedConversation['platform'],
+        platform: this.toPlatform(platform),
         title: title || `${platform} conversation from ${filename}`,
         participants,
         messages,
@@ -466,7 +473,7 @@ export class ChatParserService {
   ): ParsedConversation {
     return {
       id: id || uuidv4(),
-      platform: platform as ParsedConversation['platform'],
+      platform: this.toPlatform(platform),
       title: `Empty ${platform} conversation from ${filename}`,
       participants: [],
       messages: [],
@@ -501,7 +508,7 @@ export class ChatParserService {
 
       if (year < 100) year += 2000; // Handle 2-digit years
     } else {
-      throw new Error(`Invalid date format: ${dateStr}`);
+      throw new ValidationError(`Invalid date format: ${dateStr}`);
     }
 
     // Parse time

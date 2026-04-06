@@ -8,8 +8,45 @@ import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
 import { ToolService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
-import { logger } from '@uaip/utils';
+import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
 import { z } from 'zod';
+
+const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
+function isToolCategory(v: unknown): v is ToolCategory { return toolCategoryValues.has(v); }
+
+const securityLevelValues = new Set<unknown>(Object.values(SecurityLevel));
+function isSecurityLevel(v: unknown): v is SecurityLevel { return securityLevelValues.has(v); }
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+import type { JSONSchema } from '@uaip/types';
+
+function toJSONSchema(v: unknown): JSONSchema {
+  if (!isRecord(v)) return {};
+  const schema: JSONSchema = {};
+  if (typeof v['type'] === 'string') {
+    schema.type = v['type'];
+  } else if (Array.isArray(v['type'])) {
+    schema.type = v['type'].filter((s): s is string => typeof s === 'string');
+  }
+  if (isRecord(v['properties'])) {
+    schema.properties = Object.fromEntries(
+      Object.entries(v['properties']).map(([k, val]) => [k, toJSONSchema(val)])
+    );
+  }
+  if (typeof v['description'] === 'string') schema.description = v['description'];
+  if (Array.isArray(v['required'])) schema.required = v['required'].filter((s): s is string => typeof s === 'string');
+  if (typeof v['additionalProperties'] === 'boolean') schema.additionalProperties = v['additionalProperties'];
+  return schema;
+}
+
+type RateLimitUsageData = { requests: number[]; lastReset: number };
+function isRateLimitUsageData(v: unknown): v is RateLimitUsageData {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v['requests']) && typeof v['lastReset'] === 'number';
+}
 
 // Enhanced tool definition that combines both standard and enterprise features
 export interface UnifiedToolDefinition extends ToolDefinition {
@@ -252,7 +289,33 @@ export class UnifiedToolRegistry {
   private isInitialized = false;
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return isRecord(value) ? value : {};
+  }
+
+  private recordToToolDefinition(record: Record<string, unknown>): ToolDefinition {
+    const rl = record.rateLimits;
+    const rlRecord = isRecord(rl) ? rl : null;
+    return {
+      id: typeof record.id === 'string' ? record.id : '',
+      name: typeof record.name === 'string' ? record.name : '',
+      description: typeof record.description === 'string' ? record.description : '',
+      category: isToolCategory(record.category) ? record.category : ToolCategory.SYSTEM,
+      isEnabled: typeof record.isEnabled === 'boolean' ? record.isEnabled : true,
+      version: typeof record.version === 'string' ? record.version : '1.0.0',
+      author: typeof record.author === 'string' ? record.author : '',
+      securityLevel: isSecurityLevel(record.securityLevel) ? record.securityLevel : SecurityLevel.LOW,
+      tags: Array.isArray(record.tags) ? record.tags.filter((t): t is string => typeof t === 'string') : [],
+      parameters: toJSONSchema(record.parameters),
+      returnType: toJSONSchema(record.returnType),
+      examples: [],
+      requiresApproval: typeof record.requiresApproval === 'boolean' ? record.requiresApproval : false,
+      dependencies: Array.isArray(record.dependencies) ? record.dependencies.filter((d): d is string => typeof d === 'string') : [],
+      rateLimits: rlRecord ? {
+        maxCallsPerMinute: typeof rlRecord.maxCallsPerMinute === 'number' ? rlRecord.maxCallsPerMinute : undefined,
+        maxCallsPerHour: typeof rlRecord.maxCallsPerHour === 'number' ? rlRecord.maxCallsPerHour : undefined,
+        maxConcurrentExecutions: typeof rlRecord.maxConcurrentExecutions === 'number' ? rlRecord.maxConcurrentExecutions : undefined,
+      } : undefined,
+    };
   }
 
   private asString(value: unknown, fallback = ''): string {
@@ -295,7 +358,7 @@ export class UnifiedToolRegistry {
       const existingTools = await this.toolService.findActiveTools();
       const existing = existingTools.find((t) => t.name === validated.name);
       if (existing) {
-        throw new Error(`Tool with name '${validated.name}' already exists`);
+        throw new ConflictError(`Tool with name '${validated.name}' already exists`);
       }
 
       // Create tool in database
@@ -303,10 +366,10 @@ export class UnifiedToolRegistry {
         name: validated.name,
         displayName: validated.name, // Use name as displayName
         description: validated.description,
-        category: validated.category as ToolCategory,
+        category: isToolCategory(validated.category) ? validated.category : ToolCategory.SYSTEM,
         isEnabled: validated.isEnabled,
         version: validated.version,
-        securityLevel: validated.securityLevel as SecurityLevel,
+        securityLevel: isSecurityLevel(validated.securityLevel) ? validated.securityLevel : SecurityLevel.LOW,
       });
 
       // Register operations if provided (simplified for now)
@@ -360,10 +423,10 @@ export class UnifiedToolRegistry {
 
       // Convert to UnifiedToolDefinition and enhance with graph data if available
       const unifiedTools: UnifiedToolDefinition[] = tools.map((tool) => ({
-        ...(tool as unknown as ToolDefinition),
-        recommendations: [] as ToolRecommendation[],
-        relationships: [] as ToolRelationship[],
-        projectContext: [] as ProjectContext[],
+        ...this.recordToToolDefinition(tool),
+        recommendations: [] satisfies ToolRecommendation[],
+        relationships: [] satisfies ToolRelationship[],
+        projectContext: [] satisfies ProjectContext[],
       }));
 
       if (this.toolService.neo4jService) {
@@ -400,12 +463,11 @@ export class UnifiedToolRegistry {
       const tool = await this.toolService.findToolById(toolId);
       if (!tool) return null;
 
-      // Convert to UnifiedToolDefinition
       return {
-        ...(tool as unknown as ToolDefinition),
-        recommendations: [] as ToolRecommendation[],
-        relationships: [] as ToolRelationship[],
-        projectContext: [] as ProjectContext[],
+        ...this.recordToToolDefinition(tool),
+        recommendations: [] satisfies ToolRecommendation[],
+        relationships: [] satisfies ToolRelationship[],
+        projectContext: [] satisfies ProjectContext[],
       };
     } catch (error) {
       logger.error('Failed to get tool', { error, toolId });
@@ -427,19 +489,19 @@ export class UnifiedToolRegistry {
     try {
       const baseTool = await this.toolService.findToolById(toolId);
       if (!baseTool) {
-        throw new Error(`Tool ${toolId} not found`);
+        throw new NotFoundError(`Tool ${toolId} not found`);
       }
 
       if (!baseTool.isEnabled) {
-        throw new Error(`Tool ${toolId} is disabled`);
+        throw new InternalServerError(`Tool ${toolId} is disabled`);
       }
 
       // Convert to UnifiedToolDefinition for additional features
       const tool: UnifiedToolDefinition = {
-        ...(baseTool as unknown as ToolDefinition),
-        recommendations: [] as ToolRecommendation[],
-        relationships: [] as ToolRelationship[],
-        projectContext: [] as ProjectContext[],
+        ...this.recordToToolDefinition(baseTool),
+        recommendations: [] satisfies ToolRecommendation[],
+        relationships: [] satisfies ToolRelationship[],
+        projectContext: [] satisfies ProjectContext[],
       };
 
       // Security checks
@@ -589,8 +651,10 @@ export class UnifiedToolRegistry {
             'ENHANCES',
             'REQUIRES',
           ];
-          const relationshipType = validTypes.includes(typeValue as ToolRelationship['type'])
-            ? (typeValue as ToolRelationship['type'])
+          const validTypeSet = new Set<unknown>(validTypes);
+          const isToolRelationshipType = (v: unknown): v is ToolRelationship['type'] => validTypeSet.has(v);
+          const relationshipType: ToolRelationship['type'] = isToolRelationshipType(typeValue)
+            ? typeValue
             : 'SIMILAR_TO';
 
           return {
@@ -637,7 +701,7 @@ export class UnifiedToolRegistry {
   ): Promise<void> {
     // Check if tool has required operation
     if (tool.operations && !tool.operations.find((op) => op.id === operation)) {
-      throw new Error(`Operation '${operation}' not found in tool '${tool.id}'`);
+      throw new NotFoundError(`Operation '${operation}' not found in tool '${tool.id}'`);
     }
 
     // Security level validation
@@ -645,7 +709,7 @@ export class UnifiedToolRegistry {
     const requiredLevel = this.getRequiredSecurityLevel(tool.securityLevel);
 
     if (userSecurityLevel < requiredLevel) {
-      throw new Error(
+      throw new ValidationError(
         `Insufficient security level. Required: ${requiredLevel}, User: ${userSecurityLevel}`
       );
     }
@@ -670,7 +734,7 @@ export class UnifiedToolRegistry {
         const hasSufficientApproval = userIndex >= requiredIndex;
 
         if (!hasApproval || !hasSufficientApproval) {
-          throw new Error(
+          throw new ValidationError(
             `Tool '${tool.id}' is classified as ${dangerConfig.riskLevel} risk and requires ${requiredApproval} approval. ` +
               `Current approval status: ${hasApproval ? `approved (${approvedLevel})` : 'not approved'}`
           );
@@ -687,7 +751,7 @@ export class UnifiedToolRegistry {
 
     // Approval requirement check (existing logic)
     if (tool.requiresApproval && !context.securityContext?.hasApproval) {
-      throw new Error(`Tool '${tool.id}' requires approval for execution`);
+      throw new ValidationError(`Tool '${tool.id}' requires approval for execution`);
     }
   }
 
@@ -704,17 +768,17 @@ export class UnifiedToolRegistry {
       const usageKey = `rate_limit:${key}`;
       const usageData = await this.toolService.getRedisService().get(usageKey);
 
-      const usage: { requests: number[]; lastReset: number } =
-        typeof usageData === 'string'
-          ? (JSON.parse(usageData) as { requests: number[]; lastReset: number })
-          : { requests: [], lastReset: now };
+      const parsedUsage: unknown = typeof usageData === 'string' ? JSON.parse(usageData) : null;
+      const usage: RateLimitUsageData = isRateLimitUsageData(parsedUsage)
+        ? parsedUsage
+        : { requests: [], lastReset: now };
 
       // Clean old requests outside window
       usage.requests = usage.requests.filter((time: number) => now - time < rateLimit.window);
 
       // Check if limit exceeded
       if (usage.requests.length >= rateLimit.requests) {
-        throw new Error(`Rate limit exceeded for tool ${toolId}. Try again later.`);
+        throw new RateLimitError(`Rate limit exceeded for tool ${toolId}. Try again later.`);
       }
 
       // Record this request
@@ -763,7 +827,7 @@ export class UnifiedToolRegistry {
       const resultRecord = this.asRecord(result);
 
       if (!resultRecord.success) {
-        throw new Error(
+        throw new InternalServerError(
           `Sandbox execution failed: ${this.asString(resultRecord.error, 'unknown')}`
         );
       }
@@ -786,7 +850,7 @@ export class UnifiedToolRegistry {
       const executor = await this.getToolExecutor(tool);
 
       if (!executor) {
-        throw new Error(`No executor found for tool: ${tool.id}`);
+        throw new NotFoundError(`No executor found for tool: ${tool.id}`);
       }
 
       // Execute the operation
@@ -880,9 +944,9 @@ export class UnifiedToolRegistry {
       }
 
       // Get category-based recommendations
-      if (context.category) {
+      if (context.category && isToolCategory(context.category)) {
         const categoryRecs = await this.toolService.getToolsByCategory(
-          context.category as ToolCategory
+          context.category
         );
         recommendations.push(
           ...categoryRecs.map((tool: Record<string, unknown>) => ({
@@ -1006,7 +1070,7 @@ export class UnifiedToolRegistry {
             });
 
             if (!executionResult.success) {
-              throw new Error(executionResult.error || 'Enterprise tool execution failed');
+              throw new InternalServerError(executionResult.error || 'Enterprise tool execution failed');
             }
 
             return executionResult.data;

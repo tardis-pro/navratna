@@ -56,13 +56,13 @@ export class ArtifactValidator implements IArtifactValidator {
       return {
         status,
         isValid: errors.length === 0,
-        errors: errors as ValidationError[],
+        errors,
         warnings: warnings.filter(
-          (w) => w.severity === 'warning' || w.severity === 'info'
-        ) as ValidationWarning[],
+          (w): w is ValidationWarning => w.severity === 'warning' || w.severity === 'info'
+        ),
         suggestions,
         score,
-        issues: issues as ValidationError[], // For backward compatibility
+        issues, // For backward compatibility
       };
     } catch (error) {
       logger.error('Validation error:', error);

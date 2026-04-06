@@ -91,15 +91,15 @@ export function setupWebSocketHandlers(
   // Enhanced authentication middleware with proper JWT validation
   io.use((socket: AuthenticatedSocket, next) => {
     try {
-      const preAuthenticatedUserId = socket.data?.user?.userId as string | undefined;
+      const preAuthenticatedUserId = typeof socket.data?.user?.userId === 'string' ? socket.data.user.userId : undefined;
       if (preAuthenticatedUserId) {
         socket.userId = preAuthenticatedUserId;
         socket.sessionId =
-          (socket.data?.user?.sessionId as string | undefined) ||
+          (typeof socket.data?.user?.sessionId === 'string' ? socket.data.user.sessionId : undefined) ||
           `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         socket.securityLevel =
-          (socket.data?.user?.securityLevel as number | undefined) ||
-          getSecurityLevelFromRole((socket.data?.user?.role as string | undefined) || 'user');
+          (typeof socket.data?.user?.securityLevel === 'number' ? socket.data.user.securityLevel : undefined) ||
+          getSecurityLevelFromRole((typeof socket.data?.user?.role === 'string' ? socket.data.user.role : undefined) || 'user');
         socket.lastActivity = new Date();
         socket.messageCount = 0;
         socket.rateLimitReset = Date.now() + 60000;
@@ -178,7 +178,7 @@ export function setupWebSocketHandlers(
 
       // Create session in Redis (async operation wrapped)
       const mockConnection: WebSocketConnection = {
-        ws: null as unknown as import('ws').WebSocket, // Placeholder - not used for session tracking
+        ws: null, // Placeholder - not used for session tracking
         connectionId: socket.sessionId!,
         userId: payload.userId,
         discussionId: '', // Will be set when joining discussion
@@ -378,16 +378,15 @@ export function setupWebSocketHandlers(
 
         if (result.success) {
           // Notify all participants that discussion has started
+          const stateRaw = result.data?.['state'];
+          const activeParticipants = typeof stateRaw === 'object' && stateRaw !== null && 'activeParticipants' in stateRaw
+            ? stateRaw.activeParticipants
+            : 0;
           socket.to(`discussion:${discussionId}`).emit('discussion_started', {
             discussionId,
             startedBy: startedBy || socket.userId,
             timestamp: new Date(),
-            participants:
-              (
-                (result.data as Record<string, unknown> | undefined)?.state as
-                  | Record<string, unknown>
-                  | undefined
-              )?.activeParticipants || 0,
+            participants: activeParticipants || 0,
           });
 
           // Confirm to the starter
@@ -395,12 +394,7 @@ export function setupWebSocketHandlers(
             discussionId,
             startedBy: startedBy || socket.userId,
             timestamp: new Date(),
-            participants:
-              (
-                (result.data as Record<string, unknown> | undefined)?.state as
-                  | Record<string, unknown>
-                  | undefined
-              )?.activeParticipants || 0,
+            participants: activeParticipants || 0,
             success: true,
           });
 
@@ -408,11 +402,7 @@ export function setupWebSocketHandlers(
             socketId: socket.id,
             userId: socket.userId,
             discussionId,
-            activeParticipants: (
-              (result.data as Record<string, unknown> | undefined)?.state as
-                | Record<string, unknown>
-                | undefined
-            )?.activeParticipants,
+            activeParticipants,
           });
         } else {
           socket.emit('error', {
@@ -704,7 +694,7 @@ export function setupWebSocketHandlers(
         logger.info('Message sent via socket', {
           socketId: socket.id,
           discussionId,
-          messageId: (message.data as Record<string, unknown> | undefined)?.id,
+          messageId: message.data?.['id'],
           participantId: socket.participantId,
         });
       } catch (error) {
@@ -865,7 +855,7 @@ export function setupWebSocketHandlers(
           participantId: socket.participantId,
           userId: socket.userId,
           timestamp: new Date(),
-          nextParticipant: (result.data as Record<string, unknown> | undefined)?.nextParticipant,
+          nextParticipant: result.data?.['nextParticipant'],
         });
       } catch (error) {
         logger.error('Failed to end turn', {

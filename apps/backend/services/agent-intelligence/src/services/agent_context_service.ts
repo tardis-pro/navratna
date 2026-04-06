@@ -11,10 +11,14 @@ import {
   EnvironmentFactors,
   KnowledgeItem,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
 import { LLMService } from '@uaip/llm-service';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
 interface LLMContextAnalysis {
   userIntent?: { primary?: string; confidence?: number };
@@ -101,7 +105,7 @@ export class AgentContextService {
       // Get agent data through event bus
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error('Agent not found');
+        throw new NotFoundError('Agent not found');
       }
 
       // Retrieve relevant knowledge
@@ -233,7 +237,21 @@ export class AgentContextService {
         maxTokens: 1000,
       });
 
-      return llmResponse as LLMContextAnalysis;
+      const parsed: unknown = JSON.parse(llmResponse.content);
+      if (!isRecord(parsed)) return null;
+      const userIntentRaw = parsed.userIntent;
+      const userIntent: LLMContextAnalysis['userIntent'] = isRecord(userIntentRaw)
+        ? {
+            primary: typeof userIntentRaw.primary === 'string' ? userIntentRaw.primary : undefined,
+            confidence: typeof userIntentRaw.confidence === 'number' ? userIntentRaw.confidence : undefined,
+          }
+        : undefined;
+      return {
+        userIntent,
+        contextualFactors: isRecord(parsed.contextualFactors) ? parsed.contextualFactors : undefined,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : undefined,
+        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.filter((x): x is string => typeof x === 'string') : undefined,
+      };
     } catch (error) {
       logger.warn('LLM context analysis failed, falling back to basic analysis', { error });
       return null;
@@ -247,7 +265,7 @@ export class AgentContextService {
     // Basic intent analysis
     const intent = {
       primary: 'unknown',
-      secondary: [] as string[],
+      secondary: new Array<string>(),
       confidence: 0.5,
       keywords: this.extractKeywords(userRequest),
       sentiment: this.analyzeSentiment(userRequest),
@@ -275,11 +293,16 @@ export class AgentContextService {
    * Event handlers
    */
   private async handleAnalyzeContext(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agentId = event.agentId as string;
-    const conversationContext = event.conversationContext as ConversationContext;
-    const userRequest = event.userRequest as string;
-    const userId = event.userId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agentId = typeof event.agentId === 'string' ? event.agentId : '';
+    const rawConvCtx = event.conversationContext;
+    if (typeof rawConvCtx !== 'object' || rawConvCtx === null) {
+      await this.respondToRequest(requestId, { success: false, error: 'Invalid conversationContext in event' });
+      return;
+    }
+    const conversationContext: ConversationContext = rawConvCtx;
+    const userRequest = typeof event.userRequest === 'string' ? event.userRequest : '';
+    const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
       const analysis = await this.analyzeContext(agentId, conversationContext, userRequest, userId);
       await this.respondToRequest(requestId, { success: true, data: analysis });
@@ -292,10 +315,10 @@ export class AgentContextService {
   }
 
   private async handleUpdateContext(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const rawContextUpdate = (event.contextUpdate ?? {}) as Record<string, unknown>;
-    const knowledgeItemId = rawContextUpdate.knowledgeItemId as string | undefined;
-    const contextUpdate = rawContextUpdate as unknown as Partial<KnowledgeItem>;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawContextUpdate = isRecord(event.contextUpdate) ? event.contextUpdate : {};
+    const knowledgeItemId = typeof rawContextUpdate.knowledgeItemId === 'string' ? rawContextUpdate.knowledgeItemId : undefined;
+    const contextUpdate: Partial<KnowledgeItem> = rawContextUpdate;
     try {
       if (knowledgeItemId) {
         await this.knowledgeGraphService.updateKnowledge(knowledgeItemId, contextUpdate);
@@ -310,8 +333,13 @@ export class AgentContextService {
   }
 
   private async handleExtractContext(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const conversationContext = event.conversationContext as ConversationContext;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawConvCtx2 = event.conversationContext;
+    if (typeof rawConvCtx2 !== 'object' || rawConvCtx2 === null) {
+      await this.respondToRequest(requestId, { success: false, error: 'Invalid conversationContext in event' });
+      return;
+    }
+    const conversationContext: ConversationContext = rawConvCtx2;
     try {
       const contextInfo = this.extractContextualInformation(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: contextInfo });
@@ -405,8 +433,8 @@ Please analyze:
   private extractTaskContext(_context: ConversationContext): Record<string, unknown> {
     return {
       currentTask: null,
-      completedTasks: [] as Record<string, unknown>[],
-      pendingTasks: [] as Record<string, unknown>[],
+      completedTasks: new Array<Record<string, unknown>>(),
+      pendingTasks: new Array<Record<string, unknown>>(),
     };
   }
 

@@ -1,6 +1,11 @@
 import { KnowledgeItem, SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
 
+import { InternalServerError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
 
@@ -43,7 +48,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     } catch (error) {
       console.error('Concept storage error:', error);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to store concept: ${message}`, { cause: error });
+      throw new InternalServerError(`Failed to store concept: ${message}`, { cause: error });
     }
   }
 
@@ -342,23 +347,57 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
   }
 
   private asSemanticKnowledge(value: unknown): SemanticMemory['knowledge'] | null {
-    if (typeof value !== 'object' || value === null) {
+    if (!isRecord(value)) {
       return null;
     }
-    return value as SemanticMemory['knowledge'];
+    const v = value;
+    return {
+      definition: typeof v.definition === 'string' ? v.definition : '',
+      properties: isRecord(v.properties) ? v.properties : {},
+      relationships: Array.isArray(v.relationships) ? v.relationships.filter(
+        (r): r is { relatedConcept: string; relationshipType: string; strength: number } =>
+          isRecord(r) &&
+          typeof r.relatedConcept === 'string' &&
+          typeof r.relationshipType === 'string' &&
+          typeof r.strength === 'number'
+      ) : [],
+      examples: Array.isArray(v.examples)
+        ? v.examples.filter((e): e is string => typeof e === 'string')
+        : [],
+      counterExamples: Array.isArray(v.counterExamples)
+        ? v.counterExamples.filter((e): e is string => typeof e === 'string')
+        : [],
+    };
   }
 
   private asSemanticSources(value: unknown): SemanticMemory['sources'] | null {
-    if (typeof value !== 'object' || value === null) {
+    if (!isRecord(value)) {
       return null;
     }
-    return value as SemanticMemory['sources'];
+    const v = value;
+    return {
+      episodeIds: Array.isArray(v.episodeIds)
+        ? v.episodeIds.filter((e): e is string => typeof e === 'string')
+        : [],
+      externalSources: Array.isArray(v.externalSources)
+        ? v.externalSources.filter((e): e is string => typeof e === 'string')
+        : [],
+      reinforcements: typeof v.reinforcements === 'number' ? v.reinforcements : 0,
+    };
   }
 
   private asSemanticUsage(value: unknown): SemanticMemory['usage'] | null {
-    if (typeof value !== 'object' || value === null) {
+    if (!isRecord(value)) {
       return null;
     }
-    return value as SemanticMemory['usage'];
+    const v = value;
+    return {
+      timesAccessed: typeof v.timesAccessed === 'number' ? v.timesAccessed : 0,
+      lastUsed: v.lastUsed instanceof Date ? v.lastUsed : new Date(),
+      successRate: typeof v.successRate === 'number' ? v.successRate : 1.0,
+      contexts: Array.isArray(v.contexts)
+        ? v.contexts.filter((c): c is string => typeof c === 'string')
+        : [],
+    };
   }
 }

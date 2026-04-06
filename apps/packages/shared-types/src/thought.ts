@@ -26,19 +26,25 @@ export interface ThoughtStep {
   metadata?: Record<string, unknown>;
 }
 
-// Individual thought step schema
-export const ThoughtStepSchema: z.ZodType<ThoughtStep> = z.lazy(() =>
-  z.object({
-    id: z.string(),
-    type: ThoughtTypeSchema,
-    content: z.string(),
-    confidence: z.number().min(0).max(1),
-    timestamp: z.number(),
-    dependencies: z.array(z.string()),
-    alternatives: z.array(ThoughtStepSchema).optional(),
-    metadata: z.record(z.unknown()).optional(),
-  })
-) as z.ZodType<ThoughtStep>;
+function validateThoughtStep(value: unknown): value is ThoughtStep {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('id' in value) || typeof value.id !== 'string') return false;
+  if (!('type' in value) || typeof value.type !== 'string') return false;
+  const validTypes: readonly string[] = ThoughtTypeSchema.options;
+  if (!validTypes.includes(value.type)) return false;
+  if (!('content' in value) || typeof value.content !== 'string') return false;
+  if (!('confidence' in value) || typeof value.confidence !== 'number') return false;
+  if (!('timestamp' in value) || typeof value.timestamp !== 'number') return false;
+  if (!('dependencies' in value) || !Array.isArray(value.dependencies)) return false;
+  if ('alternatives' in value && value.alternatives !== undefined && !Array.isArray(value.alternatives)) return false;
+  if ('alternatives' in value && Array.isArray(value.alternatives) && !value.alternatives.every(validateThoughtStep)) return false;
+  return true;
+}
+
+export const ThoughtStepSchema: z.ZodType<ThoughtStep, z.ZodTypeDef, unknown> = z.custom<ThoughtStep>(
+  validateThoughtStep,
+  { message: 'Invalid ThoughtStep' }
+);
 
 // Complete thought chain
 export const ThoughtChainSchema = z.object({

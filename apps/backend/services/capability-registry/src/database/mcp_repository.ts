@@ -8,7 +8,12 @@
 import { logger } from '@uaip/utils';
 import { getControlDb, eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
 import { mcpServers, mcpToolCalls } from '@uaip/shared-services/drizzle/control';
+import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import type { ControlDB } from '@uaip/shared-services';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 type MCPServer = typeof mcpServers.$inferSelect;
 
@@ -82,8 +87,8 @@ export class McpRepository {
           serverId: req.serverId,
           toolName: req.toolName,
           parameters:
-            req.parameters && typeof req.parameters === 'object'
-              ? (req.parameters as Record<string, unknown>)
+            isRecord(req.parameters)
+              ? req.parameters
               : { value: req.parameters },
           agentId: req.agentId,
           status: 'pending',
@@ -96,7 +101,7 @@ export class McpRepository {
     } catch (err: unknown) {
       throw new McpDatabaseError('Failed to create MCP tool call', {
         cause: this.getErrorMessage(err),
-        req: req as unknown as Record<string, unknown>,
+        req: { serverId: req.serverId, toolName: req.toolName },
       });
     }
   }
@@ -161,8 +166,9 @@ export class McpRepository {
   async retryToolCall(id: string) {
     const row = await this.getToolCall(id);
     if (!row) return null;
-    const currentRetryCount = (row as unknown as { retryCount?: number }).retryCount ?? 0;
-    const maxRetries = (row as unknown as { maxRetries?: number }).maxRetries ?? 0;
+    const rowRecord: Record<string, unknown> = isRecord(row) ? row : {};
+    const currentRetryCount = typeof rowRecord.retryCount === 'number' ? rowRecord.retryCount : 0;
+    const maxRetries = typeof rowRecord.maxRetries === 'number' ? rowRecord.maxRetries : 0;
     if (currentRetryCount >= maxRetries) {
       logger.warn(`McpRepository: max retries exceeded for tool call ${id}`);
       return null;
@@ -204,7 +210,7 @@ export class McpRepository {
     const avgExecTime =
       completed.length > 0
         ? completed.reduce(
-            (s, r) => s + ((r as unknown as { executionTimeMs?: number }).executionTimeMs ?? 0),
+            (s, r) => s + (isRecord(r) && typeof r.duration === 'number' ? r.duration : 0),
             0
           ) / completed.length
         : 0;
@@ -233,12 +239,10 @@ export class McpRepository {
 
   // ── Server operations ─────────────────────────────────────────────────────
 
-  async createServer(data: Record<string, unknown>): Promise<MCPServer> {
+  async createServer(data: NewMCPServer): Promise<MCPServer> {
     try {
-      const [row] = await this.db
-        .insert(mcpServers)
-        .values(data as typeof mcpServers.$inferInsert)
-        .returning();
+      const insertQuery = this.db.insert(mcpServers).values(data);
+      const [row] = await insertQuery.returning();
 
       logger.info(`McpRepository: created server ${row.id} (${row.name})`);
       return row;

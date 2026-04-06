@@ -37,7 +37,21 @@ import { projectsAPI, type Project as _APIProject } from '../../../api/projects_
 import { ViewportSize } from '@/hooks/use_viewport';
 import { logger } from '@/utils/browser_logger';
 
-const PROJECT_STATUS_OPTIONS = ['planning', 'active', 'paused', 'completed', 'archived'] as const;
+const PROJECT_STATUS_OPTIONS_SET = new Set<string>(['planning', 'active', 'paused', 'completed', 'archived']);
+
+type ProjectStatus = Project['status'];
+type ProjectPriority = Project['priority'];
+
+const isProjectStatus = (v: string): v is ProjectStatus =>
+  PROJECT_STATUS_OPTIONS_SET.has(v);
+
+const PROJECT_PRIORITY_OPTIONS_SET = new Set<string>(['low', 'medium', 'high', 'critical']);
+
+const isProjectPriority = (v: string): v is ProjectPriority =>
+  PROJECT_PRIORITY_OPTIONS_SET.has(v);
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null;
 
 interface ProjectManagementPortalProps {
   viewport?: ViewportSize;
@@ -242,13 +256,21 @@ const CreateProjectModal: React.FC<{
   editProject?: Project;
 }> = ({ isOpen, onClose, onSave, editProject }) => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
+  type ProjectFormData = {
+    name: string;
+    description: string;
+    status: Project['status'];
+    priority: Project['priority'];
+    dueDate: string;
+    tags: string[];
+  };
+  const [formData, setFormData] = useState<ProjectFormData>({
     name: '',
     description: '',
-    status: 'planning' as Project['status'],
-    priority: 'medium' as Project['priority'],
+    status: 'planning',
+    priority: 'medium',
     dueDate: '',
-    tags: [] as string[],
+    tags: [],
   });
 
   useEffect(() => {
@@ -335,9 +357,9 @@ const CreateProjectModal: React.FC<{
             <div>
               <select
                 value={formData.status}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, status: e.target.value as Project['status'] }))
-                }
+                onChange={(e) => {
+                  if (isProjectStatus(e.target.value)) setFormData((prev) => ({ ...prev, status: e.target.value }));
+                }}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
               >
                 {PROJECT_STATUS_OPTIONS.filter((s) => s !== 'archived').map((s) => (
@@ -351,12 +373,9 @@ const CreateProjectModal: React.FC<{
             <div>
               <select
                 value={formData.priority}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    priority: e.target.value as Project['priority'],
-                  }))
-                }
+                onChange={(e) => {
+                  if (isProjectPriority(e.target.value)) setFormData((prev) => ({ ...prev, priority: e.target.value }));
+                }}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
               >
                 <option value="low">Low</option>
@@ -419,23 +438,32 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
   const loadProjects = useCallback(async () => {
     try {
       const apiProjects = await projectsAPI.list();
-      const convertedProjects: Project[] = apiProjects.map((apiProject) => ({
-        id: apiProject.id,
-        name: apiProject.name,
-        description: apiProject.description || '',
-        status: apiProject.status,
-        priority: (apiProject.metadata?.priority as Project['priority']) || 'medium',
-        progress: apiProject.metadata?.progress || 0,
-        startDate: new Date(apiProject.createdAt),
-        dueDate: apiProject.metadata?.dueDate ? new Date(apiProject.metadata.dueDate) : undefined,
-        team: apiProject.metadata?.team || [],
-        tags: apiProject.metadata?.tags || [],
-        resources: apiProject.metadata?.resources || [],
-        tasks: apiProject.metadata?.tasks || [],
-        createdBy: apiProject.ownerId,
-        createdAt: new Date(apiProject.createdAt),
-        updatedAt: new Date(apiProject.updatedAt),
-      }));
+      const convertedProjects: Project[] = apiProjects.map((apiProject) => {
+        const meta = isRecord(apiProject.metadata) ? apiProject.metadata : {};
+        const rawPriority = typeof meta.priority === 'string' ? meta.priority : 'medium';
+        const priority: ProjectPriority = isProjectPriority(rawPriority) ? rawPriority : 'medium';
+        const metaAny: any = meta; // oxlint-disable-line @typescript-eslint/no-explicit-any -- meta fields are unknown[]; runtime shapes match TeamMember[]/ProjectResource[]/Task[]
+        const team: TeamMember[] = Array.isArray(meta.team) ? metaAny.team : [];
+        const resources: ProjectResource[] = Array.isArray(meta.resources) ? metaAny.resources : [];
+        const tasks: Task[] = Array.isArray(meta.tasks) ? metaAny.tasks : [];
+        return {
+          id: apiProject.id,
+          name: apiProject.name,
+          description: apiProject.description || '',
+          status: apiProject.status,
+          priority,
+          progress: typeof meta.progress === 'number' ? meta.progress : 0,
+          startDate: new Date(apiProject.createdAt),
+          dueDate: typeof meta.dueDate === 'string' ? new Date(meta.dueDate) : undefined,
+          team,
+          tags: Array.isArray(meta.tags) ? meta.tags.filter((t): t is string => typeof t === 'string') : [],
+          resources,
+          tasks,
+          createdBy: apiProject.ownerId,
+          createdAt: new Date(apiProject.createdAt),
+          updatedAt: new Date(apiProject.updatedAt),
+        };
+      });
       setProjects(convertedProjects);
     } catch (error) {
       logger.error('Failed to load projects:', error);
@@ -459,27 +487,35 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
 
   const handleCreateProject = async (projectData: unknown) => {
     try {
+      if (!isRecord(projectData)) return;
       // If projectData is already an API project (from onboarding flow), just add it
-      if (projectData.id && projectData.ownerId) {
+      if (typeof projectData.id === 'string' && typeof projectData.ownerId === 'string') {
+        const meta = isRecord(projectData.metadata) ? projectData.metadata : {};
+        const rawPriority = typeof meta.priority === 'string' ? meta.priority : 'medium';
+        const priority: ProjectPriority = isProjectPriority(rawPriority) ? rawPriority : 'medium';
+        const rawStatus = typeof projectData.status === 'string' ? projectData.status : 'planning';
+        const status: ProjectStatus = isProjectStatus(rawStatus) ? rawStatus : 'planning';
         // Convert API project to local format
+        const metaAny2: any = meta; // oxlint-disable-line @typescript-eslint/no-explicit-any -- meta fields are unknown[]; runtime shapes match TeamMember[]/ProjectResource[]/Task[]
+        const team2: TeamMember[] = Array.isArray(meta.team) ? metaAny2.team : [];
+        const resources2: ProjectResource[] = Array.isArray(meta.resources) ? metaAny2.resources : [];
+        const tasks2: Task[] = Array.isArray(meta.tasks) ? metaAny2.tasks : [];
         const convertedProject: Project = {
           id: projectData.id,
-          name: projectData.name,
-          description: projectData.description || '',
-          status: projectData.status,
-          priority: (projectData.metadata?.priority as Project['priority']) || 'medium',
-          progress: projectData.metadata?.progress || 0,
-          startDate: new Date(projectData.createdAt),
-          dueDate: projectData.metadata?.dueDate
-            ? new Date(projectData.metadata.dueDate)
-            : undefined,
-          team: projectData.metadata?.team || [],
-          tags: projectData.metadata?.tags || [],
-          resources: projectData.metadata?.resources || [],
-          tasks: projectData.metadata?.tasks || [],
+          name: typeof projectData.name === 'string' ? projectData.name : '',
+          description: typeof projectData.description === 'string' ? projectData.description : '',
+          status,
+          priority,
+          progress: typeof meta.progress === 'number' ? meta.progress : 0,
+          startDate: typeof projectData.createdAt === 'string' ? new Date(projectData.createdAt) : new Date(),
+          dueDate: typeof meta.dueDate === 'string' ? new Date(meta.dueDate) : undefined,
+          team: team2,
+          tags: Array.isArray(meta.tags) ? meta.tags.filter((t): t is string => typeof t === 'string') : [],
+          resources: resources2,
+          tasks: tasks2,
           createdBy: projectData.ownerId,
-          createdAt: new Date(projectData.createdAt),
-          updatedAt: new Date(projectData.updatedAt),
+          createdAt: typeof projectData.createdAt === 'string' ? new Date(projectData.createdAt) : new Date(),
+          updatedAt: typeof projectData.updatedAt === 'string' ? new Date(projectData.updatedAt) : new Date(),
         };
         setProjects((prev) => [convertedProject, ...prev]);
 
@@ -488,21 +524,21 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
       } else {
         // Handle quick create modal (no API id/ownerId yet) - persist to API
         const projectCreateData = {
-          name: projectData.name,
-          description: projectData.description,
+          name: typeof projectData.name === 'string' ? projectData.name : '',
+          description: typeof projectData.description === 'string' ? projectData.description : '',
           type: 'custom' as const,
           visibility: 'private' as const,
           settings: {
             allowedTools: [],
             enabledFeatures: [],
-            priority: projectData.priority,
-            dueDate: projectData.dueDate ? new Date(projectData.dueDate).toISOString() : null,
+            priority: typeof projectData.priority === 'string' ? projectData.priority : 'medium',
+            dueDate: typeof projectData.dueDate === 'string' ? new Date(projectData.dueDate).toISOString() : null,
           },
           metadata: {
-            priority: projectData.priority,
+            priority: typeof projectData.priority === 'string' ? projectData.priority : 'medium',
             progress: 0,
-            tags: projectData.tags || [],
-            dueDate: projectData.dueDate ? new Date(projectData.dueDate).toISOString() : null,
+            tags: Array.isArray(projectData.tags) ? projectData.tags : [],
+            dueDate: typeof projectData.dueDate === 'string' ? new Date(projectData.dueDate).toISOString() : null,
             team: [],
             resources: [],
             tasks: [],
@@ -706,7 +742,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as Project['status'] | 'all')}
+          onChange={(e) => {
+            const v = e.target.value;
+            setStatusFilter(v === 'all' || isProjectStatus(v) ? v : 'all');
+          }}
           className={`${isMobile ? 'w-full' : ''} px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none backdrop-blur-sm`}
         >
           <option value="all">All</option>

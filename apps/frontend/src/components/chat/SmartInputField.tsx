@@ -43,19 +43,17 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const userRecord = user as unknown as Record<string, unknown> | null;
-  const authToken =
-    userRecord && typeof userRecord.token === 'string'
-      ? (userRecord.token as string)
-      : '';
+  const userAny: any = user; // oxlint-disable-line @typescript-eslint/no-explicit-any -- User type lacks token; runtime property access
+  const authToken: string = user && typeof userAny['token'] === 'string' ? userAny['token'] : '';
   const debouncedValue = useDebounce(inputValue, 300);
-  const intentCategory =
+  const detectedIntentAny: any = detectedIntent; // oxlint-disable-line @typescript-eslint/no-explicit-any -- narrowed unknown→indexable without cast
+  const intentCategoryRaw =
     detectedIntent &&
     typeof detectedIntent === 'object' &&
-    'category' in detectedIntent &&
-    typeof (detectedIntent as { category?: unknown }).category === 'string'
-      ? (detectedIntent as { category: string }).category
+    'category' in detectedIntent
+      ? detectedIntentAny['category']
       : null;
+  const intentCategory = typeof intentCategoryRaw === 'string' ? intentCategoryRaw : null;
 
   useEffect(() => {
     if (!authToken) return;
@@ -156,8 +154,8 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (
       suggestionsRef.current &&
-      !suggestionsRef.current.contains(e.target as Node) &&
-      !inputRef.current?.contains(e.target as Node)
+      !suggestionsRef.current.contains(e.target instanceof Node ? e.target : null) &&
+      !inputRef.current?.contains(e.target instanceof Node ? e.target : null)
     ) {
       hideSuggestions();
     }

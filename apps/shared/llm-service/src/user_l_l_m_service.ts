@@ -3,6 +3,7 @@ import {
   LLMResponse,
   AgentResponseRequest,
   AgentResponseResponse,
+  LLMProviderConfig,
 } from './interfaces.js';
 import { getContextManager, ContextManager } from './context-manager/context_manager.js';
 import { BaseProvider } from './providers/base_provider.js';
@@ -16,12 +17,20 @@ import {
   UnifiedModelSelection,
   AgentTaskTypeResolver,
 } from '@uaip/shared-services';
-import { LLMTaskType } from '@uaip/types';
+import { LLMTaskType, AgentRole, AgentSkill } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { recordLLMRequest } from '@uaip/middleware';
 
-// Local type definitions since they're not exported from shared-services
 type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
+
+type AgentMCPToolItem = {
+  toolId: string;
+  toolName: string;
+  serverName: string;
+  enabled: boolean;
+  priority?: number;
+  parameters?: Record<string, unknown>;
+};
 
 interface UserLLMProvider {
   id: string;
@@ -36,6 +45,74 @@ interface UserLLMProvider {
   isActive?: boolean;
   defaultModel?: string;
   modelId?: string;
+}
+
+// DB row shape returned by UserLLMProviderRepository (matches Drizzle $inferSelect)
+interface UserLLMProviderDbRow {
+  id: string;
+  userId: string;
+  providerId: string;
+  apiKeyEncrypted?: string | null;
+  isDefault: boolean;
+  configuration?: Record<string, unknown> | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+function isUserLLMProviderDbRow(v: unknown): v is UserLLMProviderDbRow {
+  if (typeof v !== 'object' || v === null) return false;
+  return (
+    typeof Reflect.get(v, 'id') === 'string' &&
+    typeof Reflect.get(v, 'userId') === 'string' &&
+    typeof Reflect.get(v, 'providerId') === 'string' &&
+    typeof Reflect.get(v, 'isDefault') === 'boolean'
+  );
+}
+
+const validUserLLMProviderTypes = [
+  'ollama',
+  'llmstudio',
+  'openai',
+  'anthropic',
+  'google',
+  'custom',
+] as const;
+
+const validUserLLMProviderTypesSet = new Set<unknown>(validUserLLMProviderTypes);
+
+function isUserLLMProviderType(v: unknown): v is UserLLMProviderType {
+  return validUserLLMProviderTypesSet.has(v);
+}
+
+/**
+ * Map a DB row (which stores name/type/baseUrl inside configuration) to UserLLMProvider.
+ * When creating a provider, we store those fields in configuration (see createUserProvider).
+ */
+function mapDbRowToUserLLMProvider(row: UserLLMProviderDbRow): UserLLMProvider {
+  const cfg = row.configuration ?? {};
+  const rawType = cfg.type ?? row.providerId;
+  return {
+    id: row.id,
+    userId: row.userId,
+    name: typeof cfg.name === 'string' ? cfg.name : row.providerId,
+    type: isUserLLMProviderType(rawType) ? rawType : 'custom',
+    description: typeof cfg.description === 'string' ? cfg.description : undefined,
+    baseUrl: typeof cfg.baseUrl === 'string' ? cfg.baseUrl : undefined,
+    apiKeyEncrypted: row.apiKeyEncrypted ?? undefined,
+    isDefault: row.isDefault,
+    configuration: cfg,
+    isActive: typeof cfg.isActive === 'boolean' ? cfg.isActive : true,
+    defaultModel: typeof cfg.defaultModel === 'string' ? cfg.defaultModel : undefined,
+    modelId: row.providerId,
+  };
+}
+
+function mapDbRowsToUserLLMProviders(rows: UserLLMProviderDbRow[]): UserLLMProvider[] {
+  return rows.map(mapDbRowToUserLLMProvider);
+}
+
+function toUserLLMProviderDbRows(raw: unknown[]): UserLLMProviderDbRow[] {
+  return raw.filter(isUserLLMProviderDbRow);
 }
 
 export class UserLLMService {
@@ -152,7 +229,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
-      return providers as unknown as UserLLMProvider[];
+      return mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(providers));
     } catch (error) {
       logger.error('Error getting user LLM providers', { userId, error });
       throw error;
@@ -166,7 +243,7 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findActiveByUserId(userId);
-      return providers as unknown as UserLLMProvider[];
+      return mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(providers));
     } catch (error) {
       logger.error('Error getting active user LLM providers', { userId, error });
       throw error;
@@ -183,10 +260,9 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const providers = await repository.findByUserId(userId);
-      const filtered = providers.filter(
-        (provider) => (provider as Record<string, unknown>).providerId === type
-      );
-      return filtered as unknown as UserLLMProvider[];
+      const rows = toUserLLMProviderDbRows(providers);
+      const filtered = rows.filter((row) => row.providerId === type);
+      return mapDbRowsToUserLLMProviders(filtered);
     } catch (error) {
       logger.error('Error getting user LLM providers by type', { userId, type, error });
       throw error;
@@ -200,7 +276,9 @@ export class UserLLMService {
     try {
       const repository = await this.getUserLLMProviderRepository();
       const result = await repository.findById(providerId);
-      return result as unknown as UserLLMProvider | null;
+      if (!result) return null;
+      if (!isUserLLMProviderDbRow(result)) return null;
+      return mapDbRowToUserLLMProvider(result);
     } catch (error) {
       logger.error('Error getting user LLM provider by ID', { providerId, error });
       throw error;
@@ -298,7 +376,8 @@ export class UserLLMService {
   }> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const userProviders = (await repository.findByUserId(userId)) as unknown as UserLLMProvider[];
+      const rows = await repository.findByUserId(userId);
+      const userProviders = mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(rows));
       if (!userProviders || userProviders.length === 0) {
         throw new Error('Provider not found or access denied');
       }
@@ -354,11 +433,12 @@ export class UserLLMService {
       }
 
       // Ensure we have a fresh entity instance if the provider might be a plain object
-      const providerRecord = provider as UserLLMProvider;
+      const providerRecord = provider;
       if (providerRecord.id) {
         const repository = await this.getUserLLMProviderRepository();
-        const freshProvider = await repository.findById(providerRecord.id);
-        if (freshProvider) {
+        const freshRow = await repository.findById(providerRecord.id);
+        if (freshRow && isUserLLMProviderDbRow(freshRow)) {
+          const freshProvider = mapDbRowToUserLLMProvider(freshRow);
           Object.assign(providerRecord, freshProvider);
         }
       }
@@ -475,40 +555,63 @@ export class UserLLMService {
         });
 
         // Convert the types Agent to a partial database Agent for task type determination
-        // Only include the properties that are actually available and needed
+        const now = new Date();
+        const agentRoleSet = new Set<string>(Object.values(AgentRole));
+        const isAgentRole = (r: string): r is AgentRole => agentRoleSet.has(r);
+        const resolvedRole: AgentRole = isAgentRole(request.agent.role)
+          ? request.agent.role
+          : AgentRole.ASSISTANT;
         const agentForTaskType = {
           id: request.agent.id,
           name: request.agent.name,
-          description: request.agent.description,
-          role: request.agent.role,
-          capabilities: request.agent.capabilities || [],
-          // Set reasonable defaults for missing properties
-          learningHistory: [] as unknown[],
-          securityLevel: 'medium' as const,
-          complianceTags: [] as string[],
-          auditTrail: [] as unknown[],
+          description: request.agent.description ?? '',
+          role: resolvedRole,
+          capabilities: request.agent.capabilities || new Array<string>(),
+          learningHistory: new Array<Record<string, unknown>>(),
+          securityLevel: 'medium',
+          complianceTags: new Array<string>(),
+          auditTrail: new Array<Record<string, unknown>>(),
           performanceMetrics: {},
           configuration: request.agent.configuration || {},
           preferences: {},
-          tags: [] as string[],
+          tags: new Array<string>(),
           metadata: request.agent.metadata || {},
-          version: request.agent.version || 1,
+          version: String(request.agent.version ?? 1),
           toolPermissions: {},
           toolPreferences: {},
           toolBudget: {},
           maxConcurrentTools: 3,
-          modelId: request.agent.modelId,
-          apiType: request.agent.apiType,
-          userLLMProviderId: request.agent.userLLMProviderId,
-          temperature: request.agent.temperature,
-          maxTokens: request.agent.maxTokens,
-          systemPrompt: request.agent.systemPrompt,
+          modelId: request.agent.modelId ?? '',
+          apiType: request.agent.apiType ?? '',
+          userLLMProviderId: request.agent.userLLMProviderId ?? '',
+          temperature: request.agent.temperature ?? 0.7,
+          maxTokens: request.agent.maxTokens ?? 2000,
+          systemPrompt: request.agent.systemPrompt ?? '',
+          status: 'active',
+          createdBy: '',
+          createdAt: now,
+          updatedAt: now,
+          personaId: '',
+          legacyPersona: {},
+          intelligenceConfig: {},
+          securityContext: {},
+          isActive: true,
+          lastActiveAt: now,
+          skills: new Array<AgentSkill>(),
+          capabilityScores: {},
+          deploymentEnvironment: 'production',
+          totalOperations: 0,
+          successfulOperations: 0,
+          averageResponseTime: 0,
+          lastPerformanceReview: now,
+          assignedMCPTools: new Array<AgentMCPToolItem>(),
+          mcpToolSettings: {},
         };
 
         // Determine appropriate task type for the agent
         const taskTypeResolver = await this.getTaskTypeResolver();
         const taskType = await taskTypeResolver.determineTaskType(
-          agentForTaskType as unknown as Parameters<typeof taskTypeResolver.determineTaskType>[0],
+          agentForTaskType,
           {
             userIntent: request.messages?.[0]?.content,
             conversationHistory: request.messages,
@@ -680,19 +783,17 @@ export class UserLLMService {
   ): Promise<UserLLMProvider | null> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const providers = await repository.findByUserId(userId);
+      const rawRows = await repository.findByUserId(userId);
+      const rows = toUserLLMProviderDbRows(rawRows);
       if (preferredType) {
-        const filtered = providers.filter(
-          (p) => (p as Record<string, unknown>).providerId === preferredType
-        );
+        const filtered = rows.filter((row) => row.providerId === preferredType);
         if (filtered.length > 0) {
-          return filtered[0] as unknown as UserLLMProvider;
+          return mapDbRowToUserLLMProvider(filtered[0]);
         }
       }
-      const defaultProvider = providers.find(
-        (p) => (p as Record<string, unknown>).isDefault === true
-      );
-      return (defaultProvider || providers[0]) as unknown as UserLLMProvider;
+      const defaultRow = rows.find((row) => row.isDefault === true);
+      const selectedRow = defaultRow ?? rows[0];
+      return selectedRow ? mapDbRowToUserLLMProvider(selectedRow) : null;
     } catch (error) {
       logger.error('Error getting best user provider', { userId, preferredType, error });
       return null;
@@ -704,23 +805,21 @@ export class UserLLMService {
     providerType: UserLLMProviderType
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
-    const providers = await repository.findByUserId(userId);
-    const filteredProviders = providers.filter(
-      (provider) => (provider as Record<string, unknown>).providerId === providerType
-    );
-    const selectedProvider = filteredProviders[0] ?? providers[0];
+    const rawRows = await repository.findByUserId(userId);
+    const rows = toUserLLMProviderDbRows(rawRows);
+    const filteredRows = rows.filter((row) => row.providerId === providerType);
+    const selectedRow = filteredRows[0] ?? rows[0];
 
-    if (!selectedProvider) {
+    if (!selectedRow) {
       logger.error('Selected provider not found', { providerType });
       throw new Error(`Selected provider not found: ${providerType}`);
     }
 
-    return selectedProvider as unknown as UserLLMProvider;
+    return mapDbRowToUserLLMProvider(selectedRow);
   }
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
-    const userProviderRecord = userProvider as unknown as Record<string, unknown>;
-    const cacheKey = `${userProviderRecord.userId}-${userProviderRecord.id}`;
+    const cacheKey = `${userProvider.userId}-${userProvider.id}`;
 
     if (this.providerCache.has(cacheKey)) {
       return this.providerCache.get(cacheKey)!;
@@ -732,19 +831,9 @@ export class UserLLMService {
   }
 
   /**
-   * Get provider configuration safely - handles both entity instances and plain objects
+   * Get provider configuration safely
    */
-  private getProviderConfig(userProvider: UserLLMProvider): {
-    type: UserLLMProviderType;
-    baseUrl?: string;
-    apiKey?: string;
-    defaultModel?: string;
-    timeout?: number;
-    retries?: number;
-  } {
-    const prov = userProvider as unknown as Record<string, unknown>;
-
-    // Handle plain object case - reconstruct the config manually
+  private getProviderConfig(userProvider: UserLLMProvider): LLMProviderConfig {
     const getDefaultBaseUrl = (type: UserLLMProviderType): string => {
       switch (type) {
         case 'openai':
@@ -762,23 +851,22 @@ export class UserLLMService {
       }
     };
 
-    const getApiKey = (): string | undefined => {
-      if (!userProvider.apiKeyEncrypted) {
-        return undefined;
-      }
-      // For plain objects, we can't decrypt, so return undefined
-      // The provider will need to handle this case
-      return undefined;
-    };
+    const cfg = userProvider.configuration ?? {};
+    const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : undefined;
+    const retries = typeof cfg.retries === 'number' ? cfg.retries : undefined;
 
-    const configuration = prov.configuration as Record<string, unknown> | undefined;
+    // Normalize type: 'google' and 'anthropic' map to 'custom' for LLMProviderConfig
+    const rawType = userProvider.type;
+    const providerConfigType: LLMProviderConfig['type'] =
+      rawType === 'google' || rawType === 'anthropic' ? 'custom' : rawType;
+
     return {
-      type: prov.type as UserLLMProviderType,
-      baseUrl: (prov.baseUrl as string) || getDefaultBaseUrl(prov.type as UserLLMProviderType),
-      apiKey: getApiKey(),
-      defaultModel: prov.defaultModel as string | undefined,
-      timeout: configuration?.timeout as number | undefined,
-      retries: configuration?.retries as number | undefined,
+      type: providerConfigType,
+      baseUrl: userProvider.baseUrl || getDefaultBaseUrl(userProvider.type),
+      // API key decryption is handled by the provider itself
+      defaultModel: userProvider.defaultModel,
+      timeout,
+      retries,
     };
   }
 
@@ -788,24 +876,14 @@ export class UserLLMService {
 
     switch (userProvider.type) {
       case 'ollama':
-        return new OllamaProvider(
-          config as unknown as import('./interfaces.js').LLMProviderConfig,
-          userProvider.name
-        );
+        return new OllamaProvider(config, userProvider.name);
       case 'llmstudio':
-        return new LLMStudioProvider(
-          config as unknown as import('./interfaces.js').LLMProviderConfig,
-          userProvider.name
-        );
+        return new LLMStudioProvider(config, userProvider.name);
       case 'openai':
       case 'anthropic':
       case 'custom':
       case 'google':
-        // OpenAI, Anthropic, Google, and custom providers all use OpenAI-compatible endpoints
-        return new OpenAIProvider(
-          config as unknown as import('./interfaces.js').LLMProviderConfig,
-          userProvider.name
-        );
+        return new OpenAIProvider(config, userProvider.name);
       default:
         throw new Error(`Unsupported provider type: ${userProvider.type}`);
     }
@@ -829,7 +907,7 @@ export class UserLLMService {
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
     const window = this.contextManager.createRollingWindow(
-      messages as unknown as import('@uaip/types').Message[],
+      messages.map((m) => ({ ...m })),
       systemPromptTokens,
       tools.length,
       contextDocs

@@ -16,7 +16,7 @@ import {
   KnowledgeItem,
 } from '@uaip/types';
 import type { EventBusMessage } from '@uaip/types';
-import { logger, ApiError } from '@uaip/utils';
+import { logger, ApiError, ValidationError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import {
@@ -65,6 +65,21 @@ interface ExtractedLearning {
   description: string;
   properties: Record<string, unknown>;
   confidence: number;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isMemoryConsolidationPayload(
+  data: unknown
+): data is { agentId: string; requestId: string; requestedAt: string } {
+  if (!isRecord(data)) return false;
+  return (
+    typeof data.agentId === 'string' &&
+    typeof data.requestId === 'string' &&
+    typeof data.requestedAt === 'string'
+  );
 }
 
 export class AgentLearningService {
@@ -371,7 +386,12 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }
 
   private async handleMemoryConsolidationRequest(message: EventBusMessage): Promise<void> {
-    const event = message.data as MemoryConsolidationRequestEvent;
+    const rawData = message.data;
+    if (!isMemoryConsolidationPayload(rawData)) {
+      logger.warn('Invalid MemoryConsolidationRequestEvent payload', { data: rawData });
+      return;
+    }
+    const event: MemoryConsolidationRequestEvent = rawData;
     const { agentId, requestId } = event;
 
     if (!this.agentMemoryService) {
@@ -700,7 +720,7 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
 
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 
@@ -741,8 +761,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
   }): Promise<LearningResult> {
     try {
       // Extract operation info from execution data
-      const operationId = (params.executionData.operationId as string) || 'unknown';
-      const outcome = (params.executionData.outcome as Record<string, unknown>) || {};
+      const operationId = typeof params.executionData.operationId === 'string' ? params.executionData.operationId : 'unknown';
+      const rawOutcome = params.executionData.outcome;
+      const outcome: Record<string, unknown> = this.isRecord(rawOutcome) ? rawOutcome : {};
 
       // Create a simplified learning interaction
       const interaction: AgentInteraction = {
@@ -752,9 +773,9 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
         outcome: outcome.success ? 'success' : 'failure',
         learningPoints: [],
         performanceMetrics: {
-          efficiency: (outcome.efficiency as number) || 0.5,
-          accuracy: (outcome.accuracy as number) || 0.5,
-          userSatisfaction: (outcome.userSatisfaction as number) || 0.5,
+          efficiency: typeof outcome.efficiency === 'number' ? outcome.efficiency : 0.5,
+          accuracy: typeof outcome.accuracy === 'number' ? outcome.accuracy : 0.5,
+          userSatisfaction: typeof outcome.userSatisfaction === 'number' ? outcome.userSatisfaction : 0.5,
         },
         timestamp: new Date(),
       };

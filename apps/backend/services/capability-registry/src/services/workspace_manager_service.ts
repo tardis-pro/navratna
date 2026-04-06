@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 
 const execAsync = promisify(exec);
 
@@ -26,7 +26,7 @@ export interface WorkspaceInfo {
 
 function assertSafeId(id: string, fieldName: string): void {
   if (!/^[a-zA-Z0-9_.-]+$/.test(id)) {
-    throw new Error(`${fieldName} contains unsupported characters`);
+    throw new ValidationError(`${fieldName} contains unsupported characters`);
   }
 }
 
@@ -149,7 +149,7 @@ export class WorkspaceManager extends EventEmitter {
     command: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const info = this.workspaces.get(workspaceId);
-    if (!info) throw new Error(`Workspace ${workspaceId} not found`);
+    if (!info) throw new NotFoundError(`Workspace ${workspaceId} not found`);
 
     const containerName = `uaip-workspace-${workspaceId}`;
     try {
@@ -159,15 +159,12 @@ export class WorkspaceManager extends EventEmitter {
       );
       return { stdout, stderr, exitCode: 0 };
     } catch (error: unknown) {
-      const e = error as {
-        stdout?: string;
-        stderr?: string;
-        code?: number;
-        message?: string;
-      };
+      const isExecError = (v: unknown): v is { stdout?: string; stderr?: string; code?: number; message?: string } =>
+        typeof v === 'object' && v !== null;
+      const e = isExecError(error) ? error : {};
       return {
-        stdout: e.stdout || '',
-        stderr: e.stderr || e.message || 'Workspace command failed',
+        stdout: typeof e.stdout === 'string' ? e.stdout : '',
+        stderr: typeof e.stderr === 'string' ? e.stderr : typeof e.message === 'string' ? e.message : 'Workspace command failed',
         exitCode: typeof e.code === 'number' ? e.code : 1,
       };
     }

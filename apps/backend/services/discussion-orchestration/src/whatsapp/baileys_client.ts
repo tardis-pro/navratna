@@ -2,7 +2,7 @@ import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion, isJidBroadca
 import { Boom } from '@hapi/boom';
 import { EventEmitter } from 'events';
 import type { Redis } from 'ioredis';
-import { createLogger } from '@uaip/utils';
+import { createLogger, ExternalServiceError } from '@uaip/utils';
 import { useRedisAuthState, clearRedisAuthState } from './session_store.js';
 import { mapWAMessage, type WhatsAppIncomingMessage } from './message_mapper.js';
 
@@ -23,16 +23,15 @@ export interface BaileysClientEvents {
 }
 
 /** Minimal pino-compatible logger that suppresses Baileys internal output. */
-const silentLogger = {
+const silentLogger: Parameters<typeof makeWASocket>[0]['logger'] = {
   level: 'silent',
-  fatal: () => {},
   error: () => {},
   warn: () => {},
   info: () => {},
   debug: () => {},
   trace: () => {},
   child: () => silentLogger,
-} as unknown as Parameters<typeof makeWASocket>[0]['logger'];
+};
 
 /**
  * BaileysClient — manages a single WhatsApp Web session via Baileys.
@@ -100,7 +99,7 @@ export class BaileysClient extends EventEmitter {
 
   async sendText(jid: string, text: string): Promise<void> {
     if (!this.socket || this.state !== 'connected') {
-      throw new Error('WhatsApp not connected — cannot send message');
+      throw new ExternalServiceError('WhatsApp not connected — cannot send message');
     }
     await this.socket.sendMessage(jid, { text });
   }
@@ -166,13 +165,17 @@ export class BaileysClient extends EventEmitter {
         }
 
         if (connection === 'close') {
-          const boom = lastDisconnect?.error as Boom | undefined;
+          const err = lastDisconnect?.error;
+          const boom = err instanceof Boom ? err : null;
           const statusCode = boom?.output?.statusCode;
+          const disconnectReasonMap: Record<number, string> = Object.fromEntries(
+            Object.entries(DisconnectReason)
+              .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+              .map(([k, v]) => [v, k])
+          );
           const reason =
             typeof statusCode === 'number'
-              ? ((DisconnectReason[
-                  statusCode as unknown as keyof typeof DisconnectReason
-                ] as unknown as string) ?? `code ${statusCode}`)
+              ? (disconnectReasonMap[statusCode] ?? `code ${statusCode}`)
               : `code ${statusCode}`;
 
           this.logger.warn('WhatsApp connection closed', { statusCode, reason });

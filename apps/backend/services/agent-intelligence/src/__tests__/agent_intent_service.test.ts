@@ -9,25 +9,27 @@ describe('AgentIntentService', () => {
   let service: AgentIntentService;
 
   beforeEach(() => {
-    const databaseService = {} as DatabaseService;
-    const eventBusService = {
+    // @ts-expect-error — test mock: partial stub satisfies DatabaseService for unit testing
+    const databaseService: DatabaseService = {};
+    // @ts-expect-error — test mock: partial stub satisfies EventBusService for unit testing
+    const eventBusService: EventBusService = {
       publish: vi.fn().mockResolvedValue(undefined),
       subscribe: vi.fn().mockResolvedValue(undefined),
-    } as Record<string, unknown> as EventBusService;
-
-    const llmService = {
+    };
+    // @ts-expect-error — test mock: partial stub satisfies LLMService for unit testing
+    const llmService: LLMService = {
       generateResponse: vi.fn().mockResolvedValue({
         error: 'llm unavailable',
         content: '',
       }),
-    } as Record<string, unknown> as LLMService;
-
-    const userLLMService = {
+    };
+    // @ts-expect-error — test mock: partial stub satisfies UserLLMService for unit testing
+    const userLLMService: UserLLMService = {
       generateResponse: vi.fn().mockResolvedValue({
         error: 'llm unavailable',
         content: '',
       }),
-    } as Record<string, unknown> as UserLLMService;
+    };
 
     service = new AgentIntentService({
       databaseService,

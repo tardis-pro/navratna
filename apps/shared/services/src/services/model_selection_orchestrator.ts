@@ -311,7 +311,7 @@ export class PerformanceOptimizedStrategy implements ModelSelectionStrategy {
 
     const bestPreference = preferences.reduce((best, current) =>
       current.getPerformanceScore() > best.getPerformanceScore() ? current : best
-    ) as (typeof preferences)[0];
+    );
 
     return {
       provider: bestPreference.preferredProvider,

@@ -13,16 +13,17 @@ import {
   ContributionScore,
 } from './persona_advanced';
 
+// Type guard: checks if a trait array contains strings
+function isStringTraitArray(traits: PersonaTrait[] | string[]): traits is string[] {
+  return traits.length === 0 || typeof traits[0] === 'string';
+}
+
 // Helper function to extract trait strings from PersonaTrait objects or string arrays
 function extractTraitStrings(traits: PersonaTrait[] | string[]): string[] {
-  if (traits.length === 0) return [];
-
-  // Check if first element is string or object
-  if (typeof traits[0] === 'string') {
-    return traits as string[];
-  } else {
-    return (traits as PersonaTrait[]).map((trait) => trait.name || '');
+  if (isStringTraitArray(traits)) {
+    return traits;
   }
+  return traits.map((trait) => trait.name || '');
 }
 
 // Helper function to convert string traits to PersonaTrait objects
@@ -94,7 +95,7 @@ ADDITIONAL CONVERSATION PATTERNS:
 Leverage your dual expertise naturally, don't force it. /no_think`;
 
   // Calculate personality blend (simplified)
-  const personalityBlend = combinedTraitStrings.reduce(
+  const personalityBlend = combinedTraitStrings.reduce<Record<string, number>>(
     (blend, trait) => {
       const isFromParent1 = parent1Traits.includes(trait);
       const isFromParent2 = parent2Traits.includes(trait);
@@ -111,7 +112,7 @@ Leverage your dual expertise naturally, don't force it. /no_think`;
 
       return blend;
     },
-    {} as Record<string, number>
+    {}
   );
 
   // Blend conversational characteristics
@@ -168,7 +169,7 @@ Leverage your dual expertise naturally, don't force it. /no_think`;
     capabilities: Array.from(
       new Set([...(dominantPersona.capabilities || []), ...(secondaryPersona.capabilities || [])])
     ),
-  } as HybridPersona;
+  };
 }
 
 // Function to generate random hybrid combinations

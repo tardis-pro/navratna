@@ -5,34 +5,20 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra';
 import type { JiraOperationOutcome, JiraOperationStatus } from '@uaip/types';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
-interface JiraUpdateParams {
-  issueIdOrKey?: string;
-  fields?: Record<string, unknown>;
-  notifyUsers?: boolean;
-}
-
-interface JiraSearchParams {
-  jql?: string;
-  fields?: string[];
-  maxResults?: number;
-  startAt?: number;
-}
-
-interface JiraSprintParams {
-  projectKey?: string;
-}
-
-interface JiraCommentParams {
-  issueIdOrKey?: string;
-  body?: string;
-}
-
 const JIRA_OPERATION_COMPLETED_EVENT = 'jira.operation.completed';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function toRecord(v: unknown): Record<string, unknown> {
+  return isRecord(v) ? v : {};
+}
 
 export class JiraAdapter {
   private toolDefinition: ToolDefinition;
@@ -107,7 +93,7 @@ export class JiraAdapter {
         case 'addComment':
           return await this.addComment(parameters);
         default:
-          throw new Error(`Unknown operation: ${operationId}`);
+          throw new InternalServerError(`Unknown operation: ${operationId}`);
       }
     } catch (error) {
       logger.error('Jira operation failed', { error, operationId });
@@ -146,9 +132,12 @@ export class JiraAdapter {
    * Update an existing issue
    */
   private async updateIssue(parameters: unknown): Promise<unknown> {
-    const { issueIdOrKey, fields, notifyUsers = true } = (parameters as JiraUpdateParams) ?? {};
+    const p = toRecord(parameters);
+    const issueIdOrKey = typeof p.issueIdOrKey === 'string' ? p.issueIdOrKey : undefined;
+    const fields = isRecord(p.fields) ? p.fields : undefined;
+    const notifyUsers = typeof p.notifyUsers === 'boolean' ? p.notifyUsers : true;
     if (!issueIdOrKey || !fields) {
-      throw new Error('updateIssue requires issueIdOrKey and fields');
+      throw new ValidationError('updateIssue requires issueIdOrKey and fields');
     }
 
     const _response = await this.axiosInstance.put(
@@ -177,12 +166,11 @@ export class JiraAdapter {
    * Search for issues using JQL
    */
   private async searchIssues(parameters: unknown): Promise<unknown> {
-    const {
-      jql,
-      fields = [],
-      maxResults = 50,
-      startAt = 0,
-    } = (parameters as JiraSearchParams) ?? {};
+    const p = toRecord(parameters);
+    const jql = typeof p.jql === 'string' ? p.jql : undefined;
+    const fields = Array.isArray(p.fields) ? p.fields.filter((f): f is string => typeof f === 'string') : [];
+    const maxResults = typeof p.maxResults === 'number' ? p.maxResults : 50;
+    const startAt = typeof p.startAt === 'number' ? p.startAt : 0;
 
     const response = await this.axiosInstance.post('/search', {
       jql,
@@ -213,9 +201,10 @@ export class JiraAdapter {
    * Get active sprint for a project
    */
   private async getActiveSprint(parameters: unknown): Promise<unknown> {
-    const { projectKey } = (parameters as JiraSprintParams) ?? {};
+    const p = toRecord(parameters);
+    const projectKey = typeof p.projectKey === 'string' ? p.projectKey : undefined;
     if (!projectKey) {
-      throw new Error('getActiveSprint requires projectKey');
+      throw new ValidationError('getActiveSprint requires projectKey');
     }
 
     // First, get the board ID for the project
@@ -261,9 +250,11 @@ export class JiraAdapter {
    * Add a comment to an issue
    */
   private async addComment(parameters: unknown): Promise<unknown> {
-    const { issueIdOrKey, body } = (parameters as JiraCommentParams) ?? {};
+    const p = toRecord(parameters);
+    const issueIdOrKey = typeof p.issueIdOrKey === 'string' ? p.issueIdOrKey : undefined;
+    const body = typeof p.body === 'string' ? p.body : undefined;
     if (!issueIdOrKey || !body) {
-      throw new Error('addComment requires issueIdOrKey and body');
+      throw new ValidationError('addComment requires issueIdOrKey and body');
     }
 
     const response = await this.axiosInstance.post(`/issue/${issueIdOrKey}/comment`, { body });
@@ -355,7 +346,8 @@ export class JiraAdapter {
   private async authenticate(): Promise<void> {
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
+      const authRecord = toRecord(authConfig);
+      const tokenUrl = typeof authRecord.tokenUrl === 'string' ? authRecord.tokenUrl : undefined;
 
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
@@ -364,12 +356,12 @@ export class JiraAdapter {
       const refreshToken = process.env.JIRA_REFRESH_TOKEN;
 
       if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Jira OAuth2 credentials not configured');
+        throw new InternalServerError('Jira OAuth2 credentials not configured');
       }
 
       // Exchange refresh token for access token
       const response = await axios.post(
-        oauthConfig.tokenUrl,
+        tokenUrl,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -392,7 +384,7 @@ export class JiraAdapter {
       });
     } catch (error) {
       logger.error('Jira authentication failed', { error });
-      throw new Error('Failed to authenticate with Jira', { cause: error });
+      throw new AuthenticationError('Failed to authenticate with Jira', { cause: error });
     }
   }
 
@@ -401,17 +393,18 @@ export class JiraAdapter {
    */
   private async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken) {
-      throw new Error('No refresh token available');
+      throw new AuthenticationError('No refresh token available');
     }
 
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
+      const authRecord2 = toRecord(authConfig);
+      const tokenUrl2 = typeof authRecord2.tokenUrl === 'string' ? authRecord2.tokenUrl : undefined;
       const clientId = process.env.JIRA_CLIENT_ID;
       const clientSecret = process.env.JIRA_CLIENT_SECRET;
 
       const response = await axios.post(
-        oauthConfig.tokenUrl,
+        tokenUrl2,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -437,7 +430,7 @@ export class JiraAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Jira token', { cause: error });
+      throw new AuthenticationError('Failed to refresh Jira token', { cause: error });
     }
   }
 

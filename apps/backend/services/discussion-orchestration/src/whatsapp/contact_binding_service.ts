@@ -10,6 +10,14 @@
 import type { Redis } from 'ioredis';
 import { createLogger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isAgentSummary(v: unknown): v is AgentSummary {
+  return isRecord(v) && typeof v['id'] === 'string' && typeof v['name'] === 'string' && typeof v['description'] === 'string';
+}
+
 const logger = createLogger({
   serviceName: 'ContactBindingService',
   environment: process.env.NODE_ENV || 'development',
@@ -108,7 +116,11 @@ export class ContactBindingService {
     try {
       const raw = await this.redis.get(`${SELECTING_PREFIX}${jid}`);
       if (!raw) return null;
-      return JSON.parse(raw) as PendingSelection;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isRecord(parsed)) return null;
+      if (!Array.isArray(parsed['agents']) || typeof parsed['expiresAt'] !== 'number') return null;
+      const agents = parsed['agents'].filter(isAgentSummary);
+      return { agents, expiresAt: parsed['expiresAt'] };
     } catch {
       return null;
     }
@@ -135,7 +147,9 @@ export class ContactBindingService {
     try {
       const raw = await this.redis.get(AGENTS_CACHE_KEY);
       if (!raw) return null;
-      return JSON.parse(raw) as AgentSummary[];
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return null;
+      return parsed.filter(isAgentSummary);
     } catch {
       return null;
     }

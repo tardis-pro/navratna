@@ -404,20 +404,20 @@ export const useDesktop = () => {
       (event) => event.timestamp >= previousWeek && event.timestamp < lastWeek
     );
 
-    const recentCounts = recentEvents.reduce(
+    const recentCounts = recentEvents.reduce<Record<string, number>>(
       (acc, event) => {
         acc[event.itemId] = (acc[event.itemId] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {}
     );
 
-    const previousCounts = previousEvents.reduce(
+    const previousCounts = previousEvents.reduce<Record<string, number>>(
       (acc, event) => {
         acc[event.itemId] = (acc[event.itemId] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {}
     );
 
     return Object.keys(recentCounts)

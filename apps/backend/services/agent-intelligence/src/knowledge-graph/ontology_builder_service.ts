@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import { KnowledgeIngestRequest, KnowledgeItem, KnowledgeType, SourceType } from '@uaip/types';
 import {
   ConceptExtractorService,
@@ -9,6 +9,47 @@ import {
   ConceptProperty,
 } from './concept_extractor_service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
+import type { KnowledgeRow } from '../../../../../shared/services/src/database/repositories/knowledge_repository.js';
+
+type RelationshipType = ConceptRelationship['relationshipType'];
+
+const VALID_RELATIONSHIP_TYPES: RelationshipType[] = ['IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR'];
+const VALID_RELATIONSHIP_TYPE_SET = new Set<string>(VALID_RELATIONSHIP_TYPES);
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isRelationshipType(v: unknown): v is RelationshipType {
+  return typeof v === 'string' && VALID_RELATIONSHIP_TYPE_SET.has(v);
+}
+
+function isConceptProperty(v: unknown): v is ConceptProperty {
+  if (!isRecord(v)) return false;
+  return typeof v['name'] === 'string' && typeof v['value'] === 'string' && typeof v['confidence'] === 'number';
+}
+
+function mapRowToKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
+  return {
+    id: row.id,
+    content: row.content,
+    type: row.type,
+    sourceType: row.sourceType,
+    sourceIdentifier: row.sourceIdentifier,
+    sourceUrl: row.sourceUrl ?? undefined,
+    tags: row.tags,
+    confidence: row.confidence,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy ?? undefined,
+    organizationId: row.organizationId ?? undefined,
+    accessLevel: row.accessLevel,
+    userId: row.userId ?? undefined,
+    agentId: row.agentId ?? undefined,
+    summary: row.summary ?? undefined,
+  };
+}
 import { KnowledgeSyncService } from './knowledge_sync_service.js';
 
 export interface ConceptHierarchy {
@@ -102,9 +143,10 @@ export class OntologyBuilderService {
       // Get knowledge items if not provided
       let items = knowledgeItems;
       if (!items) {
-        items = (await this.knowledgeRepository.findByDomain(domain)) as unknown as KnowledgeItem[];
+        // KnowledgeRow→KnowledgeItem: repository returns KnowledgeRow which lacks domain fields
+        items = (await this.knowledgeRepository.findByDomain(domain)).map(mapRowToKnowledgeItem);
         if (items.length === 0) {
-          throw new Error(`No knowledge items found for domain: ${domain}`);
+          throw new NotFoundError(`No knowledge items found for domain: ${domain}`);
         }
       }
 
@@ -191,7 +233,7 @@ export class OntologyBuilderService {
       };
     } catch (error) {
       logger.error(`Error building domain ontology for ${domain}:`, error);
-      throw new Error(
+      throw new InternalServerError(
         `Ontology building failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -382,13 +424,14 @@ export class OntologyBuilderService {
   private async saveOntologyToKnowledgeGraph(ontology: DomainOntology): Promise<void> {
     try {
       // Create knowledge ingest requests for each concept
+      const noUrl: string | undefined = undefined;
       const conceptItems: KnowledgeIngestRequest[] = ontology.concepts.map((concept) => ({
         content: `${concept.name}: ${concept.definition}`,
         type: KnowledgeType.CONCEPTUAL,
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}`,
-          url: undefined as string | undefined,
+          url: noUrl,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -405,9 +448,7 @@ export class OntologyBuilderService {
       // Save concepts to knowledge graph
       for (const item of conceptItems) {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const createdItem = await this.knowledgeRepository.create(
-          item as unknown as Record<string, unknown>
-        );
+        const createdItem = await this.knowledgeRepository.create(item);
 
         // Sync to Neo4j and Qdrant
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
@@ -421,7 +462,7 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_relationships`,
-          url: undefined as string | undefined,
+          url: noUrl,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -439,9 +480,7 @@ export class OntologyBuilderService {
       // Save relationships to knowledge graph
       for (const item of relationshipItems) {
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const createdItem = await this.knowledgeRepository.create(
-          item as unknown as Record<string, unknown>
-        );
+        const createdItem = await this.knowledgeRepository.create(item);
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         await this.knowledgeSync.syncKnowledgeItem(createdItem);
       }
@@ -453,7 +492,7 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_metadata`,
-          url: undefined as string | undefined,
+          url: undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -466,9 +505,7 @@ export class OntologyBuilderService {
         accessLevel: 'public',
       };
 
-      const createdMetadataItem = await this.knowledgeRepository.create(
-        ontologyMetadataItem as unknown as Record<string, unknown>
-      );
+      const createdMetadataItem = await this.knowledgeRepository.create(ontologyMetadataItem);
       await this.knowledgeSync.syncKnowledgeItem(createdMetadataItem);
 
       logger.info(
@@ -476,7 +513,7 @@ export class OntologyBuilderService {
       );
     } catch (error) {
       logger.error('Error saving ontology to knowledge graph:', error);
-      throw new Error(
+      throw new InternalServerError(
         `Failed to save ontology: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );
@@ -494,7 +531,7 @@ export class OntologyBuilderService {
 
       // Filter for ontology metadata items
       const ontologyMetadataItems = ontologyItems.filter(
-        (item: Record<string, unknown>) =>
+        (item) =>
           item.tags &&
           Array.isArray(item.tags) &&
           item.tags.includes(domain) &&
@@ -506,20 +543,20 @@ export class OntologyBuilderService {
         return null;
       }
 
-      const metadataItem = ontologyMetadataItems[0] as unknown as Record<string, unknown>;
-      const metadata = (metadataItem.metadata as Record<string, unknown>) || {};
+      const metadataItem = ontologyMetadataItems[0];
+      const metadata: Record<string, unknown> = metadataItem.metadata ?? {};
       const ontologyId =
         typeof metadata.ontologyId === 'string'
-          ? (metadata.ontologyId as string)
-          : (metadataItem.id as string);
+          ? metadata.ontologyId
+          : metadataItem.id;
       const ontologyVersion =
         typeof metadata.ontologyVersion === 'string'
-          ? (metadata.ontologyVersion as string)
+          ? metadata.ontologyVersion
           : '1.0.0';
 
       // Reconstruct ontology from knowledge graph
       const conceptItems = ontologyItems.filter(
-        (item: Record<string, unknown>) =>
+        (item) =>
           item.tags &&
           Array.isArray(item.tags) &&
           item.tags.includes(domain) &&
@@ -528,7 +565,7 @@ export class OntologyBuilderService {
       );
 
       const relationshipItems = ontologyItems.filter(
-        (item: Record<string, unknown>) =>
+        (item) =>
           item.tags &&
           Array.isArray(item.tags) &&
           item.tags.includes(domain) &&
@@ -536,63 +573,59 @@ export class OntologyBuilderService {
           item.tags.includes('relationship')
       );
 
-      const concepts: ConceptNode[] = conceptItems.map((item: Record<string, unknown>) => {
-        const itemMetadata = (item.metadata as Record<string, unknown>) || {};
+      const concepts: ConceptNode[] = conceptItems.map((item) => {
+        const itemMetadata: Record<string, unknown> = item.metadata ?? {};
         const conceptDomain =
           typeof itemMetadata.domain === 'string' && itemMetadata.domain
-            ? (itemMetadata.domain as string)
+            ? itemMetadata.domain
             : domain;
         const properties = Array.isArray(itemMetadata.properties)
-          ? (itemMetadata.properties as ConceptProperty[])
+          ? itemMetadata.properties.filter(isConceptProperty)
           : [];
         const instances = Array.isArray(itemMetadata.instances)
-          ? (itemMetadata.instances as string[])
+          ? itemMetadata.instances.filter((x): x is string => typeof x === 'string')
           : [];
-        const itemTags = Array.isArray(item.tags) ? (item.tags as string[]) : [];
+        const itemTags = Array.isArray(item.tags) ? item.tags : [];
 
         return {
-          id: item.id as string,
+          id: item.id,
           name: String(item.content).split(':')[0].trim(),
           definition: String(item.content).split(':').slice(1).join(':').trim(),
           domain: conceptDomain,
           confidence:
             typeof item.confidence === 'string'
-              ? parseFloat(item.confidence as string)
-              : (item.confidence as number),
+              ? parseFloat(item.confidence)
+              : item.confidence,
           properties,
           instances,
           synonyms: itemTags.filter(
-            (tag: string) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
+            (tag) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
           ),
-          relatedConcepts: [] as string[],
+          relatedConcepts: new Array<string>(),
         };
       });
 
       const relationships: ConceptRelationship[] = relationshipItems
-        .map((item: Record<string, unknown>) => {
-          const itemMetadata = (item.metadata as Record<string, unknown>) || {};
+        .map((item) => {
+          const itemMetadata: Record<string, unknown> = item.metadata ?? {};
           const sourceConceptId =
             typeof itemMetadata.sourceConceptId === 'string'
-              ? (itemMetadata.sourceConceptId as string)
+              ? itemMetadata.sourceConceptId
               : null;
           const targetConceptId =
             typeof itemMetadata.targetConceptId === 'string'
-              ? (itemMetadata.targetConceptId as string)
+              ? itemMetadata.targetConceptId
               : null;
-          const relationshipType =
-            typeof itemMetadata.relationshipType === 'string'
-              ? (itemMetadata.relationshipType as ConceptRelationship['relationshipType'])
-              : null;
+          const rawRelType = itemMetadata.relationshipType;
+          const relationshipType = isRelationshipType(rawRelType) ? rawRelType : null;
 
           if (!sourceConceptId || !targetConceptId || !relationshipType) {
             return null;
           }
 
-          const evidence =
-            Array.isArray(itemMetadata.evidence) &&
-            (itemMetadata.evidence as unknown[]).every((entry) => typeof entry === 'string')
-              ? (itemMetadata.evidence as string[])
-              : [];
+          const evidence = Array.isArray(itemMetadata.evidence)
+            ? itemMetadata.evidence.filter((entry): entry is string => typeof entry === 'string')
+            : [];
 
           return {
             sourceConceptId,
@@ -600,8 +633,8 @@ export class OntologyBuilderService {
             relationshipType,
             confidence:
               typeof item.confidence === 'string'
-                ? parseFloat(item.confidence as string)
-                : (item.confidence as number),
+                ? parseFloat(item.confidence)
+                : item.confidence,
             evidence,
           };
         })
@@ -626,10 +659,10 @@ export class OntologyBuilderService {
       const totalRelationships = relationships.length;
       const avgConfidence =
         totalConcepts > 0 ? concepts.reduce((sum, c) => sum + c.confidence, 0) / totalConcepts : 0;
-      const buildTime = typeof metadata.buildTime === 'number' ? (metadata.buildTime as number) : 0;
+      const buildTime = typeof metadata.buildTime === 'number' ? metadata.buildTime : 0;
       const sourceKnowledgeItems =
         typeof metadata.sourceKnowledgeItems === 'number'
-          ? (metadata.sourceKnowledgeItems as number)
+          ? metadata.sourceKnowledgeItems
           : 0;
 
       const ontology: DomainOntology = {

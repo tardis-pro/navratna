@@ -9,6 +9,7 @@ import {
 import { logger } from '@uaip/utils';
 import { DatabaseService } from './database_service';
 import { EventBusService } from './event_bus_service';
+import { ToolExecutionRow } from './database/repositories/tool_repository';
 
 type ToolRequestInput =
   | string
@@ -84,9 +85,8 @@ export class ToolExecutionService {
   }
 
   private static toRecord(value: unknown): Record<string, unknown> | undefined {
-    return typeof value === 'object' && value !== null
-      ? (value as Record<string, unknown>)
-      : undefined;
+    if (typeof value !== 'object' || value === null) return undefined;
+    return Object.fromEntries(Object.entries(value));
   }
 
   private parseToolRequest(
@@ -226,7 +226,7 @@ export class ToolExecutionService {
     return { toolId, actualAgentId, actualParameters, securityContext, requestId, correlationId, idempotencyKey, execution };
   }
 
-  private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {
+  private toEntityExecution(execution: ToolExecutionType): Omit<Partial<ToolExecutionEntity>, 'toolId'> & { toolId: string } {
     return {
       id: execution.id,
       toolId: execution.toolId,
@@ -291,10 +291,9 @@ export class ToolExecutionService {
   /**
    * Get tool execution status
    */
-  async getExecution(executionId: string): Promise<ToolExecutionType | null> {
+  async getExecution(executionId: string): Promise<ToolExecutionRow | null> {
     try {
-      const result = await this.databaseService.tools.getToolExecution(executionId);
-      return result as unknown as ToolExecutionType | null;
+      return await this.databaseService.tools.getToolExecution(executionId);
     } catch (error) {
       logger.error(`Failed to get tool execution ${executionId}:`, error);
       return null;

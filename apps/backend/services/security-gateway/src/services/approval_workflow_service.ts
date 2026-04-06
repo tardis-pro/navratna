@@ -89,7 +89,7 @@ export class ApprovalWorkflowService {
         operationId: savedWorkflow.operationId,
         requiredApprovers: savedWorkflow.requiredApprovers,
         currentApprovers: savedWorkflow.currentApprovers,
-        status: savedWorkflow.status as ApprovalStatus,
+        status: Object.values(ApprovalStatus).find((s) => s === savedWorkflow.status) ?? ApprovalStatus.PENDING,
         expiresAt: savedWorkflow.expiresAt,
         metadata: savedWorkflow.metadata,
         createdAt: savedWorkflow.createdAt,
@@ -396,7 +396,7 @@ export class ApprovalWorkflowService {
         return;
       }
 
-      await this.processInBatches(workflows as Array<{ id: string }>, async (workflowEntity) => {
+      await this.processInBatches(workflows.filter((w): w is typeof w & { id: string } => 'id' in w && typeof w.id === 'string'), async (workflowEntity) => {
         try {
           logger.debug('Expiring workflow', { workflowId: workflowEntity.id });
           await this.expireWorkflow(workflowEntity.id);
@@ -724,13 +724,17 @@ export class ApprovalWorkflowService {
       .getApprovalDecisionRepository()
       .getApprovalDecisions(workflowId);
 
-    return decisions.map((decision) => ({
-      workflowId: decision.workflowId,
-      approverId: decision.approverId,
-      decision: decision.decision as 'approve' | 'reject',
-      feedback: decision.reason ?? undefined,
-      decidedAt: decision.createdAt,
-    }));
+    return decisions.map((decision) => {
+      const rawDecision = decision.decision;
+      const decisionValue: 'approve' | 'reject' = rawDecision === 'approve' ? 'approve' : 'reject';
+      return {
+        workflowId: decision.workflowId,
+        approverId: decision.approverId,
+        decision: decisionValue,
+        feedback: decision.reason ?? undefined,
+        decidedAt: decision.createdAt,
+      };
+    });
   }
 
   /**
@@ -742,7 +746,7 @@ export class ApprovalWorkflowService {
       operationId: entity.operationId,
       requiredApprovers: entity.requiredApprovers,
       currentApprovers: entity.currentApprovers,
-      status: entity.status as ApprovalStatus,
+      status: Object.values(ApprovalStatus).find((s) => s === entity.status) ?? ApprovalStatus.PENDING,
       expiresAt: entity.expiresAt,
       metadata: entity.metadata,
       createdAt: entity.createdAt,

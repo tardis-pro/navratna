@@ -1,7 +1,11 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { logger } from '@uaip/utils';
-import type { AgentGenerationRequest } from '@uaip/types';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
+import type { AgentGenerationRequest, LLMResponse } from '@uaip/types';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 export class AgentGenerationHandler {
   constructor(
@@ -20,7 +24,7 @@ export class AgentGenerationHandler {
       logger.info('Agent generation completed', {
         requestId: request.requestId,
         agentId: request.agentId,
-        responseLength: (response.content as string)?.length || 0,
+        responseLength: response.content.length,
       });
     } catch (error) {
       await this.handleError(event, error);
@@ -28,27 +32,31 @@ export class AgentGenerationHandler {
   }
 
   private validateRequest(event: Record<string, unknown>): AgentGenerationRequest {
-    const data = (event.data || event) as Record<string, unknown>;
+    const rawData = event['data'];
+    const data: Record<string, unknown> = isRecord(rawData) ? rawData : event;
     const { requestId, agentId, messages, systemPrompt, maxTokens, temperature, model, provider } =
       data;
 
     if (!requestId) {
-      throw new Error('RequestId is required');
+      throw new ValidationError('RequestId is required');
     }
 
     if (!messages || !Array.isArray(messages)) {
-      throw new Error('Messages array is required');
+      throw new ValidationError('Messages array is required');
     }
 
     return {
-      requestId: requestId as string,
-      agentId: agentId as string | undefined,
-      messages: messages as Array<{ content: string; sender?: string }>,
-      systemPrompt: systemPrompt as string | undefined,
-      maxTokens: maxTokens as number | undefined,
-      temperature: temperature as number | undefined,
-      model: model as string | undefined,
-      provider: provider as string | undefined,
+      requestId: typeof requestId === 'string' ? requestId : String(requestId),
+      agentId: typeof agentId === 'string' ? agentId : undefined,
+      messages: messages.filter(isRecord).map((m) => ({
+        content: typeof m['content'] === 'string' ? m['content'] : '',
+        sender: typeof m['sender'] === 'string' ? m['sender'] : undefined,
+      })),
+      systemPrompt: typeof systemPrompt === 'string' ? systemPrompt : undefined,
+      maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
+      temperature: typeof temperature === 'number' ? temperature : undefined,
+      model: typeof model === 'string' ? model : undefined,
+      provider: typeof provider === 'string' ? provider : undefined,
     };
   }
 
@@ -58,21 +66,18 @@ export class AgentGenerationHandler {
       return null;
     }
 
-    // Use AgentRepository.getActiveAgentById() which loads the persona relation
     const { AgentService } = await import('@uaip/shared-services');
     const agentService = AgentService.getInstance();
     const agentRepository = agentService.getAgentRepository();
-    // @ts-expect-error -- getActiveAgentById exists at runtime but not in base AgentRepository type
-    const agent = await agentRepository.getActiveAgentById(agentId);
+    const agent = await agentRepository.findById(agentId);
 
     if (!agent) {
-      throw new Error(`Agent ${agentId} not found`);
+      throw new NotFoundError(`Agent ${agentId} not found`);
     }
 
     logger.info('Loaded agent with persona for generation', {
       agentId: agent.id,
       agentName: agent.name,
-      hasPersona: !!agent.persona,
       hasLegacyPersona: !!agent.legacyPersona,
       hasSystemPrompt: !!agent.systemPrompt,
     });
@@ -83,28 +88,28 @@ export class AgentGenerationHandler {
   private async generateResponse(
     request: AgentGenerationRequest,
     agent: Record<string, unknown> | null
-  ): Promise<Record<string, unknown>> {
+  ): Promise<LLMResponse> {
     const prompt = this.buildPromptFromMessages(request.messages);
 
     // Build system prompt from agent persona if available, otherwise use request.systemPrompt
     const systemPrompt = this.buildAgentSystemPrompt(agent, request.systemPrompt);
 
-    const agentConfig = agent?.configuration as Record<string, unknown> | undefined;
+    const agentConfig = isRecord(agent?.['configuration']) ? agent['configuration'] : undefined;
     const generationRequest = {
       prompt,
       systemPrompt,
-      maxTokens: request.maxTokens || (agent?.maxTokens as number) || 1000,
-      temperature: request.temperature || (agent?.temperature as number) || 0.7,
-      model: request.model || (agentConfig?.model as string | undefined),
+      maxTokens: request.maxTokens || (typeof agent?.['maxTokens'] === 'number' ? agent['maxTokens'] : 0) || 1000,
+      temperature: request.temperature || (typeof agent?.['temperature'] === 'number' ? agent['temperature'] : 0) || 0.7,
+      model: request.model || (typeof agentConfig?.['model'] === 'string' ? agentConfig['model'] : undefined),
     };
 
     // Use user-specific service if agent has user context
     if (agent?.createdBy) {
       try {
-        return (await this.userLLMService.generateResponse(
-          agent.createdBy as string,
+        return await this.userLLMService.generateResponse(
+          typeof agent['createdBy'] === 'string' ? agent['createdBy'] : String(agent['createdBy']),
           generationRequest
-        )) as unknown as Record<string, unknown>;
+        );
       } catch (error) {
         logger.warn('UserLLMService failed, falling back to global', {
           agentId: agent.id,
@@ -115,7 +120,7 @@ export class AgentGenerationHandler {
     }
 
     // Fall back to global service
-    return (await this.llmService.generateResponse(generationRequest)) as unknown as Record<string, unknown>;
+    return await this.llmService.generateResponse(generationRequest);
   }
 
   private buildPromptFromMessages(messages: Array<{ content: string; sender?: string }>): string {
@@ -141,7 +146,8 @@ export class AgentGenerationHandler {
     }
 
     // Get persona from either the loaded relation or legacy field
-    const persona = (agent.persona || agent.legacyPersona) as Record<string, unknown> | undefined;
+    const rawPersona = agent['persona'] ?? agent['legacyPersona'];
+    const persona = isRecord(rawPersona) ? rawPersona : undefined;
 
     let systemPrompt = `You are ${agent.name}`;
 
@@ -155,8 +161,9 @@ export class AgentGenerationHandler {
     systemPrompt += '.\n\n';
 
     // Add capabilities
-    const capabilities = (persona?.capabilities || agent.capabilities) as unknown[] | undefined;
-    if (capabilities && Array.isArray(capabilities) && capabilities.length > 0) {
+    const rawCaps = persona?.['capabilities'] ?? agent['capabilities'];
+    const capabilities = Array.isArray(rawCaps) ? rawCaps : undefined;
+    if (capabilities && capabilities.length > 0) {
       systemPrompt += `Your capabilities include: ${capabilities.join(', ')}.\n`;
     }
 
@@ -187,7 +194,7 @@ export class AgentGenerationHandler {
   private async publishResponse(
     requestId: string,
     agentId: string | undefined,
-    response: Record<string, unknown>
+    response: LLMResponse
   ): Promise<void> {
     await this.eventBus.publish('llm.agent.generate.response', {
       requestId,
@@ -202,9 +209,9 @@ export class AgentGenerationHandler {
     });
   }
 
-  private calculateConfidence(response: Record<string, unknown>): number {
+  private calculateConfidence(response: LLMResponse): number {
     if (response.error) return 0;
-    const content = response.content as string | undefined;
+    const content = response.content;
     if (!content?.trim()) return 0.1;
 
     let confidence = 0.8;
@@ -230,9 +237,10 @@ export class AgentGenerationHandler {
 
   private async handleError(event: Record<string, unknown>, error: unknown): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const eventData = event?.data as Record<string, unknown> | undefined;
-    const requestId = eventData?.requestId || event?.requestId;
-    const agentId = eventData?.agentId || event?.agentId;
+    const rawEventData = event?.['data'];
+    const eventData = isRecord(rawEventData) ? rawEventData : undefined;
+    const requestId = eventData?.['requestId'] ?? event?.['requestId'];
+    const agentId = eventData?.['agentId'] ?? event?.['agentId'];
 
     logger.error('Agent generation failed', {
       error: errorMessage,

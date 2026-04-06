@@ -30,7 +30,7 @@ export class DiscussionRepository {
       return { discussions: allDiscussions, total: allDiscussions.length };
     } catch (error) {
       logger.error('DiscussionRepository.searchDiscussions failed', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

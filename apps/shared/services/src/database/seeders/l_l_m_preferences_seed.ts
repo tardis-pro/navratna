@@ -1,9 +1,25 @@
 import { getControlDb } from '../drizzle/clients/index';
 import { getIntelligenceDb } from '../drizzle/clients/index';
-import { userLLMPreferences } from '../../database/drizzle/schemas/control_schema';
+import {
+  userLLMPreferences,
+  type UserLLMPreference,
+} from '../../database/drizzle/schemas/control_schema';
 import { agentLLMPreferences } from '../../database/drizzle/schemas/intelligence_schema';
 import { BaseSeed } from './base_seed';
 import { LLMTaskType } from '@uaip/types';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type UserLLMPreferenceInsert = InferInsertModel<typeof userLLMPreferences>;
+type AgentLLMPreferenceInsert = InferInsertModel<typeof agentLLMPreferences>;
+
+type TaskConfig = {
+  settings: {
+    temperature: number;
+    maxTokens: number;
+    topP: number;
+    systemPrompt: string;
+  };
+};
 
 export class LLMPreferencesSeed extends BaseSeed {
   private controlDb = getControlDb();
@@ -17,7 +33,7 @@ export class LLMPreferencesSeed extends BaseSeed {
     this.agentIds = agentIds;
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<UserLLMPreference[]> {
     await this.seedUserPreferences();
     await this.seedAgentPreferences();
     return await this.controlDb.select().from(userLLMPreferences);
@@ -29,7 +45,7 @@ export class LLMPreferencesSeed extends BaseSeed {
       for (const pref of prefs) {
         await this.controlDb
           .insert(userLLMPreferences)
-          .values(pref as any)
+          .values(pref)
           .onConflictDoNothing();
       }
     }
@@ -41,19 +57,18 @@ export class LLMPreferencesSeed extends BaseSeed {
       for (const pref of prefs) {
         await this.intelligenceDb
           .insert(agentLLMPreferences)
-          .values(pref as any)
+          .values(pref)
           .onConflictDoNothing();
       }
     }
   }
 
-  private createUserTaskPreferences(userId: string): any[] {
+  private createUserTaskPreferences(userId: string): UserLLMPreferenceInsert[] {
     const configs = this.getTaskConfigurations();
     return Object.keys(configs).map((taskType) => {
-      const config = configs[taskType] as any;
+      const config = configs[taskType]!;
       return {
         userId,
-        modelId: null as string | null,
         temperature: config.settings.temperature.toString(),
         maxTokens: config.settings.maxTokens,
         systemPrompt: config.settings.systemPrompt,
@@ -62,14 +77,13 @@ export class LLMPreferencesSeed extends BaseSeed {
     });
   }
 
-  private createAgentTaskPreferences(agentId: string): any[] {
+  private createAgentTaskPreferences(agentId: string): AgentLLMPreferenceInsert[] {
     const configs = this.getTaskConfigurations();
     return Object.keys(configs).map((taskType) => {
-      const config = configs[taskType] as any;
+      const config = configs[taskType]!;
       return {
         agentId,
-        modelId: null as string | null,
-        temperature: config.settings.temperature.toString(),
+        temperature: config.settings.temperature,
         maxTokens: config.settings.maxTokens,
         systemPrompt: config.settings.systemPrompt,
         preferences: {},
@@ -77,7 +91,7 @@ export class LLMPreferencesSeed extends BaseSeed {
     });
   }
 
-  private getTaskConfigurations(): Record<string, any> {
+  private getTaskConfigurations(): Record<string, TaskConfig> {
     return {
       [LLMTaskType.CODE_GENERATION]: {
         settings: {

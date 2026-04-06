@@ -1,10 +1,11 @@
 import { execSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, type Stats } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, type Dirent, type Stats } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
 import {
+  KnowledgeType,
   SourceType,
   type EnvVarSchema,
   type OperationalAnalysis,
@@ -13,7 +14,7 @@ import {
   type ServiceDefinition,
   type StructuralAnalysis,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, NotFoundError, ValidationError } from '@uaip/utils'
 import { AstSymbolExtractor } from './ast_symbol_extractor'
 import { ImportGraphService } from './import_graph_service'
 import { SemanticIndexService } from './semantic_index_service'
@@ -76,7 +77,8 @@ function parseJsonSafe(filePath: string): unknown {
   if (!text) return null
 
   try {
-    return JSON.parse(text) as unknown
+    const result: unknown = JSON.parse(text)
+    return result
   } catch {
     return null
   }
@@ -87,13 +89,9 @@ function walkDirectory(rootPath: string, depth = 0): string[] {
     return []
   }
 
-  let dirents: Array<{ isDirectory: () => boolean; isFile: () => boolean; name: string }>
+  let dirents: Dirent[]
   try {
-    dirents = readdirSync(rootPath, { withFileTypes: true }) as Array<{
-      isDirectory: () => boolean
-      isFile: () => boolean
-      name: string
-    }>
+    dirents = readdirSync(rootPath, { withFileTypes: true })
   } catch {
     return []
   }
@@ -464,7 +462,7 @@ export class RepoIngestionService {
   async ingest(source: string): Promise<RepoContext> {
     const trimmedSource = source.trim()
     if (trimmedSource.length === 0) {
-      throw new Error('Invalid source: source is required')
+      throw new ValidationError('Invalid source: source is required')
     }
 
     const sourceIsGitUrl = isGitUrl(trimmedSource)
@@ -482,11 +480,11 @@ export class RepoIngestionService {
       } else {
         repoPath = resolve(trimmedSource)
         if (!existsSync(repoPath)) {
-          throw new Error(`Invalid source: local path does not exist (${repoPath})`)
+          throw new NotFoundError(`Invalid source: local path does not exist (${repoPath})`)
         }
 
         if (!statSync(repoPath).isDirectory()) {
-          throw new Error(`Invalid source: local path is not a directory (${repoPath})`)
+          throw new ValidationError(`Invalid source: local path is not a directory (${repoPath})`)
         }
       }
 
@@ -539,7 +537,7 @@ export class RepoIngestionService {
         .insert(knowledgeItems)
         .values({
           content: JSON.stringify(repoContext),
-          type: 'repo-context' as unknown as typeof knowledgeItems.$inferInsert['type'],
+          type: KnowledgeType.REPO_CONTEXT,
           sourceType: sourceIsGitUrl ? SourceType.GIT_REPOSITORY : SourceType.FILE_SYSTEM,
           sourceIdentifier: trimmedSource,
           sourceUrl: sourceIsGitUrl ? trimmedSource : undefined,

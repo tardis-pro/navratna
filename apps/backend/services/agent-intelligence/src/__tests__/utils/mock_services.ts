@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { Agent, AgentStatus, SecurityLevel, RiskLevel } from '@uaip/types';
+import { Agent, AgentRole, AgentStatus, SecurityLevel, RiskLevel } from '@uaip/types';
 
 // Mock DatabaseService
 export const createMockDatabaseService = (): Record<string, unknown> => ({
@@ -242,7 +242,7 @@ export const createMockAgentEventOrchestrator = () => ({
 export const createMockAgent = (overrides: Partial<Agent> = {}): Agent => ({
   id: 'agent-123',
   name: 'Test Agent',
-  role: 'analyst' as Record<string, unknown>,
+  role: AgentRole.ANALYZER,
   status: AgentStatus.ACTIVE,
   configuration: {
     model: 'gpt-4',

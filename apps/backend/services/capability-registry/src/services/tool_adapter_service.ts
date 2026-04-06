@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 
 export interface ToolAdapter {
   id: string;
@@ -52,8 +52,27 @@ export class ToolAdapterService {
     this.initializeAdapters();
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return this.isRecord(value) ? value : {};
+  }
+
+  private isGitHubConfig(v: unknown): v is GitHubConfig {
+    const r = this.asRecord(v);
+    return typeof r.token === 'string';
+  }
+
+  private isJiraConfig(v: unknown): v is JiraConfig {
+    const r = this.asRecord(v);
+    return typeof r.url === 'string' && typeof r.email === 'string' && typeof r.apiToken === 'string';
+  }
+
+  private isConfluenceConfig(v: unknown): v is ConfluenceConfig {
+    const r = this.asRecord(v);
+    return typeof r.url === 'string' && typeof r.email === 'string' && typeof r.apiToken === 'string';
   }
 
   private initializeAdapters() {
@@ -140,7 +159,7 @@ export class ToolAdapterService {
   async configureAdapter(toolId: string, config: unknown): Promise<boolean> {
     const adapter = this.adapters.get(toolId);
     if (!adapter) {
-      throw new Error(`Unknown tool adapter: ${toolId}`);
+      throw new InternalServerError(`Unknown tool adapter: ${toolId}`);
     }
 
     try {
@@ -191,7 +210,7 @@ export class ToolAdapterService {
       logger.error(`Tool operation failed:`, error);
       return {
         success: false,
-        error: error.message || 'Operation failed',
+        error: error instanceof Error ? error.message : 'Operation failed',
       };
     }
   }
@@ -201,10 +220,10 @@ export class ToolAdapterService {
     switch (toolId) {
       case 'github':
         if (typeof cfg.token !== 'string') {
-          throw new Error('GitHub token is required');
+          throw new ValidationError('GitHub token is required');
         }
-        // Test GitHub API connection
-        await this.testGitHubConnection(cfg as unknown as GitHubConfig);
+        if (!this.isGitHubConfig(cfg)) throw new ValidationError('Invalid GitHub config');
+        await this.testGitHubConnection(cfg);
         break;
 
       case 'jira':
@@ -213,10 +232,10 @@ export class ToolAdapterService {
           typeof cfg.email !== 'string' ||
           typeof cfg.apiToken !== 'string'
         ) {
-          throw new Error('Jira URL, email, and API token are required');
+          throw new ValidationError('Jira URL, email, and API token are required');
         }
-        // Test Jira API connection
-        await this.testJiraConnection(cfg as unknown as JiraConfig);
+        if (!this.isJiraConfig(cfg)) throw new ValidationError('Invalid Jira config');
+        await this.testJiraConnection(cfg);
         break;
 
       case 'confluence':
@@ -225,14 +244,14 @@ export class ToolAdapterService {
           typeof cfg.email !== 'string' ||
           typeof cfg.apiToken !== 'string'
         ) {
-          throw new Error('Confluence URL, email, and API token are required');
+          throw new ValidationError('Confluence URL, email, and API token are required');
         }
-        // Test Confluence API connection
-        await this.testConfluenceConnection(cfg as unknown as ConfluenceConfig);
+        if (!this.isConfluenceConfig(cfg)) throw new ValidationError('Invalid Confluence config');
+        await this.testConfluenceConnection(cfg);
         break;
 
       default:
-        throw new Error(`Validation not implemented for tool: ${toolId}`);
+        throw new InternalServerError(`Validation not implemented for tool: ${toolId}`);
     }
   }
 
@@ -259,17 +278,20 @@ export class ToolAdapterService {
       },
     });
     if (!response.ok) {
-      throw new Error(errorMessage);
+      throw new InternalServerError(errorMessage);
     }
+  }
+
+  private toRecord(v: unknown): Record<string, unknown> {
+    return this.isRecord(v) ? v : { _raw: v };
   }
 
   private async fetchGetJson(
     url: string,
     headers: Record<string, string>
   ): Promise<{ ok: boolean; data: Record<string, unknown> }> {
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = (await response.json()) as Record<string, unknown>;
-    return { ok: response.ok, data };
+    const response = await fetch(url, { headers });
+    return { ok: response.ok, data: this.toRecord(await response.json()) };
   }
 
   private async fetchPostJson(
@@ -279,11 +301,10 @@ export class ToolAdapterService {
   ): Promise<{ ok: boolean; data: Record<string, unknown> }> {
     const response = await fetch(url, {
       method: 'POST',
-      headers: headers as HeadersInit,
+      headers,
       body: JSON.stringify(body),
     });
-    const data = (await response.json()) as Record<string, unknown>;
-    return { ok: response.ok, data };
+    return { ok: response.ok, data: this.toRecord(await response.json()) };
   }
 
   private async testGitHubConnection(config: GitHubConfig): Promise<void> {
@@ -295,7 +316,7 @@ export class ToolAdapterService {
     });
 
     if (!response.ok) {
-      throw new Error('Invalid GitHub token or API access denied');
+      throw new AuthenticationError('Invalid GitHub token or API access denied');
     }
   }
 
@@ -318,7 +339,11 @@ export class ToolAdapterService {
   }
 
   private async executeGitHubOperation(operation: ToolOperation): Promise<ToolResult> {
-    const config = this.configurations.get('github') as GitHubConfig;
+    const rawConfig = this.configurations.get('github');
+    if (!this.isGitHubConfig(rawConfig)) {
+      return { success: false, error: 'GitHub adapter not configured' };
+    }
+    const config = rawConfig;
     const _baseUrl = 'https://api.github.com';
 
     const headers = {
@@ -348,34 +373,35 @@ export class ToolAdapterService {
     }
   }
 
-  private async githubSearch(params: unknown, headers: unknown): Promise<ToolResult> {
+  private async githubSearch(params: unknown, headers: Record<string, string>): Promise<ToolResult> {
     const p = this.asRecord(params);
     const query = String(p.query || '');
     const type = typeof p.type === 'string' ? p.type : 'repositories';
     const url = `https://api.github.com/search/${type}?q=${encodeURIComponent(query)}`;
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
+    const { ok, data } = await this.fetchGetJson(url, headers);
+    const items = Array.isArray(data.items) ? data.items : [];
 
     return {
-      success: response.ok,
-      data: data.items || [],
+      success: ok,
+      data: items,
       metadata: { total_count: data.total_count },
     };
   }
 
-  private async githubFetch(params: unknown, headers: unknown): Promise<ToolResult> {
+  private async githubFetch(params: unknown, headers: Record<string, string>): Promise<ToolResult> {
     const p = this.asRecord(params);
     const owner = String(p.owner || '');
     const repo = String(p.repo || '');
     const path = typeof p.path === 'string' ? p.path : '';
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
-    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
+    const { ok, data } = await this.fetchGetJson(url, headers);
+    const errorMsg = typeof data.message === 'string' ? data.message : undefined;
+    return { success: ok, data, error: ok ? undefined : errorMsg };
   }
 
-  private async githubCreate(params: unknown, headers: unknown): Promise<ToolResult> {
+  private async githubCreate(params: unknown, headers: Record<string, string>): Promise<ToolResult> {
     const p = this.asRecord(params);
     const owner = String(p.owner || '');
     const repo = String(p.repo || '');
@@ -411,11 +437,12 @@ export class ToolAdapterService {
         };
     }
 
-    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, body);
-    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
+    const { ok, data } = await this.fetchPostJson(url, headers, body);
+    const errorMsg = typeof data.message === 'string' ? data.message : undefined;
+    return { success: ok, data, error: ok ? undefined : errorMsg };
   }
 
-  private async githubList(params: unknown, headers: unknown): Promise<ToolResult> {
+  private async githubList(params: unknown, headers: Record<string, string>): Promise<ToolResult> {
     const p = this.asRecord(params);
     const type = typeof p.type === 'string' ? p.type : 'repos';
     const owner = typeof p.owner === 'string' ? p.owner : undefined;
@@ -439,12 +466,17 @@ export class ToolAdapterService {
         return { success: false, error: `Unsupported list type: ${type}` };
     }
 
-    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
-    return { success: ok, data: Array.isArray(data) ? data : [data], error: ok ? undefined : (data.message as string | undefined) };
+    const { ok, data } = await this.fetchGetJson(url, headers);
+    const errorMsg = typeof data.message === 'string' ? data.message : undefined;
+    return { success: ok, data: Array.isArray(data) ? data : [data], error: ok ? undefined : errorMsg };
   }
 
   private async executeJiraOperation(operation: ToolOperation): Promise<ToolResult> {
-    const config = this.configurations.get('jira') as JiraConfig;
+    const rawConfig = this.configurations.get('jira');
+    if (!this.isJiraConfig(rawConfig)) {
+      return { success: false, error: 'Jira adapter not configured' };
+    }
+    const config = rawConfig;
     const headers = this.buildBasicAuthHeaders(config.email, config.apiToken);
 
     switch (operation.operation) {
@@ -470,41 +502,43 @@ export class ToolAdapterService {
 
   private async jiraSearch(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: JiraConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
     const jql = String(p.jql || '');
     const url = `${config.url}/rest/api/3/search`;
 
-    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, {
+    const { ok, data } = await this.fetchPostJson(url, headers, {
       jql,
       maxResults: p.maxResults || 50,
     });
     return {
       success: ok,
-      data: (data.issues as unknown[]) || [],
+      data: Array.isArray(data.issues) ? data.issues : [],
       metadata: { total: data.total, startAt: data.startAt, maxResults: data.maxResults },
     };
   }
 
   private async jiraFetch(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: JiraConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
     const issueKey = String(p.issueKey || '');
     const url = `${config.url}/rest/api/3/issue/${issueKey}`;
 
-    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
-    const errorMessages = data.errorMessages as string[] | undefined;
+    const { ok, data } = await this.fetchGetJson(url, headers);
+    const errorMessages = Array.isArray(data.errorMessages)
+      ? data.errorMessages.filter((m): m is string => typeof m === 'string')
+      : undefined;
     return { success: ok, data, error: ok ? undefined : errorMessages?.join(', ') };
   }
 
   private async jiraCreate(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: JiraConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
@@ -536,14 +570,16 @@ export class ToolAdapterService {
       },
     };
 
-    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, body);
-    const errorMessages = data.errorMessages as string[] | undefined;
+    const { ok, data } = await this.fetchPostJson(url, headers, body);
+    const errorMessages = Array.isArray(data.errorMessages)
+      ? data.errorMessages.filter((m): m is string => typeof m === 'string')
+      : undefined;
     return { success: ok, data, error: ok ? undefined : errorMessages?.join(', ') };
   }
 
   private async jiraList(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: JiraConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
@@ -557,7 +593,7 @@ export class ToolAdapterService {
 
       case 'projects': {
         const url = `${config.url}/rest/api/3/project`;
-        const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+        const { ok, data } = await this.fetchGetJson(url, headers);
         return { success: ok, data: Array.isArray(data) ? data : [data] };
       }
 
@@ -567,7 +603,11 @@ export class ToolAdapterService {
   }
 
   private async executeConfluenceOperation(operation: ToolOperation): Promise<ToolResult> {
-    const config = this.configurations.get('confluence') as ConfluenceConfig;
+    const rawConfig = this.configurations.get('confluence');
+    if (!this.isConfluenceConfig(rawConfig)) {
+      return { success: false, error: 'Confluence adapter not configured' };
+    }
+    const config = rawConfig;
     const headers = this.buildBasicAuthHeaders(config.email, config.apiToken);
 
     switch (operation.operation) {
@@ -593,7 +633,7 @@ export class ToolAdapterService {
 
   private async confluenceSearch(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
@@ -601,19 +641,19 @@ export class ToolAdapterService {
     const type = typeof p.type === 'string' ? p.type : 'page';
     const url = `${config.url}/rest/api/content/search?cql=type=${type} and text~"${encodeURIComponent(query)}"`;
 
-    const response = await fetch(url, { headers: headers as HeadersInit });
-    const data = await response.json();
+    const { ok, data } = await this.fetchGetJson(url, headers);
+    const results = Array.isArray(data.results) ? data.results : [];
 
     return {
-      success: response.ok,
-      data: data.results || [],
+      success: ok,
+      data: results,
       metadata: { size: data.size, start: data.start },
     };
   }
 
   private async confluenceFetch(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
@@ -621,13 +661,14 @@ export class ToolAdapterService {
     const expand = typeof p.expand === 'string' ? p.expand : 'body.storage,version';
     const url = `${config.url}/rest/api/content/${pageId}?expand=${expand}`;
 
-    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
-    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
+    const { ok, data } = await this.fetchGetJson(url, headers);
+    const errorMsg = typeof data.message === 'string' ? data.message : undefined;
+    return { success: ok, data, error: ok ? undefined : errorMsg };
   }
 
   private async confluenceCreate(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
@@ -653,13 +694,14 @@ export class ToolAdapterService {
       },
     };
 
-    const { ok, data } = await this.fetchPostJson(url, headers as Record<string, string>, body);
-    return { success: ok, data, error: ok ? undefined : (data.message as string | undefined) };
+    const { ok, data } = await this.fetchPostJson(url, headers, body);
+    const errorMsg = typeof data.message === 'string' ? data.message : undefined;
+    return { success: ok, data, error: ok ? undefined : errorMsg };
   }
 
   private async confluenceList(
     params: unknown,
-    headers: unknown,
+    headers: Record<string, string>,
     config: ConfluenceConfig
   ): Promise<ToolResult> {
     const p = this.asRecord(params);
@@ -672,10 +714,10 @@ export class ToolAdapterService {
       url += `&spaceKey=${spaceKey}`;
     }
 
-    const { ok, data } = await this.fetchGetJson(url, headers as Record<string, string>);
+    const { ok, data } = await this.fetchGetJson(url, headers);
     return {
       success: ok,
-      data: (data.results as unknown[]) || [],
+      data: Array.isArray(data.results) ? data.results : [],
       metadata: { size: data.size, start: data.start },
     };
   }

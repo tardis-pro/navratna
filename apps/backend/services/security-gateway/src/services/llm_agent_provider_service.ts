@@ -1,7 +1,11 @@
 import * as crypto from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { AgentLLMProvider, LLMProviderCredentialRecord } from '@uaip/types';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
 export const OAUTH_SUPPORTED_PROVIDERS: AgentLLMProvider[] = [
   AgentLLMProvider.ANTHROPIC,
@@ -73,8 +77,7 @@ export class LLMAgentProviderService {
       tokenExpiresAt: tokens.expiresAt,
       isActive: true,
       connectedAt: new Date(),
-      // @ts-expect-error -- Type not assignable
-      metadata: tokens.metadata,
+      metadata: isRecord(tokens.metadata) ? tokens.metadata : undefined,
     };
     this.credentials.set(key, record);
     logger.info('Stored LLM OAuth tokens', { userId, provider });
@@ -234,7 +237,7 @@ export class LLMAgentProviderService {
     provider: AgentLLMProvider
   ): Promise<{ provider: AgentLLMProvider; instructions: string; callbackRequired: boolean }> {
     if (!OAUTH_SUPPORTED_PROVIDERS.includes(provider)) {
-      throw new Error(`Provider ${provider} does not support OAuth. Use API key instead.`);
+      throw new ValidationError(`Provider ${provider} does not support OAuth. Use API key instead.`);
     }
 
     const instructions = this.getOAuthInstructions(provider);

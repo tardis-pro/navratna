@@ -3,9 +3,18 @@
 // Part of capability-registry microservice
 
 import { ToolDefinition, ToolExecution, ToolExecutionStatus } from '@uaip/types';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+const executionStatusValues = new Set<unknown>(Object.values(ToolExecutionStatus));
+function isToolExecutionStatus(v: unknown): v is ToolExecutionStatus {
+  return executionStatusValues.has(v);
+}
 import { ToolService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import { ToolRegistry } from './tool_registry.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
 
@@ -31,7 +40,35 @@ export class ToolExecutor {
   private toolService: ToolService;
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    if (isRecord(value)) return value;
+    return {};
+  }
+
+  private mapRecordToExecution(record: Record<string, unknown>): ToolExecution {
+    const status = isToolExecutionStatus(record.status)
+      ? record.status
+      : ToolExecutionStatus.PENDING;
+    return {
+      id: typeof record.id === 'string' ? record.id : '',
+      toolId: typeof record.toolId === 'string' ? record.toolId : '',
+      agentId: typeof record.agentId === 'string' ? record.agentId : '',
+      parameters: this.asRecord(record.parameters),
+      status,
+      startTime: record.startTime instanceof Date ? record.startTime : new Date(String(record.startTime ?? '')),
+      endTime: record.endTime instanceof Date ? record.endTime : (record.endTime ? new Date(String(record.endTime)) : undefined),
+      result: record.result,
+      error: undefined,
+      approvalRequired: Boolean(record.approvalRequired),
+      approvedBy: typeof record.approvedBy === 'string' ? record.approvedBy : undefined,
+      approvedAt: record.approvedAt instanceof Date ? record.approvedAt : undefined,
+      cost: typeof record.cost === 'number' ? record.cost : undefined,
+      executionTimeMs: typeof record.executionTimeMs === 'number' ? record.executionTimeMs : undefined,
+      retryCount: typeof record.retryCount === 'number' ? record.retryCount : 0,
+      maxRetries: typeof record.maxRetries === 'number' ? record.maxRetries : 3,
+      metadata: this.asRecord(record.metadata),
+      success: Boolean(record.success),
+      data: record.data,
+    };
   }
 
   constructor(
@@ -60,11 +97,11 @@ export class ToolExecutor {
     // Get tool definition
     const tool = await this.toolRegistry.getTool(toolId);
     if (!tool) {
-      throw new Error(`Tool ${toolId} not found`);
+      throw new NotFoundError(`Tool ${toolId} not found`);
     }
 
     if (!tool.isEnabled) {
-      throw new Error(`Tool ${toolId} is disabled`);
+      throw new InternalServerError(`Tool ${toolId} is disabled`);
     }
 
     // Create execution record
@@ -90,7 +127,6 @@ export class ToolExecutor {
     try {
       // Store initial execution record
       await this.toolService.createToolExecution({
-        id: execution.id,
         toolId: execution.toolId,
         agentId: execution.agentId,
         parameters: execution.parameters,
@@ -99,7 +135,6 @@ export class ToolExecutor {
         approvalRequired: execution.approvalRequired,
         retryCount: execution.retryCount,
         maxRetries: execution.maxRetries,
-        metadata: execution.metadata,
       });
 
       // Check if approval is required
@@ -266,13 +301,13 @@ export class ToolExecutor {
   async retryExecution(executionId: string): Promise<ToolExecution> {
     const executionRecord = await this.toolService.getToolExecution(executionId);
     if (!executionRecord) {
-      throw new Error(`Execution ${executionId} not found`);
+      throw new NotFoundError(`Execution ${executionId} not found`);
     }
 
-    const execution = executionRecord as unknown as ToolExecution;
+    const execution = this.mapRecordToExecution(executionRecord);
 
     if (execution.retryCount >= execution.maxRetries) {
-      throw new Error(`Maximum retries exceeded for execution ${executionId}`);
+      throw new InternalServerError(`Maximum retries exceeded for execution ${executionId}`);
     }
 
     // Increment retry count
@@ -297,7 +332,7 @@ export class ToolExecutor {
 
     const tool = await this.toolRegistry.getTool(execution.toolId);
     if (!tool) {
-      throw new Error(`Tool ${execution.toolId} not found`);
+      throw new NotFoundError(`Tool ${execution.toolId} not found`);
     }
     return await this.performExecution(execution, tool);
   }
@@ -337,13 +372,13 @@ export class ToolExecutor {
   async approveExecution(executionId: string, approvedBy: string): Promise<ToolExecution> {
     const executionRecord = await this.toolService.getToolExecution(executionId);
     if (!executionRecord) {
-      throw new Error(`Execution ${executionId} not found`);
+      throw new NotFoundError(`Execution ${executionId} not found`);
     }
 
-    const execution = executionRecord as unknown as ToolExecution;
+    const execution = this.mapRecordToExecution(executionRecord);
 
     if (execution.status !== ToolExecutionStatus.APPROVAL_REQUIRED) {
-      throw new Error(`Execution ${executionId} does not require approval`);
+      throw new InternalServerError(`Execution ${executionId} does not require approval`);
     }
 
     // Update approval status
@@ -365,7 +400,7 @@ export class ToolExecutor {
     // Now execute the tool
     const tool = await this.toolRegistry.getTool(execution.toolId);
     if (!tool) {
-      throw new Error(`Tool ${execution.toolId} not found`);
+      throw new NotFoundError(`Tool ${execution.toolId} not found`);
     }
     return await this.performExecution(execution, tool);
   }
@@ -373,7 +408,8 @@ export class ToolExecutor {
   // Execution Management
   async getExecution(executionId: string): Promise<ToolExecution | null> {
     const record = await this.toolService.getToolExecution(executionId);
-    return record as unknown as ToolExecution | null;
+    if (!record) return null;
+    return this.mapRecordToExecution(record);
   }
 
   async getExecutions(
@@ -392,7 +428,7 @@ export class ToolExecutor {
       filters.toolId || '',
       filters.limit
     );
-    return records as unknown as ToolExecution[];
+    return records.map((r) => this.mapRecordToExecution(r));
   }
 
   async getActiveExecutions(agentId?: string): Promise<ToolExecution[]> {
@@ -409,7 +445,7 @@ export class ToolExecutor {
       filters.toolId || '',
       filters.limit
     );
-    return records as unknown as ToolExecution[];
+    return records.map((r) => this.mapRecordToExecution(r));
   }
 
   // Private Helper Methods

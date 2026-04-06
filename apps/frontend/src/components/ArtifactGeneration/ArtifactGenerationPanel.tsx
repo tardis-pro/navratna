@@ -37,6 +37,9 @@ import type {
   ArtifactParticipant as Participant,
   ArtifactGenerationResult as GenerationResult,
 } from '@uaip/types';
+
+const ARTIFACT_TYPE_VALUES = new Set<string>(['code', 'test', 'documentation', 'prd', 'config', 'deployment', 'script', 'template', 'report', 'analysis', 'code-diff', 'workflow']);
+const isArtifactType = (v: string): v is ArtifactType => ARTIFACT_TYPE_VALUES.has(v);
 import { logger } from '@/utils/browser_logger';
 
 interface ArtifactGenerationPanelProps {
@@ -227,17 +230,22 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                     <h4 className="font-medium mb-2">Generation Opportunities</h4>
                     <div className="space-y-2">
                       {analysis.triggers.slice(0, 3).map((trigger: unknown) => {
-                        const t = trigger as { artifactType?: string; confidence?: number };
+                        const artifactType = (trigger && typeof trigger === 'object' && 'artifactType' in trigger)
+                          ? String(trigger.artifactType)
+                          : undefined;
+                        const confidence = (trigger && typeof trigger === 'object' && 'confidence' in trigger && typeof trigger.confidence === 'number')
+                          ? trigger.confidence
+                          : 0;
                         return (
                           <div
-                            key={t.artifactType ?? 'unknown-trigger'}
+                            key={artifactType ?? 'unknown-trigger'}
                             className="flex items-center justify-between p-2 bg-muted rounded"
                           >
                             <div className="flex items-center gap-2">
-                              {getArtifactIcon(t.artifactType)}
-                              <span className="text-sm">{t.artifactType}</span>
+                              {getArtifactIcon(artifactType)}
+                              <span className="text-sm">{artifactType}</span>
                               <Badge variant="secondary" size="sm">
-                                {Math.round((t.confidence ?? 0) * 100)}%
+                                {Math.round(confidence * 100)}%
                               </Badge>
                             </div>
                             <Button
@@ -288,7 +296,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                 <label className="text-sm font-medium mb-2 block">Artifact Type</label>
                 <Select
                   value={selectedType}
-                  onValueChange={(value) => setSelectedType(value as ArtifactType)}
+                  onValueChange={(value) => { if (isArtifactType(value)) setSelectedType(value); }}
                 >
                   <SelectTrigger>
                     <SelectValue />

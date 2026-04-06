@@ -23,7 +23,9 @@
     "clean": "rimraf dist",
     "lint": "oxlint src",
     "lint:fix": "oxlint --fix src",
-    "seed:openclaw-agents": "bun src/seeds/openclaw-agent-import.ts"
+    "seed:openclaw-agents": "bun src/seeds/openclaw-agent-import.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@socket.io/bun-engine": "^0.0.2",
@@ -44,7 +46,8 @@
     "nodemon": "catalog:backend",
     "rimraf": "^6.1.2",
     "tsx": "catalog:backend",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
   },
   "nx": {
     "tags": [

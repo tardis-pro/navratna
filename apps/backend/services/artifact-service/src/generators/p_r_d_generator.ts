@@ -4,7 +4,7 @@
 import { ArtifactConversationContext } from '@uaip/types';
 
 import { ArtifactGenerator } from '../interfaces';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 
 export class PRDGenerator implements ArtifactGenerator {
   private readonly supportedType = 'prd';
@@ -66,7 +66,7 @@ export class PRDGenerator implements ArtifactGenerator {
       return this.generatePRDDocument(projectName, objectives, requirements, decisions);
     } catch (error) {
       logger.error('PRD generation failed:', error);
-      throw new Error(
+      throw new InternalServerError(
         `PRD generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         { cause: error }
       );

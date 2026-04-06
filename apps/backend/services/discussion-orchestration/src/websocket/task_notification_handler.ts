@@ -3,6 +3,33 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { logger } from '@uaip/utils';
 import { authenticateConnection } from './websocket_security_utils.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isTaskNotificationActor(v: unknown): v is TaskNotificationActor {
+  return isRecord(v) && typeof v['id'] === 'string' && typeof v['name'] === 'string' &&
+    (v['type'] === 'user' || v['type'] === 'agent' || v['type'] === 'system');
+}
+
+function toNumberRecord(v: unknown): Record<string, number> {
+  if (!isRecord(v)) return {};
+  const result: Record<string, number> = {};
+  for (const [k, val] of Object.entries(v)) {
+    if (typeof val === 'number') result[k] = val;
+  }
+  return result;
+}
+
+function toChangesRecord(v: unknown): Record<string, { old: unknown; new: unknown }> | undefined {
+  if (!isRecord(v)) return undefined;
+  const result: Record<string, { old: unknown; new: unknown }> = {};
+  for (const [k, val] of Object.entries(v)) {
+    result[k] = { old: isRecord(val) ? val['old'] : undefined, new: isRecord(val) ? val['new'] : undefined };
+  }
+  return result;
+}
+
 interface TaskSummary {
   title?: string;
   assignedToUserId?: string;
@@ -237,13 +264,16 @@ export class TaskNotificationHandler {
     }
 
     const progressUpdate: TaskProgressUpdate = {
-      ...(data as TaskProgressUpdate),
+      taskId: data.taskId,
+      projectId: data.projectId,
+      completionPercentage: data.completionPercentage,
+      timeSpent: data.timeSpent,
+      timestamp: new Date(),
       actor: {
         id: userId,
         name: socket.data.user?.name || 'Unknown User',
         type: 'user',
       },
-      timestamp: new Date(),
     };
 
     // Broadcast to project subscribers
@@ -326,34 +356,68 @@ export class TaskNotificationHandler {
     }
   }
 
+  private extractTaskEventData(raw: unknown): TaskEventData | null {
+    if (!isRecord(raw)) return null;
+    if (typeof raw['taskId'] !== 'string' || typeof raw['projectId'] !== 'string') return null;
+    return {
+      taskId: raw['taskId'],
+      projectId: raw['projectId'],
+      task: isRecord(raw['task']) ? raw['task'] : {},
+      changes: toChangesRecord(raw['changes']),
+      actor: isTaskNotificationActor(raw['actor']) ? raw['actor'] : undefined,
+      completionPercentage: typeof raw['completionPercentage'] === 'number' ? raw['completionPercentage'] : undefined,
+    };
+  }
+
+  private extractProjectTaskStats(raw: unknown): ProjectTaskStats | null {
+    if (!isRecord(raw)) return null;
+    if (typeof raw['projectId'] !== 'string') return null;
+    return {
+      projectId: raw['projectId'],
+      total: typeof raw['total'] === 'number' ? raw['total'] : 0,
+      byStatus: toNumberRecord(raw['byStatus']),
+      byPriority: toNumberRecord(raw['byPriority']),
+      byAssigneeType: toNumberRecord(raw['byAssigneeType']),
+      completionRate: typeof raw['completionRate'] === 'number' ? raw['completionRate'] : 0,
+      lastUpdated: raw['lastUpdated'] instanceof Date ? raw['lastUpdated'] : new Date(),
+    };
+  }
+
   private setupEventListeners(): void {
     // Listen for task events from the event bus
     this.eventBusService.subscribe('task.created', async (data) => {
-      this.handleTaskNotification('task_created', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_created', taskData);
     });
 
     this.eventBusService.subscribe('task.updated', async (data) => {
-      this.handleTaskNotification('task_updated', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_updated', taskData);
     });
 
     this.eventBusService.subscribe('task.assigned', async (data) => {
-      this.handleTaskNotification('task_assigned', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_assigned', taskData);
     });
 
     this.eventBusService.subscribe('task.status_changed', async (data) => {
-      this.handleTaskNotification('task_status_changed', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_status_changed', taskData);
     });
 
     this.eventBusService.subscribe('task.completed', async (data) => {
-      this.handleTaskNotification('task_completed', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_completed', taskData);
     });
 
     this.eventBusService.subscribe('task.deleted', async (data) => {
-      this.handleTaskNotification('task_deleted', data.data as TaskEventData);
+      const taskData = this.extractTaskEventData(data.data);
+      if (taskData) this.handleTaskNotification('task_deleted', taskData);
     });
 
     this.eventBusService.subscribe('project.stats_updated', async (data) => {
-      this.handleProjectStatsUpdate(data.data as ProjectTaskStats);
+      const stats = this.extractProjectTaskStats(data.data);
+      if (stats) this.handleProjectStatsUpdate(stats);
     });
   }
 

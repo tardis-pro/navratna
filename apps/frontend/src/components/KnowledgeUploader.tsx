@@ -56,7 +56,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
   const readFileContent = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onload = (e) => resolve(typeof e.target?.result === 'string' ? e.target.result : '');
       reader.onerror = (e) => reject(e);
       reader.readAsText(file);
     });
@@ -77,7 +77,7 @@ export const KnowledgeUploader: React.FC<KnowledgeUploaderProps> = ({
             file,
             content,
             type: KnowledgeType.FACTUAL,
-            tags: [] as string[],
+            tags: new Array<string>(),
             status: 'pending' as const,
           };
         })

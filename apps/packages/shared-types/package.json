@@ -18,6 +18,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/ms": "^2.1.0",
     "rimraf": "catalog:",
     "typescript": "catalog:"
   },

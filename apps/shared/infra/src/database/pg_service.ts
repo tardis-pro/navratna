@@ -68,13 +68,13 @@ export class PgService {
     );
   }
 
-  public getEntityManager(): { query: (sql: string, params?: unknown[]) => Promise<unknown[]> } {
+  public getEntityManager(): { query: <T = unknown>(sql: string, params?: unknown[]) => Promise<T[]> } {
     if (!this.pool) {
       throw new Error('PgService not initialized. Call initialize() first.');
     }
 
     return {
-      query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+      query: async <T = unknown>(sql: string, params?: unknown[]): Promise<T[]> => {
         const client = await this.pool!.connect();
         try {
           const result = await client.query(sql, params);
@@ -88,7 +88,7 @@ export class PgService {
 
   public async transaction<T>(
     runInTransaction: (manager: {
-      query: (sql: string, params?: unknown[]) => Promise<unknown[]>;
+      query: <R = unknown>(sql: string, params?: unknown[]) => Promise<R[]>;
     }) => Promise<T>
   ): Promise<T> {
     if (!this.pool) {
@@ -99,7 +99,7 @@ export class PgService {
     try {
       await client.query('BEGIN');
       const manager = {
-        query: async (sql: string, params?: unknown[]): Promise<unknown[]> => {
+        query: async <R = unknown>(sql: string, params?: unknown[]): Promise<R[]> => {
           const result = await client.query(sql, params);
           return result.rows;
         },

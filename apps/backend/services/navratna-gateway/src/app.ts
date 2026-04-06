@@ -25,8 +25,16 @@ import { registerWorkspaceRoutes } from '../../capability-registry/src/routes/wo
 import { registerGitHubWebhookRoutes } from '../../orchestration-pipeline/src/routes/github_webhook_routes.js'
 import { registerJiraWebhookRoutes } from '../../orchestration-pipeline/src/routes/jira_webhook_routes.js'
 
+type GatewayHealthStatus = 'ok' | 'degraded'
+
+type GatewayHealthResponse = {
+  status: GatewayHealthStatus
+  service: string
+  features: string[]
+}
+
 export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
-  .get('/health', () => ({ status: 'ok' as 'ok' | 'degraded', service: 'navratna-gateway', features: [] as string[] }))
+  .get('/health', (): GatewayHealthResponse => ({ status: 'ok', service: 'navratna-gateway', features: [] }))
   .use(registerAuthRoutes())
   .use(registerUserRoutes())
   .use(registerApprovalRoutes())
@@ -42,8 +50,9 @@ export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .use(registerDashboardRoutes())
   .use(registerSecurityProjectRoutes())
   .use(registerOrchestrationProjectRoutes())
-  .use(registerTaskRoutes(null as never))
-  .use(registerWorkflowRoutes(null as never))
+  // Services are null here; app.ts is a type-export stub — services are initialized at runtime in index.ts
+  .use(registerTaskRoutes(null))
+  .use(registerWorkflowRoutes(null))
   .use(registerCapabilityRoutes())
   .use(registerMCPRoutes())
   .use(registerHealthRoutes())

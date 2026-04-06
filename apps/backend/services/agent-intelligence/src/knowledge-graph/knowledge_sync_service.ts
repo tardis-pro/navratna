@@ -11,6 +11,18 @@ import { ToolGraphDatabase } from '@uaip/shared-services';
 import { EmbeddingService } from './embedding_service.js';
 import { logger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isKnowledgeType(v: unknown): v is KnowledgeType {
+  return typeof v === 'string' && new Set<string>(Object.values(KnowledgeType)).has(v);
+}
+
+function isUserEntity(v: unknown): v is UserEntity {
+  return isRecord(v) && typeof v['id'] === 'string';
+}
+
 export interface KnowledgeSyncResult {
   success: boolean;
   knowledgeItemId: string;
@@ -56,7 +68,8 @@ export class KnowledgeSyncService {
       const userRows = await getControlPool().query(`SELECT * FROM "users" WHERE id = $1 LIMIT 1`, [
         userId,
       ]);
-      const user = userRows.rows[0] as UserEntity | undefined;
+      const userRow: unknown = userRows.rows[0];
+      const user: UserEntity | undefined = isUserEntity(userRow) ? userRow : undefined;
 
       if (!knowledgeItem || !user) {
         return {
@@ -469,7 +482,7 @@ export class KnowledgeSyncService {
           identifier: `direct-${itemId}`,
           metadata,
         },
-        tags: Array.isArray(metadata.tags) ? (metadata.tags as string[]) : [],
+        tags: Array.isArray(metadata.tags) ? metadata.tags.filter((x): x is string => typeof x === 'string') : [],
         confidence: typeof metadata.confidence === 'number' ? metadata.confidence : 0.8,
         accessLevel: typeof metadata.accessLevel === 'string' ? metadata.accessLevel : 'STANDARD',
         userId,
@@ -633,8 +646,8 @@ export class KnowledgeSyncService {
       sourceId: rel.sourceId,
       targetId: rel.targetId,
       relType: rel.relationshipType,
-      confidence: (rel.metadata as Record<string, unknown>)?.confidence ?? 0.5,
-      summary: (rel.metadata as Record<string, unknown>)?.summary ?? '',
+      confidence: typeof rel.metadata?.confidence === 'number' ? rel.metadata.confidence : 0.5,
+      summary: typeof rel.metadata?.summary === 'string' ? rel.metadata.summary : '',
       createdAt: rel.createdAt.toISOString(),
       updatedAt: rel.updatedAt.toISOString(),
     };
@@ -789,7 +802,7 @@ export class KnowledgeSyncService {
             itemsMap.set(id, {
               id,
               content: String(point.payload.content ?? ''),
-              type: (point.payload.type as KnowledgeType) ?? KnowledgeType.FACTUAL,
+              type: isKnowledgeType(point.payload.type) ? point.payload.type : KnowledgeType.FACTUAL,
               metadata: {},
               source: 'qdrant',
               existsIn: { postgres: false, neo4j: false, qdrant: true },
@@ -901,13 +914,19 @@ export class KnowledgeSyncService {
       type: item.type,
       sourceType: SourceType.AGENT_INTERACTION,
       sourceIdentifier: `sync-${item.source}-${item.id}`,
+      sourceUrl: null,
       tags: [],
-      confidence: '0.8',
+      confidence: 0.8,
       metadata: item.metadata ?? {},
       accessLevel: 'standard',
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as unknown as KnowledgeItemEntity;
+      createdBy: null,
+      organizationId: null,
+      userId: null,
+      agentId: null,
+      summary: null,
+    };
 
     return entity;
   }
@@ -982,7 +1001,9 @@ export class KnowledgeSyncService {
 
       const params = {
         oldId:
-          (item.metadata.originalProperties as Record<string, unknown> | undefined)?.id ?? null,
+          (isRecord(item.metadata.originalProperties)
+            ? item.metadata.originalProperties['id']
+            : null) ?? null,
         newId: pgEntity.id,
         content: pgEntity.content,
         type: pgEntity.type,

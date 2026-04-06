@@ -1,6 +1,9 @@
 import { getControlDb } from '../drizzle/clients/index';
-import { projects } from '../../database/drizzle/schemas/control_schema';
+import { projects, type Project } from '../../database/drizzle/schemas/control_schema';
 import { BaseSeed } from './base_seed';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type ProjectInsert = InferInsertModel<typeof projects>;
 
 export class ProjectSeed extends BaseSeed {
   private db = getControlDb();
@@ -11,20 +14,20 @@ export class ProjectSeed extends BaseSeed {
     this.users = userIds.map((id) => ({ id }));
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<Project[]> {
     const seedData = await this.getSeedData();
 
     for (const project of seedData) {
       await this.db
         .insert(projects)
-        .values(project as any)
+        .values(project)
         .onConflictDoNothing();
     }
 
     return await this.db.select().from(projects);
   }
 
-  async getSeedData(): Promise<any[]> {
+  async getSeedData(): Promise<ProjectInsert[]> {
     return [
       {
         name: 'E-commerce Platform Redesign',

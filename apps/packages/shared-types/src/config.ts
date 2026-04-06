@@ -1,7 +1,6 @@
-type StringValue =
-  | `${number}`
-  | `${number}${'Years' | 'Year' | 'Yrs' | 'Yr' | 'Y' | 'Weeks' | 'Week' | 'W' | 'Days' | 'Day' | 'D' | 'Hours' | 'Hour' | 'Hrs' | 'Hr' | 'H' | 'Minutes' | 'Minute' | 'Mins' | 'Min' | 'M' | 'Seconds' | 'Second' | 'Secs' | 'Sec' | 's' | 'Milliseconds' | 'Millisecond' | 'Msecs' | 'Msec' | 'Ms'}`
-  | `${number} ${'Years' | 'Year' | 'Yrs' | 'Yr' | 'Y' | 'Weeks' | 'Week' | 'W' | 'Days' | 'Day' | 'D' | 'Hours' | 'Hour' | 'Hrs' | 'Hr' | 'H' | 'Minutes' | 'Minute' | 'Mins' | 'Min' | 'M' | 'Seconds' | 'Second' | 'Secs' | 'Sec' | 's' | 'Milliseconds' | 'Millisecond' | 'Msecs' | 'Msec' | 'Ms'}`;
+import type { StringValue } from 'ms';
+
+export type { StringValue };
 
 export interface ServiceDatabaseConfig {
   postgres: {
@@ -128,12 +127,12 @@ export interface CorsConfig {
 export interface JwtConfig {
   secret: string;
   expiresIn: string;
-  refreshExpiresIn: StringValue;
+  refreshExpiresIn: string;
   issuer: string;
   audience: string;
-  accessTokenExpiry: StringValue;
+  accessTokenExpiry: string;
   refreshSecret: string;
-  refreshTokenExpiry: StringValue;
+  refreshTokenExpiry: string;
 }
 
 export interface EmailConfig {

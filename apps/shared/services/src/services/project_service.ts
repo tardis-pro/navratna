@@ -118,7 +118,7 @@ export class ProjectService extends BaseDomainService {
     );
 
     if (existingResult.rows.length > 0) {
-      const existing = existingResult.rows[0] as Record<string, unknown>;
+      const existing: Record<string, unknown> = existingResult.rows[0];
       if (existing.role !== role) {
         await pool.query(
           `UPDATE project_members SET role = $1 WHERE project_id = $2 AND user_id = $3`,
@@ -212,7 +212,8 @@ export class ProjectService extends BaseDomainService {
       return result.rows[0] ?? null;
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [id, ...keys.map((k) => data[k as keyof typeof data])];
+    const dataRecord = Object.fromEntries(Object.entries(data));
+    const values = [id, ...keys.map((k) => dataRecord[k])];
     const result = await pool.query(
       `UPDATE project_files SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values
@@ -238,8 +239,13 @@ export class ProjectService extends BaseDomainService {
   private async getProjectAllowedTools(projectId: string): Promise<{ metadata: Record<string, unknown>; tools: string[] }> {
     const project = await this.findProjectById(projectId);
     if (!project) throw new Error('Project not found');
-    const metadata = (project.metadata as Record<string, unknown>) || {};
-    const tools = Array.isArray(metadata.allowedTools) ? (metadata.allowedTools as string[]) : [];
+    const rawMetadata = project.metadata;
+    const metadata: Record<string, unknown> = (typeof rawMetadata === 'object' && rawMetadata !== null && !Array.isArray(rawMetadata))
+      ? Object.fromEntries(Object.entries(rawMetadata))
+      : {};
+    const tools: string[] = Array.isArray(metadata.allowedTools)
+      ? metadata.allowedTools.filter((t): t is string => typeof t === 'string')
+      : [];
     return { metadata, tools };
   }
 
@@ -279,7 +285,7 @@ export class ProjectService extends BaseDomainService {
       owner: 4,
     };
 
-    const memberRole = result.rows[0].role as string;
+    const memberRole: string = result.rows[0].role;
     return (roleHierarchy[memberRole] ?? 0) >= (roleHierarchy[requiredRole] ?? 0);
   }
 

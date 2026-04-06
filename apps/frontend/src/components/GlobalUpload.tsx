@@ -129,7 +129,7 @@ export const GlobalUpload: React.FC<GlobalUploadProps> = ({
   const readFileContent = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onload = (e) => resolve(typeof e.target?.result === 'string' ? e.target.result : '');
       reader.onerror = reject;
       reader.readAsText(file);
     });

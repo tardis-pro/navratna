@@ -1,5 +1,10 @@
 import { initializeDatabase, getIntelligencePool, closeDatabase } from '@uaip/shared-services';
 
+import { ExternalServiceError, InternalServerError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 const {
   TEI_EMBEDDING_URL = 'http://tei-embeddings:80',
   QDRANT_URL = 'http://qdrant:6333',
@@ -18,18 +23,21 @@ async function teiEmbed(texts: string[]): Promise<number[][]> {
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`TEI embed failed ${res.status}: ${txt}`);
+    throw new InternalServerError(`TEI embed failed ${res.status}: ${txt}`);
   }
   const data: unknown = await res.json();
-  if (Array.isArray(data)) return data as number[][];
-  const asRecord = data as Record<string, unknown>;
-  const embeddings = Array.isArray(asRecord.embeddings) ? asRecord.embeddings : null;
-  return (embeddings ?? []) as number[][];
+  if (Array.isArray(data)) return data.filter((row): row is number[] => Array.isArray(row));
+  const asRecord = isRecord(data) ? data : {};
+  const embeddings = Array.isArray(asRecord['embeddings']) ? asRecord['embeddings'] : null;
+  return (embeddings ?? []).filter((row): row is number[] => Array.isArray(row));
 }
 
 async function qdrantCollectionInfo(): Promise<{ result?: { points_count?: number } }> {
   const res = await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}`);
-  return res.json() as Promise<{ result?: { points_count?: number } }>;
+  const raw: unknown = await res.json();
+  const obj = isRecord(raw) ? raw : {};
+  const result = isRecord(obj['result']) ? obj['result'] : undefined;
+  return { result: result ? { points_count: typeof result.points_count === 'number' ? result.points_count : undefined } : undefined };
 }
 
 async function qdrantUpsert(
@@ -43,7 +51,7 @@ async function qdrantUpsert(
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`Qdrant upsert failed ${res.status}: ${txt}`);
+    throw new ExternalServiceError(`Qdrant upsert failed ${res.status}: ${txt}`);
   }
 }
 

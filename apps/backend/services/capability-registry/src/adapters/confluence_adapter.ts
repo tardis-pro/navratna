@@ -5,45 +5,15 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, InternalServerError, ValidationError } from '@uaip/utils';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
-interface ConfluenceCreatePageParams {
-  type?: string;
-  title?: string;
-  space?: string | Record<string, unknown>;
-  body?: Record<string, unknown>;
-  ancestors?: Array<Record<string, unknown>>;
-  metadata?: { labels?: string[] };
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-interface ConfluenceUpdatePageParams {
-  pageId?: string;
-  title?: string;
-  body?: Record<string, unknown>;
-  version?: number;
-  message?: string;
-}
-
-interface ConfluenceSearchParams {
-  query?: string;
-  cql?: string;
-  type?: string;
-  spaceKey?: string;
-  limit?: number;
-  start?: number;
-  expand?: string[];
-}
-
-interface ConfluenceGetPageParams {
-  pageId?: string;
-  expand?: string[];
-}
-
-interface ConfluenceAttachmentParams {
-  pageId?: string;
-  file?: Blob | File | string;
-  comment?: string;
+function toRecord(v: unknown): Record<string, unknown> {
+  return isRecord(v) ? v : {};
 }
 
 export class ConfluenceAdapter {
@@ -119,7 +89,7 @@ export class ConfluenceAdapter {
         case 'addAttachment':
           return await this.addAttachment(parameters);
         default:
-          throw new Error(`Unknown operation: ${operationId}`);
+          throw new InternalServerError(`Unknown operation: ${operationId}`);
       }
     } catch (error) {
       logger.error('Confluence operation failed', { error, operationId });
@@ -131,14 +101,14 @@ export class ConfluenceAdapter {
    * Create a new page
    */
   private async createPage(parameters: unknown): Promise<unknown> {
-    const {
-      type = 'page',
-      title,
-      space,
-      body,
-      ancestors,
-      metadata,
-    } = (parameters as ConfluenceCreatePageParams) ?? {};
+    const p = toRecord(parameters);
+    const type = typeof p.type === 'string' ? p.type : 'page';
+    const title = typeof p.title === 'string' ? p.title : undefined;
+    const space = p.space;
+    const body = isRecord(p.body) ? p.body : undefined;
+    const ancestors = Array.isArray(p.ancestors) ? p.ancestors.filter(isRecord) : undefined;
+    const metadataRaw = toRecord(p.metadata);
+    const metadataLabels = Array.isArray(metadataRaw.labels) ? metadataRaw.labels.filter((l): l is string => typeof l === 'string') : undefined;
 
     const pageData: Record<string, unknown> = {
       type,
@@ -158,9 +128,9 @@ export class ConfluenceAdapter {
     }
 
     // Add metadata/labels if specified
-    if (metadata?.labels) {
+    if (metadataLabels && metadataLabels.length > 0) {
       pageData.metadata = {
-        labels: metadata.labels.map((label: string) => ({
+        labels: metadataLabels.map((label: string) => ({
           prefix: 'global',
           name: label,
         })),
@@ -187,24 +157,22 @@ export class ConfluenceAdapter {
    * Update an existing page
    */
   private async updatePage(parameters: unknown): Promise<unknown> {
-    const {
-      pageId,
-      title,
-      body,
-      version,
-      message = 'Updated via API',
-    } = (parameters as ConfluenceUpdatePageParams) ?? {};
+    const p = toRecord(parameters);
+    const pageId = typeof p.pageId === 'string' ? p.pageId : undefined;
+    const title = typeof p.title === 'string' ? p.title : undefined;
+    const body = isRecord(p.body) ? p.body : undefined;
+    const version = typeof p.version === 'number' ? p.version : undefined;
+    const message = typeof p.message === 'string' ? p.message : 'Updated via API';
     if (!pageId) {
-      throw new Error('updatePage requires pageId');
+      throw new ValidationError('updatePage requires pageId');
     }
 
     // Get current page version if not provided
     let currentVersion = version;
     if (!currentVersion) {
-      const currentPage = (await this.getPage({ pageId })) as {
-        version?: { number?: number };
-      };
-      currentVersion = currentPage.version.number;
+      const currentPage = toRecord(await this.getPage({ pageId }));
+      const versionRecord = toRecord(currentPage.version);
+      currentVersion = typeof versionRecord.number === 'number' ? versionRecord.number : 0;
     }
 
     const updateData = {
@@ -241,15 +209,14 @@ export class ConfluenceAdapter {
    * Search for content
    */
   private async searchContent(parameters: unknown): Promise<unknown> {
-    const {
-      query,
-      cql,
-      type = 'page',
-      spaceKey,
-      limit = 25,
-      start = 0,
-      expand = ['version', 'space'],
-    } = (parameters as ConfluenceSearchParams) ?? {};
+    const p = toRecord(parameters);
+    const query = typeof p.query === 'string' ? p.query : undefined;
+    const cql = typeof p.cql === 'string' ? p.cql : undefined;
+    const type = typeof p.type === 'string' ? p.type : 'page';
+    const spaceKey = typeof p.spaceKey === 'string' ? p.spaceKey : undefined;
+    const limit = typeof p.limit === 'number' ? p.limit : 25;
+    const start = typeof p.start === 'number' ? p.start : 0;
+    const expand = Array.isArray(p.expand) ? p.expand.filter((e): e is string => typeof e === 'string') : ['version', 'space'];
 
     let searchQuery = cql || '';
 
@@ -292,10 +259,13 @@ export class ConfluenceAdapter {
    * Get a specific page
    */
   private async getPage(parameters: unknown): Promise<unknown> {
-    const { pageId, expand = ['version', 'space', 'body.storage', 'metadata.labels'] } =
-      (parameters as ConfluenceGetPageParams) ?? {};
+    const p = toRecord(parameters);
+    const pageId = typeof p.pageId === 'string' ? p.pageId : undefined;
+    const expand = Array.isArray(p.expand)
+      ? p.expand.filter((e): e is string => typeof e === 'string')
+      : ['version', 'space', 'body.storage', 'metadata.labels'];
     if (!pageId) {
-      throw new Error('getPage requires pageId');
+      throw new ValidationError('getPage requires pageId');
     }
 
     const response = await this.axiosInstance.get(`/content/${pageId}`, {
@@ -311,13 +281,12 @@ export class ConfluenceAdapter {
    * Add attachment to a page
    */
   private async addAttachment(parameters: unknown): Promise<unknown> {
-    const {
-      pageId,
-      file,
-      comment = 'File attached via API',
-    } = (parameters as ConfluenceAttachmentParams) ?? {};
+    const p = toRecord(parameters);
+    const pageId = typeof p.pageId === 'string' ? p.pageId : undefined;
+    const file = p.file instanceof Blob || p.file instanceof File || typeof p.file === 'string' ? p.file : undefined;
+    const comment = typeof p.comment === 'string' ? p.comment : 'File attached via API';
     if (!pageId || !file) {
-      throw new Error('addAttachment requires pageId and file');
+      throw new ValidationError('addAttachment requires pageId and file');
     }
 
     const formData = new FormData();
@@ -369,7 +338,8 @@ export class ConfluenceAdapter {
   private async authenticate(): Promise<void> {
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
+      const authRecord = toRecord(authConfig);
+      const tokenUrl = typeof authRecord.tokenUrl === 'string' ? authRecord.tokenUrl : undefined;
 
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
@@ -378,12 +348,12 @@ export class ConfluenceAdapter {
       const refreshToken = process.env.CONFLUENCE_REFRESH_TOKEN;
 
       if (!clientId || !clientSecret || !refreshToken) {
-        throw new Error('Confluence OAuth2 credentials not configured');
+        throw new InternalServerError('Confluence OAuth2 credentials not configured');
       }
 
       // Exchange refresh token for access token
       const response = await axios.post(
-        oauthConfig.tokenUrl,
+        tokenUrl,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -406,7 +376,7 @@ export class ConfluenceAdapter {
       });
     } catch (error) {
       logger.error('Confluence authentication failed', { error });
-      throw new Error('Failed to authenticate with Confluence', { cause: error });
+      throw new AuthenticationError('Failed to authenticate with Confluence', { cause: error });
     }
   }
 
@@ -415,17 +385,18 @@ export class ConfluenceAdapter {
    */
   private async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken) {
-      throw new Error('No refresh token available');
+      throw new AuthenticationError('No refresh token available');
     }
 
     try {
       const authConfig = this.toolDefinition.authentication.config;
-      const oauthConfig = (authConfig ?? {}) as { tokenUrl?: string };
+      const authRecord2 = toRecord(authConfig);
+      const tokenUrl2 = typeof authRecord2.tokenUrl === 'string' ? authRecord2.tokenUrl : undefined;
       const clientId = process.env.CONFLUENCE_CLIENT_ID;
       const clientSecret = process.env.CONFLUENCE_CLIENT_SECRET;
 
       const response = await axios.post(
-        oauthConfig.tokenUrl,
+        tokenUrl2,
         {
           grant_type: 'refresh_token',
           client_id: clientId,
@@ -451,7 +422,7 @@ export class ConfluenceAdapter {
       this.accessToken = null;
       this.refreshToken = null;
       this.tokenExpiry = null;
-      throw new Error('Failed to refresh Confluence token', { cause: error });
+      throw new AuthenticationError('Failed to refresh Confluence token', { cause: error });
     }
   }
 

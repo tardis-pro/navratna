@@ -86,9 +86,9 @@ export const useWidget = (
 
   // Utility function for logging interactions
   const logInteraction = useCallback(
-    (action: string = 'interact', interactionMeta?: unknown) => {
+    (action: WidgetUsage['action'] = 'interact', interactionMeta?: unknown) => {
       interactionCountRef.current++;
-      logUsage(action as WidgetUsage['action'], interactionMeta);
+      logUsage(action, interactionMeta);
     },
     [logUsage]
   );
@@ -339,7 +339,8 @@ export abstract class BaseWidgetComponent<
     logger.warn(
       'BaseWidgetComponent is deprecated. Use functional components with useWidget hook instead.'
     );
-    return {} as S;
+    const nullState: any = null; // oxlint-disable-line @typescript-eslint/no-explicit-any -- deprecated method; S is unconstrained generic, null bridges to S with strictNullChecks off
+    return nullState;
   }
 
   protected renderContent(): ReactNode {

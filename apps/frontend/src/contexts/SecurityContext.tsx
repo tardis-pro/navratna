@@ -202,8 +202,8 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
             action: e.action,
             resource: e.resourceType,
             outcome: e.result === 'allowed' ? 'success' : e.result === 'denied' ? 'blocked' : 'failure',
-            ipAddress: (e.metadata?.ipAddress as string) ?? '',
-            userAgent: (e.metadata?.userAgent as string) ?? '',
+            ipAddress: typeof e.metadata?.ipAddress === 'string' ? e.metadata.ipAddress : '',
+            userAgent: typeof e.metadata?.userAgent === 'string' ? e.metadata.userAgent : '',
             details: e.metadata,
           }))
         );
@@ -323,8 +323,8 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
             action: e.action,
             resource: e.resourceType,
             outcome: e.result === 'allowed' ? 'success' : e.result === 'denied' ? 'blocked' : 'failure',
-            ipAddress: (e.metadata?.ipAddress as string) ?? '',
-            userAgent: (e.metadata?.userAgent as string) ?? '',
+            ipAddress: typeof e.metadata?.ipAddress === 'string' ? e.metadata.ipAddress : '',
+            userAgent: typeof e.metadata?.userAgent === 'string' ? e.metadata.userAgent : '',
             details: e.metadata,
           }))
         );

@@ -51,12 +51,7 @@ export const conversationEnhancementAPI = {
   ): Promise<unknown> {
     return edenRequest(`${BASE}/analyze`, {
       method: 'POST',
-      body: {
-        discussionId,
-        messageHistory,
-        conversationState,
-        analysisType: 'flow',
-      } as ConversationAnalysisRequest,
+      body: { discussionId, messageHistory, conversationState, analysisType: 'flow' },
     });
   },
 
@@ -67,12 +62,7 @@ export const conversationEnhancementAPI = {
   ): Promise<unknown> {
     return edenRequest(`${BASE}/analyze`, {
       method: 'POST',
-      body: {
-        discussionId,
-        messageHistory,
-        conversationState,
-        analysisType: 'insights',
-      } as ConversationAnalysisRequest,
+      body: { discussionId, messageHistory, conversationState, analysisType: 'insights' },
     });
   },
 
@@ -83,12 +73,7 @@ export const conversationEnhancementAPI = {
   ): Promise<unknown> {
     return edenRequest(`${BASE}/analyze`, {
       method: 'POST',
-      body: {
-        discussionId,
-        messageHistory,
-        conversationState,
-        analysisType: 'patterns',
-      } as ConversationAnalysisRequest,
+      body: { discussionId, messageHistory, conversationState, analysisType: 'patterns' },
     });
   },
 };

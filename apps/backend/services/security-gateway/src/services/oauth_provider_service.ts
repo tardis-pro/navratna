@@ -33,6 +33,22 @@ interface OAuthTokenResponse {
 type OAuthProviderConfigWithRevoke = OAuthProviderConfig & { revokeUrl?: string };
 type OAuthProviderAgentConfig = { allowAgentAccess?: boolean };
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isUserType(v: unknown): v is UserType {
+  return typeof v === 'string' && (Object.values(UserType) as string[]).includes(v);
+}
+
+function isAgentCapabilityArray(v: unknown): v is AgentCapability[] {
+  return Array.isArray(v) && v.every((item) => (Object.values(AgentCapability) as string[]).includes(item));
+}
+
+function getRevokeUrl(config: OAuthProviderConfigWithRevoke): string | undefined {
+  return typeof config.revokeUrl === 'string' ? config.revokeUrl : undefined;
+}
+
 interface OAuthUserInfo {
   id: string;
   email?: string;
@@ -121,8 +137,7 @@ export class OAuthProviderService {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
-        // @ts-expect-error -- Argument type mismatch
-        this.providers.set(provider.id, provider as unknown);
+        this.providers.set(provider.id, provider);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
@@ -156,13 +171,15 @@ export class OAuthProviderService {
         authorizationUrl: providerConfig.authorizationUrl,
         tokenUrl: providerConfig.tokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
-        revokeUrl: (providerConfig as OAuthProviderConfigWithRevoke).revokeUrl,
+        revokeUrl: getRevokeUrl(providerConfig),
         isEnabled: providerConfig.isEnabled || true,
       });
-      // @ts-expect-error -- Argument type mismatch
-      this.providers.set(savedProvider.id, savedProvider as unknown);
+      this.providers.set(savedProvider.id, savedProvider);
 
-      const savedProviderAgentCfg = savedProvider.agentConfig as OAuthProviderAgentConfig | undefined;
+      const savedProviderCfgRec = isRecord(savedProvider.configuration) ? savedProvider.configuration : undefined;
+      const savedProviderAgentCfg: OAuthProviderAgentConfig | undefined = savedProviderCfgRec
+        ? { allowAgentAccess: typeof savedProviderCfgRec.allowAgentAccess === 'boolean' ? savedProviderCfgRec.allowAgentAccess : undefined }
+        : undefined;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
         details: {
@@ -179,7 +196,7 @@ export class OAuthProviderService {
         agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
       });
 
-      return savedProvider as unknown;
+      return savedProvider;
     } catch (error) {
       logger.error('Failed to create OAuth provider', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -265,8 +282,6 @@ export class OAuthProviderService {
         codeVerifier: codeVerifier,
       });
 
-      // Build authorization URL with proper parameters
-      // @ts-expect-error -- Argument type mismatch
       const params = new URLSearchParams({
         client_id: provider.clientId,
         redirect_uri: redirectUri,
@@ -320,24 +335,18 @@ export class OAuthProviderService {
         throw new ApiError(400, 'Invalid or expired OAuth state', 'INVALID_STATE');
       }
 
-      // Map entity to expected format
       const oauthState: OAuthState = {
-        // @ts-expect-error -- Type not assignable
         state: oauthStateEntity.state,
-        // @ts-expect-error -- Type not assignable
         providerId: oauthStateEntity.providerId,
-        // @ts-expect-error -- Type not assignable
-        redirectUri: oauthStateEntity.redirectUri,
-        // @ts-expect-error -- Type not assignable
-        codeVerifier: oauthStateEntity.codeVerifier,
-        scope: [], // This will be set from provider
-        // @ts-expect-error -- Type not assignable
-        userType: oauthStateEntity.userType,
-        // @ts-expect-error -- Missing properties in type
-        agentCapabilities: oauthStateEntity.agentCapabilities,
-        // @ts-expect-error -- Missing properties in type
+        redirectUri: oauthStateEntity.redirectUrl,
+        codeVerifier: (() => {
+          const meta = isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata : {};
+          return typeof meta.codeVerifier === 'string' ? meta.codeVerifier : undefined;
+        })(),
+        scope: [],
+        userType: isRecord(oauthStateEntity.metadata) && isUserType(oauthStateEntity.metadata.userType) ? oauthStateEntity.metadata.userType : undefined,
+        agentCapabilities: isRecord(oauthStateEntity.metadata) && isAgentCapabilityArray(oauthStateEntity.metadata.agentCapabilities) ? oauthStateEntity.metadata.agentCapabilities : undefined,
         createdAt: oauthStateEntity.createdAt,
-        // @ts-expect-error -- Missing properties in type
         expiresAt: oauthStateEntity.expiresAt,
       };
 
@@ -605,12 +614,11 @@ export class OAuthProviderService {
   ): Promise<AgentOAuthConnection | null> {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
-      if (!connection || !connection.isActive) {
+      if (!connection) {
         return null;
       }
 
-      // Check token expiration and refresh if needed
-      if (connection.tokenExpiresAt && connection.tokenExpiresAt < new Date()) {
+      if (connection.expiresAt && connection.expiresAt < new Date()) {
         return await this.refreshAgentToken(connection);
       }
 
@@ -876,7 +884,7 @@ export class OAuthProviderService {
   private async getProviderConfig(providerId: string): Promise<OAuthProviderConfig | null> {
     try {
       const provider = await this.oauthService.findOAuthProvider(providerId);
-      return provider as unknown;
+      return provider;
     } catch (error) {
       await this.auditService.logEvent({
         eventType: AuditEventType.SYSTEM_ERROR,
@@ -920,7 +928,6 @@ export class OAuthProviderService {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
       if (connection) {
-        // @ts-expect-error -- Argument type mismatch
         await this.oauthService.deactivateOAuthConnection(connection.id);
         return true;
       }

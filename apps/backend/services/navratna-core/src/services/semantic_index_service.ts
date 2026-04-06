@@ -1,4 +1,5 @@
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
+import { KnowledgeType, SourceType } from '@uaip/types'
 import type { SymbolInfo } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
@@ -11,13 +12,13 @@ export class SemanticIndexService {
 
     const intelligenceDb = getIntelligenceDb()
     const values = symbols.map((symbol) => ({
-      type: 'code-symbol' as unknown as typeof knowledgeItems.$inferInsert['type'],
+      type: KnowledgeType.CODE_SYMBOL,
       content: JSON.stringify({
         file: symbol.file,
         kind: symbol.kind,
         line: symbol.line,
       }),
-      sourceType: 'ast-extraction' as unknown as typeof knowledgeItems.$inferInsert['sourceType'],
+      sourceType: SourceType.AST_EXTRACTION,
       sourceIdentifier: repoId,
       tags: ['layer-2', 'code-symbol', symbol.kind],
       confidence: 0.8,

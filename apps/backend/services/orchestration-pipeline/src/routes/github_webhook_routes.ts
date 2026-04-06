@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { Elysia } from 'elysia'
 import { logger } from '@uaip/utils'
-import type { GitHubWebhookEventType } from '@uaip/types'
+import type { GitHubWebhookEventType, GitHubCheckRunPayload, GitHubCheckSuitePayload, GitHubWebhookPayload } from '@uaip/types'
 import {
   validateGitHubWebhook,
   routeGitHubWebhookEvent,
@@ -11,6 +11,31 @@ import {
   evaluateCheckSuite,
   handleCIResult,
 } from '../services/github_ci_monitor_service.js'
+
+const VALID_GITHUB_EVENT_TYPES = new Set<string>([
+  'push', 'pull_request', 'check_run', 'check_suite', 'issue_comment', 'issues', 'pull_request_review',
+])
+
+function isGitHubWebhookEventType(s: string): s is GitHubWebhookEventType {
+  return VALID_GITHUB_EVENT_TYPES.has(s)
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function isGitHubWebhookPayload(data: unknown): data is GitHubWebhookPayload {
+  if (!isRecord(data)) return false
+  return isRecord(data['repository']) && isRecord(data['sender'])
+}
+
+function isGitHubCheckRunPayload(data: unknown): data is GitHubCheckRunPayload {
+  return isGitHubWebhookPayload(data) && isRecord(data['check_run'])
+}
+
+function isGitHubCheckSuitePayload(data: unknown): data is GitHubCheckSuitePayload {
+  return isGitHubWebhookPayload(data) && isRecord(data['check_suite'])
+}
 
 const webhookBodySchema = z.object({
   action: z.string().optional(),
@@ -46,19 +71,21 @@ export function registerGitHubWebhookRoutes() {
       return { success: false, error: 'Invalid webhook payload' }
     }
 
-    routeGitHubWebhookEvent(
-      eventType as GitHubWebhookEventType,
-      parsed.data as never,
-      deliveryId
-    ).catch((error) => {
-      logger.error('Async webhook processing failed', {
-        error: error instanceof Error ? error.message : String(error),
-        deliveryId,
+    if (isGitHubWebhookEventType(eventType) && isGitHubWebhookPayload(parsed.data)) {
+      routeGitHubWebhookEvent(
+        eventType,
+        parsed.data,
+        deliveryId
+      ).catch((error) => {
+        logger.error('Async webhook processing failed', {
+          error: error instanceof Error ? error.message : String(error),
+          deliveryId,
+        })
       })
-    })
+    }
 
-    if (eventType === 'check_run' && parsed.data.action === 'completed') {
-      const result = evaluateCheckRun(parsed.data as never)
+    if (eventType === 'check_run' && parsed.data.action === 'completed' && isGitHubCheckRunPayload(parsed.data)) {
+      const result = evaluateCheckRun(parsed.data)
       handleCIResult(result).catch((error) => {
         logger.error('CI result handling failed', {
           error: error instanceof Error ? error.message : String(error),
@@ -66,8 +93,8 @@ export function registerGitHubWebhookRoutes() {
       })
     }
 
-    if (eventType === 'check_suite' && parsed.data.action === 'completed') {
-      const result = evaluateCheckSuite(parsed.data as never)
+    if (eventType === 'check_suite' && parsed.data.action === 'completed' && isGitHubCheckSuitePayload(parsed.data)) {
+      const result = evaluateCheckSuite(parsed.data)
       handleCIResult(result).catch((error) => {
         logger.error('CI suite result handling failed', {
           error: error instanceof Error ? error.message : String(error),

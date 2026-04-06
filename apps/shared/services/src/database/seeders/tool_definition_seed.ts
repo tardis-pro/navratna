@@ -1,7 +1,10 @@
 import { getControlDb } from '../drizzle/clients/index';
-import { toolDefinitions } from '../../database/drizzle/schemas/control_schema';
+import { toolDefinitions, type ToolDefinition } from '../../database/drizzle/schemas/control_schema';
 import { BaseSeed } from './base_seed';
 import { ToolCategory, SecurityLevel } from '@uaip/types';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type ToolDefinitionInsert = InferInsertModel<typeof toolDefinitions>;
 
 export class ToolDefinitionSeed extends BaseSeed {
   private db = getControlDb();
@@ -10,20 +13,20 @@ export class ToolDefinitionSeed extends BaseSeed {
     super('ToolDefinitions');
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<ToolDefinition[]> {
     const seedData = await this.getSeedData();
 
     for (const tool of seedData) {
       await this.db
         .insert(toolDefinitions)
-        .values(tool as any)
+        .values(tool)
         .onConflictDoNothing();
     }
 
     return await this.db.select().from(toolDefinitions);
   }
 
-  async getSeedData(): Promise<any[]> {
+  async getSeedData(): Promise<ToolDefinitionInsert[]> {
     return [
       {
         name: 'File System Reader',

@@ -102,11 +102,13 @@ export function registerAuditRoutes() {
         const { domainAuditService } = await getServices();
         const offset = (value.page - 1) * value.limit;
         const repo = domainAuditService.getAuditRepository();
-        const result = await repo.searchAuditLogs({
-          ...value,
-          offset,
-          eventType: value.eventType as AuditEventType | undefined,
-        });
+          const result = await repo.searchAuditLogs({
+            ...value,
+            offset,
+            eventType: value.eventType != null
+              ? Object.values(AuditEventType).find((t) => t === value.eventType)
+              : undefined,
+          });
         return {
           message: 'Audit logs retrieved successfully',
           logs: result.logs,

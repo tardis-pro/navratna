@@ -101,7 +101,7 @@ export class DiscussionRepository {
 
       return { discussions, total };
     } catch (error) {
-      logger.error('Error searching discussions', { filters, error: (error as Error).message });
+      logger.error('Error searching discussions', { filters, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

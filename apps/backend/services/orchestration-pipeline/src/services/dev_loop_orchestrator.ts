@@ -16,7 +16,11 @@ import type {
   RepoContext,
   StorySpec,
 } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, InternalServerError } from '@uaip/utils'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 import { BoardProviderRegistry } from './board_provider_registry.js'
 import { ComplexityScorerService } from './complexity_scorer_service.js'
@@ -43,7 +47,8 @@ export class DevLoopOrchestrator {
     await this.eventBusService.subscribe(
       `${DEVLOOP_CHECKPOINT_PREFIX}.resume`,
       async (event: EventBusMessage) => {
-        const loopId = (event.data as Record<string, unknown>)?.loopId as string | undefined
+        const eventData = isRecord(event.data) ? event.data : null
+        const loopId = typeof eventData?.loopId === 'string' ? eventData.loopId : undefined
         if (loopId && this.activeLoops.has(loopId)) {
           const state = this.activeLoops.get(loopId)!
           if (state.status === 'paused') {
@@ -189,7 +194,7 @@ export class DevLoopOrchestrator {
   private async stageBoardSetup(state: DevLoopState): Promise<void> {
     const repoCtx = state.repoContext
     if (!repoCtx) {
-      throw new Error('RepoContext not available — repo-ingestion stage must complete first')
+      throw new InternalServerError('RepoContext not available — repo-ingestion stage must complete first')
     }
 
     const boardConfig = repoCtx.boardConfig ?? { type: 'internal' as const }
@@ -227,7 +232,7 @@ export class DevLoopOrchestrator {
   private async stageComplexityRouting(state: DevLoopState): Promise<void> {
     const repoCtx = state.repoContext
     if (!repoCtx) {
-      throw new Error('RepoContext not available')
+      throw new InternalServerError('RepoContext not available')
     }
 
     for (const storyInput of state.config.stories) {

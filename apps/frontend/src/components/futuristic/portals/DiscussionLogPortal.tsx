@@ -137,11 +137,11 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({ classN
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const messagesQuery = useQuery({
+  const messagesQuery = useQuery<DiscussionLogMessage[]>({
     queryKey: [MESSAGE_QUERY_KEY, discussionId],
     queryFn: async () => {
       if (!discussionId) {
-        return [] as DiscussionLogMessage[];
+        return [];
       }
 
       const payload = await discussionsAPI.getMessages(discussionId, { limit: 50 });

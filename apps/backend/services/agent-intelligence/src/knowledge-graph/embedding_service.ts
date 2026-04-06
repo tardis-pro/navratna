@@ -1,5 +1,10 @@
 import { ContextRequest } from '@uaip/types';
 
+import { ExternalServiceError, InternalServerError, ValidationError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 export class EmbeddingService {
   protected openaiApiKey: string;
   protected embeddingModel: string;
@@ -28,14 +33,14 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        throw new ExternalServiceError(`OpenAI API error: ${response.statusText}`);
       }
 
       const data = await response.json();
       return data.data[0].embedding;
     } catch (error) {
       console.error('Embedding generation error:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to generate embedding: ${error.message}`, { cause: error });
     }
   }
 
@@ -75,7 +80,7 @@ export class EmbeddingService {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        throw new ExternalServiceError(`OpenAI API error: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -166,8 +171,10 @@ export class EmbeddingService {
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
       context.conversationHistory.forEach((msg) => {
-        const message = msg as { role?: string; content?: string };
-        parts.push(`${message.role}: ${message.content}`);
+        const msgRecord = isRecord(msg) ? msg : null;
+        const role = msgRecord !== null && typeof msgRecord['role'] === 'string' ? msgRecord['role'] : '';
+        const content = msgRecord !== null && typeof msgRecord['content'] === 'string' ? msgRecord['content'] : '';
+        parts.push(`${role}: ${content}`);
       });
     }
 
@@ -181,7 +188,7 @@ export class EmbeddingService {
 
   async calculateSimilarity(embedding1: number[], embedding2: number[]): Promise<number> {
     if (embedding1.length !== embedding2.length) {
-      throw new Error('Embeddings must have the same dimension');
+      throw new ValidationError('Embeddings must have the same dimension');
     }
 
     // Calculate cosine similarity

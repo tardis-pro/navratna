@@ -590,10 +590,10 @@ export class EntityMatcherService {
   private extractContainerName(entity: DiscoveredEntity): string | null {
     const meta = entity.metadata ?? {};
     return (
-      (meta.table as string) ??
-      (meta.endpoint as string) ??
-      (meta.file as string) ??
-      (meta.object as string) ??
+      (typeof meta['table'] === 'string' ? meta['table'] : null) ??
+      (typeof meta['endpoint'] === 'string' ? meta['endpoint'] : null) ??
+      (typeof meta['file'] === 'string' ? meta['file'] : null) ??
+      (typeof meta['object'] === 'string' ? meta['object'] : null) ??
       null
     );
   }

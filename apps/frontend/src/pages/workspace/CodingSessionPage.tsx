@@ -49,7 +49,7 @@ function parseWorkspaceId(projectId: string, locationSearch: string): string {
 
   try {
     const raw = localStorage.getItem(`workspace.setup.${projectId}`);
-    const parsed = raw ? (JSON.parse(raw) as { workspaceId?: string }) : null;
+    const parsed: { workspaceId?: string } | null = raw ? JSON.parse(raw) : null;
     if (parsed?.workspaceId) return parsed.workspaceId;
   } catch {
     return '';
@@ -123,20 +123,21 @@ export default function CodingSessionPage() {
 
     es.onmessage = (ev) => {
       try {
-        const payload = JSON.parse(ev.data) as unknown;
+        const payload: Record<string, unknown> = JSON.parse(ev.data);
 
-        const type = String(payload?.type || payload?.event || '').toLowerCase();
+        const type = String(payload['type'] || payload['event'] || '').toLowerCase();
         if (type === 'message' || type === 'chat_message') {
-          const role = (payload.role || 'assistant') as ChatRole;
-          const content = String(payload.content || '');
-          const id = String(payload.id || nowId('msg'));
+          const rawRole = String(payload['role'] || 'assistant');
+          const role: ChatRole = (rawRole === 'user' || rawRole === 'system') ? rawRole : 'assistant';
+          const content = String(payload['content'] || '');
+          const id = String(payload['id'] || nowId('msg'));
           setMessages((prev) => [...prev, { id, role, content, createdAt: Date.now() }]);
           if (role === 'assistant') setIsThinking(false);
           return;
         }
 
         if (type === 'message_delta' || type === 'delta') {
-          const delta = String(payload.delta || payload.content || '');
+          const delta = String(payload['delta'] || payload['content'] || '');
           if (!delta) return;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -154,25 +155,25 @@ export default function CodingSessionPage() {
         }
 
         if (type === 'tool_call' || type === 'tool') {
-          const toolName = String(payload.toolName || payload.name || 'tool');
-          const id = String(payload.id || nowId('tool'));
+          const toolName = String(payload['toolName'] || payload['name'] || 'tool');
+          const id = String(payload['id'] || nowId('tool'));
           setToolCalls((prev) => [
             ...prev,
             {
               id,
               toolName,
-              params: payload.params ?? payload.args ?? payload.input,
-              result: payload.result ?? payload.output,
-              status: payload.status || 'success',
+              params: payload['params'] ?? payload['args'] ?? payload['input'],
+              result: payload['result'] ?? payload['output'],
+              status: payload['status'] || 'success',
             },
           ]);
           return;
         }
 
         if (type === 'usage' || type === 'metrics') {
-          const inputTokens = Number(payload.inputTokens ?? payload.promptTokens ?? 0);
-          const outputTokens = Number(payload.outputTokens ?? payload.completionTokens ?? 0);
-          const costUsd = Number(payload.costUsd ?? payload.cost ?? 0);
+          const inputTokens = Number(payload['inputTokens'] ?? payload['promptTokens'] ?? 0);
+          const outputTokens = Number(payload['outputTokens'] ?? payload['completionTokens'] ?? 0);
+          const costUsd = Number(payload['costUsd'] ?? payload['cost'] ?? 0);
           setUsage({ inputTokens, outputTokens, costUsd });
           return;
         }

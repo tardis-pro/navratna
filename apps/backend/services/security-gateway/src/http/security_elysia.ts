@@ -11,6 +11,10 @@ import { ApprovalWorkflowService } from '../services/approval_workflow_service.j
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 let securityServiceSingleton: SecurityService | null = null;
 let auditServiceSingleton: AuditService | null = null;
 let domainAuditServiceSingleton: DomainAuditService | null = null;
@@ -271,7 +275,7 @@ export function registerSecurityRoutes() {
       .get('/policies', async ({ set, query }) => {
         try {
           const { securityService } = await getServices();
-          const { page = '1', limit = '20', active, search } = query as Record<string, string | undefined>;
+          const { page = '1', limit = '20', active, search } = query;
           const filters: Record<string, unknown> = {
             limit: Number(limit),
             offset: (Number(page) - 1) * Number(limit),
@@ -323,7 +327,7 @@ export function registerSecurityRoutes() {
       .get('/policies/:policyId', async ({ set, params }) => {
         try {
           const { securityService } = await getServices();
-          const policyId = (params as Record<string, string>).policyId;
+          const policyId = params.policyId;
           const repo = securityService!.getSecurityPolicyRepository();
           const policy = await repo.getSecurityPolicy(policyId);
           if (!policy) {
@@ -416,7 +420,7 @@ export function registerSecurityRoutes() {
         }
         try {
           const { securityService } = await getServices();
-          const policyId = (params as Record<string, string>).policyId;
+          const policyId = params.policyId;
           const repo = securityService!.getSecurityPolicyRepository();
           const updated = await repo.updateSecurityPolicy(policyId, value);
           if (!updated) {
@@ -451,7 +455,7 @@ export function registerSecurityRoutes() {
       .delete('/policies/:policyId', async ({ set, params }) => {
         try {
           const { securityService } = await getServices();
-          const policyId = (params as Record<string, string>).policyId;
+          const policyId = params.policyId;
           const repo = securityService!.getSecurityPolicyRepository();
           const ok = await repo.deleteSecurityPolicy(policyId);
           if (!ok) {
@@ -476,7 +480,7 @@ export function registerSecurityRoutes() {
       
       .get('/stats', async ({ set, query }) => {
         try {
-          const timeframe = (query as Record<string, string>).timeframe || '24h';
+          const timeframe = (typeof query === 'object' && query !== null && 'timeframe' in query && typeof query.timeframe === 'string' ? query.timeframe : undefined) || '24h';
           let startDate: Date;
           const endDate = new Date();
           switch (timeframe) {
@@ -525,10 +529,7 @@ export function registerSecurityRoutes() {
           };
           const riskStats: RiskStats = riskEvents.reduce<RiskStats>(
             (acc, event: Record<string, unknown>) => {
-              const details =
-                event.details && typeof event.details === 'object'
-                  ? (event.details as Record<string, unknown>)
-                  : undefined;
+              const details = isRecord(event.details) ? event.details : undefined;
               const score = details?.riskScore;
               if (typeof score === 'number') {
                 acc.totalAssessments++;

@@ -276,8 +276,12 @@ export class OAuthCapabilityDiscovery {
 
   private constructor() {}
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return this.isRecord(value) ? value : {};
   }
 
   public static getInstance(): OAuthCapabilityDiscovery {
@@ -527,7 +531,7 @@ export class OAuthCapabilityDiscovery {
       return undefined;
     }
 
-    const tokenData = tokenInfo as Record<string, unknown>;
+    const tokenData: Record<string, unknown> = this.asRecord(tokenInfo);
     const accessToken = tokenData.accessToken || tokenData.access_token;
     if (typeof accessToken !== 'string' || accessToken.length === 0) {
       return undefined;
@@ -536,7 +540,7 @@ export class OAuthCapabilityDiscovery {
     const scopeValue = tokenData.scope;
     const scope =
       Array.isArray(scopeValue) && scopeValue.every((entry) => typeof entry === 'string')
-        ? (scopeValue as string[])
+        ? scopeValue
         : typeof scopeValue === 'string'
           ? scopeValue.split(' ').filter((entry) => entry.length > 0)
           : undefined;

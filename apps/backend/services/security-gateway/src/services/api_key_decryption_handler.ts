@@ -3,6 +3,17 @@ import { logger } from '@uaip/utils';
 import { ApiKeyDecryptionRequest, ApiKeyDecryptionResponse } from '@uaip/llm-service';
 import { UserService } from '@uaip/shared-services';
 
+function isApiKeyDecryptionRequest(v: unknown): v is ApiKeyDecryptionRequest {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'requestId' in v &&
+    typeof v.requestId === 'string' &&
+    'providerName' in v &&
+    typeof v.providerName === 'string'
+  );
+}
+
 /**
  * Handles API key decryption requests from LLM service
  */
@@ -23,7 +34,11 @@ export class ApiKeyDecryptionHandler {
       'llm.apikey.decrypt.request',
       async (message) => {
         try {
-          const request = message.data as ApiKeyDecryptionRequest;
+          if (!isApiKeyDecryptionRequest(message.data)) {
+            logger.warn('Received malformed API key decryption request', { data: message.data });
+            return;
+          }
+          const request = message.data;
           await this.handleDecryptionRequest(request);
         } catch (error) {
           logger.error('Error processing API key decryption request', { error });

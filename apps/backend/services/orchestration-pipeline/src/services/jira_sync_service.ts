@@ -1,4 +1,13 @@
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+type JiraSyncPayload = { issueKey?: string; status?: StoryStatus };
+function isJiraSyncPayload(v: unknown): v is JiraSyncPayload {
+  return isRecord(v);
+}
 import { EventBusService } from '@uaip/infra'
 import type {
   JiraWebhookPayload,
@@ -34,7 +43,7 @@ function getSyncConfig(): JiraSyncConfig {
   const apiToken = process.env.JIRA_API_TOKEN
 
   if (!baseUrl || !email || !apiToken) {
-    throw new Error('JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN are required')
+    throw new ValidationError('JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN are required')
   }
 
   return { baseUrl: baseUrl.replace(/\/$/, ''), email, apiToken }
@@ -108,12 +117,10 @@ export async function syncStatusToJira(issueKey: string, status: StoryStatus): P
   )
 
   if (!transitionsResponse.ok) {
-    throw new Error(`Failed to get transitions for ${issueKey}: ${transitionsResponse.status}`)
+    throw new ExternalServiceError(`Failed to get transitions for ${issueKey}: ${transitionsResponse.status}`)
   }
 
-  const transitionsData = (await transitionsResponse.json()) as {
-    transitions: Array<{ id: string; name: string }>
-  }
+  const transitionsData: { transitions: Array<{ id: string; name: string }> } = await transitionsResponse.json()
 
   const transition = transitionsData.transitions.find((t) => t.name === targetStatusName)
   if (!transition) {
@@ -135,7 +142,7 @@ export async function syncStatusToJira(issueKey: string, status: StoryStatus): P
   )
 
   if (!response.ok) {
-    throw new Error(`Failed to transition ${issueKey}: ${response.status}`)
+    throw new ExternalServiceError(`Failed to transition ${issueKey}: ${response.status}`)
   }
 
   logger.info('RDLO status synced to Jira', { issueKey, status, transitionId: transition.id })
@@ -151,7 +158,7 @@ export async function syncArtifactToJira(
 
   const artifactResponse = await fetch(artifactUrl)
   if (!artifactResponse.ok) {
-    throw new Error(`Failed to fetch artifact: ${artifactResponse.status}`)
+    throw new ExternalServiceError(`Failed to fetch artifact: ${artifactResponse.status}`)
   }
   const artifactBlob = await artifactResponse.blob()
 
@@ -172,7 +179,7 @@ export async function syncArtifactToJira(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
-    throw new Error(`Failed to attach artifact to ${issueKey}: ${response.status} ${errorBody.slice(0, 300)}`)
+    throw new ExternalServiceError(`Failed to attach artifact to ${issueKey}: ${response.status} ${errorBody.slice(0, 300)}`)
   }
 
   logger.info('Artifact synced to Jira', { issueKey, artifactName })
@@ -203,7 +210,7 @@ export async function addRemoteLink(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
-    throw new Error(`Failed to add remote link to ${issueKey}: ${response.status} ${errorBody.slice(0, 300)}`)
+    throw new ExternalServiceError(`Failed to add remote link to ${issueKey}: ${response.status} ${errorBody.slice(0, 300)}`)
   }
 
   logger.info('Remote link added to Jira issue', { issueKey, url, title })
@@ -214,12 +221,12 @@ export function initJiraSyncEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('rdlo.story.status.changed', async (data: unknown) => {
-      const payload = data as { issueKey: string; status: StoryStatus }
-      if (payload.issueKey && payload.status) {
-        await syncStatusToJira(payload.issueKey, payload.status).catch((error) => {
+      if (!isJiraSyncPayload(data)) return;
+      if (data.issueKey && data.status) {
+        await syncStatusToJira(data.issueKey, data.status).catch((error) => {
           logger.error('Bidirectional Jira sync failed', {
             error: error instanceof Error ? error.message : String(error),
-            issueKey: payload.issueKey,
+            issueKey: data.issueKey,
           })
         })
       }

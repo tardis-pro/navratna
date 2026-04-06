@@ -22,7 +22,9 @@
     "start": "node dist/index.js",
     "clean": "rimraf dist",
     "lint": "oxlint src",
-    "lint:fix": "oxlint --fix src"
+    "lint:fix": "oxlint --fix src",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",
@@ -40,7 +42,8 @@
     "nodemon": "catalog:backend",
     "rimraf": "^6.1.2",
     "tsx": "catalog:backend",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
   },
   "nx": {
     "tags": [

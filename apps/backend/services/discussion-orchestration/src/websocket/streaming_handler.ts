@@ -29,7 +29,8 @@ export class StreamingHandler {
     streamNamespace.on('connection', async (socket: Socket) => {
       try {
         // Check for nginx-forwarded user headers first (preferred path)
-        const nginxUserId = socket.handshake.headers['x-user-id'] as string | undefined;
+        const userIdHeader = socket.handshake.headers['x-user-id'];
+        const nginxUserId = typeof userIdHeader === 'string' ? userIdHeader : (Array.isArray(userIdHeader) ? userIdHeader[0] : undefined);
         let userId: string;
 
         if (nginxUserId) {
@@ -44,9 +45,9 @@ export class StreamingHandler {
           userId = nginxUserId;
         } else {
           // Fallback: Authenticate via token
-          let token =
-            (socket.handshake.auth?.token as string | undefined) ||
-            (socket.handshake.query?.token as string | undefined);
+          const authToken = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
+          const queryToken = typeof socket.handshake.query?.token === 'string' ? socket.handshake.query.token : undefined;
+          let token = authToken || queryToken;
           if (!token) {
             const cookieHeader = socket.handshake.headers.cookie;
             if (cookieHeader) {
@@ -143,46 +144,45 @@ export class StreamingHandler {
   }
 
   private subscribeToEventBus(): void {
-    // Define common event data type
-    interface StreamEventData {
-      sessionId: string;
-      chunk?: unknown;
-      error?: string;
-      [key: string]: unknown;
-    }
+    const isRecord = (v: unknown): v is Record<string, unknown> =>
+      typeof v === 'object' && v !== null && !Array.isArray(v);
+    const extractSessionId = (raw: unknown): string => {
+      if (isRecord(raw) && typeof raw['sessionId'] === 'string') return raw['sessionId'];
+      return '';
+    };
 
     // Stream start
     this.eventBus.subscribe('llm.stream.start', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_START, data);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_START, event.data);
     });
 
     // Stream chunks
     this.eventBus.subscribe('llm.stream.chunk', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_CHUNK, data);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_CHUNK, event.data);
     });
 
     // Stream end
     this.eventBus.subscribe('llm.stream.end', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_END, data);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_END, event.data);
       // Cleanup subscribers
-      this.sessionSubscribers.delete(data.sessionId);
+      this.sessionSubscribers.delete(sessionId);
     });
 
     // Stream error
     this.eventBus.subscribe('llm.stream.error', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_ERROR, data);
-      this.sessionSubscribers.delete(data.sessionId);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_ERROR, event.data);
+      this.sessionSubscribers.delete(sessionId);
     });
 
     // Stream cancelled
     this.eventBus.subscribe('llm.stream.cancel', async (event) => {
-      const data = event.data as StreamEventData;
-      this.broadcastToSession(data.sessionId, StreamingEventType.STREAM_CANCEL, data);
-      this.sessionSubscribers.delete(data.sessionId);
+      const sessionId = extractSessionId(event.data);
+      this.broadcastToSession(sessionId, StreamingEventType.STREAM_CANCEL, event.data);
+      this.sessionSubscribers.delete(sessionId);
     });
 
     logger.info('Subscribed to streaming events');

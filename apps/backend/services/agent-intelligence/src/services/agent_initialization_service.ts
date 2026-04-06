@@ -5,7 +5,7 @@
  */
 
 import { Agent, AgentState } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { PersonaService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -39,6 +39,27 @@ export interface EnvironmentFactors {
   availableResources: string;
   knowledgeGraphStatus: string;
   memorySystemStatus: string;
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isEnvironmentFactors(value: unknown): value is EnvironmentFactors {
+  if (!isRecord(value)) return false;
+  const v = value;
+  return (
+    typeof v.timeOfDay === 'number' &&
+    typeof v.userLoad === 'number' &&
+    typeof v.systemLoad === 'string' &&
+    typeof v.availableResources === 'string' &&
+    typeof v.knowledgeGraphStatus === 'string' &&
+    typeof v.memorySystemStatus === 'string'
+  );
+}
+
+function isAgent(value: unknown): value is Agent {
+  return typeof value === 'object' && value !== null && 'id' in value;
 }
 
 export class AgentInitializationService {
@@ -131,7 +152,7 @@ export class AgentInitializationService {
         try {
           await this.knowledgeGraphService.initializeAgentContext(agentId, {
             expertise: persona.expertise || [],
-            interests: (persona as Record<string, unknown>).interests || [],
+            interests: 'interests' in persona && Array.isArray(persona.interests) ? persona.interests : [],
             background: persona.background || '',
           });
           logger.info('Knowledge context initialized', { agentId });
@@ -178,7 +199,7 @@ export class AgentInitializationService {
       return agentState;
     } catch (error) {
       logger.error('Failed to initialize agent', { error, agentId, personaId });
-      throw new Error(`Failed to initialize agent: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to initialize agent: ${error.message}`, { cause: error });
     }
   }
 
@@ -198,7 +219,7 @@ export class AgentInitializationService {
       // Get current agent data
       const agent = await this.getAgentData(agentId);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentId}`);
+        throw new NotFoundError(`Agent not found: ${agentId}`);
       }
 
       // Extract agent capabilities
@@ -293,7 +314,7 @@ export class AgentInitializationService {
         }
         if (requirements.specializations) {
           const extraSpecs = Array.isArray(requirements.specializations)
-            ? (requirements.specializations as string[])
+            ? requirements.specializations.filter((s): s is string => typeof s === 'string')
             : [];
           capabilities.specializations = [...capabilities.specializations, ...extraSpecs];
         }
@@ -351,9 +372,9 @@ export class AgentInitializationService {
    * Event handlers
    */
   private async handleInitializeAgent(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agentId = event.agentId as string;
-    const personaId = event.personaId as string | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agentId = typeof event.agentId === 'string' ? event.agentId : '';
+    const personaId = typeof event.personaId === 'string' ? event.personaId : undefined;
     try {
       const agentState = await this.initializeAgent(agentId, personaId);
       await this.respondToRequest(requestId, { success: true, data: agentState });
@@ -366,10 +387,12 @@ export class AgentInitializationService {
   }
 
   private async handleSetupAgentState(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agentId = event.agentId as string;
-    const configuration = (event.configuration ?? {}) as Record<string, unknown>;
-    const environmentFactors = event.environmentFactors as EnvironmentFactors | undefined;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const agentId = typeof event.agentId === 'string' ? event.agentId : '';
+    const rawConfig = event.configuration;
+    const configuration: Record<string, unknown> = isRecord(rawConfig) ? rawConfig : {};
+    const rawEnv = event.environmentFactors;
+    const environmentFactors: EnvironmentFactors | undefined = isEnvironmentFactors(rawEnv) ? rawEnv : undefined;
     try {
       const agentState = await this.setupAgentState(agentId, configuration, environmentFactors);
       await this.respondToRequest(requestId, { success: true, data: agentState });
@@ -382,9 +405,15 @@ export class AgentInitializationService {
   }
 
   private async handleConfigureCapabilities(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const agent = event.agent as Agent;
-    const requirements = (event.requirements ?? {}) as Record<string, unknown>;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawAgent = event.agent;
+    if (!isAgent(rawAgent)) {
+      await this.respondToRequest(requestId, { success: false, error: 'Invalid agent payload in event' });
+      return;
+    }
+    const agent: Agent = rawAgent;
+    const rawReqs = event.requirements;
+    const requirements: Record<string, unknown> = isRecord(rawReqs) ? rawReqs : {};
     try {
       const capabilities = await this.configureAgentCapabilities(agent, requirements);
       await this.respondToRequest(requestId, { success: true, data: capabilities });
@@ -397,8 +426,9 @@ export class AgentInitializationService {
   }
 
   private async handleAnalyzeEnvironment(event: Record<string, unknown>): Promise<void> {
-    const requestId = event.requestId as string;
-    const conversationContext = (event.conversationContext ?? {}) as Record<string, unknown>;
+    const requestId = typeof event.requestId === 'string' ? event.requestId : '';
+    const rawCtx = event.conversationContext;
+    const conversationContext: Record<string, unknown> = isRecord(rawCtx) ? rawCtx : {};
     try {
       const environment = this.analyzeEnvironmentFactors(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: environment });
@@ -484,8 +514,12 @@ export class AgentInitializationService {
   private async getAgentData(agentId: string): Promise<Agent | null> {
     try {
       const response = await this.eventBusService.request('agent.query.get', { agentId });
-      const typed = response as { success?: boolean; data?: Agent } | null;
-      return typed?.success ? (typed.data ?? null) : null;
+      if (isRecord(response) && 'success' in response) {
+        const success = response.success === true;
+        const data = 'data' in response && isAgent(response.data) ? response.data : undefined;
+        return success ? (data ?? null) : null;
+      }
+      return null;
     } catch (error) {
       logger.warn('Failed to get agent data', { error, agentId });
       return null;
@@ -494,7 +528,7 @@ export class AgentInitializationService {
 
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 

@@ -3,6 +3,7 @@ import { BaseDomainService } from './base_domain_service';
 import {
   ToolRepository,
   ToolExecutionRepository,
+  ToolExecutionRow,
   ToolUsageRepository,
   ToolAssignmentRepository,
   BaseCreateToolParams,
@@ -244,7 +245,7 @@ export class ToolService extends BaseDomainService {
           existing.id,
         ]
       );
-      return (await assignmentRepo.findByAgentAndTool(agentId, toolId)) as Record<string, unknown>;
+      return await assignmentRepo.findByAgentAndTool(agentId, toolId);
     }
 
     const result = await pool.query(
@@ -278,12 +279,12 @@ export class ToolService extends BaseDomainService {
   }
 
   public async createBulkTools(
-    tools: Array<Record<string, unknown>>
+    tools: Array<BaseCreateToolParams>
   ): Promise<Record<string, unknown>[]> {
     const toolRepo = this.getToolRepository();
     const results: Record<string, unknown>[] = [];
     for (const tool of tools) {
-      const created = await toolRepo.createTool(tool as Parameters<typeof toolRepo.createTool>[0]);
+      const created = await toolRepo.createTool(tool);
       results.push(created);
     }
     return results;
@@ -300,15 +301,13 @@ export class ToolService extends BaseDomainService {
   }
 
   public async createToolExecution(
-    execution: Partial<Record<string, unknown>>
+    execution: Parameters<ToolExecutionRepository['createToolExecution']>[0]
   ): Promise<Record<string, unknown>> {
     const executionRepo = this.getToolExecutionRepository();
-    return await executionRepo.createToolExecution(
-      execution as Parameters<typeof executionRepo.createToolExecution>[0]
-    );
+    return await executionRepo.createToolExecution(execution);
   }
 
-  public async getToolExecution(executionId: string): Promise<Record<string, unknown> | null> {
+  public async getToolExecution(executionId: string): Promise<ToolExecutionRow | null> {
     const executionRepo = this.getToolExecutionRepository();
     return await executionRepo.getToolExecution(executionId);
   }
@@ -348,10 +347,11 @@ export class ToolService extends BaseDomainService {
 
   public async searchTools(query: string): Promise<Record<string, unknown>[]> {
     const tools = await this.findActiveTools();
+    const q = query.toLowerCase();
     return tools.filter(
       (tool) =>
-        (tool.name as string).toLowerCase().includes(query.toLowerCase()) ||
-        (tool.description as string).toLowerCase().includes(query.toLowerCase())
+        (typeof tool.name === 'string' && tool.name.toLowerCase().includes(q)) ||
+        (typeof tool.description === 'string' && tool.description.toLowerCase().includes(q))
     );
   }
 

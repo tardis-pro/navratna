@@ -52,7 +52,8 @@ export class ServiceFactory {
     await Promise.all(
       Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
         try {
-          const svc = serviceInstance as Record<string, unknown>;
+          if (typeof serviceInstance !== 'object' || serviceInstance === null) return;
+          const svc = Object.fromEntries(Object.entries(serviceInstance));
           await callback(serviceName, svc);
         } catch (error) {
           this.logger.error(`Service operation error: ${serviceName}`, {
@@ -97,7 +98,7 @@ export class ServiceFactory {
         }
       } catch (error) {
         this.logger.warn('Failed to initialize standalone Redis cache service', {
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
       // Initialize Qdrant with default dimensions (will be updated by SmartEmbeddingService)
@@ -112,7 +113,9 @@ export class ServiceFactory {
       this.initialized = true;
       this.logger.info('ServiceFactory initialized successfully');
     } catch (error) {
-      this.logger.error('ServiceFactory initialization failed', { error: error.message });
+      this.logger.error('ServiceFactory initialization failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -132,6 +135,7 @@ export class ServiceFactory {
       this.serviceInstances.set(serviceName, service);
     }
 
+    // Map stores unknown; value was set as T by factory above — cast is safe
     return this.serviceInstances.get(serviceName) as T;
   }
 
@@ -144,11 +148,21 @@ export class ServiceFactory {
   // Core Infrastructure Services
 
   async getDatabaseService(): Promise<DatabaseService> {
-    return this.serviceInstances.get('database') as DatabaseService;
+    await this.ensureInitialized();
+    const svc = this.serviceInstances.get('database');
+    if (!(svc instanceof DatabaseService)) {
+      throw new Error('DatabaseService not initialized');
+    }
+    return svc;
   }
 
   async getQdrantService(): Promise<QdrantService> {
-    return this.serviceInstances.get('qdrant') as QdrantService;
+    await this.ensureInitialized();
+    const svc = this.serviceInstances.get('qdrant');
+    if (!(svc instanceof QdrantService)) {
+      throw new Error('QdrantService not initialized');
+    }
+    return svc;
   }
 
   async getToolGraphDatabase(): Promise<ToolGraphDatabase> {
@@ -199,7 +213,9 @@ export class ServiceFactory {
           await qdrantService.updateEmbeddingDimensions(activeDimensions);
         }
       } catch (error) {
-        this.logger.warn('Failed to synchronize embedding dimensions', { error: error.message });
+        this.logger.warn('Failed to synchronize embedding dimensions', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       return smartEmbedding;
@@ -381,7 +397,10 @@ export class ServiceFactory {
 
     await this.forEachService(async (serviceName, svc) => {
       if (svc && typeof svc['isHealthy'] === 'function') {
-        services[serviceName] = await (svc['isHealthy'] as () => Promise<boolean>)();
+        const isHealthyFn = svc['isHealthy'];
+        if (typeof isHealthyFn === 'function') {
+          services[serviceName] = await (isHealthyFn as () => Promise<boolean>).call(svc);
+        }
       } else {
         services[serviceName] = !!svc;
       }
@@ -490,7 +509,10 @@ export class ServiceFactory {
 
     await this.forEachService(async (_name, svc) => {
       if (svc && typeof svc['close'] === 'function') {
-        await (svc['close'] as () => Promise<void>)();
+        const closeFn = svc['close'];
+        if (typeof closeFn === 'function') {
+          await (closeFn as () => Promise<void>).call(svc);
+        }
       }
     });
 

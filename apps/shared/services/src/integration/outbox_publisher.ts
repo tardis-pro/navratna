@@ -72,7 +72,8 @@ export class OutboxPublisher {
       `SELECT * FROM "integration_events" WHERE processed = false ORDER BY "timestamp" ASC LIMIT $1`,
       [limit]
     );
-    return result.rows as IntegrationEvent[];
+    const rows: IntegrationEvent[] = result.rows;
+    return rows;
   }
 
   async markEventProcessed(eventId: string): Promise<void> {
@@ -94,7 +95,7 @@ export class OutboxPublisher {
       throw new Error(`Integration event not found: ${eventId}`);
     }
 
-    const event = eventResult.rows[0] as IntegrationEvent;
+    const event: IntegrationEvent = eventResult.rows[0];
     const retries = event.retries + 1;
     const maxRetries = 5;
 
@@ -113,7 +114,8 @@ export class OutboxPublisher {
       `SELECT * FROM "integration_events" WHERE processed = false AND retries < 5 AND "nextRetryAt" <= NOW() ORDER BY "nextRetryAt" ASC LIMIT $1`,
       [limit]
     );
-    return result.rows as IntegrationEvent[];
+    const retryRows: IntegrationEvent[] = result.rows;
+    return retryRows;
   }
 
   async cleanupOldEvents(olderThanDays: number = 7): Promise<number> {

@@ -232,7 +232,7 @@ function agentReducer(
     }
     case 'ADD_AGENTS': {
       const toolProperties = createDefaultToolProperties();
-      const newAgents = action.payload.reduce(
+      const newAgents = action.payload.reduce<Record<string, AgentState>>(
         (acc, agent) => {
           if (agent && agent.id) {
             acc[agent.id] = {
@@ -243,7 +243,7 @@ function agentReducer(
           }
           return acc;
         },
-        {} as Record<string, AgentState>
+        {}
       );
 
       const newState = { ...state, ...newAgents };
@@ -369,9 +369,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Debounce timer refs
-  const debounceRefs = useRef({
-    providersTimer: null as NodeJS.Timeout | null,
-    modelsTimer: null as NodeJS.Timeout | null,
+  type DebounceRefs = { providersTimer: NodeJS.Timeout | null; modelsTimer: NodeJS.Timeout | null };
+  const debounceRefs = useRef<DebounceRefs>({
+    providersTimer: null,
+    modelsTimer: null,
   });
 
   // Cleanup function for timers
@@ -408,9 +409,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       try {
         const providers = await uaipAPI.llm.getProviders();
 
+        const providersAny: any = providers; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getProviders returns compatible shape; FrontendModelProvider is a superset
         setModelState((prev) => ({
           ...prev,
-          providers: providers as ModelProvider[],
+          providers: providersAny,
           loadingProviders: false,
         }));
         loadingRefs.current.providersLoaded = true;

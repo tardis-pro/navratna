@@ -35,13 +35,22 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   cancelled: <AlertCircle className="w-3.5 h-3.5 text-gray-400" />,
 };
 
-const EMPTY_STEP = {
+type EmptyStep = {
+  id: string;
+  name: string;
+  type: string;
+  action: string;
+  parameters: Record<string, unknown>;
+  dependsOn: string[];
+};
+
+const EMPTY_STEP: EmptyStep = {
   id: `step-${Date.now()}`,
   name: '',
   type: 'agentTurn',
   action: '',
   parameters: {},
-  dependsOn: [] as string[],
+  dependsOn: [],
 };
 
 export function WorkflowStudioPortal() {
@@ -212,7 +221,12 @@ export function WorkflowStudioPortal() {
             <label className="text-xs text-muted-foreground">Trigger:</label>
             <select
               value={formTriggerType}
-              onChange={(e) => setFormTriggerType(e.target.value as 'event' | 'schedule' | 'webhook')}
+              onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === 'event' || value === 'schedule' || value === 'webhook') {
+                      setFormTriggerType(value);
+                    }
+                  }}
               className="bg-white/5 border border-border/40 rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none"
             >
               <option value="schedule">Schedule (Cron)</option>

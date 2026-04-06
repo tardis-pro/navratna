@@ -7,12 +7,16 @@ import {
   sql,
 } from '@uaip/shared-services/drizzle/clients';
 import { shortLinks } from '@uaip/shared-services/drizzle/intelligence';
-import { logger } from '@uaip/utils';
+import { logger, ConflictError, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import * as bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 
 export type { LinkType, LinkStatus };
 export type ShortLinkEntity = typeof shortLinks.$inferSelect;
+
+function isStringNumberRecord(value: unknown): value is Record<string, number> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 type ShortLink = typeof shortLinks.$inferSelect;
 
@@ -34,6 +38,19 @@ export interface LinkAnalytics {
     referer?: string;
     userId?: string;
   }>;
+}
+
+function parseLinkAnalytics(raw: Record<string, unknown>): LinkAnalytics {
+  return {
+    totalClicks: typeof raw.totalClicks === 'number' ? raw.totalClicks : undefined,
+    uniqueClicks: typeof raw.uniqueClicks === 'number' ? raw.uniqueClicks : undefined,
+    lastClickedAt: raw.lastClickedAt instanceof Date ? raw.lastClickedAt : undefined,
+    referrers: isStringNumberRecord(raw.referrers) ? raw.referrers : undefined,
+    countries: isStringNumberRecord(raw.countries) ? raw.countries : undefined,
+    devices: isStringNumberRecord(raw.devices) ? raw.devices : undefined,
+    browsers: isStringNumberRecord(raw.browsers) ? raw.browsers : undefined,
+    clickHistory: Array.isArray(raw.clickHistory) ? raw.clickHistory : undefined,
+  };
 }
 
 interface GetUserLinksOptions {
@@ -101,7 +118,7 @@ export class ShortLinkService {
         .from(shortLinks)
         .where(eq(shortLinks.shortCode, shortCode))
         .limit(1);
-      if (existing.length > 0) throw new Error('Custom short code already exists');
+      if (existing.length > 0) throw new ConflictError('Custom short code already exists');
     }
 
     const hashedPassword = options.password
@@ -123,9 +140,7 @@ export class ShortLinkService {
         password: hashedPassword,
         tags: options.tags ?? [],
         artifactId: options.artifactId,
-        projectFileId: options.projectFileId
-          ? (options.projectFileId as unknown as string)
-          : undefined,
+        projectFileId: options.projectFileId,
         accessRestrictions: { maxClicks: options.maxClicks },
         analytics: { totalClicks: 0, uniqueClicks: 0 },
         trackClicks: true,
@@ -161,20 +176,20 @@ export class ShortLinkService {
     } = {}
   ): Promise<{ url: string; requiresPassword?: boolean }> {
     const link = await this.getShortLink(shortCode);
-    if (!link) throw new Error('Short link not found');
+    if (!link) throw new NotFoundError('Short link not found');
 
     if (link.expiresAt && new Date() > link.expiresAt) {
       await this.db
         .update(shortLinks)
         .set({ status: 'expired', updatedAt: new Date() })
         .where(eq(shortLinks.id, link.id));
-      throw new Error('Short link has expired');
+      throw new InternalServerError('Short link has expired');
     }
 
     if (link.password) {
       if (!options.password) return { url: '', requiresPassword: true };
       const match = await bcrypt.compare(options.password, link.password);
-      if (!match) throw new Error('Invalid password');
+      if (!match) throw new ValidationError('Invalid password');
     }
 
     await this.recordClick(link.id, options);
@@ -219,7 +234,7 @@ export class ShortLinkService {
 
   async updateLink(linkId: string, userId: string, updates: LinkUpdateData): Promise<ShortLink> {
     const link = await this.getLinkById(linkId, userId);
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     const [updated] = await this.db
       .update(shortLinks)
@@ -232,7 +247,7 @@ export class ShortLinkService {
 
   async deleteLink(linkId: string, userId: string): Promise<void> {
     const link = await this.getLinkById(linkId, userId);
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     await this.db
       .update(shortLinks)
@@ -252,7 +267,7 @@ export class ShortLinkService {
           .limit(1)
           .then(([r]) => r ?? null);
 
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     const shortUrl = `${process.env.SHORT_LINK_DOMAIN || 'https://s.uaip.dev'}/${link.shortCode}`;
     const qrCodeDataURL = await QRCode.toDataURL(shortUrl, {
@@ -271,13 +286,13 @@ export class ShortLinkService {
 
   async getLinkAnalytics(linkId: string, userId: string): Promise<LinkAnalyticsResponse> {
     const link = await this.getLinkById(linkId, userId);
-    if (!link) throw new Error('Link not found');
+    if (!link) throw new NotFoundError('Link not found');
 
     return {
       id: link.id,
       shortCode: link.shortCode,
       totalClicks: link.clickCount,
-      analytics: (link.analytics as LinkAnalytics) ?? {},
+      analytics: parseLinkAnalytics(link.analytics),
       createdAt: link.createdAt,
       lastClickAt: link.lastClickedAt ?? null,
       status: link.status,
@@ -302,7 +317,7 @@ export class ShortLinkService {
       if (existing.length === 0) return code;
     }
 
-    throw new Error('Failed to generate unique short code');
+    throw new InternalServerError('Failed to generate unique short code');
   }
 
   private async recordClick(linkId: string, clickData: ClickData): Promise<void> {
@@ -315,8 +330,8 @@ export class ShortLinkService {
 
       if (!link) return;
 
-      const existing = (link.analytics as LinkAnalytics) ?? {};
-      const updatedAnalytics: LinkAnalytics = {
+      const existing = parseLinkAnalytics(link.analytics);
+      const updatedAnalytics: Record<string, unknown> = {
         ...existing,
         totalClicks: (existing.totalClicks ?? 0) + 1,
         lastClickedAt: new Date(),
@@ -337,7 +352,7 @@ export class ShortLinkService {
         .set({
           clickCount: link.clickCount + 1,
           lastClickedAt: new Date(),
-          analytics: updatedAnalytics as Record<string, unknown>,
+          analytics: updatedAnalytics,
           updatedAt: new Date(),
         })
         .where(eq(shortLinks.id, linkId));

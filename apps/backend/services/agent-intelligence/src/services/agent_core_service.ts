@@ -4,8 +4,8 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, AgentStatus, AgentRole, CreateAgentRequest } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { Agent, AgentStatus, AgentRole, CreateAgentRequest, AgentSkill } from '@uaip/types';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import {
   validateServiceAccess,
   AccessLevel,
@@ -27,6 +27,22 @@ export interface AgentCoreConfig {
   serviceName: string;
   securityLevel: number;
 }
+
+type DefaultIntelligenceConfig = {
+  analysisDepth: 'basic' | 'intermediate' | 'advanced';
+  contextWindowSize: number;
+  decisionThreshold: number;
+  learningEnabled: boolean;
+  collaborationMode: 'independent' | 'collaborative' | 'supervised';
+};
+
+type DefaultSecurityContext = {
+  securityLevel: 'low' | 'medium' | 'high' | 'critical';
+  allowedCapabilities: string[];
+  restrictedDomains: string[];
+  approvalRequired: boolean;
+  auditLevel: 'minimal' | 'standard' | 'comprehensive';
+};
 
 interface CreateCommandEvent {
   requestId: string;
@@ -61,6 +77,46 @@ interface ListQueryEvent {
     status?: AgentStatus;
     createdBy?: string;
   };
+}
+
+type AgentMCPToolInsert = {
+  toolId: string;
+  toolName: string;
+  serverName: string;
+  enabled: boolean;
+  priority?: number;
+  parameters?: Record<string, unknown>;
+};
+
+const agentStatusValues = new Set<string>(Object.values(AgentStatus));
+function toAgentStatus(s: string): AgentStatus {
+  return agentStatusValues.has(s) ? (s as AgentStatus) : AgentStatus.IDLE;
+}
+
+type ApiType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+const validApiTypes = new Set<string>(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']);
+function toApiType(s: string | null): ApiType | undefined {
+  return s && validApiTypes.has(s) ? (s as ApiType) : undefined;
+}
+
+/** Convert a raw Drizzle agent row to the domain Agent type (fix string→enum fields). */
+function toDomainAgent<T extends { status: string; version: string | number; apiType: string | null }>(
+  row: T
+): Omit<T, 'status' | 'version' | 'apiType'> & { status: AgentStatus; version: number; apiType: ApiType | undefined } {
+  return { ...row, status: toAgentStatus(row.status), version: Number(row.version), apiType: toApiType(row.apiType) };
+}
+
+function toAgentMCPToolInsert(
+  tools: Partial<AgentMCPToolInsert>[] | undefined
+): AgentMCPToolInsert[] {
+  if (!tools) return [];
+  return tools.filter(
+    (t): t is AgentMCPToolInsert =>
+      typeof t.toolId === 'string' &&
+      typeof t.toolName === 'string' &&
+      typeof t.serverName === 'string' &&
+      typeof t.enabled === 'boolean'
+  );
 }
 
 export class AgentCoreService {
@@ -98,7 +154,7 @@ export class AgentCoreService {
         useEnterpriseMatrix
       )
     ) {
-      throw new Error(
+      throw new ValidationError(
         `Service lacks required database permissions for agents (instance: ${databaseInstance}, enterprise: ${useEnterpriseMatrix})`
       );
     }
@@ -163,26 +219,20 @@ export class AgentCoreService {
       // Generate agent ID
       const agentId = uuidv4();
 
-      // Create default intelligence config
-      const defaultIntelligenceConfig = {
-        analysisDepth: 'intermediate' as 'basic' | 'intermediate' | 'advanced',
+      const defaultIntelligenceConfig: DefaultIntelligenceConfig = {
+        analysisDepth: 'intermediate',
         contextWindowSize: 4000,
         decisionThreshold: 0.7,
         learningEnabled: true,
-        collaborationMode: 'collaborative' as 'independent' | 'collaborative' | 'supervised',
+        collaborationMode: 'collaborative',
       };
 
-      // Create default security context
-      const defaultSecurityContext = {
-        securityLevel: (agentData.securityLevel || 'medium') as
-          | 'low'
-          | 'medium'
-          | 'high'
-          | 'critical',
+      const defaultSecurityContext: DefaultSecurityContext = {
+        securityLevel: agentData.securityLevel ?? 'medium',
         allowedCapabilities: agentData.capabilities || [],
-        restrictedDomains: [] as string[],
+        restrictedDomains: new Array<string>(),
         approvalRequired: false,
-        auditLevel: 'standard' as 'minimal' | 'standard' | 'comprehensive',
+        auditLevel: 'standard',
       };
 
       const agent: Agent = {
@@ -212,11 +262,35 @@ export class AgentCoreService {
         lastActiveAt: undefined,
       };
 
-      // Save to database
       const db = getIntelligenceDb();
       const [savedAgent] = await db
         .insert(agents)
-        .values(agent as unknown as typeof agents.$inferInsert)
+        .values({
+          id: agent.id,
+          name: agent.name,
+          description: agent.description,
+          role: agent.role,
+          capabilities: agent.capabilities,
+          configuration: agent.configuration,
+          status: agent.status,
+          personaId: agent.personaId!,
+          intelligenceConfig: agent.intelligenceConfig,
+          securityContext: agent.securityContext,
+          isActive: agent.isActive,
+          createdBy: agent.createdBy!,
+          createdAt: agent.createdAt,
+          updatedAt: agent.updatedAt,
+          version: String(agent.version),
+          modelId: agent.modelId,
+          apiType: agent.apiType,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+          systemPrompt: agent.systemPrompt,
+          metadata: agent.metadata,
+          lastActiveAt: agent.lastActiveAt,
+          skills: (agent.skills ?? []) as AgentSkill[],
+          assignedMCPTools: [],
+        })
         .returning();
 
       // Publish agent created event
@@ -233,7 +307,7 @@ export class AgentCoreService {
         createdBy,
       });
 
-      return savedAgent as unknown as Agent;
+      return toDomainAgent(savedAgent);
     } catch (error) {
       logger.error('Failed to create agent', { error, agentData });
       throw error;
@@ -249,7 +323,10 @@ export class AgentCoreService {
 
       const db = getIntelligenceDb();
       const result = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
-      const agent = result[0] as unknown as Agent | null;
+      const raw = result[0];
+      const agent: Agent | null = raw
+        ? toDomainAgent(raw)
+        : null;
 
       if (agent) {
         // Publish agent accessed event for analytics
@@ -324,7 +401,7 @@ export class AgentCoreService {
         timestamp: new Date().toISOString(),
       });
 
-      return agentsResult as unknown as Agent[];
+      return agentsResult.map((r) => toDomainAgent(r));
     } catch (error) {
       logger.error('Failed to list agents', { error, filters });
       throw error;
@@ -356,15 +433,22 @@ export class AgentCoreService {
 
       // Update in database
       const dbUpdate = getIntelligenceDb();
+      const { assignedMCPTools: rawMCPTools, ...restUpdatePayload } = updatePayload;
       await dbUpdate
         .update(agents)
-        .set(updatePayload as unknown as typeof agents.$inferInsert)
+        .set({
+          ...restUpdatePayload,
+          version: String(updatePayload.version),
+          ...(rawMCPTools !== undefined
+            ? { assignedMCPTools: toAgentMCPToolInsert(rawMCPTools) }
+            : {}),
+        })
         .where(eq(agents.id, agentId));
 
       // Get updated agent
       const updatedAgent = await this.getAgent(agentId);
       if (!updatedAgent) {
-        throw new Error('Agent not found after update');
+        throw new NotFoundError('Agent not found after update');
       }
 
       // Publish agent updated event
@@ -398,7 +482,7 @@ export class AgentCoreService {
 
       const agent = await this.getAgent(agentId);
       if (!agent) {
-        throw new Error('Agent not found');
+        throw new NotFoundError('Agent not found');
       }
 
       // Soft delete by updating status
@@ -407,13 +491,12 @@ export class AgentCoreService {
         .update(agents)
         .set({
           status: AgentStatus.DELETED,
-          deletedAt: new Date(),
-          deletedBy,
           metadata: {
             ...agent.metadata,
             deletedFrom: this.serviceName,
+            deletedBy,
           },
-        } as unknown as typeof agents.$inferInsert)
+        })
         .where(eq(agents.id, agentId));
 
       // Publish agent deleted event
@@ -507,16 +590,16 @@ export class AgentCoreService {
    */
   private validateID(value: string, paramName: string): void {
     if (!value || typeof value !== 'string' || value.trim().length === 0) {
-      throw new Error(`Invalid ${paramName}: must be a non-empty string`);
+      throw new ValidationError(`Invalid ${paramName}: must be a non-empty string`);
     }
   }
 
   private validateAgentData(data: CreateAgentRequest): void {
     if (!data.name || data.name.trim().length === 0) {
-      throw new Error('Agent name is required');
+      throw new ValidationError('Agent name is required');
     }
     if (!data.personaId) {
-      throw new Error('Persona ID is required for agent creation');
+      throw new ValidationError('Persona ID is required for agent creation');
     }
   }
 
@@ -555,7 +638,7 @@ export class AgentCoreService {
       });
 
       const persona = await personaService.getPersona(personaId);
-      return persona ? (persona as Record<string, unknown>) : null;
+      return persona ?? null;
     } catch (error) {
       logger.warn('Failed to fetch persona data', { personaId, error });
       return null;

@@ -22,7 +22,9 @@ type FormFieldContextValue<
   name: TName;
 };
 
-const FormFieldContext = React.createContext<FormFieldContextValue>({} as FormFieldContextValue);
+const FORM_FIELD_CONTEXT_DEFAULT_RAW: any = { name: '' }; // oxlint-disable-line @typescript-eslint/no-explicit-any -- empty string sentinel; real value always set by FormField provider; FieldPath constraint not satisfiable with empty string
+const FORM_FIELD_CONTEXT_DEFAULT: FormFieldContextValue = FORM_FIELD_CONTEXT_DEFAULT_RAW;
+const FormFieldContext = React.createContext<FormFieldContextValue>(FORM_FIELD_CONTEXT_DEFAULT);
 
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
@@ -65,7 +67,8 @@ type FormItemContextValue = {
   id: string;
 };
 
-const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue);
+const FORM_ITEM_CONTEXT_DEFAULT: FormItemContextValue = { id: '' };
+const FormItemContext = React.createContext<FormItemContextValue>(FORM_ITEM_CONTEXT_DEFAULT);
 
 const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {

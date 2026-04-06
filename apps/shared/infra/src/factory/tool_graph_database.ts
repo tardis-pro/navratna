@@ -16,8 +16,25 @@ const logger = createLogger({
 
 export type { ToolGraphDatabaseConfig, ToolNode, ToolRelationship };
 
-const mapRecordToToolNode = (record: { get: (key: string) => { properties: ToolNode } }): ToolNode =>
-  record.get('tool').properties as ToolNode;
+function toToolNode(
+  record: { get: (key: string) => { properties: Record<string, unknown> } },
+  key: string
+): ToolNode {
+  const props = record.get(key).properties;
+  return {
+    id: String(props.id ?? ''),
+    name: String(props.name ?? ''),
+    category: String(props.category ?? ''),
+    tags: Array.isArray(props.tags) ? props.tags.map(String) : [],
+    capabilities: Array.isArray(props.capabilities) ? props.capabilities.map(String) : [],
+    version: props.version != null ? String(props.version) : undefined,
+    description: props.description != null ? String(props.description) : undefined,
+  };
+}
+
+const mapRecordToToolNode = (
+  record: { get: (key: string) => { properties: Record<string, unknown> } }
+): ToolNode => toToolNode(record, 'tool');
 
 export class ToolGraphDatabase {
   private driver: Driver | null = null;
@@ -189,7 +206,7 @@ export class ToolGraphDatabase {
         }
       );
 
-      return result.records.map((record) => record.get('similar').properties as ToolNode);
+      return result.records.map((record) => toToolNode(record, 'similar'));
     } catch (error) {
       logger.error('Failed to find similar tools', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -291,7 +308,7 @@ export class ToolGraphDatabase {
         return null;
       }
 
-      return result.records[0].get('tool').properties as ToolNode;
+      return toToolNode(result.records[0], 'tool');
     } catch (error) {
       logger.error('Failed to get tool by ID', {
         error: error instanceof Error ? error.message : 'Unknown error',

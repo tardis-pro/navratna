@@ -4,6 +4,18 @@ import { logger } from '@uaip/utils';
 import { createHash } from 'crypto';
 import type { ToolDefinition } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isToolDefinition(v: unknown): v is ToolDefinition {
+  return isRecord(v) && typeof v.id === 'string' && typeof v.name === 'string';
+}
+
+function isExecutionCacheEntry(v: unknown): v is ExecutionCacheEntry {
+  return isRecord(v) && typeof v.toolId === 'string' && 'result' in v;
+}
+
 interface CacheOptions {
   ttl?: number; // Time to live in seconds
   tags?: string[]; // Cache tags for invalidation
@@ -88,16 +100,19 @@ export class ToolCacheService {
       // Check memory cache first
       const memCached = this.getMemoryCache(key);
       if (memCached) {
-        return memCached as ToolDefinition;
+        return isToolDefinition(memCached) ? memCached : null;
       }
 
       // Check Redis
       const cached = await this.redis.get(key);
       if (typeof cached === 'string') {
-        const definition = JSON.parse(cached) as ToolDefinition;
-        // Populate memory cache
-        this.setMemoryCache(key, definition, 60); // Short TTL for memory
-        return definition;
+        const parsed: unknown = JSON.parse(cached);
+        const definition = isToolDefinition(parsed) ? parsed : null;
+        if (definition) {
+          // Populate memory cache
+          this.setMemoryCache(key, definition, 60); // Short TTL for memory
+          return definition;
+        }
       }
 
       return null;
@@ -151,9 +166,11 @@ export class ToolCacheService {
 
       const cached = await this.redis.get(key);
       if (typeof cached === 'string') {
-        const entry = JSON.parse(cached) as ExecutionCacheEntry;
-        logger.debug('Cache hit for tool execution', { toolId, paramHash });
-        return entry.result;
+        const parsed: unknown = JSON.parse(cached);
+        if (isExecutionCacheEntry(parsed)) {
+          logger.debug('Cache hit for tool execution', { toolId, paramHash });
+          return parsed.result;
+        }
       }
 
       return null;
@@ -249,7 +266,7 @@ export class ToolCacheService {
     if (obj === null || typeof obj !== 'object') return obj;
     if (Array.isArray(obj)) return obj.map((item) => this.sortObject(item));
 
-    const objRecord = obj as Record<string, unknown>;
+    const objRecord = isRecord(obj) ? obj : {};
 
     return Object.keys(objRecord)
       .sort()
@@ -258,7 +275,7 @@ export class ToolCacheService {
           sorted[key] = this.sortObject(objRecord[key]);
           return sorted;
         },
-        {} as Record<string, unknown>
+        {} satisfies Record<string, unknown>
       );
   }
 

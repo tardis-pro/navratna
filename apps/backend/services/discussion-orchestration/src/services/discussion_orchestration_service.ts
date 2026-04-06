@@ -7,18 +7,37 @@ import {
   DiscussionStatus,
   DiscussionEvent,
   DiscussionEventType,
+  MessageType,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
 import { DiscussionService } from '@uaip/shared-services/discussion';
 import { TurnStrategyService } from './turn_strategy_service.js';
 import type { IWebSocketHandler } from '@uaip/types';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 export interface DiscussionOrchestrationResult {
   success: boolean;
   data?: Record<string, unknown>;
   error?: string;
   events?: DiscussionEvent[];
+}
+
+type ParticipantRole = DiscussionParticipant['role'];
+
+const VALID_PARTICIPANT_ROLES: readonly ParticipantRole[] = [
+  'participant',
+  'moderator',
+  'observer',
+  'facilitator',
+] as const;
+
+function toValidRole(role: string): ParticipantRole {
+  const found = VALID_PARTICIPANT_ROLES.find((r) => r === role);
+  return found ?? 'participant';
 }
 
 interface TurnRequestEntry {
@@ -464,14 +483,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Discussion not found' };
       }
 
-      // Enterprise participant lookup - use the participant management service
-      const participantManagementService = new ParticipantManagementService(
-        (
-          this.discussionService as unknown as {
-            databaseService: import('@uaip/infra').DatabaseService;
-          }
-        ).databaseService
-      );
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
 
       // Try to find participant by participantId first
       let participant = await participantManagementService.getParticipantById(participantId);
@@ -535,19 +547,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       // Map message type to valid database enum values
-      const validMessageTypes = [
-        'message',
-        'question',
-        'answer',
-        'clarification',
-        'objection',
-        'agreement',
-        'summary',
-        'decision',
-        'action_item',
-        'system',
-      ];
-      const mappedMessageType = validMessageTypes.includes(messageType) ? messageType : 'message';
+      const validMessageTypeSet = new Set<string>(Object.values(MessageType));
+      function isMessageType(v: string): v is MessageType {
+        return validMessageTypeSet.has(v);
+      }
+      const mappedMessageType: MessageType = isMessageType(messageType) ? messageType : MessageType.MESSAGE;
 
       logger.info('Sending message to database', {
         discussionId,
@@ -562,7 +566,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussionId,
         actualParticipantId,
         content,
-        mappedMessageType as unknown as import('@uaip/types').MessageType
+        mappedMessageType
       );
 
       // Update participant activity using enterprise participant management
@@ -799,7 +803,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   ): Promise<Discussion> {
     const parentDiscussion = await this.getDiscussion(parentDiscussionId, true);
     if (!parentDiscussion) {
-      throw new Error('Parent discussion not found');
+      throw new NotFoundError('Parent discussion not found');
     }
 
     const uniqueParticipants = Array.from(
@@ -807,12 +811,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
     );
 
     if (uniqueParticipants.length === 0) {
-      throw new Error('At least one participant is required for a huddle');
+      throw new ValidationError('At least one participant is required for a huddle');
     }
 
     const normalizedTopic = topic.trim();
     if (!normalizedTopic) {
-      throw new Error('Huddle topic is required');
+      throw new ValidationError('Huddle topic is required');
     }
 
     const huddleRequest: CreateDiscussionRequest = {
@@ -857,7 +861,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
   async resolveHuddle(huddleId: string, summary: string): Promise<void> {
     const huddle = await this.getDiscussion(huddleId, true);
     if (!huddle) {
-      throw new Error('Huddle not found');
+      throw new NotFoundError('Huddle not found');
     }
 
     const parentDiscussionId =
@@ -866,7 +870,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         : undefined) || huddle.parentDiscussionId;
 
     if (!parentDiscussionId) {
-      throw new Error('Huddle has no parent discussion');
+      throw new InternalServerError('Huddle has no parent discussion');
     }
 
     await this.discussionService.updateDiscussion(huddleId, {
@@ -1017,11 +1021,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       const previousState = discussion.state || {};
-      const nextState = {
-        ...previousState,
-        workingMemoryContext: context,
-        lastActivity: new Date(),
-      } as typeof previousState;
+      // workingMemoryContext is a runtime extension of the state object not reflected in the static type
+      const nextState = Object.assign({}, previousState, { workingMemoryContext: context, lastActivity: new Date() });
 
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
         state: nextState,
@@ -1181,7 +1182,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           success: true,
           data: {
             message: 'Turn ended successfully',
-            nextParticipant: (result.data as Record<string, unknown> | undefined)?.nextParticipant,
+            nextParticipant: result.data?.nextParticipant,
           },
         };
       }
@@ -1341,12 +1342,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
       return null;
     }
 
-    if (state.workingMemoryContext && typeof state.workingMemoryContext === 'object') {
-      return state.workingMemoryContext as Record<string, unknown>;
+    if (state.workingMemoryContext && typeof state.workingMemoryContext === 'object' && !Array.isArray(state.workingMemoryContext)) {
+      return Object.fromEntries(Object.entries(state.workingMemoryContext));
     }
 
-    if (state.context && typeof state.context === 'object') {
-      return state.context as Record<string, unknown>;
+    if (state.context && typeof state.context === 'object' && !Array.isArray(state.context)) {
+      return Object.fromEntries(Object.entries(state.context));
     }
 
     return null;
@@ -1776,14 +1777,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Update rate limit timestamp
       this.participationRateLimits.set(participationKey, now);
-      // Use enterprise participant management service
-      const participantManagementService = new ParticipantManagementService(
-        (
-          this.discussionService as unknown as {
-            databaseService: import('@uaip/infra').DatabaseService;
-          }
-        ).databaseService
-      );
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
 
       // Get active agent participants
       const activeParticipants = await participantManagementService.getActiveParticipants(
@@ -1832,12 +1826,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
           agentIds: neverParticipatedAgents.map((p) => p.agentId),
         });
 
-        // Trigger participation for the first agent who has never participated
         const agentToTrigger = neverParticipatedAgents[0];
-        await this.triggerAgentParticipationEvent(discussion.id, {
+        const typedAgentToTrigger: DiscussionParticipant = {
           ...agentToTrigger,
-          role: agentToTrigger.role as 'participant' | 'moderator' | 'observer' | 'facilitator',
-        });
+          role: toValidRole(agentToTrigger.role),
+        };
+        await this.triggerAgentParticipationEvent(discussion.id, typedAgentToTrigger);
       }
       // Phase 2: Main discussion phase - continue conversation with participated agents
       else if (participatedAgents.length > 0 && discussion.state.currentTurn) {
@@ -2039,36 +2033,36 @@ export class DiscussionOrchestrationService extends EventEmitter {
           let participantName = 'Unknown';
           if (msgParticipant?.agentId) {
             try {
-              // Try to get agent information for proper name
-              const agentData = await (
-                this.discussionService as unknown as {
-                  databaseService: import('@uaip/infra').DatabaseService & {
-                    getAgentById?: (id: string) => Promise<{ name?: string } | null>;
-                  };
-                }
-              ).databaseService?.getAgentById?.(msgParticipant.agentId);
-              participantName = agentData?.name || msgParticipant.agentId || 'Agent';
+              const dbSvc: unknown = this.discussionService.getDatabaseService();
+              const agentData: unknown = typeof dbSvc === 'object' && dbSvc !== null && 'getAgentById' in dbSvc && typeof (dbSvc as Record<string, unknown>).getAgentById === 'function'
+                ? await (dbSvc as { getAgentById: (id: string) => Promise<unknown> }).getAgentById(msgParticipant.agentId)
+                : undefined;
+              const agentName = agentData !== null && typeof agentData === 'object' && 'name' in agentData && typeof agentData.name === 'string'
+                ? agentData.name
+                : undefined;
+              participantName = agentName || msgParticipant.agentId || 'Agent';
             } catch {
               participantName = msgParticipant.agentId || 'Agent';
             }
           } else if (msgParticipant?.userId) {
             try {
-              // Try to get user information for proper name
-              const userData = await (
-                this.discussionService as unknown as {
-                  databaseService: import('@uaip/infra').DatabaseService & {
-                    getUserById?: (id: string) => Promise<{ email?: string; id?: string } | null>;
-                  };
-                }
-              ).databaseService?.getUserById?.(msgParticipant.userId);
-              participantName = userData?.email?.split('@')[0] || userData?.id || 'User';
+              const dbSvcU: unknown = this.discussionService.getDatabaseService();
+              const userData: unknown = typeof dbSvcU === 'object' && dbSvcU !== null && 'getUserById' in dbSvcU && typeof (dbSvcU as Record<string, unknown>).getUserById === 'function'
+                ? await (dbSvcU as { getUserById: (id: string) => Promise<unknown> }).getUserById(msgParticipant.userId)
+                : undefined;
+              const userEmail = userData !== null && typeof userData === 'object' && 'email' in userData && typeof userData.email === 'string'
+                ? userData.email
+                : undefined;
+              const userId = userData !== null && typeof userData === 'object' && 'id' in userData && typeof userData.id === 'string'
+                ? userData.id
+                : undefined;
+              participantName = userEmail?.split('@')[0] || userId || 'User';
             } catch {
               participantName = 'User';
             }
           } else {
-            participantName =
-              ((msgParticipant?.metadata as Record<string, unknown> | undefined)
-                ?.displayName as string) || 'Participant';
+            const displayName = msgParticipant?.metadata?.['displayName'];
+            participantName = typeof displayName === 'string' ? displayName : 'Participant';
           }
 
           return {
@@ -2294,24 +2288,21 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Get active participants for a discussion
    */
-  private async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
+   private async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
     try {
-      const participantManagementService = new ParticipantManagementService(
-        (
-          this.discussionService as unknown as {
-            databaseService: import('@uaip/infra').DatabaseService;
-          }
-        ).databaseService
-      );
-      return (await participantManagementService.getActiveParticipants(discussionId)).map(
-        (participant) => ({
-          ...participant,
-          role: participant.role as 'participant' | 'moderator' | 'observer' | 'facilitator',
-        })
-      );
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
+      const validRoles = new Set<string>(['participant', 'moderator', 'observer', 'facilitator']);
+      type ParticipantRole = 'participant' | 'moderator' | 'observer' | 'facilitator';
+      const isValidRole = (r: unknown): r is ParticipantRole => typeof r === 'string' && validRoles.has(r);
+      const DEFAULT_ROLE: ParticipantRole = 'participant';
+      const raw = await participantManagementService.getActiveParticipants(discussionId);
+      return raw.map((p) => ({
+        ...p,
+        role: isValidRole(p.role) ? p.role : DEFAULT_ROLE,
+      }));
     } catch (error) {
       logger.error('Error getting active participants', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         discussionId,
       });
       return [];
@@ -2329,7 +2320,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       return await this.discussionService.getDiscussionMessages(discussionId, options);
     } catch (error) {
       logger.error('Error getting discussion messages', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         discussionId,
       });
       return [];
@@ -2455,6 +2446,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return;
       }
 
+      const rawConfig = isRecord(discussion.metadata) ? discussion.metadata['artifactConfig'] : undefined;
+      const artifactConfig = isRecord(rawConfig) ? rawConfig : undefined;
+
       // Get recent messages for context
       const recentMessages = await this.getDiscussionMessages(discussionId, { limit: 50 });
 
@@ -2472,6 +2466,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Determine artifact type based on discussion content and context
       const artifactType = this.determineArtifactType(discussion, recentMessages);
+
+      const rawArtifactMeta = artifactConfig?.['metadata'];
+      const artifactConfigMetadata: Record<string, unknown> | undefined =
+        typeof rawArtifactMeta === 'object' && rawArtifactMeta !== null && !Array.isArray(rawArtifactMeta)
+          ? Object.fromEntries(Object.entries(rawArtifactMeta))
+          : undefined;
 
       // Emit completion event
       await this.eventBusService.publish('discussion.completed', {
@@ -2504,22 +2504,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
         artifactGeneration: {
           suggestedType: artifactType,
           priority: this.calculateArtifactPriority(discussion, completionReason),
-          autoShare:
-            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
-              ?.autoShare || true,
-          generateOnCompletion:
-            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
-              ?.generateOnCompletion !== false,
-          requiresApproval:
-            (discussion as unknown as { artifactConfig?: Record<string, unknown> }).artifactConfig
-              ?.requiresApproval || false,
+          autoShare: artifactConfig?.['autoShare'] || true,
+          generateOnCompletion: artifactConfig?.['generateOnCompletion'] !== false,
+          requiresApproval: artifactConfig?.['requiresApproval'] || false,
           metadata: {
             discussionType: discussion.turnStrategy.strategy,
             completionReason,
             messageCount: discussionMetrics.totalMessages,
             participantCount: discussionMetrics.totalParticipants,
-            ...((discussion as unknown as { artifactConfig?: Record<string, unknown> })
-              .artifactConfig?.metadata as Record<string, unknown> | undefined),
+            ...artifactConfigMetadata,
           },
         },
         timestamp: new Date(),
@@ -2550,11 +2543,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
     discussion: Discussion,
     messages: Record<string, unknown>[]
   ): string {
-    // First check if discussion has configured artifact type
-    const artifactConfig = (discussion as unknown as { artifactConfig?: Record<string, unknown> })
-      .artifactConfig;
-    if (artifactConfig?.enabled && artifactConfig?.artifactType) {
-      return String(artifactConfig.artifactType);
+    const rawConfig = isRecord(discussion.metadata) ? discussion.metadata['artifactConfig'] : undefined;
+    const artifactConfig = isRecord(rawConfig) ? rawConfig : undefined;
+    if (artifactConfig?.['enabled'] && typeof artifactConfig?.['artifactType'] === 'string') {
+      return artifactConfig['artifactType'];
     }
 
     // Fallback to content-based detection

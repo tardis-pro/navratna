@@ -44,7 +44,7 @@ export function registerDiscussionRoutes(
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
             const result = await discussionService.searchDiscussions(
-              filters as Parameters<typeof discussionService.searchDiscussions>[0],
+              filters,
               parseInt(limit, 10),
               parseInt(offset, 10)
             )
@@ -65,13 +65,12 @@ export function registerDiscussionRoutes(
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            const userId = (ctx as unknown as { user: { id: string; role?: string } }).user.id
-            const discussion = await discussionService.createDiscussion(
-              {
-                ...body,
-                createdBy: userId,
-              } as Parameters<typeof discussionService.createDiscussion>[0]
-            )
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const userId: string = ctx.user.id
+            const discussion = await discussionService.createDiscussion({
+              ...body,
+              createdBy: userId,
+            })
             ctx.set.status = 201
             return { success: true, data: discussion }
           } catch (error) {
@@ -104,7 +103,7 @@ export function registerDiscussionRoutes(
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
             const result = await discussionService.searchDiscussions(
-              filters as Parameters<typeof discussionService.searchDiscussions>[0],
+              filters,
               parseInt(limit, 10),
               parseInt(offset, 10)
             )
@@ -248,7 +247,7 @@ export function registerDiscussionRoutes(
           try {
             const discussion = await discussionService.updateDiscussion(
               ctx.params.id,
-              ctx.body as Parameters<typeof discussionService.updateDiscussion>[1]
+              ctx.body
             )
             return { success: true, data: discussion }
           } catch (error) {
@@ -276,7 +275,8 @@ export function registerDiscussionRoutes(
 
         .post('/:id/start', async (ctx) => {
           try {
-            const startedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const startedBy: string = ctx.user.id
             const discussion = await discussionService.startDiscussion(ctx.params.id, startedBy)
             return { success: true, data: discussion }
           } catch (error) {
@@ -296,8 +296,9 @@ export function registerDiscussionRoutes(
 
         .post('/:id/end', async (ctx) => {
           try {
-            const endedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
-            const body = ctx.body as { reason?: string } | undefined
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const endedBy: string = ctx.user.id
+            const body: { reason?: string } | undefined = ctx.body
             const discussion = await discussionService.endDiscussion(ctx.params.id, endedBy, body?.reason)
             return { success: true, data: discussion }
           } catch (error) {
@@ -318,10 +319,11 @@ export function registerDiscussionRoutes(
 
         .post('/:id/participants', async (ctx) => {
           try {
-            const addedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const addedBy: string = ctx.user.id
             const result = await orchestrationService.addParticipant(
               ctx.params.id,
-              ctx.body as Parameters<typeof orchestrationService.addParticipant>[1],
+              ctx.body,
               addedBy
             )
             ctx.set.status = 201
@@ -347,7 +349,8 @@ export function registerDiscussionRoutes(
 
         .delete('/:id/participants/:pid', async (ctx) => {
           try {
-            const removedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const removedBy: string = ctx.user.id
             await discussionService.removeParticipant(ctx.params.id, ctx.params.pid, removedBy)
             return { success: true, message: 'Participant removed' }
           } catch (error) {
@@ -367,7 +370,8 @@ export function registerDiscussionRoutes(
 
         .post('/:id/participants/:pid/messages', async (ctx) => {
           try {
-            const body = ctx.body as { content: string; messageType?: string; metadata?: Record<string, unknown> }
+            // @ts-expect-error -- Elysia body shape validated by runtime schema; TypeScript cannot infer through nested groups
+            const body: { content: string; messageType?: string; metadata?: Record<string, unknown> } = ctx.body
             const sanitizedContent = stripHtmlTags(body.content)
             const result = await orchestrationService.sendMessage(
               ctx.params.id,
@@ -428,13 +432,15 @@ export function registerDiscussionRoutes(
 
         .post('/:id/advance-turn', async (ctx) => {
           try {
-            const role = normalizeRole((ctx as unknown as { user: { id: string; role?: string } }).user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const role = normalizeRole(ctx.user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
             if (role !== 'admin' && role !== 'moderator') {
               ctx.set.status = 403
               return { success: false, error: 'Only moderators can force-advance turns' }
             }
 
-            const forcedBy = (ctx as unknown as { user: { id: string; role?: string } }).user.id
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            const forcedBy: string = ctx.user.id
             await discussionService.advanceTurn(ctx.params.id, forcedBy)
             return { success: true, message: 'Turn advanced' }
           } catch (error) {
@@ -471,7 +477,7 @@ export function registerDiscussionRoutes(
 
         .post('/:id/turns/request', async (ctx) => {
           try {
-            const body = ctx.body as { participantId?: string; reason?: string } | undefined
+            const body: { participantId?: string; reason?: string } | undefined = ctx.body
             const participantId = body?.participantId
             if (!participantId) {
               ctx.set.status = 400
@@ -500,12 +506,12 @@ export function registerDiscussionRoutes(
 
         .post('/:id/huddle', async (ctx) => {
           try {
-            const body = ctx.body as {
+            const body: {
               initiatorId?: string
               participants?: string[]
               topic?: string
               context?: string
-            } | undefined
+            } | undefined = ctx.body
             const participantIds =
               body?.participants && body.participants.length > 0
                 ? body.participants
@@ -546,7 +552,7 @@ export function registerDiscussionRoutes(
 
         .post('/:id/huddles/:huddle_id/resolve', async (ctx) => {
           try {
-            const body = ctx.body as { summary?: string } | undefined
+            const body: { summary?: string } | undefined = ctx.body
             await orchestrationService.resolveHuddle(ctx.params.huddle_id, body?.summary || '')
             return { success: true, message: 'Huddle resolved' }
           } catch (error) {

@@ -6,7 +6,7 @@
 
 import { WebSocket, WebSocketServer } from 'ws';
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, ValidationError } from '@uaip/utils';
 import { validateServiceAccess, SERVICE_ACCESS_MATRIX, AccessLevel } from '@uaip/shared-services';
 import { config } from '../config/index.js';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -127,7 +127,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Validate server parameter before creating WebSocket server
     if (!server || typeof server !== 'object' || !server.listen) {
-      throw new Error('Invalid HTTP server provided to EnterpriseWebSocketHandler');
+      throw new ValidationError('Invalid HTTP server provided to EnterpriseWebSocketHandler');
     }
 
     // Create WebSocket server with Zero Trust configuration
@@ -213,7 +213,8 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   private async handleConnection(ws: WebSocket, req: UpgradeRequest): Promise<void> {
     const connectionId = this.generateConnectionId();
     const ipAddress = req.socket.remoteAddress;
-    const userAgent = req.headers['user-agent'] as string;
+    const userAgentRaw = req.headers['user-agent'];
+    const userAgent = Array.isArray(userAgentRaw) ? userAgentRaw[0] : (userAgentRaw ?? '');
 
     logger.info('New WebSocket connection attempt', {
       connectionId,
@@ -659,7 +660,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
       }
 
       if (!publishSuccess) {
-        throw new Error(`Failed to publish agent chat request after ${maxRetries} attempts`);
+        throw new ExternalServiceError(`Failed to publish agent chat request after ${maxRetries} attempts`);
       }
     } catch (error) {
       logger.error('Agent chat handling error', { connectionId, agentId, error });
@@ -701,34 +702,33 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
   private setupEventBusSubscriptions(): void {
     // Subscribe to discussion events
     this.eventBusService.subscribe('discussion.message.broadcast', async (event) => {
-      await this.broadcastToDiscussion(
-        (event.data as Record<string, unknown>).discussionId as string,
-        {
-          type: 'new_message',
-          payload: toPayloadRecord(event.data),
-        }
-      );
+      const raw = event.data;
+      const discussionId = typeof raw === 'object' && raw !== null && 'discussionId' in raw && typeof raw.discussionId === 'string' ? raw.discussionId : undefined;
+      if (!discussionId) return;
+      await this.broadcastToDiscussion(discussionId, {
+        type: 'new_message',
+        payload: toPayloadRecord(event.data),
+      });
     });
 
     this.eventBusService.subscribe('discussion.agent.response', async (event) => {
-      await this.broadcastToDiscussion(
-        (event.data as Record<string, unknown>).discussionId as string,
-        {
-          type: 'agent_response',
-          payload: toPayloadRecord(event.data),
-        }
-      );
+      const raw = event.data;
+      const discussionId = typeof raw === 'object' && raw !== null && 'discussionId' in raw && typeof raw.discussionId === 'string' ? raw.discussionId : undefined;
+      if (!discussionId) return;
+      await this.broadcastToDiscussion(discussionId, {
+        type: 'agent_response',
+        payload: toPayloadRecord(event.data),
+      });
     });
 
     // Subscribe to direct agent chat responses
     this.eventBusService.subscribe('agent.chat.response', async (event) => {
-      const { connectionId, agentId, response, agentName, ...metadata } = event.data as {
-        connectionId: string;
-        agentId: string;
-        response: string;
-        agentName: string;
-        [key: string]: unknown;
-      };
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const connectionId = 'connectionId' in raw && typeof raw.connectionId === 'string' ? raw.connectionId : undefined;
+      const agentId = 'agentId' in raw && typeof raw.agentId === 'string' ? raw.agentId : undefined;
+      const response = 'response' in raw && typeof raw.response === 'string' ? raw.response : undefined;
+      const agentName = 'agentName' in raw && typeof raw.agentName === 'string' ? raw.agentName : undefined;
 
       // Send response back to the specific connection
       if (connectionId && this.connections.has(connectionId)) {
@@ -738,7 +738,6 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
             agentId,
             response,
             agentName,
-            ...metadata,
           },
         });
 
@@ -752,7 +751,17 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Subscribe to auth responses for WebSocket authentication
     this.eventBusService.subscribe('security.auth.response', async (event) => {
-      const authData = event.data as AuthResponse;
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const authData: AuthResponse = {
+        valid: 'valid' in raw && typeof raw.valid === 'boolean' ? raw.valid : false,
+        userId: 'userId' in raw && typeof raw.userId === 'string' ? raw.userId : undefined,
+        sessionId: 'sessionId' in raw && typeof raw.sessionId === 'string' ? raw.sessionId : undefined,
+        securityLevel: 'securityLevel' in raw && typeof raw.securityLevel === 'number' ? raw.securityLevel : undefined,
+        complianceFlags: 'complianceFlags' in raw && Array.isArray(raw.complianceFlags) ? raw.complianceFlags.filter((f): f is string => typeof f === 'string') : undefined,
+        reason: 'reason' in raw && typeof raw.reason === 'string' ? raw.reason : undefined,
+        correlationId: 'correlationId' in raw && typeof raw.correlationId === 'string' ? raw.correlationId : undefined,
+      };
       const { correlationId } = authData;
 
       logger.info('Received security auth response', {
@@ -790,8 +799,13 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
 
     // Security events
     this.eventBusService.subscribe('security.alert', async (event) => {
-      // Handle security alerts that may affect WebSocket connections
-      const alertData = event.data as SecurityAlert;
+      const raw = event.data;
+      if (typeof raw !== 'object' || raw === null) return;
+      const alertData: SecurityAlert = {
+        type: 'type' in raw && typeof raw.type === 'string' ? raw.type : 'unknown',
+        userId: 'userId' in raw && typeof raw.userId === 'string' ? raw.userId : undefined,
+        severity: 'severity' in raw && typeof raw.severity === 'string' ? raw.severity : 'LOW',
+      };
       if (alertData.severity === 'HIGH' || alertData.severity === 'CRITICAL') {
         await this.handleSecurityAlert(alertData);
       }
@@ -1029,7 +1043,7 @@ export class EnterpriseWebSocketHandler extends EventEmitter {
     logger.error('WebSocket connection error', {
       connectionId,
       error: error.message,
-      code: (error as unknown as { code?: string }).code || 'unknown',
+      code: typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string' ? error.code : 'unknown',
       stack: error.stack,
     });
 

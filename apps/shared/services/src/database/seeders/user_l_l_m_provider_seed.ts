@@ -1,7 +1,13 @@
 import { getControlDb } from '../drizzle/clients/index';
-import { userLLMProviders } from '../../database/drizzle/schemas/control_schema';
+import {
+  userLLMProviders,
+  type UserLLMProvider,
+} from '../../database/drizzle/schemas/control_schema';
 import { BaseSeed } from './base_seed';
 import { logger } from '@uaip/utils';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type UserLLMProviderInsert = InferInsertModel<typeof userLLMProviders>;
 
 export class UserLLMProviderSeed extends BaseSeed {
   private db = getControlDb();
@@ -12,7 +18,7 @@ export class UserLLMProviderSeed extends BaseSeed {
     this.users = userIds.map((id) => ({ id, role: 'user' }));
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<UserLLMProvider[]> {
     logger.info(`Seeding ${this.entityName}...`);
 
     const seedData = await this.getSeedData();
@@ -20,7 +26,7 @@ export class UserLLMProviderSeed extends BaseSeed {
     for (const provider of seedData) {
       await this.db
         .insert(userLLMProviders)
-        .values(provider as any)
+        .values(provider)
         .onConflictDoNothing();
     }
 
@@ -28,8 +34,8 @@ export class UserLLMProviderSeed extends BaseSeed {
     return await this.db.select().from(userLLMProviders);
   }
 
-  async getSeedData(): Promise<any[]> {
-    const providers: any[] = [];
+  async getSeedData(): Promise<UserLLMProviderInsert[]> {
+    const providers: UserLLMProviderInsert[] = [];
 
     for (const user of this.users) {
       providers.push(...this.createLocalProviders(user.id));
@@ -43,7 +49,7 @@ export class UserLLMProviderSeed extends BaseSeed {
     return providers;
   }
 
-  private createLocalProviders(userId: string): any[] {
+  private createLocalProviders(userId: string): UserLLMProviderInsert[] {
     return [
       {
         userId,
@@ -78,7 +84,7 @@ export class UserLLMProviderSeed extends BaseSeed {
     ];
   }
 
-  private createBasicCloudProviders(userId: string, withApiKey: boolean): any[] {
+  private createBasicCloudProviders(userId: string, withApiKey: boolean): UserLLMProviderInsert[] {
     const apiKey = withApiKey ? 'demo-key-' + userId.slice(0, 8) : null;
     return [
       {

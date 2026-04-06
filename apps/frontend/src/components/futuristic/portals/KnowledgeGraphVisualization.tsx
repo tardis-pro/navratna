@@ -109,6 +109,16 @@ const KNOWLEDGE_NODE_STYLES = {
   },
 };
 
+type KnowledgeNodeColorKey = Exclude<keyof typeof KNOWLEDGE_NODE_STYLES, 'common'>;
+
+const isKnowledgeNodeColorKey = (v: string): v is KnowledgeNodeColorKey =>
+  v in KNOWLEDGE_NODE_STYLES && v !== 'common';
+
+const getKnowledgeNodeStyle = (knowledgeType: string): (typeof KNOWLEDGE_NODE_STYLES)[KnowledgeNodeColorKey] =>
+  isKnowledgeNodeColorKey(knowledgeType)
+    ? KNOWLEDGE_NODE_STYLES[knowledgeType]
+    : KNOWLEDGE_NODE_STYLES.default;
+
 const INITIAL_NODE_COUNT = 12;
 
 const getLayoutedElements = (
@@ -199,7 +209,8 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       if (onNodeSelect) onNodeSelect({ id: node.id, data: node.data });
 
       // Click-to-expand: find neighbors in the full dataset and add them to the graph
-      const currentNodes = getNodes() as KnowledgeNode[];
+      const getNodesAny: any = getNodes; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getNodes returns Node[]; KnowledgeNode extends Node with compatible data shape
+      const currentNodes: KnowledgeNode[] = getNodesAny();
       const currentNodeIds = new Set(currentNodes.map((n) => n.id));
 
       const connectedEdges = allFetchedEdgesRef.current.filter(
@@ -284,8 +295,8 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
           };
         };
 
-        const rawNodes = (apiGraphData.nodes || []) as ApiNode[];
-        const rawEdges = (apiGraphData.edges || []) as ApiEdge[];
+        const rawNodes: ApiNode[] = Array.isArray(apiGraphData.nodes) ? apiGraphData.nodes : [];
+        const rawEdges: ApiEdge[] = Array.isArray(apiGraphData.edges) ? apiGraphData.edges : [];
 
         graphData = {
           nodes: rawNodes.map((n) => ({
@@ -301,7 +312,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
               createdAt: n.properties?.createdAt || '',
               fullContent: n.properties?.fullContent || n.label || '',
             },
-          })) as KnowledgeNode[],
+          })) satisfies KnowledgeNode[],
           edges: rawEdges.map((e, i: number) => ({
             id: e.id || `edge-${i}-${e.source}-${e.target}`,
             source: e.source,
@@ -310,7 +321,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
               relationshipType: e.type || e.properties?.relationshipType || 'related',
               confidence: parseFloat(String(e.properties?.confidence ?? 0.8)),
             },
-          })) as KnowledgeEdge[],
+          })) satisfies KnowledgeEdge[],
           metadata: {
             totalNodes: rawNodes.length,
             totalEdges: rawEdges.length,
@@ -327,18 +338,16 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       }
 
       // Apply knowledge type styling to nodes
-      const styledNodes = graphData.nodes.map((node) => ({
+      const styledNodes: KnowledgeNode[] = graphData.nodes.map((node) => ({
         ...node,
-        type: 'default', // Ensure all nodes use React Flow's default type
+        type: 'default',
         style: {
           ...KNOWLEDGE_NODE_STYLES.common,
-          ...(KNOWLEDGE_NODE_STYLES[
-            node.data.knowledgeType as keyof typeof KNOWLEDGE_NODE_STYLES
-          ] || KNOWLEDGE_NODE_STYLES.default),
+          ...(getKnowledgeNodeStyle(node.data.knowledgeType)),
         },
       }));
 
-      const styledEdges = graphData.edges.map((edge) => ({
+      const styledEdges: KnowledgeEdge[] = graphData.edges.map((edge) => ({
         ...edge,
         animated: true,
         markerEnd: { type: MarkerType.ArrowClosed },
@@ -349,14 +358,14 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       }));
 
       // Store full dataset in refs for lazy click-to-expand
-      allFetchedNodesRef.current = styledNodes as KnowledgeNode[];
-      allFetchedEdgesRef.current = styledEdges as KnowledgeEdge[];
+      allFetchedNodesRef.current = styledNodes;
+      allFetchedEdgesRef.current = styledEdges;
       setTotalFetched(styledNodes.length);
 
       // Show only the first INITIAL_NODE_COUNT nodes as seeds
-      const initialNodes = (styledNodes as KnowledgeNode[]).slice(0, INITIAL_NODE_COUNT);
+      const initialNodes = styledNodes.slice(0, INITIAL_NODE_COUNT);
       const initialNodeIds = new Set(initialNodes.map((n) => n.id));
-      const initialEdges = (styledEdges as KnowledgeEdge[]).filter(
+      const initialEdges = styledEdges.filter(
         (e) => initialNodeIds.has(e.source) && initialNodeIds.has(e.target)
       );
 
@@ -384,10 +393,11 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     // Filter nodes based on search term
-    const allNodes = getNodes();
+    const getNodesAny2: any = getNodes; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getNodes returns Node[]; KnowledgeNode extends Node with compatible data shape
+    const allNodes: KnowledgeNode[] = getNodesAny2();
     if (term) {
       const _filteredNodes = allNodes.filter((node) => {
-        const d = (node as KnowledgeNode).data;
+        const d = node.data;
         return (
           d.label.toLowerCase().includes(term.toLowerCase()) ||
           d.tags.some((tag: string) => tag.toLowerCase().includes(term.toLowerCase()))
@@ -576,11 +586,7 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
                     className="ml-2"
                     style={{
                       backgroundColor:
-                        (
-                          KNOWLEDGE_NODE_STYLES[
-                            selectedNode.data.knowledgeType as keyof typeof KNOWLEDGE_NODE_STYLES
-                          ] as { backgroundColor?: string } | undefined
-                        )?.backgroundColor ?? '#64748b',
+                        getKnowledgeNodeStyle(selectedNode.data.knowledgeType).backgroundColor ?? '#64748b',
                     }}
                   >
                     {selectedNode.data.knowledgeType}

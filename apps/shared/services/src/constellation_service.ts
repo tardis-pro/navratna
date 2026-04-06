@@ -68,7 +68,14 @@ async function generateConstellationName(cluster: KnowledgeCluster): Promise<str
       return fallbackConstellationName(cluster)
     }
 
-    const response = await (llm as { generateResponse(r: { messages: { role: string; content: string }[]; maxTokens?: number }): Promise<{ content: string }> }).generateResponse({
+    type LLMWithGenerateResponse = { generateResponse: (opts: Record<string, unknown>) => Promise<{ content: string }> };
+    function isLLMWithGenerateResponse(v: object): v is LLMWithGenerateResponse {
+      return 'generateResponse' in v && typeof (v as { generateResponse: unknown }).generateResponse === 'function';
+    }
+    if (!isLLMWithGenerateResponse(llm)) {
+      return fallbackConstellationName(cluster)
+    }
+    const response = await llm.generateResponse({
       messages: [
         {
           role: 'user',
@@ -282,7 +289,7 @@ export async function getConstellations(
 
   const limitedConstellations = constellations.slice(0, limit).map((constellation) =>
     request.includeItems === false
-      ? { ...constellation, items: [] as ConstellationItem[] }
+      ? { ...constellation, items: new Array<ConstellationItem>() }
       : constellation
   )
 

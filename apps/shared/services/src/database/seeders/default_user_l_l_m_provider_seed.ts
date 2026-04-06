@@ -1,6 +1,9 @@
 import { getControlDb } from '../drizzle/clients/index';
 import { userLLMProviders } from '../../database/drizzle/schemas/control_schema';
 import { logger } from '@uaip/utils';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type UserLLMProviderInsert = InferInsertModel<typeof userLLMProviders>;
 
 export class DefaultUserLLMProviderSeed {
   static async createDefaultProvidersForUser(userId: string): Promise<void> {
@@ -10,7 +13,7 @@ export class DefaultUserLLMProviderSeed {
       for (const provider of providers) {
         await db
           .insert(userLLMProviders)
-          .values(provider as any)
+          .values(provider)
           .onConflictDoNothing();
       }
       logger.info(`Created default LLM providers for user: ${userId}`);
@@ -25,7 +28,7 @@ export class DefaultUserLLMProviderSeed {
     logger.info('DefaultUserLLMProviderSeed completed successfully');
   }
 
-  private static getDefaultProvidersForUser(userId: string): any[] {
+  private static getDefaultProvidersForUser(userId: string): UserLLMProviderInsert[] {
     return [
       {
         userId,

@@ -5,23 +5,7 @@ import {
   type WorkflowDefinition,
 } from '@uaip/shared-services/drizzle/control';
 import type { RepeatableJob, RepeatOptions } from '@uaip/types';
-import { logger } from '@uaip/utils';
-// BullMQ queue contract is an EventBusService internal implementation detail.
-interface RepeatableQueue {
-  add(
-    name: string,
-    data: Record<string, unknown>,
-    opts: { jobId: string; repeat: RepeatOptions; removeOnComplete: number; removeOnFail: number }
-  ): Promise<unknown>;
-  getRepeatableJobs(): Promise<RepeatableJob[]>;
-  removeRepeatableByKey(key: string): Promise<void>;
-}
-
-// Internal queue accessor is intentionally local to avoid leaking transport internals.
-interface EventBusWithInternalQueue {
-  getOrCreateQueue(eventType: string): RepeatableQueue;
-}
-
+import { logger, ValidationError } from '@uaip/utils';
 const WORKFLOW_QUEUE_EVENT = 'workflow.definition.trigger';
 
 export class WorkflowEngineService {
@@ -117,9 +101,8 @@ export class WorkflowEngineService {
     });
   }
 
-  private getQueue(): RepeatableQueue {
-    const eventBusWithQueue = this.eventBusService as unknown as EventBusWithInternalQueue;
-    return eventBusWithQueue.getOrCreateQueue(WORKFLOW_QUEUE_EVENT);
+  private getQueue() {
+    return this.eventBusService.getOrCreateQueue(WORKFLOW_QUEUE_EVENT);
   }
 
   private buildRepeatOptions(definition: WorkflowDefinition): RepeatOptions | null {
@@ -133,7 +116,7 @@ export class WorkflowEngineService {
     if (definition.trigger.kind === 'every') {
       const every = Number.parseInt(definition.trigger.expr, 10);
       if (!Number.isFinite(every) || every <= 0) {
-        throw new Error(`Invalid 'every' expression for workflow ${definition.id}: ${definition.trigger.expr}`);
+        throw new ValidationError(`Invalid 'every' expression for workflow ${definition.id}: ${definition.trigger.expr}`);
       }
 
       return { every };

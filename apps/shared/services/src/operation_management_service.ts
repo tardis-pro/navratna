@@ -30,7 +30,7 @@ export class OperationManagementService {
       const [row] = await this.db.insert(operations).values(operationData).returning();
       return row;
     } catch (error) {
-      this.logger.error('Failed to create operation', { error: (error as Error).message });
+      this.logger.error('Failed to create operation', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -45,7 +45,7 @@ export class OperationManagementService {
       return row ?? null;
     } catch (error) {
       this.logger.error('Failed to get operation', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         operationId,
       });
       throw error;
@@ -65,7 +65,7 @@ export class OperationManagementService {
       return row ?? null;
     } catch (error) {
       this.logger.error('Failed to update operation', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         operationId,
       });
       throw error;
@@ -79,7 +79,7 @@ export class OperationManagementService {
       const [row] = await this.db.insert(operationStates).values(stateData).returning();
       return row;
     } catch (error) {
-      this.logger.error('Failed to create operation state', { error: (error as Error).message });
+      this.logger.error('Failed to create operation state', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -97,7 +97,7 @@ export class OperationManagementService {
       return row ?? null;
     } catch (error) {
       this.logger.error('Failed to update operation state', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         operationId,
       });
       throw error;
@@ -111,7 +111,7 @@ export class OperationManagementService {
       const [row] = await this.db.insert(operationCheckpoints).values(checkpointData).returning();
       return row;
     } catch (error) {
-      this.logger.error('Failed to create checkpoint', { error: (error as Error).message });
+      this.logger.error('Failed to create checkpoint', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -125,7 +125,7 @@ export class OperationManagementService {
         .orderBy(desc(operationCheckpoints.createdAt));
     } catch (error) {
       this.logger.error('Failed to get checkpoints', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         operationId,
       });
       throw error;
@@ -137,7 +137,7 @@ export class OperationManagementService {
       const [row] = await this.db.insert(stepResults).values(stepResultData).returning();
       return row;
     } catch (error) {
-      this.logger.error('Failed to create step result', { error: (error as Error).message });
+      this.logger.error('Failed to create step result', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -151,7 +151,7 @@ export class OperationManagementService {
         .orderBy(asc(stepResults.createdAt));
     } catch (error) {
       this.logger.error('Failed to get step results', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         operationId,
       });
       throw error;
@@ -167,18 +167,18 @@ export class OperationManagementService {
         .orderBy(desc(operations.createdAt));
     } catch (error) {
       this.logger.error('Failed to get operations by status', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         status,
       });
       throw error;
     }
   }
 
-  private readonly activeStatuses = [
+  private readonly activeStatuses: OperationStatus[] = [
     OperationStatus.RUNNING,
     OperationStatus.PENDING,
     OperationStatus.PAUSED,
-  ] as OperationStatus[];
+  ];
 
   async getActiveOperations(): Promise<OperationRow[]> {
     try {
@@ -188,7 +188,7 @@ export class OperationManagementService {
         .where(inArray(operations.status, this.activeStatuses))
         .orderBy(desc(operations.createdAt));
     } catch (error) {
-      this.logger.error('Failed to get active operations', { error: (error as Error).message });
+      this.logger.error('Failed to get active operations', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -204,7 +204,7 @@ export class OperationManagementService {
         .orderBy(asc(operations.updatedAt));
     } catch (error) {
       this.logger.error('Failed to find stale operations', {
-        error: (error as Error).message,
+        error: error instanceof Error ? error.message : String(error),
         cutoffDate,
       });
       throw error;

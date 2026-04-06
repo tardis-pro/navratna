@@ -28,7 +28,8 @@ const projects = gatewayClient.api.v1.projects;
 
 export const projectsAPI = {
   async list(options?: ProjectListOptions): Promise<Project[]> {
-    return edenWithCSRFRetry(() => projects.get({ query: options as unknown as Record<string, unknown> }));
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
+    return edenWithCSRFRetry(() => projects.get({ query }));
   },
 
   async get(id: string): Promise<Project> {

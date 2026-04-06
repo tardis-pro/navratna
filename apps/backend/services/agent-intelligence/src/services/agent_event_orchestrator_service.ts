@@ -15,7 +15,7 @@ import {
   EventBusMessage,
   ExecutionPlan,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import type { AgentCoreService } from './agent_core_service';
@@ -194,8 +194,11 @@ export class AgentEventOrchestrator {
           executionContext: {
             agentId: request.agentId,
             userId,
-            environment:
-              (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
+              environment: ((): 'development' | 'staging' | 'production' => {
+                const env = process.env.NODE_ENV;
+                if (env === 'development' || env === 'staging' || env === 'production') return env;
+                return 'development';
+              })(),
             metadata: request.context,
             timeout: request.timeout || 300000,
             resourceLimits: {
@@ -291,7 +294,7 @@ export class AgentEventOrchestrator {
         case 'performance_optimization':
           return await this.executePerformanceOptimizationWorkflow(agentId, parameters, workflowId);
         default:
-          throw new Error(`Unknown workflow type: ${workflowType}`);
+          throw new ValidationError(`Unknown workflow type: ${workflowType}`);
       }
     } catch (error) {
       logger.error('Failed to execute agent workflow', {
@@ -511,7 +514,7 @@ export class AgentEventOrchestrator {
       });
 
       if (!response.ok) {
-        throw new Error(
+        throw new InternalServerError(
           `Orchestration pipeline request failed: ${response.status} ${response.statusText}`
         );
       }
@@ -524,12 +527,12 @@ export class AgentEventOrchestrator {
       if (!success) {
         const errorMessage =
           typeof resultError['message'] === 'string' ? resultError['message'] : 'Unknown error';
-        throw new Error(`Orchestration pipeline error: ${errorMessage}`);
+        throw new InternalServerError(`Orchestration pipeline error: ${errorMessage}`);
       }
 
       const workflowInstanceId = resultData['workflowInstanceId'];
       if (typeof workflowInstanceId !== 'string') {
-        throw new Error('Orchestration pipeline response missing workflowInstanceId');
+        throw new InternalServerError('Orchestration pipeline response missing workflowInstanceId');
       }
 
       return workflowInstanceId;
@@ -543,7 +546,7 @@ export class AgentEventOrchestrator {
   }
 
   private estimateOperationDuration(operationType: string): number {
-    const baseDurations = {
+    const baseDurations: Record<string, number> = {
       analyze: 30000, // 30 seconds
       plan: 60000, // 1 minute
       learn: 45000, // 45 seconds
@@ -552,7 +555,7 @@ export class AgentEventOrchestrator {
       metrics: 10000, // 10 seconds
     };
 
-    return (baseDurations as Record<string, number>)[operationType] || 30000;
+    return baseDurations[operationType] ?? 30000;
   }
 
   private async registerCapabilities(): Promise<void> {
@@ -592,7 +595,7 @@ export class AgentEventOrchestrator {
       // Step 1: Get agent data
       const agent = await this.requestFromService('agent.query.get', { agentId });
       if (!agent.success) {
-        throw new Error(`Failed to get agent: ${agent.error}`);
+        throw new InternalServerError(`Failed to get agent: ${agent.error}`);
       }
 
       // Step 2: Analyze context
@@ -1060,7 +1063,7 @@ export class AgentEventOrchestrator {
   public async getOperationStatus(operationId: string): Promise<unknown> {
     const activeOp = this.activeOperations.get(operationId);
     if (!activeOp) {
-      throw new Error(`Operation not found: ${operationId}`);
+      throw new NotFoundError(`Operation not found: ${operationId}`);
     }
 
     return {
@@ -1088,7 +1091,7 @@ export class AgentEventOrchestrator {
   public async cancelOperation(operationId: string, reason: string): Promise<void> {
     const activeOp = this.activeOperations.get(operationId);
     if (!activeOp) {
-      throw new Error(`Operation not found: ${operationId}`);
+      throw new NotFoundError(`Operation not found: ${operationId}`);
     }
 
     try {
@@ -1106,7 +1109,7 @@ export class AgentEventOrchestrator {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to cancel operation: ${response.status} ${response.statusText}`);
+        throw new InternalServerError(`Failed to cancel operation: ${response.status} ${response.statusText}`);
       }
 
       // Update local status
@@ -1161,7 +1164,11 @@ export class AgentEventOrchestrator {
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+    return this.isRecord(value) ? value : {};
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 
   private getContextString(

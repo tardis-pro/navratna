@@ -9,7 +9,12 @@ import {
   type NewPersona,
 } from '../drizzle/schemas/intelligence_schema';
 import { logger } from '@uaip/utils';
-import { PersonaStatus, PersonaVisibility } from '@uaip/types';
+import { AgentRole, PersonaStatus, PersonaVisibility } from '@uaip/types';
+
+const AGENT_ROLE_VALUES: string[] = Object.values(AgentRole);
+function isAgentRole(v: string): v is AgentRow['role'] {
+  return AGENT_ROLE_VALUES.includes(v);
+}
 
 export class AgentRepository {
   private get db() {
@@ -21,7 +26,7 @@ export class AgentRepository {
       const [row] = await this.db.select().from(agents).where(eq(agents.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('AgentRepository.findById failed', { id, error: (error as Error).message });
+      logger.error('AgentRepository.findById failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -30,14 +35,14 @@ export class AgentRepository {
     try {
       const clauses = [];
       if (conditions.isActive !== undefined) clauses.push(eq(agents.isActive, conditions.isActive));
-      if (conditions.role !== undefined) clauses.push(eq(agents.role, conditions.role as AgentRow['role']));
+      if (conditions.role !== undefined && isAgentRole(conditions.role)) clauses.push(eq(agents.role, conditions.role));
       if (conditions.status !== undefined) clauses.push(eq(agents.status, conditions.status));
       const query = this.db.select().from(agents);
       return clauses.length > 0
-        ? query.where(and(...(clauses as [ReturnType<typeof eq>, ...ReturnType<typeof eq>[]])))
+        ? query.where(and(...clauses))
         : query.orderBy(desc(agents.createdAt));
     } catch (error) {
-      logger.error('AgentRepository.findMany failed', { error: (error as Error).message });
+      logger.error('AgentRepository.findMany failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -47,7 +52,7 @@ export class AgentRepository {
       const [row] = await this.db.insert(agents).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('AgentRepository.createAgent failed', { error: (error as Error).message });
+      logger.error('AgentRepository.createAgent failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -57,7 +62,7 @@ export class AgentRepository {
       const [row] = await this.db.update(agents).set(data).where(eq(agents.id, id)).returning();
       return row ?? null;
     } catch (error) {
-      logger.error('AgentRepository.updateAgent failed', { id, error: (error as Error).message });
+      logger.error('AgentRepository.updateAgent failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -67,7 +72,7 @@ export class AgentRepository {
       const result = await this.db.delete(agents).where(eq(agents.id, id));
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
-      logger.error('AgentRepository.deleteAgent failed', { id, error: (error as Error).message });
+      logger.error('AgentRepository.deleteAgent failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -77,7 +82,7 @@ export class AgentRepository {
       const result = await this.db.select({ count: agents.id }).from(agents);
       return result.length;
     } catch (error) {
-      logger.error('AgentRepository.count failed', { error: (error as Error).message });
+      logger.error('AgentRepository.count failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -93,7 +98,7 @@ export class PersonaRepository {
       const [row] = await this.db.select().from(personas).where(eq(personas.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('PersonaRepository.findById failed', { id, error: (error as Error).message });
+      logger.error('PersonaRepository.findById failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -107,7 +112,7 @@ export class PersonaRepository {
         .limit(options.limit ?? 100)
         .offset(options.offset ?? 0);
     } catch (error) {
-      logger.error('PersonaRepository.findAll failed', { error: (error as Error).message });
+      logger.error('PersonaRepository.findAll failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -123,7 +128,7 @@ export class PersonaRepository {
         .limit(options.limit ?? 50)
         .offset(options.offset ?? 0);
     } catch (error) {
-      logger.error('PersonaRepository.search failed', { error: (error as Error).message });
+      logger.error('PersonaRepository.search failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -133,7 +138,7 @@ export class PersonaRepository {
       const [row] = await this.db.insert(personas).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('PersonaRepository.createPersona failed', { error: (error as Error).message });
+      logger.error('PersonaRepository.createPersona failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -143,7 +148,7 @@ export class PersonaRepository {
       const [row] = await this.db.update(personas).set(data).where(eq(personas.id, id)).returning();
       return row ?? null;
     } catch (error) {
-      logger.error('PersonaRepository.updatePersona failed', { id, error: (error as Error).message });
+      logger.error('PersonaRepository.updatePersona failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -153,7 +158,7 @@ export class PersonaRepository {
       const result = await this.db.delete(personas).where(eq(personas.id, id));
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
-      logger.error('PersonaRepository.deletePersona failed', { id, error: (error as Error).message });
+      logger.error('PersonaRepository.deletePersona failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -162,7 +167,7 @@ export class PersonaRepository {
     try {
       return this.db.select().from(personas).where(eq(personas.createdBy, createdBy)).orderBy(desc(personas.createdAt));
     } catch (error) {
-      logger.error('PersonaRepository.findByCreator failed', { error: (error as Error).message });
+      logger.error('PersonaRepository.findByCreator failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -188,7 +193,7 @@ export class PersonaRepository {
       }).returning();
       return created;
     } catch (error) {
-      logger.error('PersonaRepository.getOrCreateDefaultPersona failed', { error: (error as Error).message });
+      logger.error('PersonaRepository.getOrCreateDefaultPersona failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

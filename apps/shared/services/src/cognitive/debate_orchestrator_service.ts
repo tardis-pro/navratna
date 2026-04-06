@@ -3,6 +3,7 @@ import {
   Argument,
   Vote,
   Stance,
+  StanceSchema,
   ConsensusResult,
   DebateConfig,
   DEFAULT_DEBATE_CONFIG,
@@ -13,9 +14,20 @@ import { EventBusService } from '../event_bus_service';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 
-// Regex for parsing debate outputs
 const ARGUMENT_REGEX = /\[ARGUMENT\s+stance="(\w+)"\]([\s\S]*?)\[\/ARGUMENT\]/;
 const VOTE_REGEX = /\[VOTE\s+stance="(\w+)"\]([\s\S]*?)\[\/VOTE\]/;
+
+type DebateEventData = { debateId: string; agentId: string; content: string };
+
+function isDebateEventData(v: unknown): v is DebateEventData {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'debateId' in v && typeof v.debateId === 'string' &&
+    'agentId' in v && typeof v.agentId === 'string' &&
+    'content' in v && typeof v.content === 'string'
+  );
+}
 
 export class DebateOrchestratorService {
   private static instance: DebateOrchestratorService;
@@ -37,15 +49,18 @@ export class DebateOrchestratorService {
   }
 
   private setupEventHandlers(): void {
-    // Listen for debate-related events
     this.eventBus.subscribe('debate.argument.submitted', async (event) => {
-      const data = event.data as { debateId: string; agentId: string; content: string };
-      await this.handleArgumentSubmission(data);
+      const raw: unknown = event.data;
+      if (isDebateEventData(raw)) {
+        await this.handleArgumentSubmission(raw);
+      }
     });
 
     this.eventBus.subscribe('debate.vote.submitted', async (event) => {
-      const data = event.data as { debateId: string; agentId: string; content: string };
-      await this.handleVoteSubmission(data);
+      const raw: unknown = event.data;
+      if (isDebateEventData(raw)) {
+        await this.handleVoteSubmission(raw);
+      }
     });
   }
 
@@ -204,7 +219,9 @@ export class DebateOrchestratorService {
     const match = ARGUMENT_REGEX.exec(content);
     if (!match) return null;
 
-    const [, stance, body] = match;
+    const [, stanceRaw, body] = match;
+    const parsedStance = StanceSchema.safeParse(stanceRaw);
+    if (!parsedStance.success) return null;
 
     const claimMatch = body.match(/Claim:\s*(.+?)(?=Evidence:|$)/s);
     const evidenceMatch = body.match(/Evidence:\s*([\s\S]*?)(?=Reasoning:|$)/);
@@ -220,7 +237,7 @@ export class DebateOrchestratorService {
     return {
       id: uuidv4(),
       agentId,
-      stance: stance as Stance,
+      stance: parsedStance.data,
       claim: claimMatch?.[1]?.trim() || '',
       evidence,
       reasoning: reasoningMatch?.[1]?.trim() || '',
@@ -309,11 +326,13 @@ export class DebateOrchestratorService {
     const match = VOTE_REGEX.exec(content);
     if (!match) return null;
 
-    const [, stance, body] = match;
+    const [, stanceRaw, body] = match;
+    const parsedStance = StanceSchema.safeParse(stanceRaw);
+    if (!parsedStance.success) return null;
     const reasoningMatch = body.match(/Reasoning:\s*(.+?)(?=Confidence:|$)/s);
     return {
       agentId,
-      stance: stance as Stance,
+      stance: parsedStance.data,
       weight: 1, // Could be modified by expertise weighting
       reasoning: reasoningMatch?.[1]?.trim(),
       timestamp: Date.now(),

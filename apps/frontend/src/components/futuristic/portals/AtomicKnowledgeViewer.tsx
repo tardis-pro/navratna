@@ -242,12 +242,12 @@ export const AtomicKnowledgeViewer: React.FC<AtomicKnowledgeViewerProps> = ({
     ]);
     const wordCounts = words
       .filter((word) => word.length > 3 && !commonWords.has(word))
-      .reduce(
+      .reduce<Record<string, number>>(
         (acc, word) => {
           acc[word] = (acc[word] || 0) + 1;
           return acc;
         },
-        {} as Record<string, number>
+        {}
       );
 
     return Object.entries(wordCounts)

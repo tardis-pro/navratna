@@ -187,12 +187,14 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
   // Listen for custom portal events
   useEffect(() => {
     const handleOpen = (e: Event) => {
-      const detail = (e as CustomEvent<PortalOpenDetail>).detail;
+      if (!(e instanceof CustomEvent)) return;
+      const detail: PortalOpenDetail = e.detail;
       syncPortalToBudget(detail);
     };
 
     const handleClose = (e: Event) => {
-      const detail = (e as CustomEvent<PortalCloseDetail>).detail;
+      if (!(e instanceof CustomEvent)) return;
+      const detail: PortalCloseDetail = e.detail;
       removePortal(detail.id);
     };
 
@@ -270,14 +272,16 @@ export function useRedlineGauge(maxBudget: number = 4): UseRedlineGaugeReturn {
   // Listen for external events to keep local state in sync
   useEffect(() => {
     const handleOpen = (e: Event) => {
-      const detail = (e as CustomEvent<PortalOpenDetail>).detail;
+      if (!(e instanceof CustomEvent)) return;
+      const detail: PortalOpenDetail = e.detail;
       setPortals((prev) => {
         return appendUniquePortal(prev, detail, maxBudget);
       });
     };
 
     const handleClose = (e: Event) => {
-      const detail = (e as CustomEvent<PortalCloseDetail>).detail;
+      if (!(e instanceof CustomEvent)) return;
+      const detail: PortalCloseDetail = e.detail;
       setPortals((prev) => prev.filter((p) => p.id !== detail.id));
     };
 

@@ -104,6 +104,8 @@ export class ContentClassifier {
       [KnowledgeType.EPISODIC]: this.calculateKeywordScore(content, this.episodicKeywords),
       [KnowledgeType.SEMANTIC]: this.calculateKeywordScore(content, this.semanticKeywords),
       [KnowledgeType.FACTUAL]: 0.5, // Default baseline
+      [KnowledgeType.REPO_CONTEXT]: 0,
+      [KnowledgeType.CODE_SYMBOL]: 0,
     };
 
     // Additional heuristics
@@ -126,8 +128,8 @@ export class ContentClassifier {
     }
 
     // Return the type with the highest score
-    const [topType] = (Object.entries(scores) as [KnowledgeType, number][]).reduce((a, b) =>
-      a[1] > b[1] ? a : b
+    const topType = Object.values(KnowledgeType).reduce((best, key) =>
+      scores[key] > scores[best] ? key : best
     );
 
     return topType;

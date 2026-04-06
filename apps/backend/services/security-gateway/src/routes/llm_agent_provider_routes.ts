@@ -74,7 +74,7 @@ export function registerLLMAgentProviderRoutes() {
           logger.error('Error storing agent LLM API key', {
             error,
             userId: user.id,
-            provider: (body as Record<string, unknown>)?.provider,
+            provider: validation.data.provider,
           });
           set.status = 500;
           return { success: false, error: 'Failed to store API key' };

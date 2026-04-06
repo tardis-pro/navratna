@@ -1,21 +1,35 @@
 import type { UserContext } from '@uaip/types';
 
+import { AuthenticationError } from '@uaip/utils';
+
 interface ContextWithUser {
   user: UserContext;
   [key: string]: unknown;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isContextWithUser(ctx: unknown): ctx is ContextWithUser {
+  return (
+    isRecord(ctx) &&
+    'user' in ctx &&
+    typeof ctx['user'] === 'object' &&
+    ctx['user'] !== null
+  );
+}
+
 export function getAuthUser(ctx: unknown): UserContext {
-  const context = ctx as ContextWithUser;
-  if (!context.user?.id) {
-    throw new Error('Authentication required: no user in context');
+  if (!isContextWithUser(ctx) || !ctx.user.id) {
+    throw new AuthenticationError('Authentication required: no user in context');
   }
-  return context.user;
+  return ctx.user;
 }
 
 export function getOptionalAuthUser(ctx: unknown): UserContext | null {
-  const context = ctx as ContextWithUser;
-  return context.user?.id ? context.user : null;
+  if (!isContextWithUser(ctx)) return null;
+  return ctx.user.id ? ctx.user : null;
 }
 
 export function getErrorMessage(error: unknown): string {

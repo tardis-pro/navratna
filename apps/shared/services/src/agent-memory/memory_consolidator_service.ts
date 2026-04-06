@@ -306,14 +306,12 @@ export class MemoryConsolidator {
     const extractedConcepts = new Map<string, { concept: string; definition: string }>();
 
     for (const interaction of interactions) {
-      const context = interaction.context as Record<string, unknown> | undefined;
+      const context = interaction.context;
       const textSources = [
         interaction.description,
-        context?.response,
-        ...((interaction.outcomes || []) as Array<{ description?: string }>).map((outcome) => {
-          return outcome?.description || outcome;
-        }),
-        ...((interaction.learnings || []) as string[]),
+        typeof context?.response === 'string' ? context.response : undefined,
+        ...(interaction.outcomes ?? []).map((outcome) => outcome?.description),
+        ...(interaction.learnings ?? []),
       ]
         .filter((source) => typeof source === 'string')
         .map((source) => String(source));
@@ -370,10 +368,9 @@ export class MemoryConsolidator {
         currentGroup.push(interaction);
       } else {
         const lastInteraction = currentGroup[currentGroup.length - 1];
-        const interactionRecord = interaction;
         const timeDiff =
-          (interactionRecord.timestamp as Date).getTime() -
-          (lastInteraction.timestamp as Date).getTime();
+          interaction.timestamp.getTime() -
+          lastInteraction.timestamp.getTime();
 
         // Group interactions within 30 minutes of each other
         if (timeDiff < 30 * 60 * 1000) {
@@ -415,25 +412,19 @@ export class MemoryConsolidator {
       episodeId: `episode-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: this.determineEpisodeType(interactions),
       context: {
-        when: firstInteraction.timestamp as Date,
-        where: (firstContext?.location as string) || 'digital',
-        who: [...new Set(interactions.flatMap((i) => (i.participants as string[]) || []))],
+        when: firstInteraction.timestamp,
+        where: typeof firstContext?.location === 'string' ? firstContext.location : 'digital',
+        who: [...new Set(interactions.flatMap((i) => i.participants))],
         what: this.summarizeInteractions(interactions),
         why: this.inferPurpose(interactions, workingMemory),
         how: this.inferMethod(interactions),
       },
       experience: {
-        actions: interactions.flatMap((i) => (i.actions as Episode['experience']['actions']) || []),
-        decisions: interactions.flatMap(
-          (i) => (i.decisions as Episode['experience']['decisions']) || []
-        ),
-        outcomes: interactions.flatMap(
-          (i) => (i.outcomes as Episode['experience']['outcomes']) || []
-        ),
-        emotions: interactions.map(
-          (i) => i.emotionalResponse as Episode['experience']['emotions'][0]
-        ),
-        learnings: interactions.flatMap((i) => (i.learnings as string[]) || []),
+        actions: interactions.flatMap((i) => i.actions ?? []),
+        decisions: interactions.flatMap((i) => i.decisions ?? []),
+        outcomes: interactions.flatMap((i) => i.outcomes ?? []),
+        emotions: interactions.map((i) => i.emotionalResponse),
+        learnings: interactions.flatMap((i) => i.learnings ?? []),
       },
       significance: {
         importance: Math.min((avgImpact + avgEmotionalIntensity) / 2, 1.0),

@@ -49,6 +49,6 @@ vi.spyOn(process, 'on').mockImplementation(
     if (event === 'SIGTERM' || event === 'SIGINT') {
       return process;
     }
-    return originalOn(event as NodeJS.Signals, listener as (...args: unknown[]) => void);
+    return originalOn(event, listener);
   }
 );

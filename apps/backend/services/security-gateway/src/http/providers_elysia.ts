@@ -4,8 +4,39 @@ import { logger } from '@uaip/utils';
 import { UserService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { z } from 'zod';
-import { LLMProviderStatus } from '@uaip/types';
+import { LLMProviderStatus, LLMProviderType, CreateLLMProviderRequest } from '@uaip/types';
 import { llmProviderManagementService } from '../services/llm_provider_management_service.js';
+
+function toCreateLLMProviderRequest(parsed: {
+  name?: string;
+  type?: LLMProviderType;
+  baseUrl?: string;
+  description?: string;
+  apiKey?: string;
+  defaultModel?: string;
+  configuration?: {
+    timeout?: number;
+    retries?: number;
+    rateLimit?: number;
+    headers?: Record<string, string>;
+    customEndpoints?: { models?: string; chat?: string; completions?: string };
+  };
+  priority?: number;
+}): CreateLLMProviderRequest {
+  if (!parsed.name) throw new Error('name is required');
+  if (!parsed.type) throw new Error('type is required');
+  if (!parsed.baseUrl) throw new Error('baseUrl is required');
+  return {
+    name: parsed.name,
+    type: parsed.type,
+    baseUrl: parsed.baseUrl,
+    description: parsed.description,
+    apiKey: parsed.apiKey,
+    defaultModel: parsed.defaultModel,
+    configuration: parsed.configuration,
+    priority: parsed.priority,
+  };
+}
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
 
@@ -13,7 +44,7 @@ import { getAuthUser, getErrorMessage } from './context_helpers.js';
 const createUserProviderSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(500).optional(),
-  type: z.enum(['openai', 'anthropic', 'google', 'ollama', 'llmstudio', 'custom']),
+  type: z.nativeEnum(LLMProviderType),
   baseUrl: z.string().url().optional(),
   apiKey: z.string().optional(),
   defaultModel: z.string().max(255).optional(),
@@ -61,8 +92,29 @@ const updateUserProviderSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const createManagedProviderSchema = createUserProviderSchema.extend({
+const createManagedProviderSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().max(500).optional(),
+  type: z.nativeEnum(LLMProviderType),
   baseUrl: z.string().url(),
+  apiKey: z.string().optional(),
+  defaultModel: z.string().max(255).optional(),
+  configuration: z
+    .object({
+      timeout: z.number().min(1000).optional(),
+      retries: z.number().min(0).max(10).optional(),
+      rateLimit: z.number().min(1).optional(),
+      headers: z.record(z.string()).optional(),
+      customEndpoints: z
+        .object({
+          models: z.string().optional(),
+          chat: z.string().optional(),
+          completions: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  priority: z.number().min(0).optional(),
 });
 
 const ROLE_LIMITS: Record<string, number> = {
@@ -127,9 +179,8 @@ export function registerProviderRoutes() {
           const user = getAuthUser(ctx);
           const { set, body } = ctx;
           try {
-            const parsedBody = createManagedProviderSchema.parse(body);
+            const parsedBody = toCreateLLMProviderRequest(createManagedProviderSchema.parse(body));
             const created = await llmProviderManagementService.createProvider(
-              // @ts-expect-error -- Argument type mismatch
               parsedBody,
               user!.id
             );
@@ -242,21 +293,21 @@ export function registerProviderRoutes() {
               .getUserLLMProviderRepository()
               .findActiveByUserId(user!.id);
             const llmProviderRepo = UserService.getInstance().getLLMProviderRepository();
-            const active = await Promise.all(
-              userProviders.map(async (up) => {
-                const provider = await llmProviderRepo.findById(up.providerId);
-                return {
-                  id: up.id,
-                  providerId: up.providerId,
-                  name: provider?.name ?? 'Unknown',
-                  type: provider?.type ?? 'custom',
-                  defaultModel: provider?.defaultModel ?? null,
-                  priority: provider?.priority ?? 0,
-                  hasApiKey: Boolean(up.apiKeyEncrypted),
-                  isDefault: up.isDefault,
-                };
-              })
-            );
+            const providers = userProviders.length > 0 ? await llmProviderRepo.findMany() : [];
+            const providerMap = new Map(providers.map((p) => [p.id, p]));
+            const active = userProviders.map((up) => {
+              const provider = providerMap.get(up.providerId);
+              return {
+                id: up.id,
+                providerId: up.providerId,
+                name: provider?.name ?? 'Unknown',
+                type: provider?.type ?? 'custom',
+                defaultModel: provider?.defaultModel ?? null,
+                priority: provider?.priority ?? 0,
+                hasApiKey: Boolean(up.apiKeyEncrypted),
+                isDefault: up.isDefault,
+              };
+            });
             return { success: true, data: active };
           } catch (error) {
             logger.error('Error getting active user LLM providers', { error });
@@ -565,8 +616,7 @@ function toSafeProvider(provider: Record<string, unknown>) {
     status: provider.status,
     isActive: provider.isActive,
     priority: provider.priority,
-    // @ts-expect-error -- Not callable
-    hasApiKey: provider.hasApiKey?.() ?? false,
+    hasApiKey: Boolean(provider.apiKeyEncrypted),
     totalTokensUsed: provider.totalTokensUsed,
     totalRequests: provider.totalRequests,
     totalErrors: provider.totalErrors,

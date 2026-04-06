@@ -44,6 +44,17 @@ export interface PlanCapabilityResolutionResult {
   unresolvedSteps: string[];
 }
 
+const TOOL_CATEGORIES: string[] = Object.values(ToolCategory);
+const SECURITY_LEVELS: string[] = Object.values(SecurityLevel);
+
+function isToolCategory(v: unknown): v is ToolCategory {
+  return typeof v === 'string' && TOOL_CATEGORIES.includes(v);
+}
+
+function isSecurityLevel(v: unknown): v is SecurityLevel {
+  return typeof v === 'string' && SECURITY_LEVELS.includes(v);
+}
+
 const STEP_TYPE_TO_CATEGORY: Readonly<Record<string, ToolCategory>> = {
   api: ToolCategory.API,
   http: ToolCategory.API,
@@ -377,34 +388,30 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       return null;
     }
 
-    const category =
-      'category' in row && typeof row.category === 'string'
-        ? (row.category as ToolCategory)
-        : ToolCategory.ANALYSIS;
+    const category = isToolCategory(row.category) ? row.category : ToolCategory.ANALYSIS;
 
-    const securityLevel =
-      'securityLevel' in row && typeof row.securityLevel === 'string'
-        ? (row.securityLevel as SecurityLevel)
-        : SecurityLevel.MEDIUM;
+    const securityLevel = isSecurityLevel(row.securityLevel)
+      ? row.securityLevel
+      : SecurityLevel.MEDIUM;
 
-    const parameters: JSONSchema =
-      'parameters' in row &&
-      row.parameters !== null &&
-      typeof row.parameters === 'object' &&
-      !Array.isArray(row.parameters)
-        ? (row.parameters as JSONSchema)
-        : { type: 'object', properties: {} };
+    function isJSONSchema(v: unknown): v is JSONSchema {
+      return typeof v === 'object' && v !== null && !Array.isArray(v);
+    }
 
-    const returnType: JSONSchema =
-      'returnType' in row &&
-      row.returnType !== null &&
-      typeof row.returnType === 'object' &&
-      !Array.isArray(row.returnType)
-        ? (row.returnType as JSONSchema)
-        : { type: 'object' };
+    const parametersRaw: unknown = 'parameters' in row ? row.parameters : undefined;
+    const parameters: JSONSchema = isJSONSchema(parametersRaw)
+      ? parametersRaw
+      : { type: 'object', properties: {} };
+
+    const returnTypeRaw: unknown = 'returnType' in row ? row.returnType : undefined;
+    const returnType: JSONSchema = isJSONSchema(returnTypeRaw)
+      ? returnTypeRaw
+      : { type: 'object' };
 
     const examples: ToolExample[] = Array.isArray(row.examples)
-      ? (row.examples as ToolExample[])
+      ? row.examples.filter(
+          (e): e is ToolExample => typeof e === 'object' && e !== null
+        )
       : [];
 
     const costEstimateRaw =
@@ -424,7 +431,7 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
 
     const dependencies =
       'dependencies' in row && Array.isArray(row.dependencies)
-        ? (row.dependencies as string[])
+        ? row.dependencies.filter((d): d is string => typeof d === 'string')
         : [];
 
     const version =
@@ -434,7 +441,9 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       'author' in row && typeof row.author === 'string' ? row.author : 'tool-registry';
 
     const tags =
-      'tags' in row && Array.isArray(row.tags) ? (row.tags as string[]) : [];
+      'tags' in row && Array.isArray(row.tags)
+        ? row.tags.filter((t): t is string => typeof t === 'string')
+        : [];
 
     return {
       id: row.id,

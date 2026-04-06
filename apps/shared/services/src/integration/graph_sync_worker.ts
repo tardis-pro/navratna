@@ -75,7 +75,7 @@ export class GraphSyncWorker {
     });
 
     const batch: GraphSyncBatch = {
-      events: events.map((e) => this.mapEntityToEvent(e as unknown as IntegrationEventEntity)),
+      events: events.map((e) => this.mapEntityToEvent(e)),
       batchId,
       startTime: new Date(),
     };
@@ -388,19 +388,8 @@ export class GraphSyncWorker {
   /**
    * Map entity to IntegrationEvent interface
    */
-  private mapEntityToEvent(entity: IntegrationEventEntity): IntegrationEvent {
-    return {
-      id: entity.id as string,
-      entityType: entity.entityType as IntegrationEvent['entityType'],
-      entityId: entity.entityId as string,
-      action: entity.action as IntegrationEvent['action'],
-      payload: entity.payload as IntegrationEvent['payload'],
-      timestamp: (entity.timestamp as Date) ?? new Date(),
-      processed: entity.processed as boolean,
-      retries: entity.retries as number,
-      lastError: entity.lastError as string,
-      version: entity.version as number,
-    };
+  private mapEntityToEvent(entity: IntegrationEvent): IntegrationEvent {
+    return entity;
   }
 
   /**
@@ -416,7 +405,7 @@ export class GraphSyncWorker {
     logger.info('Processing retry events', { count: retryableEvents.length });
 
     for (const entity of retryableEvents) {
-      const event = this.mapEntityToEvent(entity as unknown as IntegrationEventEntity);
+      const event = this.mapEntityToEvent(entity);
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       const result = await this.processEvent(event);
 

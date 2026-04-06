@@ -10,16 +10,42 @@ import {
 } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service';
 
-type QdrantServiceWithConnection = {
-  ensureConnection: () => Promise<string>;
-  collectionName: string;
-};
+type QdrantPayload = QdrantPoint['payload'];
 
-type RawQdrantPoint = {
-  id: string | number;
-  vector?: number[];
-  payload?: QdrantPoint['payload'];
-};
+const KNOWLEDGE_TYPE_VALUES: readonly string[] = Object.values(KnowledgeType);
+
+function isKnowledgeType(v: string): v is KnowledgeType {
+  return KNOWLEDGE_TYPE_VALUES.includes(v);
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isQdrantPayload(p: Record<string, unknown>): p is QdrantPayload {
+  return (
+    typeof p.content === 'string' &&
+    typeof p.knowledgeType === 'string' &&
+    Array.isArray(p.tags) &&
+    typeof p.confidence === 'number' &&
+    typeof p.sourceType === 'string'
+  );
+}
+
+function toQdrantPayload(p: Record<string, unknown>): QdrantPayload {
+  if (isQdrantPayload(p)) return p;
+  const kt = typeof p.knowledgeType === 'string' && isKnowledgeType(p.knowledgeType)
+    ? p.knowledgeType
+    : KnowledgeType.FACTUAL;
+  return {
+    content: typeof p.content === 'string' ? p.content : '',
+    knowledgeType: kt,
+    tags: Array.isArray(p.tags) ? p.tags.filter((t): t is string => typeof t === 'string') : [],
+    confidence: typeof p.confidence === 'number' ? p.confidence : 0,
+    sourceType: typeof p.sourceType === 'string' ? p.sourceType : '',
+    originalMetadata: isRecord(p.originalMetadata) ? p.originalMetadata : {},
+  };
+}
 
 export class KnowledgeClusteringService {
   private readonly minClusterSize = parseInt(process.env.KNOWLEDGE_CLUSTER_MIN_SIZE ?? '3', 10);
@@ -105,11 +131,21 @@ export class KnowledgeClusteringService {
         threshold: threshold,
       });
 
-      return searchResults.map((result) => ({
-        id: result.id.toString(),
-        vector: [] as number[], // Search results don't include vectors by default
-        payload: result.payload as QdrantPoint['payload'],
-      }));
+      return searchResults.map((result) => {
+        const p = result.payload;
+        const rawMeta = p['originalMetadata'];
+        const payload: QdrantPoint['payload'] = {
+          content: typeof p['content'] === 'string' ? p['content'] : '',
+          knowledgeType: Object.values(KnowledgeType).find((t) => t === p['knowledgeType']) ?? KnowledgeType.FACTUAL,
+          tags: Array.isArray(p['tags']) ? p['tags'].filter((t): t is string => typeof t === 'string') : [],
+          confidence: typeof p['confidence'] === 'number' ? p['confidence'] : 0,
+          sourceType: typeof p['sourceType'] === 'string' ? p['sourceType'] : '',
+          originalMetadata: typeof rawMeta === 'object' && rawMeta !== null
+            ? Object.fromEntries(Object.entries(rawMeta))
+            : {},
+        };
+        return { id: result.id.toString(), vector: new Array<number>(), payload };
+      });
     } catch (error) {
       console.error('Error finding similar chunks:', error);
       return [];
@@ -119,24 +155,17 @@ export class KnowledgeClusteringService {
   /**
    * Consolidate a cluster into a single knowledge item
    */
-  async consolidateCluster(cluster: KnowledgeCluster): Promise<typeof knowledgeItems.$inferSelect> {
-    // Create consolidated content
+  async consolidateCluster(cluster: KnowledgeCluster): Promise<Partial<typeof knowledgeItems.$inferSelect>> {
     const consolidatedContent = this.mergeContent(cluster.similarChunks);
-
-    // Determine the most common type
     const consolidatedType = this.getMostCommonType(cluster.similarChunks);
-
-    // Merge all tags
     const consolidatedTags = this.mergeTags(cluster.similarChunks);
-
-    // Calculate average confidence
     const averageConfidence = this.calculateAverageConfidence(cluster.similarChunks);
 
     return {
       content: consolidatedContent,
       type: consolidatedType,
       tags: consolidatedTags,
-      confidence: String(averageConfidence),
+      confidence: averageConfidence,
       sourceType: SourceType.CLUSTERED,
       sourceIdentifier: `cluster_${cluster.clusterId}`,
       metadata: {
@@ -145,7 +174,7 @@ export class KnowledgeClusteringService {
         consolidatedAt: new Date().toISOString(),
         sources: cluster.sources,
       },
-    } as unknown as typeof knowledgeItems.$inferSelect;
+    };
   }
 
   /**
@@ -153,36 +182,21 @@ export class KnowledgeClusteringService {
    */
   private async getAllQdrantPoints(): Promise<QdrantPoint[]> {
     try {
-      // Use scroll API to get all points
-      const connectedQdrant = this.qdrantService as unknown as QdrantServiceWithConnection;
-      const workingUrl = await connectedQdrant.ensureConnection();
-      const collectionName = connectedQdrant.collectionName;
-
-      const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          limit: 10000,
-          with_payload: true,
-          with_vector: true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Qdrant scroll failed: ${response.statusText}`);
-      }
-
-      const data = (await response.json()) as { result?: { points?: RawQdrantPoint[] } };
-      return (data.result?.points || []).map((point) => {
-        const vector: number[] = Array.isArray(point.vector) ? (point.vector as number[]) : [];
-
-        return {
-          id: point.id.toString(),
-          vector,
-          payload: (point.payload || {}) as QdrantPoint['payload'],
+      const rawPoints = await this.qdrantService.scrollAll(10000);
+      return rawPoints.map((point) => {
+        const p = point.payload;
+        const rawMeta = p['originalMetadata'];
+        const payload: QdrantPoint['payload'] = {
+          content: typeof p['content'] === 'string' ? p['content'] : '',
+          knowledgeType: Object.values(KnowledgeType).find((t) => t === p['knowledgeType']) ?? KnowledgeType.FACTUAL,
+          tags: Array.isArray(p['tags']) ? p['tags'].filter((t): t is string => typeof t === 'string') : [],
+          confidence: typeof p['confidence'] === 'number' ? p['confidence'] : 0,
+          sourceType: typeof p['sourceType'] === 'string' ? p['sourceType'] : '',
+          originalMetadata: typeof rawMeta === 'object' && rawMeta !== null
+            ? Object.fromEntries(Object.entries(rawMeta))
+            : {},
         };
+        return { id: point.id, vector: point.vector, payload };
       });
     } catch (error) {
       console.error('Error getting Qdrant points:', error);

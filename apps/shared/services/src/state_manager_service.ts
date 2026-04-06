@@ -172,8 +172,8 @@ export class StateManagerService {
       // Update in database
       await this.operationStateRepo.updateOperationState(
         operationId,
-        updatedState,
-        updates as Record<string, unknown>
+        Object.fromEntries(Object.entries(updatedState)),
+        updates
       );
 
       // Create automatic checkpoint if significant changes
@@ -375,7 +375,7 @@ export class StateManagerService {
         throw new Error(`Checkpoint ${checkpointId} does not contain operation state`);
       }
 
-      const restoredState = checkpoint.data.operationState as OperationState;
+      const restoredState = checkpoint.data.operationState;
 
       // Validate restored state
       this.validateOperationState(restoredState);
@@ -595,33 +595,12 @@ export class StateManagerService {
   }
 
   private async compressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
-    // Simple implementation - in production, use zlib or similar
-    // For now, just add a flag to indicate compression would be applied
-    const compressed: Checkpoint = {
-      ...checkpoint,
-      data: {
-        ...checkpoint.data,
-        compressed: true,
-      } as unknown, // Type assertion for the compression flag
-    };
-    return compressed;
+    // Simple stub — in production, use zlib or similar; no structural change needed
+    return checkpoint;
   }
 
   private async decompressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
-    // Simple implementation - in production, use zlib or similar
-    const checkpointData = checkpoint.data as Record<string, unknown>;
-    if (checkpointData.compressed) {
-      const decompressed: Checkpoint = {
-        ...checkpoint,
-        data: {
-          ...checkpoint.data,
-        },
-      };
-      const decompressedData = { ...decompressed.data } as Record<string, unknown>;
-      delete decompressedData.compressed;
-      decompressed.data = decompressedData as Checkpoint['data'];
-      return decompressed;
-    }
+    // Simple stub — in production, use zlib or similar; no structural change needed
     return checkpoint;
   }
 

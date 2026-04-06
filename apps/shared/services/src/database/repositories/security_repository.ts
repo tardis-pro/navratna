@@ -18,7 +18,7 @@ export class SecurityPolicyRepository {
     try {
       return this.db.select().from(securityPolicies).orderBy(desc(securityPolicies.priority));
     } catch (error) {
-      logger.error('SecurityPolicyRepository.findAll failed', { error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.findAll failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -28,7 +28,7 @@ export class SecurityPolicyRepository {
       const [row] = await this.db.select().from(securityPolicies).where(eq(securityPolicies.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('SecurityPolicyRepository.findById failed', { id, error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.findById failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -37,7 +37,7 @@ export class SecurityPolicyRepository {
     try {
       return this.db.select().from(securityPolicies).where(eq(securityPolicies.isEnabled, true)).orderBy(desc(securityPolicies.priority));
     } catch (error) {
-      logger.error('SecurityPolicyRepository.findEnabled failed', { error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.findEnabled failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -46,7 +46,7 @@ export class SecurityPolicyRepository {
     try {
       return this.db.select().from(securityPolicies).where(eq(securityPolicies.policyType, policyType));
     } catch (error) {
-      logger.error('SecurityPolicyRepository.findByType failed', { error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.findByType failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -60,7 +60,7 @@ export class SecurityPolicyRepository {
       const [row] = await this.db.insert(securityPolicies).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('SecurityPolicyRepository.create failed', { error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.create failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -70,7 +70,7 @@ export class SecurityPolicyRepository {
       const [row] = await this.db.update(securityPolicies).set(data).where(eq(securityPolicies.id, id)).returning();
       return row ?? null;
     } catch (error) {
-      logger.error('SecurityPolicyRepository.update failed', { id, error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.update failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -80,7 +80,7 @@ export class SecurityPolicyRepository {
       const result = await this.db.delete(securityPolicies).where(eq(securityPolicies.id, id));
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
-      logger.error('SecurityPolicyRepository.delete failed', { id, error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.delete failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -99,7 +99,7 @@ export class SecurityPolicyRepository {
       const enabledCount = Number(enabled[0]?.value ?? 0);
       return { total, enabled: enabledCount, disabled: total - enabledCount };
     } catch (error) {
-      logger.error('SecurityPolicyRepository.getStats failed', { error: (error as Error).message });
+      logger.error('SecurityPolicyRepository.getStats failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -115,7 +115,7 @@ export class ApprovalWorkflowRepository {
       const [row] = await this.db.select().from(approvalWorkflows).where(eq(approvalWorkflows.id, id)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.findById failed', { id, error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.findById failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -125,7 +125,7 @@ export class ApprovalWorkflowRepository {
       const [row] = await this.db.select().from(approvalWorkflows).where(eq(approvalWorkflows.operationId, operationId)).limit(1);
       return row ?? null;
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.findByOperationId failed', { error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.findByOperationId failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -134,7 +134,7 @@ export class ApprovalWorkflowRepository {
     try {
       return this.db.select().from(approvalWorkflows).where(eq(approvalWorkflows.status, 'pending')).orderBy(desc(approvalWorkflows.createdAt));
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.findPending failed', { error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.findPending failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -152,7 +152,7 @@ export class ApprovalWorkflowRepository {
         .offset(filters.offset ?? 0);
       return { workflows, total: Number(total) };
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.findMany failed', { error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.findMany failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -162,7 +162,7 @@ export class ApprovalWorkflowRepository {
       const [row] = await this.db.insert(approvalWorkflows).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.createApprovalWorkflow failed', { error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.createApprovalWorkflow failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -172,7 +172,7 @@ export class ApprovalWorkflowRepository {
       const [row] = await this.db.update(approvalWorkflows).set(data).where(eq(approvalWorkflows.id, id)).returning();
       return row ?? null;
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.update failed', { id, error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.update failed', { id, error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -185,7 +185,7 @@ export class ApprovalWorkflowRepository {
         .where(and(eq(approvalWorkflows.status, 'pending'), lte(approvalWorkflows.expiresAt, new Date())))
         .orderBy(desc(approvalWorkflows.createdAt));
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.getExpiredWorkflows failed', { error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.getExpiredWorkflows failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -198,7 +198,7 @@ export class ApprovalWorkflowRepository {
       const [{ value: rejected }] = await this.db.select({ value: count() }).from(approvalWorkflows).where(eq(approvalWorkflows.status, 'rejected'));
       return { total: Number(total), pending: Number(pending), approved: Number(approved), rejected: Number(rejected) };
     } catch (error) {
-      logger.error('ApprovalWorkflowRepository.getStats failed', { error: (error as Error).message });
+      logger.error('ApprovalWorkflowRepository.getStats failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -213,7 +213,7 @@ export class ApprovalDecisionRepository {
     try {
       return this.db.select().from(approvalDecisions).where(eq(approvalDecisions.workflowId, workflowId)).orderBy(desc(approvalDecisions.createdAt));
     } catch (error) {
-      logger.error('ApprovalDecisionRepository.findByWorkflowId failed', { error: (error as Error).message });
+      logger.error('ApprovalDecisionRepository.findByWorkflowId failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }
@@ -226,7 +226,7 @@ export class ApprovalDecisionRepository {
       const [row] = await this.db.insert(approvalDecisions).values(data).returning();
       return row;
     } catch (error) {
-      logger.error('ApprovalDecisionRepository.create failed', { error: (error as Error).message });
+      logger.error('ApprovalDecisionRepository.create failed', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     }
   }

@@ -8,12 +8,16 @@
 
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
-import { logger } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import { Persona, Agent, AgentSchema, Discussion } from '@uaip/types';
 import { LLMRequestTracker } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService, EventBusMessage } from '@uaip/infra/event_bus';
 import { Agent as AgentEntity, UserEntity } from '@uaip/shared-services';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
 // Local type definitions until they're properly exported from @uaip/types
 interface ConversationContext {
@@ -113,6 +117,19 @@ export interface AgentPersonaMapping {
   context?: Record<string, unknown>;
 }
 
+type PersonaToneValue = 'formal' | 'casual' | 'friendly' | 'professional' | 'academic' | 'creative' | 'analytical';
+type PersonaFormalityValue = 'formal' | 'very_informal' | 'informal' | 'neutral' | 'very_formal';
+
+function toPersonaTone(value: unknown): PersonaToneValue {
+  const valid: PersonaToneValue[] = ['formal', 'casual', 'friendly', 'professional', 'academic', 'creative', 'analytical'];
+  return valid.find(t => t === value) ?? 'professional';
+}
+
+function toPersonaFormality(value: unknown): PersonaFormalityValue {
+  const valid: PersonaFormalityValue[] = ['formal', 'very_informal', 'informal', 'neutral', 'very_formal'];
+  return valid.find(t => t === value) ?? 'formal';
+}
+
 interface EventWithDataPayload {
   data?: {
     requestId?: string;
@@ -133,9 +150,15 @@ const toLLMEventPayload = (
     return {};
   }
   if ('data' in event && typeof event.data === 'object' && event.data !== null) {
-    return event.data as EventWithDataPayload['data'];
+    return event.data;
   }
-  return event as unknown as EventWithDataPayload['data'];
+  const e: Record<string, unknown> = isRecord(event) ? event : {};
+  return {
+    requestId: typeof e['requestId'] === 'string' ? e['requestId'] : undefined,
+    content: typeof e['content'] === 'string' ? e['content'] : undefined,
+    confidence: typeof e['confidence'] === 'number' ? e['confidence'] : undefined,
+    error: isRecord(e['error']) ? e['error'] : undefined,
+  };
 };
 
 export class ConversationEnhancementService extends EventEmitter {
@@ -267,7 +290,13 @@ export class ConversationEnhancementService extends EventEmitter {
         // Add to Redis-based request tracker (45 seconds timeout)
         await this.llmRequestTracker.addPendingRequest(
           requestId,
-          (response) => resolve(response as { content: string; confidence: number }),
+          (response) => {
+            const r = isRecord(response) ? response : {};
+            resolve({
+              content: typeof r['content'] === 'string' ? r['content'] : '',
+              confidence: typeof r['confidence'] === 'number' ? r['confidence'] : 0,
+            });
+          },
           (error) => reject(error),
           45000,
           'conversation-enhancement'
@@ -509,7 +538,7 @@ export class ConversationEnhancementService extends EventEmitter {
           return await this.analyzeConversationPatterns(request);
 
         default:
-          throw new Error(`Unknown analysis type: ${analysisType}`);
+          throw new ValidationError(`Unknown analysis type: ${analysisType}`);
       }
     } catch (error) {
       logger.error('Failed to analyze conversation', {
@@ -535,7 +564,7 @@ export class ConversationEnhancementService extends EventEmitter {
       const persona2 = await this.getPersonaById(persona2Id);
 
       if (!persona1 || !persona2) {
-        throw new Error('One or both personas not found');
+        throw new NotFoundError('One or both personas not found');
       }
 
       // Use shared cross-breeding utility
@@ -573,7 +602,7 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       const persona = await this.getPersonaById(personaId);
       if (!persona) {
-        throw new Error(`Persona ${personaId} not found`);
+        throw new NotFoundError(`Persona ${personaId} not found`);
       }
 
       // Determine response enhancement
@@ -657,9 +686,8 @@ export class ConversationEnhancementService extends EventEmitter {
       description: agent.description,
       role: agent.role,
       conversationalStyle: {
-        tone: (agent.metadata?.tone as Persona['conversationalStyle']['tone']) || 'professional',
-        formality:
-          (agent.metadata?.formality as Persona['conversationalStyle']['formality']) || 'formal',
+        tone: toPersonaTone(agent.metadata?.tone),
+        formality: toPersonaFormality(agent.metadata?.formality),
         empathy: typeof agent.metadata?.empathy === 'number' ? agent.metadata.empathy : 0.5,
         assertiveness:
           typeof agent.metadata?.assertiveness === 'number' ? agent.metadata.assertiveness : 0.5,
@@ -876,7 +904,8 @@ export class ConversationEnhancementService extends EventEmitter {
   private async getDiscussionData(discussionId: string): Promise<Discussion | null> {
     try {
       const discussion = await this.databaseService.findById('discussions', discussionId);
-      return discussion as Discussion | null;
+      if (typeof discussion !== 'object' || discussion === null) return null;
+      return discussion;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
       return null;
@@ -899,10 +928,11 @@ export class ConversationEnhancementService extends EventEmitter {
           metadata?: Record<string, unknown>;
         }>;
       };
-      const fullDiscussion = (await this.databaseService.findById(
-        'discussions',
-        discussion.id
-      )) as DiscussionWithParticipants | null;
+      const rawDiscussion = await this.databaseService.findById('discussions', discussion.id);
+      const fullDiscussion: DiscussionWithParticipants | null =
+        typeof rawDiscussion === 'object' && rawDiscussion !== null
+          ? rawDiscussion
+          : null;
       const participantMap = new Map<string, string>();
 
       if (fullDiscussion && fullDiscussion.participants) {
@@ -974,7 +1004,7 @@ export class ConversationEnhancementService extends EventEmitter {
 
   private async handleAgentUpdate(event: Record<string, unknown>): Promise<void> {
     try {
-      const agentId = event.agentId as string;
+      const agentId = typeof event.agentId === 'string' ? event.agentId : '';
 
       const agent = await this.databaseService.findById<AgentEntity>('agents', agentId);
       if (agent) {
@@ -1191,7 +1221,7 @@ Please contribute to this discussion about "${topic}" in a way that's natural an
       category: 'general',
       keywords: [cap],
       level: 'intermediate',
-      relatedDomains: [] as string[],
+      relatedDomains: new Array<string>(),
     }));
   }
 

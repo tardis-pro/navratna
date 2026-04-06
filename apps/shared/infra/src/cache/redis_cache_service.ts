@@ -181,7 +181,7 @@ export class RedisCacheService {
       try {
         return JSON.parse(value);
       } catch {
-        return value as T;
+        return null;
       }
     } catch (error) {
       logger.error('Redis GET failed', { key, error: error.message });

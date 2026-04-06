@@ -30,8 +30,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { base, llmPreferenceCommonColumns } from './schema_base';
 import type {
-  SecurityLevel,
-  UserType,
   AgentCapability,
   OperationStatus,
   ExecutionPlan,
@@ -39,12 +37,16 @@ import type {
   JSONSchema,
   ToolExample,
   MCPServerType,
-  MCPServerStatus,
   MCPServerCapabilities,
   MCPServerStats,
-  SessionStatus,
   AuthenticationMethod,
   OAuthProviderType,
+} from '@uaip/types';
+import {
+  SecurityLevel,
+  UserType,
+  MCPServerStatus,
+  SessionStatus,
 } from '@uaip/types';
 
 // ─── USERS & AUTH ──────────────────────────────────────────────────────────
@@ -61,12 +63,12 @@ export const users = pgTable(
     userType: text('user_type')
       .$type<UserType>()
       .notNull()
-      .default('human' as UserType),
+      .default(UserType.HUMAN),
     passwordHash: varchar('password_hash', { length: 255 }).notNull(),
     securityClearance: text('security_clearance')
       .$type<SecurityLevel>()
       .notNull()
-      .default('medium' as SecurityLevel),
+      .default(SecurityLevel.MEDIUM),
     isActive: boolean('is_active').notNull().default(true),
     failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
     lockedUntil: timestamp('locked_until'),
@@ -131,11 +133,11 @@ export const sessions = pgTable(
     status: text('status')
       .$type<SessionStatus>()
       .notNull()
-      .default('active' as SessionStatus),
+      .default(SessionStatus.ACTIVE),
     userType: text('user_type')
       .$type<UserType>()
       .notNull()
-      .default('human' as UserType),
+      .default(UserType.HUMAN),
     ipAddress: varchar('ip_address', { length: 45 }),
     userAgent: text('user_agent'),
     deviceInfo: json('device_info').$type<{
@@ -570,7 +572,7 @@ export const mcpServers = pgTable(
     status: text('status')
       .$type<MCPServerStatus>()
       .notNull()
-      .default('stopped' as MCPServerStatus),
+      .default(MCPServerStatus.STOPPED),
     pid: integer('pid'),
     startTime: timestamp('start_time'),
     lastHealthCheck: timestamp('last_health_check'),
@@ -796,3 +798,17 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type NewAuditEvent = typeof auditEvents.$inferInsert;
+export type UserLLMProvider = typeof userLLMProviders.$inferSelect;
+export type NewUserLLMProvider = typeof userLLMProviders.$inferInsert;
+export type SecurityPolicy = typeof securityPolicies.$inferSelect;
+export type NewSecurityPolicy = typeof securityPolicies.$inferInsert;
+export type Capability = typeof capabilities.$inferSelect;
+export type NewCapability = typeof capabilities.$inferInsert;
+export type MfaChallenge = typeof mfaChallenges.$inferSelect;
+export type NewMfaChallenge = typeof mfaChallenges.$inferInsert;
+export type OAuthProvider = typeof oauthProviders.$inferSelect;
+export type NewOAuthProvider = typeof oauthProviders.$inferInsert;
+export type OAuthState = typeof oauthStates.$inferSelect;
+export type NewOAuthState = typeof oauthStates.$inferInsert;
+export type AgentOAuthConnection = typeof agentOAuthConnections.$inferSelect;
+export type NewAgentOAuthConnection = typeof agentOAuthConnections.$inferInsert;

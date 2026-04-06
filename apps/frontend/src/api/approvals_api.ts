@@ -47,14 +47,16 @@ export const approvalsAPI = {
   },
 
   async getMyRequests(options?: ApprovalListOptions): Promise<ApprovalWorkflow[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      approvals['my-requests'].get({ query: options as Record<string, unknown> | undefined })
+      approvals['my-requests'].get({ query })
     );
   },
 
   async list(options?: ApprovalListOptions): Promise<ApprovalWorkflow[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      approvals.get({ query: options as Record<string, unknown> | undefined })
+      approvals.get({ query })
     );
   },
 
@@ -78,8 +80,9 @@ export const approvalsAPI = {
     startDate?: string;
     endDate?: string;
   }): Promise<ApprovalWorkflow[]> {
+    const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
     return edenWithCSRFRetry(() =>
-      approvals.history.get({ query: options as Record<string, unknown> | undefined })
+      approvals.history.get({ query })
     );
   },
 

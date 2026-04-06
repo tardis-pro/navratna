@@ -5,7 +5,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { logger } from '@uaip/utils';
+import { logger, AuthenticationError, ExternalServiceError } from '@uaip/utils';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
 
 interface SlackListOptions {
@@ -104,7 +104,7 @@ export class SlackAdapter {
   private async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken) {
       logger.error('No refresh token available for Slack');
-      throw new Error('Cannot refresh Slack token - no refresh token available');
+      throw new AuthenticationError('Cannot refresh Slack token - no refresh token available');
     }
 
     try {
@@ -123,10 +123,9 @@ export class SlackAdapter {
   public async sendMessage(
     channelId: string,
     text: string,
-    options: unknown = {}
+    options: Record<string, unknown> = {}
   ): Promise<unknown> {
-    const safeOptions =
-      options && typeof options === 'object' ? (options as Record<string, unknown>) : {};
+    const safeOptions = options;
     try {
       const response = await this.axiosInstance.post('/chat.postMessage', {
         channel: channelId,
@@ -135,7 +134,7 @@ export class SlackAdapter {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Slack API error: ${response.data.error}`);
+        throw new ExternalServiceError(`Slack API error: ${response.data.error}`);
       }
 
       logger.info(`Message sent to Slack channel ${channelId}`);
@@ -156,7 +155,7 @@ export class SlackAdapter {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Slack API error: ${response.data.error}`);
+        throw new ExternalServiceError(`Slack API error: ${response.data.error}`);
       }
 
       return response.data.channel;
@@ -169,8 +168,8 @@ export class SlackAdapter {
   /**
    * List channels
    */
-  public async listChannels(options: unknown = {}): Promise<unknown> {
-    const opts = (options as SlackListOptions) ?? {};
+  public async listChannels(options: SlackListOptions = {}): Promise<unknown> {
+    const opts = options;
     try {
       const response = await this.axiosInstance.get('/conversations.list', {
         params: {
@@ -181,7 +180,7 @@ export class SlackAdapter {
       });
 
       if (!response.data.ok) {
-        throw new Error(`Slack API error: ${response.data.error}`);
+        throw new ExternalServiceError(`Slack API error: ${response.data.error}`);
       }
 
       return response.data;
@@ -202,7 +201,7 @@ export class SlackAdapter {
       const response = await this.axiosInstance.post(`/${method}`, parameters);
 
       if (!response.data.ok) {
-        throw new Error(`Slack API error: ${response.data.error}`);
+        throw new ExternalServiceError(`Slack API error: ${response.data.error}`);
       }
 
       logger.info(`Slack method ${method} executed successfully`);

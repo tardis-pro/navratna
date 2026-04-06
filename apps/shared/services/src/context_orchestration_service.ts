@@ -233,7 +233,7 @@ export class ContextOrchestrationService {
       // Get recent discussion topics
       const recentMessages = context.discussionHistory.slice(-3);
       queries.push(
-        ...recentMessages.map((msg) => (msg as { content?: string }).content || '').filter(Boolean)
+        ...recentMessages.map((msg) => msg.content || '').filter(Boolean)
       );
     }
 

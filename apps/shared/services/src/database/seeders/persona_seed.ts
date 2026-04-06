@@ -3,13 +3,14 @@ import { personas } from '../../database/drizzle/schemas/intelligence_schema';
 import { BaseSeed } from './base_seed';
 import {
   getAllPersonasFlatWrapper,
+  PersonaStatus,
+  PersonaVisibility,
   type Persona,
-  type PersonaStatus,
-  type PersonaVisibility,
 } from '@uaip/types';
 import type { InferInsertModel } from 'drizzle-orm';
 
 type PersonaInsert = InferInsertModel<typeof personas>;
+type PersonaDbSelect = typeof personas.$inferSelect;
 
 export class PersonaSeed extends BaseSeed {
   private db = getIntelligenceDb();
@@ -20,24 +21,24 @@ export class PersonaSeed extends BaseSeed {
     this.users = userIds.map((id) => ({ id }));
   }
 
-  async seed(): Promise<PersonaInsert[]> {
+  async seed(): Promise<PersonaDbSelect[]> {
     const seedData = await this.getSeedData();
 
     for (const persona of seedData) {
       await this.db
         .insert(personas)
-        .values(persona as any)
+        .values(persona)
         .onConflictDoNothing();
     }
 
     return await this.db.select().from(personas);
   }
 
-  async getSeedData(): Promise<any[]> {
+  async getSeedData(): Promise<PersonaInsert[]> {
     const allPersonasFlat: Persona[] = getAllPersonasFlatWrapper();
 
     return allPersonasFlat.map((persona: Persona, index: number) => {
-      const record: any = {
+      const record: PersonaInsert = {
         name: persona.name,
         role: persona.role,
         description: persona.description,
@@ -46,8 +47,8 @@ export class PersonaSeed extends BaseSeed {
         traits: persona.traits || [],
         expertise: persona.expertise?.map((e) => e.name) || [],
         conversationalStyle: persona.conversationalStyle,
-        status: (persona.status || 'draft') as PersonaStatus,
-        visibility: (persona.visibility || 'private') as PersonaVisibility,
+        status: persona.status ?? PersonaStatus.DRAFT,
+        visibility: persona.visibility ?? PersonaVisibility.PRIVATE,
         createdBy:
           this.users[index % this.users.length]?.id || '00000000-0000-0000-0000-000000000000',
         organizationId: persona.organizationId || null,

@@ -86,32 +86,34 @@ export class UnifiedModelSelectionFacade {
   private metrics: SelectionMetrics;
 
   constructor(
-    agentRepository?: AgentRepository,
-    userLLMPreferenceRepository?: UserLLMPreferenceRepository,
-    agentLLMPreferenceRepository?: AgentLLMPreferenceRepository,
+    agentRepository?: OrchestratorAgentRepository,
+    userLLMPreferenceRepository?: OrchestratorUserPreferenceRepository,
+    agentLLMPreferenceRepository?: OrchestratorAgentPreferenceRepository,
     llmProviderRepository?: LLMProviderRepository
   ) {
-    const resolvedAgentRepository =
-      (agentRepository as OrchestratorAgentRepository) ??
-      Object.assign(new AgentRepository(), {
-        findOne: async ({ where }: { where: { id: string } }): Promise<{ createdBy?: string } | null> => {
-          const agent = await new AgentRepository().findById(where.id);
-          return agent ? { createdBy: agent.createdBy } : null;
-        },
-      });
+    const baseAgentRepo = new AgentRepository();
+    const agentRepoWithFindOne = Object.assign(baseAgentRepo, {
+      findOne: async ({ where }: { where: { id: string } }): Promise<{ createdBy?: string } | null> => {
+        const agent = await new AgentRepository().findById(where.id);
+        return agent ? { createdBy: agent.createdBy } : null;
+      },
+    });
+    const resolvedAgentRepository: OrchestratorAgentRepository = agentRepository ?? agentRepoWithFindOne;
 
-    const resolvedUserPrefRepository =
-      (userLLMPreferenceRepository as OrchestratorUserPreferenceRepository) ??
-      Object.assign(new UserLLMPreferenceRepository(), {
-        findOne: async (): Promise<null> => null,
-      });
+    const baseUserPrefRepo = new UserLLMPreferenceRepository();
+    const userPrefRepoWithFindOne = Object.assign(baseUserPrefRepo, {
+      findOne: async (): Promise<null> => null,
+    });
+    const resolvedUserPrefRepository: OrchestratorUserPreferenceRepository =
+      userLLMPreferenceRepository ?? userPrefRepoWithFindOne;
 
-    const resolvedAgentPrefRepository =
-      (agentLLMPreferenceRepository as OrchestratorAgentPreferenceRepository) ??
-      Object.assign(new AgentLLMPreferenceRepository(), {
-        findOne: async (): Promise<null> => null,
-        find: async (): Promise<[]> => [],
-      });
+    const baseAgentPrefRepo = new AgentLLMPreferenceRepository();
+    const agentPrefRepoWithFindOne = Object.assign(baseAgentPrefRepo, {
+      findOne: async (): Promise<null> => null,
+      find: async (): Promise<[]> => [],
+    });
+    const resolvedAgentPrefRepository: OrchestratorAgentPreferenceRepository =
+      agentLLMPreferenceRepository ?? agentPrefRepoWithFindOne;
 
     const resolvedProviderRepository = llmProviderRepository ?? new LLMProviderRepository();
 

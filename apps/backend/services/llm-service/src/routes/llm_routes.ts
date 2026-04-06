@@ -154,21 +154,27 @@ export function registerLLMRoutes(
 
         // Generate LLM response
         .post('/generate', async ({ body }) => {
-          const { prompt, systemPrompt, maxTokens, temperature, model, preferredType } = body as Record<string, unknown>;
+          const payload = isRecord(body) ? body : {};
+          const prompt = payload['prompt'];
+          const systemPrompt = payload['systemPrompt'];
+          const maxTokens = payload['maxTokens'];
+          const temperature = payload['temperature'];
+          const model = payload['model'];
+          const preferredType = payload['preferredType'];
 
-          if (!prompt) {
+          if (typeof prompt !== 'string' || !prompt) {
             throw new ValidationError('Prompt is required');
           }
 
           const response = await llmService.generateResponse(
             {
-              prompt: prompt as string,
-              systemPrompt: systemPrompt as string | undefined,
-              maxTokens: maxTokens as number | undefined,
-              temperature: temperature as number | undefined,
-              model: model as string | undefined,
+              prompt,
+              systemPrompt: typeof systemPrompt === 'string' ? systemPrompt : undefined,
+              maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
+              temperature: typeof temperature === 'number' ? temperature : undefined,
+              model: typeof model === 'string' ? model : undefined,
             },
-            preferredType as string | undefined
+            typeof preferredType === 'string' ? preferredType : undefined
           );
 
           return {
@@ -487,12 +493,12 @@ export function registerLLMRoutes(
 
             const streamingService = StreamingService.getInstance();
             let userProvider = null;
-            let selectedModel = model as string | undefined;
+            let selectedModel = typeof model === 'string' ? model : undefined;
 
             if (agentId) {
               const selection = await userLLMService.selectProviderForAgent(
                 userId,
-                agentId as string,
+                typeof agentId === 'string' ? agentId : String(agentId),
                 {
                   model: typeof model === 'string' ? model : undefined,
                   provider: preferredProviderType,
@@ -522,22 +528,21 @@ export function registerLLMRoutes(
             }
 
             const streamingProviderId = userProvider.id;
-            // After google check above, type is narrowed but TS doesn't infer it
             const streamingConfig = {
               ...providerConfig,
-              type: providerConfig.type as Exclude<typeof providerConfig.type, 'google'>,
+              type: providerConfig.type,
               baseUrl: providerConfig.baseUrl || '',
             };
             streamingService.registerProvider(streamingProviderId, streamingConfig);
 
             const request: StreamingLLMRequest = {
-              prompt: prompt as string,
-              systemPrompt: systemPrompt as string | undefined,
+              prompt: typeof prompt === 'string' ? prompt : String(prompt),
+              systemPrompt: typeof systemPrompt === 'string' ? systemPrompt : undefined,
               model: selectedModel,
-              maxTokens: maxTokens as number | undefined,
+              maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
               userId,
-              agentId: agentId as string | undefined,
-              conversationId: conversationId as string | undefined,
+              agentId: typeof agentId === 'string' ? agentId : undefined,
+              conversationId: typeof conversationId === 'string' ? conversationId : undefined,
               streaming: {
                 enabled: true,
               },

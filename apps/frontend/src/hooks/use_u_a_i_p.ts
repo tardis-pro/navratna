@@ -479,7 +479,7 @@ export function useWebSocket(url?: string) {
 
       wsRef.current.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as WebSocketEvent;
+          const data: WebSocketEvent = JSON.parse(event.data);
           setLastEvent(data);
         } catch (err) {
           logger.error('[UAIP WebSocket] Failed to parse message:', err);

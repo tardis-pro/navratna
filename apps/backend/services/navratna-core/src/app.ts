@@ -15,21 +15,41 @@ import { registerUserLLMRoutes } from '../../llm-service/src/routes/user_llm_rou
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
 import { registerCognitivePortraitRoutes } from '../../agent-intelligence/src/routes/cognitive_portrait_routes.js'
 
+type CoreHealthStatus = 'ok' | 'degraded'
+
+type CoreHealthResponse = {
+  status: CoreHealthStatus
+  service: string
+  features: string[]
+}
+
+type CoreDetailedHealthResponse = {
+  status: CoreHealthStatus
+  service: string
+  timestamp: string
+  uptime: number
+  features: string[]
+  timing: { p95: number; p50: number; avg: number; sampleCount: number }
+  memory: { heapUsed: number; heapTotal: number; rss: number; external: number }
+  cpu: { user: number; system: number }
+}
+
 export const coreApp = new Elysia({ name: 'navratna-core' })
-  .get('/health', () => ({ status: 'ok' as 'ok' | 'degraded', service: 'navratna-core', features: [] as string[] }))
-  .get('/health/detailed', () => ({ status: 'ok' as 'ok' | 'degraded', service: 'navratna-core', timestamp: '', uptime: 0, features: [] as string[], timing: { p95: 0, p50: 0, avg: 0, sampleCount: 0 }, memory: { heapUsed: 0, heapTotal: 0, rss: 0, external: 0 }, cpu: { user: 0, system: 0 } }))
+  .get('/health', (): CoreHealthResponse => ({ status: 'ok', service: 'navratna-core', features: [] }))
+  .get('/health/detailed', (): CoreDetailedHealthResponse => ({ status: 'ok', service: 'navratna-core', timestamp: '', uptime: 0, features: [], timing: { p95: 0, p50: 0, avg: 0, sampleCount: 0 }, memory: { heapUsed: 0, heapTotal: 0, rss: 0, external: 0 }, cpu: { user: 0, system: 0 } }))
   .use(registerAgentRoutes())
-  .use(registerAgentCrudRoutes(null as never))
-  .use(registerAgentChatRoutes(null as never, null as never, null as never))
-  .use(registerAgentCapabilityRoutes(null as never, null as never))
-  .use(registerAgentMemoryRoutes(null as never))
+  // Services are null here; app.ts is a type-export stub — services are initialized at runtime in index.ts
+  .use(registerAgentCrudRoutes(null))
+  .use(registerAgentChatRoutes(null, null, null))
+  .use(registerAgentCapabilityRoutes(null, null))
+  .use(registerAgentMemoryRoutes(null))
   .use(registerConstellationRoutes())
-  .use(registerPersonaRoutes(null as never))
-  .use(registerDiscussionRoutes(null as never, null as never))
-  .use(registerArtifactRoutes(null as never))
+  .use(registerPersonaRoutes(null))
+  .use(registerDiscussionRoutes(null, null))
+  .use(registerArtifactRoutes(null))
   .use(registerShortLinkRoutes())
-  .use(registerLLMRoutes(null as never, null as never, null as never))
-  .use(registerUserLLMRoutes(null as never))
+  .use(registerLLMRoutes(null, null, null))
+  .use(registerUserLLMRoutes(null))
   .use(registerKnowledgeIngestRoutes())
   .use(registerCognitivePortraitRoutes())
 

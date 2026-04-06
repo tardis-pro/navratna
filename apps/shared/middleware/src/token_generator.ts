@@ -25,7 +25,7 @@ export function generateAuthTokens(payload: TokenPayload): {
     type: 'refresh',
   };
 
-  const refreshToken = jwt.sign(refreshPayload, config.jwt.refreshSecret as string, {
+  const refreshToken = jwt.sign(refreshPayload, config.jwt.refreshSecret, {
     expiresIn: config.jwt.refreshTokenExpiry || '7d',
   });
 

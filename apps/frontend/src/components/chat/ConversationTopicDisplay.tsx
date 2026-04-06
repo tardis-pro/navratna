@@ -33,11 +33,12 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
   const socketRef = useRef<Socket | null>(null);
   const { user } = useAuth();
 
+  const userAny: any = user; // oxlint-disable-line @typescript-eslint/no-explicit-any -- User type lacks token; runtime property access
+  const userToken: string | undefined = userAny?.token;
+
   useEffect(() => {
-    // @ts-expect-error -- user.token exists at runtime but not in the shared User type
-    if (!user?.token) return;
-    // @ts-expect-error -- user.token exists at runtime but not in the shared User type
-    const socket = createConversationIntelligenceSocket(user.token, agentId, conversationId);
+    if (!userToken) return;
+    const socket = createConversationIntelligenceSocket(userToken, agentId, conversationId);
     socketRef.current = socket;
 
     socket.on(ConversationWebSocketEventType.TOPIC_GENERATED, (data: { topicName: string; confidence: number }) => {
@@ -47,8 +48,7 @@ export const ConversationTopicDisplay: React.FC<ConversationTopicDisplayProps> =
     });
 
     return () => { socket.close(); };
-    // @ts-expect-error -- user.token exists at runtime but not in the shared User type
-  }, [user?.token, agentId, conversationId, onTopicChange]);
+  }, [userToken, agentId, conversationId, onTopicChange]);
 
   const handleEdit = () => {
     setEditValue(topic);

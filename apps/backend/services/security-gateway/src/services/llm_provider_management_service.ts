@@ -7,7 +7,7 @@ import {
   UpdateLLMProviderRequest,
   LLMProviderResponse,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, ConflictError, NotFoundError } from '@uaip/utils';
 
 export class LLMProviderManagementService {
   private static instance: LLMProviderManagementService;
@@ -54,14 +54,8 @@ export class LLMProviderManagementService {
   async getAllProviders(): Promise<LLMProviderResponse[]> {
     try {
       await this.ensureInitialized();
-
       const providers = await this.llmProviderRepository.findMany();
-      return Promise.all(
-        providers.map(async (provider) => {
-          const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-          return this.mapToResponse(provider, stats);
-        })
-      );
+      return providers.map((provider) => this.mapToResponse(provider, this.computeStats(provider)));
     } catch (error) {
       logger.error('Error getting all LLM providers', { error });
       throw error;
@@ -74,14 +68,8 @@ export class LLMProviderManagementService {
   async getActiveProviders(): Promise<LLMProviderResponse[]> {
     try {
       await this.ensureInitialized();
-
       const providers = await this.llmProviderRepository.findActiveProviders();
-      return Promise.all(
-        providers.map(async (provider) => {
-          const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-          return this.mapToResponse(provider, stats);
-        })
-      );
+      return providers.map((provider) => this.mapToResponse(provider, this.computeStats(provider)));
     } catch (error) {
       logger.error('Error getting active LLM providers', { error });
       throw error;
@@ -94,14 +82,9 @@ export class LLMProviderManagementService {
   async getProviderById(id: string): Promise<LLMProviderResponse | null> {
     try {
       await this.ensureInitialized();
-
       const provider = await this.llmProviderRepository.findById(id);
-      if (!provider) {
-        return null;
-      }
-
-      const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-      return this.mapToResponse(provider, stats);
+      if (!provider) return null;
+      return this.mapToResponse(provider, this.computeStats(provider));
     } catch (error) {
       logger.error('Error getting LLM provider by ID', { id, error });
       throw error;
@@ -122,7 +105,7 @@ export class LLMProviderManagementService {
       const allProviders = await this.llmProviderRepository.findMany();
       const existingProvider = allProviders.find((p) => p.name === request.name) ?? null;
       if (existingProvider) {
-        throw new Error(`LLM provider with name '${request.name}' already exists`);
+        throw new ConflictError(`LLM provider with name '${request.name}' already exists`);
       }
       const provider = await this.llmProviderRepository.create({
         name: request.name,
@@ -141,8 +124,7 @@ export class LLMProviderManagementService {
       // Notify LLM service to refresh providers and cache
       await this.notifyProviderChange('provider.created', provider.id, provider.type);
 
-      const stats = await this.llmProviderRepository.getProviderStats(provider.id);
-      return this.mapToResponse(provider, stats);
+      return this.mapToResponse(provider, this.computeStats(provider));
     } catch (error) {
       logger.error('Error creating LLM provider', { request, error });
       throw error;
@@ -162,7 +144,7 @@ export class LLMProviderManagementService {
 
       const provider = await this.llmProviderRepository.findById(id);
       if (!provider) {
-        throw new Error(`LLM provider with id ${id} not found`);
+        throw new NotFoundError(`LLM provider with id ${id} not found`);
       }
 
       // Update fields
@@ -176,8 +158,7 @@ export class LLMProviderManagementService {
 
       // Update API key if provided
       if (request.apiKey !== undefined) {
-        // @ts-expect-error -- Not callable
-        provider.setApiKey(request.apiKey);
+        provider.apiKeyEncrypted = request.apiKey;
       }
 
       provider.updatedBy = updatedBy;
@@ -192,8 +173,7 @@ export class LLMProviderManagementService {
       // Notify LLM service to refresh providers and cache
       await this.notifyProviderChange('provider.updated', id, provider.type);
 
-      const stats = await this.llmProviderRepository.getProviderStats(id);
-      return this.mapToResponse(updatedProvider, stats);
+      return this.mapToResponse(updatedProvider, this.computeStats(updatedProvider));
     } catch (error) {
       logger.error('Error updating LLM provider', { id, request, error });
       throw error;
@@ -233,7 +213,7 @@ export class LLMProviderManagementService {
 
       const provider = await this.llmProviderRepository.findById(id);
       if (!provider) {
-        throw new Error(`LLM provider with id ${id} not found`);
+        throw new NotFoundError(`LLM provider with id ${id} not found`);
       }
 
       const startTime = Date.now();
@@ -351,6 +331,27 @@ export class LLMProviderManagementService {
   }
 
   // Private helper methods
+
+  private computeStats(provider: LLMProvider): {
+    totalRequests: string;
+    totalTokensUsed: string;
+    totalErrors: string;
+    errorRate: number;
+    lastUsedAt?: Date;
+    healthStatus?: string;
+  } {
+    const totalReqs = provider.totalRequests ?? 0;
+    const totalErrs = provider.totalErrors ?? 0;
+    return {
+      totalRequests: String(totalReqs),
+      totalTokensUsed: String(provider.totalTokensUsed ?? 0),
+      totalErrors: String(totalErrs),
+      errorRate: totalReqs > 0 ? totalErrs / totalReqs : 0,
+      lastUsedAt: provider.lastUsedAt ?? undefined,
+      healthStatus: provider.healthCheckResult?.status,
+    };
+  }
+
   private mapToResponse(
     provider: LLMProvider,
     stats: {

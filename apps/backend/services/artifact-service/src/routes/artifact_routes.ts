@@ -78,8 +78,8 @@ export function registerArtifactRoutes(
             const databaseService = DatabaseService.getInstance();
             const artifactRepo = databaseService.getArtifactRepository();
     
-            const type = query.type as string | undefined;
-            const projectId = query.projectId as string | undefined;
+            const type = query.type;
+            const projectId = query.projectId;
             const limit = Math.min(query.limit ? parseInt(query.limit) : 50, 200);
             const offset = query.offset ? parseInt(query.offset) : 0;
     
@@ -143,7 +143,7 @@ export function registerArtifactRoutes(
           } catch (error) {
             logger.error('Failed to get artifact', {
               error,
-              id: (params as Record<string, string>).id,
+              id: params.id,
             });
             set.status = 500;
             return {
@@ -245,7 +245,7 @@ export function registerArtifactRoutes(
           try {
             const { type, language, framework } = query;
             const templates = await artifactService.listTemplates(
-              type as ArtifactType | undefined
+              isArtifactType(type) ? type : undefined
             );
     
             let filtered = templates;
@@ -314,7 +314,14 @@ export function registerArtifactRoutes(
         '/validate',
         async ({ body, set }) => {
           try {
-            const { content, type } = body as Record<string, unknown>;
+            if (!isRecord(body)) {
+              set.status = 400;
+              return {
+                success: false,
+                error: { code: 'INVALID_REQUEST', message: 'Invalid request body' },
+              };
+            }
+            const { content, type } = body;
             if (typeof content !== 'string' || !isArtifactType(type)) {
               set.status = 400;
               return {
@@ -371,11 +378,11 @@ export function registerArtifactRoutes(
 }
 
 function getTypeDescription(type: ArtifactType): string {
-  const descriptions = {
+  const descriptions: Partial<Record<ArtifactType, string>> = {
     code: 'Generate code implementations based on requirements and context',
     test: 'Generate test suites and test cases for validation',
     documentation: 'Generate technical documentation and guides',
     prd: 'Generate Product Requirements Documents for planning',
-  } as Record<string, string>;
-  return descriptions[type] || 'Unknown artifact type';
+  };
+  return descriptions[type] ?? 'Unknown artifact type';
 }

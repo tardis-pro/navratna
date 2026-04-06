@@ -27,26 +27,29 @@ export class ProjectLifecycleService {
     startDate?: Date;
     completionPercentage?: number;
   } {
-    return project as ProjectEntity & {
-      budgetUtilization?: number;
-      isOverdue?: boolean;
-      isOverBudget?: boolean;
-      endDate?: Date;
-      startDate?: Date;
-      completionPercentage?: number;
+    const meta = project.metadata;
+    return {
+      budgetUtilization:
+        typeof meta?.['budgetUtilization'] === 'number' ? meta['budgetUtilization'] : undefined,
+      isOverdue: typeof meta?.['isOverdue'] === 'boolean' ? meta['isOverdue'] : undefined,
+      isOverBudget: typeof meta?.['isOverBudget'] === 'boolean' ? meta['isOverBudget'] : undefined,
+      endDate: meta?.['endDate'] instanceof Date ? meta['endDate'] : undefined,
+      startDate: meta?.['startDate'] instanceof Date ? meta['startDate'] : undefined,
+      completionPercentage:
+        typeof meta?.['completionPercentage'] === 'number'
+          ? meta['completionPercentage']
+          : undefined,
     };
   }
 
   private static getNotifyConfig(config: unknown): { message?: string; recipients?: unknown[] } {
-    return typeof config === 'object' && config !== null
-      ? (config as { message?: string; recipients?: unknown[] })
-      : {};
+    if (typeof config !== 'object' || config === null) return {};
+    return config as { message?: string; recipients?: unknown[] };
   }
 
   private static getEscalateConfig(config: unknown): { level?: string; reason?: string } {
-    return typeof config === 'object' && config !== null
-      ? (config as { level?: string; reason?: string })
-      : {};
+    if (typeof config !== 'object' || config === null) return {};
+    return config as { level?: string; reason?: string };
   }
 
   private static getProjectEvent(event: unknown): {
@@ -54,9 +57,8 @@ export class ProjectLifecycleService {
     statusChanged?: boolean;
     cost?: number;
   } {
-    return typeof event === 'object' && event !== null
-      ? (event as { projectId?: string; statusChanged?: boolean; cost?: number })
-      : {};
+    if (typeof event !== 'object' || event === null) return {};
+    return event as { projectId?: string; statusChanged?: boolean; cost?: number };
   }
 
   async initialize(): Promise<void> {

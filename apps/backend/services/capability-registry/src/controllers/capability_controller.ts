@@ -17,8 +17,31 @@ interface ElysiaContext {
   set: { status?: number | string };
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function toQueryString(val: unknown): string | undefined {
+  return typeof val === 'string' ? val : undefined;
+}
+
+function toQueryInt(val: unknown, fallback: number): number {
+  return typeof val === 'string' ? parseInt(val, 10) : fallback;
+}
+
+const capabilityTypeValues = new Set<unknown>(Object.values(CapabilityType));
+function isCapabilityType(v: unknown): v is CapabilityType {
+  return capabilityTypeValues.has(v);
+}
+
 function getIdParam(params: Record<string, unknown> | undefined): string {
-  return typeof (params ?? {}).id === 'string' ? ((params ?? {}).id as string) : '';
+  const v = (params ?? {}).id;
+  return typeof v === 'string' ? v : '';
+}
+
+function extractHeaderString(headers: Record<string, unknown>, key: string): string {
+  const v = headers[key];
+  return typeof v === 'string' ? v : '';
 }
 
 function requireCapabilityId(
@@ -56,9 +79,9 @@ export class CapabilityController {
     }
 
     const searchQuery: CapabilitySearchQuery = {
-      query: qParam as string,
-      type: type as CapabilityType,
-      limit: parseInt(limit as string, 10),
+      query: qParam,
+      type: isCapabilityType(type) ? type : undefined,
+      limit: toQueryInt(limit, 50),
     };
 
     const securityContext = this.extractSecurityContext(h);
@@ -77,7 +100,7 @@ export class CapabilityController {
       data: {
         capabilities,
         totalCount: capabilities.length,
-        recommendations: [] as unknown[],
+        recommendations: [] satisfies unknown[],
       },
       meta: {
         query: searchQuery,
@@ -88,31 +111,30 @@ export class CapabilityController {
   };
 
   public registerCapability = async ({ body, headers, set }: ElysiaContext) => {
-    const capability = body as Capability;
-
-    if (!capability) {
+    if (!isRecord(body)) {
       set.status = 400;
       return { success: false, error: 'Capability definition is required' };
     }
 
+    const capabilityName = typeof body.name === 'string' ? body.name : '';
     const securityContext = this.extractSecurityContext(headers ?? {});
 
     await this.securityValidationService.validateOperation(
       securityContext,
       'capability_register',
       ['capabilities'],
-      capability
+      body
     );
 
     logger.info('Capability registration requested', {
-      capabilityName: capability.name,
+      capabilityName,
       userId: securityContext.userId,
     });
 
     set.status = 201;
     return {
       success: true,
-      data: { capability },
+      data: { capability: body },
       meta: registryMeta(),
     };
   };
@@ -161,8 +183,8 @@ export class CapabilityController {
 
     const capabilities = await this.capabilityDiscoveryService.searchCapabilities({
       query: typeof qParam === 'string' && qParam.length > 0 ? qParam : '*',
-      type: type as CapabilityType,
-      limit: parseInt(limit as string, 10),
+      type: isCapabilityType(type) ? type : undefined,
+      limit: toQueryInt(limit, 50),
     });
 
     return {
@@ -189,9 +211,9 @@ export class CapabilityController {
 
     const execution = await this.capabilityDiscoveryService.executeTool(
       id,
-      (body && typeof body === 'object' ? body : {}) as Record<string, unknown>,
+      isRecord(body) ? body : {},
       {
-        agentId: (headers ?? {})['x-agent-id'] as string,
+        agentId: extractHeaderString(headers ?? {}, 'x-agent-id'),
         userId: securityContext.userId,
         context: 'capability-execution',
         timestamp: new Date().toISOString(),
@@ -207,7 +229,7 @@ export class CapabilityController {
 
   public updateCapability = async ({ params, body, headers, set }: ElysiaContext) => {
     const id = getIdParam(params);
-    const updateData = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    const updateData = isRecord(body) ? body : {};
 
     const idError = requireCapabilityId(id, set);
     if (idError) return idError;
@@ -267,16 +289,7 @@ export class CapabilityController {
       {}
     );
 
-    const allCapabilities = await this.capabilityDiscoveryService.searchCapabilities({
-      limit: 1000,
-    });
-    const categorySet = new Set<string>(
-      allCapabilities
-        .map((c) => (c as { category?: string }).category)
-        .filter((cat): cat is string => Boolean(cat))
-    );
-
-    const fallbackCategories = [
+    const categories: string[] = [
       'data-processing',
       'communication',
       'analysis',
@@ -285,8 +298,6 @@ export class CapabilityController {
       'security',
       'monitoring',
     ];
-    const categories: string[] =
-      categorySet.size > 0 ? Array.from(categorySet).sort() : fallbackCategories;
 
     return {
       success: true,
@@ -334,10 +345,10 @@ export class CapabilityController {
       body
     );
 
-    const validationResult = {
+    const validationResult: { valid: boolean; issues: string[]; recommendations: string[] } = {
       valid: true,
-      issues: [] as string[],
-      recommendations: [] as string[],
+      issues: [],
+      recommendations: [],
     };
 
     return {
@@ -371,16 +382,16 @@ export class CapabilityController {
 
   private extractSecurityContext(headers: Record<string, unknown>): SecurityContext {
     return {
-      userId: (headers['x-user-id'] as string) || 'anonymous',
-      sessionId: (headers['x-session-id'] as string) || 'unknown',
-      role: (headers['x-user-role'] as string) || 'user',
+      userId: extractHeaderString(headers, 'x-user-id') || 'anonymous',
+      sessionId: extractHeaderString(headers, 'x-session-id') || 'unknown',
+      role: extractHeaderString(headers, 'x-user-role') || 'user',
       permissions: [],
       securityLevel: SecurityLevel.MEDIUM,
       lastAuthentication: new Date(),
       mfaVerified: false,
       riskScore: 0,
       ipAddress: undefined,
-      userAgent: typeof headers['user-agent'] === 'string' ? headers['user-agent'] : '',
+      userAgent: toQueryString(headers['user-agent']) ?? '',
     };
   }
 }

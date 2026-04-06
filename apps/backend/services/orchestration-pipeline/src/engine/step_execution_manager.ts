@@ -12,7 +12,7 @@ import {
   StepMetrics,
   ParallelExecutionPolicy,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { StepExecutorService, ResourceManagerService } from '@uaip/shared-services';
 
 export interface StepExecutionContext {
@@ -285,7 +285,7 @@ export class StepExecutionManager extends EventEmitter {
 
   private calculateBackoff(step: ExecutionStep): number {
     const baseDelay = 1000; // 1 second
-    const multiplier = (step.retryPolicy?.backoffMultiplier as number) || 2;
+    const multiplier = typeof step.retryPolicy?.backoffMultiplier === 'number' ? step.retryPolicy.backoffMultiplier : 2;
     const attempt = step.retryCount || 1;
     return baseDelay * Math.pow(multiplier, attempt - 1);
   }
@@ -366,7 +366,11 @@ export class StepExecutionManager extends EventEmitter {
 
   private toRecord(value: unknown): Record<string, unknown> {
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      return value as Record<string, unknown>
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) {
+        result[k] = v;
+      }
+      return result;
     }
 
     return {}
@@ -374,7 +378,11 @@ export class StepExecutionManager extends EventEmitter {
 
   private getNestedProperty(obj: Record<string, unknown>, path: string[]): unknown {
     return path.reduce<unknown>(
-      (current, prop) => (current as Record<string, unknown>)?.[prop],
+      (current, prop) => {
+        if (typeof current !== 'object' || current === null || Array.isArray(current)) return undefined;
+        const rec: Record<string, unknown> = Object.fromEntries(Object.entries(current));
+        return rec[prop];
+      },
       obj
     );
   }
@@ -417,8 +425,9 @@ export class StepExecutionManager extends EventEmitter {
 
     for (const segment of segments) {
       if (current === null || current === undefined) return undefined;
-      if (typeof current !== 'object') return undefined;
-      current = (current as Record<string, unknown>)[segment];
+      if (typeof current !== 'object' || Array.isArray(current)) return undefined;
+      const rec: Record<string, unknown> = Object.fromEntries(Object.entries(current));
+      current = rec[segment];
     }
 
     return current;
@@ -447,7 +456,7 @@ export class StepExecutionManager extends EventEmitter {
       return this.resolvePropertyPath(trimmed, context);
     }
 
-    throw new Error(`Unsafe or unrecognised token in condition: "${trimmed}"`);
+    throw new ValidationError(`Unsafe or unrecognised token in condition: "${trimmed}"`);
   }
 
   private safeEvaluateExpression(expr: string, context: Record<string, unknown>): boolean {
@@ -514,11 +523,11 @@ export class StepExecutionManager extends EventEmitter {
       case '!==': return lhs !== rhs;
       case '==': return lhs == rhs;
       case '!=': return lhs != rhs;
-      case '>': return (lhs as number) > (rhs as number);
-      case '>=': return (lhs as number) >= (rhs as number);
-      case '<': return (lhs as number) < (rhs as number);
-      case '<=': return (lhs as number) <= (rhs as number);
-      default: throw new Error(`Unknown comparison operator: ${op}`);
+      case '>': return typeof lhs === 'number' && typeof rhs === 'number' && lhs > rhs;
+      case '>=': return typeof lhs === 'number' && typeof rhs === 'number' && lhs >= rhs;
+      case '<': return typeof lhs === 'number' && typeof rhs === 'number' && lhs < rhs;
+      case '<=': return typeof lhs === 'number' && typeof rhs === 'number' && lhs <= rhs;
+      default: throw new ValidationError(`Unknown comparison operator: ${op}`);
     }
   }
 

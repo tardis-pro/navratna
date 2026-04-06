@@ -363,7 +363,7 @@ export class ConversationAnalyzerImpl implements ConversationAnalyzer {
     // Extract participants from message metadata or use role as fallback
     const participants = new Set<string>(
       messages.map(
-        (m) => (m.metadata?.author || m.metadata?.userId || m.role || 'unknown') as string
+        (m) => String(m.metadata?.author || m.metadata?.userId || m.role || 'unknown')
       )
     );
     return Array.from(participants);

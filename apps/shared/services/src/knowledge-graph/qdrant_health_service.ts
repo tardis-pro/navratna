@@ -35,7 +35,7 @@ export class QdrantHealthService {
 
     try {
       // Check Qdrant connection and collection
-      const collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
+      const collectionInfo: QdrantCollectionInfo = await this.qdrantService.getCollectionInfo();
       status.isConnected = true;
       status.collectionExists = true;
       status.pointsCount = collectionInfo.result?.points_count || 0;
@@ -130,15 +130,15 @@ export class QdrantHealthService {
   async getQdrantDiagnostics(): Promise<{
     health: QdrantHealthStatus;
     collectionInfo: unknown;
-    sampleItems: unknown[];
+    sampleItems: Array<{ id: string | number; payload: string[]; vectorSize: number }>;
   }> {
     const health = await this.checkHealth();
 
     let collectionInfo = null;
-    let sampleItems: unknown[] = [];
+    let sampleItems: QdrantSampleItem[] = [];
 
     try {
-      collectionInfo = (await this.qdrantService.getCollectionInfo()) as QdrantCollectionInfo;
+      collectionInfo = await this.qdrantService.getCollectionInfo();
 
       // Get sample items from Qdrant if any exist
       if (health.pointsCount > 0) {
@@ -152,9 +152,7 @@ export class QdrantHealthService {
         );
 
         if (sampleResponse.ok) {
-          const sampleData = (await sampleResponse.json()) as {
-            result?: { points?: QdrantSampleItem[] };
-          };
+          const sampleData: { result?: { points?: QdrantSampleItem[] } } = await sampleResponse.json();
           sampleItems = sampleData.result?.points || [];
         }
       }
@@ -165,7 +163,7 @@ export class QdrantHealthService {
     return {
       health,
       collectionInfo,
-      sampleItems: (sampleItems as QdrantSampleItem[]).map((item) => ({
+      sampleItems: sampleItems.map((item) => ({
         id: item.id,
         payload: item.payload ? Object.keys(item.payload) : [],
         vectorSize: item.vector?.length || 0,

@@ -2,6 +2,7 @@ import { EmbeddingService } from './embedding_service.js';
 import { TEIEmbeddingService, TEIHealthStatus, RerankResult } from './tei_embedding_service.js';
 import { ContextRequest } from '@uaip/types';
 
+import { InternalServerError } from '@uaip/utils';
 export interface EmbeddingServiceConfig {
   preferTEI: boolean;
   fallbackToOpenAI: boolean;
@@ -129,11 +130,11 @@ export class SmartEmbeddingService extends EmbeddingService {
         this.recordSuccess(startTime);
         return embedding;
       } else {
-        throw new Error('No embedding service available');
+        throw new InternalServerError('No embedding service available');
       }
     } catch (error) {
       this.recordFailure(startTime);
-      throw new Error(`Smart embedding failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Smart embedding failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -168,11 +169,11 @@ export class SmartEmbeddingService extends EmbeddingService {
         this.recordSuccess(startTime);
         return embeddings;
       } else {
-        throw new Error('No embedding service available');
+        throw new InternalServerError('No embedding service available');
       }
     } catch (error) {
       this.recordFailure(startTime);
-      throw new Error(`Smart batch embedding failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Smart batch embedding failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -193,7 +194,7 @@ export class SmartEmbeddingService extends EmbeddingService {
     } else if (this.healthStatus.openaiAvailable) {
       return await super.generateEmbeddings(content);
     } else {
-      throw new Error('No embedding service available');
+      throw new InternalServerError('No embedding service available');
     }
   }
 
@@ -214,7 +215,7 @@ export class SmartEmbeddingService extends EmbeddingService {
     } else if (this.healthStatus.openaiAvailable) {
       return await super.generateContextEmbedding(context);
     } else {
-      throw new Error('No embedding service available');
+      throw new InternalServerError('No embedding service available');
     }
   }
 

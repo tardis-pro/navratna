@@ -1,7 +1,10 @@
 import { BaseDomainService } from './base_domain_service';
 import { AuthenticationMethod } from '@uaip/types';
-import { getControlPool } from '../database/drizzle/clients/index';
-import { updateTableRow } from './sql_helpers';
+import { getControlDb } from '../database/drizzle/clients/index';
+import { sessions } from '../database/drizzle/schemas/control_schema';
+import { eq, lt } from 'drizzle-orm';
+import { desc } from 'drizzle-orm';
+import type { Session } from '../database/drizzle/schemas/control_schema';
 
 export class SessionService extends BaseDomainService {
   protected constructor() {
@@ -16,78 +19,84 @@ export class SessionService extends BaseDomainService {
     userId: string,
     sessionToken: string,
     metadata?: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    const pool = getControlPool();
-    const result = await pool.query(
-      `INSERT INTO sessions (user_id, session_token, expires_at, last_activity_at, authentication_method, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [
+  ): Promise<Session> {
+    const db = getControlDb();
+    const [result] = await db
+      .insert(sessions)
+      .values({
         userId,
         sessionToken,
-        new Date(Date.now() + 86400000),
-        new Date(),
-        AuthenticationMethod.PASSWORD,
-        metadata ? JSON.stringify(metadata) : null,
-      ]
-    );
-    return result.rows[0];
+        expiresAt: new Date(Date.now() + 86400000),
+        lastActivityAt: new Date(),
+        authenticationMethod: AuthenticationMethod.PASSWORD,
+        metadata: metadata ?? null,
+      })
+      .returning();
+    return result;
   }
 
-  public async findSession(sessionToken: string): Promise<Record<string, unknown> | null> {
-    const pool = getControlPool();
-    const result = await pool.query(`SELECT * FROM sessions WHERE session_token = $1 LIMIT 1`, [
-      sessionToken,
-    ]);
-    return result.rows[0] ?? null;
+  public async findSession(sessionToken: string): Promise<Session | null> {
+    const db = getControlDb();
+    const result = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.sessionToken, sessionToken))
+      .limit(1);
+    return result[0] ?? null;
   }
 
-  public async findSessionById(id: string): Promise<Record<string, unknown> | null> {
-    const pool = getControlPool();
-    const result = await pool.query(`SELECT * FROM sessions WHERE id = $1 LIMIT 1`, [id]);
-    return result.rows[0] ?? null;
+  public async findSessionById(id: string): Promise<Session | null> {
+    const db = getControlDb();
+    const result = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+    return result[0] ?? null;
   }
 
   public async updateSession(
     id: string,
-    data: Record<string, unknown>
-  ): Promise<Record<string, unknown> | null> {
-    return updateTableRow('sessions', id, data, (i) => this.findSessionById(i));
+    data: Partial<Session>
+  ): Promise<Session | null> {
+    const db = getControlDb();
+    const existing = await this.findSessionById(id);
+    if (!existing) return null;
+    await db
+      .update(sessions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sessions.id, id));
+    return this.findSessionById(id);
   }
 
   public async invalidateSession(sessionToken: string): Promise<boolean> {
-    const pool = getControlPool();
-    const result = await pool.query(`DELETE FROM sessions WHERE session_token = $1`, [
-      sessionToken,
-    ]);
+    const db = getControlDb();
+    const result = await db.delete(sessions).where(eq(sessions.sessionToken, sessionToken));
     return (result.rowCount ?? 0) > 0;
   }
 
   public async invalidateUserSessions(userId: string): Promise<void> {
-    const pool = getControlPool();
-    await pool.query(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
+    const db = getControlDb();
+    await db.delete(sessions).where(eq(sessions.userId, userId));
   }
 
   public async updateLastActivity(sessionToken: string): Promise<boolean> {
-    const pool = getControlPool();
-    const result = await pool.query(
-      `UPDATE sessions SET last_activity_at = $1 WHERE session_token = $2`,
-      [new Date(), sessionToken]
-    );
+    const db = getControlDb();
+    const result = await db
+      .update(sessions)
+      .set({ lastActivityAt: new Date(), updatedAt: new Date() })
+      .where(eq(sessions.sessionToken, sessionToken));
     return (result.rowCount ?? 0) > 0;
   }
 
-  public async findUserSessions(userId: string): Promise<Record<string, unknown>[]> {
-    const pool = getControlPool();
-    const result = await pool.query(
-      `SELECT * FROM sessions WHERE user_id = $1 ORDER BY last_activity_at DESC`,
-      [userId]
-    );
-    return result.rows;
+  public async findUserSessions(userId: string): Promise<Session[]> {
+    const db = getControlDb();
+    return db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.userId, userId))
+      .orderBy(desc(sessions.lastActivityAt));
   }
 
   public async cleanupExpiredSessions(): Promise<void> {
-    const pool = getControlPool();
-    await pool.query(`DELETE FROM sessions WHERE expires_at < $1`, [new Date()]);
+    const db = getControlDb();
+    await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
   }
 
   public async isSessionValid(sessionToken: string): Promise<boolean> {
@@ -96,7 +105,7 @@ export class SessionService extends BaseDomainService {
       return false;
     }
 
-    if (new Date(session.expires_at as string) < new Date()) {
+    if (session.expiresAt < new Date()) {
       await this.invalidateSession(sessionToken);
       return false;
     }
@@ -106,11 +115,11 @@ export class SessionService extends BaseDomainService {
 
   public async extendSession(sessionToken: string, extensionHours: number = 24): Promise<boolean> {
     const newExpiryTime = new Date(Date.now() + extensionHours * 60 * 60 * 1000);
-    const pool = getControlPool();
-    const result = await pool.query(
-      `UPDATE sessions SET expires_at = $1 WHERE session_token = $2`,
-      [newExpiryTime, sessionToken]
-    );
+    const db = getControlDb();
+    const result = await db
+      .update(sessions)
+      .set({ expiresAt: newExpiryTime, updatedAt: new Date() })
+      .where(eq(sessions.sessionToken, sessionToken));
     return (result.rowCount ?? 0) > 0;
   }
 }

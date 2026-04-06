@@ -2,8 +2,12 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger, ApiError } from '@uaip/utils';
 import { AgentCreateRequestSchema, AgentUpdateSchema, AgentRole } from '@uaip/types';
-import type { ValidationMeta } from '@uaip/types';
+import type { ValidationMeta, AgentCreateRequest } from '@uaip/types';
 import { AgentTransformationService } from './agent_transformation_service.js';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 /**
  * Enhanced Agent Validation Middleware for Elysia
@@ -15,8 +19,7 @@ export class AgentValidationMiddleware {
     body: unknown,
     set: { status?: number | string }
   ): Record<string, unknown> | { validationError: { error: string; code: string } } {
-    const rawData = body as Record<string, unknown>;
-    if (!rawData || typeof rawData !== 'object') {
+    if (!isRecord(body)) {
       set.status = 400;
       return {
         validationError: {
@@ -25,7 +28,7 @@ export class AgentValidationMiddleware {
         },
       };
     }
-    return rawData;
+    return body;
   }
 
   private static deriveWithValidBody(
@@ -66,7 +69,7 @@ export class AgentValidationMiddleware {
         validatedData = AgentCreateRequestSchema.parse(transformedData);
 
         logger.info('Persona transformation and validation successful', {
-          originalRole: rawData.role || (rawData.persona as Record<string, unknown>)?.role,
+          originalRole: rawData.role || (isRecord(rawData.persona) ? rawData.persona.role : undefined),
           transformedRole: validatedData.role,
           capabilities: validatedData.capabilities?.length,
         });
@@ -165,10 +168,10 @@ export class AgentValidationMiddleware {
    * Detects if the input needs persona transformation
    */
   private static needsPersonaTransformation(input: Record<string, unknown>): boolean {
-    const agentRoleValues = Object.values(AgentRole) as string[];
+    const agentRoleValues = Object.values(AgentRole);
     const hasPersonaStructure =
       !!input.persona ||
-      !!(input.role && typeof input.role === 'string' && !agentRoleValues.includes(input.role)) ||
+      !!(input.role && typeof input.role === 'string' && !agentRoleValues.some((v) => v === input.role)) ||
       !!(input.expertise && !input.capabilities) ||
       !!input.traits ||
       !!input.background;
@@ -179,9 +182,9 @@ export class AgentValidationMiddleware {
   }
 
   private static detectInputFormat(input: Record<string, unknown>): string {
-    const agentRoleValues = Object.values(AgentRole) as string[];
+    const agentRoleValues = Object.values(AgentRole);
     if (input.persona) return 'nested-persona';
-    if (input.role && typeof input.role === 'string' && !agentRoleValues.includes(input.role))
+    if (input.role && typeof input.role === 'string' && !agentRoleValues.some((v) => v === input.role))
       return 'persona-role';
     if (input.expertise && !input.capabilities) return 'persona-expertise';
     if (input.traits) return 'persona-traits';
@@ -190,22 +193,16 @@ export class AgentValidationMiddleware {
     return 'unknown';
   }
 
-  /**
-   * Validates business rules for agent creation
-   */
-  private static validateBusinessRules(data: Record<string, unknown>): void {
-    AgentValidationMiddleware.validateRole(data.role as AgentRole);
-    AgentValidationMiddleware.validateCapabilities(data.capabilities as string[]);
+  private static validateBusinessRules(data: AgentCreateRequest): void {
+    AgentValidationMiddleware.validateRole(data.role ?? AgentRole.ASSISTANT);
+    AgentValidationMiddleware.validateCapabilities(data.capabilities);
     AgentValidationMiddleware.validateSecurityLevel(
-      data.securityLevel as string,
-      data.role as AgentRole
+      data.securityLevel ?? 'medium',
+      data.role ?? AgentRole.ASSISTANT
     );
 
     if (data.configuration) {
-      AgentValidationMiddleware.validateConfiguration(
-        data.configuration as Record<string, unknown>,
-        data.role as AgentRole
-      );
+      AgentValidationMiddleware.validateConfiguration(data.configuration, data.role ?? AgentRole.ASSISTANT);
     }
   }
 
@@ -262,10 +259,10 @@ export class AgentValidationMiddleware {
     }
   }
 
-  /**
-   * Validates configuration consistency with role
-   */
-  private static validateConfiguration(config: Record<string, unknown>, role: AgentRole): void {
+  private static validateConfiguration(
+    config: { analysisDepth?: string; collaborationMode?: string; temperature?: number },
+    role: AgentRole
+  ): void {
     if (config.analysisDepth === 'advanced' && role === AgentRole.ASSISTANT) {
       logger.warn('Advanced analysis depth for assistant role', {
         role,
@@ -280,8 +277,8 @@ export class AgentValidationMiddleware {
       });
     }
 
-    const temp = config.temperature as number | undefined;
-    if (temp !== undefined && temp !== null && (temp < 0 || temp > 2)) {
+    const temp = config.temperature;
+    if (temp !== undefined && (temp < 0 || temp > 2)) {
       throw new ApiError(400, 'Temperature must be between 0 and 2', 'INVALID_TEMPERATURE');
     }
   }

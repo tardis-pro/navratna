@@ -140,7 +140,9 @@ export function useAgentMicroexpression(options: UseAgentMicroexpressionOptions 
 
   useEffect(() => {
     const onActivity = (event: Event) => {
-      handleActivity((event as CustomEvent<AgentActivityEventDetail>).detail);
+      if (!(event instanceof CustomEvent)) return;
+      const detail: AgentActivityEventDetail = event.detail;
+      handleActivity(detail);
     };
 
     const onError = () => {
@@ -148,12 +150,12 @@ export function useAgentMicroexpression(options: UseAgentMicroexpressionOptions 
       scheduleCalmReset();
     };
 
-    window.addEventListener(AGENT_ACTIVITY_EVENT, onActivity as EventListener);
+    window.addEventListener(AGENT_ACTIVITY_EVENT, onActivity);
     window.addEventListener('error', onError);
     window.addEventListener('unhandledrejection', onError);
 
     return () => {
-      window.removeEventListener(AGENT_ACTIVITY_EVENT, onActivity as EventListener);
+      window.removeEventListener(AGENT_ACTIVITY_EVENT, onActivity);
       window.removeEventListener('error', onError);
       window.removeEventListener('unhandledrejection', onError);
       clearIdleTimer();

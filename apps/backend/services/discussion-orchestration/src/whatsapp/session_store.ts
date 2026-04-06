@@ -14,6 +14,14 @@ import type { AuthenticationState, AuthenticationCreds, SignalDataTypeMap } from
 import type { Redis } from 'ioredis';
 import { createLogger } from '@uaip/utils';
 
+function toAuthCreds(v: object): AuthenticationCreds {
+  return v as AuthenticationCreds;
+}
+
+function toSignalData<T extends keyof SignalDataTypeMap>(v: unknown): SignalDataTypeMap[T] {
+  return v as SignalDataTypeMap[T];
+}
+
 const logger = createLogger({
   serviceName: 'WhatsAppSessionStore',
   environment: process.env.NODE_ENV || 'development',
@@ -34,7 +42,10 @@ export async function useRedisAuthState(redis: Redis): Promise<{
     try {
       const raw = await redis.get(credsKey);
       if (raw) {
-        return JSON.parse(raw, BufferJSON.reviver) as AuthenticationCreds;
+        const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
+        if (typeof parsed === 'object' && parsed !== null) {
+          return toAuthCreds(parsed);
+        }
       }
     } catch (err) {
       logger.warn('Failed to parse stored WhatsApp creds, reinitialising', { err });
@@ -69,7 +80,10 @@ export async function useRedisAuthState(redis: Redis): Promise<{
             try {
               const raw = await redis.get(redisKey);
               if (raw) {
-                result[id] = JSON.parse(raw, BufferJSON.reviver) as SignalDataTypeMap[T];
+                const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
+                if (parsed !== null && parsed !== undefined) {
+                  result[id] = toSignalData<T>(parsed);
+                }
               }
             } catch (err) {
               logger.warn('Error reading signal key from Redis', { type, id, err });

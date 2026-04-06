@@ -1,5 +1,5 @@
 import { getIntelligenceDb } from '../drizzle/clients/index';
-import { agents } from '../../database/drizzle/schemas/intelligence_schema';
+import { agents, type Agent } from '../../database/drizzle/schemas/intelligence_schema';
 import { BaseSeed } from './base_seed';
 import {
   AgentRole,
@@ -7,6 +7,9 @@ import {
   AgentIntelligenceConfig,
   AgentSecurityContext,
 } from '@uaip/types';
+import type { InferInsertModel } from 'drizzle-orm';
+
+type AgentInsert = InferInsertModel<typeof agents>;
 
 export class AgentSeed extends BaseSeed {
   private db = getIntelligenceDb();
@@ -19,13 +22,13 @@ export class AgentSeed extends BaseSeed {
     this.personas = personaIds.map((id) => ({ id }));
   }
 
-  async seed(): Promise<any[]> {
+  async seed(): Promise<Agent[]> {
     const seedData = await this.getSeedData();
 
     for (const agent of seedData) {
       await this.db
         .insert(agents)
-        .values(agent as any)
+        .values(agent)
         .onConflictDoNothing();
     }
 
@@ -36,7 +39,7 @@ export class AgentSeed extends BaseSeed {
     return this.personas[0]?.id ?? '00000000-0000-0000-0000-000000000000';
   }
 
-  async getSeedData(): Promise<any[]> {
+  async getSeedData(): Promise<AgentInsert[]> {
     return [
       {
         name: 'Pro',
@@ -48,21 +51,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['data-analysis', 'visualization'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'advanced',
           contextWindowSize: 8000,
           decisionThreshold: 0.8,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'high',
           allowedCapabilities: ['data-analysis'],
           restrictedDomains: [],
           approvalRequired: true,
           auditLevel: 'comprehensive',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -94,21 +97,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['workflow-management', 'task-orchestration'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'intermediate',
           contextWindowSize: 6000,
           decisionThreshold: 0.85,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'high',
           allowedCapabilities: ['workflow-management'],
           restrictedDomains: [],
           approvalRequired: true,
           auditLevel: 'comprehensive',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -145,21 +148,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['full-stack-development', 'api-design'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'intermediate',
           contextWindowSize: 6000,
           decisionThreshold: 0.75,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'medium',
           allowedCapabilities: ['full-stack-development'],
           restrictedDomains: [],
           approvalRequired: false,
           auditLevel: 'standard',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -191,21 +194,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['backend-development', 'system-architecture'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'advanced',
           contextWindowSize: 7000,
           decisionThreshold: 0.8,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'high',
           allowedCapabilities: ['backend-development'],
           restrictedDomains: [],
           approvalRequired: true,
           auditLevel: 'comprehensive',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -242,21 +245,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['frontend-development', 'ui-ux-design'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'intermediate',
           contextWindowSize: 5500,
           decisionThreshold: 0.72,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'medium',
           allowedCapabilities: ['frontend-development'],
           restrictedDomains: [],
           approvalRequired: false,
           auditLevel: 'standard',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -293,21 +296,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['devops', 'infrastructure-automation'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'advanced',
           contextWindowSize: 6500,
           decisionThreshold: 0.85,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'high',
           allowedCapabilities: ['devops'],
           restrictedDomains: [],
           approvalRequired: true,
           auditLevel: 'comprehensive',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -339,21 +342,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['creative-direction', 'brand-strategy'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'advanced',
           contextWindowSize: 7500,
           decisionThreshold: 0.7,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'medium',
           allowedCapabilities: ['creative-direction'],
           restrictedDomains: [],
           approvalRequired: false,
           auditLevel: 'standard',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),
@@ -385,21 +388,21 @@ export class AgentSeed extends BaseSeed {
           capabilities: ['behavioral-analysis', 'user-psychology'],
           constraints: {},
           preferences: {},
-        } as AgentPersona,
+        } satisfies AgentPersona,
         intelligenceConfig: {
           analysisDepth: 'advanced',
           contextWindowSize: 8500,
           decisionThreshold: 0.75,
           learningEnabled: true,
           collaborationMode: 'collaborative',
-        } as AgentIntelligenceConfig,
+        } satisfies AgentIntelligenceConfig,
         securityContext: {
           securityLevel: 'high',
           allowedCapabilities: ['behavioral-analysis'],
           restrictedDomains: ['personal-data'],
           approvalRequired: true,
           auditLevel: 'comprehensive',
-        } as AgentSecurityContext,
+        } satisfies AgentSecurityContext,
         isActive: true,
         createdBy: this.users[0]?.id || '00000000-0000-0000-0000-000000000000',
         lastActiveAt: new Date(),

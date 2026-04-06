@@ -2,10 +2,10 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { ProjectManagementService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
+import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { withOptionalAuth } from '@uaip/middleware';
-import { ProjectStatus as _ProjectStatus } from '@uaip/types';
+import { ProjectStatus } from '@uaip/types';
 
 let projectService: ProjectManagementService | null = null;
 
@@ -13,7 +13,6 @@ async function getProjectService(): Promise<ProjectManagementService> {
   if (!projectService) {
     const databaseService = DatabaseService.getInstance();
     const eventBusService = EventBusService.getInstance();
-    // @ts-expect-error -- Argument type mismatch
     projectService = new ProjectManagementService(databaseService, eventBusService);
     await projectService.initialize();
   }
@@ -42,7 +41,7 @@ const updateProjectSchema = z.object({
   tags: z.array(z.string()).optional(),
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   visibility: z.enum(['private', 'team', 'public']).optional(),
-  status: z.enum(['active', 'paused', 'completed', 'cancelled', 'archived']).optional(),
+  status: z.nativeEnum(ProjectStatus).optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
   budget: z.number().min(0).optional(),
@@ -53,7 +52,7 @@ const updateProjectSchema = z.object({
 const projectQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['active', 'paused', 'completed', 'cancelled', 'archived']).optional(),
+  status: z.nativeEnum(ProjectStatus).optional(),
   search: z.string().max(100).optional(),
 });
 
@@ -77,8 +76,7 @@ export function registerProjectRoutes() {
         const projects = await service.listProjects({
           offset,
           limit: parsed.data.limit,
-          // @ts-expect-error -- Type not assignable
-          status: parsed.data.status as unknown,
+          status: parsed.data.status,
         });
   
         return { success: true, data: projects };
@@ -164,8 +162,7 @@ export function registerProjectRoutes() {
         const project = await service.updateProject(params.projectId, {
           name: parsed.data.name,
           description: parsed.data.description,
-          // @ts-expect-error -- Type not assignable
-          status: parsed.data.status as unknown,
+          status: parsed.data.status,
           settings: parsed.data.settings,
           metadata: parsed.data.metadata,
         });

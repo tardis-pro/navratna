@@ -45,8 +45,10 @@ const orchestrationService = {
 describe('discussion/persona routes e2e', () => {
   const buildApp = () => {
     const app = new Elysia()
-    registerDiscussionRoutes(app as never, discussionService as never, orchestrationService as never)
-    registerPersonaRoutes(app as never, personaService as never)
+    // @ts-expect-error -- mock services don't match full Elysia type signatures in test context
+    registerDiscussionRoutes(app, discussionService, orchestrationService)
+    // @ts-expect-error -- mock personaService doesn't match full Elysia type signature in test context
+    registerPersonaRoutes(app, personaService)
     return app
   }
 

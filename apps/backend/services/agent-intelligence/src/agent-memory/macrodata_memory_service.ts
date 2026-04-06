@@ -13,6 +13,10 @@
 
 import { logger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 /** Minimal interface compatible with both pg.Pool (via adapter) and raw query executors */
 export interface QueryExecutor {
   query(sql: string, params?: unknown[]): Promise<unknown[]>;
@@ -157,7 +161,9 @@ export class MacrodataMemoryService {
       );
       if (!rows.length) return '';
 
-      const agent = rows[0] as Record<string, unknown>;
+      const rawAgent = rows[0];
+      if (!isRecord(rawAgent)) return '';
+      const agent = rawAgent;
       const persona =
         typeof agent.persona === 'string' ? JSON.parse(agent.persona) : (agent.persona ?? {});
       const caps =
@@ -167,10 +173,10 @@ export class MacrodataMemoryService {
 
       const lines: string[] = [`Name: ${agent.name}`];
       if (persona.role) lines.push(`Role: ${persona.role}`);
-      if (persona.expertise?.length)
-        lines.push(`Expertise: ${(persona.expertise as string[]).join(', ')}`);
-      if (caps.languages?.length)
-        lines.push(`Languages: ${(caps.languages as string[]).join(', ')}`);
+      if (Array.isArray(persona.expertise) && persona.expertise.length)
+        lines.push(`Expertise: ${persona.expertise.filter((x: unknown): x is string => typeof x === 'string').join(', ')}`);
+      if (Array.isArray(caps.languages) && caps.languages.length)
+        lines.push(`Languages: ${caps.languages.filter((x: unknown): x is string => typeof x === 'string').join(', ')}`);
 
       return lines.join('\n');
     } catch {
@@ -215,13 +221,15 @@ export class MacrodataMemoryService {
         [query.slice(0, 200), agentId, userId]
       );
 
-      return rows.map((r: Record<string, unknown>) => ({
-        content: typeof r.content === 'string' ? r.content : '',
-        tags: Array.isArray(r.tags)
-          ? r.tags.filter((tag): tag is string => typeof tag === 'string')
-          : [],
-        relevanceScore: typeof r.rank === 'number' ? r.rank : Number(r.rank) || 0,
-      }));
+      return rows
+        .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
+        .map((r) => ({
+          content: typeof r.content === 'string' ? r.content : '',
+          tags: Array.isArray(r.tags)
+            ? r.tags.filter((tag): tag is string => typeof tag === 'string')
+            : [],
+          relevanceScore: typeof r.rank === 'number' ? r.rank : Number(r.rank) || 0,
+        }));
     } catch (err) {
       logger.warn('Macrodata topics layer failed', {
         error: err instanceof Error ? err.message : String(err),

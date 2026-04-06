@@ -16,7 +16,31 @@ import { ChatParserService } from './chat_parser_service.js';
 import { ChatKnowledgeExtractorService } from './chat_knowledge_extractor_service.js';
 import { BatchProcessorService } from './batch_processor_service.js';
 import { KnowledgeGraphService } from './knowledge_graph_service.js';
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, InternalServerError, NotFoundError } from '@uaip/utils';
+
+import type { KnowledgeRow } from '../../../../../shared/services/src/database/repositories/knowledge_repository.js';
+
+function mapRowToKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
+  return {
+    id: row.id,
+    content: row.content,
+    type: row.type,
+    sourceType: row.sourceType,
+    sourceIdentifier: row.sourceIdentifier,
+    sourceUrl: row.sourceUrl ?? undefined,
+    tags: row.tags,
+    confidence: row.confidence,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy ?? undefined,
+    organizationId: row.organizationId ?? undefined,
+    accessLevel: row.accessLevel,
+    userId: row.userId ?? undefined,
+    agentId: row.agentId ?? undefined,
+    summary: row.summary ?? undefined,
+  };
+}
 
 export interface BootstrapConfig {
   enableAutoSync: boolean;
@@ -178,10 +202,10 @@ export class KnowledgeBootstrapService {
     ];
 
     const results = await Promise.allSettled(serviceChecks);
-    const failures = results.filter((r) => r.status === 'rejected');
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
 
     if (failures.length > 0) {
-      const errors = failures.map((f) => (f as PromiseRejectedResult).reason);
+      const errors = failures.map((f) => f.reason);
       logger.warn('Some services are not ready:', errors);
 
       // Continue with degraded functionality
@@ -192,7 +216,7 @@ export class KnowledgeBootstrapService {
   private async checkQdrantService(): Promise<void> {
     const isHealthy = await this.qdrantService.isHealthy();
     if (!isHealthy) {
-      throw new Error('Qdrant service is not healthy');
+      throw new ExternalServiceError('Qdrant service is not healthy');
     }
 
     // Ensure collection exists
@@ -204,7 +228,7 @@ export class KnowledgeBootstrapService {
     // Test Neo4j connection
     const testResult = await this.graphDb.runQuery('RETURN 1 as test', {});
     if (!testResult.records || testResult.records.length === 0) {
-      throw new Error('Neo4j service is not responding');
+      throw new ExternalServiceError('Neo4j service is not responding');
     }
     logger.info('✅ Neo4j service is ready');
   }
@@ -213,7 +237,7 @@ export class KnowledgeBootstrapService {
     // Test embedding generation
     const testEmbedding = await this.embeddingService.generateEmbedding('test');
     if (!testEmbedding || testEmbedding.length === 0) {
-      throw new Error('Embedding service is not working');
+      throw new ExternalServiceError('Embedding service is not working');
     }
     logger.info('✅ Embedding service is ready');
   }
@@ -246,7 +270,7 @@ export class KnowledgeBootstrapService {
         return; // Success!
       } catch (error) {
         attempt++;
-        lastError = error as Error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
         if (attempt < this.config.retryAttempts) {
           logger.warn(
@@ -260,7 +284,7 @@ export class KnowledgeBootstrapService {
     }
 
     // All retries failed
-    throw new Error(
+    throw new InternalServerError(
       `Universal sync failed after ${this.config.retryAttempts} attempts. Last error: ${lastError?.message}`
     );
   }
@@ -299,7 +323,7 @@ export class KnowledgeBootstrapService {
 
     const item = await this.knowledgeRepository.findById(itemId);
     if (!item) {
-      throw new Error(`Knowledge item not found: ${itemId}`);
+      throw new NotFoundError(`Knowledge item not found: ${itemId}`);
     }
 
     // Convert to entity format for sync service
@@ -307,13 +331,13 @@ export class KnowledgeBootstrapService {
     const entity = knowledgeItems.find((e) => e.id === itemId);
 
     if (!entity) {
-      throw new Error(`Knowledge item entity not found: ${itemId}`);
+      throw new NotFoundError(`Knowledge item entity not found: ${itemId}`);
     }
 
     const result = await this.syncService.syncKnowledgeItem(entity);
 
     if (!result.success) {
-      throw new Error(`Failed to sync knowledge item ${itemId}: ${result.error}`);
+      throw new InternalServerError(`Failed to sync knowledge item ${itemId}: ${result.error}`);
     }
   }
 
@@ -545,7 +569,7 @@ export class KnowledgeBootstrapService {
 
       // Detect conflicts across all knowledge
       const conflicts = await this.reconciliationService.detectConflicts(
-        (await this.knowledgeRepository.findRecentItems(200)) as unknown as KnowledgeItem[],
+        (await this.knowledgeRepository.findRecentItems(200)).map(mapRowToKnowledgeItem),
         {
           similarityThreshold: parseFloat(process.env.KNOWLEDGE_CLUSTER_SIMILARITY_THRESHOLD ?? '0.65'),
           maxConflictsPerBatch: 50,
@@ -593,7 +617,7 @@ export class KnowledgeBootstrapService {
             // Minimum items for meaningful taxonomy
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
             const result = await this.taxonomyGenerator.generateTaxonomy(
-              items as unknown as KnowledgeItem[],
+              items.map(mapRowToKnowledgeItem),
               domain,
               {
                 maxCategories: 15,
@@ -629,10 +653,10 @@ export class KnowledgeBootstrapService {
       // Count domain occurrences from tags and metadata
       for (const item of items) {
         // From metadata domain
-        if (item.metadata.domain) {
+        if (typeof item.metadata.domain === 'string') {
           domainCounts.set(
-            item.metadata.domain as string,
-            (domainCounts.get(item.metadata.domain as string) || 0) + 1
+            item.metadata.domain,
+            (domainCounts.get(item.metadata.domain) || 0) + 1
           );
         }
 
@@ -826,9 +850,10 @@ export class KnowledgeBootstrapService {
       logger.info('Running knowledge reconciliation...', { domain });
 
       // Get knowledge items for the domain
-      const items = (domain
+      const rawItems = domain
         ? await this.knowledgeRepository.findByDomain(domain)
-        : await this.knowledgeRepository.findRecentItems(100)) as unknown as KnowledgeItem[];
+        : await this.knowledgeRepository.findRecentItems(100);
+      const items = rawItems.map(mapRowToKnowledgeItem);
 
       logger.info(`Found ${items.length} knowledge items for reconciliation`);
 

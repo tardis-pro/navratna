@@ -181,7 +181,8 @@ export class MCPService {
     }
 
     const result = await pool.query(query, params);
-    const rows = result.rows as Array<{ status: string; execution_time_ms: number | null }>;
+    type ToolCallRow = { status: string; execution_time_ms: number | null };
+    const rows: ToolCallRow[] = result.rows;
 
     const stats = {
       total: rows.length,
@@ -273,8 +274,14 @@ export class MCPService {
     const toolCall = await this.getToolCall(id);
     if (!toolCall) return null;
 
-    const maxRetries = ((toolCall.metadata as Record<string, unknown>)?.maxRetries as number) || 3;
-    const retryCount = ((toolCall.metadata as Record<string, unknown>)?.retryCount as number) || 0;
+    const rawMeta = toolCall.metadata;
+    const meta: Record<string, unknown> =
+      typeof rawMeta === 'object' && rawMeta !== null && !Array.isArray(rawMeta)
+        ? { ...rawMeta }
+        : {};
+
+    const maxRetries = typeof meta.maxRetries === 'number' ? meta.maxRetries : 3;
+    const retryCount = typeof meta.retryCount === 'number' ? meta.retryCount : 0;
 
     if (retryCount >= maxRetries) {
       logger.warn(`Max retries exceeded for tool call: ${id}`);
@@ -284,7 +291,7 @@ export class MCPService {
     return await this.updateToolCall(id, {
       status: 'pending',
       metadata: JSON.stringify({
-        ...(toolCall.metadata as Record<string, unknown>),
+        ...meta,
         retryCount: retryCount + 1,
       }),
     });

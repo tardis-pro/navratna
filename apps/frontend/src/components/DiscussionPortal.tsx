@@ -282,7 +282,8 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
 
   // Listen for global discussion trigger events
   useEffect(() => {
-    const handleOpenDiscussion = (e: CustomEvent) => {
+    const handleOpenDiscussion = (e: Event) => {
+      if (!(e instanceof CustomEvent)) return;
       const { _contextData, preselectedAgents } = e.detail;
 
       if (preselectedAgents) {
@@ -292,10 +293,10 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
       setIsConfigOpen(true);
     };
 
-    window.addEventListener('open-discussion-config', handleOpenDiscussion as EventListener);
+    window.addEventListener('open-discussion-config', handleOpenDiscussion);
 
     return () => {
-      window.removeEventListener('open-discussion-config', handleOpenDiscussion as EventListener);
+      window.removeEventListener('open-discussion-config', handleOpenDiscussion);
     };
   }, []);
 

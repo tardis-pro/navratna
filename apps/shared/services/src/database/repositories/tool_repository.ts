@@ -11,7 +11,7 @@ import { SecurityLevel } from '@uaip/types';
 
 type ToolDefinitionRow = typeof toolDefinitions.$inferSelect;
 type ToolDefinitionInsert = typeof toolDefinitions.$inferInsert;
-type ToolExecutionRow = typeof toolExecutions.$inferSelect;
+export type ToolExecutionRow = typeof toolExecutions.$inferSelect;
 type ToolExecutionInsert = typeof toolExecutions.$inferInsert;
 type ToolUsageRow = typeof toolUsageRecords.$inferSelect;
 type ToolUsageInsert = typeof toolUsageRecords.$inferInsert;

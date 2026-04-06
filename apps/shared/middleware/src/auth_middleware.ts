@@ -12,11 +12,11 @@ export type AuthedContext = RequiredAuthContext;
 // Context type for Elysia route handlers where withOptionalAuth has been applied
 export type OptionalAuthContext = AuthContext;
 
-type ContextWithOptionalUser = { user?: UserContext | null; [key: string]: unknown };
+type ContextWithOptionalUser = { user?: UserContext | null; set: { status?: number | string }; [key: string]: unknown };
 
 const hasUserContext = (
   context: ContextWithOptionalUser
-): context is { user: UserContext; [key: string]: unknown } => context.user != null;
+): context is { user: UserContext; set: { status: number | string }; [key: string]: unknown } => context.user != null;
 
 const getValidatedUserContext = (context: ContextWithOptionalUser): UserContext | null => {
   if (!hasUserContext(context)) {
@@ -31,7 +31,7 @@ function getAuthenticatedUser(
 ): UserContext | { error: string; code: string } {
   const user = getValidatedUserContext(context);
   if (!user) {
-    (context as unknown as { set: { status: number } }).set.status = 401;
+    context.set.status = 401;
     return { error: 'Authentication required', code: 'AUTH_REQUIRED' };
   }
   return user;
@@ -139,11 +139,10 @@ export function requireOperator<T extends Elysia>(app: T) {
 
 // Helper combinators for Elysia
 // Accept AnyElysia so group-scoped instances (with non-empty prefix) are valid callers.
-// The internal `as Elysia` cast is safe: derive/guard only access standard context fields.
-export const withOptionalAuth = (app: AnyElysia) => attachAuth(app as Elysia);
-export const withRequiredAuth = (app: AnyElysia) => requireAuth(attachAuth(app as Elysia));
-export const withAdminGuard = (app: AnyElysia) => requireAdmin(attachAuth(app as Elysia));
-export const withOperatorGuard = (app: AnyElysia) => requireOperator(attachAuth(app as Elysia));
+export const withOptionalAuth = (app: AnyElysia) => attachAuth(app);
+export const withRequiredAuth = (app: AnyElysia) => requireAuth(attachAuth(app));
+export const withAdminGuard = (app: AnyElysia) => requireAdmin(attachAuth(app));
+export const withOperatorGuard = (app: AnyElysia) => requireOperator(attachAuth(app));
 
 // Legacy middleware adapter - wraps Elysia handlers to work with existing route structure
 export const authMiddleware = attachAuth;
@@ -202,7 +201,7 @@ export function requireNginxAuth<T extends Elysia>(app: T) {
   });
 }
 
-export const withNginxAuth = (app: AnyElysia) => requireNginxAuth(attachNginxAuth(app as Elysia));
+export const withNginxAuth = (app: AnyElysia) => requireNginxAuth(attachNginxAuth(app));
 
 // Utility function to validate JWT secret at runtime
 export const validateJWTConfiguration = (): { isValid: boolean; warnings: string[] } => {

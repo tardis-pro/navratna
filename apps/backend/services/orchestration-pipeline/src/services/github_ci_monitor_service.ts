@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils'
+import { logger, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
 import type {
   GitHubCheckRunPayload,
@@ -18,7 +18,7 @@ interface CICheckResult {
 function getGitHubToken(): string {
   const token = process.env.GITHUB_TOKEN
   if (!token) {
-    throw new Error('GITHUB_TOKEN environment variable is required')
+    throw new ValidationError('GITHUB_TOKEN environment variable is required')
   }
   return token
 }
@@ -95,7 +95,7 @@ export async function pollCheckRuns(
     return []
   }
 
-  const data = (await response.json()) as {
+  type CheckRunsResponse = {
     check_runs: Array<{
       id: number
       name: string
@@ -105,6 +105,7 @@ export async function pollCheckRuns(
       pull_requests: Array<{ number: number }>
     }>
   }
+  const data: CheckRunsResponse = await response.json()
 
   return data.check_runs
     .filter((run) => run.status === 'completed')

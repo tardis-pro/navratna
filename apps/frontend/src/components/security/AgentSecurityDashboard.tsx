@@ -123,7 +123,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
         {
           id: '1',
           timestamp: new Date(),
-          eventType: 'AGENT_ACTION' as AuditEventType,
+          eventType: AuditEventType.AGENT_OPERATION,
           agentId: 'agent-1',
           agentName: 'Security Agent',
           resource: 'database',
@@ -139,7 +139,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           name: 'Data Access Control',
           description: 'Controls agent access to sensitive data',
           enabled: true,
-          applicableCapabilities: ['DATA_ACCESS' as AgentCapability],
+          applicableCapabilities: [AgentCapability.DATA_ANALYSIS],
           riskThreshold: RiskLevel.MEDIUM,
           enforcementActions: ['block', 'audit'],
           violationCount: 0,

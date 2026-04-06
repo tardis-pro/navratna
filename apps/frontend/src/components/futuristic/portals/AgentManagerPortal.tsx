@@ -8,11 +8,17 @@ import { AgentEditModal } from '../../AgentEditModal';
 import type { FrontendAgentState as AgentState } from '@uaip/types';
 import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
 
-const createAgentStateFromBackend = (data: unknown): AgentState => data as AgentState;
+const createAgentStateFromBackend = (data: unknown): AgentState => {
+  const dataAny: any = data; // oxlint-disable-line @typescript-eslint/no-explicit-any -- API response is untyped; runtime shape matches AgentState
+  return dataAny;
+};
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip_api';
 import { edenRequest } from '../../../api/eden';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
+
+const AGENT_ROLE_VALUES = new Set<string>(Object.values(AgentRole));
+const isAgentRole = (v: string): v is AgentRole => AGENT_ROLE_VALUES.has(v);
 import {
   Users,
   Plus,
@@ -240,32 +246,56 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const [refreshing, setRefreshing] = useState(false);
 
   // Form state for create/edit
-  const [agentForm, setAgentForm] = useState({
-    name: '',
-    role: 'assistant' as AgentRole,
-    modelId: '',
-    providerId: '',
-    personaId: '',
-    description: '',
-    isActive: true,
-    attachedTools: [] as Array<{
+type AttachedTool = {
       toolId: string;
       toolName: string;
       category: string;
       permissions?: string[];
-    }>,
-    // MCP Tool Selection
-    assignedMCPTools: [] as Array<{
+    };
+    type AssignedMCPTool = {
       toolId: string;
       toolName: string;
       serverName: string;
       enabled: boolean;
       priority?: number;
       parameters?: Record<string, unknown>;
-    }>,
+    };
+  const [agentForm, setAgentForm] = useState<{
+    name: string;
+    role: AgentRole;
+    modelId: string;
+    providerId: string;
+    personaId: string;
+    description: string;
+    isActive: boolean;
+    attachedTools: AttachedTool[];
+    assignedMCPTools: AssignedMCPTool[];
     mcpToolSettings: {
-      allowedServers: [] as string[],
-      blockedServers: [] as string[],
+      allowedServers: string[];
+      blockedServers: string[];
+      maxToolsPerServer: number;
+      autoDiscoveryEnabled: boolean;
+    };
+    chatConfig: {
+      enableKnowledgeAccess: boolean;
+      enableToolExecution: boolean;
+      enableMemoryEnhancement: boolean;
+      maxConcurrentChats: number;
+      conversationTimeout: number;
+    };
+  }>({
+    name: '',
+    role: AgentRole.ASSISTANT,
+    modelId: '',
+    providerId: '',
+    personaId: '',
+    description: '',
+    isActive: true,
+    attachedTools: [],
+    assignedMCPTools: [],
+    mcpToolSettings: {
+      allowedServers: [],
+      blockedServers: [],
       maxToolsPerServer: 10,
       autoDiscoveryEnabled: true,
     },
@@ -298,16 +328,26 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
 
   // Form state for persona creation
-  const [personaForm, setPersonaForm] = useState({
+  const [personaForm, setPersonaForm] = useState<{
+    name: string;
+    role: string;
+    description: string;
+    background: string;
+    systemPrompt: string;
+    tags: string[];
+    expertise: string[];
+    status: 'active' | 'inactive';
+    visibility: 'public' | 'private';
+  }>({
     name: '',
     role: '',
     description: '',
     background: '',
     systemPrompt: '',
-    tags: [] as string[],
-    expertise: [] as string[],
-    status: 'active' as const,
-    visibility: 'public' as const,
+    tags: [],
+    expertise: [],
+    status: 'active',
+    visibility: 'public',
   });
 
   const {
@@ -442,7 +482,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     setSelectedAgentId(null);
     setAgentForm({
       name: '',
-      role: 'assistant' as AgentRole,
+      role: AgentRole.ASSISTANT,
       modelId: '',
       providerId: '',
       personaId: '',
@@ -561,7 +601,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
         // Reset form and navigate back
         setAgentForm({
           name: '',
-          role: 'assistant' as AgentRole,
+          role: AgentRole.ASSISTANT,
           modelId: '',
           providerId: '',
           personaId: '',
@@ -698,7 +738,7 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
 
     if (filterStatus !== 'all') {
       filtered = filtered.filter((agent) => {
-        const status = (agent as unknown as { status?: string }).status ?? 'active';
+        const status = agent.status ?? 'active';
         if (filterStatus === 'active') return status === 'active';
         if (filterStatus === 'inactive') return status !== 'active';
         if (filterStatus === 'healthy') return status === 'active' || status === 'healthy';
@@ -710,18 +750,18 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'role') return a.role.localeCompare(b.role);
       if (sortBy === 'status') {
-        const sa = (a as unknown as { status?: string }).status ?? '';
-        const sb = (b as unknown as { status?: string }).status ?? '';
+        const sa = a.status ?? '';
+        const sb = b.status ?? '';
         return sa.localeCompare(sb);
       }
       if (sortBy === 'created') {
-        const ca = (a as unknown as { createdAt?: string }).createdAt ?? '';
-        const cb = (b as unknown as { createdAt?: string }).createdAt ?? '';
+        const ca = a.createdAt ?? '';
+        const cb = b.createdAt ?? '';
         return ca.localeCompare(cb);
       }
       if (sortBy === 'updated') {
-        const ua = (a as unknown as { updatedAt?: string }).updatedAt ?? '';
-        const ub = (b as unknown as { updatedAt?: string }).updatedAt ?? '';
+        const ua = a.updatedAt ?? '';
+        const ub = b.updatedAt ?? '';
         return ub.localeCompare(ua);
       }
       return a.name.localeCompare(b.name);
@@ -1418,9 +1458,10 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Role</label>
           <select
             value={agentForm.role}
-            onChange={(e) =>
-              setAgentForm((prev) => ({ ...prev, role: e.target.value as AgentRole }))
-            }
+            onChange={(e) => {
+              const role = isAgentRole(e.target.value) ? e.target.value : AgentRole.ASSISTANT;
+              setAgentForm((prev) => ({ ...prev, role }));
+            }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
           >
             <option value="assistant">Assistant</option>
@@ -1855,12 +1896,15 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
           <select
             value={personaForm.status}
-            onChange={(e) =>
-              setPersonaForm((prev) => ({
-                ...prev,
-                status: e.target.value as 'active' | 'inactive',
-              }))
-            }
+            onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'active' || value === 'inactive') {
+                    setPersonaForm((prev) => ({
+                      ...prev,
+                      status: value,
+                    }));
+                  }
+                }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           >
             <option value="active">Active</option>
@@ -1873,12 +1917,15 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Visibility</label>
           <select
             value={personaForm.visibility}
-            onChange={(e) =>
-              setPersonaForm((prev) => ({
-                ...prev,
-                visibility: e.target.value as 'public' | 'private',
-              }))
-            }
+            onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'public' || value === 'private') {
+                    setPersonaForm((prev) => ({
+                      ...prev,
+                      visibility: value,
+                    }));
+                  }
+                }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           >
             <option value="public">Public</option>

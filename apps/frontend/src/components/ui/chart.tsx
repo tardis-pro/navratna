@@ -3,6 +3,8 @@ import * as RechartsPrimitive from 'recharts';
 
 import { cn } from '@/lib/utils';
 
+type CSSCustomProperties = React.CSSProperties & Record<`--${string}`, string | number>;
+
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: '', dark: '.dark' } as const;
 
@@ -79,7 +81,8 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+    const themeKey = theme satisfies keyof typeof THEMES;
+    const color = itemConfig.theme?.[themeKey] || itemConfig.color;
     return color ? `  --color-${key}: ${color};` : null;
   })
   .join('\n')}
@@ -135,7 +138,7 @@ const ChartTooltipContent = React.forwardRef<
       const itemConfig = getPayloadConfigFromPayload(config, item, key);
       const value =
         !labelKey && typeof label === 'string'
-          ? config[label as keyof typeof config]?.label || label
+          ? config[label]?.label || label
           : itemConfig?.label;
 
       if (labelFormatter) {
@@ -203,7 +206,7 @@ const ChartTooltipContent = React.forwardRef<
                             {
                               '--color-bg': indicatorColor,
                               '--color-border': indicatorColor,
-                            } as React.CSSProperties
+                            } satisfies CSSCustomProperties
                           }
                         />
                       )
@@ -306,17 +309,19 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
 
   let configLabelKey: string = key;
 
-  if (key in payload && typeof payload[key as keyof typeof payload] === 'string') {
-    configLabelKey = payload[key as keyof typeof payload] as string;
-  } else if (
-    payloadPayload &&
-    key in payloadPayload &&
-    typeof payloadPayload[key as keyof typeof payloadPayload] === 'string'
-  ) {
-    configLabelKey = payloadPayload[key as keyof typeof payloadPayload] as string;
+  const payloadAny: any = payload; // oxlint-disable-line @typescript-eslint/no-explicit-any -- payload is narrowed to non-null object; indexing requires any bridge
+  const payloadRecord: Record<string, unknown> = payloadAny;
+  if (key in payload && typeof payloadRecord[key] === 'string') {
+    configLabelKey = payloadRecord[key];
+  } else if (payloadPayload) {
+    const payloadPayloadAny: any = payloadPayload; // oxlint-disable-line @typescript-eslint/no-explicit-any -- payloadPayload is narrowed to non-null object; indexing requires any bridge
+    const payloadPayloadRecord: Record<string, unknown> = payloadPayloadAny;
+    if (key in payloadPayload && typeof payloadPayloadRecord[key] === 'string') {
+      configLabelKey = payloadPayloadRecord[key];
+    }
   }
 
-  return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
+  return configLabelKey in config ? config[configLabelKey] : config[key];
 }
 
 export {

@@ -220,11 +220,15 @@ export const csrfService = CSRFService.getInstance();
  * Higher-order function to add CSRF protection to API calls
  */
 function injectCSRFHeaders(args: unknown[], headers: Record<string, string>): void {
-  const lastArg = args[args.length - 1] as Record<string, unknown> | undefined;
-  if (lastArg && typeof lastArg === 'object' && lastArg['headers']) {
-    Object.assign(lastArg['headers'], headers);
-  } else if (lastArg && typeof lastArg === 'object') {
-    lastArg['headers'] = { ...(lastArg['headers'] as object), ...headers };
+  const lastArg = args[args.length - 1];
+  if (lastArg !== null && typeof lastArg === 'object') {
+    const lastArgAny: any = lastArg; // oxlint-disable-line @typescript-eslint/no-explicit-any -- lastArg is narrowed to object; indexable without cast
+    const argObj: Record<string, unknown> = lastArgAny;
+    if (argObj['headers'] !== null && typeof argObj['headers'] === 'object') {
+      Object.assign(argObj['headers'], headers);
+    } else {
+      argObj['headers'] = { ...headers };
+    }
   } else {
     args.push({ headers });
   }
@@ -241,7 +245,7 @@ async function injectAndCall(
 export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unknown>>(
   apiFunction: T
 ): T {
-  return (async (...args: unknown[]) => {
+  const wrapped = async (...args: unknown[]): Promise<unknown> => {
     try {
       return await injectAndCall(args, apiFunction);
     } catch (error) {
@@ -256,5 +260,7 @@ export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unk
       }
       throw error;
     }
-  }) as T;
+  };
+  const wrappedAny: any = wrapped; // oxlint-disable-line @typescript-eslint/no-explicit-any -- wrapped and apiFunction share identical signatures; TS cannot infer generic T
+  return wrappedAny;
 }

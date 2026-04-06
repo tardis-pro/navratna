@@ -132,12 +132,13 @@ export class QmdSearchService {
         LIMIT $${paramIdx}
       `;
 
-      const rows = (await this.dataSource.query(sql, params)) as Record<string, unknown>[];
+      const rawRows: unknown[] = await this.dataSource.query(sql, params);
+      const rows = rawRows.filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null);
       return rows.map((r) => ({
         id: String(r.id),
         content: String(r.content ?? ''),
         summary: r.summary != null ? String(r.summary) : undefined,
-        tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+        tags: Array.isArray(r.tags) ? r.tags.filter((x): x is string => typeof x === 'string') : [],
         confidence: parseFloat(String(r.confidence)) || 0.8,
         sourceType: String(r.sourceType || 'UNKNOWN'),
         rank: parseFloat(String(r.rank)) || 0,

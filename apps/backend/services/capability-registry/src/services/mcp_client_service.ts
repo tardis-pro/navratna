@@ -4,9 +4,10 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
-import { ToolCategory } from '@uaip/types';
+import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
+import { ToolCategory, MCPServerType } from '@uaip/types';
 import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService } from '@uaip/shared-services';
+import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
 import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcp_secrets.js';
@@ -16,6 +17,9 @@ import { promisify } from 'util';
 import { exec } from 'child_process';
 
 const execAsync = promisify(exec);
+
+const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
+function isToolCategory(v: unknown): v is ToolCategory { return toolCategoryValues.has(v); }
 
 // JSON-RPC 2.0 Message Types
 interface JSONRPCRequest {
@@ -34,6 +38,40 @@ interface JSONRPCResponse {
     message: string;
     data?: unknown;
   };
+}
+
+function isJSONRPCResponse(v: unknown): v is JSONRPCResponse {
+  if (typeof v !== 'object' || v === null) return false;
+  return 'jsonrpc' in v && (
+    'result' in v || 'error' in v
+  );
+}
+
+type MCPEventData = {
+  serverName?: string;
+  toolName?: string;
+  parameters?: Record<string, unknown>;
+  config?: MCPServerConfig;
+  agentId?: string;
+  userId?: string;
+  conversationId?: string;
+  operationId?: string;
+  sessionId?: string;
+  requestId?: string;
+  toolId?: string;
+};
+
+function isMCPEventData(v: unknown): v is MCPEventData {
+  return typeof v === 'object' && v !== null;
+}
+
+function isStringRecord(v: unknown): v is Record<string, string> {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false;
+  return Object.values(v).every((val: unknown) => typeof val === 'string');
+}
+
+function isEntityWithName(v: unknown): v is { name?: string } {
+  return typeof v === 'object' && v !== null;
 }
 
 interface JSONRPCNotification {
@@ -139,14 +177,56 @@ export class MCPClientService extends EventEmitter {
     // config is loaded from DB on demand
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+    return this.isRecord(value) ? value : {};
   }
 
   private asRecordArray(value: unknown): Record<string, unknown>[] {
     return Array.isArray(value)
       ? value.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
       : [];
+  }
+
+  private recordToMCPTool(r: Record<string, unknown>): MCPTool {
+    return {
+      name: typeof r.name === 'string' ? r.name : '',
+      description: typeof r.description === 'string' ? r.description : undefined,
+      inputSchema: r.inputSchema ?? {},
+      capabilities: Array.isArray(r.capabilities) ? r.capabilities.map(String) : undefined,
+    };
+  }
+
+  private recordToMCPResource(r: Record<string, unknown>): MCPResource {
+    return {
+      uri: typeof r.uri === 'string' ? r.uri : '',
+      name: typeof r.name === 'string' ? r.name : '',
+      description: typeof r.description === 'string' ? r.description : undefined,
+      mimeType: typeof r.mimeType === 'string' ? r.mimeType : undefined,
+      serverName: typeof r.serverName === 'string' ? r.serverName : undefined,
+      discoveredAt: typeof r.discoveredAt === 'string' ? r.discoveredAt : undefined,
+    };
+  }
+
+  private recordToMCPPrompt(r: Record<string, unknown>): MCPPrompt {
+    return {
+      name: typeof r.name === 'string' ? r.name : '',
+      description: typeof r.description === 'string' ? r.description : undefined,
+      serverName: typeof r.serverName === 'string' ? r.serverName : undefined,
+      discoveredAt: typeof r.discoveredAt === 'string' ? r.discoveredAt : undefined,
+      arguments: Array.isArray(r.arguments)
+        ? r.arguments
+            .filter((a): a is Record<string, unknown> => typeof a === 'object' && a !== null)
+            .map((a) => ({
+              name: typeof a.name === 'string' ? a.name : '',
+              description: typeof a.description === 'string' ? a.description : undefined,
+              required: typeof a.required === 'boolean' ? a.required : undefined,
+            }))
+        : undefined,
+    };
   }
   async initialize(
     eventBusService?: EventBusService,
@@ -192,7 +272,7 @@ export class MCPClientService extends EventEmitter {
   async startServer(serverName: string): Promise<void> {
     let config = await this.loadServerConfig(serverName);
     if (!config) {
-      throw new Error(`Server configuration not found: ${serverName}`);
+      throw new NotFoundError(`Server configuration not found: ${serverName}`);
     }
 
     if (this.servers.has(serverName)) {
@@ -224,12 +304,12 @@ export class MCPClientService extends EventEmitter {
           if (!fallbackValidation.isValid) {
             const error = `Both primary and fallback commands failed for ${serverName}. ${commandValidation.suggestion}`;
             logger.error(error);
-            throw new Error(error);
+            throw new ExternalServiceError(error);
           }
         } else {
           const error = `Command '${config.command}' not found. ${commandValidation.suggestion}`;
           logger.error(`Cannot start MCP server ${serverName}: ${error}`);
-          throw new Error(error);
+          throw new ExternalServiceError(error);
         }
       }
     }
@@ -366,7 +446,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     const id = ++this.requestId;
@@ -395,18 +475,21 @@ export class MCPClientService extends EventEmitter {
           body: JSON.stringify(request),
         });
         if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+          throw new ExternalServiceError(`HTTP ${resp.status} ${resp.statusText}`);
         }
         const contentType = resp.headers.get('content-type') || '';
         let result: unknown;
         if (contentType.includes('text/event-stream')) {
           result = await this.readSSEResponse(resp);
         } else {
-          const body = (await resp.json()) as JSONRPCResponse;
-          if (body.error) {
-            throw new Error(`${body.error.message} (${body.error.code})`);
+          const rawBody: unknown = await resp.json();
+          if (!isJSONRPCResponse(rawBody)) {
+            throw new ExternalServiceError('Invalid JSON-RPC response format');
           }
-          result = body.result;
+          if (rawBody.error) {
+            throw new ExternalServiceError(`${rawBody.error.message} (${rawBody.error.code})`);
+          }
+          result = rawBody.result;
         }
         server.stats.successfulRequests++;
         server.stats.averageResponseTime =
@@ -513,21 +596,21 @@ export class MCPClientService extends EventEmitter {
       if (capabilities.tools) {
         const toolsResponse = await this.sendRequest(serverName, 'tools/list');
         const data = this.asRecord(toolsResponse);
-        server.tools = this.asRecordArray(data.tools) as unknown as MCPTool[];
+        server.tools = this.asRecordArray(data.tools).map((r) => this.recordToMCPTool(r));
       }
 
       // Get available resources
       if (capabilities.resources) {
         const resourcesResponse = await this.sendRequest(serverName, 'resources/list');
         const data = this.asRecord(resourcesResponse);
-        server.resources = this.asRecordArray(data.resources) as unknown as MCPResource[];
+        server.resources = this.asRecordArray(data.resources).map((r) => this.recordToMCPResource(r));
       }
 
       // Get available prompts
       if (capabilities.prompts) {
         const promptsResponse = await this.sendRequest(serverName, 'prompts/list');
         const data = this.asRecord(promptsResponse);
-        server.prompts = this.asRecordArray(data.prompts) as unknown as MCPPrompt[];
+        server.prompts = this.asRecordArray(data.prompts).map((r) => this.recordToMCPPrompt(r));
       }
 
       // Auto-register discovered tools in the tool registry
@@ -565,7 +648,7 @@ export class MCPClientService extends EventEmitter {
           description:
             (typeof mcpTool.description === 'string' ? mcpTool.description : undefined) ||
             `${String(mcpTool.name || '')} from ${serverName} MCP server`,
-          category: 'mcp' as unknown,
+          category: ToolCategory.API,
           version: '1.0.0',
           isEnabled: true,
           requiresApproval: false,
@@ -630,7 +713,7 @@ export class MCPClientService extends EventEmitter {
         id: String(toolRegistration.id || ''),
         name: String(toolRegistration.name || ''),
         description: String(toolRegistration.description || ''),
-        category: (toolRegistration.category as ToolCategory) || ToolCategory.API,
+        category: isToolCategory(toolRegistration.category) ? toolRegistration.category : ToolCategory.API,
         version: String(toolRegistration.version || '1.0.0'),
         tags: Array.isArray(mcpTool.capabilities) ? mcpTool.capabilities : [],
         securityLevel: SecurityLevel.LOW, // Default for MCP tools
@@ -772,7 +855,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     let jobId: string | null = null;
@@ -993,9 +1076,10 @@ export class MCPClientService extends EventEmitter {
     const payload = this.asRecord(message);
     if (payload.id !== undefined) {
       // Response to our request
-      const pendingRequest = this.pendingRequests.get(payload.id as string | number);
-      if (pendingRequest) {
-        this.pendingRequests.delete(payload.id as string | number);
+      const requestId = typeof payload.id === 'string' || typeof payload.id === 'number' ? payload.id : undefined;
+      const pendingRequest = requestId !== undefined ? this.pendingRequests.get(requestId) : undefined;
+      if (pendingRequest && requestId !== undefined) {
+        this.pendingRequests.delete(requestId);
 
         const errorData = this.asRecord(payload.error);
         if (payload.error) {
@@ -1123,10 +1207,10 @@ export class MCPClientService extends EventEmitter {
     try {
       const mcpService = this.mcpRepo;
       const existing = await mcpService.getServerByName(serverName);
-      const payload: Record<string, unknown> = {
+      const payload: NewMCPServer = {
         name: serverName,
         description: `MCP server ${serverName}`,
-        type: 'custom' as unknown,
+        type: MCPServerType.CUSTOM,
         command: config.command,
         args: config.args || [],
         env: config.env,
@@ -1148,7 +1232,7 @@ export class MCPClientService extends EventEmitter {
       if (existing) {
         await mcpService.updateServer(existing.id, payload);
       } else {
-        await mcpService.createServer(payload as Record<string, unknown>);
+        await mcpService.createServer(payload);
       }
       logger.info(`Updated MCP server config for ${serverName}`);
       this.emit('configUpdated', { serverName, config });
@@ -1289,7 +1373,7 @@ export class MCPClientService extends EventEmitter {
     return {
       command: typeof e.command === 'string' ? e.command : undefined,
       args: Array.isArray(e.args) ? e.args.map(String) : [],
-      env: e.env && typeof e.env === 'object' ? (e.env as Record<string, string>) : undefined,
+      env: isStringRecord(e.env) ? e.env : undefined,
       cwd: typeof e.workingDirectory === 'string' ? e.workingDirectory : undefined,
       transportType:
         e.transportType === 'http' || e.transportType === 'streamable-http'
@@ -1310,12 +1394,12 @@ export class MCPClientService extends EventEmitter {
       if (trimmed.startsWith('data:')) {
         const payload = trimmed.slice(5).replace(/^ /, ''); // strip optional leading space
         try {
-          const data = JSON.parse(payload) as JSONRPCResponse;
-          if (data && (data.result !== undefined || data.error !== undefined)) {
-            if (data.error) {
-              throw new Error(`${data.error.message} (${data.error.code})`);
+          const parsedData: unknown = JSON.parse(payload);
+          if (isJSONRPCResponse(parsedData) && (parsedData.result !== undefined || parsedData.error !== undefined)) {
+            if (parsedData.error) {
+              throw new ExternalServiceError(`${parsedData.error.message} (${parsedData.error.code})`);
             }
-            return data.result;
+            return parsedData.result;
           }
         } catch (e: unknown) {
           if (e instanceof Error && e.message.includes('(')) throw e; // re-throw real MCP errors
@@ -1323,24 +1407,12 @@ export class MCPClientService extends EventEmitter {
         }
       }
     }
-    throw new Error('SSE stream ended without result');
+    throw new ExternalServiceError('SSE stream ended without result');
   }
 
   // MCP event data type helper
-  private mcpData(event: { data: unknown }) {
-    return event.data as {
-      serverName?: string;
-      toolName?: string;
-      parameters?: Record<string, unknown>;
-      config?: MCPServerConfig;
-      agentId?: string;
-      userId?: string;
-      conversationId?: string;
-      operationId?: string;
-      sessionId?: string;
-      requestId?: string;
-      toolId?: string;
-    };
+  private mcpData(event: { data: unknown }): MCPEventData {
+    return isMCPEventData(event.data) ? event.data : {};
   }
 
   // Event System Integration
@@ -1380,7 +1452,7 @@ export class MCPClientService extends EventEmitter {
           const result = await this.executeTool(
             d.serverName!,
             d.toolName!,
-            d.parameters as Record<string, unknown>,
+            d.parameters ?? {},
             {
               agentId: d.agentId,
               userId: d.userId,
@@ -1468,7 +1540,7 @@ export class MCPClientService extends EventEmitter {
           const result = await this.executeTool(
             serverName,
             toolName,
-            parameters as Record<string, unknown>,
+            parameters ?? {},
             {
               agentId,
               userId,
@@ -1520,7 +1592,7 @@ export class MCPClientService extends EventEmitter {
     try {
       const mcpService = this.mcpRepo;
       const entities = await mcpService.getAllServers();
-      const toStart = entities.filter((e: unknown) => {
+      const toStart = entities.filter((e) => {
         const entity = this.asRecord(e);
         return entity.enabled === true && entity.autoStart === true;
       });
@@ -1528,13 +1600,14 @@ export class MCPClientService extends EventEmitter {
       logger.info(`Auto-starting ${toStart.length} MCP servers`);
 
       for (const entity of toStart) {
+        const entityRecord = this.asRecord(entity);
+        const serverName = String(entityRecord.name || '');
         try {
           // eslint-disable-next-line no-await-in-loop -- sequential processing required
-          await this.startServer(String((entity as unknown as { name?: string }).name || ''));
+          await this.startServer(serverName);
         } catch (error) {
-          const name = String((entity as unknown as { name?: string }).name || '');
           logger.warn(
-            `Failed to auto-start server ${name}:`,
+            `Failed to auto-start server ${serverName}:`,
             error instanceof Error ? error.message : String(error)
           );
         }
@@ -1811,7 +1884,7 @@ export class MCPClientService extends EventEmitter {
   async getResource(serverName: string, uri: string): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     try {
@@ -1842,17 +1915,9 @@ export class MCPClientService extends EventEmitter {
         const promptsValue = this.asRecordArray(result.prompts);
         if (promptsValue.length > 0) {
           const serverPrompts: MCPPrompt[] = promptsValue.map((prompt) => ({
-            name: typeof prompt.name === 'string' ? prompt.name : 'prompt',
-            description: typeof prompt.description === 'string' ? prompt.description : undefined,
+            ...this.recordToMCPPrompt(prompt),
             serverName: name,
             discoveredAt: new Date().toISOString(),
-            arguments: Array.isArray(prompt.arguments)
-              ? (prompt.arguments as Array<{
-                  name: string;
-                  description?: string;
-                  required?: boolean;
-                }>)
-              : undefined,
           }));
           prompts.push(...serverPrompts);
 
@@ -1874,7 +1939,7 @@ export class MCPClientService extends EventEmitter {
   ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server || server.status !== 'running') {
-      throw new Error(`Server ${serverName} is not running`);
+      throw new ExternalServiceError(`Server ${serverName} is not running`);
     }
 
     try {
@@ -1929,12 +1994,12 @@ export class MCPClientService extends EventEmitter {
     try {
       const server = this.servers.get(serverName);
       if (!server || server.status !== 'running') {
-        throw new Error(`Server ${serverName} is not running`);
+        throw new ExternalServiceError(`Server ${serverName} is not running`);
       }
 
       const tool = server.tools?.find((t) => t.name === toolName);
       if (!tool) {
-        throw new Error(`Tool ${toolName} not found in server ${serverName}`);
+        throw new NotFoundError(`Tool ${toolName} not found in server ${serverName}`);
       }
 
       const toolId = `mcp:${serverName}:${toolName}`;
@@ -1947,7 +2012,7 @@ export class MCPClientService extends EventEmitter {
         // Check if agent exists
         const agent = await agentService.findAgentById(agentId);
         if (!agent) {
-          throw new Error(`Agent ${agentId} not found`);
+          throw new NotFoundError(`Agent ${agentId} not found`);
         }
 
         // Create or update tool definition
@@ -1956,7 +2021,7 @@ export class MCPClientService extends EventEmitter {
           displayName: tool.name,
           description: tool.description || `${tool.name} from MCP server ${serverName}`,
           category: ToolCategory.API,
-          inputSchema: (tool.inputSchema ?? {}) as Record<string, unknown>,
+          inputSchema: this.asRecord(tool.inputSchema ?? {}),
           configuration: {
             mcpServer: serverName,
             mcpTool: toolName,
@@ -2010,7 +2075,7 @@ export class MCPClientService extends EventEmitter {
   async recoverServer(serverName: string): Promise<void> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new Error(`Server ${serverName} not found`);
+      throw new NotFoundError(`Server ${serverName} not found`);
     }
 
     logger.info(`Attempting to recover server: ${serverName}`);

@@ -1,5 +1,6 @@
-import { logger } from '@uaip/utils'
+import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
+
 import type {
   NotionSyncConfig,
   NotionSyncResult,
@@ -8,13 +9,29 @@ import type {
   NotionBlockContent,
 } from '@uaip/types'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isPlainTextItem(v: unknown): v is { plain_text: string } {
+  return isRecord(v) && typeof v['plain_text'] === 'string';
+}
+
+function isNotionSyncConfig(v: unknown): v is NotionSyncConfig {
+  return isRecord(v) &&
+    typeof v['syncDirection'] === 'string' &&
+    typeof v['syncTarget'] === 'string' &&
+    typeof v['autoSync'] === 'boolean' &&
+    typeof v['syncIntervalSeconds'] === 'number';
+}
+
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
 
 function getNotionToken(): string {
   const token = process.env.NOTION_INTEGRATION_TOKEN
   if (!token) {
-    throw new Error('NOTION_INTEGRATION_TOKEN environment variable is required')
+    throw new ValidationError('NOTION_INTEGRATION_TOKEN environment variable is required')
   }
   return token
 }
@@ -39,14 +56,14 @@ async function notionRequest<T>(path: string, method: string, body?: unknown): P
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '<unreadable>')
     logger.error('Notion API request failed', { url, method, status: response.status, body: errorBody.slice(0, 500) })
-    throw new Error(`Notion API ${method} ${path} failed: ${response.status}`)
+    throw new ExternalServiceError(`Notion API ${method} ${path} failed: ${response.status}`)
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return undefined;
   }
 
-  return (await response.json()) as T
+  return await response.json();
 }
 
 function markdownToNotionBlocks(markdown: string): Array<Record<string, unknown>> {
@@ -94,7 +111,7 @@ export async function syncRunbookToNotion(
     const pageId = syncConfig.notionPageId
 
     if (!pageId) {
-      throw new Error('notionPageId is required for runbook sync')
+      throw new ValidationError('notionPageId is required for runbook sync')
     }
 
     // Notion max 100 blocks per append
@@ -141,7 +158,7 @@ export async function syncArtifactToNotion(
   try {
     const parentId = syncConfig.notionPageId ?? syncConfig.notionDatabaseId
     if (!parentId) {
-      throw new Error('notionPageId or notionDatabaseId is required for artifact sync')
+      throw new ValidationError('notionPageId or notionDatabaseId is required for artifact sync')
     }
 
     const blocks = markdownToNotionBlocks(artifactContent)
@@ -184,9 +201,13 @@ export async function importFromNotion(
   _targetRepoId: string
 ): Promise<{ content: string; title: string }> {
   const page = await notionRequest<Record<string, unknown>>(`/pages/${notionPageId}`, 'GET')
-  const properties = page.properties as Record<string, unknown> | undefined
-  const titleProp = (properties?.title ?? properties?.Name) as Record<string, unknown> | undefined
-  const titleArray = titleProp?.title as Array<{ plain_text: string }> | undefined
+  const properties = isRecord(page.properties) ? page.properties : undefined;
+  const rawTitleProp = properties?.['title'] ?? properties?.['Name'];
+  const titleProp = isRecord(rawTitleProp) ? rawTitleProp : undefined;
+  const rawTitleArray = titleProp?.['title'];
+  const titleArray = Array.isArray(rawTitleArray)
+    ? rawTitleArray.filter(isPlainTextItem)
+    : undefined;
   const title = titleArray?.[0]?.plain_text ?? 'Imported Page'
 
   const blocksResponse = await notionRequest<{
@@ -195,9 +216,13 @@ export async function importFromNotion(
 
   const lines: string[] = []
   for (const block of blocksResponse.results) {
-    const blockType = block.type as string
-    const blockData = block[blockType] as Record<string, unknown> | undefined
-    const richText = blockData?.rich_text as Array<{ plain_text: string }> | undefined
+    const blockType = typeof block.type === 'string' ? block.type : '';
+    const rawBlockData = block[blockType];
+    const blockData = isRecord(rawBlockData) ? rawBlockData : undefined;
+    const rawRichText = blockData?.['rich_text'];
+    const richText = Array.isArray(rawRichText)
+      ? rawRichText.filter(isPlainTextItem)
+      : undefined;
     const text = richText?.map((rt) => rt.plain_text).join('') ?? ''
 
     switch (blockType) {
@@ -232,7 +257,8 @@ export function initNotionSyncEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('artifact.created', async (data: unknown) => {
-      const payload = data as { artifactId: string; content: string; type: string; syncConfig?: NotionSyncConfig }
+      if (!isRecord(data) || typeof data.artifactId !== 'string' || typeof data.content !== 'string' || typeof data.type !== 'string') return;
+      const payload = { artifactId: data.artifactId, content: data.content, type: data.type, syncConfig: isNotionSyncConfig(data.syncConfig) ? data.syncConfig : undefined };
       if (payload.syncConfig && payload.syncConfig.autoSync) {
         await syncArtifactToNotion(payload.artifactId, payload.content, payload.type, payload.syncConfig).catch((error) => {
           logger.error('Auto artifact sync to Notion failed', {

@@ -28,8 +28,8 @@ export class LLMStudioProvider extends BaseProvider {
         throw new Error(`LM Studio error: ${errorMessage}`);
       }
 
-      const choices = Array.isArray(data.choices)
-        ? (data.choices as Array<Record<string, unknown>>)
+      const choices: Array<Record<string, unknown>> = Array.isArray(data.choices)
+        ? data.choices.filter((c): c is Record<string, unknown> => LLMStudioProvider.isRecord(c))
         : [];
       const choice = choices[0];
       const message =

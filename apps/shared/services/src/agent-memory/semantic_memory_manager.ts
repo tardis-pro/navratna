@@ -1,7 +1,30 @@
 import { SemanticMemory, KnowledgeType, SourceType } from '@uaip/types';
+import type { KnowledgeItem } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
-import { extractItemMetadata } from './episodic_memory_manager';
+
+function getStr(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback;
+}
+function getNum(v: unknown, fallback = 0): number {
+  return typeof v === 'number' ? v : fallback;
+}
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+function isSemanticKnowledge(v: unknown): v is SemanticMemory['knowledge'] {
+  if (!isRecord(v)) return false;
+  return typeof v.definition === 'string' && Array.isArray(v.relationships) && Array.isArray(v.examples);
+}
+function isSemanticSources(v: unknown): v is SemanticMemory['sources'] {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v.episodeIds) && typeof v.reinforcements === 'number';
+}
+function isSemanticUsage(v: unknown): v is SemanticMemory['usage'] {
+  if (!isRecord(v)) return false;
+  return typeof v.timesAccessed === 'number' && typeof v.successRate === 'number';
+}
+
 
 export class SemanticMemoryManager {
   constructor(private readonly knowledgeGraph: KnowledgeGraphService) {}
@@ -326,41 +349,39 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
   }
 
-  private itemToSemanticMemory(item: unknown): SemanticMemory {
-    const { record, metadata } = extractItemMetadata(item);
+  private itemToSemanticMemory(item: KnowledgeItem): SemanticMemory {
+    const metadata = item.metadata;
 
-    if (!metadata) {
-      return this.parseSemanticMemoryFromContent(item);
-    }
-
+    const defaultKnowledge: SemanticMemory['knowledge'] = {
+      definition: '',
+      properties: {},
+      relationships: [],
+      examples: [],
+      counterExamples: [],
+    };
+    const defaultSources: SemanticMemory['sources'] = {
+      episodeIds: [],
+      externalSources: [],
+      reinforcements: 0,
+    };
+    const defaultUsage: SemanticMemory['usage'] = {
+      timesAccessed: 0,
+      lastUsed: new Date(),
+      successRate: 1.0,
+      contexts: [],
+    };
     return {
-      agentId: metadata.agentId as string,
-      concept: metadata.concept as string,
-      knowledge: (metadata.knowledge as SemanticMemory['knowledge']) || {
-        definition: '',
-        properties: {},
-        relationships: [],
-        examples: [],
-        counterExamples: [],
-      },
-      confidence: (metadata.confidence as number) || (record.confidence as number) || 0.5,
-      sources: (metadata.sources as SemanticMemory['sources']) || {
-        episodeIds: [],
-        externalSources: [],
-        reinforcements: 0,
-      },
-      usage: (metadata.usage as SemanticMemory['usage']) || {
-        timesAccessed: 0,
-        lastUsed: new Date(),
-        successRate: 1.0,
-        contexts: [],
-      },
+      agentId: getStr(metadata.agentId) || item.agentId || item.createdBy,
+      concept: getStr(metadata.concept),
+      knowledge: isSemanticKnowledge(metadata.knowledge) ? metadata.knowledge : defaultKnowledge,
+      confidence: getNum(metadata.confidence) || item.confidence || 0.5,
+      sources: isSemanticSources(metadata.sources) ? metadata.sources : defaultSources,
+      usage: isSemanticUsage(metadata.usage) ? metadata.usage : defaultUsage,
     };
   }
 
-  private parseSemanticMemoryFromContent(item: unknown): SemanticMemory {
-    const record = item as Record<string, unknown>;
-    const content = (record.content as string) || '';
+  private parseSemanticMemoryFromContent(item: KnowledgeItem): SemanticMemory {
+    const content = item.content ?? '';
     const lines = content.split('\n');
 
     let concept = 'unknown';
@@ -389,7 +410,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     }
 
     return {
-      agentId: (record.createdBy as string) || 'unknown',
+      agentId: item.createdBy || item.agentId || 'unknown',
       concept,
       knowledge: {
         definition,
@@ -398,7 +419,7 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
         examples,
         counterExamples: [],
       },
-      confidence: (record.confidence as number) || 0.5,
+      confidence: item.confidence || 0.5,
       sources: {
         episodeIds: [],
         externalSources: [],
@@ -474,18 +495,16 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
   }
 
   private matchesConceptIdentifier(
-    item: unknown,
+    item: KnowledgeItem,
     conceptId: string,
     normalizedConceptId: string
   ): boolean {
-    const record = item as Record<string, unknown>;
-    const source = record.source as Record<string, unknown> | undefined;
-    const metadata = ((source?.metadata || record.metadata) as Record<string, unknown>) || {};
-    const metadataConcept = String(metadata.concept || '').toLowerCase();
-    const sourceIdentifier = String(source?.identifier || '').toLowerCase();
+    const metadata = item.metadata;
+    const metadataConcept = String(metadata.concept ?? '').toLowerCase();
+    const sourceIdentifier = item.sourceIdentifier.toLowerCase();
 
     return (
-      record.id === conceptId ||
+      item.id === conceptId ||
       sourceIdentifier === normalizedConceptId ||
       sourceIdentifier.endsWith(`-concept-${normalizedConceptId}`) ||
       metadataConcept === normalizedConceptId ||

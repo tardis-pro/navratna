@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { KnowledgeRepository } from '@uaip/shared-services';
 import { KnowledgeItem } from '@uaip/types';
 import { ContentClassifier } from './content_classifier_service.js';
@@ -173,7 +173,7 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from knowledge failed', { error: error.message });
-      throw new Error(`Q&A generation failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Q&A generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -244,7 +244,7 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from conversations failed', { error: error.message });
-      throw new Error(`Q&A generation failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Q&A generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -646,7 +646,7 @@ export class QAGeneratorService {
 
   private generateMetaQuestions(item: KnowledgeItem, sourceType: string): GeneratedQA[] {
     const metaQAs: GeneratedQA[] = [];
-    const metadata = item.metadata as Record<string, unknown> | undefined;
+    const metadata: Record<string, unknown> | undefined = item.metadata;
     const templates = [
       {
         question: 'What is the main topic of this information?',
@@ -750,7 +750,7 @@ export class QAGeneratorService {
       question: this.cleanQuestion(question),
       answer: this.cleanAnswer(answer),
       source: String(item.id ?? item.sourceIdentifier ?? 'unknown'),
-      sourceType: sourceType as GeneratedQA['sourceType'],
+      sourceType: (['knowledge', 'conversation', 'hybrid'] as const).find(t => t === sourceType) ?? 'knowledge',
       confidence: this.calculateInitialConfidence(question, answer, method),
       topic: this.extractTopic(question + ' ' + answer),
       difficulty: this.assessDifficulty(question, answer),
@@ -771,7 +771,7 @@ export class QAGeneratorService {
     options: QAGenerationOptions
   ): KnowledgeItem[] {
     return items.filter((item) => {
-      if (options.categories && !options.categories.includes(item.type as string)) {
+      if (options.categories && !options.categories.includes(String(item.type))) {
         return false;
       }
       return true;

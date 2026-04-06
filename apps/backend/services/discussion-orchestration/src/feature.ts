@@ -69,24 +69,17 @@ export const discussionFeature: Feature = {
   async events(bus: EventBusService): Promise<void> {
     await bus.subscribe('discussion.agent.message', async (event: EventBusMessage) => {
       try {
-        const eventPayload = (event.data || event) as {
-          discussionId: string
-          participantId: string
-          agentId?: string
-          content: string
-          messageType?: string
-          metadata?: Record<string, unknown>
-          isInitialParticipation?: boolean
-        }
-        const {
-          discussionId,
-          participantId,
-          agentId,
-          content,
-          messageType,
-          metadata,
-          isInitialParticipation,
-        } = eventPayload
+        const isRecord = (v: unknown): v is Record<string, unknown> =>
+          typeof v === 'object' && v !== null && !Array.isArray(v)
+        const rawPayload: unknown = isRecord(event.data) ? event.data : event
+        const payload = isRecord(rawPayload) ? rawPayload : {}
+        const discussionId = typeof payload.discussionId === 'string' ? payload.discussionId : ''
+        const participantId = typeof payload.participantId === 'string' ? payload.participantId : ''
+        const agentId = typeof payload.agentId === 'string' ? payload.agentId : undefined
+        const content = typeof payload.content === 'string' ? payload.content : ''
+        const messageType = typeof payload.messageType === 'string' ? payload.messageType : undefined
+        const metadata = isRecord(payload.metadata) ? payload.metadata : undefined
+        const isInitialParticipation = payload.isInitialParticipation === true
 
         const mergedMetadata = {
           ...(metadata || {}),
@@ -120,8 +113,6 @@ export const discussionFeature: Feature = {
   },
 
   websocket(io: MinimalWebSocketServer): void {
-    // SocketIOServer satisfies MinimalWebSocketServer; cast needed for typed handler APIs
-    // @ts-expect-error -- SocketIOServer satisfies MinimalWebSocketServer interface; typed cast required for Socket.IO handler APIs
     const socketIO = io as SocketIOServer
 
     new UserChatHandler(socketIO, capturedEventBus)

@@ -17,7 +17,6 @@ import { LLMStudioProvider } from './providers/l_l_m_studio_provider.js';
 import { OpenAIProvider } from './providers/open_a_i_provider.js';
 import {
   LLMProviderRepository,
-  UserLLMProviderRepository,
   RedisCacheService,
 } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
@@ -30,7 +29,6 @@ export class LLMService {
   private providers: Map<string, BaseProvider> = new Map();
   private initialized = false;
   private llmProviderRepository: LLMProviderRepository | null = null;
-  private userLLMProviderRepository: UserLLMProviderRepository | null = null;
   private cacheService: RedisCacheService;
   private contextManager: ContextManager;
 
@@ -76,7 +74,7 @@ export class LLMService {
         await databaseService.initialize();
         // Use the properly initialized repository from DatabaseService
         this.llmProviderRepository = databaseService.llmProviderRepository;
-        this.userLLMProviderRepository = databaseService.userLLMProviderRepository;
+
       }
 
       const dbProviders = await this.llmProviderRepository!.findMany({ isActive: true });
@@ -87,26 +85,25 @@ export class LLMService {
       this.providers.clear();
 
       // Group providers by type to avoid duplicates
-      const providersByType = new Map<string, Record<string, unknown>>();
+      const providersByType = new Map<string, (typeof dbProviders)[number]>();
       for (const userProvider of dbProviders) {
-        if (!providersByType.has(userProvider.type as string)) {
-          providersByType.set(userProvider.type as string, userProvider);
+        if (!providersByType.has(userProvider.type)) {
+          providersByType.set(userProvider.type, userProvider);
         }
       }
 
       // Initialize providers from user provider configuration
       for (const [_type, dbProvider] of providersByType) {
-        const providerType = (dbProvider.type as string) || 'custom';
-        const providerName = (dbProvider.name as string) || 'Unknown';
+        const providerType = dbProvider.type || 'custom';
+        const providerName = dbProvider.name || 'Unknown';
         try {
-          const providerConfig = (dbProvider.configuration as Record<string, unknown>) || {};
+          const providerConfig = dbProvider.configuration ?? {};
           let provider: BaseProvider;
 
-          // Cast the type to the expected LLMProviderConfig type
           const llmProviderConfig = {
             ...providerConfig,
-            type: providerType as 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom',
-            baseUrl: (providerConfig.baseUrl as string) || 'http://localhost:11434', // Default baseUrl if not provided
+            type: this.normalizeApiType(providerType),
+            baseUrl: dbProvider.baseUrl || 'http://localhost:11434',
           };
 
           switch (providerType) {
@@ -537,9 +534,9 @@ export class LLMService {
       );
 
       for (const dbProvider of dbProviders) {
-        const providerType = (dbProvider.type as string) || 'custom';
-        const providerName = (dbProvider.name as string) || 'Unknown';
-        const providerBaseUrl = (dbProvider.baseUrl as string) || '';
+        const providerType = dbProvider.type || 'custom';
+        const providerName = dbProvider.name || 'Unknown';
+        const providerBaseUrl = dbProvider.baseUrl || '';
         const provider = this.providers.get(providerType);
         if (!provider) {
           logger.warn(`Provider type ${providerType} not initialized, skipping`);
@@ -698,11 +695,11 @@ export class LLMService {
       try {
         const dbProviders = await this.llmProviderRepository.findMany();
         for (const dbProvider of dbProviders) {
-          const providerType = (dbProvider.type as string) || 'custom';
-          const providerName = (dbProvider.name as string) || 'Unknown';
-          const providerBaseUrl = (dbProvider.baseUrl as string) || '';
-          const providerIsActive = (dbProvider.isActive as boolean) || false;
-          const providerDefaultModel = (dbProvider.defaultModel as string) || undefined;
+          const providerType = dbProvider.type || 'custom';
+          const providerName = dbProvider.name || 'Unknown';
+          const providerBaseUrl = dbProvider.baseUrl || '';
+          const providerIsActive = dbProvider.isActive ?? false;
+          const providerDefaultModel = dbProvider.defaultModel ?? undefined;
           const isInitialized = this.providers.has(providerType);
           let modelCount = 0;
 
@@ -716,6 +713,8 @@ export class LLMService {
             }
           }
 
+          const providerStatus: 'active' | 'inactive' | 'error' =
+            providerIsActive && isInitialized ? 'active' : 'inactive';
           providers.push({
             name: providerName,
             type: providerType,
@@ -723,10 +722,7 @@ export class LLMService {
             isActive: providerIsActive && isInitialized,
             defaultModel: providerDefaultModel,
             modelCount,
-            status: (providerIsActive && isInitialized ? 'active' : 'inactive') as
-              | 'active'
-              | 'inactive'
-              | 'error',
+            status: providerStatus,
           });
         }
       } catch (error) {
@@ -804,7 +800,8 @@ export class LLMService {
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
     const window = this.contextManager.createRollingWindow(
-      messages as unknown as import('@uaip/types').Message[],
+      // @ts-expect-error -- ChatMessage.timestamp is string but Message.timestamp is Date; schema alignment needed
+      messages,
       systemPromptTokens,
       tools.length,
       contextDocs
@@ -974,8 +971,13 @@ export class LLMService {
   }
 
   private getPreferredProviderType(agent: Record<string, unknown>): string | undefined {
-    // Logic to determine preferred provider based on agent configuration
-    const modelId = (agent.configuration as Record<string, unknown>)?.model as string | undefined;
+    const cfg = agent.configuration;
+    const cfgEmpty: Record<string, unknown> = {};
+    const cfgRecord = typeof cfg === 'object' && cfg !== null ? Object.assign(cfgEmpty, cfg) : null;
+    const modelId =
+      cfgRecord !== null && typeof cfgRecord.model === 'string'
+        ? cfgRecord.model
+        : undefined;
 
     if (!modelId) return undefined;
 
@@ -1039,9 +1041,7 @@ export class LLMService {
       context: {
         messageCount: request.conversationHistory.length,
         participants: Array.from(new Set(request.conversationHistory.map((m) => m.sender))),
-        topics: this.extractTopics(
-          request.conversationHistory as unknown as import('@uaip/types').Message[]
-        ),
+        topics: this.extractTopics(request.conversationHistory),
         sentiment: 'neutral',
         complexity: request.conversationHistory.length > 10 ? 'high' : 'low',
       },
@@ -1073,7 +1073,7 @@ export class LLMService {
     return 'general_inquiry';
   }
 
-  private extractTopics(messages: Message[]): string[] {
+  private extractTopics(messages: Array<{ content: string }>): string[] {
     // Simple topic extraction - can be enhanced with NLP
     const topics = new Set<string>();
     const commonWords = new Set([

@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, InternalServerError } from '@uaip/utils';
 import { ParsedConversation, ParsedMessage } from './chat_parser_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
 import { EmbeddingService } from './embedding_service.js';
@@ -386,7 +386,7 @@ export class ExpertiseAnalyzerService {
       return profiles;
     } catch (error) {
       logger.error('Expertise analysis failed', { error: error.message });
-      throw new Error(`Expertise analysis failed: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Expertise analysis failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -628,10 +628,16 @@ export class ExpertiseAnalyzerService {
   /**
    * Analyze expertise indicators in text
    */
+  private isValidExpertiseIndicatorType(s: string): s is ExpertiseIndicator['type'] {
+    const validTypes: ExpertiseIndicator['type'][] = ['technical_depth', 'teaching_ability', 'problem_solving', 'domain_knowledge', 'experience_sharing', 'mentoring', 'innovation', 'leadership'];
+    return validTypes.some((t) => t === s);
+  }
+
   private async analyzeExpertiseIndicators(evidence: string[]): Promise<ExpertiseIndicator[]> {
     const indicators: ExpertiseIndicator[] = [];
 
     for (const [type, patterns] of Object.entries(this.expertiseIndicators)) {
+      if (!this.isValidExpertiseIndicatorType(type)) continue;
       const matches: string[] = [];
       let totalStrength = 0;
 
@@ -648,7 +654,7 @@ export class ExpertiseAnalyzerService {
       if (matches.length > 0) {
         const strength = Math.min(1, totalStrength / (evidence.length * 2));
         indicators.push({
-          type: type as ExpertiseIndicator['type'],
+          type,
           strength,
           evidence: [...new Set(matches)].slice(0, 5),
           messageIds: [], // Would be populated with actual message IDs
@@ -702,7 +708,7 @@ export class ExpertiseAnalyzerService {
     const knowledgeAreas: KnowledgeArea[] = [];
 
     // Simple implementation - would be enhanced with ML in production
-    const keywords = (this.domainKeywords as Record<string, string[]>)[domain] || [];
+        const keywords = this.domainKeywords[domain] || [];
 
     for (const keyword of keywords) {
       const mentions = evidence.filter((text) =>

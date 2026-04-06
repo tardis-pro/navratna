@@ -35,7 +35,7 @@ import { logger } from '@/utils/browser_logger';
 type ReactFlowNode = Node<{ label: string }>;
 type ReactFlowEdge = Edge;
 
-const NODE_STYLES = {
+const NODE_STYLES: Record<string, React.CSSProperties> = {
   input: {
     background: '#2563eb',
     color: 'white',
@@ -119,10 +119,10 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [editLabel, setEditLabel] = useState<string>('');
 
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   // AI features route through the backend LLM service — no frontend API keys needed.
   // The backend manages provider keys securely via ProviderSettingsPortal.
-  const oAiKey = (user as unknown as { openAiKey?: string })?.openAiKey ?? null;
+  const oAiKey: string | null = null;
   const [_aiReady, setAiReady] = useState<boolean>(false);
   const {
     fitView,
@@ -256,7 +256,7 @@ const MindMapInner: React.FC<MindMapInnerProps> = ({ markdown }) => {
         ...node,
         style: {
           ...NODE_STYLES.common,
-          ...NODE_STYLES[(node.type as keyof typeof NODE_STYLES) || 'default'],
+          ...NODE_STYLES[node.type] ?? NODE_STYLES.default ?? NODE_STYLES.input,
         },
       }));
 

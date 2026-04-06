@@ -34,7 +34,6 @@ vi.mock('../websocket/redis_session_manager.js', () => ({
 type HandlerInternals = {
   connectionTimers: Map<string, NodeJS.Timeout>;
   connectionById: Map<string, WebSocketConnection>;
-  connections: Map<string, Set<WebSocketConnection>>;
   handleDisconnection: (
     connection: WebSocketConnection,
     code: number,
@@ -48,7 +47,7 @@ function createMockOrchestrationService(): DiscussionOrchestrationService {
   return {
     on: vi.fn(),
     verifyParticipantAccess: vi.fn().mockResolvedValue(true),
-  } as unknown as DiscussionOrchestrationService;
+  } as DiscussionOrchestrationService;
 }
 
 function createConnection(): WebSocketConnection {
@@ -60,7 +59,7 @@ function createConnection(): WebSocketConnection {
     terminate: vi.fn(),
     removeAllListeners: vi.fn(),
     readyState: WebSocket.OPEN,
-  } as unknown as WebSocket;
+  } as WebSocket;
 
   return {
     ws: wsMock,
@@ -94,7 +93,8 @@ describe('DiscussionWebSocketHandler', () => {
   });
 
   it('handleDisconnection clears connection timer and removes listeners', async () => {
-    const internals = handler as unknown as HandlerInternals;
+    // @ts-expect-error -- accessing private class internals for test verification
+    const internals = handler as HandlerInternals;
     const connection = createConnection();
     const timeoutHandle = setTimeout(() => undefined, 1000);
 
@@ -114,7 +114,8 @@ describe('DiscussionWebSocketHandler', () => {
   });
 
   it('tracks per-connection message count during message handling', async () => {
-    const internals = handler as unknown as HandlerInternals;
+    // @ts-expect-error -- accessing private class internals for test verification
+    const internals = handler as HandlerInternals;
     const connection = createConnection();
     internals.connectionById.set(connection.connectionId, connection);
 

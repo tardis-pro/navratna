@@ -11,7 +11,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     const key = `user_llm_provider:${id}`;
     try {
       const cached = await redisCacheService.get(key);
-      if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow;
+      if (typeof cached === 'string') { const parsed: UserLLMProviderRow = JSON.parse(cached); return parsed; }
     } catch { /* cache miss */ }
     const result = await super.findById(id);
     if (result) {
@@ -66,7 +66,7 @@ export class CachedUserLLMProviderRepository extends UserLLMProviderRepository {
     if (useCache) {
       try {
         const cached = await redisCacheService.get(cacheKey);
-        if (typeof cached === 'string') return JSON.parse(cached) as UserLLMProviderRow[];
+        if (typeof cached === 'string') { const parsed: UserLLMProviderRow[] = JSON.parse(cached); return parsed; }
       } catch { /* cache miss */ }
     }
     const result = await this.findActiveByUserId(userId);

@@ -127,46 +127,19 @@ export interface ServicesConfig {
   };
 }
 
-type Unit =
-  | 'Years'
-  | 'Year'
-  | 'Yrs'
-  | 'Yr'
-  | 'Y'
-  | 'Weeks'
-  | 'Week'
-  | 'W'
-  | 'Days'
-  | 'Day'
-  | 'D'
-  | 'Hours'
-  | 'Hour'
-  | 'Hrs'
-  | 'Hr'
-  | 'H'
-  | 'Minutes'
-  | 'Minute'
-  | 'Mins'
-  | 'Min'
-  | 'M'
-  | 'Seconds'
-  | 'Second'
-  | 'Secs'
-  | 'Sec'
-  | 's'
-  | 'Milliseconds'
-  | 'Millisecond'
-  | 'Msecs'
-  | 'Msec'
-  | 'Ms';
+import type { StringValue } from 'ms';
 
-type UnitAnyCase = Unit | Uppercase<Unit> | Lowercase<Unit>;
+const DURATION_PATTERN = /^\d+(\s*[a-zA-Z]+)?$/;
 
-type StringValue = `${number}` | `${number}${UnitAnyCase}` | `${number} ${UnitAnyCase}`;
+function isStringValue(value: string): value is StringValue {
+  return DURATION_PATTERN.test(value);
+}
 
-const fullString = (value: string | undefined) => {
-  return value as StringValue;
-};
+function parseDuration(value: string | undefined): StringValue | undefined {
+  if (!value) return undefined;
+  if (!isStringValue(value)) return undefined;
+  return value;
+}
 export interface CorsConfig {
   allowedOrigins: string[];
   credentials: boolean;
@@ -517,13 +490,13 @@ const defaultConfig: Config = {
   jwt: {
     secret: process.env.JWT_SECRET || 'uaip_dev_jwt_secret_key_change_in_production',
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
-    refreshExpiresIn: fullString(process.env.JWT_REFRESH_EXPIRES_IN) || '1h',
+    refreshExpiresIn: parseDuration(process.env.JWT_REFRESH_EXPIRES_IN) || '1h',
     issuer: process.env.JWT_ISSUER || 'uaip-security-gateway',
     audience: process.env.JWT_AUDIENCE || 'uaip-services',
-    accessTokenExpiry: fullString(process.env.JWT_ACCESS_TOKEN_EXPIRY) || '1h',
+    accessTokenExpiry: parseDuration(process.env.JWT_ACCESS_TOKEN_EXPIRY) || '1h',
     refreshSecret:
       process.env.JWT_REFRESH_SECRET || 'uaip_dev_jwt_refresh_secret_key_change_in_production',
-    refreshTokenExpiry: fullString(process.env.JWT_REFRESH_TOKEN_EXPIRY) || '2h',
+    refreshTokenExpiry: parseDuration(process.env.JWT_REFRESH_TOKEN_EXPIRY) || '2h',
   },
   email: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',

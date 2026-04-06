@@ -51,15 +51,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
 
         return { requestId, startTime, shouldLog };
       })
-      .onAfterResponse((ctx) => {
-        const { request, set, requestId, startTime, shouldLog } = ctx as {
-          request: Request;
-          set: { status?: number | string; headers?: Record<string, unknown> };
-          requestId: string;
-          startTime: number;
-          shouldLog: boolean;
-        };
-
+      .onAfterResponse(({ request, set, requestId, startTime, shouldLog }) => {
         if (!shouldLog) {
           return;
         }

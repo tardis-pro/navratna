@@ -1,5 +1,6 @@
 import { ContextRequest } from '@uaip/types';
 
+import { ExternalServiceError, InternalServerError, ValidationError } from '@uaip/utils';
 export interface RerankResult {
   index: number;
   score: number;
@@ -75,7 +76,7 @@ export class TEIEmbeddingService {
    */
   async generateEmbedding(text: string): Promise<number[]> {
     if (!text || text.trim().length === 0) {
-      throw new Error('Input text cannot be empty');
+      throw new ValidationError('Input text cannot be empty');
     }
 
     try {
@@ -86,7 +87,7 @@ export class TEIEmbeddingService {
       });
 
       if (!response.ok) {
-        throw new Error(`TEI embedding error: ${response.status} ${response.statusText}`);
+        throw new ExternalServiceError(`TEI embedding error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -95,7 +96,7 @@ export class TEIEmbeddingService {
       return Array.isArray(data) && Array.isArray(data[0]) ? data[0] : data;
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to generate embedding: ${error.message}`, { cause: error });
     }
   }
 
@@ -130,7 +131,7 @@ export class TEIEmbeddingService {
         });
 
         if (!response.ok) {
-          throw new Error(`TEI batch embedding error: ${response.status} ${response.statusText}`);
+          throw new ExternalServiceError(`TEI batch embedding error: ${response.status} ${response.statusText}`);
         }
 
         return response.json();
@@ -140,7 +141,7 @@ export class TEIEmbeddingService {
       return batchResults.flat();
     } catch (error) {
       console.error('TEI batch embedding generation failed:', error);
-      throw new Error(`Failed to generate batch embeddings: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to generate batch embeddings: ${error.message}`, { cause: error });
     }
   }
 
@@ -149,7 +150,7 @@ export class TEIEmbeddingService {
    */
   async rerank(query: string, documents: string[], topK?: number): Promise<RerankResult[]> {
     if (!query || query.trim().length === 0) {
-      throw new Error('Query cannot be empty');
+      throw new ValidationError('Query cannot be empty');
     }
 
     if (!documents || documents.length === 0) {
@@ -173,7 +174,7 @@ export class TEIEmbeddingService {
       });
 
       if (!response.ok) {
-        throw new Error(`TEI reranking error: ${response.status} ${response.statusText}`);
+        throw new ExternalServiceError(`TEI reranking error: ${response.status} ${response.statusText}`);
       }
 
       const results: RerankResult[] = await response.json();
@@ -184,7 +185,7 @@ export class TEIEmbeddingService {
       return topK ? results.slice(0, topK) : results;
     } catch (error) {
       console.error('TEI reranking failed:', error);
-      throw new Error(`Failed to rerank documents: ${error.message}`, { cause: error });
+      throw new InternalServerError(`Failed to rerank documents: ${error.message}`, { cause: error });
     }
   }
 
@@ -209,7 +210,7 @@ export class TEIEmbeddingService {
    */
   async calculateSimilarity(embedding1: number[], embedding2: number[]): Promise<number> {
     if (embedding1.length !== embedding2.length) {
-      throw new Error('Embeddings must have the same dimension');
+      throw new ValidationError('Embeddings must have the same dimension');
     }
 
     // Calculate cosine similarity
@@ -301,9 +302,7 @@ export class TEIEmbeddingService {
       parts.push('Conversation History:');
       context.conversationHistory.forEach((msg) => {
         if (msg && typeof msg === 'object' && 'role' in msg && 'content' in msg) {
-          const role = (msg as unknown as { role?: unknown }).role;
-          const content = (msg as unknown as { content?: unknown }).content;
-          parts.push(`${String(role ?? 'unknown')}: ${String(content ?? '')}`);
+          parts.push(`${String(msg.role ?? 'unknown')}: ${String(msg.content ?? '')}`);
         }
       });
     }
@@ -333,7 +332,7 @@ export class TEIEmbeddingService {
     } catch (error) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${this.timeout}ms`, { cause: error });
+        throw new ExternalServiceError(`Request timeout after ${this.timeout}ms`, { cause: error });
       }
       throw error;
     }
@@ -355,7 +354,7 @@ export class TEIEmbeddingService {
           return response;
         }
 
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        throw new ExternalServiceError(`Server error: ${response.status} ${response.statusText}`);
       } catch (error) {
         lastError = error;
 

@@ -387,7 +387,7 @@ export class ProjectManagementService {
       assigneeId: updates.assigneeId ?? null,
       dueAt: updates.dueAt ?? null,
       completedAt: updates.completedAt ?? null,
-      metadata: (updates.metadata as JsonObject | null) ?? null,
+      metadata: updates.metadata ?? {},
       createdAt: new Date(),
       updatedAt: new Date(),
     };

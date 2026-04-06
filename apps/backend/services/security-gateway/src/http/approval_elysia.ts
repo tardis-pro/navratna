@@ -401,7 +401,8 @@ export function registerApprovalRoutes() {
       async (ctx) => {
         const user = getAuthUser(ctx);
         const { set, params, request, headers } = ctx;
-        const { reason } = ctx.body as { reason?: string };
+        const ctxBody = typeof ctx === 'object' && ctx !== null && 'body' in ctx ? ctx.body : undefined;
+        const reason = typeof ctxBody === 'object' && ctxBody !== null && 'reason' in ctxBody ? String(ctxBody.reason) : undefined;
         try {
           const workflowId = params.workflowId;
           if (!reason || !reason.trim()) {
@@ -486,8 +487,7 @@ export function registerApprovalRoutes() {
       const user = getAuthUser(ctx);
       const { params, set, body, request, headers } = ctx;
       const parsed = approvalDecisionSchema.safeParse({
-        // @ts-expect-error -- Spread from non-object type
-        ...(body as unknown),
+        ...(typeof body === 'object' && body !== null ? body : {}),
         workflowId: params.workflowId,
       });
       if (!parsed.success) {
@@ -503,7 +503,7 @@ export function registerApprovalRoutes() {
           conditions: parsed.data.conditions,
           feedback: parsed.data.feedback,
           decidedAt: new Date(),
-        } as unknown;
+        };
         const status = await approvalWorkflowService.processApprovalDecision(decisionInput);
         await auditService.logEvent({
           eventType:

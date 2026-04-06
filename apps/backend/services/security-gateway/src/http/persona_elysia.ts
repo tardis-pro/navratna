@@ -6,6 +6,10 @@ import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 const userService = UserService.getInstance();
 
 const defaultOnboardingProgress = {
@@ -152,7 +156,7 @@ export function registerPersonaRoutes() {
         });
         logger.info('User persona updated', {
           userId: user.id,
-          updatedFields: Object.keys(body as unknown),
+          updatedFields: Object.keys(validation.data),
         });
         return {
           id: entity.id,
@@ -283,8 +287,8 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        const persona = entity.userPersona as Record<string, unknown>;
-        const behavioral = entity.behavioralPatterns as Record<string, unknown>;
+        const persona: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
+        const behavioral: Record<string, unknown> = isRecord(entity.behavioralPatterns) ? entity.behavioralPatterns : {};
         const recommendations = await generatePersonaRecommendations(persona, behavioral);
         return recommendations;
       } catch {
@@ -323,8 +327,8 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        // @ts-expect-error -- Argument type mismatch
-        const compatible = await getCompatibleAgents(entity.userPersona as unknown);
+        const personaRecord: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
+        const compatible = await getCompatibleAgents(personaRecord);
         return compatible;
       } catch {
         set.status = 500;
@@ -343,11 +347,9 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        const workspace = await generateOptimizedWorkspace(
-          // @ts-expect-error -- Argument type mismatch
-          entity.userPersona as unknown,
-          entity.behavioralPatterns as unknown
-        );
+        const personaRec: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
+        const behavioralRec: Record<string, unknown> = isRecord(entity.behavioralPatterns) ? entity.behavioralPatterns : {};
+        const workspace = await generateOptimizedWorkspace(personaRec, behavioralRec);
         return workspace;
       } catch {
         set.status = 500;
@@ -358,11 +360,23 @@ export function registerPersonaRoutes() {
 
 }
 
+type PersonaRecommendations = {
+  recommendedTools: unknown[];
+  recommendedAgents: unknown[];
+  workflowSuggestions: unknown[];
+  uiCustomizations: {
+    layout: string;
+    density: string;
+    theme: string;
+    notifications: string;
+  };
+};
+
 async function generatePersonaRecommendations(
   persona: Record<string, unknown>,
   _behavioralPatterns: Record<string, unknown>
-) {
-  const recommendations = {
+): Promise<PersonaRecommendations> {
+  return {
     recommendedTools: [],
     recommendedAgents: [],
     workflowSuggestions: [],
@@ -372,8 +386,7 @@ async function generatePersonaRecommendations(
       theme: persona.problemSolvingApproach === 'creative' ? 'creative' : 'default',
       notifications: persona.communicationPreference === 'brief' ? 'minimal' : 'standard',
     },
-  } as unknown;
-  return recommendations;
+  };
 }
 
 async function processUserInteraction(
@@ -385,15 +398,17 @@ async function processUserInteraction(
   logger.info('Processed user interaction', { userId, type, timestamp });
 }
 
-async function getCompatibleAgents(_persona: Record<string, unknown>) {
-  return [] as unknown[];
+async function getCompatibleAgents(_persona: Record<string, unknown>): Promise<unknown[]> {
+  return [];
 }
+
+type OptimizedWorkspace = { layout: string; widgets: unknown[] };
 
 async function generateOptimizedWorkspace(
   _persona: Record<string, unknown>,
   _behavioral: Record<string, unknown>
-) {
-  return { layout: 'default', widgets: [] } as unknown;
+): Promise<OptimizedWorkspace> {
+  return { layout: 'default', widgets: [] };
 }
 
 export default registerPersonaRoutes;

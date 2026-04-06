@@ -4,7 +4,7 @@ import { capabilities } from '../drizzle/schemas/control_schema';
 import type { CapabilitySearchParams } from '../../capability_discovery_service';
 import { logger } from '@uaip/utils';
 
-type CapabilityRow = typeof capabilities.$inferSelect;
+export type CapabilityRow = typeof capabilities.$inferSelect;
 type NewCapability = typeof capabilities.$inferInsert;
 
 export class CapabilityRepository {

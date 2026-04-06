@@ -12,9 +12,10 @@ import {
   SourceType,
   VectorSearchResult,
 } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, DatabaseError } from '@uaip/utils';
 import { QdrantService } from './qdrant_service.js';
 import { KnowledgeRepository } from '@uaip/shared-services';
+import type { KnowledgeRow } from '../../../../../shared/services/src/database/repositories/knowledge_repository.js';
 import { EmbeddingService } from './embedding_service.js';
 import { ContentClassifier } from './content_classifier_service.js';
 import { RelationshipDetector } from './relationship_detector_service.js';
@@ -62,6 +63,28 @@ export interface IngestionOptions {
   generateEmbeddings?: boolean;
   batchSize?: number;
   concurrency?: number;
+}
+
+function mapRowToKnowledgeItem(row: KnowledgeRow): KnowledgeItem {
+  return {
+    id: row.id,
+    content: row.content,
+    type: row.type,
+    sourceType: row.sourceType,
+    sourceIdentifier: row.sourceIdentifier,
+    sourceUrl: row.sourceUrl ?? undefined,
+    tags: row.tags,
+    confidence: row.confidence,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    createdBy: row.createdBy ?? undefined,
+    organizationId: row.organizationId ?? undefined,
+    accessLevel: row.accessLevel,
+    userId: row.userId ?? undefined,
+    agentId: row.agentId ?? undefined,
+    summary: row.summary ?? undefined,
+  };
 }
 
 export interface IngestionResult {
@@ -150,7 +173,8 @@ export class KnowledgeGraphService {
             console.warn('Vector collection is empty, falling back to repository search');
             filteredResults = (await this.repository.findByScope(
               scope || {}
-            )) as unknown as KnowledgeItem[];
+            ))
+          .map(mapRowToKnowledgeItem);
           } else {
             vectorResults = await this.vectorDb.search(queryEmbedding, {
               limit: options?.limit || 20,
@@ -159,7 +183,8 @@ export class KnowledgeGraphService {
             });
             filteredResults = (await this.repository.applyFilters({
               limit: options?.limit || 20,
-            })) as unknown as KnowledgeItem[];
+            }))
+          .map(mapRowToKnowledgeItem);
           }
         } catch (vectorError) {
           // If vector search fails, fall back to repository search
@@ -169,13 +194,15 @@ export class KnowledgeGraphService {
           );
           filteredResults = (await this.repository.findByScope(
             scope || {}
-          )) as unknown as KnowledgeItem[];
+          ))
+          .map(mapRowToKnowledgeItem);
         }
       } else {
         // When no query is provided, get all items with scope filtering
         filteredResults = (await this.repository.findByScope(
           scope || {}
-        )) as unknown as KnowledgeItem[];
+        ))
+          .map(mapRowToKnowledgeItem);
       }
 
       // Build vector filters including scope
@@ -201,7 +228,7 @@ export class KnowledgeGraphService {
       };
     } catch (error) {
       logger.error('Knowledge search error', { error: error instanceof Error ? error.message : String(error) });
-      throw new Error(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+      throw new DatabaseError(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 
@@ -241,7 +268,7 @@ export class KnowledgeGraphService {
 
         // Sync to Qdrant + Neo4j immediately so constellations reflect new data
         this.knowledgeSync
-          .syncKnowledgeItem(knowledgeItem as Parameters<typeof this.knowledgeSync.syncKnowledgeItem>[0])
+          .syncKnowledgeItem(knowledgeItem)
           .catch((syncErr: unknown) => {
             logger.warn('Post-ingest Qdrant sync failed (item still saved to Postgres)', {
               itemId: knowledgeItem.id,
@@ -252,7 +279,7 @@ export class KnowledgeGraphService {
         // Detect and create relationships
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
         const relationships = await this.relationshipDetector.detectRelationships(
-          knowledgeItem as unknown as KnowledgeItem
+          mapRowToKnowledgeItem(knowledgeItem)
         );
         if (relationships.length > 0) {
           // Add scope to relationships
@@ -265,7 +292,7 @@ export class KnowledgeGraphService {
           await this.repository.createRelationships(scopedRelationships);
         }
 
-        results.push(knowledgeItem as unknown as KnowledgeItem);
+        results.push(mapRowToKnowledgeItem(knowledgeItem));
       } catch (error) {
         logger.error('Failed to ingest knowledge item', {
           preview: item.content.substring(0, 100),
@@ -302,7 +329,8 @@ export class KnowledgeGraphService {
         },
       });
 
-      return this.repository.applyFilters({ limit: 10 }) as unknown as KnowledgeItem[];
+      return (await this.repository.applyFilters({ limit: 10 }))
+          .map(mapRowToKnowledgeItem);
     } catch (error) {
       console.error('Contextual knowledge retrieval error:', error);
       return [];
@@ -327,7 +355,8 @@ export class KnowledgeGraphService {
     try {
       const relationships = await this.repository.getRelationships(itemId);
       const relatedIds = relationships.map((r) => r.targetId);
-      return this.repository.getItems(relatedIds.map((id) => id)) as unknown as KnowledgeItem[];
+      return (await this.repository.getItems(relatedIds.map((id) => id)))
+          .map(mapRowToKnowledgeItem);
     } catch (error) {
       console.error('Related knowledge retrieval error:', error);
       return [];
@@ -338,10 +367,7 @@ export class KnowledgeGraphService {
    * Bulk knowledge update - used for maintaining knowledge quality
    */
   async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
-    const updatedItem = await this.repository.update(
-      itemId,
-      updates as unknown as Parameters<typeof this.repository.update>[1]
-    );
+    const updatedItem = await this.repository.update(itemId, updates);
 
     // Re-generate embeddings if content changed
     if (updates.content) {
@@ -349,7 +375,7 @@ export class KnowledgeGraphService {
       await this.vectorDb.update(itemId, embeddings);
     }
 
-    return updatedItem as unknown as KnowledgeItem;
+    return mapRowToKnowledgeItem(updatedItem);
   }
 
   /**
@@ -432,20 +458,20 @@ export class KnowledgeGraphService {
         interactionType,
         timestamp: interactionTimestamp,
       },
-      interaction?.userId as string | undefined,
-      interaction?.agentId as string | undefined
+      typeof interaction?.userId === 'string' ? interaction.userId : undefined,
+      typeof interaction?.agentId === 'string' ? interaction.agentId : undefined
     );
 
     if (syncResult.success && interaction?.entityId) {
       await this.repository.createRelationships([
         {
-          sourceId: interaction.entityId as string,
+          sourceId: typeof interaction.entityId === 'string' ? interaction.entityId : String(interaction.entityId),
           targetId: syncResult.knowledgeItemId,
           relationshipType: 'HAS_INTERACTION',
           strength: 0.85,
           metadata: {
-            userId: interaction?.userId as string | undefined,
-            agentId: interaction?.agentId as string | undefined,
+            userId: typeof interaction?.userId === 'string' ? interaction.userId : undefined,
+            agentId: typeof interaction?.agentId === 'string' ? interaction.agentId : undefined,
             summary: `Interaction linked: ${interactionType}`,
           },
         },
@@ -521,7 +547,7 @@ export class KnowledgeGraphService {
         context,
         initializedAt: contextTimestamp,
       },
-      context?.userId as string | undefined,
+      typeof context?.userId === 'string' ? context.userId : undefined,
       agentId
     );
 
@@ -537,12 +563,12 @@ export class KnowledgeGraphService {
     if (context?.baseKnowledgeItemId) {
       await this.repository.createRelationships([
         {
-          sourceId: context.baseKnowledgeItemId as string,
+          sourceId: typeof context.baseKnowledgeItemId === 'string' ? context.baseKnowledgeItemId : String(context.baseKnowledgeItemId),
           targetId: syncResult.knowledgeItemId,
           relationshipType: 'INITIALIZES_CONTEXT',
           strength: 0.8,
           metadata: {
-            userId: context?.userId as string | undefined,
+            userId: typeof context?.userId === 'string' ? context.userId : undefined,
             agentId,
             summary: `Initial context for agent ${agentId}`,
           },
@@ -629,11 +655,13 @@ export class KnowledgeGraphService {
       items = (await this.repository.findByDomain(
         domain,
         options?.maxItems
-      )) as unknown as KnowledgeItem[];
+      ))
+          .map(mapRowToKnowledgeItem);
     } else {
       const allItems = (await this.repository.findRecentItems(
         options?.maxItems || 100
-      )) as unknown as KnowledgeItem[];
+      ))
+          .map(mapRowToKnowledgeItem);
       items = options?.minConfidence
         ? allItems.filter((item) => item.confidence >= options.minConfidence!)
         : allItems;
@@ -677,7 +705,8 @@ export class KnowledgeGraphService {
   ) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100))
+          .map(mapRowToKnowledgeItem);
 
     return await this.taxonomyGenerator.generateTaxonomy(items, domain, options);
   }
@@ -696,7 +725,8 @@ export class KnowledgeGraphService {
   ) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100))
+          .map(mapRowToKnowledgeItem);
 
     return await this.reconciliationService.detectConflicts(items, {
       domains: domain ? [domain] : undefined,
@@ -724,7 +754,8 @@ export class KnowledgeGraphService {
   async mergeDuplicates(domain?: string) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100))
+          .map(mapRowToKnowledgeItem);
 
     return await this.reconciliationService.mergeDuplicates(items);
   }
@@ -735,7 +766,8 @@ export class KnowledgeGraphService {
   async generateKnowledgeSummaries(domain?: string) {
     const items = (domain
       ? await this.repository.findByDomain(domain)
-      : await this.repository.findRecentItems(100)) as unknown as KnowledgeItem[];
+      : await this.repository.findRecentItems(100))
+          .map(mapRowToKnowledgeItem);
 
     return await this.reconciliationService.generateSummaries(items);
   }
@@ -752,13 +784,22 @@ export class KnowledgeGraphService {
     }
   ) {
     const startTime = Date.now();
-    const results = {
+    type ReconcileResults = {
+      domain: string;
+      conceptExtraction: ConceptExtractionResult | null;
+      ontologyBuilding: OntologyBuildResult | null;
+      taxonomyGeneration: TaxonomyGenerationResult | null;
+      conflictDetection: KnowledgeConflict[] | null;
+      conflictResolution: ResolvedKnowledge | null;
+      processingTime: number;
+    };
+    const results: ReconcileResults = {
       domain: domain || 'all',
-      conceptExtraction: null as ConceptExtractionResult | null,
-      ontologyBuilding: null as OntologyBuildResult | null,
-      taxonomyGeneration: null as TaxonomyGenerationResult | null,
-      conflictDetection: null as KnowledgeConflict[] | null,
-      conflictResolution: null as ResolvedKnowledge | null,
+      conceptExtraction: null,
+      ontologyBuilding: null,
+      taxonomyGeneration: null,
+      conflictDetection: null,
+      conflictResolution: null,
       processingTime: 0,
     };
 
@@ -906,7 +947,8 @@ export class KnowledgeGraphService {
         ? await this.repository.findByDomain(domain)
         : await this.repository.findRecentItems(
             options?.maxPairs || 100
-          )) as unknown as KnowledgeItem[];
+          ))
+          .map(mapRowToKnowledgeItem);
 
       return await this.qaGenerator.generateFromKnowledge(items, options);
     } catch (error) {

@@ -140,12 +140,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({
       return true;
     });
 
-    return statusColumns.reduce(
+    return statusColumns.reduce<Record<string, Task[]>>(
       (acc, column) => {
         acc[column.id] = filtered.filter((task) => task.status === column.id);
         return acc;
       },
-      {} as Record<string, Task[]>
+      {}
     );
   }, [tasks, filters]);
 

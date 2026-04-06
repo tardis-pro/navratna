@@ -386,8 +386,8 @@ export class LearningDetectorService {
       return validatedMoments;
     } catch (error) {
       logger.error('Learning moment detection failed', { error: error.message });
-      const wrappedError = new Error(`Learning moment detection failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Learning moment detection failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }

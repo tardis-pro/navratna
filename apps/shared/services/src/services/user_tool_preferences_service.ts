@@ -1,6 +1,26 @@
 import { getControlPool } from '../database/drizzle/clients/index';
 import type { UserToolPreferencesData, UserToolAccess } from '@uaip/types';
 
+function getStr(v: unknown, fallback = ''): string {
+  return typeof v === 'string' ? v : fallback;
+}
+function getNum(v: unknown, fallback = 0): number {
+  return typeof v === 'number' ? v : fallback;
+}
+function getRecord(v: unknown): Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+    ? { ...v }
+    : {};
+}
+function getNumericRecord(v: unknown): Record<string, number> {
+  const raw = getRecord(v);
+  const result: Record<string, number> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    if (typeof val === 'number') result[key] = val;
+  }
+  return result;
+}
+
 export class UserToolPreferencesService {
   constructor() {}
 
@@ -15,35 +35,24 @@ export class UserToolPreferencesService {
     );
 
     return result.rows.map(
-      (row: Record<string, unknown>): UserToolAccess => ({
-        toolId: row.user_id as string,
-        toolName: (row.tool_name as string) || '',
-        toolDescription: (row.tool_description as string) || '',
-        parameterDefaults:
-          (((row.preferences as Record<string, unknown>) || {}).parameterDefaults as Record<
-            string,
-            unknown
-          >) || {},
-        customConfig:
-          (((row.preferences as Record<string, unknown>) || {}).customConfig as Record<
-            string,
-            unknown
-          >) || {},
-        isFavorite: false,
-        isEnabled: true,
-        autoApprove: false,
-        usageCount: 0,
-        lastUsedAt: undefined,
-        rateLimits:
-          (((row.preferences as Record<string, unknown>) || {}).rateLimits as Record<
-            string,
-            number
-          >) || {},
-        budgetLimit: ((row.preferences as Record<string, unknown>) || {}).budgetLimit as
-          | number
-          | undefined,
-        budgetUsed: 0,
-      })
+      (row: Record<string, unknown>): UserToolAccess => {
+        const prefs = getRecord(row.preferences);
+        return {
+          toolId: getStr(row.user_id),
+          toolName: getStr(row.tool_name),
+          toolDescription: getStr(row.tool_description),
+          parameterDefaults: getRecord(prefs.parameterDefaults),
+          customConfig: getRecord(prefs.customConfig),
+          isFavorite: false,
+          isEnabled: true,
+          autoApprove: false,
+          usageCount: 0,
+          lastUsedAt: undefined,
+          rateLimits: getNumericRecord(prefs.rateLimits),
+          budgetLimit: typeof prefs.budgetLimit === 'number' ? prefs.budgetLimit : undefined,
+          budgetUsed: 0,
+        };
+      }
     );
   }
 
@@ -88,8 +97,8 @@ export class UserToolPreferencesService {
     };
 
     if (existingResult.rows.length > 0) {
-      const existing = existingResult.rows[0] as Record<string, unknown>;
-      const existingPrefs = (existing.preferences as Record<string, unknown>) || {};
+      const existing: Record<string, unknown> = existingResult.rows[0];
+      const existingPrefs = getRecord(existing.preferences);
       const mergedPrefs = { ...existingPrefs, ...preferencesData };
 
       await pool.query(
@@ -187,21 +196,22 @@ export class UserToolPreferencesService {
       userId,
     ]);
 
-    const preferences = result.rows as Array<Record<string, unknown>>;
-    const stats = {
+    const preferences: Array<Record<string, unknown>> = result.rows;
+    type UsageStats = { totalTools: number; enabledTools: number; favoriteTools: number; totalUsage: number; totalBudgetUsed: number; mostUsedTool?: string };
+    const stats: UsageStats = {
       totalTools: preferences.length,
       enabledTools: 0,
       favoriteTools: 0,
       totalUsage: 0,
       totalBudgetUsed: 0,
-      mostUsedTool: undefined as string | undefined,
+      mostUsedTool: undefined,
     };
 
     for (const pref of preferences) {
-      const prefs = pref.preferences as Record<string, unknown>;
+      const prefs = getRecord(pref.preferences);
       if (prefs.isEnabled) stats.enabledTools++;
       if (prefs.isFavorite) stats.favoriteTools++;
-      if (prefs.usageCount) stats.totalUsage += prefs.usageCount as number;
+      if (prefs.usageCount) stats.totalUsage += getNum(prefs.usageCount);
       if (prefs.budgetUsed) stats.totalBudgetUsed += Number(prefs.budgetUsed);
     }
 

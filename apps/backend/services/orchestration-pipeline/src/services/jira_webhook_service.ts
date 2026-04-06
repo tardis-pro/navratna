@@ -1,12 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { logger } from '@uaip/utils'
+import { logger, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
+import {
+  WebhookEventSource,
+} from '@uaip/types'
 import type {
   JiraWebhookEventType,
   JiraWebhookPayload,
   WebhookEvent,
   WebhookValidationResult,
-  WebhookEventSource,
 } from '@uaip/types'
 
 const JIRA_EVENT_TOPIC_MAP: Record<string, string> = {
@@ -21,7 +23,7 @@ const JIRA_EVENT_TOPIC_MAP: Record<string, string> = {
 function getWebhookSecret(): string {
   const secret = process.env.JIRA_WEBHOOK_SECRET
   if (!secret) {
-    throw new Error('JIRA_WEBHOOK_SECRET environment variable is required')
+    throw new ValidationError('JIRA_WEBHOOK_SECRET environment variable is required')
   }
   return secret
 }
@@ -31,7 +33,7 @@ export function validateJiraWebhook(
   signatureHeader: string | null
 ): WebhookValidationResult {
   if (!signatureHeader) {
-    return { valid: false, error: 'Missing webhook signature', source: 'jira' as WebhookEventSource, eventType: 'unknown' }
+    return { valid: false, error: 'Missing webhook signature', source: WebhookEventSource.JIRA, eventType: 'unknown' }
   }
 
   const secret = getWebhookSecret()
@@ -42,10 +44,10 @@ export function validateJiraWebhook(
     timingSafeEqual(Buffer.from(signatureHeader), Buffer.from(expectedSignature))
 
   if (!isValid) {
-    return { valid: false, error: 'Invalid webhook signature', source: 'jira' as WebhookEventSource, eventType: 'unknown' }
+    return { valid: false, error: 'Invalid webhook signature', source: WebhookEventSource.JIRA, eventType: 'unknown' }
   }
 
-  return { valid: true, source: 'jira' as WebhookEventSource, eventType: 'jira_event' }
+  return { valid: true, source: WebhookEventSource.JIRA, eventType: 'jira_event' }
 }
 
 export async function routeJiraWebhookEvent(
@@ -62,7 +64,7 @@ export async function routeJiraWebhookEvent(
 
   const event: WebhookEvent<JiraWebhookPayload> = {
     id: deliveryId,
-    source: 'jira' as WebhookEventSource,
+    source: WebhookEventSource.JIRA,
     eventType,
     timestamp: new Date().toISOString(),
     payload,

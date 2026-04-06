@@ -39,7 +39,9 @@ export class RepositoryFactory {
 
   private get<T>(key: string, factory: () => T): T {
     if (!this.cache.has(key)) this.cache.set(key, factory());
-    return this.cache.get(key) as T;
+    const cached = this.cache.get(key);
+    if (cached === undefined) throw new Error(`Repository cache miss for key: ${key}`);
+    return cached as T;
   }
 
   getUserRepository(): UserRepository {

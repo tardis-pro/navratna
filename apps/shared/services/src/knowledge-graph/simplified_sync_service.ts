@@ -229,9 +229,7 @@ export class SimplifiedSyncService {
       const neo4jItems = neo4jResult.records[0]?.get('count')?.toNumber() || 0;
 
       // Count Qdrant items
-      const qdrantInfo = (await this.qdrantService.getCollectionInfo()) as {
-        result?: { points_count?: number };
-      };
+      const qdrantInfo = await this.qdrantService.getCollectionInfo();
       const qdrantItems = qdrantInfo.result?.points_count || 0;
 
       // Count PostgreSQL items

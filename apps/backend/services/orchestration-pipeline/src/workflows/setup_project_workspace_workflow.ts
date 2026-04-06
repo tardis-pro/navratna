@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, ExternalServiceError, InternalServerError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
 
 export interface SetupProjectWorkspaceInput {
@@ -126,10 +126,10 @@ export class SetupProjectWorkspaceWorkflow {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`GitHub API error: ${error.message || response.statusText}`);
+      throw new ExternalServiceError(`GitHub API error: ${error.message || response.statusText}`);
     }
 
-    const repo = (await response.json()) as { full_name: string; clone_url: string };
+    const repo: { full_name: string; clone_url: string } = await response.json();
     return {
       fullName: repo.full_name,
       cloneUrl: repo.clone_url,
@@ -183,7 +183,7 @@ export class SetupProjectWorkspaceWorkflow {
     });
     if (!response.ok) {
       const err = await response.text();
-      throw new Error(`Workspace provision failed: ${err}`);
+      throw new InternalServerError(`Workspace provision failed: ${err}`);
     }
   }
 }

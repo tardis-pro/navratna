@@ -63,7 +63,7 @@ export class ParticipantManagementService {
 
     if (existing) {
       const nextMetadata = {
-        ...((existing.metadata as Record<string, unknown>) || {}),
+        ...(existing.metadata || {}),
         ...(meta.displayName !== undefined ? { displayName: meta.displayName } : {}),
         ...(meta.permissions !== undefined ? { permissions: meta.permissions } : {}),
         ...(meta.turnOrder !== undefined ? { turnOrder: meta.turnOrder } : {}),
@@ -78,7 +78,7 @@ export class ParticipantManagementService {
       };
 
       const hasMetadataChanges =
-        JSON.stringify(nextMetadata) !== JSON.stringify((existing.metadata as Record<string, unknown>) || {});
+        JSON.stringify(nextMetadata) !== JSON.stringify(existing.metadata || {});
 
       if (hasMetadataChanges) {
         const updatedParticipant = await this.databaseService.update<DiscussionParticipant>(
@@ -311,7 +311,7 @@ export class ParticipantManagementService {
       }
       if (messageData.lastMessageAt !== undefined) {
         updateData.metadata = {
-          ...((participant.metadata as Record<string, unknown>) || {}),
+          ...(participant.metadata || {}),
           lastMessageAt: messageData.lastMessageAt,
           contributionScore: messageData.contributionScore,
           engagementLevel: messageData.engagementLevel,
@@ -443,14 +443,16 @@ export class ParticipantManagementService {
       const participant = await this.getParticipantById(participantId);
       if (!participant) return null;
 
-      const metadata = (participant.metadata || {}) as Record<string, unknown>;
+      const metadata: Record<string, unknown> = participant.metadata || {};
 
       return {
         messageCount: participant.messageCount,
-        contributionScore: (metadata.contributionScore as number) || 0,
-        engagementLevel: (metadata.engagementLevel as number) || 0,
-        averageResponseTime: (metadata.totalSpeakingTimeMs as number) || 0,
-        topTopics: (metadata.topics as string[]) || [],
+        contributionScore: typeof metadata.contributionScore === 'number' ? metadata.contributionScore : 0,
+        engagementLevel: typeof metadata.engagementLevel === 'number' ? metadata.engagementLevel : 0,
+        averageResponseTime: typeof metadata.totalSpeakingTimeMs === 'number' ? metadata.totalSpeakingTimeMs : 0,
+        topTopics: Array.isArray(metadata.topics)
+          ? metadata.topics.filter((t): t is string => typeof t === 'string')
+          : [],
       };
     } catch (error) {
       logger.error('Error getting participant stats', {

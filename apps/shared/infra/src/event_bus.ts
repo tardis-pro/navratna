@@ -14,15 +14,42 @@ import type {
   EventBusWrappedEvent,
 } from '@uaip/types';
 import Redis from 'ioredis';
+import type { RedisOptions } from 'ioredis';
 
-function getBullMQConnection(): ConnectionOptions {
-  return {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isEventBusMessage(event: EventBusWrappedEvent): event is EventBusMessage {
+  return event.timestamp instanceof Date;
+}
+
+type RpcResponseShape<T> = { error?: { message?: string; code?: string }; data?: T };
+
+function isRpcResponse<T>(data: unknown): data is RpcResponseShape<T> {
+  return typeof data === 'object' && data !== null;
+}
+
+function getRedisOptions(): RedisOptions {
+  const opts: RedisOptions = {
     host: config.redis?.host || 'localhost',
     port: config.redis?.port || 6379,
     password: config.redis?.password || undefined,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-  } as ConnectionOptions;
+  };
+  return opts;
+}
+
+function getBullMQConnection(): ConnectionOptions {
+  const connection: ConnectionOptions = {
+    host: config.redis?.host || 'localhost',
+    port: config.redis?.port || 6379,
+    password: config.redis?.password || undefined,
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  };
+  return connection;
 }
 
 export class EventBusService {
@@ -45,7 +72,7 @@ export class EventBusService {
     this.config = eventBusConfig;
     this.logger = eventBusLogger;
 
-    this.redis = new Redis(getBullMQConnection() as Record<string, unknown>);
+    this.redis = new Redis(getRedisOptions());
 
     this.redis.on('connect', () => {
       this.isConnected = true;
@@ -96,7 +123,7 @@ export class EventBusService {
     process.on('SIGTERM', () => this.gracefulShutdown('SIGTERM'));
   }
 
-  private getOrCreateQueue(eventType: string): Queue {
+  public getOrCreateQueue(eventType: string): Queue {
     if (!this.queues.has(eventType)) {
       const queue = new Queue(eventType, {
         connection: getBullMQConnection(),
@@ -143,7 +170,7 @@ export class EventBusService {
         correlationId,
         actor: options.context.actor || { userId: 'system', orgId: 'system', roles: [] },
         tenant: options.context.tenant || { orgId: 'system' },
-        data: data as Record<string, unknown>,
+        data: isRecord(data) ? data : { value: data },
         version: '1',
       };
       message = uaipEvent;
@@ -220,26 +247,33 @@ export class EventBusService {
   ): Promise<void> {
     if (this.workers.has(eventType)) return;
 
-    const worker = new Worker(
+    const worker = new Worker<EventBusWrappedEvent>(
       eventType,
-      async (job: Job) => {
-        const rawMessage = job.data as EventBusWrappedEvent;
+      async (job: Job<EventBusWrappedEvent>) => {
+        const rawMessage: EventBusWrappedEvent = job.data;
+
+        let eventTimestamp: Date;
+        let eventMetadata: Record<string, unknown> | undefined;
+        if (isEventBusMessage(rawMessage)) {
+          eventTimestamp = rawMessage.timestamp;
+          eventMetadata = rawMessage.metadata;
+        } else {
+          eventTimestamp = new Date(rawMessage.timestamp);
+          eventMetadata = undefined;
+        }
 
         const eventMessage: EventBusMessage = {
           id: rawMessage.id,
           type: rawMessage.type,
           source: rawMessage.source,
-          data: (rawMessage as EventBusMessage).data ?? (rawMessage as UAIPEvent).data,
-          timestamp:
-            (rawMessage as EventBusMessage).timestamp instanceof Date
-              ? (rawMessage as EventBusMessage).timestamp
-              : new Date((rawMessage as UAIPEvent).timestamp ?? Date.now()),
+          data: rawMessage.data,
+          timestamp: eventTimestamp,
           version: rawMessage.version,
           correlationId: rawMessage.correlationId,
-          metadata: (rawMessage as EventBusMessage).metadata,
+          metadata: eventMetadata,
         };
 
-        const authToken = (eventMessage.metadata as Record<string, unknown>)?.authorization;
+        const authToken = eventMessage.metadata?.authorization;
         if (typeof authToken === 'string' && authToken.startsWith('Bearer ')) {
           const token = authToken.substring(7);
           try {
@@ -248,7 +282,7 @@ export class EventBusService {
               this.logger.warn('Invalid token payload in event message', { eventType });
               throw new Error('Invalid token payload');
             }
-            if ((decoded as Record<string, unknown>).type !== 'internal') {
+            if (decoded.type !== 'internal') {
               this.logger.warn('Invalid token type in event message', { eventType });
               throw new Error('Invalid token type');
             }
@@ -334,10 +368,10 @@ export class EventBusService {
 
   private async getOrCreateReplyWorker(): Promise<void> {
     if (this.replyWorker) return;
-    this.replyWorker = new Worker(
+    this.replyWorker = new Worker<EventBusMessage>(
       'rpc.replies',
-      async (job: Job) => {
-        const msg = job.data as EventBusMessage;
+      async (job: Job<EventBusMessage>) => {
+        const msg: EventBusMessage = job.data;
         const handler = this.replyHandlers.get(msg.correlationId ?? '');
         if (handler) handler(msg);
       },
@@ -362,20 +396,20 @@ export class EventBusService {
       this.replyHandlers.set(correlationId, (message: EventBusMessage) => {
         clearTimeout(timeoutId);
         this.replyHandlers.delete(correlationId);
-        const responseData = message.data as {
-          error?: { message?: string; code?: string };
-          data?: T;
-        };
-        if (responseData.error) {
-          reject(
-            new ApiError(
-              500,
-              responseData.error.message || 'RPC error',
-              responseData.error.code || 'RPC_ERROR'
-            )
-          );
+        if (isRpcResponse<T>(message.data)) {
+          if (message.data.error) {
+            reject(
+              new ApiError(
+                500,
+                message.data.error.message || 'RPC error',
+                message.data.error.code || 'RPC_ERROR'
+              )
+            );
+          } else {
+            resolve(message.data.data!);
+          }
         } else {
-          resolve(responseData.data as T);
+          reject(new ApiError(500, 'Invalid RPC response format', 'RPC_INVALID_RESPONSE'));
         }
       });
 
@@ -535,22 +569,22 @@ export class EventBusService {
         clearTimeout(timeout);
         await this.unsubscribe(responseEventType, responseHandler);
 
-        const responseData = message.data as {
-          error?: { message?: string };
-          success?: boolean;
-          data?: unknown;
-        };
-        if (responseData.error) {
-          reject(new Error(responseData.error.message || 'Unknown error'));
+        if (isRpcResponse<unknown>(message.data)) {
+          if (message.data.error) {
+            reject(new Error(message.data.error.message || 'Unknown error'));
+          } else {
+            resolve(message.data.data);
+          }
         } else {
-          resolve(responseData.data);
+          reject(new Error('Invalid response format'));
         }
       };
 
       this.subscribe(responseEventType, responseHandler)
         .then(() => {
+          const requestData = isRecord(data) ? data : {};
           const requestMessage = {
-            ...(data as Record<string, unknown>),
+            ...requestData,
             correlationId,
             responseEventType,
           };

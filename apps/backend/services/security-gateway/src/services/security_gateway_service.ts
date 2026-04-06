@@ -19,9 +19,13 @@ import {
   GatewaySecurityPolicy as SecurityPolicy,
   RiskAssessmentConfig,
 } from '@uaip/types';
-// @ts-expect-error -- Module import issue
-import { ApprovalWorkflowService, ApprovalRequest } from './approval_workflow_service.js';
+import { ApprovalWorkflowService } from './approval_workflow_service.js';
+import type { ApprovalRequest } from '@uaip/types';
 import { AuditService } from './audit_service.js';
+
+function isSecurityLevel(v: unknown): v is SecurityLevel {
+  return typeof v === 'string' && (Object.values(SecurityLevel) as string[]).includes(v);
+}
 
 export class SecurityGatewayService {
   private policies: Map<string, SecurityPolicy> = new Map();
@@ -749,8 +753,7 @@ export class SecurityGatewayService {
     }
 
     // Check minimum risk level
-    if (policy.conditions.minRiskLevel) {
-      // @ts-expect-error -- Argument type mismatch
+    if (policy.conditions.minRiskLevel && isSecurityLevel(policy.conditions.minRiskLevel)) {
       const minScore = this.getScoreForRiskLevel(policy.conditions.minRiskLevel);
       if (riskAssessment.score < minScore) {
         return false;
