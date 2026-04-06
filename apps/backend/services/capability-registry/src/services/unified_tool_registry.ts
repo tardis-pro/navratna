@@ -26,8 +26,16 @@ import type { JSONSchema } from '@uaip/types';
 function toJSONSchema(v: unknown): JSONSchema {
   if (!isRecord(v)) return {};
   const schema: JSONSchema = {};
-  if (typeof v['type'] === 'string' || Array.isArray(v['type'])) schema.type = v['type'] as JSONSchema['type'];
-  if (isRecord(v['properties'])) schema.properties = v['properties'] as Record<string, JSONSchema>;
+  if (typeof v['type'] === 'string') {
+    schema.type = v['type'];
+  } else if (Array.isArray(v['type'])) {
+    schema.type = v['type'].filter((s): s is string => typeof s === 'string');
+  }
+  if (isRecord(v['properties'])) {
+    schema.properties = Object.fromEntries(
+      Object.entries(v['properties']).map(([k, val]) => [k, toJSONSchema(val)])
+    );
+  }
   if (typeof v['description'] === 'string') schema.description = v['description'];
   if (Array.isArray(v['required'])) schema.required = v['required'].filter((s): s is string => typeof s === 'string');
   if (typeof v['additionalProperties'] === 'boolean') schema.additionalProperties = v['additionalProperties'];
