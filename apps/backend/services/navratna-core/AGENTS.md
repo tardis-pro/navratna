@@ -15,7 +15,18 @@ src/
 └── index.ts     # NavratnaCoreService extends BaseService — mounts routes + Socket.IO (486 lines)
 ```
 
-Minimal own source. Routes imported from legacy service `src/` directories (not full coverage — see gaps below).
+Two source layers: (1) own native services under `src/services/` (repo ingestion pipeline); (2) routes imported from legacy service `src/` directories (not full coverage — see gaps below).
+
+### Own native services (not from legacy)
+
+| Service | Purpose |
+| ------- | ------- |
+| `RepoIngestionService` | Ingests git repos — clones, walks files, dispatches to extractors |
+| `AstSymbolExtractor` | Tree-sitter AST parsing — extracts functions/classes/imports |
+| `SemanticIndexService` | Generates embeddings → upserts to Qdrant |
+| `ImportGraphService` | Builds import dependency graph → Neo4j |
+
+Exposed at: `POST /api/v1/knowledge/ingest` — accepts `{ repoUrl, branch?, depth? }`, returns job ID.
 
 ### Imported routes
 
@@ -49,6 +60,7 @@ Imported: `UserChatHandler`, `ConversationIntelligenceHandler`, `TaskNotificatio
 
 - `POST /api/v1/agents/relevance` — relevance scoring
 - `POST /api/v1/knowledge/constellations` — multi-agent constellation coordination
+- `POST /api/v1/knowledge/ingest` — repo ingestion (native service)
 - All artifact, short-link, LLM, and user-LLM routes (see service AGENTS.md files)
 - `GET /health`
 - Socket.IO namespaces (4)

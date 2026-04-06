@@ -26,7 +26,7 @@
 | Service | Port | Status | Description |
 |---|---|---|---|
 | questionforge | 3010 | Active | 8 specialist personas, council debate, question ranking, stakeholder packs, interview capture |
-| basebench-meta | 3009 | Active | 5 task families, MetaScore scoring (6 components + 2 penalty terms), REST API, seeded test cases |
+| basebench-meta | 3009 | Active | 8 task families, MetaScore scoring (6 components + 2 penalty terms), REST API, seeded test cases |
 | marketplace-service | — | Removal | Scheduled for removal. Do not add features. |
 
 ## Key Architectural Patterns
@@ -43,6 +43,6 @@
 - Semantic memory — Qdrant via `SemanticMemoryManager` (1024-dim vectors, concept confidence + usage tracking)
 - `MemoryConsolidator` promotes episodic → semantic on interval
 
-**Knowledge UUID consistency**: Every knowledge item has the same UUID across PostgreSQL + Neo4j + Qdrant. `CrossPlaneGuard` enforces this. `KnowledgeBootstrapService.runPostSeedSync()` repairs inconsistencies.
+**Knowledge UUID consistency**: Every knowledge item has the same UUID across PostgreSQL + Neo4j + Qdrant. `CrossPlaneGuard` is defined in `@uaip/shared-services` for this purpose but **not yet called in production code**. `KnowledgeBootstrapService.runPostSeedSync()` repairs inconsistencies post-seed.
 
 **Socket.IO auth (correlation-ID)**: navratna-core publishes `security.auth.validate` with a UUID, registers a one-time response handler, and awaits `security.auth.response` with matching correlation ID. Fallback: HTTP GET to gateway `/api/v1/auth/validate`.

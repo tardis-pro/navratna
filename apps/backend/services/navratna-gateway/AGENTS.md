@@ -23,8 +23,10 @@ Routes imported from sibling service `src/` directories.
 
 **NOT imported** (exist in legacy service but absent from navratna-gateway):
 
-- `projects.elysia.ts` — project routes are NOT exposed via navratna-gateway
-- `tool-preferences.elysia.ts` — tool preferences NOT exposed
+- `projects.elysia.ts` — project routes NOT exposed
+- `tool_preferences.elysia.ts` — tool preferences NOT exposed
+- `security_stats.elysia.ts` — GET /security-stats NOT exposed
+- `dashboard.elysia.ts` — GET /dashboard aggregate stats NOT exposed
 
 ### Imported from orchestration-pipeline
 
@@ -47,7 +49,7 @@ Routes imported from sibling service `src/` directories.
 - `GET /health`
 - `GET /api/v1/auth/validate` — nginx `auth_request` endpoint + Socket.IO auth fallback for navratna-core
 
-**Not exposed** (requires legacy services): tool CRUD/execution, workspace, projects.elysia routes, tool-preferences
+**Not exposed** (requires legacy services): tool CRUD/execution, workspace, projects, tool-preferences, security-stats, dashboard
 
 ## COMMANDS
 

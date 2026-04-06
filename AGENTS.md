@@ -28,8 +28,9 @@ navratna/
 │       ├── llm-service/           # @uaip/llm-service — LLM provider abstraction
 │       └── config/                # @uaip/config — env/config loading
 ├── api-gateway/nginx.conf         # nginx reverse proxy → port 8081
-├── docker-compose.yml             # Full stack: postgres, neo4j, redis, qdrant + full observability (prometheus, grafana, loki)
-├── infrastructure/                # docker-compose.test.yml + multi-machine topologies
+├── docker-compose.yml             # Legacy dev compose (all services inline) — prefer infrastructure/ compose files
+├── infrastructure/                # All Docker Compose files: core infra, monitoring stack, multi-machine topologies
+├── monitoring/                    # OTel collector config, Prometheus config (referenced by infrastructure/ compose)
 ├── database/                      # Init scripts, migrations, seed data
 ├── deploy/                        # cloudflare/ (Worker + Pages), fly/ (Fly.io)
 ├── docs/                          # Architecture, specs, API reference
@@ -111,8 +112,9 @@ nx show projects               # list all project names
 nx affected -t test            # run tests only for changed projects (CI)
 
 # Infrastructure
-docker-compose up -d                                                     # full stack (postgres, neo4j, redis, qdrant)
-docker-compose -f infrastructure/docker-compose.test.yml up -d           # test infra (offset ports)
+docker compose -f infrastructure/docker-compose.infrastructure.yml up -d                          # core infra (postgres, neo4j, redis, qdrant)
+docker compose -f infrastructure/docker-compose.infrastructure.yml --profile monitoring up -d     # + full monitoring stack (SignOZ, Sentry, Prometheus, Grafana)
+docker compose -f infrastructure/docker-compose.test.yml up -d                                    # test infra (offset ports: postgres→5433, redis→6380)
 
 # Access
 # Frontend dev:   http://localhost:5173
@@ -188,7 +190,7 @@ function createAgent(params: { name: string; personaId: string; config: AgentCon
 
 ## TESTING
 
-- **Framework**: **Vitest** (backend + frontend). One legacy `jest.config.js` in security-gateway exists but is inactive — `vitest.config.ts` is the active runner everywhere.
+- **Framework**: **Vitest** (backend + frontend). `vitest.config.ts` is the active runner everywhere — no jest configs exist anywhere in the codebase.
 - **Coverage thresholds**: middleware 80%, security-gateway/discussion-orchestration 70%, orchestration-pipeline 75%; capability-registry and shared-services have no thresholds
 - **File convention**: `src/__tests__/unit/*.test.ts`, `src/__tests__/integration/*.test.ts`
 - **Shared test utilities**: `apps/shared/services/src/__tests__/helpers/testUtils.ts` (TestUtils: mock repos, pool, DB, eventBus, logger, UUID helpers) and `mocks/serviceMocks.ts` (ServiceMockFactory, 12 mock factories)
@@ -230,6 +232,13 @@ import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-s
 - **Redis** 6379 — cache, sessions, pub/sub, BullMQ event bus
 - **nginx** 8081 — API gateway, auth validation, rate limiting, CORS
 
+**Monitoring stack** (`--profile monitoring` in `infrastructure/docker-compose.infrastructure.yml`):
+- **SignOZ** 3301 — APM: traces/metrics/logs via OpenTelemetry (ClickHouse-backed, query-service on 8080)
+- **OTel Collector** 4317 (gRPC) / 4318 (HTTP) — OpenTelemetry ingestion endpoint
+- **Sentry** 9000 — error tracking + perf monitoring (Kafka `apache/kafka:3.7.1` + Snuba + ClickHouse)
+- **Prometheus** 9090 — metrics scraping (config: `monitoring/prometheus.yml`)
+- **Grafana** 3000 — dashboards (default: admin/admin)
+
 ## NOTES
 
 - **Build order**: NX resolves this automatically via `dependsOn: ["^build"]` in `nx.json`. You never need to manually sequence builds. `pnpm build` (or `nx run-many -t build`) handles the full dep graph. `pnpm build:shared` is available if you want to pre-warm shared packages before starting dev servers.
@@ -241,6 +250,10 @@ import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-s
 - **CI workflows are stale** — reference old `backend/` path (pre-NX). Tests don't run in CI currently.
 - **`navratna-core` and `navratna-gateway` have zero tests** — no `vitest.config.ts` exists yet.
 - **Default credentials** (dev only): `admin` / `admin` at `http://localhost:5173`.
+- **FeatureFactory pattern**: each legacy service exports `feature.ts` with a `Feature` interface (initialize/routes/events/websocket/shutdown). Consolidated services (navratna-core/gateway) import and register these via `FeatureFactory` — controlled by `FEATURE_*` env vars, default ON.
+- **CrossPlaneGuard**: `CrossPlaneGuard.verify(pool, table, id, entityName)` is defined in `@uaip/shared-services` but **not yet called in production code** — cross-plane writes are not currently guarded at the application layer.
+- **`navratna-core` own pipeline**: `RepoIngestionService`, `AstSymbolExtractor`, `SemanticIndexService`, `ImportGraphService` are navratna-core's own native services (not imported from legacy). Exposed at `POST /api/v1/knowledge/ingest`.
+- **`persona_defaults.ts`** in `@uaip/types` is 4,014 lines of runtime persona seed data — the largest file in the codebase. It should not be treated as a types file.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->

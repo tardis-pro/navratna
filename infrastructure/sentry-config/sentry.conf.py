@@ -75,3 +75,8 @@ if not secret_key:
     raise Exception("Error: SENTRY_SECRET_KEY is undefined, set -e SENTRY_SECRET_KEY")
 SENTRY_OPTIONS["system.secret-key"] = secret_key
 SENTRY_USE_RELAY = True
+
+# ── Disable Sentry's self-reporting (avoids 403 noise in the Sentry UI) ──────
+# The Sentry frontend tries to report its own errors to itself via port 9000,
+# but ingestion requires Relay. Disabling prevents console 403 spam.
+SENTRY_OPTIONS["system.internal-dsn"] = ""

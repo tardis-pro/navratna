@@ -434,6 +434,20 @@ services:
     profiles:
       - monitoring
 
+  sentry-relay:
+    image: getsentry/relay:24.6.0
+    container_name: uaip-sentry-relay
+    ports:
+      - '3101:3000'
+    volumes:
+      - ./sentry-config/relay/config.yml:/work/.relay/config.yml:ro
+    networks:
+      - uaip-network
+    depends_on:
+      - sentry-web
+    profiles:
+      - monitoring
+
 volumes:
   postgres_data:
   neo4j_data:

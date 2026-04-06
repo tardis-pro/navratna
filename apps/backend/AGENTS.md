@@ -12,7 +12,7 @@ Backend workspace root. Contains shared backend config (tsconfig, esbuild, docke
 apps/backend/
 ├── services/                    # All 12 microservices (see SERVICE MAP below)
 ├── docker/                      # Per-service Dockerfile templates
-├── docker-compose.infrastructure.yml  # Local infra: postgres, neo4j, redis, qdrant
+├── docker/                      # Per-service Dockerfile templates (docker-compose files moved to infrastructure/ at repo root)
 ├── esbuild.config.js            # Shared esbuild config for non-Bun builds
 ├── tsconfig.json                # Root tsconfig — services extend this
 ├── tsconfig.build_shared.json   # Shared package build tsconfig
@@ -48,8 +48,9 @@ apps/backend/
 **Local infra** (no Docker for code, only infra deps):
 
 ```bash
-docker-compose -f apps/backend/docker-compose.infrastructure.yml up -d
+docker compose -f infrastructure/docker-compose.infrastructure.yml up -d
 # postgres:5432, neo4j:7474/7687, redis:6379, qdrant:6333
+# Add --profile monitoring for SignOZ, Sentry, Prometheus, Grafana
 ```
 
 **Postman collection**: `UAIP_Backend_API_Collection.postman_collection.json` — import into Postman for full API coverage. Contains pre-request scripts for auth tokens.
