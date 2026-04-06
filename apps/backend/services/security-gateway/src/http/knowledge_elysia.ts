@@ -11,6 +11,7 @@ import { getAuthUser } from './context_helpers.js';
 import {
   KnowledgeType,
   SourceType,
+  type KnowledgeItem,
   type KnowledgeSearchRequest,
   type KnowledgeIngestRequest,
 } from '@uaip/types';
@@ -209,7 +210,7 @@ function parseChatFile(
         const msgs: unknown[] = Array.isArray(conv.messages)
           ? conv.messages
           : conv.mapping && typeof conv.mapping === 'object' && conv.mapping !== null
-            ? Object.values(conv.mapping as Record<string, unknown>)
+            ? Object.values(conv.mapping)
             : [];
         for (const m of msgs) {
           const mRec = isRecord(m) ? m : {};
@@ -537,15 +538,7 @@ export function registerKnowledgeRoutes() {
           timestamp: Date.now(),
         };
         const result = await userKnowledgeService!.search(userId, searchRequest);
-        const typedItems = result.items as Array<{
-          id: string;
-          content: string;
-          type: string;
-          tags?: unknown;
-          confidence?: number;
-          sourceType?: string;
-          createdAt?: unknown;
-        }>;
+        const typedItems: KnowledgeItem[] = result.items;
         const nodes = typedItems.map((item) => ({
           id: item.id,
           type: 'knowledge',
@@ -571,7 +564,7 @@ export function registerKnowledgeRoutes() {
             typedItems.map(async (item) => {
               try {
                 const rel = await userKnowledgeService!.findRelatedKnowledge(userId, item.id);
-                const relatedItems = rel as Array<{ id: string }>;
+                const relatedItems: KnowledgeItem[] = rel;
                 relatedItems.forEach((r) => {
                   if (typedItems.some((i) => i.id === r.id)) {
                     edges.push({
@@ -646,12 +639,7 @@ export function registerKnowledgeRoutes() {
           itemId,
           relationshipTypes
         );
-        const typedRelated = related as Array<{
-          id: string;
-          content: string;
-          type: string;
-          tags?: unknown;
-        }>;
+        const typedRelated: KnowledgeItem[] = related;
         const relationships = typedRelated.slice(0, limit).map((rel) => ({
           id: `${itemId}-${rel.id}`,
           source: itemId,

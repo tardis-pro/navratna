@@ -135,7 +135,7 @@ async function fetchCoreP95ResponseTime(): Promise<number | null> {
       return null;
     }
 
-    const payload = (await response.json()) as unknown;
+    const payload: unknown = await response.json();
     return parseResponseTimeMs(payload);
   } catch (error) {
     logger.warn('Dashboard stats: failed to fetch navratna-core health', {

@@ -95,6 +95,16 @@ type TokenInfo = {
   [key: string]: unknown;
 };
 
+function isTokenInfo(v: unknown): v is TokenInfo {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'expiresAt' in v &&
+    'user' in v &&
+    typeof (v as Record<string, unknown>).user === 'object'
+  );
+}
+
 // Token generation now handled by shared generateAuthTokens from @uaip/middleware
 
 async function getAuthUser(authorization?: string | null) {
@@ -313,7 +323,8 @@ export function registerAuthRoutes() {
         // Verify refresh token signature (throws on invalid/expired)
         jwt.verify(refreshToken, config.jwt.refreshSecret);
         const { userService } = await getServices();
-        const tokenData = await userService.getRefreshTokenWithUser(refreshToken) as TokenInfo | null;
+        const rawToken = await userService.getRefreshTokenWithUser(refreshToken);
+        const tokenData: TokenInfo | null = isTokenInfo(rawToken) ? rawToken : null;
         if (!tokenData || tokenData.revokedAt || tokenData.expiresAt <= new Date()) {
           set.status = 401;
           return { error: 'Invalid Token', message: 'Refresh token not found or expired' };

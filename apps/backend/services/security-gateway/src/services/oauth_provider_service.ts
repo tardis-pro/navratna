@@ -131,7 +131,7 @@ export class OAuthProviderService {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
-        this.providers.set(provider.id, provider as unknown);
+        this.providers.set(provider.id, provider);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
@@ -168,7 +168,7 @@ export class OAuthProviderService {
         revokeUrl: getRevokeUrl(providerConfig),
         isEnabled: providerConfig.isEnabled || true,
       });
-      this.providers.set(savedProvider.id, savedProvider as unknown);
+      this.providers.set(savedProvider.id, savedProvider);
 
       const savedProviderCfgRec = isRecord(savedProvider.configuration) ? savedProvider.configuration : undefined;
       const savedProviderAgentCfg: OAuthProviderAgentConfig | undefined = savedProviderCfgRec
@@ -190,7 +190,7 @@ export class OAuthProviderService {
         agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
       });
 
-      return savedProvider as unknown;
+      return savedProvider;
     } catch (error) {
       logger.error('Failed to create OAuth provider', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -334,9 +334,7 @@ export class OAuthProviderService {
         providerId: oauthStateEntity.providerId,
         redirectUri: oauthStateEntity.redirectUrl,
         codeVerifier: (() => {
-          const meta = typeof oauthStateEntity.metadata === 'object' && oauthStateEntity.metadata !== null
-            ? (oauthStateEntity.metadata as Record<string, unknown>)
-            : {};
+          const meta = isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata : {};
           return typeof meta.codeVerifier === 'string' ? meta.codeVerifier : undefined;
         })(),
         scope: [],
@@ -882,7 +880,7 @@ export class OAuthProviderService {
   private async getProviderConfig(providerId: string): Promise<OAuthProviderConfig | null> {
     try {
       const provider = await this.oauthService.findOAuthProvider(providerId);
-      return provider as unknown;
+      return provider;
     } catch (error) {
       await this.auditService.logEvent({
         eventType: AuditEventType.SYSTEM_ERROR,

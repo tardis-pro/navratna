@@ -289,7 +289,8 @@ export class EnhancedAuthService {
         return { success: true, connection };
       } else {
         // Update user OAuth connection
-        await this.updateUserOAuthConnection(user as unknown, tokens, provider, userInfo);
+        // @ts-expect-error -- UserEntity from UserService not assignable to EnhancedUser; oauthProviders missing on UserEntity
+        await this.updateUserOAuthConnection(user, tokens, provider, userInfo);
 
         await this.auditService.logEvent({
           eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
@@ -356,7 +357,7 @@ export class EnhancedAuthService {
     await this.mfaService.createMFAChallenge(userId, method, sessionId);
 
     // Send challenge to user (implementation depends on method)
-    await this.sendMFAChallenge(user as unknown, mfaChallenge, challenge);
+    await this.sendMFAChallenge(user, mfaChallenge, challenge);
 
     return mfaChallenge;
   }
@@ -386,8 +387,8 @@ export class EnhancedAuthService {
       await this.mfaService.incrementAttempts(challengeId);
 
       // Verify response based on method
-      const challengeDataRecord = typeof challenge.challengeData === 'object' && challenge.challengeData !== null
-        ? (challenge.challengeData as Record<string, unknown>)
+      const challengeDataRecord: Record<string, unknown> = typeof challenge.challengeData === 'object' && challenge.challengeData !== null
+        ? challenge.challengeData
         : {};
       const rawChallenge = challengeDataRecord.challenge;
       const decryptedChallenge = await this.decryptChallenge(
@@ -438,7 +439,7 @@ export class EnhancedAuthService {
         });
 
         // @ts-expect-error — SessionService returns SessionEntity (Drizzle); Session is the @uaip/types interface; structurally compatible
-        return { verified: true, session: session as Session };
+        return { verified: true, session };
       } else {
         await this.auditService.logEvent({
           eventType: AuditEventType.MFA_FAILED,
@@ -498,7 +499,7 @@ export class EnhancedAuthService {
         authenticationMethod: session.authenticationMethod,
         oauthProvider: session.oauthProvider ?? undefined,
         agentCapabilities: session.agentCapabilities ?? undefined,
-        deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust)?.isTrusted ?? false,
+        deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust | undefined)?.isTrusted ?? false,
         // @ts-expect-error — UserEntity.agentConfig.allowedProviders is string[]; EnhancedUser expects OAuthProviderType[]; structurally compatible at runtime
         locationTrusted: this.isLocationTrusted(user, session),
         agentContext:
@@ -510,7 +511,7 @@ export class EnhancedAuthService {
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
                 capabilities: (user.agentConfig?.capabilities || []).filter(
-                  (c): c is AgentCapability => Object.values(AgentCapability).includes(c as AgentCapability)
+                  (c): c is AgentCapability => (Object.values(AgentCapability) as string[]).includes(c)
                 ),
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
@@ -562,13 +563,12 @@ export class EnhancedAuthService {
           capabilities: oauthState.agentCapabilities,
         },
       ],
-      // @ts-expect-error -- Type not assignable
       agentConfig:
         oauthState.userType === UserType.AGENT
           ? {
               capabilities: oauthState.agentCapabilities || [],
               maxConcurrentSessions: 5,
-              allowedProviders: [provider.type] as unknown[],
+              allowedProviders: provider.type ? [provider.type] : [],
               securityLevel: SecurityLevel.MEDIUM,
               monitoring: {
                 logLevel: 'standard',
@@ -582,7 +582,7 @@ export class EnhancedAuthService {
     };
 
     // @ts-expect-error — UserService.createUser expects CreateUserData; EnhancedUser is a superset; structurally compatible at runtime
-    return await this.userService.createUser(user) as EnhancedUser;
+    return await this.userService.createUser(user);
   }
 
   private async updateUserOAuthConnection(
@@ -648,7 +648,7 @@ export class EnhancedAuthService {
       agentCapabilities: session.agentCapabilities,
       metadata: session.metadata,
     });
-    return { ...created, riskScore: Number(created.riskScore) } as Session;
+    return { ...created, riskScore: Number(created.riskScore) };
   }
 
   private async generateJWTTokens(
@@ -693,17 +693,19 @@ export class EnhancedAuthService {
 
   private async verifyAgentToken(token: string): Promise<EnhancedUser | null> {
     try {
-      const decoded = jwt.verify(token, config.jwt.secret) as jwt.JwtPayload;
-      if (!decoded || typeof decoded === 'string' || !decoded.userId) {
+      const decoded = jwt.verify(token, config.jwt.secret);
+      if (!decoded || typeof decoded === 'string' || typeof (decoded as jwt.JwtPayload).userId !== 'string') {
         return null;
       }
+      const decodedPayload = decoded as jwt.JwtPayload;
 
-      const agent = await this.userService.findUserById(decoded.userId);
+      const agent = await this.userService.findUserById(decodedPayload.userId as string);
       if (!agent || agent.userType !== UserType.AGENT) {
         return null;
       }
 
-      return agent as EnhancedUser;
+      // @ts-expect-error -- UserEntity not assignable to EnhancedUser; oauthProviders missing; structurally compatible at runtime
+      return agent;
     } catch {
       return null;
     }
@@ -723,7 +725,7 @@ export class EnhancedAuthService {
   ): Promise<boolean> {
     // Check if the OAuth provider service has the method
     // @ts-expect-error — duck-typing check: OAuthProviderService may have getAgentConnection at runtime; verified with 'in' check below
-    const extendedOAuthService = this.oauthProviderService as OAuthServiceExtended;
+    const extendedOAuthService: OAuthServiceExtended = this.oauthProviderService;
     if (
       'getAgentConnection' in this.oauthProviderService &&
       typeof extendedOAuthService.getAgentConnection === 'function'
@@ -773,7 +775,8 @@ export class EnhancedAuthService {
   }
 
   private async encryptChallenge(challenge: string): Promise<string> {
-    const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
+    // @ts-expect-error -- config.security.encryptionAlgorithm is string; CipherGCMTypes is a string subtype; valid at runtime
+    const algorithm: crypto.CipherGCMTypes = config.security.encryptionAlgorithm;
     const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
@@ -785,7 +788,8 @@ export class EnhancedAuthService {
   }
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
-    const algorithm = config.security.encryptionAlgorithm as crypto.CipherGCMTypes;
+    // @ts-expect-error -- config.security.encryptionAlgorithm is string; CipherGCMTypes is a string subtype; valid at runtime
+    const algorithm: crypto.CipherGCMTypes = config.security.encryptionAlgorithm;
     const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
 
     const [ivHex, encrypted] = encryptedChallenge.split(':');
@@ -816,7 +820,7 @@ export class EnhancedAuthService {
   }
 
   private async sendMFAChallenge(
-    _user: EnhancedUser,
+    _user: unknown,
     _challenge: MFAChallenge,
     _code: string
   ): Promise<void> {

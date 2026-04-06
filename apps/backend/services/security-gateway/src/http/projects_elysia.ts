@@ -78,7 +78,7 @@ export function registerProjectRoutes() {
           offset,
           limit: parsed.data.limit,
           // @ts-expect-error -- Type not assignable
-          status: parsed.data.status as unknown,
+          status: parsed.data.status,
         });
   
         return { success: true, data: projects };
@@ -165,7 +165,7 @@ export function registerProjectRoutes() {
           name: parsed.data.name,
           description: parsed.data.description,
           // @ts-expect-error -- Type not assignable
-          status: parsed.data.status as unknown,
+          status: parsed.data.status,
           settings: parsed.data.settings,
           metadata: parsed.data.metadata,
         });

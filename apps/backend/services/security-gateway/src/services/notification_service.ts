@@ -254,7 +254,7 @@ export class NotificationService {
     }
 
     const message = this.getSMSMessage(notification);
-    const provider = (smsConfig.provider as string)?.toLowerCase();
+    const provider = typeof smsConfig.provider === 'string' ? smsConfig.provider.toLowerCase() : '';
 
     logger.info('Sending SMS notification', {
       recipientId: notification.recipientId,
