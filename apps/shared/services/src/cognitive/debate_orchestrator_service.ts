@@ -3,6 +3,7 @@ import {
   Argument,
   Vote,
   Stance,
+  StanceSchema,
   ConsensusResult,
   DebateConfig,
   DEFAULT_DEBATE_CONFIG,
@@ -204,7 +205,9 @@ export class DebateOrchestratorService {
     const match = ARGUMENT_REGEX.exec(content);
     if (!match) return null;
 
-    const [, stance, body] = match;
+    const [, stanceRaw, body] = match;
+    const parsedStance = StanceSchema.safeParse(stanceRaw);
+    if (!parsedStance.success) return null;
 
     const claimMatch = body.match(/Claim:\s*(.+?)(?=Evidence:|$)/s);
     const evidenceMatch = body.match(/Evidence:\s*([\s\S]*?)(?=Reasoning:|$)/);
@@ -220,7 +223,7 @@ export class DebateOrchestratorService {
     return {
       id: uuidv4(),
       agentId,
-      stance: stance as Stance,
+      stance: parsedStance.data,
       claim: claimMatch?.[1]?.trim() || '',
       evidence,
       reasoning: reasoningMatch?.[1]?.trim() || '',
@@ -309,11 +312,13 @@ export class DebateOrchestratorService {
     const match = VOTE_REGEX.exec(content);
     if (!match) return null;
 
-    const [, stance, body] = match;
+    const [, stanceRaw, body] = match;
+    const parsedStance = StanceSchema.safeParse(stanceRaw);
+    if (!parsedStance.success) return null;
     const reasoningMatch = body.match(/Reasoning:\s*(.+?)(?=Confidence:|$)/s);
     return {
       agentId,
-      stance: stance as Stance,
+      stance: parsedStance.data,
       weight: 1, // Could be modified by expertise weighting
       reasoning: reasoningMatch?.[1]?.trim(),
       timestamp: Date.now(),

@@ -394,21 +394,23 @@ export class ToolRegistryCapabilityResolver implements CapabilityResolver {
       ? row.securityLevel
       : SecurityLevel.MEDIUM;
 
-    const parameters: JSONSchema =
+    const parametersRaw =
       'parameters' in row &&
       row.parameters !== null &&
       typeof row.parameters === 'object' &&
       !Array.isArray(row.parameters)
-        ? (row.parameters as JSONSchema)
+        ? row.parameters
         : { type: 'object', properties: {} };
+    const parameters: JSONSchema = parametersRaw as JSONSchema;
 
-    const returnType: JSONSchema =
+    const returnTypeRaw =
       'returnType' in row &&
       row.returnType !== null &&
       typeof row.returnType === 'object' &&
       !Array.isArray(row.returnType)
-        ? (row.returnType as JSONSchema)
+        ? row.returnType
         : { type: 'object' };
+    const returnType: JSONSchema = returnTypeRaw as JSONSchema;
 
     const examples: ToolExample[] = Array.isArray(row.examples)
       ? row.examples.filter(

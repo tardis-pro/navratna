@@ -94,14 +94,13 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       const data = await response.json();
 
       // TEI returns array of embeddings, we want the first one for single input
-      const dataArr = data as unknown[];
-      return (
-        Array.isArray(dataArr) && Array.isArray(dataArr[0]) ? dataArr[0] : dataArr
-      ) as number[];
+      const dataArr: unknown[] = Array.isArray(data) ? data : [];
+      const embedding: unknown = Array.isArray(dataArr[0]) ? dataArr[0] : dataArr;
+      return embedding as number[];
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
-      const wrappedError = new Error(`Failed to generate embedding: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -144,11 +143,12 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       });
 
       const batchResults = await Promise.all(batchPromises);
-      return (batchResults.flat() as unknown[]).flat() as number[][];
+      const flat: unknown[] = (batchResults as unknown[]).flat();
+      return flat.flat() as number[][];
     } catch (error) {
       console.error('TEI batch embedding generation failed:', error);
-      const wrappedError = new Error(`Failed to generate batch embeddings: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to generate batch embeddings: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -185,7 +185,8 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
         throw new Error(`TEI reranking error: ${response.status} ${response.statusText}`);
       }
 
-      const results = (await response.json()) as RerankResult[];
+      // @ts-expect-error -- response.json() returns unknown; TEI rerank response shape validated at runtime
+      const results: RerankResult[] = await response.json();
 
       // Sort by score descending and optionally limit results
       results.sort((a, b) => b.score - a.score);
@@ -193,8 +194,8 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       return topK ? results.slice(0, topK) : results;
     } catch (error) {
       console.error('TEI reranking failed:', error);
-      const wrappedError = new Error(`Failed to rerank documents: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Failed to rerank documents: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -231,9 +232,9 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         const wrappedError = new Error(`Request timeout after ${this.timeout}ms`);
-        (wrappedError as Error & { cause?: unknown }).cause = error;
+        Object.assign(wrappedError, { cause: error });
         throw wrappedError;
       }
       throw error;

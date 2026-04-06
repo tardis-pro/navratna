@@ -69,7 +69,7 @@ export class LLMPreferencesSeed extends BaseSeed {
       const config = configs[taskType]!;
       return {
         userId,
-        modelId: null as string | null,
+        modelId: undefined as string | undefined,
         temperature: config.settings.temperature.toString(),
         maxTokens: config.settings.maxTokens,
         systemPrompt: config.settings.systemPrompt,
@@ -84,7 +84,7 @@ export class LLMPreferencesSeed extends BaseSeed {
       const config = configs[taskType]!;
       return {
         agentId,
-        modelId: null as string | null,
+        modelId: undefined as string | undefined,
         temperature: config.settings.temperature,
         maxTokens: config.settings.maxTokens,
         systemPrompt: config.settings.systemPrompt,

@@ -90,7 +90,7 @@ export class AuditRepository {
         clauses.push(or(ilike(auditEvents.eventType, pattern), ilike(auditEvents.action, pattern)));
       }
 
-      const where = clauses.length > 0 ? and(...(clauses as [ReturnType<typeof eq>, ...ReturnType<typeof eq>[]])) : undefined;
+      const where = clauses.length > 0 ? and(...clauses) : undefined;
 
       const [{ value: total }] = await this.db
         .select({ value: count() })
@@ -163,7 +163,7 @@ export class AuditRepository {
       const clauses = [eq(auditEvents.actorId, userId)];
       if (filters.startDate) clauses.push(gte(auditEvents.createdAt, filters.startDate));
       if (filters.endDate) clauses.push(lte(auditEvents.createdAt, filters.endDate));
-      const where = and(...(clauses as [ReturnType<typeof eq>, ...ReturnType<typeof eq>[]]));
+      const where = and(...clauses);
 
       const [{ value: total }] = await this.db.select({ value: count() }).from(auditEvents).where(where);
       const logs = await this.db.select().from(auditEvents).where(where).orderBy(desc(auditEvents.createdAt)).limit(filters.limit ?? 20).offset(filters.offset ?? 0);
@@ -176,9 +176,9 @@ export class AuditRepository {
 
   async queryAuditEvents(filters: Record<string, unknown> = {}): Promise<AuditEvent[]> {
     const clauses = [];
-    if (filters['eventType']) clauses.push(eq(auditEvents.eventType, filters['eventType'] as string));
-    if (filters['actorId']) clauses.push(eq(auditEvents.actorId, filters['actorId'] as string));
-    const where = clauses.length > 0 ? and(...(clauses as [ReturnType<typeof eq>, ...ReturnType<typeof eq>[]]))  : undefined;
+    if (typeof filters['eventType'] === 'string') clauses.push(eq(auditEvents.eventType, filters['eventType']));
+    if (typeof filters['actorId'] === 'string') clauses.push(eq(auditEvents.actorId, filters['actorId']));
+    const where = clauses.length > 0 ? and(...clauses) : undefined;
     return this.db.select().from(auditEvents).where(where).orderBy(desc(auditEvents.createdAt)).limit(100);
   }
 

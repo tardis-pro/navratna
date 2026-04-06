@@ -277,7 +277,7 @@ export class MCPService {
     const rawMeta = toolCall.metadata;
     const meta: Record<string, unknown> =
       typeof rawMeta === 'object' && rawMeta !== null && !Array.isArray(rawMeta)
-        ? (rawMeta as Record<string, unknown>)
+        ? { ...rawMeta }
         : {};
 
     const maxRetries = typeof meta.maxRetries === 'number' ? meta.maxRetries : 3;

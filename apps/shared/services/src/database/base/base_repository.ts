@@ -13,9 +13,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
   protected abstract get plane(): 'intelligence' | 'control';
 
   protected get db(): NodePgDatabase<Record<string, unknown>> {
-    return (this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb()) as NodePgDatabase<
-      Record<string, unknown>
-    >;
+    return (this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb()) as NodePgDatabase<Record<string, unknown>>;
   }
 
   private buildWhere(conditions: Record<string, unknown>): SQL | undefined {
@@ -24,7 +22,8 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     );
     if (clauses.length === 0) return undefined;
     if (clauses.length === 1) return clauses[0];
-    return and(...(clauses as [SQL, ...SQL[]]));
+    const [first, ...rest] = clauses;
+    return and(first, ...rest);
   }
 
   async findById(id: string): Promise<T | null> {
@@ -182,6 +181,6 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
   }
 
   async transaction<R>(callback: (db: unknown) => Promise<R>): Promise<R> {
-    return this.db.transaction(callback as (tx: unknown) => Promise<R>);
+    return this.db.transaction(callback as Parameters<typeof this.db.transaction>[0]) as Promise<R>;
   }
 }

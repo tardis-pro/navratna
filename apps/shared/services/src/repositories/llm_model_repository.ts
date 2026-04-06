@@ -65,9 +65,10 @@ export class LLMModelRepository {
         .returning();
       return updated;
     } else {
+      const insertData = modelData as typeof llmModels.$inferInsert;
       const [created] = await this.db
         .insert(llmModels)
-        .values(modelData as typeof llmModels.$inferInsert)
+        .values(insertData)
         .returning();
       return created;
     }
@@ -82,7 +83,7 @@ export class LLMModelRepository {
       const model = await this.upsertModel({ ...modelData, providerId });
       results.push(model);
     }
-    const currentNames = models.map((m) => m.name).filter(Boolean) as string[];
+    const currentNames = models.map((m) => m.name).filter((m): m is string => typeof m === 'string');
     if (currentNames.length > 0) {
       await this.pool.query(
         `UPDATE "llm_models" SET "is_enabled" = false, "updated_at" = NOW() WHERE "provider_id" = $1 AND "name" NOT IN (${currentNames.map((_, i) => `$${i + 2}`).join(',')})`,

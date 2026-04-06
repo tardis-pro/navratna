@@ -28,13 +28,18 @@ function buildAdjacencyMap(nodes: Array<{ id: string }>, edges: Array<{ from: st
 }
 
 function extractEventData<T extends object>(eventMessage: unknown): T {
-  return typeof eventMessage === 'object' &&
-    eventMessage !== null &&
-    'data' in eventMessage &&
-    typeof (eventMessage as { data: unknown }).data === 'object' &&
-    (eventMessage as { data: unknown }).data !== null
-    ? ((eventMessage as { data: T }).data as T)
-    : ({} as T);
+  if (
+    typeof eventMessage !== 'object' ||
+    eventMessage === null ||
+    !('data' in eventMessage)
+  ) {
+    return {} as T;
+  }
+  const msg = eventMessage as { data: unknown };
+  if (typeof msg.data !== 'object' || msg.data === null) {
+    return {} as T;
+  }
+  return msg.data as T;
 }
 
 export class TaskDAGService {

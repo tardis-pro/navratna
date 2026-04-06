@@ -445,7 +445,7 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_metadata`,
-          url: undefined as string | undefined,
+          url: undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -514,10 +514,10 @@ export class OntologyBuilderService {
           typeof item.metadata.domain === 'string' && item.metadata.domain
             ? item.metadata.domain
             : domain;
-        const properties = Array.isArray(item.metadata.properties)
+        const properties: ConceptProperty[] = Array.isArray(item.metadata.properties)
           ? (item.metadata.properties as ConceptProperty[])
           : [];
-        const instances = Array.isArray(item.metadata.instances)
+        const instances: string[] = Array.isArray(item.metadata.instances)
           ? (item.metadata.instances as string[])
           : [];
 
@@ -532,7 +532,7 @@ export class OntologyBuilderService {
           synonyms: item.tags.filter(
             (tag) => tag !== domain && tag !== 'ontology' && tag !== 'concept'
           ),
-          relatedConcepts: [] as string[],
+          relatedConcepts: new Array<string>(),
         };
       });
 
@@ -548,7 +548,7 @@ export class OntologyBuilderService {
               : null;
           const relationshipType =
             typeof item.metadata.relationshipType === 'string'
-              ? (item.metadata.relationshipType as ConceptRelationship['relationshipType'])
+              ? item.metadata.relationshipType as ConceptRelationship['relationshipType']
               : null;
 
           if (!sourceConceptId || !targetConceptId || !relationshipType) {
@@ -558,7 +558,7 @@ export class OntologyBuilderService {
           const evidence =
             Array.isArray(item.metadata.evidence) &&
             item.metadata.evidence.every((entry: unknown) => typeof entry === 'string')
-              ? (item.metadata.evidence as string[])
+              ? item.metadata.evidence as string[]
               : [];
 
           return {

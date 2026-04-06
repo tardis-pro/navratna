@@ -165,7 +165,8 @@ export class LLMRequestTracker {
         return null;
       }
 
-      return JSON.parse(data) as SerializablePendingRequest;
+      const parsed: SerializablePendingRequest = JSON.parse(data);
+      return parsed;
     } catch (error) {
       logger.error('Failed to get pending request', { requestId, error });
       return null;
@@ -262,7 +263,7 @@ export class LLMRequestTracker {
           try {
             const data = await redis.get(key);
             if (data) {
-              const request = JSON.parse(data) as SerializablePendingRequest;
+              const request: SerializablePendingRequest = JSON.parse(data);
               if (request.expiresAt < now) {
                 await redis.del(key);
                 this.pendingCallbacks.delete(request.requestId);

@@ -11,7 +11,7 @@ export class CachedLLMProviderRepository extends LLMProviderRepository {
     const cacheKey = 'llm_providers:active:global';
     try {
       const cached = await redisCacheService.get(cacheKey);
-      if (typeof cached === 'string') return JSON.parse(cached) as LLMProviderRow[];
+      if (typeof cached === 'string') { const parsed: LLMProviderRow[] = JSON.parse(cached); return parsed; }
     } catch { /* cache miss */ }
     const result = await super.findActiveProviders();
     try {

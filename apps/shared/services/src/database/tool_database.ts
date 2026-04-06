@@ -25,16 +25,17 @@ function getBool(v: unknown, fallback: boolean): boolean {
   return typeof v === 'boolean' ? v : fallback;
 }
 function getRecord(v: unknown): Record<string, unknown> | undefined {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : undefined;
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return undefined;
+  return v as Record<string, unknown>;
 }
 function getArr<T>(v: unknown): T[] {
-  return Array.isArray(v) ? (v as T[]) : [];
+  if (!Array.isArray(v)) return [];
+  return v as T[];
 }
 function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
   const values: string[] = Object.values(enumObj);
-  return typeof v === 'string' && values.includes(v) ? (v as T[keyof T]) : undefined;
+  if (typeof v !== 'string' || !values.includes(v)) return undefined;
+  return v as T[keyof T];
 }
 
 export class ToolDatabase {
@@ -158,7 +159,7 @@ export class ToolDatabase {
         status: updates.status,
         output:
           typeof updates.result === 'object' && updates.result !== null
-            ? { ...updates.result as Record<string, unknown> }
+            ? { ...updates.result }
             : undefined,
         error: updates.error ? JSON.stringify(updates.error) : undefined,
         metadata: updates.metadata,
@@ -237,7 +238,7 @@ export class ToolDatabase {
       if (toolId) {
         const stats = await this.databaseService.tools.getToolUsageStats(toolId, days);
         return [
-          typeof stats === 'object' && stats !== null ? { ...stats as Record<string, unknown> } : {},
+          typeof stats === 'object' && stats !== null ? { ...stats } : {},
         ];
       } else {
         // Return empty array for general stats without toolId

@@ -119,7 +119,7 @@ export class UserService {
   }
 
   public async findUserById(id: string): Promise<UserEntity | null> {
-    return (await this.getUserRepository().findById(id)) as UserEntity | null;
+    return await this.getUserRepository().findById(id);
   }
 
   public async updateUser(id: string, data: Partial<UserEntity>): Promise<UserEntity | null> {

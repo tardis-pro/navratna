@@ -203,7 +203,7 @@ export interface ExpertiseAnalysisMetrics {
 }
 
 export class ExpertiseAnalyzerService {
-  private readonly expertiseIndicators = {
+  private readonly expertiseIndicators: Record<ExpertiseIndicator['type'], RegExp[]> = {
     technical_depth: [
       /\b(?:implementation|architecture|algorithm|optimization|performance|scalability|security|design\s+pattern)\b/gi,
       /\b(?:deep|thorough|comprehensive|detailed|advanced|sophisticated|complex)\s+(?:understanding|knowledge|experience)\b/gi,
@@ -386,8 +386,8 @@ export class ExpertiseAnalyzerService {
       return profiles;
     } catch (error) {
       logger.error('Expertise analysis failed', { error: error.message });
-      const wrappedError = new Error(`Expertise analysis failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Expertise analysis failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -633,9 +633,10 @@ export class ExpertiseAnalyzerService {
   private async analyzeExpertiseIndicators(evidence: string[]): Promise<ExpertiseIndicator[]> {
     const indicators: ExpertiseIndicator[] = [];
 
-    for (const [type, patterns] of Object.entries(this.expertiseIndicators) as Array<
-      [ExpertiseIndicator['type'], RegExp[]]
-    >) {
+    // @ts-expect-error -- Object.keys always returns runtime keys of this typed Record
+    const indicatorTypes: Array<ExpertiseIndicator['type']> = Object.keys(this.expertiseIndicators);
+    for (const type of indicatorTypes) {
+      const patterns = this.expertiseIndicators[type];
       const matches: string[] = [];
       let totalStrength = 0;
 
@@ -706,7 +707,7 @@ export class ExpertiseAnalyzerService {
     const knowledgeAreas: KnowledgeArea[] = [];
 
     // Simple implementation - would be enhanced with ML in production
-    const keywords = (this.domainKeywords as Record<string, string[]>)[domain] || [];
+    const keywords = this.domainKeywords[domain] ?? [];
 
     for (const keyword of keywords) {
       const mentions = evidence.filter((text) =>

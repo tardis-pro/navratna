@@ -152,8 +152,8 @@ export class AgentMemoryService {
     workingMemoryRelevant: boolean;
   }> {
     const results = {
-      episodes: [] as Episode[],
-      concepts: [] as SemanticMemory[],
+      episodes: new Array<Episode>(),
+      concepts: new Array<SemanticMemory>(),
       workingMemoryRelevant: false,
     };
 

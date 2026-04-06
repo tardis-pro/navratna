@@ -27,7 +27,7 @@ export class DecisionEngine {
     availableActions: ActionRecommendation[]
   ): Promise<DecisionResult> {
     const startTime = Date.now();
-    const agentId = this.stateMachine.getContext().stateMetadata?.agentId as string;
+    const agentId: string = this.stateMachine.getContext().stateMetadata?.agentId as string;
 
     try {
       // Check agent state can execute

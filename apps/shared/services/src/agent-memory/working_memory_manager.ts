@@ -337,14 +337,12 @@ export class WorkingMemoryManager {
     // Trim thoughts to keep most recent and important
     const maxThoughts = 10;
     Object.keys(memory.currentContext.activeThoughts).forEach((key) => {
-      const thoughts =
-        memory.currentContext.activeThoughts[
-          key as keyof typeof memory.currentContext.activeThoughts
-        ];
+      const activeThoughts = memory.currentContext.activeThoughts;
+      // @ts-expect-error -- Object.keys always returns runtime keys; key is keyof activeThoughts at runtime
+      const thoughts: string[] = activeThoughts[key];
       if (thoughts.length > maxThoughts) {
-        memory.currentContext.activeThoughts[
-          key as keyof typeof memory.currentContext.activeThoughts
-        ] = thoughts.slice(-maxThoughts);
+        // @ts-expect-error -- Object.keys always returns runtime keys; key is keyof activeThoughts at runtime
+        activeThoughts[key] = thoughts.slice(-maxThoughts);
       }
     });
   }

@@ -328,7 +328,7 @@ export class CachedUserService extends UserService {
     const keys = [
       this.CACHE_KEYS.USER_BY_ID(userId),
       user ? this.CACHE_KEYS.USER_BY_EMAIL(user.email) : null,
-    ].filter(Boolean) as string[];
+    ].filter((k): k is string => typeof k === 'string');
 
     const stats = {
       userById: await redisCacheService.exists(keys[0]),

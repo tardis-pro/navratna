@@ -48,12 +48,12 @@ export namespace ConversationUtils {
     }
 
     // Check for dominating speakers
-    const speakerCounts = recentSpeakers.reduce(
+    const speakerCounts = recentSpeakers.reduce<Record<string, number>>(
       (acc, speaker) => {
         acc[speaker] = (acc[speaker] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {}
     );
 
     const maxContributions = Math.max(...Object.values(speakerCounts));
@@ -144,12 +144,12 @@ export namespace ConversationUtils {
         : 0;
 
     // Calculate speaker contributions
-    const speakerCounts = messageHistory.reduce(
+    const speakerCounts = messageHistory.reduce<Record<string, number>>(
       (acc, msg) => {
         acc[msg.speaker] = (acc[msg.speaker] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {}
     );
 
     const topContributors = Object.entries(speakerCounts)
@@ -436,12 +436,12 @@ export namespace ConversationUtils {
       speakerHistory: recent.map((m) => m.speaker),
       keyPoints: extractKeyPointsByTopic(recent),
       conversationMomentum: 'exploring',
-      lastSpeakerContribution: recent.reduce(
+      lastSpeakerContribution: recent.reduce<Record<string, string>>(
         (acc, msg) => {
           acc[msg.speaker] = msg.content;
           return acc;
         },
-        {} as Record<string, string>
+        {}
       ),
       lastSpeakerContinuityCount: conversationState.lastSpeakerContinuityCount,
       topicShiftDetected: topicShift.shiftDetected,

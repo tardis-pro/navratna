@@ -9,7 +9,7 @@ function getNum(v: unknown, fallback = 0): number {
 }
 function getRecord(v: unknown): Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
+    ? { ...v }
     : {};
 }
 

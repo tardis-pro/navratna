@@ -358,10 +358,13 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     return {
       agentId: getStr(metadata.agentId) || item.agentId || item.createdBy,
       concept: getStr(metadata.concept),
-      knowledge: (metadata.knowledge as SemanticMemory['knowledge'] | undefined) ?? defaultKnowledge,
+      // @ts-expect-error -- SemanticMemory sub-objects stored as Record<string,unknown>; structurally compatible at runtime
+      knowledge: metadata.knowledge ?? defaultKnowledge,
       confidence: getNum(metadata.confidence) || item.confidence || 0.5,
-      sources: (metadata.sources as SemanticMemory['sources'] | undefined) ?? defaultSources,
-      usage: (metadata.usage as SemanticMemory['usage'] | undefined) ?? defaultUsage,
+      // @ts-expect-error -- SemanticMemory sub-objects stored as Record<string,unknown>; structurally compatible at runtime
+      sources: metadata.sources ?? defaultSources,
+      // @ts-expect-error -- SemanticMemory sub-objects stored as Record<string,unknown>; structurally compatible at runtime
+      usage: metadata.usage ?? defaultUsage,
     };
   }
 

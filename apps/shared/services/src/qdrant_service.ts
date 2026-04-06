@@ -66,7 +66,7 @@ export class QdrantService {
     if (typeof data !== 'object' || data === null || !('result' in data)) {
       return [];
     }
-    const { result } = data as { result: unknown };
+    const result: unknown = (data as Record<string, unknown>).result;
     if (!Array.isArray(result)) {
       return [];
     }
@@ -500,7 +500,7 @@ export class QdrantService {
       if (typeof data !== 'object' || data === null || !('result' in data)) {
         return [];
       }
-      const { result } = data as { result: unknown };
+      const result: unknown = (data as Record<string, unknown>).result;
       if (!Array.isArray(result)) {
         return [];
       }
@@ -565,14 +565,14 @@ export class QdrantService {
       if (typeof data !== 'object' || data === null || !('result' in data)) {
         return null;
       }
-      const { result } = data as { result: unknown };
+      const result: unknown = (data as Record<string, unknown>).result;
       if (typeof result !== 'object' || result === null) {
         return null;
       }
       const r: Record<string, unknown> = result as Record<string, unknown>;
       const payload: Record<string, unknown> =
         typeof r.payload === 'object' && r.payload !== null
-          ? (r.payload as Record<string, unknown>)
+          ? { ...r.payload }
           : {};
       return {
         id: typeof r.id === 'string' ? r.id : String(r.id ?? ''),
@@ -610,9 +610,9 @@ export class QdrantService {
       const rawData: unknown = await response.json();
       const rawPoints: unknown[] = (() => {
         if (typeof rawData !== 'object' || rawData === null || !('result' in rawData)) return [];
-        const res = (rawData as Record<string, unknown>).result;
-        if (typeof res !== 'object' || res === null || !('points' in (res as Record<string, unknown>))) return [];
-        const pts = (res as Record<string, unknown>).points;
+        const res: unknown = (rawData as Record<string, unknown>).result;
+        if (typeof res !== 'object' || res === null || !('points' in res)) return [];
+        const pts: unknown = (res as Record<string, unknown>).points;
         return Array.isArray(pts) ? pts : [];
       })();
       return rawPoints

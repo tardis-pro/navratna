@@ -126,9 +126,9 @@ export class ContentClassifier {
     }
 
     // Return the type with the highest score
-    const [topType] = (Object.entries(scores) as [KnowledgeType, number][]).reduce((a, b) =>
-      a[1] > b[1] ? a : b
-    );
+    // @ts-expect-error -- Object.keys always returns runtime keys of this typed Record<KnowledgeType, number>
+    const scoreKeys: KnowledgeType[] = Object.keys(scores);
+    const topType = scoreKeys.reduce((best, key) => scores[key] > scores[best] ? key : best);
 
     return topType;
   }

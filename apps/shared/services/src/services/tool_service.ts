@@ -245,7 +245,7 @@ export class ToolService extends BaseDomainService {
           existing.id,
         ]
       );
-      return (await assignmentRepo.findByAgentAndTool(agentId, toolId)) as Record<string, unknown>;
+      return await assignmentRepo.findByAgentAndTool(agentId, toolId);
     }
 
     const result = await pool.query(
@@ -349,10 +349,11 @@ export class ToolService extends BaseDomainService {
 
   public async searchTools(query: string): Promise<Record<string, unknown>[]> {
     const tools = await this.findActiveTools();
+    const q = query.toLowerCase();
     return tools.filter(
       (tool) =>
-        (tool.name as string).toLowerCase().includes(query.toLowerCase()) ||
-        (tool.description as string).toLowerCase().includes(query.toLowerCase())
+        (typeof tool.name === 'string' && tool.name.toLowerCase().includes(q)) ||
+        (typeof tool.description === 'string' && tool.description.toLowerCase().includes(q))
     );
   }
 

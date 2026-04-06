@@ -95,11 +95,11 @@ export class KnowledgeClusteringService {
         threshold: threshold,
       });
 
-      return searchResults.map((result) => ({
-        id: result.id.toString(),
-        vector: new Array<number>(), // Search results don't include vectors by default
-        payload: result.payload as QdrantPoint['payload'],
-      }));
+      return searchResults.map((result) => {
+        // @ts-expect-error -- VectorSearchResult.payload is Record<string,unknown>; structurally compatible at runtime
+        const payload: QdrantPoint['payload'] = result.payload;
+        return { id: result.id.toString(), vector: new Array<number>(), payload };
+      });
     } catch (error) {
       console.error('Error finding similar chunks:', error);
       return [];
@@ -137,11 +137,11 @@ export class KnowledgeClusteringService {
   private async getAllQdrantPoints(): Promise<QdrantPoint[]> {
     try {
       const rawPoints = await this.qdrantService.scrollAll(10000);
-      return rawPoints.map((point) => ({
-        id: point.id,
-        vector: point.vector,
-        payload: point.payload as QdrantPoint['payload'],
-      }));
+      return rawPoints.map((point) => {
+        // @ts-expect-error -- scrollAll returns Record<string,unknown> payload; structurally compatible at runtime
+        const payload: QdrantPoint['payload'] = point.payload;
+        return { id: point.id, vector: point.vector, payload };
+      });
     } catch (error) {
       console.error('Error getting Qdrant points:', error);
       return [];

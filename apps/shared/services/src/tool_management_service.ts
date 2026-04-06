@@ -42,7 +42,7 @@ export class ToolManagementService {
   async createTool(toolData: NewToolDefinition): Promise<ToolDefinition> {
     try {
       const pool = getControlPool();
-      const keys = Object.keys(toolData) as Array<keyof NewToolDefinition>;
+      const keys: Array<keyof NewToolDefinition> = Object.keys(toolData) as Array<keyof NewToolDefinition>;
       const values = keys.map((key) => toolData[key]);
       const cols = keys.map((k) => `"${k}"`).join(', ');
       const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');

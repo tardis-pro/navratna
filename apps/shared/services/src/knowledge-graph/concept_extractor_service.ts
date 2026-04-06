@@ -41,8 +41,14 @@ export interface ConceptExtractionResult {
   };
 }
 
+type ConceptPatterns = {
+  definitions: RegExp[];
+  properties: RegExp[];
+  relationships: Record<string, RegExp[]>;
+};
+
 export class ConceptExtractorService {
-  private readonly conceptPatterns = {
+  private readonly conceptPatterns: ConceptPatterns = {
     // Concept identification patterns
     definitions: [
       /(.+?)\s+(?:is|are|means?|refers?\s+to|defined\s+as)\s+(.+)/gi,
@@ -58,7 +64,6 @@ export class ConceptExtractorService {
       /(.+?)\s*[:：]\s*(.+?)(?:,|;|\.|\n)/gi,
     ],
 
-    // Relationship patterns
     relationships: {
       IS_A: [/(.+?)\s+(?:is\s+a|are|is\s+an?)\s+(.+)/gi],
       PART_OF: [/(.+?)\s+(?:is\s+part\s+of|belongs\s+to|is\s+in)\s+(.+)/gi],
@@ -203,7 +208,7 @@ export class ConceptExtractorService {
                 id: conceptId,
                 name: cleanName,
                 definition: cleanDefinition,
-                domain: (sourceItem.metadata.domain as string) || this.inferDomain(sourceItem.tags),
+                domain: typeof sourceItem.metadata.domain === 'string' ? sourceItem.metadata.domain : this.inferDomain(sourceItem.tags),
                 confidence: 0.8,
                 properties: [],
                 instances: [],
@@ -258,7 +263,9 @@ export class ConceptExtractorService {
     relationships: ConceptRelationship[],
     _sourceItem: KnowledgeItem
   ): Promise<void> {
-    for (const [relType, patterns] of Object.entries(this.conceptPatterns.relationships)) {
+    const relTypes = Object.keys(this.conceptPatterns.relationships);
+    for (const relType of relTypes) {
+      const patterns = this.conceptPatterns.relationships[relType];
       for (const pattern of patterns) {
         let match;
         pattern.lastIndex = 0;

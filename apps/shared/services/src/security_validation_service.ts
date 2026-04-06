@@ -258,7 +258,8 @@ export class SecurityValidationService {
   // Private helper methods
 
   private static asRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+    if (typeof value !== 'object' || value === null) return {};
+    return value as Record<string, unknown>;
   }
 
   private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
@@ -293,11 +294,11 @@ export class SecurityValidationService {
     try {
       const permissions = await this.databaseService.getUserPermissions(userId);
       const permissionRecord = SecurityValidationService.asRecord(permissions);
-      const rolePermissions = Array.isArray(permissionRecord.rolePermissions)
-        ? (permissionRecord.rolePermissions as Array<{ operations?: string[] }>)
+      const rolePermissions: Array<{ operations?: string[] }> = Array.isArray(permissionRecord.rolePermissions)
+        ? permissionRecord.rolePermissions as Array<{ operations?: string[] }>
         : [];
-      const directPermissions = Array.isArray(permissionRecord.directPermissions)
-        ? (permissionRecord.directPermissions as Array<{ operations?: string[] }>)
+      const directPermissions: Array<{ operations?: string[] }> = Array.isArray(permissionRecord.directPermissions)
+        ? permissionRecord.directPermissions as Array<{ operations?: string[] }>
         : [];
 
       const userPermissions = new Set<string>();

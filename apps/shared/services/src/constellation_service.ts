@@ -282,7 +282,7 @@ export async function getConstellations(
 
   const limitedConstellations = constellations.slice(0, limit).map((constellation) =>
     request.includeItems === false
-      ? { ...constellation, items: [] as ConstellationItem[] }
+      ? { ...constellation, items: new Array<ConstellationItem>() }
       : constellation
   )
 

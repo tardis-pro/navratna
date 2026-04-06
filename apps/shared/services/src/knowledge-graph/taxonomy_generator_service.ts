@@ -76,7 +76,7 @@ export interface TaxonomyGenerationResult {
 }
 
 export class TaxonomyGeneratorService {
-  private readonly categoryTemplates = {
+  private readonly categoryTemplates: Record<string, Array<{ name: string; keywords: string[] }>> = {
     programming: [
       { name: 'Languages', keywords: ['language', 'programming', 'syntax', 'compiler'] },
       { name: 'Frameworks', keywords: ['framework', 'library', 'tool', 'package'] },
@@ -238,7 +238,7 @@ export class TaxonomyGeneratorService {
       const wrappedError = new Error(
         `Taxonomy generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -259,7 +259,7 @@ export class TaxonomyGeneratorService {
     }
 
     // Use domain templates
-    const templates = this.categoryTemplates[domain as keyof typeof this.categoryTemplates];
+    const templates = this.categoryTemplates[domain];
     if (templates) {
       for (const template of templates) {
         const categoryId = uuidv4();

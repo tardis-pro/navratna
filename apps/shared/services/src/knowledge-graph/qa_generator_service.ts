@@ -186,8 +186,8 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from knowledge failed', { error: error.message });
-      const wrappedError = new Error(`Q&A generation failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Q&A generation failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -259,8 +259,8 @@ export class QAGeneratorService {
       return processedQA;
     } catch (error) {
       logger.error('Q&A generation from conversations failed', { error: error.message });
-      const wrappedError = new Error(`Q&A generation failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Q&A generation failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -611,7 +611,7 @@ export class QAGeneratorService {
   private generateFactualQA(
     fact: string,
     item: QASourceItem,
-    sourceType: string
+    sourceType: GeneratedQA['sourceType']
   ): GeneratedQA | null {
     const patterns = [
       { pattern: /(.+?)\s+(?:is|are)\s+(.+)/, questionTemplate: 'What is {0}?' },
@@ -635,7 +635,7 @@ export class QAGeneratorService {
   private generateProceduralQA(
     procedure: string,
     item: QASourceItem,
-    sourceType: string
+    sourceType: GeneratedQA['sourceType']
   ): GeneratedQA | null {
     const howToPattern = /(?:to|how to)\s+(.+)/gi;
     const match = procedure.match(howToPattern);
@@ -653,7 +653,7 @@ export class QAGeneratorService {
   private generateDefinitionQA(
     definition: { term: string; definition: string },
     item: QASourceItem,
-    sourceType: string
+    sourceType: GeneratedQA['sourceType']
   ): GeneratedQA | null {
     const question = `What is ${definition.term}?`;
     const answer = definition.definition;
@@ -661,7 +661,7 @@ export class QAGeneratorService {
     return this.createQAObject(question, answer, item, sourceType, 'definition');
   }
 
-  private generateMetaQuestions(item: QASourceItem, sourceType: string): GeneratedQA[] {
+  private generateMetaQuestions(item: QASourceItem, sourceType: GeneratedQA['sourceType']): GeneratedQA[] {
     const metaQAs: GeneratedQA[] = [];
     const templates = [
       {
@@ -749,7 +749,7 @@ export class QAGeneratorService {
     question: string,
     answer: string,
     item: QASourceItem,
-    sourceType: string,
+    sourceType: GeneratedQA['sourceType'],
     method: string
   ): GeneratedQA | null {
     if (!question || !answer) return null;
@@ -759,7 +759,7 @@ export class QAGeneratorService {
       question: this.cleanQuestion(question),
       answer: this.cleanAnswer(answer),
       source: item.id || item.source || 'unknown',
-      sourceType: sourceType as GeneratedQA['sourceType'],
+      sourceType,
       confidence: this.calculateInitialConfidence(question, answer, method),
       topic: this.extractTopic(question + ' ' + answer),
       difficulty: this.assessDifficulty(question, answer),

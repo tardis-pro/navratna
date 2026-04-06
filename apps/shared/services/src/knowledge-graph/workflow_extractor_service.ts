@@ -326,8 +326,8 @@ export class WorkflowExtractorService {
       return processedWorkflows;
     } catch (error) {
       logger.error('Workflow extraction failed', { error: error.message });
-      const wrappedError = new Error(`Workflow extraction failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Workflow extraction failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }

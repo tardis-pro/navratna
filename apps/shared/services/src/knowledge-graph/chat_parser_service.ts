@@ -94,12 +94,12 @@ export class ChatParserService {
       const wrappedError = new Error(
         `Chat parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
 
-  detectPlatform(content: string, filename: string): string {
+  detectPlatform(content: string, filename: string): ChatPlatform {
     const lowerFilename = filename.toLowerCase();
 
     // Check filename patterns first
@@ -112,7 +112,7 @@ export class ChatParserService {
       const matchCount = patterns.filter((pattern) => pattern.test(content)).length;
       if (matchCount >= 2) {
         // Require at least 2 pattern matches for confidence
-        return platform;
+        return platform as ChatPlatform;
       }
     }
 
@@ -158,7 +158,7 @@ export class ChatParserService {
   private parseTextFormat(
     content: string,
     filename: string,
-    format: string,
+    format: ChatPlatform,
     detectSender: (line: string) => { sender: string; lineContent: string } | null
   ): ParsedConversation[] {
     const lines = content.split('\n');
@@ -316,7 +316,7 @@ export class ChatParserService {
   private convertImportedConversation(
     data: ImportedConversation,
     filename: string,
-    format: string,
+    format: ChatPlatform,
     mapRole: (role: string) => string
   ): ParsedConversation {
     const messages: ParsedMessage[] = [];
@@ -366,7 +366,7 @@ export class ChatParserService {
 
   private createConversationFromMessages(
     messages: ParsedMessage[],
-    platform: string,
+    platform: ChatPlatform,
     filename: string,
     id?: string,
     title?: string
@@ -391,7 +391,7 @@ export class ChatParserService {
     return [
       {
         id: id || uuidv4(),
-        platform: platform as ChatPlatform,
+        platform,
         title: title || `${platform} conversation from ${filename}`,
         participants,
         messages,
@@ -407,13 +407,13 @@ export class ChatParserService {
   }
 
   private createEmptyConversation(
-    platform: string,
+    platform: ChatPlatform,
     filename: string,
     id?: string
   ): ParsedConversation {
     return {
       id: id || uuidv4(),
-      platform: platform as ChatPlatform,
+      platform,
       title: `Empty ${platform} conversation from ${filename}`,
       participants: [],
       messages: [],

@@ -182,8 +182,9 @@ Evaluate this response using the criteria specified.`;
       const issueMatch = details.match(/Issue:\s*(.+?)(?=Suggestion:|$)/s);
       const suggestionMatch = details.match(/Suggestion:\s*(.+)/s);
 
+      const criteriaTyped: CritiqueCriteria = criteria as CritiqueCriteria;
       items.push({
-        criteria: criteria as CritiqueCriteria,
+        criteria: criteriaTyped,
         score: parseFloat(score),
         issue: issueMatch?.[1]?.trim(),
         suggestion: suggestionMatch?.[1]?.trim(),

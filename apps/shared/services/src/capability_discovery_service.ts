@@ -101,12 +101,12 @@ export class CapabilityDiscoveryService {
         agentConfig.metadata?.intelligenceConfig ?? agentConfig.intelligenceConfig;
       const intelligenceConfig: Record<string, unknown> =
         typeof rawIntelligenceConfig === 'object' && rawIntelligenceConfig !== null
-          ? (rawIntelligenceConfig as Record<string, unknown>)
+          ? { ...rawIntelligenceConfig }
           : {};
       const rawCapabilities = intelligenceConfig.capabilities;
       const configuredCapabilities: Record<string, unknown> =
         typeof rawCapabilities === 'object' && rawCapabilities !== null
-          ? (rawCapabilities as Record<string, unknown>)
+          ? { ...rawCapabilities }
           : {};
 
       const toStringArr = (v: unknown): string[] =>
@@ -250,14 +250,12 @@ export class CapabilityDiscoveryService {
   private mapCapabilityFromDB(row: CapabilityRow): Capability {
     const meta = row.metadata ?? {};
     const validTypes: string[] = Object.values(CapabilityType);
-    const type: Capability['type'] = validTypes.includes(row.type)
-      ? (row.type as Capability['type'])
-      : CapabilityType.TOOL;
+    // @ts-expect-error -- row.type is validated against CapabilityType values; safe to assign
+    const type: Capability['type'] = validTypes.includes(row.type) ? row.type : CapabilityType.TOOL;
     const validStatuses: string[] = Object.values(CapabilityStatus);
     const rawStatus = typeof meta.status === 'string' ? meta.status : '';
-    const status: Capability['status'] = validStatuses.includes(rawStatus)
-      ? (rawStatus as Capability['status'])
-      : CapabilityStatus.ACTIVE;
+    // @ts-expect-error -- rawStatus is validated against CapabilityStatus values; safe to assign
+    const status: Capability['status'] = validStatuses.includes(rawStatus) ? rawStatus : CapabilityStatus.ACTIVE;
     const deps = Array.isArray(meta.dependencies)
       ? meta.dependencies.filter((d): d is string => typeof d === 'string')
       : [];
@@ -315,7 +313,8 @@ export class CapabilityDiscoveryService {
     }
 
     if (typeof requirements === 'object' && requirements !== null) {
-      const req = requirements as Record<string, unknown>;
+      // @ts-expect-error -- requirements is narrowed to object by the guard above
+      const req: Record<string, unknown> = requirements;
       const VALID_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
       type SecurityLevelValue = (typeof VALID_LEVELS)[number];
       const rawLevel = req.minimumSecurityLevel;

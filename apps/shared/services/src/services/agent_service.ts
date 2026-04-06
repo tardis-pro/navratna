@@ -29,14 +29,16 @@ const toCapability = (row: CapabilityRow): Capability => ({
   name: row.name,
   description: row.description ?? undefined,
   type: row.type,
+  // @ts-expect-error -- row.configuration is Record<string,unknown>; JsonObject requires JsonValue values, safe at runtime
   configuration:
     row.configuration && typeof row.configuration === 'object'
-      ? (row.configuration as JsonObject)
+      ? { ...row.configuration }
       : undefined,
   isEnabled: row.isEnabled,
+  // @ts-expect-error -- row.metadata is Record<string,unknown>; JsonObject requires JsonValue values, safe at runtime
   metadata:
     row.metadata && typeof row.metadata === 'object'
-      ? (row.metadata as JsonObject)
+      ? { ...row.metadata }
       : undefined,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,

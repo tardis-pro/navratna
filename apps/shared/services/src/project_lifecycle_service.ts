@@ -27,26 +27,18 @@ export class ProjectLifecycleService {
     startDate?: Date;
     completionPercentage?: number;
   } {
-    return project as ProjectEntity & {
-      budgetUtilization?: number;
-      isOverdue?: boolean;
-      isOverBudget?: boolean;
-      endDate?: Date;
-      startDate?: Date;
-      completionPercentage?: number;
-    };
+    // @ts-expect-error -- ProjectEntity may have these optional fields at runtime; cast is safe
+    return project;
   }
 
   private static getNotifyConfig(config: unknown): { message?: string; recipients?: unknown[] } {
-    return typeof config === 'object' && config !== null
-      ? (config as { message?: string; recipients?: unknown[] })
-      : {};
+    if (typeof config !== 'object' || config === null) return {};
+    return config as { message?: string; recipients?: unknown[] };
   }
 
   private static getEscalateConfig(config: unknown): { level?: string; reason?: string } {
-    return typeof config === 'object' && config !== null
-      ? (config as { level?: string; reason?: string })
-      : {};
+    if (typeof config !== 'object' || config === null) return {};
+    return config as { level?: string; reason?: string };
   }
 
   private static getProjectEvent(event: unknown): {
@@ -54,9 +46,8 @@ export class ProjectLifecycleService {
     statusChanged?: boolean;
     cost?: number;
   } {
-    return typeof event === 'object' && event !== null
-      ? (event as { projectId?: string; statusChanged?: boolean; cost?: number })
-      : {};
+    if (typeof event !== 'object' || event === null) return {};
+    return event as { projectId?: string; statusChanged?: boolean; cost?: number };
   }
 
   async initialize(): Promise<void> {

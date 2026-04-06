@@ -37,29 +37,33 @@ export class AgentEventBus extends EventEmitter {
 
       // Console logging based on event type
       switch (event.eventType) {
-        case 'state.changed':
+        case 'state.changed': {
+          const stateEvent = event as StateChangedEvent;
           logger.info(
-            `Agent ${event.agentId}: ${(event as StateChangedEvent).data.from} → ${(event as StateChangedEvent).data.to} (${(event as StateChangedEvent).data.trigger})`
+            `Agent ${event.agentId}: ${stateEvent.data.from} → ${stateEvent.data.to} (${stateEvent.data.trigger})`
           );
           break;
+        }
 
-        case 'decision.made':
+        case 'decision.made': {
           const decisionEvent = event as DecisionMadeEvent;
           logger.info(
             `Agent ${event.agentId} decided: ${decisionEvent.data.selectedAction?.type || 'no action'} (confidence: ${decisionEvent.data.confidence}, ${decisionEvent.data.duration}ms)`
           );
           break;
+        }
 
-        case 'memory.saved':
+        case 'memory.saved': {
           const memoryEvent = event as MemorySavedEvent;
           logger.debug(
             `Agent ${event.agentId} saved ${memoryEvent.data.memoryType} memory: ${memoryEvent.data.entryId} (significance: ${memoryEvent.data.significance})`
           );
           break;
+        }
 
         case 'workflow.step.started':
         case 'workflow.step.completed':
-        case 'workflow.step.failed':
+        case 'workflow.step.failed': {
           const stepEvent = event as WorkflowStepEvent;
           const status = stepEvent.eventType.includes('completed')
             ? 'completed'
@@ -70,10 +74,11 @@ export class AgentEventBus extends EventEmitter {
             `Workflow step ${status}: ${stepEvent.data.stepName} (${stepEvent.data.workflowId})`
           );
           break;
+        }
 
         case 'tool.execution.started':
         case 'tool.execution.completed':
-        case 'tool.execution.failed':
+        case 'tool.execution.failed': {
           const toolEvent = event as ToolExecutionEvent;
           const toolStatus = toolEvent.eventType.includes('completed')
             ? 'completed'
@@ -84,13 +89,15 @@ export class AgentEventBus extends EventEmitter {
             `Tool ${toolStatus}: ${toolEvent.data.toolName} ${toolEvent.data.duration ? `(${toolEvent.data.duration}ms)` : ''}`
           );
           break;
+        }
 
-        case 'performance.metric':
+        case 'performance.metric': {
           const perfEvent = event as PerformanceMetricEvent;
           logger.debug(
             `Performance: ${perfEvent.data.metricName} = ${perfEvent.data.value}${perfEvent.data.unit}`
           );
           break;
+        }
 
         default:
           logger.debug(`Agent event: ${event.eventType}`, event.data);

@@ -53,7 +53,8 @@ export class ServiceFactory {
       Array.from(this.serviceInstances.entries()).map(async ([serviceName, serviceInstance]) => {
         try {
           if (typeof serviceInstance !== 'object' || serviceInstance === null) return;
-          const svc: Record<string, unknown> = serviceInstance as Record<string, unknown>;
+          // @ts-expect-error -- serviceInstance is narrowed to object by the guard above
+          const svc: Record<string, unknown> = serviceInstance;
           await callback(serviceName, svc);
         } catch (error) {
           this.logger.error(`Service operation error: ${serviceName}`, {
@@ -382,8 +383,7 @@ export class ServiceFactory {
 
     await this.forEachService(async (serviceName, svc) => {
       if (svc && typeof svc['isHealthy'] === 'function') {
-        const isHealthyFn = svc['isHealthy'] as () => Promise<boolean>;
-        services[serviceName] = await isHealthyFn();
+        services[serviceName] = await (svc as { isHealthy: () => Promise<boolean> }).isHealthy();
       } else {
         services[serviceName] = !!svc;
       }
@@ -492,8 +492,7 @@ export class ServiceFactory {
 
     await this.forEachService(async (_name, svc) => {
       if (svc && typeof svc['close'] === 'function') {
-        const closeFn = svc['close'] as () => Promise<void>;
-        await closeFn();
+        await (svc as { close: () => Promise<void> }).close();
       }
     });
 

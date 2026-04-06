@@ -35,8 +35,8 @@ function getStrArray(v: unknown): string[] {
 }
 
 function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
-  const values = Object.values(enumObj) as string[];
-  return typeof v === 'string' && values.includes(v) ? (v as T[keyof T]) : undefined;
+  if (typeof v !== 'string') return undefined;
+  return Object.values(enumObj).find((val) => val === v) as T[keyof T] | undefined;
 }
 
 function toAgentRole(v: string): AgentRole {
@@ -47,7 +47,7 @@ function toAgentRole(v: string): AgentRole {
 const validLlmProviders = ['custom', 'ollama', 'llmstudio', 'openai', 'anthropic'] as const;
 type LlmProviderType = (typeof validLlmProviders)[number];
 function isLlmProviderType(v: unknown): v is LlmProviderType {
-  return typeof v === 'string' && (validLlmProviders as readonly string[]).includes(v);
+  return typeof v === 'string' && validLlmProviders.some((p) => p === v);
 }
 
 export class AgentIntelligenceService {
@@ -613,8 +613,8 @@ export class AgentIntelligenceService {
               description: '',
               category: 'general',
               level: 'intermediate' as const,
-              keywords: [] as string[],
-              relatedDomains: [] as string[],
+              keywords: Array<string>(),
+              relatedDomains: Array<string>(),
             }))
           : [],
       background: getStr(p.background, 'AI assistant background'),

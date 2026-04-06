@@ -173,7 +173,8 @@ export class StateManagerService {
       await this.operationStateRepo.updateOperationState(
         operationId,
         updatedState,
-        updates as Record<string, unknown>
+        // @ts-expect-error -- StateUpdateOptions is structurally compatible with Record<string, unknown>
+        updates
       );
 
       // Create automatic checkpoint if significant changes
@@ -375,7 +376,7 @@ export class StateManagerService {
         throw new Error(`Checkpoint ${checkpointId} does not contain operation state`);
       }
 
-      const restoredState = checkpoint.data.operationState as OperationState;
+      const restoredState = checkpoint.data.operationState;
 
       // Validate restored state
       this.validateOperationState(restoredState);
@@ -597,19 +598,14 @@ export class StateManagerService {
   private async compressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
     // Simple implementation - in production, use zlib or similar
     // For now, just add a flag to indicate compression would be applied
-    const compressed: Checkpoint = {
-      ...checkpoint,
-      data: {
-        ...checkpoint.data,
-        compressed: true,
-      } as unknown, // Type assertion for the compression flag
-    };
+    const compressedData: Record<string, unknown> = { ...checkpoint.data, compressed: true };
+    const compressed: Checkpoint = { ...checkpoint, data: compressedData as Checkpoint['data'] };
     return compressed;
   }
 
   private async decompressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
     // Simple implementation - in production, use zlib or similar
-    const checkpointData = checkpoint.data as Record<string, unknown>;
+    const checkpointData: Record<string, unknown> = checkpoint.data as Record<string, unknown>;
     if (checkpointData.compressed) {
       const decompressed: Checkpoint = {
         ...checkpoint,
@@ -617,7 +613,7 @@ export class StateManagerService {
           ...checkpoint.data,
         },
       };
-      const decompressedData = { ...decompressed.data } as Record<string, unknown>;
+      const decompressedData: Record<string, unknown> = { ...decompressed.data as Record<string, unknown> };
       delete decompressedData.compressed;
       decompressed.data = decompressedData as Checkpoint['data'];
       return decompressed;

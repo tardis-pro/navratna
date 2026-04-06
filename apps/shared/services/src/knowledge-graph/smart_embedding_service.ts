@@ -132,8 +132,8 @@ export class SmartEmbeddingService extends EmbeddingService {
       }
     } catch (error) {
       this.recordFailure(startTime);
-      const wrappedError = new Error(`Smart embedding failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Smart embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }
@@ -173,8 +173,8 @@ export class SmartEmbeddingService extends EmbeddingService {
       }
     } catch (error) {
       this.recordFailure(startTime);
-      const wrappedError = new Error(`Smart batch embedding failed: ${error.message}`);
-      (wrappedError as Error & { cause?: unknown }).cause = error;
+      const wrappedError = new Error(`Smart batch embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+      Object.assign(wrappedError, { cause: error });
       throw wrappedError;
     }
   }

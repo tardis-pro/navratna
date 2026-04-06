@@ -40,7 +40,8 @@ export class CollaborationPatternRunner extends EventEmitter {
   }
 
   private static ensureRecord(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+    if (typeof value !== 'object' || value === null) return {};
+    return value as Record<string, unknown>;
   }
 
   async executePattern(
