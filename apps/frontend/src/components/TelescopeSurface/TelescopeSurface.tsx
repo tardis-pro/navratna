@@ -366,7 +366,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-base font-semibold truncate text-foreground tracking-tight">
-              {(block.metadata?.title as string) ?? BLOCK_TYPE_LABELS[block.type]}
+              {(typeof block.metadata?.title === 'string' ? block.metadata.title : null) ?? BLOCK_TYPE_LABELS[block.type]}
             </span>
             <span className="text-xs text-muted-foreground truncate">
               {block.id.split('-')[0]} • {BLOCK_TYPE_LABELS[block.type]}
@@ -395,7 +395,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
       {/* Metadata / Description (if available) */}
       {block.metadata?.description && (
         <p className="text-sm text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
-          {block.metadata.description as string}
+          {String(block.metadata.description)}
         </p>
       )}
 
@@ -545,7 +545,7 @@ export function TelescopeSurface({
 
   const whisperMessage = useMemo(() => {
     if (!topBlock) return '';
-    const title = (topBlock.metadata?.title as string) ?? topBlock.id;
+    const title = typeof topBlock.metadata?.title === 'string' ? topBlock.metadata.title : topBlock.id;
     const pct = Math.round(topBlock.relevanceScore * 100);
     if (topExpression.expression === 'working') return `Loading constellations...`;
     if (topExpression.expression === 'satisfied') return `Showing ${title} — ${pct}% context match`;
@@ -576,7 +576,7 @@ export function TelescopeSurface({
         maxBudget={maxVisibleBlocks}
         items={visibleBlocks.map((b) => ({
           id: b.id,
-          label: (b.metadata?.title as string) ?? b.id,
+          label: (typeof b.metadata?.title === 'string' ? b.metadata.title : null) ?? b.id,
           type: b.type,
         }))}
         className="absolute top-4 right-4 z-20"

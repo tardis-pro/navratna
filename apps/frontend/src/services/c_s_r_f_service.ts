@@ -245,7 +245,7 @@ async function injectAndCall(
 export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unknown>>(
   apiFunction: T
 ): T {
-  return (async (...args: unknown[]) => {
+  const wrapped = async (...args: unknown[]): Promise<unknown> => {
     try {
       return await injectAndCall(args, apiFunction);
     } catch (error) {
@@ -260,5 +260,7 @@ export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unk
       }
       throw error;
     }
-  }) as T;
+  };
+  // @ts-expect-error -- structural equivalence: wrapped and apiFunction share identical signatures but TS cannot infer generic T from concrete implementation
+  return wrapped;
 }

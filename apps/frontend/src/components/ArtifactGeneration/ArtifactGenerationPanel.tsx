@@ -230,17 +230,22 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
                     <h4 className="font-medium mb-2">Generation Opportunities</h4>
                     <div className="space-y-2">
                       {analysis.triggers.slice(0, 3).map((trigger: unknown) => {
-                        const t = trigger as { artifactType?: string; confidence?: number };
+                        const artifactType = (trigger && typeof trigger === 'object' && 'artifactType' in trigger)
+                          ? String(trigger.artifactType)
+                          : undefined;
+                        const confidence = (trigger && typeof trigger === 'object' && 'confidence' in trigger && typeof trigger.confidence === 'number')
+                          ? trigger.confidence
+                          : 0;
                         return (
                           <div
-                            key={t.artifactType ?? 'unknown-trigger'}
+                            key={artifactType ?? 'unknown-trigger'}
                             className="flex items-center justify-between p-2 bg-muted rounded"
                           >
                             <div className="flex items-center gap-2">
-                              {getArtifactIcon(t.artifactType)}
-                              <span className="text-sm">{t.artifactType}</span>
+                              {getArtifactIcon(artifactType)}
+                              <span className="text-sm">{artifactType}</span>
                               <Badge variant="secondary" size="sm">
-                                {Math.round((t.confidence ?? 0) * 100)}%
+                                {Math.round(confidence * 100)}%
                               </Badge>
                             </div>
                             <Button

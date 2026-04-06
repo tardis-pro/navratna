@@ -4,10 +4,10 @@ import { Toaster as Sonner } from 'sonner';
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 type ToasterTheme = ToasterProps['theme'];
 
-const VALID_THEMES = new Set<string>(['light', 'dark', 'system']);
+const VALID_THEMES: ReadonlySet<string> = new Set<ToasterTheme>(['light', 'dark', 'system']);
 
 function toToasterTheme(theme: string): ToasterTheme {
-  return VALID_THEMES.has(theme) ? (theme as ToasterTheme) : 'system';
+  return VALID_THEMES.has(theme) ? (theme satisfies ToasterTheme) : 'system';
 }
 
 const Toaster = ({ ...props }: ToasterProps) => {

@@ -212,13 +212,20 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
   const { _user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
-  const [projectData, setProjectData] = useState({
+  const [projectData, setProjectData] = useState<{
+    name: string;
+    description: string;
+    status: 'planning' | 'active' | 'paused';
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    dueDate: string;
+    tags: string[];
+  }>({
     name: '',
     description: '',
-    status: 'planning' as const,
-    priority: 'medium' as const,
+    status: 'planning',
+    priority: 'medium',
     dueDate: '',
-    tags: [] as string[],
+    tags: [],
   });
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [toolConfigurations, setToolConfigurations] = useState<Record<string, unknown>>({});
@@ -342,9 +349,12 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             <label className="block text-sm font-medium text-slate-300 mb-2">Initial Status</label>
             <select
               value={projectData.status}
-              onChange={(e) =>
-                setProjectData((prev) => ({ ...prev, status: e.target.value as unknown }))
-              }
+              onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'planning' || value === 'active' || value === 'paused') {
+                    setProjectData((prev) => ({ ...prev, status: value }));
+                  }
+                }}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
             >
               <option value="planning">Planning</option>
@@ -357,9 +367,12 @@ export const ProjectOnboardingFlow: React.FC<ProjectOnboardingFlowProps> = ({
             <label className="block text-sm font-medium text-slate-300 mb-2">Priority Level</label>
             <select
               value={projectData.priority}
-              onChange={(e) =>
-                setProjectData((prev) => ({ ...prev, priority: e.target.value as unknown }))
-              }
+              onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'low' || value === 'medium' || value === 'high' || value === 'critical') {
+                    setProjectData((prev) => ({ ...prev, priority: value }));
+                  }
+                }}
               className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none"
             >
               <option value="low">Low Priority</option>

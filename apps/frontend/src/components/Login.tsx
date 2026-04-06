@@ -261,7 +261,8 @@ export const Login: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(demoCredentials).map(([category, { color, accounts }]) => {
-                const colorClasses = {
+                type ColorStyle = { border: string; bg: string; hover: string; text: string; accent: string };
+                const colorClasses: Record<string, ColorStyle> = {
                   red: {
                     border: 'border-red-200 dark:border-red-800',
                     bg: 'bg-red-50 dark:bg-red-900/20',
@@ -292,7 +293,7 @@ export const Login: React.FC = () => {
                   },
                 };
 
-                const colors = colorClasses[color as keyof typeof colorClasses];
+                const colors = colorClasses[color] ?? colorClasses.red;
 
                 return (
                   <div

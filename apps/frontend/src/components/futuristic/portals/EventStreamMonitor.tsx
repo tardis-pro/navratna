@@ -144,7 +144,7 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
   };
 
   const eventTypes = ['all', 'info', 'success', 'warning', 'error'];
-  const eventCounts = {
+  const eventCounts: Record<string, number> = {
     all: displayEvents.length,
     info: displayEvents.filter((e) => e.type === 'info').length,
     success: displayEvents.filter((e) => e.type === 'success').length,
@@ -213,7 +213,7 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
             }`}
           >
             {type.charAt(0).toUpperCase() + type.slice(1)} (
-            {eventCounts[type as keyof typeof eventCounts]})
+            {eventCounts[type] ?? 0})
           </button>
         ))}
       </div>

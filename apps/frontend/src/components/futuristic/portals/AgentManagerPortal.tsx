@@ -15,8 +15,8 @@ import { uaipAPI } from '../../../utils/uaip_api';
 import { edenRequest } from '../../../api/eden';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
 
-const AGENT_ROLE_VALUES = new Set(Object.values(AgentRole));
-const isAgentRole = (v: string): v is AgentRole => AGENT_ROLE_VALUES.has(v as AgentRole);
+const AGENT_ROLE_VALUES = new Set<string>(Object.values(AgentRole));
+const isAgentRole = (v: string): v is AgentRole => AGENT_ROLE_VALUES.has(v);
 import {
   Users,
   Plus,
@@ -244,7 +244,44 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const [refreshing, setRefreshing] = useState(false);
 
   // Form state for create/edit
-  const [agentForm, setAgentForm] = useState({
+type AttachedTool = {
+      toolId: string;
+      toolName: string;
+      category: string;
+      permissions?: string[];
+    };
+    type AssignedMCPTool = {
+      toolId: string;
+      toolName: string;
+      serverName: string;
+      enabled: boolean;
+      priority?: number;
+      parameters?: Record<string, unknown>;
+    };
+  const [agentForm, setAgentForm] = useState<{
+    name: string;
+    role: AgentRole;
+    modelId: string;
+    providerId: string;
+    personaId: string;
+    description: string;
+    isActive: boolean;
+    attachedTools: AttachedTool[];
+    assignedMCPTools: AssignedMCPTool[];
+    mcpToolSettings: {
+      allowedServers: string[];
+      blockedServers: string[];
+      maxToolsPerServer: number;
+      autoDiscoveryEnabled: boolean;
+    };
+    chatConfig: {
+      enableKnowledgeAccess: boolean;
+      enableToolExecution: boolean;
+      enableMemoryEnhancement: boolean;
+      maxConcurrentChats: number;
+      conversationTimeout: number;
+    };
+  }>({
     name: '',
     role: AgentRole.ASSISTANT,
     modelId: '',
@@ -252,24 +289,11 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
     personaId: '',
     description: '',
     isActive: true,
-    attachedTools: [] as Array<{
-      toolId: string;
-      toolName: string;
-      category: string;
-      permissions?: string[];
-    }>,
-    // MCP Tool Selection
-    assignedMCPTools: [] as Array<{
-      toolId: string;
-      toolName: string;
-      serverName: string;
-      enabled: boolean;
-      priority?: number;
-      parameters?: Record<string, unknown>;
-    }>,
+    attachedTools: [],
+    assignedMCPTools: [],
     mcpToolSettings: {
-      allowedServers: [] as string[],
-      blockedServers: [] as string[],
+      allowedServers: [],
+      blockedServers: [],
       maxToolsPerServer: 10,
       autoDiscoveryEnabled: true,
     },
@@ -302,16 +326,26 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
 
   // Form state for persona creation
-  const [personaForm, setPersonaForm] = useState({
+  const [personaForm, setPersonaForm] = useState<{
+    name: string;
+    role: string;
+    description: string;
+    background: string;
+    systemPrompt: string;
+    tags: string[];
+    expertise: string[];
+    status: 'active' | 'inactive';
+    visibility: 'public' | 'private';
+  }>({
     name: '',
     role: '',
     description: '',
     background: '',
     systemPrompt: '',
-    tags: [] as string[],
-    expertise: [] as string[],
-    status: 'active' as const,
-    visibility: 'public' as const,
+    tags: [],
+    expertise: [],
+    status: 'active',
+    visibility: 'public',
   });
 
   const {
@@ -1860,12 +1894,15 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
           <select
             value={personaForm.status}
-            onChange={(e) =>
-              setPersonaForm((prev) => ({
-                ...prev,
-                status: e.target.value as 'active' | 'inactive',
-              }))
-            }
+            onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'active' || value === 'inactive') {
+                    setPersonaForm((prev) => ({
+                      ...prev,
+                      status: value,
+                    }));
+                  }
+                }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           >
             <option value="active">Active</option>
@@ -1878,12 +1915,15 @@ export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Visibility</label>
           <select
             value={personaForm.visibility}
-            onChange={(e) =>
-              setPersonaForm((prev) => ({
-                ...prev,
-                visibility: e.target.value as 'public' | 'private',
-              }))
-            }
+            onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'public' || value === 'private') {
+                    setPersonaForm((prev) => ({
+                      ...prev,
+                      visibility: value,
+                    }));
+                  }
+                }}
             className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-colors"
           >
             <option value="public">Public</option>

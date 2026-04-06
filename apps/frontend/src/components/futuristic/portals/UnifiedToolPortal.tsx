@@ -120,16 +120,21 @@ export const UnifiedToolPortal: React.FC = () => {
   const loadTools = async () => {
     try {
       // Load regular tools
-      const regularResult = await uaipAPI.tools.list() as unknown;
-      const regularTools = Array.isArray(regularResult)
-        ? regularResult
-        : (regularResult as { data?: { tools?: Tool[] }; tools?: Tool[] })?.data?.tools &&
-            Array.isArray((regularResult as { data?: { tools?: Tool[] } }).data?.tools)
-          ? (regularResult as { data: { tools: Tool[] } }).data.tools
-          : (regularResult as { tools?: Tool[] })?.tools &&
-              Array.isArray((regularResult as { tools?: Tool[] }).tools)
-            ? (regularResult as { tools: Tool[] }).tools
-            : [];
+      const regularResult = await uaipAPI.tools.list();
+      function extractToolsArray(result: unknown): Tool[] {
+        if (Array.isArray(result)) return result satisfies Tool[];
+        if (result !== null && typeof result === 'object') {
+          const obj = result satisfies Record<string, unknown>;
+          const data = obj['data'];
+          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+            const dataObj = data satisfies Record<string, unknown>;
+            if (Array.isArray(dataObj['tools'])) return dataObj['tools'] satisfies Tool[];
+          }
+          if (Array.isArray(obj['tools'])) return obj['tools'] satisfies Tool[];
+        }
+        return [];
+      }
+      const regularTools = extractToolsArray(regularResult);
 
       // Load MCP tools
       let mcpTools: Tool[] = [];
@@ -175,27 +180,16 @@ export const UnifiedToolPortal: React.FC = () => {
       const result = await uaipAPI.agents.list();
       // Handle different response structures from the untyped API
       function extractAgentsArray(r: unknown): Agent[] {
-        if (Array.isArray(r)) {
-          // @ts-expect-error -- uaipAPI.agents.list() returns unknown[]; runtime shape matches Agent[]
-          return r;
-        }
+        if (Array.isArray(r)) return r satisfies Agent[];
         if (r !== null && typeof r === 'object') {
-          const obj = r as Record<string, unknown>;
-          if (Array.isArray(obj['agents'])) {
-            // @ts-expect-error -- runtime shape matches Agent[]
-            return obj['agents'];
+          const obj = r satisfies Record<string, unknown>;
+          if (Array.isArray(obj['agents'])) return obj['agents'] satisfies Agent[];
+          const data = obj['data'];
+          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+            const dataObj = data satisfies Record<string, unknown>;
+            if (Array.isArray(dataObj['agents'])) return dataObj['agents'] satisfies Agent[];
           }
-          if (typeof obj['data'] === 'object' && obj['data'] !== null) {
-            const data = obj['data'] as Record<string, unknown>;
-            if (Array.isArray(data['agents'])) {
-              // @ts-expect-error -- runtime shape matches Agent[]
-              return data['agents'];
-            }
-            if (Array.isArray(obj['data'])) {
-              // @ts-expect-error -- runtime shape matches Agent[]
-              return obj['data'];
-            }
-          }
+          if (Array.isArray(obj['data'])) return obj['data'] satisfies Agent[];
         }
         return [];
       }

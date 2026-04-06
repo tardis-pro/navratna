@@ -160,7 +160,7 @@ const MCPConfigUpload: React.FC<MCPConfigUploadProps> = ({
 
       reader.onload = (e) => {
         try {
-          const content = e.target?.result as string;
+          const content = typeof e.target?.result === 'string' ? e.target.result : '';
           const config = JSON.parse(content);
 
           const validation = validateMCPConfig(config);

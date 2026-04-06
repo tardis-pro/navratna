@@ -171,7 +171,12 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
         <div className="flex items-center space-x-2">
           <select
             value={selectedTimeRange}
-            onChange={(e) => setSelectedTimeRange(e.target.value as 'today' | 'week' | 'month')}
+            onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'today' || value === 'week' || value === 'month') {
+                    setSelectedTimeRange(value);
+                  }
+                }}
             className="bg-slate-800/50 border border-slate-600/50 text-white text-xs rounded px-2 py-1"
           >
             <option value="today">Today</option>

@@ -398,9 +398,12 @@ export const WallpaperCustomizationPanel: React.FC<WallpaperCustomizationPanelPr
                 </div>
                 <select
                   value={preferences.quality}
-                  onChange={(e) =>
-                    updatePreferences({ quality: e.target.value as 'high' | 'medium' | 'low' })
-                  }
+                  onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'high' || val === 'medium' || val === 'low') {
+                        updatePreferences({ quality: val });
+                      }
+                    }}
                   className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm text-white"
                 >
                   {qualityOptions.map((option) => (

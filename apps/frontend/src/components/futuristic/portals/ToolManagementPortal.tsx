@@ -109,9 +109,9 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         name: capability.name ?? 'Unknown Capability',
         description: capability.description,
         category: capability.category || capability.metadata?.category || 'api',
-        tags: (capability.metadata?.tags as string[] | undefined) ?? [],
-        version: capability.version || (capability.metadata?.version as string | undefined) || '1.0.0',
-        author: (capability.metadata?.author as string | undefined) ?? 'System',
+        tags: Array.isArray(capability.metadata?.tags) ? capability.metadata.tags.filter((t): t is string => typeof t === 'string') : [],
+        version: capability.version || (typeof capability.metadata?.version === 'string' ? capability.metadata.version : undefined) || '1.0.0',
+        author: (typeof capability.metadata?.author === 'string' ? capability.metadata.author : undefined) ?? 'System',
         securityLevel: 'safe',
         requiresApproval: false,
         isEnabled: true,
@@ -138,22 +138,24 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
     });
 
     agents.data.forEach((agent) => {
-      (agent.capabilities as string[]).forEach((capabilityName, index) => {
-        result.push({
-          id: `${agent.id}-capability-${index}`,
-          name: capabilityName,
-          description: `Capability from agent ${agent.name}`,
-          category: 'agent-capability',
-          tags: [],
-          version: '1.0.0',
-          author: agent.name,
-          securityLevel: 'safe',
-          requiresApproval: false,
-          isEnabled: agent.status === 'active',
-          source: 'agent',
-          type: 'agent-capability',
+      if (Array.isArray(agent.capabilities)) {
+        agent.capabilities.forEach((capabilityName, index) => {
+          result.push({
+            id: `${agent.id}-capability-${index}`,
+            name: capabilityName,
+            description: `Capability from agent ${agent.name}`,
+            category: 'agent-capability',
+            tags: [],
+            version: '1.0.0',
+            author: agent.name,
+            securityLevel: 'safe',
+            requiresApproval: false,
+            isEnabled: agent.status === 'active',
+            source: 'agent',
+            type: 'agent-capability',
+          });
         });
-      });
+      }
     });
 
     return result;
@@ -219,7 +221,7 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
         isEnabled: true,
         author: formData.author,
         tags: formData.tags,
-        dependencies: [] as string[],
+        dependencies: new Array<string>(),
         examples: formData.customConfig?.examples || [],
         // Add type-specific configs
         ...(formData.type === 'mcp' && { mcpConfig: formData.mcpConfig }),

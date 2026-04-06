@@ -98,7 +98,7 @@ export const DebateArena: React.FC<DebateArenaProps> = ({ onTopicChange }) => {
                   <div key={msg.id} className="text-sm text-gray-300 border-b border-gray-800 pb-1">
                     {typeof msg === 'string'
                       ? msg
-                      : (msg as { content?: string }).content || JSON.stringify(msg)}
+                      : msg.content || JSON.stringify(msg)}
                   </div>
                 ))
               )}

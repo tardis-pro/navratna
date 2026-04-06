@@ -287,9 +287,7 @@ export function withMaterializableBlock<P extends object>(
   blockConfig: WithMaterializableBlockConfig = {}
 ) {
   const WrappedComponent = (props: P & { block?: Partial<MaterializableBlockData> }) => {
-    const { block: propBlock, ...componentProps } = props as P & {
-      block?: Partial<MaterializableBlockData>;
-    };
+    const { block: propBlock, ...componentProps } = props;
 
     const defaultBlock = useMemo(
       (): MaterializableBlockData => ({
@@ -326,7 +324,7 @@ export function withMaterializableBlock<P extends object>(
         isDraggable={blockConfig.isDraggable}
         isResizable={blockConfig.isResizable}
       >
-        <Component {...(componentProps as P)} />
+        <Component {...componentProps} />
       </MaterializableBlock>
     );
   };

@@ -59,7 +59,7 @@ const KnowledgeItemMeta: React.FC<{ item: KnowledgeItem }> = ({ item }) => (
     <div className="flex items-center gap-2 flex-wrap">
       {getKnowledgeItemType(item) && getKnowledgeItemType(item) !== 'document' ? (
         <span
-          className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) as keyof typeof KNOWLEDGE_TYPE_COLORS] || KNOWLEDGE_TYPE_COLORS.document}`}
+          className={`text-xs px-1.5 py-0.5 rounded border font-medium ${KNOWLEDGE_TYPE_COLORS[getKnowledgeItemType(item) ?? ''] || KNOWLEDGE_TYPE_COLORS.document}`}
         >
           {getKnowledgeItemType(item)}
         </span>

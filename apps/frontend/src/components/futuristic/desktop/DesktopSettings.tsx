@@ -197,7 +197,11 @@ export const DesktopSettings: React.FC<DesktopSettingsProps> = ({
                     ].map(({ value, label, icon: Icon }) => (
                       <button
                         key={value}
-                        onClick={() => updatePreference('theme', value as unknown)}
+                        onClick={() => {
+                          if (value === 'light' || value === 'dark' || value === 'auto') {
+                            updatePreference('theme', value);
+                          }
+                        }}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           localPreferences.theme === value
                             ? 'border-blue-500 bg-blue-500/10'

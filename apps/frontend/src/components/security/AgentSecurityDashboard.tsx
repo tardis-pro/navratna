@@ -123,8 +123,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
         {
           id: '1',
           timestamp: new Date(),
-          // @ts-expect-error -- mock data uses 'AGENT_ACTION' which is not in AuditEventType enum; closest is AuditEventType.AGENT_OPERATION
-          eventType: 'AGENT_ACTION' as AuditEventType,
+          eventType: AuditEventType.AGENT_OPERATION,
           agentId: 'agent-1',
           agentName: 'Security Agent',
           resource: 'database',
@@ -140,8 +139,7 @@ export const AgentSecurityDashboard: React.FC<AgentSecurityDashboardProps> = ({
           name: 'Data Access Control',
           description: 'Controls agent access to sensitive data',
           enabled: true,
-          // @ts-expect-error -- mock data uses 'DATA_ACCESS' which is not in AgentCapability enum; closest is AgentCapability.DATA_ANALYSIS
-          applicableCapabilities: ['DATA_ACCESS' as AgentCapability],
+          applicableCapabilities: [AgentCapability.DATA_ANALYSIS],
           riskThreshold: RiskLevel.MEDIUM,
           enforcementActions: ['block', 'audit'],
           violationCount: 0,

@@ -37,18 +37,18 @@ import { projectsAPI, type Project as _APIProject } from '../../../api/projects_
 import { ViewportSize } from '@/hooks/use_viewport';
 import { logger } from '@/utils/browser_logger';
 
-const PROJECT_STATUS_OPTIONS = ['planning', 'active', 'paused', 'completed', 'archived'] as const;
+const PROJECT_STATUS_OPTIONS_SET = new Set<string>(['planning', 'active', 'paused', 'completed', 'archived']);
 
 type ProjectStatus = Project['status'];
 type ProjectPriority = Project['priority'];
 
 const isProjectStatus = (v: string): v is ProjectStatus =>
-  (PROJECT_STATUS_OPTIONS as readonly string[]).includes(v);
+  PROJECT_STATUS_OPTIONS_SET.has(v);
 
-const PROJECT_PRIORITY_OPTIONS = ['low', 'medium', 'high', 'critical'] as const;
+const PROJECT_PRIORITY_OPTIONS_SET = new Set<string>(['low', 'medium', 'high', 'critical']);
 
 const isProjectPriority = (v: string): v is ProjectPriority =>
-  (PROJECT_PRIORITY_OPTIONS as readonly string[]).includes(v);
+  PROJECT_PRIORITY_OPTIONS_SET.has(v);
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
@@ -453,7 +453,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           dueDate: typeof meta.dueDate === 'string' ? new Date(meta.dueDate) : undefined,
           // @ts-expect-error -- meta fields are unknown[]; runtime shape matches TeamMember[]/ProjectResource[]/Task[]
           team: Array.isArray(meta.team) ? meta.team : [],
-          tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
+          tags: Array.isArray(meta.tags) ? meta.tags.filter((t): t is string => typeof t === 'string') : [],
           // @ts-expect-error -- meta fields are unknown[]; runtime shape matches ProjectResource[]
           resources: Array.isArray(meta.resources) ? meta.resources : [],
           // @ts-expect-error -- meta fields are unknown[]; runtime shape matches Task[]
@@ -506,7 +506,7 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           dueDate: typeof meta.dueDate === 'string' ? new Date(meta.dueDate) : undefined,
           // @ts-expect-error -- meta fields are unknown[]; runtime shape matches TeamMember[]
           team: Array.isArray(meta.team) ? meta.team : [],
-          tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
+          tags: Array.isArray(meta.tags) ? meta.tags.filter((t): t is string => typeof t === 'string') : [],
           // @ts-expect-error -- meta fields are unknown[]; runtime shape matches ProjectResource[]
           resources: Array.isArray(meta.resources) ? meta.resources : [],
           // @ts-expect-error -- meta fields are unknown[]; runtime shape matches Task[]

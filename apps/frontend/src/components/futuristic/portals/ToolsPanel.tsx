@@ -383,7 +383,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
   };
 
   const getCategoryColor = (category: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       'Agent Capability': 'bg-blue-100 text-blue-800 border-blue-200',
       'MCP Integration': 'bg-purple-100 text-purple-800 border-purple-200',
       'API Integration': 'bg-green-100 text-green-800 border-green-200',
@@ -391,7 +391,7 @@ export const ToolsPanel: React.FC<ToolsPanelPortalProps> = ({ className, viewpor
       'CUSTOM Integration': 'bg-pink-100 text-pink-800 border-pink-200',
       General: 'bg-gray-100 text-gray-800 border-gray-200',
     };
-    return colors[category as keyof typeof colors] || colors['General'];
+    return colors[category] ?? colors['General'];
   };
 
   const selectedToolData = tools.find((tool) => tool.id === selectedTool);

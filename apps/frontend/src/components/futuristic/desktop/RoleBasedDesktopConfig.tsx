@@ -283,14 +283,14 @@ export namespace RoleBasedDesktopConfig {
    * Get role hierarchy weight for comparison
    */
   function getRoleWeight(role: string): number {
-    const weights = {
+    const weights: Record<string, number> = {
       guest: 0,
       user: 1,
       moderator: 2,
       admin: 3,
       system: 4,
     };
-    return weights[role as keyof typeof weights] || 0;
+    return weights[role] ?? 0;
   }
 
   /**
@@ -452,7 +452,8 @@ export namespace RoleBasedDesktopConfig {
   } {
     const baseCategories = ['chat', 'agent-response', 'system-update'];
 
-    const roleSettings = {
+    type RoleSetting = { categories: string[]; defaultEnabled: string[]; restrictedCategories: string[] };
+    const roleSettings: Record<string, RoleSetting> = {
       guest: {
         categories: baseCategories,
         defaultEnabled: ['system-update'],
@@ -503,7 +504,8 @@ export namespace RoleBasedDesktopConfig {
       },
     };
 
-    return roleSettings[userRole as keyof typeof roleSettings] || roleSettings.guest;
+    const roleSettingsMap: Record<string, typeof roleSettings[string]> = roleSettings;
+    return roleSettingsMap[userRole] ?? roleSettings.guest;
   }
 
   /**
