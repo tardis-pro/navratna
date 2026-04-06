@@ -67,6 +67,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
   // Initialize WebSocket connection
   useEffect(() => {
     if (!user) return;
+    if (!user.id) return;
     if (!agentId) return;
 
     const effectiveAgentId = agentId === 'global-user-llm' ? `user-${user.id}` : agentId;

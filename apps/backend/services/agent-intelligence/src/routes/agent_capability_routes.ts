@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import type {
   AgentIntelligenceService,
   CapabilityDiscoveryService,
@@ -21,7 +21,7 @@ export function registerAgentCapabilityRoutes(
 ) {
   return new Elysia().group(
     '/api/v1/agents',
-    (group) => withNginxAuth(group)
+    (group) => withRequiredAuth(group)
       .get('/:agentId/capabilities', async (ctx) => {
         try {
           const capabilities = await capabilityDiscoveryService.getAgentCapabilities(

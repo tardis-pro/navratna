@@ -207,10 +207,15 @@ class NavratnaCoreService extends BaseService {
           const queryToken = typeof rawQueryToken === 'string' ? rawQueryToken
             : Array.isArray(rawQueryToken) && typeof rawQueryToken[0] === 'string' ? rawQueryToken[0]
             : undefined
+          const cookieHeader = typeof socket.handshake.headers.cookie === 'string'
+            ? socket.handshake.headers.cookie : ''
+          const cookieMatch = cookieHeader.match(/(?:^|;\s*)access_token=([^;]+)/)
+          const cookieToken = cookieMatch ? decodeURIComponent(cookieMatch[1]) : undefined
           const token =
             authToken ||
             socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
-            queryToken
+            queryToken ||
+            cookieToken
 
           if (!token) {
             return next(new Error('Authentication required'))

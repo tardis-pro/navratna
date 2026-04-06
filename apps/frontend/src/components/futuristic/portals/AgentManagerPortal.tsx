@@ -362,11 +362,11 @@ type AttachedTool = {
     queryFn: ({ pageParam }) =>
       edenRequest<AgentsListPage>(`/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`, { method: 'GET' }),
     getNextPageParam: (lastPage) =>
-      lastPage.pagination.hasMore ? lastPage.pagination.page + 1 : undefined,
+      lastPage?.pagination?.hasMore ? lastPage.pagination.page + 1 : undefined,
     staleTime: STALE_TIMES.DEFAULT,
   });
 
-  const fetchedAgents = useMemo(() => data?.pages?.flatMap((p) => p.data) ?? [], [data?.pages]);
+  const fetchedAgents = useMemo(() => data?.pages?.flatMap((p) => p.data ?? []).filter(Boolean) ?? [], [data?.pages]);
 
   // Load MCP tools
   const loadMCPTools = async () => {

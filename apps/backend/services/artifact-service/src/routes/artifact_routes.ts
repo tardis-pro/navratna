@@ -2,7 +2,7 @@ import { ArtifactService } from '../artifact_service.js';
 import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
-import { withNginxAuth } from '@uaip/middleware';
+import { withRequiredAuth } from '@uaip/middleware';
 
 import { Elysia, t } from 'elysia';
 
@@ -69,7 +69,7 @@ export function registerArtifactRoutes(
 ){
   return new Elysia().group(
     '/api/v1/artifacts',
-    (g) => withNginxAuth(g)
+    (g) => withRequiredAuth(g)
       // List all artifacts
       .get(
         '/',

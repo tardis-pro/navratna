@@ -643,7 +643,12 @@ export const uaipAPI = {
     async getModels(): Promise<Array<LLMModel>> {
       try {
         // First try to get models from user's providers
-        const userModels = await api.llm.userLLM.listModels();
+        const rawUserModelsResponse = await api.llm.userLLM.listModels();
+        // Backend returns { userId, providers: [...], totalProviders, activeProviders }
+        // not a plain array — extract the providers array defensively
+        const userModels: unknown[] = Array.isArray(rawUserModelsResponse)
+          ? rawUserModelsResponse
+          : ((rawUserModelsResponse as Record<string, unknown>)?.providers as unknown[]) ?? [];
 
         // Transform the response to match expected interface
         const transformedUserModels = userModels.map((model: unknown) => ({

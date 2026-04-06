@@ -22,16 +22,19 @@ function getString(value: unknown): string | undefined {
 }
 
 function toLoginUser(value: unknown): LoginResponse['user'] {
-  const user = isRecord(value) ? value : {}
-  const email = getString(Reflect.get(user, 'email')) ?? ''
-  const firstName = getString(Reflect.get(user, 'firstName')) ?? ''
-  const lastName = getString(Reflect.get(user, 'lastName')) ?? ''
+  // Login response shape: { user: { id, email, ... } }
+  // /me response shape: { id, email, ... } (flat)
+  const outer = isRecord(value) ? value : {}
+  const inner = isRecord(Reflect.get(outer, 'user')) ? (Reflect.get(outer, 'user') as Record<string, unknown>) : outer
+  const email = getString(Reflect.get(inner, 'email')) ?? ''
+  const firstName = getString(Reflect.get(inner, 'firstName')) ?? ''
+  const lastName = getString(Reflect.get(inner, 'lastName')) ?? ''
 
   return {
-    id: getString(Reflect.get(user, 'id')) ?? '',
+    id: getString(Reflect.get(inner, 'id')) ?? '',
     email,
     name: `${firstName} ${lastName}`.trim() || email,
-    role: getString(Reflect.get(user, 'role')) ?? '',
+    role: getString(Reflect.get(inner, 'role')) ?? '',
   }
 }
 

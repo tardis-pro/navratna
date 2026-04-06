@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import { getIntelligenceDb, eq, ilike, and, sql, count, asc } from '@uaip/shared-services/drizzle/clients'
 import { agents } from '@uaip/shared-services/drizzle/intelligence'
@@ -64,7 +64,7 @@ export function registerAgentCrudRoutes(
 ) {
   return new Elysia().group(
     '/api/v1/agents',
-    (group) => withNginxAuth(group)
+    (group) => withRequiredAuth(group)
       .get('/', async (ctx) => {
         try {
           const { page, limit, search } = parsePaginationParams(ctx.query ?? {})
@@ -128,7 +128,7 @@ export function registerAgentCrudRoutes(
       .post('/', async (ctx) => {
         try {
           const body = isRecord(ctx.body) ? ctx.body : {}
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userId = ctx.user.id
           const agent = await agentIntelligenceService.createAgent({
             ...body,
@@ -184,9 +184,9 @@ export function registerAgentCrudRoutes(
     
       .put('/:agentId', async (ctx) => {
         try {
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userId: string = ctx.user.id
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userRole: string = ctx.user.role ?? ''
     
           const existing = await agentIntelligenceService.getAgent(ctx.params.agentId)
@@ -234,9 +234,9 @@ export function registerAgentCrudRoutes(
     
       .delete('/:agentId', async (ctx) => {
         try {
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userId: string = ctx.user.id
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userRole: string = ctx.user.role ?? ''
     
           const existing = await agentIntelligenceService.getAgent(ctx.params.agentId)

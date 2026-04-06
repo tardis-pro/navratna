@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { withNginxAuth } from '@uaip/middleware';
+import { withRequiredAuth } from '@uaip/middleware';
 import { getControlDb } from '@uaip/shared-services';
 import { eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
 import {
@@ -194,7 +194,7 @@ function parsePage(queryValue: unknown, fallback: number): number {
 
 export function registerWorkflowRoutes(workflowEngine: WorkflowEngineService) {
   return new Elysia()
-    .group('/api/v1/workflows', (group) => withNginxAuth(group)
+    .group('/api/v1/workflows', (group) => withRequiredAuth(group)
     .get('/', async (ctx) => {
       try {
         const page = parsePage(ctx.query?.page, 1);

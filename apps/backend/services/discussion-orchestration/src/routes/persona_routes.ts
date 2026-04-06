@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth, t } from '@uaip/middleware'
+import { withRequiredAuth, t } from '@uaip/middleware'
 import { PersonaService } from '@uaip/shared-services/persona'
 import { logger } from '@uaip/utils'
 
@@ -9,7 +9,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export function registerPersonaRoutes(personaService: PersonaService) {
   return new Elysia()
     .group('/api/v1/personas', (group) => {
-      return withNginxAuth(group)
+      return withRequiredAuth(group)
         .get('/', async (ctx) => {
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
@@ -35,7 +35,7 @@ export function registerPersonaRoutes(personaService: PersonaService) {
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
             const userId: string = ctx.user.id
             const persona = await personaService.createPersona({
               ...body,
@@ -91,7 +91,7 @@ export function registerPersonaRoutes(personaService: PersonaService) {
 
         .get('/recommendations', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
             const userId: string = ctx.user.id
             const { context: contextStr, limit = '10' } = ctx.query
             const recommendations = await personaService.getPersonaRecommendations(
@@ -154,9 +154,9 @@ export function registerPersonaRoutes(personaService: PersonaService) {
 
         .put('/:id', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
             const userId: string = ctx.user.id
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
             const userRole: string = ctx.user.role ?? ''
 
             const existing = await personaService.getPersona(ctx.params.id)
@@ -203,9 +203,9 @@ export function registerPersonaRoutes(personaService: PersonaService) {
 
         .delete('/:id', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
             const userId: string = ctx.user.id
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
             const userRole: string = ctx.user.role ?? ''
 
             const existing = await personaService.getPersona(ctx.params.id)

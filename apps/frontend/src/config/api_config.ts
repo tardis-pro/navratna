@@ -302,6 +302,10 @@ export const buildAPIURL = (route: string) => {
 export const getWebSocketURL = () => {
   const baseURL = getEffectiveAPIBaseURL();
   // Socket.IO client expects HTTP/HTTPS URL, not WS/WSS
-  // The nginx configuration routes /socket.io/ to discussion-orchestration service
-  return baseURL; // Returns http://localhost:8081
+  // In dev with Vite proxy, VITE_API_BASE_URL is empty — connect to current origin
+  // so Vite can proxy /socket.io/ → localhost:3001
+  if (!baseURL && typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return baseURL;
 };

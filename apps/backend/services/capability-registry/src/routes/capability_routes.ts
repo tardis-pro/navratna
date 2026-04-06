@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { CapabilityController } from '../controllers/capability_controller.js';
 import { EventBusService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
-import { withNginxAuth } from '@uaip/middleware';
+import { withRequiredAuth } from '@uaip/middleware';
 
 const CAPABILITY_INJECTED_EVENT = 'capability.injected';
 
@@ -51,7 +51,7 @@ export function registerCapabilityRoutes(controller?: CapabilityController){
 
   logger.info('Registering capability routes');
 
-  return new Elysia().group('/api/v1/capabilities', (g) => withNginxAuth(g)
+  return new Elysia().group('/api/v1/capabilities', (g) => withRequiredAuth(g)
     .get('/search', (ctx) => capabilityController.searchCapabilities(ctx), {
       query: t.Object({
         query: t.Optional(t.String()),

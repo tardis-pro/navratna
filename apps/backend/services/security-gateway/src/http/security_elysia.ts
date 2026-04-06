@@ -271,6 +271,42 @@ export function registerSecurityRoutes() {
       },
     })
   
+    .get('/events', async (ctx) => {
+      const { set, query } = ctx;
+      try {
+        const { domainAuditService } = await getServices();
+        const auditRepo = domainAuditService!.getAuditRepository();
+        const q = (query ?? {}) as Record<string, unknown>;
+        const limit = Number(q.limit ?? 20);
+        const page = Number(q.page ?? 1);
+        const filters: Record<string, unknown> = {
+          limit,
+          offset: (page - 1) * limit,
+        };
+        if (q.startDate) filters.startDate = new Date(String(q.startDate));
+        if (q.endDate) filters.endDate = new Date(String(q.endDate));
+        if (q.userId) filters.userId = String(q.userId);
+        if (q.type) filters.eventTypes = [String(q.type)];
+        const events = await auditRepo.queryAuditEvents(filters);
+        return events.map((e: Record<string, unknown>) => ({
+          id: e.id,
+          type: e.eventType,
+          severity: e.severity ?? 'info',
+          userId: e.userId,
+          resourceType: e.resourceType,
+          resourceId: e.resourceId,
+          action: e.action,
+          details: e.details,
+          ipAddress: e.ipAddress,
+          userAgent: e.userAgent,
+          timestamp: e.timestamp ?? e.createdAt,
+        }));
+      } catch {
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'Failed to retrieve security events' };
+      }
+    })
+
     .group('', (g) => withAdminGuard(g)
       .get('/policies', async ({ set, query }) => {
         try {

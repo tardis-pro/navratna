@@ -4,7 +4,7 @@ import DesktopApp from './DesktopApp.tsx';
 import './globals.css';
 
 // Initialize Sentry for frontend error tracking & performance
-if (import.meta.env.VITE_SENTRY_DSN) {
+if (import.meta.env.VITE_SENTRY_DSN && (import.meta.env.PROD || import.meta.env.VITE_SENTRY_ENABLE === 'true')) {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.MODE,

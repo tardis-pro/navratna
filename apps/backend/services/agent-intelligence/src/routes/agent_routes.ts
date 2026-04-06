@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import { scoreRelevance } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
 
@@ -27,7 +27,7 @@ const relevanceSchema = z.object({
 
 export function registerAgentRoutes() {
   return new Elysia().group('/api/v1/agents', (group) =>
-    withNginxAuth(group).post('/relevance', async (ctx) => {
+    withRequiredAuth(group).post('/relevance', async (ctx) => {
       const parsed = relevanceSchema.safeParse(ctx.body)
 
       if (!parsed.success) {
@@ -61,7 +61,7 @@ export function registerAgentRoutes() {
             : {}),
           ...(payload.limit ? { limit: payload.limit } : {}),
         })
-        // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+        // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
         const userId = ctx.user.id
         return {
           success: true,
@@ -71,7 +71,7 @@ export function registerAgentRoutes() {
           requestedBy: userId,
         }
       } catch (error) {
-        // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+        // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
         const userId = ctx.user.id
         logger.error('Failed to score relevance', { error, userId })
         ctx.set.status = 500

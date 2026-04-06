@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import type { AgentResponseRequest, ChatMessage, DocumentContext } from '@uaip/types'
 import type { UserLLMService } from '@uaip/llm-service'
@@ -106,7 +106,7 @@ export function registerAgentChatRoutes(
 ) {
   return new Elysia().group(
     '/api/v1/agents',
-    (group) => withNginxAuth(group)
+    (group) => withRequiredAuth(group)
       .post('/:agentId/chat', async (ctx) => {
         try {
           const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
@@ -115,7 +115,7 @@ export function registerAgentChatRoutes(
             return { success: false, error: 'Agent not found' }
           }
     
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userId = ctx.user.id
           const body = isRecord(ctx.body) ? ctx.body : {}
           const bodyMessages = Array.isArray(body.messages)
@@ -184,7 +184,7 @@ export function registerAgentChatRoutes(
     
       .post('/:agentId/approvals/:approvalId', async (ctx) => {
         try {
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
+          // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
           const userId = ctx.user.id
           const body = isRecord(ctx.body) ? ctx.body : {}
           const decision = body.decision === 'rejected' ? 'rejected' : 'approved'

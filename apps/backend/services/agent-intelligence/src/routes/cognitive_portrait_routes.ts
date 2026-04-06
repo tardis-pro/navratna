@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import { logger } from '@uaip/utils'
 import type { CognitivePortraitRequest } from '@uaip/types'
 import { TrustAction } from '@uaip/types'
@@ -22,7 +22,7 @@ const calibrateRequestSchema = z.object({
 
 export function registerCognitivePortraitRoutes() {
   return new Elysia().group('/api/v1/users', (group) =>
-    withNginxAuth(group)
+    withRequiredAuth(group)
       .get('/:userId/cognitive-portrait', async (ctx) => {
         const userId = ctx.params.userId
         const forceRecompute = ctx.query?.forceRecompute === 'true'

@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import type { SemanticMemoryManager } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
 
@@ -16,7 +16,7 @@ export function registerAgentMemoryRoutes(
 ) {
   return new Elysia().group(
     '/api/v1/agents',
-    (group) => withNginxAuth(group)
+    (group) => withRequiredAuth(group)
       .delete('/:agentId/memory/semantic/:conceptId', async (ctx) => {
         try {
           await semanticMemoryManager.pruneMemory(ctx.params.agentId, ctx.params.conceptId)

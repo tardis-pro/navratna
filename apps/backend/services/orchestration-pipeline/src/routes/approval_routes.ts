@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withRequiredAuth } from '@uaip/middleware'
 import type { ApprovalResponsePayload } from '@uaip/types'
 import { logger } from '@uaip/utils'
 import { RDLOApprovalService } from '../services/rdlo_approval_service.js'
@@ -25,7 +25,7 @@ function parseApprovalResponsePayload(value: unknown): ApprovalResponsePayload |
 export function registerApprovalRoutes(approvalService: RDLOApprovalService) {
   return new Elysia()
     .group('/api/v1/orchestration', (group) =>
-      withNginxAuth(group).post('/approvals/:id', async (ctx) => {
+      withRequiredAuth(group).post('/approvals/:id', async (ctx) => {
         const payload = parseApprovalResponsePayload(ctx.body)
         if (!payload) {
           ctx.set.status = 400

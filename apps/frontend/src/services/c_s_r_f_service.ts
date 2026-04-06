@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/config/api_config';
 import { logger } from '@/utils/browser_logger';
 
 export interface CSRFToken {
@@ -138,17 +139,8 @@ export class CSRFService {
     }
   }
 
-  /**
-   * Get API base URL
-   */
   private getAPIBaseUrl(): string {
-    if (typeof window !== 'undefined') {
-      // Frontend environment
-      return window.location.hostname === 'localhost'
-        ? 'http://localhost:8081'
-        : window.location.origin;
-    }
-    return 'http://localhost:8081'; // Fallback for server-side
+    return API_BASE_URL;
   }
 
   /**

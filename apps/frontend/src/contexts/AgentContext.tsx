@@ -1068,15 +1068,6 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
     // Reload agents
     try {
-      const token =
-        typeof window !== 'undefined'
-          ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
-          : null;
-
-      if (!token) {
-        return;
-      }
-
       const response = await uaipAPI.agents.list();
 
       // Handle response format: {agents: Array(7), total: 7, filters: {...}}
@@ -1120,16 +1111,6 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadAgents = async () => {
       try {
-        // Check if we have authentication
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
-            : null;
-
-        if (!token) {
-          return;
-        }
-
         // Check if we already loaded agents using ref to prevent infinite loops
         if (agentsLoadedRef.current) {
           return;

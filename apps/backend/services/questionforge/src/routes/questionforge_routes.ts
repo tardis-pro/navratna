@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia';
 import { logger } from '@uaip/utils';
 import type { Question } from '@uaip/types';
-import { withNginxAuth } from '@uaip/middleware';
+import { withRequiredAuth } from '@uaip/middleware';
 import { QuestionForgeService } from '../services/question_forge_service.js';
 import { InterviewCaptureService } from '../services/interview_capture_service.js';
 
@@ -18,7 +18,7 @@ export function registerQuestionForgeRoutes(
   interviewService: InterviewCaptureService
 ) {
   return new Elysia().group('/api/v1/questionforge', (g) =>
-    withNginxAuth(g)
+    withRequiredAuth(g)
       .post('/forge', async ({ body, set }) => {
         try {
           if (!isRecord(body)) {

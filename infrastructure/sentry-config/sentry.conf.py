@@ -23,7 +23,7 @@ DATABASES = {
 }
 
 SENTRY_USE_BIG_INTS = True
-SENTRY_SINGLE_ORGANIZATION = Bool(env("SENTRY_SINGLE_ORGANIZATION", True))
+SENTRY_SINGLE_ORGANIZATION = False
 
 # ── Redis ─────────────────────────────────────────────────────────────────────
 SENTRY_OPTIONS.update(
@@ -78,5 +78,11 @@ SENTRY_USE_RELAY = True
 
 # ── Disable Sentry's self-reporting (avoids 403 noise in the Sentry UI) ──────
 # The Sentry frontend tries to report its own errors to itself via port 9000,
-# but ingestion requires Relay. Disabling prevents console 403 spam.
-SENTRY_OPTIONS["system.internal-dsn"] = ""
+# but ingestion requires Relay. Setting to empty string prevents console 403 spam.
+SENTRY_BEACON = False
+
+# ── CSRF / Proxy trust ───────────────────────────────────────────────────────
+# Sentry-web sits behind sentry-nginx; trust the proxy headers for CSRF
+CSRF_TRUSTED_ORIGINS = ["http://localhost:9000", "http://localhost"]
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = None

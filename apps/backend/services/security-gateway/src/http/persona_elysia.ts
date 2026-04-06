@@ -112,7 +112,8 @@ export function registerPersonaRoutes() {
           behavioralPatterns: entity.behavioralPatterns,
           updatedAt: entity.updatedAt,
         };
-      } catch {
+      } catch (e) {
+        logger.error('Failed to get user persona', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
@@ -168,7 +169,8 @@ export function registerPersonaRoutes() {
           behavioralPatterns: entity.behavioralPatterns,
           updatedAt: entity.updatedAt,
         };
-      } catch {
+      } catch (e) {
+        logger.error('Failed to update user persona', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
@@ -230,12 +232,44 @@ export function registerPersonaRoutes() {
           behavioralPatterns: entity.behavioralPatterns,
           updatedAt: entity.updatedAt,
         };
-      } catch {
+      } catch (e) {
+        logger.error('Failed to complete onboarding', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
     })
   
+    // GET /onboarding-status
+    .get('/onboarding-status', async (ctx) => {
+      const { set } = ctx;
+      try {
+        const user = getAuthUser(ctx);
+        const repo = userService.getUserRepository();
+        const entity = await repo.findById(user.id);
+        if (!entity) {
+          set.status = 404;
+          return { error: 'User not found' };
+        }
+        const progress = entity.onboardingProgress ?? defaultOnboardingProgress;
+        const isCompleted = Boolean((progress as Record<string, unknown>).isCompleted);
+        const currentStep = Number((progress as Record<string, unknown>).currentStep ?? 0);
+        return {
+          isRequired: !isCompleted,
+          isCompleted,
+          currentStep,
+        };
+      } catch (e) {
+        const message = getErrorMessage(e);
+        if (message.includes('Authentication required')) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        logger.error('Failed to get onboarding status', { error: message });
+        set.status = 500;
+        return { error: 'Internal server error' };
+      }
+    })
+
     // PUT /behavioral-patterns
     .put('/behavioral-patterns', async (ctx) => {
       const user = getAuthUser(ctx);
@@ -270,7 +304,8 @@ export function registerPersonaRoutes() {
           behavioralPatterns: entity.behavioralPatterns,
           updatedAt: entity.updatedAt,
         };
-      } catch {
+      } catch (e) {
+        logger.error('Failed to update behavioral patterns', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
@@ -291,7 +326,8 @@ export function registerPersonaRoutes() {
         const behavioral: Record<string, unknown> = isRecord(entity.behavioralPatterns) ? entity.behavioralPatterns : {};
         const recommendations = await generatePersonaRecommendations(persona, behavioral);
         return recommendations;
-      } catch {
+      } catch (e) {
+        logger.error('Failed to get persona recommendations', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
@@ -310,7 +346,8 @@ export function registerPersonaRoutes() {
         const { type, data, timestamp } = validation.data;
         await processUserInteraction(user.id, type, data, timestamp);
         return { success: true };
-      } catch {
+      } catch (e) {
+        logger.error('Failed to track user interaction', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
@@ -330,7 +367,8 @@ export function registerPersonaRoutes() {
         const personaRecord: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
         const compatible = await getCompatibleAgents(personaRecord);
         return compatible;
-      } catch {
+      } catch (e) {
+        logger.error('Failed to get compatible agents', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
@@ -351,7 +389,8 @@ export function registerPersonaRoutes() {
         const behavioralRec: Record<string, unknown> = isRecord(entity.behavioralPatterns) ? entity.behavioralPatterns : {};
         const workspace = await generateOptimizedWorkspace(personaRec, behavioralRec);
         return workspace;
-      } catch {
+      } catch (e) {
+        logger.error('Failed to get optimized workspace', { error: getErrorMessage(e), userId: user.id });
         set.status = 500;
         return { error: 'Internal server error' };
       }
