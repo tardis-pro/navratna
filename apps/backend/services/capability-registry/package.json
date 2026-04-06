@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@mariozechner/pi-agent-core": "^0.55.3",
-    "@mariozechner/pi-ai": "^0.55.3",
+    "@mariozechner/pi-ai": "^0.65.2",
     "@mariozechner/pi-coding-agent": "^0.55.3",
     "@uaip/config": "workspace:*",
     "@uaip/infra": "workspace:*",
