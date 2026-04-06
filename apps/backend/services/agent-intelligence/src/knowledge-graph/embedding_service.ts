@@ -1,6 +1,10 @@
 import { ContextRequest } from '@uaip/types';
 
 import { ExternalServiceError, InternalServerError, ValidationError } from '@uaip/utils';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 export class EmbeddingService {
   protected openaiApiKey: string;
   protected embeddingModel: string;
@@ -167,8 +171,9 @@ export class EmbeddingService {
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       parts.push('Conversation History:');
       context.conversationHistory.forEach((msg) => {
-        const role = typeof msg === 'object' && msg !== null && 'role' in msg && typeof (msg as { role?: unknown }).role === 'string' ? (msg as { role: string }).role : '';
-        const content = typeof msg === 'object' && msg !== null && 'content' in msg && typeof (msg as { content?: unknown }).content === 'string' ? (msg as { content: string }).content : '';
+        const msgRecord = isRecord(msg) ? msg : null;
+        const role = msgRecord !== null && typeof msgRecord['role'] === 'string' ? msgRecord['role'] : '';
+        const content = msgRecord !== null && typeof msgRecord['content'] === 'string' ? msgRecord['content'] : '';
         parts.push(`${role}: ${content}`);
       });
     }

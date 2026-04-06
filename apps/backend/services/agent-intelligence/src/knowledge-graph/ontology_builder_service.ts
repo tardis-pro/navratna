@@ -14,13 +14,14 @@ import type { KnowledgeRow } from '../../../../../shared/services/src/database/r
 type RelationshipType = ConceptRelationship['relationshipType'];
 
 const VALID_RELATIONSHIP_TYPES: RelationshipType[] = ['IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR'];
+const VALID_RELATIONSHIP_TYPE_SET = new Set<string>(VALID_RELATIONSHIP_TYPES);
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
 function isRelationshipType(v: unknown): v is RelationshipType {
-  return typeof v === 'string' && VALID_RELATIONSHIP_TYPES.includes(v as RelationshipType);
+  return typeof v === 'string' && VALID_RELATIONSHIP_TYPE_SET.has(v);
 }
 
 function isConceptProperty(v: unknown): v is ConceptProperty {

@@ -9,7 +9,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function isKnowledgeType(v: unknown): v is KnowledgeType {
-  return typeof v === 'string' && Object.values(KnowledgeType).includes(v as KnowledgeType);
+  return typeof v === 'string' && new Set<string>(Object.values(KnowledgeType)).has(v);
 }
 
 export interface KnowledgeCluster {

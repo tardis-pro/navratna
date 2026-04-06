@@ -1,13 +1,6 @@
 import { logger, ExternalServiceError, ValidationError } from '@uaip/utils'
 import { EventBusService } from '@uaip/infra'
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
-
-function isPlainTextItem(v: unknown): v is { plain_text: string } {
-  return isRecord(v) && typeof v['plain_text'] === 'string';
-}
 import type {
   NotionSyncConfig,
   NotionSyncResult,
@@ -15,6 +8,22 @@ import type {
   NotionSyncTarget,
   NotionBlockContent,
 } from '@uaip/types'
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isPlainTextItem(v: unknown): v is { plain_text: string } {
+  return isRecord(v) && typeof v['plain_text'] === 'string';
+}
+
+function isNotionSyncConfig(v: unknown): v is NotionSyncConfig {
+  return isRecord(v) &&
+    typeof v['syncDirection'] === 'string' &&
+    typeof v['syncTarget'] === 'string' &&
+    typeof v['autoSync'] === 'boolean' &&
+    typeof v['syncIntervalSeconds'] === 'number';
+}
 
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
@@ -251,7 +260,7 @@ export function initNotionSyncEventListeners(): void {
 
     eventBus.subscribe('artifact.created', async (data: unknown) => {
       if (!isRecord(data) || typeof data.artifactId !== 'string' || typeof data.content !== 'string' || typeof data.type !== 'string') return;
-      const payload = { artifactId: data.artifactId, content: data.content, type: data.type, syncConfig: isRecord(data.syncConfig) ? data.syncConfig as unknown as NotionSyncConfig : undefined };
+      const payload = { artifactId: data.artifactId, content: data.content, type: data.type, syncConfig: isNotionSyncConfig(data.syncConfig) ? data.syncConfig : undefined };
       if (payload.syncConfig && payload.syncConfig.autoSync) {
         await syncArtifactToNotion(payload.artifactId, payload.content, payload.type, payload.syncConfig).catch((error) => {
           logger.error('Auto artifact sync to Notion failed', {
