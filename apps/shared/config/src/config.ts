@@ -134,8 +134,8 @@ const DURATION_PATTERN = /^\d+(\s*[a-zA-Z]+)?$/;
 function parseDuration(value: string | undefined): StringValue | undefined {
   if (!value) return undefined;
   if (!DURATION_PATTERN.test(value)) return undefined;
-  // Runtime-validated: value matches the ms duration pattern
-  return value as StringValue; // eslint-disable-next-line -- env var validated to match ms duration format
+  // @ts-expect-error -- runtime-validated: DURATION_PATTERN confirms value matches ms StringValue format
+  return value;
 }
 export interface CorsConfig {
   allowedOrigins: string[];

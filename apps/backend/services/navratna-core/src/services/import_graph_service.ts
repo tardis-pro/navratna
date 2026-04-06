@@ -1,6 +1,7 @@
 import { dirname, relative, resolve } from 'node:path'
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
 import type { ImportEdge, ImportInfo } from '@uaip/types'
+import { KnowledgeType, SourceType } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
 export class ImportGraphService {
@@ -22,9 +23,9 @@ export class ImportGraphService {
 
     // TODO: Persist import graph relationships in Neo4j when the graph driver is available.
     await intelligenceDb.insert(knowledgeItems).values({
-      type: 'import-graph' as unknown as typeof knowledgeItems.$inferInsert['type'],
+      type: KnowledgeType.PROCEDURAL,
       content: JSON.stringify({ edges }),
-      sourceType: 'ast-extraction' as unknown as typeof knowledgeItems.$inferInsert['sourceType'],
+      sourceType: SourceType.FILE_SYSTEM,
       sourceIdentifier: repoRoot,
       tags: ['layer-2', 'import-graph'],
       confidence: 0.75,

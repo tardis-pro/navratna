@@ -27,6 +27,7 @@ export interface ThoughtStep {
 }
 
 // Individual thought step schema
+// @ts-expect-error -- recursive z.lazy() schema: ZodLazy _type makes fields optional, TS cannot verify statically
 export const ThoughtStepSchema: z.ZodType<ThoughtStep> = z.lazy(() =>
   z.object({
     id: z.string(),
@@ -38,7 +39,7 @@ export const ThoughtStepSchema: z.ZodType<ThoughtStep> = z.lazy(() =>
     alternatives: z.array(ThoughtStepSchema).optional(),
     metadata: z.record(z.unknown()).optional(),
   })
-) as z.ZodType<ThoughtStep>;
+);
 
 // Complete thought chain
 export const ThoughtChainSchema = z.object({

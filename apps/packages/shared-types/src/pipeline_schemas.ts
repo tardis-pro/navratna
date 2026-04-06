@@ -264,25 +264,32 @@ export const operationStatusResponseSchema = z.object({
 });
 export type ApiOperationStatusResponse = z.infer<typeof operationStatusResponseSchema>;
 
-export const validateParameter = (parameterDefinition: z.ZodTypeAny, value: unknown) => {
+type ValidateParameterResult =
+  | { isValid: true; value: unknown; errors: string[] }
+  | { isValid: false; value: null; errors: string[] };
+
+export const validateParameter = (
+  parameterDefinition: z.ZodTypeAny,
+  value: unknown
+): ValidateParameterResult => {
   try {
     return {
       isValid: true,
       value: parameterDefinition.parse(value),
-      errors: [] as string[],
+      errors: [],
     };
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return {
         isValid: false,
         value: null,
-        errors: error.issues.map((issue) => issue.message) as string[],
+        errors: error.issues.map((issue) => issue.message),
       };
     }
     return {
       isValid: false,
       value: null,
-      errors: ['Unknown validation error'] as string[],
+      errors: ['Unknown validation error'],
     };
   }
 };
