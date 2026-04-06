@@ -209,7 +209,7 @@ export class DevAgentService {
       throw new InternalServerError(`GitHub PR creation failed: ${response.status} — ${errorBody.slice(0, 500)}`)
     }
 
-    const pr = await response.json() as { html_url: string }
+    const pr: { html_url: string } = await response.json()
     return pr.html_url
   }
 

@@ -407,7 +407,7 @@ export class LinearBoardAdapter implements BoardProvider {
       throw new ExternalServiceError(`Linear API failed: ${response.status} ${response.statusText}`)
     }
 
-    const json = await response.json() as GraphQLResponse<T>
+    const json: GraphQLResponse<T> = await response.json()
 
     if (json.errors && json.errors.length > 0) {
       const messages = json.errors.map((e) => e.message).join('; ')

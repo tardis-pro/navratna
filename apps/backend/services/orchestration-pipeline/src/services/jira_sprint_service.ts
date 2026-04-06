@@ -54,7 +54,7 @@ function buildAuthHeader(config: JiraSprintServiceConfig): string {
   return `Basic ${Buffer.from(`${config.email}:${config.apiToken}`).toString('base64')}`
 }
 
-async function agileRequest<T>(path: string, method: string, body?: unknown): Promise<T> {
+async function agileRequest<T>(path: string, method: string, body?: unknown): Promise<T | undefined> {
   const config = getConfig()
   const url = `${config.baseUrl}/rest/agile/1.0${path}`
   const headers: Record<string, string> = {
@@ -77,10 +77,11 @@ async function agileRequest<T>(path: string, method: string, body?: unknown): Pr
   }
 
   if (response.status === 204) {
-    return undefined as T
+    return undefined
   }
 
-  return (await response.json()) as T
+  const data: T = await response.json()
+  return data
 }
 
 export async function createSprint(config: JiraSprintConfig): Promise<JiraSprintResponse> {
@@ -91,6 +92,10 @@ export async function createSprint(config: JiraSprintConfig): Promise<JiraSprint
     endDate: config.endDate,
     goal: config.goal,
   })
+
+  if (!sprint) {
+    throw new ExternalServiceError('Jira sprint POST returned no data')
+  }
 
   logger.info('Jira sprint created', { sprintId: sprint.id, name: sprint.name })
   return sprint
@@ -149,11 +154,15 @@ export function mapComplexityToPriority(score: number): JiraPriorityMapping['jir
 export async function generateVelocityReport(sprintId: number): Promise<VelocityReport> {
   const sprint = await agileRequest<JiraSprintResponse>(`/sprint/${sprintId}`, 'GET')
 
+  if (!sprint) {
+    throw new NotFoundError(`Jira sprint ${sprintId} not found`)
+  }
+
   const boardsResponse = await agileRequest<{
     values: Array<{ id: number }>
   }>('/board', 'GET')
 
-  const boardId = boardsResponse.values[0]?.id
+  const boardId = boardsResponse?.values[0]?.id
   if (!boardId) {
     throw new NotFoundError('No board found for velocity report')
   }
@@ -165,8 +174,8 @@ export async function generateVelocityReport(sprintId: number): Promise<Velocity
     }
   }>(`/board/${boardId}/sprint/${sprintId}/report`, 'GET')
 
-  const completedIssues = issuesResponse.contents?.completedIssues ?? []
-  const incompleteIssues = issuesResponse.contents?.issuesNotCompletedInCurrentSprint ?? []
+  const completedIssues = issuesResponse?.contents?.completedIssues ?? []
+  const incompleteIssues = issuesResponse?.contents?.issuesNotCompletedInCurrentSprint ?? []
 
   const completedPoints = completedIssues.reduce(
     (sum, issue) => sum + (issue.estimateStatistic?.statFieldValue?.value ?? 0),

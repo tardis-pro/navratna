@@ -120,9 +120,7 @@ export async function syncStatusToJira(issueKey: string, status: StoryStatus): P
     throw new ExternalServiceError(`Failed to get transitions for ${issueKey}: ${transitionsResponse.status}`)
   }
 
-  const transitionsData = await transitionsResponse.json() as {
-    transitions: Array<{ id: string; name: string }>
-  }
+  const transitionsData: { transitions: Array<{ id: string; name: string }> } = await transitionsResponse.json()
 
   const transition = transitionsData.transitions.find((t) => t.name === targetStatusName)
   if (!transition) {

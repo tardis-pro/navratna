@@ -95,7 +95,7 @@ export async function pollCheckRuns(
     return []
   }
 
-  const data = await response.json() as {
+  type CheckRunsResponse = {
     check_runs: Array<{
       id: number
       name: string
@@ -105,6 +105,7 @@ export async function pollCheckRuns(
       pull_requests: Array<{ number: number }>
     }>
   }
+  const data: CheckRunsResponse = await response.json()
 
   return data.check_runs
     .filter((run) => run.status === 'completed')

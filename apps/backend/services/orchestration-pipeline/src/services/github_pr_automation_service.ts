@@ -81,7 +81,7 @@ export async function createStructuredPR(
     throw new ExternalServiceError(`Failed to create PR: ${response.status} ${errorBody.slice(0, 300)}`)
   }
 
-  const pr = await response.json() as { number: number; html_url: string }
+  const pr: { number: number; html_url: string } = await response.json()
   logger.info('Structured PR created', { owner, repo, prNumber: pr.number })
   return pr
 }
@@ -181,7 +181,7 @@ export async function detectStalePRs(
     return []
   }
 
-  const prs = await response.json() as Array<{
+  type OpenPRItem = {
     number: number
     html_url: string
     title: string
@@ -189,7 +189,8 @@ export async function detectStalePRs(
     updated_at: string
     user: { login: string }
     requested_reviewers: Array<{ login: string }>
-  }>
+  }
+  const prs: OpenPRItem[] = await response.json()
 
   const stalePRs: StalePRDetection[] = prs
     .filter((pr) => new Date(pr.updated_at) < cutoffDate)
