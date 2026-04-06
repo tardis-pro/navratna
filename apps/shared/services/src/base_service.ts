@@ -1,7 +1,16 @@
 import { createAppServer, type AppServer } from './http_app';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { metricsEndpoint, metricsMiddleware } from '@uaip/middleware';
+import {
+  metricsEndpoint,
+  metricsMiddleware,
+  initTracing,
+  shutdownTracing,
+  initSentry,
+  sentryErrorPlugin,
+  flushSentry,
+  captureException,
+} from '@uaip/middleware';
 // Express middlewares are not compatible with Elysia; implement minimal handlers inline
 import { DatabaseService } from '@uaip/infra/database';
 import { drizzleService } from './drizzle_service';
@@ -70,8 +79,27 @@ export abstract class BaseService {
 
   protected registerEntities(_entities: unknown[]): void {}
 
+  /**
+   * Initialize OpenTelemetry tracing and Sentry error tracking.
+   * Called at the very start of service lifecycle for maximum coverage.
+   */
+  private initializeObservability(): void {
+    initTracing({
+      serviceName: this.config.name,
+      serviceVersion: this.config.version,
+    });
+
+    initSentry({
+      serviceName: this.config.name,
+      release: this.config.version,
+    });
+
+    logger.info(`${this.config.name}: Observability initialized (OTel + Sentry)`);
+  }
+
   protected setupBaseMiddleware(): void {
     this.app = metricsMiddleware(this.app);
+    this.app = sentryErrorPlugin(this.config.name)(this.app);
 
     this.app.onRequest(({ request, set }) => {
       const id = request.headers.get('x-request-id') || `${Date.now()}-${Math.random()}`;
@@ -86,10 +114,17 @@ export abstract class BaseService {
       });
     });
 
-    this.app.onError(({ code, error }) => {
+    this.app.onError(({ code, error, request }) => {
+      const url = new URL(request.url);
       logger.error(`${this.config.name}: onError`, {
         code,
         error: error instanceof Error ? error.message : String(error),
+      });
+      captureException(error, {
+        requestId: request.headers.get('x-request-id') || undefined,
+        userId: request.headers.get('x-user-id') || undefined,
+        endpoint: url.pathname,
+        tags: { service: this.config.name },
       });
       return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
@@ -300,7 +335,14 @@ export abstract class BaseService {
         }
       }
 
-      // Model selection facade cleanup no longer needed (fallback service removed)
+      // Flush Sentry events and shutdown OTel
+      try {
+        await flushSentry(2000);
+        await shutdownTracing();
+        logger.info(`${this.config.name}: Observability shutdown completed`);
+      } catch (error) {
+        logger.error(`${this.config.name}: Observability shutdown error:`, error);
+      }
 
       // Force exit after timeout
       setTimeout(() => {
@@ -406,6 +448,9 @@ export abstract class BaseService {
 
   public async start(): Promise<void> {
     try {
+      // Initialize observability (must be first for full instrumentation coverage)
+      this.initializeObservability();
+
       // Initialize base components
       await this.initializeDatabase();
       await this.initializeEventBus();

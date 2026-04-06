@@ -18,7 +18,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "bun --hot src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "start": "node dist/index.js",
     "clean": "rimraf dist",
     "lint": "oxlint src",

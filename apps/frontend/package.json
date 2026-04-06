@@ -71,6 +71,7 @@
     "react": "catalog:frontend",
     "react-day-picker": "catalog:frontend",
     "react-dom": "catalog:frontend",
+    "@sentry/react": "catalog:frontend",
     "react-error-boundary": "^6.1.0",
     "react-hook-form": "catalog:frontend",
     "react-resizable-panels": "catalog:frontend",

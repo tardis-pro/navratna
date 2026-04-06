@@ -127,6 +127,192 @@ services:
     profiles:
       - monitoring
 
+  # ==========================================================================
+  # SignOZ — Self-hosted APM (traces, metrics, logs via OpenTelemetry)
+  # ==========================================================================
+  signoz-clickhouse:
+    image: clickhouse/clickhouse-server:24.1-alpine
+    container_name: uaip-signoz-clickhouse
+    volumes:
+      - signoz_clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD-SHELL', 'clickhouse-client --query "SELECT 1"']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - monitoring
+
+  signoz-otel-collector:
+    image: signoz/signoz-otel-collector:0.102.12
+    container_name: uaip-otel-collector
+    command: ['--config=/etc/otel-collector-config.yaml']
+    volumes:
+      - ../monitoring/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - '4317:4317'   # OTLP gRPC
+      - '4318:4318'   # OTLP HTTP
+    environment:
+      - SIGNOZ_CLICKHOUSE_HOST=signoz-clickhouse
+      - SIGNOZ_CLICKHOUSE_PORT=9000
+    networks:
+      - uaip-network
+    depends_on:
+      signoz-clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:13133/ || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - monitoring
+
+  signoz-query-service:
+    image: signoz/query-service:0.52.0
+    container_name: uaip-signoz-query
+    environment:
+      - ClickHouseUrl=tcp://signoz-clickhouse:9000
+      - STORAGE=clickhouse
+      - GODEBUG=netdns=go
+    networks:
+      - uaip-network
+    depends_on:
+      signoz-clickhouse:
+        condition: service_healthy
+      signoz-otel-collector:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8085/api/v1/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - monitoring
+
+  signoz-frontend:
+    image: signoz/frontend:0.52.0
+    container_name: uaip-signoz-frontend
+    ports:
+      - '3301:3301'
+    environment:
+      - FRONTEND_API_ENDPOINT=http://signoz-query-service:8085
+    networks:
+      - uaip-network
+    depends_on:
+      - signoz-query-service
+    profiles:
+      - monitoring
+
+  # ==========================================================================
+  # Sentry — Self-hosted error tracking & performance monitoring
+  # ==========================================================================
+  sentry-postgres:
+    image: postgres:16-alpine
+    container_name: uaip-sentry-postgres
+    environment:
+      POSTGRES_USER: sentry
+      POSTGRES_PASSWORD: sentry_password
+      POSTGRES_DB: sentry
+    volumes:
+      - sentry_postgres_data:/var/lib/postgresql/data
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sentry']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - monitoring
+
+  sentry-redis:
+    image: redis:8-alpine
+    container_name: uaip-sentry-redis
+    volumes:
+      - sentry_redis_data:/data
+    networks:
+      - uaip-network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - monitoring
+
+  sentry-web:
+    image: getsentry/sentry:24.6.0
+    container_name: uaip-sentry-web
+    ports:
+      - '9000:9000'
+    environment:
+      SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
+      SENTRY_POSTGRES_HOST: sentry-postgres
+      SENTRY_POSTGRES_PORT: 5432
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry_password
+      SENTRY_DB_NAME: sentry
+      SENTRY_REDIS_HOST: sentry-redis
+      SENTRY_REDIS_PORT: 6379
+    networks:
+      - uaip-network
+    depends_on:
+      sentry-postgres:
+        condition: service_healthy
+      sentry-redis:
+        condition: service_healthy
+    profiles:
+      - monitoring
+
+  sentry-worker:
+    image: getsentry/sentry:24.6.0
+    container_name: uaip-sentry-worker
+    command: run worker
+    environment:
+      SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
+      SENTRY_POSTGRES_HOST: sentry-postgres
+      SENTRY_POSTGRES_PORT: 5432
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry_password
+      SENTRY_DB_NAME: sentry
+      SENTRY_REDIS_HOST: sentry-redis
+      SENTRY_REDIS_PORT: 6379
+    networks:
+      - uaip-network
+    depends_on:
+      - sentry-web
+    profiles:
+      - monitoring
+
+  sentry-cron:
+    image: getsentry/sentry:24.6.0
+    container_name: uaip-sentry-cron
+    command: run cron
+    environment:
+      SENTRY_SECRET_KEY: '${SENTRY_SECRET_KEY:-uaip-sentry-dev-secret-key-change-in-prod}'
+      SENTRY_POSTGRES_HOST: sentry-postgres
+      SENTRY_POSTGRES_PORT: 5432
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry_password
+      SENTRY_DB_NAME: sentry
+      SENTRY_REDIS_HOST: sentry-redis
+      SENTRY_REDIS_PORT: 6379
+    networks:
+      - uaip-network
+    depends_on:
+      - sentry-web
+    profiles:
+      - monitoring
+
 volumes:
   postgres_data:
   neo4j_data:
@@ -138,6 +324,9 @@ volumes:
   rabbitmq_data:
   prometheus_data:
   grafana_data:
+  signoz_clickhouse_data:
+  sentry_postgres_data:
+  sentry_redis_data:
 
 networks:
   uaip-network:

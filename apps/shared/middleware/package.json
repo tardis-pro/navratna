@@ -25,6 +25,17 @@
     "elysia": "catalog:backend",
     "jsonwebtoken": "catalog:backend",
     "prom-client": "catalog:backend",
+    "@sentry/bun": "catalog:backend",
+    "@opentelemetry/sdk-node": "catalog:backend",
+    "@opentelemetry/api": "catalog:backend",
+    "@opentelemetry/sdk-trace-base": "catalog:backend",
+    "@opentelemetry/sdk-metrics": "catalog:backend",
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:backend",
+    "@opentelemetry/exporter-metrics-otlp-http": "catalog:backend",
+    "@opentelemetry/resources": "catalog:backend",
+    "@opentelemetry/semantic-conventions": "catalog:backend",
+    "@opentelemetry/instrumentation-http": "catalog:backend",
+    "@opentelemetry/instrumentation": "catalog:backend",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -71,6 +82,18 @@
       "import": "./dist/rateLimiter.js",
       "require": "./dist/rateLimiter.js",
       "types": "./dist/rateLimiter.d.ts"
+    },
+    "./tracing": {
+      "@uaip/source": "./src/tracing.ts",
+      "import": "./dist/tracing.js",
+      "require": "./dist/tracing.js",
+      "types": "./dist/tracing.d.ts"
+    },
+    "./sentry": {
+      "@uaip/source": "./src/sentry.ts",
+      "import": "./dist/sentry.js",
+      "require": "./dist/sentry.js",
+      "types": "./dist/sentry.d.ts"
     },
     "./requestLogger": {
       "@uaip/source": "./src/requestLogger.ts",

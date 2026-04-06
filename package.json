@@ -50,6 +50,11 @@
     "tsx": "catalog:backend",
     "typescript": "catalog:"
   },
+  "pnpm": {
+    "overrides": {
+      "minimatch@9>brace-expansion": "^2.0.1"
+    }
+  },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=10.0.0"

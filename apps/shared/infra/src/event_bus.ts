@@ -530,10 +530,18 @@ export class EventBusService {
       this.isConnected = true;
       return;
     }
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`EventBus Redis connect timeout after 10s (host: ${this.redis.options?.host}:${this.redis.options?.port})`));
+      }, 10000);
       this.redis.once('ready', () => {
+        clearTimeout(timeout);
         this.isConnected = true;
         resolve();
+      });
+      this.redis.once('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
       });
     });
   }

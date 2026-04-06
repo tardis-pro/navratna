@@ -131,5 +131,31 @@ export {
 } from './response_formatter.js';
 export type { ApiResponse } from './response_formatter.js';
 
+// OpenTelemetry tracing exports
+export {
+  initTracing,
+  shutdownTracing,
+  withSpan,
+  traceDbQuery,
+  traceEventBus,
+  traceLLMCall,
+  traceExternalCall,
+  trace,
+  context,
+  SpanStatusCode,
+} from './tracing.js';
+export type { TracingConfig, Span } from './tracing.js';
+
+// Sentry error tracking exports
+export {
+  initSentry,
+  captureException,
+  captureMessage,
+  setSentryUser,
+  sentryErrorPlugin,
+  flushSentry,
+} from './sentry.js';
+export type { SentryConfig } from './sentry.js';
+
 // Elysia TypeBox schema helpers — re-exported so services don't need a direct elysia dep
 export { t } from 'elysia';

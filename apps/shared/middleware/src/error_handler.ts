@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { logger, logError, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
+import { captureException } from './sentry.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -96,6 +97,15 @@ export function errorHandler(app: Elysia): Elysia {
       userAgent: request.headers.get('user-agent') || 'unknown',
       requestId: request.headers.get('x-request-id'),
     });
+
+    // Report to Sentry (5xx only to reduce noise)
+    if (statusCode >= 500) {
+      captureException(err, {
+        requestId: request.headers.get('x-request-id') || undefined,
+        endpoint: url.pathname,
+        tags: { errorCode, method: request.method },
+      });
+    }
 
     set.status = statusCode;
 

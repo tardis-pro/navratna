@@ -3,6 +3,7 @@ import { register, Counter, Histogram, Gauge } from 'prom-client';
 import { config } from '@uaip/config';
 import * as crypto from 'crypto';
 import type { ErrorContext } from '@uaip/types';
+import { captureException as sentryCaptureException } from './sentry.js';
 
 // Helper to get-or-create metrics — prevents duplicate registration on hot-reload / multiple imports
 function getOrCreateCounter(opts: ConstructorParameters<typeof Counter>[0]): Counter {
@@ -313,6 +314,11 @@ export function recordUnhandledError(
     severity: 'critical',
     endpoint: 'unhandled',
     metadata: { source },
+  });
+
+  // Forward to Sentry for unhandled errors
+  sentryCaptureException(error, {
+    tags: { service: serviceName, source },
   });
 }
 
