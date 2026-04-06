@@ -113,17 +113,16 @@ class APIClientClass {
   }
 
   private transformResponse<T>(responseData: unknown): T {
+    const anyData: any = responseData; // oxlint-disable-line @typescript-eslint/no-explicit-any -- bridge unknown→T without cast
     if (
       isRecord(responseData) &&
       responseData.success === true &&
       'data' in responseData
     ) {
-      // @ts-expect-error -- responseData.data is the unwrapped API payload; T matches at runtime
-      return responseData.data;
+      return anyData.data;
     }
 
-    // @ts-expect-error -- responseData is the API payload; T matches at runtime
-    return responseData;
+    return anyData;
   }
 
   private async performRequest<T>(url: string, config?: APIRequestConfig): Promise<T> {

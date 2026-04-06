@@ -49,7 +49,6 @@ function parseWorkspaceId(projectId: string, locationSearch: string): string {
 
   try {
     const raw = localStorage.getItem(`workspace.setup.${projectId}`);
-    // @ts-expect-error -- JSON.parse returns any; {workspaceId?: string} is the expected runtime shape
     const parsed: { workspaceId?: string } | null = raw ? JSON.parse(raw) : null;
     if (parsed?.workspaceId) return parsed.workspaceId;
   } catch {
@@ -124,7 +123,6 @@ export default function CodingSessionPage() {
 
     es.onmessage = (ev) => {
       try {
-        // @ts-expect-error -- JSON.parse returns any; runtime shape is a server-sent event payload
         const payload: Record<string, unknown> = JSON.parse(ev.data);
 
         const type = String(payload['type'] || payload['event'] || '').toLowerCase();

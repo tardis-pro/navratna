@@ -440,8 +440,8 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                   <select
                     value={formData.type}
                     onChange={(e) => {
-                      // @ts-expect-error -- select value is always a valid ToolFormData['type']; constrained by option elements
-                      const toolType: ToolFormData['type'] = e.target.value;
+                      const toolTypeAny: any = e.target.value; // oxlint-disable-line @typescript-eslint/no-explicit-any -- select value is always a valid ToolFormData['type']; constrained by option elements
+                      const toolType: ToolFormData['type'] = toolTypeAny;
                       setFormData((prev) => ({ ...prev, type: toolType }));
                     }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -526,8 +526,8 @@ export const ToolManagementPortal: React.FC<ToolManagementPortalProps> = ({
                     <select
                       value={formData.securityLevel}
                       onChange={(e) => {
-                        // @ts-expect-error -- select value is always a valid ToolFormData['securityLevel']; constrained by option elements
-                        const secLevel: ToolFormData['securityLevel'] = e.target.value;
+                        const secLevelAny: any = e.target.value; // oxlint-disable-line @typescript-eslint/no-explicit-any -- select value is always a valid ToolFormData['securityLevel']; constrained by option elements
+                        const secLevel: ToolFormData['securityLevel'] = secLevelAny;
                         setFormData((prev) => ({ ...prev, securityLevel: secLevel }));
                       }}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"

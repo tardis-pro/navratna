@@ -2,6 +2,37 @@ import Redis from 'ioredis';
 import { logger } from '@uaip/utils';
 import type { WebSocketConnection, WebSocketSession, RateLimitData } from '@uaip/types';
 
+type RateLimitEntry = { count: number; resetTime: number };
+
+function isWebSocketSessionShape(v: object): v is Omit<WebSocketSession, 'connectedAt' | 'lastActivity'> & { connectedAt: unknown; lastActivity: unknown } {
+  return (
+    'connectionId' in v && typeof v.connectionId === 'string' &&
+    'userId' in v && typeof v.userId === 'string' &&
+    'discussionId' in v && typeof v.discussionId === 'string' &&
+    'authenticated' in v && typeof v.authenticated === 'boolean' &&
+    'messageCount' in v && typeof v.messageCount === 'number' &&
+    'rateLimitReset' in v && typeof v.rateLimitReset === 'number' &&
+    'securityLevel' in v && typeof v.securityLevel === 'number'
+  );
+}
+
+function isRateLimitEntry(v: unknown): v is RateLimitEntry {
+  return (
+    typeof v === 'object' && v !== null &&
+    'count' in v && typeof v.count === 'number' &&
+    'resetTime' in v && typeof v.resetTime === 'number'
+  );
+}
+
+function isRateLimitDataShape(v: object): v is RateLimitData {
+  return (
+    'messages' in v && isRateLimitEntry(v.messages) &&
+    'typing' in v && isRateLimitEntry(v.typing) &&
+    'reactions' in v && isRateLimitEntry(v.reactions) &&
+    'turns' in v && isRateLimitEntry(v.turns)
+  );
+}
+
 export type { WebSocketSession, RateLimitData };
 
 export class RedisSessionManager {
@@ -128,12 +159,12 @@ export class RedisSessionManager {
 
       const parsed: unknown = JSON.parse(sessionData);
       if (typeof parsed !== 'object' || parsed === null) return null;
-      // @ts-expect-error -- JSON shape validated minimally; trusts Redis write path
-      const session: WebSocketSession = parsed;
-
-      // Convert date strings back to Date objects
-      session.connectedAt = new Date(session.connectedAt);
-      session.lastActivity = new Date(session.lastActivity);
+      if (!isWebSocketSessionShape(parsed)) return null;
+      const session: WebSocketSession = {
+        ...parsed,
+        connectedAt: new Date(parsed.connectedAt as string | number | Date),
+        lastActivity: new Date(parsed.lastActivity as string | number | Date),
+      };
 
       return session;
     } catch (error) {
@@ -303,7 +334,7 @@ export class RedisSessionManager {
 
       const parsedLimits: unknown = JSON.parse(rateLimitData);
       if (typeof parsedLimits !== 'object' || parsedLimits === null) return true;
-      // @ts-expect-error -- JSON shape validated minimally; trusts Redis write path
+      if (!isRateLimitDataShape(parsedLimits)) return true;
       const limits: RateLimitData = parsedLimits;
       const now = Date.now();
       const typeLimit = limits[type];

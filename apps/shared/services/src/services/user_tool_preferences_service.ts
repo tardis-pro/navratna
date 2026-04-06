@@ -12,6 +12,14 @@ function getRecord(v: unknown): Record<string, unknown> {
     ? { ...v }
     : {};
 }
+function getNumericRecord(v: unknown): Record<string, number> {
+  const raw = getRecord(v);
+  const result: Record<string, number> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    if (typeof val === 'number') result[key] = val;
+  }
+  return result;
+}
 
 export class UserToolPreferencesService {
   constructor() {}
@@ -40,8 +48,7 @@ export class UserToolPreferencesService {
           autoApprove: false,
           usageCount: 0,
           lastUsedAt: undefined,
-          // @ts-expect-error -- getRecord returns Record<string,unknown>; runtime values are numbers per DB schema
-          rateLimits: getRecord(prefs.rateLimits),
+          rateLimits: getNumericRecord(prefs.rateLimits),
           budgetLimit: typeof prefs.budgetLimit === 'number' ? prefs.budgetLimit : undefined,
           budgetUsed: 0,
         };

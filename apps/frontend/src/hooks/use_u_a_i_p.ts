@@ -479,7 +479,6 @@ export function useWebSocket(url?: string) {
 
       wsRef.current.onmessage = (event) => {
         try {
-          // @ts-expect-error -- JSON.parse returns any; WebSocketEvent is the expected runtime shape
           const data: WebSocketEvent = JSON.parse(event.data);
           setLastEvent(data);
         } catch (err) {

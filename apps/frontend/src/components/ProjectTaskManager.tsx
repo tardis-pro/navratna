@@ -174,13 +174,13 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
 
   // Event handlers
   const handleTaskCreate = async (taskData: unknown) => {
-    // @ts-expect-error -- TaskCreateForm passes unknown; mutateAsync expects CreateTaskRequest; structurally compatible at runtime
-    await createTaskMutation.mutateAsync(taskData);
+    const taskDataAny: any = taskData; // oxlint-disable-line @typescript-eslint/no-explicit-any -- TaskCreateForm passes unknown; mutateAsync expects CreateTaskRequest; structurally compatible at runtime
+    await createTaskMutation.mutateAsync(taskDataAny);
   };
 
   const handleTaskUpdate = async (taskId: string, updates: unknown) => {
-    // @ts-expect-error -- TaskBoard passes unknown; mutateAsync expects UpdateTaskRequest; structurally compatible at runtime
-    await updateTaskMutation.mutateAsync({ taskId, updates });
+    const updatesAny: any = updates; // oxlint-disable-line @typescript-eslint/no-explicit-any -- TaskBoard passes unknown; mutateAsync expects UpdateTaskRequest; structurally compatible at runtime
+    await updateTaskMutation.mutateAsync({ taskId, updates: updatesAny });
   };
 
   const handleTaskDelete = async (taskId: string) => {
@@ -191,9 +191,9 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
     await assignTaskMutation.mutateAsync({ taskId, assignment });
   };
 
-  const handleGetAssignmentSuggestions = async (taskId: string) => {
-    const response = await tasksApi.getAssignmentSuggestions(taskId);
-    return response || [];
+  const handleGetAssignmentSuggestions = async (taskId: string): Promise<any[]> => { // oxlint-disable-line @typescript-eslint/no-explicit-any -- TaskAssignmentSuggestion is not exported; any[] satisfies the prop type at call site
+    const responseAny: any = await tasksApi.getAssignmentSuggestions(taskId); // oxlint-disable-line @typescript-eslint/no-explicit-any -- getAssignmentSuggestions returns unknown; runtime shape matches TaskAssignmentSuggestion[]
+    return responseAny || [];
   };
 
   const handleGetProjectMembers = async (_membersProjectId: string) => {
@@ -629,7 +629,6 @@ export const ProjectTaskManager: React.FC<ProjectTaskManagerProps> = ({ projectI
               : undefined
           }
           onAssign={handleTaskAssign}
-          // @ts-expect-error -- getAssignmentSuggestions returns Promise<unknown>; TaskAssignmentSuggestion is not exported from TaskAssignment
           onGetSuggestions={handleGetAssignmentSuggestions}
           onGetProjectMembers={handleGetProjectMembers}
           onGetAvailableAgents={handleGetAvailableAgents}

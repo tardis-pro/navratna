@@ -17,12 +17,20 @@ import {
   UnifiedModelSelection,
   AgentTaskTypeResolver,
 } from '@uaip/shared-services';
-import { LLMTaskType } from '@uaip/types';
+import { LLMTaskType, AgentRole, AgentSkill } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { recordLLMRequest } from '@uaip/middleware';
 
-// Local type definitions since they're not exported from shared-services
 type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
+
+type AgentMCPToolItem = {
+  toolId: string;
+  toolName: string;
+  serverName: string;
+  enabled: boolean;
+  priority?: number;
+  parameters?: Record<string, unknown>;
+};
 
 interface UserLLMProvider {
   id: string;
@@ -547,42 +555,62 @@ export class UserLLMService {
         });
 
         // Convert the types Agent to a partial database Agent for task type determination
-        // Only include the properties that are actually available and needed
+        const now = new Date();
+        const agentRoleSet = new Set<string>(Object.values(AgentRole));
+        const isAgentRole = (r: string): r is AgentRole => agentRoleSet.has(r);
+        const resolvedRole: AgentRole = isAgentRole(request.agent.role)
+          ? request.agent.role
+          : AgentRole.ASSISTANT;
         const agentForTaskType = {
           id: request.agent.id,
           name: request.agent.name,
-          description: request.agent.description,
-          role: request.agent.role,
+          description: request.agent.description ?? '',
+          role: resolvedRole,
           capabilities: request.agent.capabilities || new Array<string>(),
-          // Set reasonable defaults for missing properties
-          learningHistory: new Array<unknown>(),
-          securityLevel: 'medium' as const,
+          learningHistory: new Array<Record<string, unknown>>(),
+          securityLevel: 'medium',
           complianceTags: new Array<string>(),
-          auditTrail: new Array<unknown>(),
+          auditTrail: new Array<Record<string, unknown>>(),
           performanceMetrics: {},
           configuration: request.agent.configuration || {},
           preferences: {},
           tags: new Array<string>(),
           metadata: request.agent.metadata || {},
-          version: request.agent.version || 1,
+          version: String(request.agent.version ?? 1),
           toolPermissions: {},
           toolPreferences: {},
           toolBudget: {},
           maxConcurrentTools: 3,
-          modelId: request.agent.modelId,
-          apiType: request.agent.apiType,
-          userLLMProviderId: request.agent.userLLMProviderId,
-          temperature: request.agent.temperature,
-          maxTokens: request.agent.maxTokens,
-          systemPrompt: request.agent.systemPrompt,
+          modelId: request.agent.modelId ?? '',
+          apiType: request.agent.apiType ?? '',
+          userLLMProviderId: request.agent.userLLMProviderId ?? '',
+          temperature: request.agent.temperature ?? 0.7,
+          maxTokens: request.agent.maxTokens ?? 2000,
+          systemPrompt: request.agent.systemPrompt ?? '',
+          status: 'active',
+          createdBy: '',
+          createdAt: now,
+          updatedAt: now,
+          personaId: '',
+          legacyPersona: {},
+          intelligenceConfig: {},
+          securityContext: {},
+          isActive: true,
+          lastActiveAt: now,
+          skills: new Array<AgentSkill>(),
+          capabilityScores: {},
+          deploymentEnvironment: 'production',
+          totalOperations: 0,
+          successfulOperations: 0,
+          averageResponseTime: 0,
+          lastPerformanceReview: now,
+          assignedMCPTools: new Array<AgentMCPToolItem>(),
+          mcpToolSettings: {},
         };
 
         // Determine appropriate task type for the agent
         const taskTypeResolver = await this.getTaskTypeResolver();
         const taskType = await taskTypeResolver.determineTaskType(
-          // agentForTaskType is a partial Agent shape; determineTaskType expects the full DB Agent type.
-          // This is a known structural mismatch — the partial object satisfies runtime requirements.
-          // @ts-expect-error -- agentForTaskType is a partial Agent shape; full Agent type required by determineTaskType but partial is runtime-safe
           agentForTaskType,
           {
             userIntent: request.messages?.[0]?.content,
@@ -879,9 +907,7 @@ export class UserLLMService {
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
     const window = this.contextManager.createRollingWindow(
-      // ChatMessage.timestamp is string but Message.timestamp is Date; structurally incompatible
-      // @ts-expect-error -- ChatMessage vs Message timestamp type mismatch; runtime-safe
-      messages,
+      messages.map((m) => ({ ...m })),
       systemPromptTokens,
       tools.length,
       contextDocs

@@ -13,6 +13,10 @@ import {
   PerformanceMetricEvent,
 } from '@uaip/types';
 
+function isDecisionMadeEvent(event: AgentEvent): event is DecisionMadeEvent {
+  return event.eventType === 'decision.made';
+}
+
 export class AgentEventBus extends EventEmitter {
   private eventHistory: AgentEvent[] = [];
   private maxHistorySize: number;
@@ -38,25 +42,24 @@ export class AgentEventBus extends EventEmitter {
       // Console logging based on event type
       switch (event.eventType) {
         case 'state.changed': {
-          const stateEvent = event as StateChangedEvent;
           logger.info(
-            `Agent ${event.agentId}: ${stateEvent.data.from} → ${stateEvent.data.to} (${stateEvent.data.trigger})`
+            `Agent ${event.agentId}: ${event.data.from} → ${event.data.to} (${event.data.trigger})`
           );
           break;
         }
 
         case 'decision.made': {
-          const decisionEvent = event as DecisionMadeEvent;
-          logger.info(
-            `Agent ${event.agentId} decided: ${decisionEvent.data.selectedAction?.type || 'no action'} (confidence: ${decisionEvent.data.confidence}, ${decisionEvent.data.duration}ms)`
-          );
+          if (isDecisionMadeEvent(event)) {
+            logger.info(
+              `Agent ${event.agentId} decided: ${event.data.selectedAction?.type || 'no action'} (confidence: ${event.data.confidence}, ${event.data.duration}ms)`
+            );
+          }
           break;
         }
 
         case 'memory.saved': {
-          const memoryEvent = event as MemorySavedEvent;
           logger.debug(
-            `Agent ${event.agentId} saved ${memoryEvent.data.memoryType} memory: ${memoryEvent.data.entryId} (significance: ${memoryEvent.data.significance})`
+            `Agent ${event.agentId} saved ${event.data.memoryType} memory: ${event.data.entryId} (significance: ${event.data.significance})`
           );
           break;
         }
@@ -64,14 +67,13 @@ export class AgentEventBus extends EventEmitter {
         case 'workflow.step.started':
         case 'workflow.step.completed':
         case 'workflow.step.failed': {
-          const stepEvent = event as WorkflowStepEvent;
-          const status = stepEvent.eventType.includes('completed')
+          const status = event.eventType.includes('completed')
             ? 'completed'
-            : stepEvent.eventType.includes('failed')
+            : event.eventType.includes('failed')
               ? 'failed'
               : 'started';
           logger.info(
-            `Workflow step ${status}: ${stepEvent.data.stepName} (${stepEvent.data.workflowId})`
+            `Workflow step ${status}: ${event.data.stepName} (${event.data.workflowId})`
           );
           break;
         }
@@ -79,22 +81,20 @@ export class AgentEventBus extends EventEmitter {
         case 'tool.execution.started':
         case 'tool.execution.completed':
         case 'tool.execution.failed': {
-          const toolEvent = event as ToolExecutionEvent;
-          const toolStatus = toolEvent.eventType.includes('completed')
+          const toolStatus = event.eventType.includes('completed')
             ? 'completed'
-            : toolEvent.eventType.includes('failed')
+            : event.eventType.includes('failed')
               ? 'failed'
               : 'started';
           logger.debug(
-            `Tool ${toolStatus}: ${toolEvent.data.toolName} ${toolEvent.data.duration ? `(${toolEvent.data.duration}ms)` : ''}`
+            `Tool ${toolStatus}: ${event.data.toolName} ${event.data.duration ? `(${event.data.duration}ms)` : ''}`
           );
           break;
         }
 
         case 'performance.metric': {
-          const perfEvent = event as PerformanceMetricEvent;
           logger.debug(
-            `Performance: ${perfEvent.data.metricName} = ${perfEvent.data.value}${perfEvent.data.unit}`
+            `Performance: ${event.data.metricName} = ${event.data.value}${event.data.unit}`
           );
           break;
         }
@@ -375,18 +375,18 @@ export class AgentEventBus extends EventEmitter {
     const workflowSteps = events.filter((e) => e.eventType.startsWith('workflow.step')).length;
 
     const decisionTimes = events
-      .filter((e) => e.eventType === 'decision.made')
-      .map((e) => (e as DecisionMadeEvent).data.duration);
+      .filter((e): e is DecisionMadeEvent => e.eventType === 'decision.made')
+      .map((e) => e.data.duration);
     const averageDecisionTime =
       decisionTimes.length > 0
         ? decisionTimes.reduce((sum, time) => sum + time, 0) / decisionTimes.length
         : 0;
 
     const toolTimes = events
-      .filter(
-        (e) => e.eventType === 'tool.execution.completed' || e.eventType === 'tool.execution.failed'
+      .filter((e): e is ToolExecutionEvent =>
+        e.eventType === 'tool.execution.completed' || e.eventType === 'tool.execution.failed'
       )
-      .map((e) => (e as ToolExecutionEvent).data.duration || 0);
+      .map((e) => e.data.duration || 0);
     const averageToolExecutionTime =
       toolTimes.length > 0 ? toolTimes.reduce((sum, time) => sum + time, 0) / toolTimes.length : 0;
 

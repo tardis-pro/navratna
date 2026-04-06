@@ -10,6 +10,14 @@ import type {
 } from '@uaip/types';
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -54,17 +62,15 @@ export class MetaReasoningInterceptor {
 
   private setupEventHandlers(): void {
     this.eventBus.subscribe('agent.action.error', async (event) => {
-      // @ts-expect-error -- event.data is unknown; agent.action.error publisher always sets agentId
-      const data: { agentId: string } = event.data;
-      if (data?.agentId) {
+      const data: unknown = event.data;
+      if (isRecord(data) && typeof data.agentId === 'string') {
         this.recordError(data.agentId);
       }
     });
 
     this.eventBus.subscribe('agent.action.success', async (event) => {
-      // @ts-expect-error -- event.data is unknown; agent.action.success publisher always sets agentId
-      const data: { agentId: string } = event.data;
-      if (data?.agentId) {
+      const data: unknown = event.data;
+      if (isRecord(data) && typeof data.agentId === 'string') {
         this.recordSuccess(data.agentId);
       }
     });

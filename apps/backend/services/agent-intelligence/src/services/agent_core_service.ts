@@ -4,7 +4,7 @@
  * Part of the refactored agent-intelligence microservices
  */
 
-import { Agent, AgentStatus, AgentRole, CreateAgentRequest } from '@uaip/types';
+import { Agent, AgentStatus, AgentRole, CreateAgentRequest, AgentSkill } from '@uaip/types';
 import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import {
   validateServiceAccess,
@@ -77,6 +77,46 @@ interface ListQueryEvent {
     status?: AgentStatus;
     createdBy?: string;
   };
+}
+
+type AgentMCPToolInsert = {
+  toolId: string;
+  toolName: string;
+  serverName: string;
+  enabled: boolean;
+  priority?: number;
+  parameters?: Record<string, unknown>;
+};
+
+const agentStatusValues = new Set<string>(Object.values(AgentStatus));
+function toAgentStatus(s: string): AgentStatus {
+  return agentStatusValues.has(s) ? (s as AgentStatus) : AgentStatus.IDLE;
+}
+
+type ApiType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+const validApiTypes = new Set<string>(['ollama', 'llmstudio', 'openai', 'anthropic', 'custom']);
+function toApiType(s: string | null): ApiType | undefined {
+  return s && validApiTypes.has(s) ? (s as ApiType) : undefined;
+}
+
+/** Convert a raw Drizzle agent row to the domain Agent type (fix string→enum fields). */
+function toDomainAgent<T extends { status: string; version: string | number; apiType: string | null }>(
+  row: T
+): Omit<T, 'status' | 'version' | 'apiType'> & { status: AgentStatus; version: number; apiType: ApiType | undefined } {
+  return { ...row, status: toAgentStatus(row.status), version: Number(row.version), apiType: toApiType(row.apiType) };
+}
+
+function toAgentMCPToolInsert(
+  tools: Partial<AgentMCPToolInsert>[] | undefined
+): AgentMCPToolInsert[] {
+  if (!tools) return [];
+  return tools.filter(
+    (t): t is AgentMCPToolInsert =>
+      typeof t.toolId === 'string' &&
+      typeof t.toolName === 'string' &&
+      typeof t.serverName === 'string' &&
+      typeof t.enabled === 'boolean'
+  );
 }
 
 export class AgentCoreService {
@@ -222,12 +262,35 @@ export class AgentCoreService {
         lastActiveAt: undefined,
       };
 
-      // Save to database
       const db = getIntelligenceDb();
       const [savedAgent] = await db
         .insert(agents)
-        // @ts-expect-error — Agent domain type differs from Drizzle $inferInsert shape (version: number vs string)
-        .values(agent)
+        .values({
+          id: agent.id,
+          name: agent.name,
+          description: agent.description,
+          role: agent.role,
+          capabilities: agent.capabilities,
+          configuration: agent.configuration,
+          status: agent.status,
+          personaId: agent.personaId!,
+          intelligenceConfig: agent.intelligenceConfig,
+          securityContext: agent.securityContext,
+          isActive: agent.isActive,
+          createdBy: agent.createdBy!,
+          createdAt: agent.createdAt,
+          updatedAt: agent.updatedAt,
+          version: String(agent.version),
+          modelId: agent.modelId,
+          apiType: agent.apiType,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+          systemPrompt: agent.systemPrompt,
+          metadata: agent.metadata,
+          lastActiveAt: agent.lastActiveAt,
+          skills: (agent.skills ?? []) as AgentSkill[],
+          assignedMCPTools: [],
+        })
         .returning();
 
       // Publish agent created event
@@ -244,8 +307,7 @@ export class AgentCoreService {
         createdBy,
       });
 
-      // @ts-expect-error — Drizzle select result differs from Agent domain type (version: string vs number)
-      return savedAgent;
+      return toDomainAgent(savedAgent);
     } catch (error) {
       logger.error('Failed to create agent', { error, agentData });
       throw error;
@@ -261,8 +323,10 @@ export class AgentCoreService {
 
       const db = getIntelligenceDb();
       const result = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
-      // @ts-expect-error — Drizzle select result differs from Agent domain type (version: string vs number)
-      const agent: Agent | null = result[0] ?? null;
+      const raw = result[0];
+      const agent: Agent | null = raw
+        ? toDomainAgent(raw)
+        : null;
 
       if (agent) {
         // Publish agent accessed event for analytics
@@ -337,8 +401,7 @@ export class AgentCoreService {
         timestamp: new Date().toISOString(),
       });
 
-      // @ts-expect-error — Drizzle select result differs from Agent domain type (version: string vs number)
-      return agentsResult;
+      return agentsResult.map((r) => toDomainAgent(r));
     } catch (error) {
       logger.error('Failed to list agents', { error, filters });
       throw error;
@@ -370,10 +433,16 @@ export class AgentCoreService {
 
       // Update in database
       const dbUpdate = getIntelligenceDb();
+      const { assignedMCPTools: rawMCPTools, ...restUpdatePayload } = updatePayload;
       await dbUpdate
         .update(agents)
-        // @ts-expect-error — Agent domain type differs from Drizzle $inferInsert shape (version: number vs string)
-        .set(updatePayload)
+        .set({
+          ...restUpdatePayload,
+          version: String(updatePayload.version),
+          ...(rawMCPTools !== undefined
+            ? { assignedMCPTools: toAgentMCPToolInsert(rawMCPTools) }
+            : {}),
+        })
         .where(eq(agents.id, agentId));
 
       // Get updated agent

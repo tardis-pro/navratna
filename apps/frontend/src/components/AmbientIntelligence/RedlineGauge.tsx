@@ -188,14 +188,12 @@ export function RedlineGauge({ className, position = 'right' }: RedlineGaugeProp
   useEffect(() => {
     const handleOpen = (e: Event) => {
       if (!(e instanceof CustomEvent)) return;
-      // @ts-expect-error -- CustomEvent.detail is typed as any; PortalOpenDetail is the expected runtime shape
       const detail: PortalOpenDetail = e.detail;
       syncPortalToBudget(detail);
     };
 
     const handleClose = (e: Event) => {
       if (!(e instanceof CustomEvent)) return;
-      // @ts-expect-error -- CustomEvent.detail is typed as any; PortalCloseDetail is the expected runtime shape
       const detail: PortalCloseDetail = e.detail;
       removePortal(detail.id);
     };
@@ -275,7 +273,6 @@ export function useRedlineGauge(maxBudget: number = 4): UseRedlineGaugeReturn {
   useEffect(() => {
     const handleOpen = (e: Event) => {
       if (!(e instanceof CustomEvent)) return;
-      // @ts-expect-error -- CustomEvent.detail is typed as any; PortalOpenDetail is the expected runtime shape
       const detail: PortalOpenDetail = e.detail;
       setPortals((prev) => {
         return appendUniquePortal(prev, detail, maxBudget);
@@ -284,7 +281,6 @@ export function useRedlineGauge(maxBudget: number = 4): UseRedlineGaugeReturn {
 
     const handleClose = (e: Event) => {
       if (!(e instanceof CustomEvent)) return;
-      // @ts-expect-error -- CustomEvent.detail is typed as any; PortalCloseDetail is the expected runtime shape
       const detail: PortalCloseDetail = e.detail;
       setPortals((prev) => prev.filter((p) => p.id !== detail.id));
     };

@@ -800,8 +800,7 @@ export class LLMService {
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
     const window = this.contextManager.createRollingWindow(
-      // ChatMessage.timestamp is string but Message.timestamp is Date; structurally incompatible
-      // @ts-expect-error -- ChatMessage vs Message timestamp type mismatch; runtime-safe
+      // @ts-expect-error -- ChatMessage.timestamp is string but Message.timestamp is Date; schema alignment needed
       messages,
       systemPromptTokens,
       tools.length,
@@ -1042,10 +1041,7 @@ export class LLMService {
       context: {
         messageCount: request.conversationHistory.length,
         participants: Array.from(new Set(request.conversationHistory.map((m) => m.sender))),
-        topics: this.extractTopics(
-          // @ts-expect-error -- ChatMessage vs Message timestamp type mismatch; runtime-safe
-          request.conversationHistory
-        ),
+        topics: this.extractTopics(request.conversationHistory),
         sentiment: 'neutral',
         complexity: request.conversationHistory.length > 10 ? 'high' : 'low',
       },
@@ -1077,7 +1073,7 @@ export class LLMService {
     return 'general_inquiry';
   }
 
-  private extractTopics(messages: Message[]): string[] {
+  private extractTopics(messages: Array<{ content: string }>): string[] {
     // Simple topic extraction - can be enhanced with NLP
     const topics = new Set<string>();
     const commonWords = new Set([

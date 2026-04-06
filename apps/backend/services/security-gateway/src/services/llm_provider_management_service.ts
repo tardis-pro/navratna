@@ -158,8 +158,7 @@ export class LLMProviderManagementService {
 
       // Update API key if provided
       if (request.apiKey !== undefined) {
-        // @ts-expect-error -- Not callable
-        provider.setApiKey(request.apiKey);
+        provider.apiKeyEncrypted = request.apiKey;
       }
 
       provider.updatedBy = updatedBy;

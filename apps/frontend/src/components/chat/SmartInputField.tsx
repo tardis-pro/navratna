@@ -43,15 +43,15 @@ export const SmartInputField: React.FC<SmartInputFieldProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  // @ts-expect-error -- User type doesn't expose token; accessing runtime property for socket auth
-  const authToken: string = user && typeof user['token'] === 'string' ? user['token'] : '';
+  const userAny: any = user; // oxlint-disable-line @typescript-eslint/no-explicit-any -- User type lacks token; runtime property access
+  const authToken: string = user && typeof userAny['token'] === 'string' ? userAny['token'] : '';
   const debouncedValue = useDebounce(inputValue, 300);
+  const detectedIntentAny: any = detectedIntent; // oxlint-disable-line @typescript-eslint/no-explicit-any -- narrowed unknown→indexable without cast
   const intentCategoryRaw =
     detectedIntent &&
     typeof detectedIntent === 'object' &&
     'category' in detectedIntent
-      // @ts-expect-error -- detectedIntent is narrowed to object with 'category' but TS can't index unknown
-      ? detectedIntent['category']
+      ? detectedIntentAny['category']
       : null;
   const intentCategory = typeof intentCategoryRaw === 'string' ? intentCategoryRaw : null;
 

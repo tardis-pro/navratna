@@ -86,35 +86,34 @@ export class UnifiedModelSelectionFacade {
   private metrics: SelectionMetrics;
 
   constructor(
-    agentRepository?: AgentRepository,
-    userLLMPreferenceRepository?: UserLLMPreferenceRepository,
-    agentLLMPreferenceRepository?: AgentLLMPreferenceRepository,
+    agentRepository?: OrchestratorAgentRepository,
+    userLLMPreferenceRepository?: OrchestratorUserPreferenceRepository,
+    agentLLMPreferenceRepository?: OrchestratorAgentPreferenceRepository,
     llmProviderRepository?: LLMProviderRepository
   ) {
-    // @ts-expect-error -- agentRepository is AgentRepository; OrchestratorAgentRepository adds findOne which is provided by Object.assign fallback
-    const resolvedAgentRepository: OrchestratorAgentRepository =
-      agentRepository ??
-      Object.assign(new AgentRepository(), {
-        findOne: async ({ where }: { where: { id: string } }): Promise<{ createdBy?: string } | null> => {
-          const agent = await new AgentRepository().findById(where.id);
-          return agent ? { createdBy: agent.createdBy } : null;
-        },
-      });
+    const baseAgentRepo = new AgentRepository();
+    const agentRepoWithFindOne = Object.assign(baseAgentRepo, {
+      findOne: async ({ where }: { where: { id: string } }): Promise<{ createdBy?: string } | null> => {
+        const agent = await new AgentRepository().findById(where.id);
+        return agent ? { createdBy: agent.createdBy } : null;
+      },
+    });
+    const resolvedAgentRepository: OrchestratorAgentRepository = agentRepository ?? agentRepoWithFindOne;
 
-    // @ts-expect-error -- userLLMPreferenceRepository is UserLLMPreferenceRepository; OrchestratorUserPreferenceRepository adds findOne provided by Object.assign fallback
+    const baseUserPrefRepo = new UserLLMPreferenceRepository();
+    const userPrefRepoWithFindOne = Object.assign(baseUserPrefRepo, {
+      findOne: async (): Promise<null> => null,
+    });
     const resolvedUserPrefRepository: OrchestratorUserPreferenceRepository =
-      userLLMPreferenceRepository ??
-      Object.assign(new UserLLMPreferenceRepository(), {
-        findOne: async (): Promise<null> => null,
-      });
+      userLLMPreferenceRepository ?? userPrefRepoWithFindOne;
 
-    // @ts-expect-error -- agentLLMPreferenceRepository is AgentLLMPreferenceRepository; OrchestratorAgentPreferenceRepository adds findOne/find provided by Object.assign fallback
+    const baseAgentPrefRepo = new AgentLLMPreferenceRepository();
+    const agentPrefRepoWithFindOne = Object.assign(baseAgentPrefRepo, {
+      findOne: async (): Promise<null> => null,
+      find: async (): Promise<[]> => [],
+    });
     const resolvedAgentPrefRepository: OrchestratorAgentPreferenceRepository =
-      agentLLMPreferenceRepository ??
-      Object.assign(new AgentLLMPreferenceRepository(), {
-        findOne: async (): Promise<null> => null,
-        find: async (): Promise<[]> => [],
-      });
+      agentLLMPreferenceRepository ?? agentPrefRepoWithFindOne;
 
     const resolvedProviderRepository = llmProviderRepository ?? new LLMProviderRepository();
 

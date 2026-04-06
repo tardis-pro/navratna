@@ -10,6 +10,42 @@ import {
 } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service';
 
+type QdrantPayload = QdrantPoint['payload'];
+
+const KNOWLEDGE_TYPE_VALUES: readonly string[] = Object.values(KnowledgeType);
+
+function isKnowledgeType(v: string): v is KnowledgeType {
+  return KNOWLEDGE_TYPE_VALUES.includes(v);
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isQdrantPayload(p: Record<string, unknown>): p is QdrantPayload {
+  return (
+    typeof p.content === 'string' &&
+    typeof p.knowledgeType === 'string' &&
+    Array.isArray(p.tags) &&
+    typeof p.confidence === 'number' &&
+    typeof p.sourceType === 'string'
+  );
+}
+
+function toQdrantPayload(p: Record<string, unknown>): QdrantPayload {
+  if (isQdrantPayload(p)) return p;
+  const kt = typeof p.knowledgeType === 'string' && isKnowledgeType(p.knowledgeType)
+    ? p.knowledgeType
+    : KnowledgeType.FACTUAL;
+  return {
+    content: typeof p.content === 'string' ? p.content : '',
+    knowledgeType: kt,
+    tags: Array.isArray(p.tags) ? p.tags.filter((t): t is string => typeof t === 'string') : [],
+    confidence: typeof p.confidence === 'number' ? p.confidence : 0,
+    sourceType: typeof p.sourceType === 'string' ? p.sourceType : '',
+    originalMetadata: isRecord(p.originalMetadata) ? p.originalMetadata : {},
+  };
+}
 
 export class KnowledgeClusteringService {
   private readonly minClusterSize = parseInt(process.env.KNOWLEDGE_CLUSTER_MIN_SIZE ?? '3', 10);
@@ -96,8 +132,18 @@ export class KnowledgeClusteringService {
       });
 
       return searchResults.map((result) => {
-        // @ts-expect-error -- VectorSearchResult.payload is Record<string,unknown>; structurally compatible at runtime
-        const payload: QdrantPoint['payload'] = result.payload;
+        const p = result.payload;
+        const rawMeta = p['originalMetadata'];
+        const payload: QdrantPoint['payload'] = {
+          content: typeof p['content'] === 'string' ? p['content'] : '',
+          knowledgeType: Object.values(KnowledgeType).find((t) => t === p['knowledgeType']) ?? KnowledgeType.FACTUAL,
+          tags: Array.isArray(p['tags']) ? p['tags'].filter((t): t is string => typeof t === 'string') : [],
+          confidence: typeof p['confidence'] === 'number' ? p['confidence'] : 0,
+          sourceType: typeof p['sourceType'] === 'string' ? p['sourceType'] : '',
+          originalMetadata: typeof rawMeta === 'object' && rawMeta !== null
+            ? Object.fromEntries(Object.entries(rawMeta))
+            : {},
+        };
         return { id: result.id.toString(), vector: new Array<number>(), payload };
       });
     } catch (error) {
@@ -138,8 +184,18 @@ export class KnowledgeClusteringService {
     try {
       const rawPoints = await this.qdrantService.scrollAll(10000);
       return rawPoints.map((point) => {
-        // @ts-expect-error -- scrollAll returns Record<string,unknown> payload; structurally compatible at runtime
-        const payload: QdrantPoint['payload'] = point.payload;
+        const p = point.payload;
+        const rawMeta = p['originalMetadata'];
+        const payload: QdrantPoint['payload'] = {
+          content: typeof p['content'] === 'string' ? p['content'] : '',
+          knowledgeType: Object.values(KnowledgeType).find((t) => t === p['knowledgeType']) ?? KnowledgeType.FACTUAL,
+          tags: Array.isArray(p['tags']) ? p['tags'].filter((t): t is string => typeof t === 'string') : [],
+          confidence: typeof p['confidence'] === 'number' ? p['confidence'] : 0,
+          sourceType: typeof p['sourceType'] === 'string' ? p['sourceType'] : '',
+          originalMetadata: typeof rawMeta === 'object' && rawMeta !== null
+            ? Object.fromEntries(Object.entries(rawMeta))
+            : {},
+        };
         return { id: point.id, vector: point.vector, payload };
       });
     } catch (error) {

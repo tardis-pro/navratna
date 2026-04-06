@@ -14,9 +14,20 @@ import { EventBusService } from '../event_bus_service';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 
-// Regex for parsing debate outputs
 const ARGUMENT_REGEX = /\[ARGUMENT\s+stance="(\w+)"\]([\s\S]*?)\[\/ARGUMENT\]/;
 const VOTE_REGEX = /\[VOTE\s+stance="(\w+)"\]([\s\S]*?)\[\/VOTE\]/;
+
+type DebateEventData = { debateId: string; agentId: string; content: string };
+
+function isDebateEventData(v: unknown): v is DebateEventData {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'debateId' in v && typeof v.debateId === 'string' &&
+    'agentId' in v && typeof v.agentId === 'string' &&
+    'content' in v && typeof v.content === 'string'
+  );
+}
 
 export class DebateOrchestratorService {
   private static instance: DebateOrchestratorService;
@@ -38,17 +49,18 @@ export class DebateOrchestratorService {
   }
 
   private setupEventHandlers(): void {
-    // Listen for debate-related events
     this.eventBus.subscribe('debate.argument.submitted', async (event) => {
-      // @ts-expect-error -- event.data is unknown; debate.argument.submitted publisher always sets debateId/agentId/content
-      const data: { debateId: string; agentId: string; content: string } = event.data;
-      await this.handleArgumentSubmission(data);
+      const raw: unknown = event.data;
+      if (isDebateEventData(raw)) {
+        await this.handleArgumentSubmission(raw);
+      }
     });
 
     this.eventBus.subscribe('debate.vote.submitted', async (event) => {
-      // @ts-expect-error -- event.data is unknown; debate.vote.submitted publisher always sets debateId/agentId/content
-      const data: { debateId: string; agentId: string; content: string } = event.data;
-      await this.handleVoteSubmission(data);
+      const raw: unknown = event.data;
+      if (isDebateEventData(raw)) {
+        await this.handleVoteSubmission(raw);
+      }
     });
   }
 

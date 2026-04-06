@@ -103,28 +103,24 @@ export class BaseBenchScoringService {
       familyBuckets.set(result.taskFamily, scores);
     }
 
-    const families: BaseBenchTaskFamily[] = [
-      'ambiguous_stakeholder_prompt',
-      'confidence_calibration',
-      'ask_vs_guess',
-      'self_correction_trap',
-      'belief_update_after_evidence',
-      'error_prediction_before_answering',
-      'boundary_of_knowledge',
-      'adversarial_bluff_resistance',
-    ];
-
-    return families.reduce<Record<BaseBenchTaskFamily, number>>(
-      (accumulator, family) => {
-        const scores = familyBuckets.get(family) ?? [];
-        accumulator[family] =
-          scores.length > 0
-            ? Number((scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(2))
-            : 0;
-        return accumulator;
-      },
-      {} as Record<BaseBenchTaskFamily, number>
-    );
+    const result: Record<BaseBenchTaskFamily, number> = {
+      ambiguous_stakeholder_prompt: 0,
+      confidence_calibration: 0,
+      ask_vs_guess: 0,
+      self_correction_trap: 0,
+      belief_update_after_evidence: 0,
+      error_prediction_before_answering: 0,
+      boundary_of_knowledge: 0,
+      adversarial_bluff_resistance: 0,
+    };
+    for (const [family, scores] of familyBuckets) {
+      if (scores.length > 0) {
+        result[family] = Number(
+          (scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(2)
+        );
+      }
+    }
+    return result;
   }
 
   private deriveVerdict(metaScore: number): 'pass' | 'needs_review' | 'fail' {

@@ -41,10 +41,12 @@ export interface ConceptExtractionResult {
   };
 }
 
+type ConceptRelationshipType = ConceptRelationship['relationshipType'];
+
 type ConceptPatterns = {
   definitions: RegExp[];
   properties: RegExp[];
-  relationships: Record<string, RegExp[]>;
+  relationships: Record<ConceptRelationshipType, RegExp[]>;
 };
 
 export class ConceptExtractorService {
@@ -67,6 +69,8 @@ export class ConceptExtractorService {
     relationships: {
       IS_A: [/(.+?)\s+(?:is\s+a|are|is\s+an?)\s+(.+)/gi],
       PART_OF: [/(.+?)\s+(?:is\s+part\s+of|belongs\s+to|is\s+in)\s+(.+)/gi],
+      RELATED_TO: [/(.+?)\s+(?:relates?\s+to|is\s+related\s+to|is\s+associated\s+with)\s+(.+)/gi],
+      INSTANCE_OF: [/(.+?)\s+(?:is\s+an?\s+instance\s+of|is\s+a\s+type\s+of)\s+(.+)/gi],
       CAUSES: [/(.+?)\s+(?:causes?|leads?\s+to|results?\s+in)\s+(.+)/gi],
       USED_FOR: [/(.+?)\s+(?:is\s+used\s+for|used\s+to|helps?\s+with)\s+(.+)/gi],
     },
@@ -263,7 +267,7 @@ export class ConceptExtractorService {
     relationships: ConceptRelationship[],
     _sourceItem: KnowledgeItem
   ): Promise<void> {
-    const relTypes = Object.keys(this.conceptPatterns.relationships);
+    const relTypes = Object.keys(this.conceptPatterns.relationships) as ConceptRelationshipType[];
     for (const relType of relTypes) {
       const patterns = this.conceptPatterns.relationships[relType];
       for (const pattern of patterns) {
@@ -281,7 +285,6 @@ export class ConceptExtractorService {
               relationships.push({
                 sourceConceptId: sourceId,
                 targetConceptId: targetId,
-                // @ts-expect-error -- relType is a regex-matched string; runtime value is always a valid ConceptRelationship['relationshipType']
                 relationshipType: relType,
                 confidence: 0.75,
                 evidence: [fullMatch.trim()],

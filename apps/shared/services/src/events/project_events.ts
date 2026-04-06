@@ -1,6 +1,22 @@
 import { EventBusService } from '../event_bus_service';
 import { logger } from '@uaip/utils';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isProjectCreatedEvent(v: unknown): v is ProjectCreatedEvent {
+  return isRecord(v) && typeof v.projectId === 'string' && typeof v.ownerId === 'string';
+}
+
+function isProjectTaskAssignedEvent(v: unknown): v is ProjectTaskAssignedEvent {
+  return isRecord(v) && typeof v.projectId === 'string' && typeof v.taskId === 'string';
+}
+
+function isProjectToolUsedEvent(v: unknown): v is ProjectToolUsedEvent {
+  return isRecord(v) && typeof v.projectId === 'string' && typeof v.toolId === 'string';
+}
+
 export interface ProjectCreatedEvent {
   projectId: string;
   ownerId: string;
@@ -84,22 +100,25 @@ export class ProjectEventSubscriber {
   }): Promise<void> {
     if (handlers.onProjectCreated) {
       await this.eventBus.subscribe('project.created', async (message) => {
-        // @ts-expect-error -- message.data is unknown; project.created publisher always sends ProjectCreatedEvent shape
-        await handlers.onProjectCreated!(message.data);
+        if (isProjectCreatedEvent(message.data)) {
+          await handlers.onProjectCreated!(message.data);
+        }
       });
     }
 
     if (handlers.onTaskAssigned) {
       await this.eventBus.subscribe('project.task.assigned', async (message) => {
-        // @ts-expect-error -- message.data is unknown; project.task.assigned publisher always sends ProjectTaskAssignedEvent shape
-        await handlers.onTaskAssigned!(message.data);
+        if (isProjectTaskAssignedEvent(message.data)) {
+          await handlers.onTaskAssigned!(message.data);
+        }
       });
     }
 
     if (handlers.onToolUsed) {
       await this.eventBus.subscribe('project.tool.used', async (message) => {
-        // @ts-expect-error -- message.data is unknown; project.tool.used publisher always sends ProjectToolUsedEvent shape
-        await handlers.onToolUsed!(message.data);
+        if (isProjectToolUsedEvent(message.data)) {
+          await handlers.onToolUsed!(message.data);
+        }
       });
     }
   }

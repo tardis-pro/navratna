@@ -37,10 +37,16 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-function getRevokeUrl(config: OAuthProviderConfig): string | undefined {
-  // @ts-expect-error -- OAuthProviderConfig doesn't declare revokeUrl; accessing via index for optional extension field
-  const revokeUrl: unknown = config.revokeUrl;
-  return typeof revokeUrl === 'string' ? revokeUrl : undefined;
+function isUserType(v: unknown): v is UserType {
+  return typeof v === 'string' && (Object.values(UserType) as string[]).includes(v);
+}
+
+function isAgentCapabilityArray(v: unknown): v is AgentCapability[] {
+  return Array.isArray(v) && v.every((item) => (Object.values(AgentCapability) as string[]).includes(item));
+}
+
+function getRevokeUrl(config: OAuthProviderConfigWithRevoke): string | undefined {
+  return typeof config.revokeUrl === 'string' ? config.revokeUrl : undefined;
 }
 
 interface OAuthUserInfo {
@@ -338,10 +344,8 @@ export class OAuthProviderService {
           return typeof meta.codeVerifier === 'string' ? meta.codeVerifier : undefined;
         })(),
         scope: [],
-        // @ts-expect-error -- Drizzle OAuthState has no userType; stored in metadata
-        userType: isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata.userType : undefined,
-        // @ts-expect-error -- Drizzle OAuthState has no agentCapabilities; stored in metadata
-        agentCapabilities: isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata.agentCapabilities : undefined,
+        userType: isRecord(oauthStateEntity.metadata) && isUserType(oauthStateEntity.metadata.userType) ? oauthStateEntity.metadata.userType : undefined,
+        agentCapabilities: isRecord(oauthStateEntity.metadata) && isAgentCapabilityArray(oauthStateEntity.metadata.agentCapabilities) ? oauthStateEntity.metadata.agentCapabilities : undefined,
         createdAt: oauthStateEntity.createdAt,
         expiresAt: oauthStateEntity.expiresAt,
       };

@@ -66,12 +66,10 @@ export class AgentGenerationHandler {
       return null;
     }
 
-    // Use AgentRepository.getActiveAgentById() which loads the persona relation
     const { AgentService } = await import('@uaip/shared-services');
     const agentService = AgentService.getInstance();
     const agentRepository = agentService.getAgentRepository();
-    // @ts-expect-error -- getActiveAgentById exists at runtime but not in base AgentRepository type
-    const agent = await agentRepository.getActiveAgentById(agentId);
+    const agent = await agentRepository.findById(agentId);
 
     if (!agent) {
       throw new NotFoundError(`Agent ${agentId} not found`);
@@ -80,7 +78,6 @@ export class AgentGenerationHandler {
     logger.info('Loaded agent with persona for generation', {
       agentId: agent.id,
       agentName: agent.name,
-      hasPersona: !!agent.persona,
       hasLegacyPersona: !!agent.legacyPersona,
       hasSystemPrompt: !!agent.systemPrompt,
     });

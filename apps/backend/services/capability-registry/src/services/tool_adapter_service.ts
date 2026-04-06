@@ -52,12 +52,12 @@ export class ToolAdapterService {
     this.initializeAdapters();
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return this.isRecord(value) ? value : {};
   }
 
   private isGitHubConfig(v: unknown): v is GitHubConfig {
@@ -283,11 +283,7 @@ export class ToolAdapterService {
   }
 
   private toRecord(v: unknown): Record<string, unknown> {
-    if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return v;
-    }
-    return { _raw: v };
+    return this.isRecord(v) ? v : { _raw: v };
   }
 
   private async fetchGetJson(

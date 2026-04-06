@@ -237,7 +237,6 @@ class NavratnaCoreService extends BaseService {
         }
       })
 
-      // @ts-expect-error -- SocketIOServer satisfies MinimalWebSocketServer structurally; index signature absent from socket.io typings
       this.factory.mountWebSocket(this.io)
 
       await this.setupEventSubscriptions()

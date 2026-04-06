@@ -3,9 +3,9 @@ import { personas } from '../../database/drizzle/schemas/intelligence_schema';
 import { BaseSeed } from './base_seed';
 import {
   getAllPersonasFlatWrapper,
+  PersonaStatus,
+  PersonaVisibility,
   type Persona,
-  type PersonaStatus,
-  type PersonaVisibility,
 } from '@uaip/types';
 import type { InferInsertModel } from 'drizzle-orm';
 
@@ -47,8 +47,8 @@ export class PersonaSeed extends BaseSeed {
         traits: persona.traits || [],
         expertise: persona.expertise?.map((e) => e.name) || [],
         conversationalStyle: persona.conversationalStyle,
-        status: (persona.status || 'draft') as PersonaStatus,
-        visibility: (persona.visibility || 'private') as PersonaVisibility,
+        status: persona.status ?? PersonaStatus.DRAFT,
+        visibility: persona.visibility ?? PersonaVisibility.PRIVATE,
         createdBy:
           this.users[index % this.users.length]?.id || '00000000-0000-0000-0000-000000000000',
         organizationId: persona.organizationId || null,

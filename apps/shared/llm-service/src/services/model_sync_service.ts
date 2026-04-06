@@ -21,10 +21,11 @@ export class ModelSyncService {
       throw new Error('Invalid provider configuration');
     }
 
-    // @ts-expect-error -- TS narrows to `object` but not `Record<string,unknown>`; index access is safe after the typeof check above
-    const configRecord: Record<string, unknown> = config;
-    const type = configRecord.type;
-    const baseUrl = configRecord.baseUrl;
+    const entries = Object.entries(config);
+    const get = (key: string): unknown => entries.find(([k]) => k === key)?.[1];
+
+    const type = get('type');
+    const baseUrl = get('baseUrl');
 
     if (typeof type !== 'string' || typeof baseUrl !== 'string') {
       throw new Error('Provider configuration must include type and baseUrl');
@@ -40,16 +41,20 @@ export class ModelSyncService {
           ? type
           : 'custom';
 
+    const apiKey = get('apiKey');
+    const apiKeyEncrypted = get('apiKeyEncrypted');
+    const defaultModel = get('defaultModel');
+    const timeout = get('timeout');
+    const retries = get('retries');
+
     return {
       type: normalizedType,
       baseUrl,
-      apiKey: typeof configRecord.apiKey === 'string' ? configRecord.apiKey : undefined,
-      apiKeyEncrypted:
-        typeof configRecord.apiKeyEncrypted === 'string' ? configRecord.apiKeyEncrypted : undefined,
-      defaultModel:
-        typeof configRecord.defaultModel === 'string' ? configRecord.defaultModel : undefined,
-      timeout: typeof configRecord.timeout === 'number' ? configRecord.timeout : undefined,
-      retries: typeof configRecord.retries === 'number' ? configRecord.retries : undefined,
+      apiKey: typeof apiKey === 'string' ? apiKey : undefined,
+      apiKeyEncrypted: typeof apiKeyEncrypted === 'string' ? apiKeyEncrypted : undefined,
+      defaultModel: typeof defaultModel === 'string' ? defaultModel : undefined,
+      timeout: typeof timeout === 'number' ? timeout : undefined,
+      retries: typeof retries === 'number' ? retries : undefined,
     };
   }
 

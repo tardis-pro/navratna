@@ -7,6 +7,10 @@ import { logger } from '@uaip/utils';
 import { registerBaseBenchRoutes } from './routes/basebench_routes.js';
 import { BaseBenchMetaService } from './services/basebench_meta_service.js';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 class BaseBenchMetaApp extends BaseService {
   private readonly baseBenchService: BaseBenchMetaService;
 
@@ -47,7 +51,10 @@ class BaseBenchMetaApp extends BaseService {
 
       await this.subscribeWithErrorHandling(
         'basebench.evaluate.batch.request',
-        async (data) => this.baseBenchService.evaluateBatch((data as Record<string, unknown>).entries as unknown[] ?? []),
+        async (data) => {
+          const entries = isRecord(data) && Array.isArray(data['entries']) ? data['entries'] : [];
+          return this.baseBenchService.evaluateBatch(entries);
+        },
         {
           responseEvent: 'basebench.evaluate.batch.response',
           errorEvent: 'basebench.evaluate.batch.error',

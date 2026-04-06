@@ -2,10 +2,15 @@ import type { Elysia } from 'elysia'
 import type { DatabaseService } from '@uaip/infra/database'
 import type { EventBusService } from './event_bus_service.js'
 
+/**
+ * Structural subset of socket.io Server. Avoids hard dependency on socket.io
+ * in shared-services while allowing NavratnaCoreService to pass its
+ * SocketIOServer without a cast.
+ */
 export interface MinimalWebSocketServer {
-  on(event: string, listener: (...args: unknown[]) => void): this
-  emit(event: string, ...args: unknown[]): boolean
-  [key: string]: unknown
+  on(event: string, listener: (...args: never[]) => void): unknown
+  emit(event: string, ...args: unknown[]): unknown
+  of(nsp: string | RegExp): unknown
 }
 
 export interface ServiceDeps {

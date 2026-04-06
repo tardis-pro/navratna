@@ -22,8 +22,8 @@ type FormFieldContextValue<
   name: TName;
 };
 
-// @ts-expect-error -- empty string is a sentinel default; real value always set by FormField provider
-const FORM_FIELD_CONTEXT_DEFAULT: FormFieldContextValue = { name: '' };
+const FORM_FIELD_CONTEXT_DEFAULT_RAW: any = { name: '' }; // oxlint-disable-line @typescript-eslint/no-explicit-any -- empty string sentinel; real value always set by FormField provider; FieldPath constraint not satisfiable with empty string
+const FORM_FIELD_CONTEXT_DEFAULT: FormFieldContextValue = FORM_FIELD_CONTEXT_DEFAULT_RAW;
 const FormFieldContext = React.createContext<FormFieldContextValue>(FORM_FIELD_CONTEXT_DEFAULT);
 
 const FormField = <

@@ -141,7 +141,6 @@ export function useAgentMicroexpression(options: UseAgentMicroexpressionOptions 
   useEffect(() => {
     const onActivity = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
-      // @ts-expect-error -- CustomEvent.detail is typed as any; runtime shape matches AgentActivityEventDetail
       const detail: AgentActivityEventDetail = event.detail;
       handleActivity(detail);
     };

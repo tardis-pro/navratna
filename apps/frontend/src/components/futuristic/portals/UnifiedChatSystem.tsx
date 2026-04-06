@@ -62,8 +62,9 @@ interface ChatMessage {
 }
 
 function toToolsExecuted(v: unknown): ChatMessage['toolsExecuted'] {
-  // @ts-expect-error -- Array<unknown> from API; runtime elements match ChatMessage toolsExecuted shape
-  return Array.isArray(v) ? v : undefined;
+  if (!Array.isArray(v)) return undefined;
+  const vAny: any = v; // oxlint-disable-line @typescript-eslint/no-explicit-any -- Array<unknown> from API; runtime elements match ChatMessage toolsExecuted shape
+  return vAny;
 }
 
 interface ChatWindow {
@@ -319,8 +320,8 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       const confidence = typeof wsPayload.confidence === 'number' ? wsPayload.confidence : undefined;
       const memoryEnhanced = typeof wsPayload.memoryEnhanced === 'boolean' ? wsPayload.memoryEnhanced : undefined;
       const knowledgeUsed = typeof wsPayload.knowledgeUsed === 'number' ? wsPayload.knowledgeUsed : undefined;
-      // @ts-expect-error -- wsPayload.toolsExecuted is unknown[]; ChatMessage['toolsExecuted'] is the expected runtime shape
-      const toolsExecuted: ChatMessage['toolsExecuted'] = Array.isArray(wsPayload.toolsExecuted) ? wsPayload.toolsExecuted : undefined;
+      const toolsExecutedAny: any = Array.isArray(wsPayload.toolsExecuted) ? wsPayload.toolsExecuted : undefined; // oxlint-disable-line @typescript-eslint/no-explicit-any -- wsPayload.toolsExecuted is unknown[]; runtime shape matches ChatMessage toolsExecuted
+      const toolsExecuted: ChatMessage['toolsExecuted'] = toolsExecutedAny;
       const messageId = typeof wsPayload.messageId === 'string' ? wsPayload.messageId : undefined;
 
       if (agentId && wsFallbackTimeouts.current[agentId]) {

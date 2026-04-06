@@ -8,6 +8,8 @@ export enum KnowledgeType {
   EXPERIENTIAL = 'EXPERIENTIAL',
   EPISODIC = 'EPISODIC',
   SEMANTIC = 'SEMANTIC',
+  REPO_CONTEXT = 'repo-context',
+  CODE_SYMBOL = 'code-symbol',
 }
 
 // Knowledge Scope for three-layered architecture
@@ -29,6 +31,7 @@ export enum SourceType {
   AGENT_CONCEPT = 'AGENT_CONCEPT',
   CLUSTERED = 'CLUSTERED',
   CHAT_IMPORT = 'CHAT_IMPORT',
+  AST_EXTRACTION = 'ast-extraction',
 }
 
 export enum SyncStatusType {

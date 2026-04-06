@@ -14,26 +14,6 @@ import { logger, InternalServerError, NotFoundError } from '@uaip/utils'
 
 type ApprovalStatus = PendingApproval['status']
 
-// BullMQ queue contract is an EventBusService internal implementation detail.
-interface DelayableQueue {
-  add(
-    name: string,
-    data: Record<string, unknown>,
-    opts: {
-      jobId: string
-      delay: number
-      removeOnComplete: number
-      removeOnFail: number
-      attempts: number
-    }
-  ): Promise<unknown>
-}
-
-// Internal queue accessor is intentionally local to avoid leaking transport internals.
-interface EventBusWithInternalQueue {
-  getOrCreateQueue(eventType: string): DelayableQueue
-}
-
 const RDLO_APPROVAL_PENDING_EVENT = 'rdlo.approval.pending'
 const RDLO_APPROVAL_TIMEOUT_EVENT = 'rdlo.approval.timeout'
 
@@ -354,10 +334,8 @@ export class RDLOApprovalService {
     )
   }
 
-  private getTimeoutQueue(): DelayableQueue {
-    // @ts-expect-error -- getOrCreateQueue is an internal BullMQ extension not in the EventBusService public interface
-    const bus: EventBusWithInternalQueue = this.eventBusService;
-    return bus.getOrCreateQueue(RDLO_APPROVAL_TIMEOUT_EVENT)
+  private getTimeoutQueue() {
+    return this.eventBusService.getOrCreateQueue(RDLO_APPROVAL_TIMEOUT_EVENT)
   }
 
   private async getStoredApprovalById(approvalId: string): Promise<StoredPendingApproval | null> {

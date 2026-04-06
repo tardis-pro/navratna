@@ -18,35 +18,35 @@
  */
 export abstract class BaseDomainService {
   private static instances = new Map<string, BaseDomainService>();
-  private repositories = new Map<string, unknown>();
+  private repositories = new Map<string, BaseDomainService | object>();
 
   protected constructor() {}
 
-  /**
-   * Get or create the singleton instance for a service class.
-   * Uses Function type to accommodate protected constructors in subclasses.
-   */
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   protected static resolve<T extends BaseDomainService>(ctor: Function): T {
     const key = ctor.name;
     if (!BaseDomainService.instances.has(key)) {
-      // @ts-expect-error -- ctor is a constructor function; instantiation is safe at runtime
-      BaseDomainService.instances.set(key, new ctor());
+      const TypedCtor = ctor as new () => T;
+      BaseDomainService.instances.set(key, new TypedCtor());
     }
-    // @ts-expect-error -- Map stores unknown; value was set as T above
-    return BaseDomainService.instances.get(key);
+    const instance = BaseDomainService.instances.get(key);
+    if (instance === undefined) {
+      throw new Error(`Failed to resolve service: ${key}`);
+    }
+    // instance was stored as T (a BaseDomainService subclass); safe to narrow
+    return instance as T;
   }
 
-  /**
-   * Lazy-initialize and cache a repository by key.
-   * Replaces the repetitive null-check getter pattern.
-   */
-  protected getRepository<T>(key: string, factory: () => T): T {
+  protected getRepository<T extends object>(key: string, factory: () => T): T {
     if (!this.repositories.has(key)) {
       this.repositories.set(key, factory());
     }
-    // @ts-expect-error -- Map stores unknown; value was set as T by factory above
-    return this.repositories.get(key);
+    const repo = this.repositories.get(key);
+    if (repo === undefined) {
+      throw new Error(`Repository not found for key: ${key}`);
+    }
+    // repo was stored as T by factory above; safe to narrow
+    return repo as T;
   }
 
   /**

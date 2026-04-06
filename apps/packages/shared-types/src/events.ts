@@ -216,15 +216,14 @@ export interface EventBus {
 // Agent Event Bus Types (moved from backend/shared/services)
 // ============================================================================
 
-export interface AgentEvent {
-  eventType: string;
+export interface AgentEventBase {
   agentId?: string;
   timestamp: Date;
   data: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 }
 
-export interface StateChangedEvent extends AgentEvent {
+export interface StateChangedEvent extends AgentEventBase {
   eventType: 'state.changed';
   agentId: string;
   data: {
@@ -235,7 +234,7 @@ export interface StateChangedEvent extends AgentEvent {
   };
 }
 
-export interface DecisionMadeEvent extends AgentEvent {
+export interface DecisionMadeEvent extends AgentEventBase {
   eventType: 'decision.made';
   agentId: string;
   data: {
@@ -247,7 +246,7 @@ export interface DecisionMadeEvent extends AgentEvent {
   };
 }
 
-export interface MemorySavedEvent extends AgentEvent {
+export interface MemorySavedEvent extends AgentEventBase {
   eventType: 'memory.saved';
   agentId: string;
   data: {
@@ -258,7 +257,7 @@ export interface MemorySavedEvent extends AgentEvent {
   };
 }
 
-export interface WorkflowStepEvent extends AgentEvent {
+export interface WorkflowStepEvent extends AgentEventBase {
   eventType: 'workflow.step.started' | 'workflow.step.completed' | 'workflow.step.failed';
   agentId: string;
   data: {
@@ -272,7 +271,7 @@ export interface WorkflowStepEvent extends AgentEvent {
   };
 }
 
-export interface ToolExecutionEvent extends AgentEvent {
+export interface ToolExecutionEvent extends AgentEventBase {
   eventType: 'tool.execution.started' | 'tool.execution.completed' | 'tool.execution.failed';
   agentId: string;
   data: {
@@ -285,7 +284,7 @@ export interface ToolExecutionEvent extends AgentEvent {
   };
 }
 
-export interface PerformanceMetricEvent extends AgentEvent {
+export interface PerformanceMetricEvent extends AgentEventBase {
   eventType: 'performance.metric';
   agentId?: string;
   data: {
@@ -295,3 +294,12 @@ export interface PerformanceMetricEvent extends AgentEvent {
     tags?: Record<string, string>;
   };
 }
+
+export type AgentEvent =
+  | StateChangedEvent
+  | DecisionMadeEvent
+  | MemorySavedEvent
+  | WorkflowStepEvent
+  | ToolExecutionEvent
+  | PerformanceMetricEvent
+  | AgentEventBase & { eventType: string };

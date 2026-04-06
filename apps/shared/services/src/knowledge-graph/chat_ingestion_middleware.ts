@@ -95,6 +95,50 @@ const SupportedFileTypes = [
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES_PER_BATCH = 20;
 
+type UploadFileItem = {
+  size: number;
+  mimetype?: string;
+  type?: string;
+  originalname?: string;
+  name?: string;
+};
+
+function isUploadFileItem(v: unknown): v is UploadFileItem {
+  return typeof v === 'object' && v !== null && 'size' in v && typeof v.size === 'number';
+}
+
+function hasFiles(v: unknown): v is { files?: unknown[] } {
+  return typeof v === 'object' && v !== null;
+}
+
+function hasUploadedFiles(v: unknown): v is UploadContext {
+  return typeof v === 'object' && v !== null;
+}
+
+function hasValidationContext(v: unknown): v is ValidationContext {
+  return typeof v === 'object' && v !== null;
+}
+
+function hasFileContext(v: unknown): v is FileContext {
+  return typeof v === 'object' && v !== null;
+}
+
+function toRecordUnknown(v: unknown): Record<string, unknown> {
+  return typeof v === 'object' && v !== null ? Object.fromEntries(Object.entries(v)) : {};
+}
+
+type ErrorWithDetails = Error & { errors: unknown[] };
+
+function isErrorWithDetails(e: unknown): e is ErrorWithDetails {
+  return e instanceof Error && 'errors' in e && Array.isArray(e.errors);
+}
+
+type FormatFileItem = {
+  originalname?: string;
+  name?: string;
+  size: number;
+};
+
 export class ChatIngestionMiddleware {
   private chatParser: ChatParserService;
 
@@ -106,7 +150,7 @@ export class ChatIngestionMiddleware {
   handleFileUpload() {
     return (app: Elysia) => {
       return app.derive(({ body, set }) => {
-        const requestBody = body as { files?: unknown[] };
+        const requestBody = hasFiles(body) ? body : {};
         const files = requestBody?.files;
 
         if (!files || !Array.isArray(files) || files.length === 0) {
@@ -120,13 +164,7 @@ export class ChatIngestionMiddleware {
         }
 
         // Validate file limits
-        for (const file of files as Array<{
-          size: number;
-          mimetype?: string;
-          type?: string;
-          originalname?: string;
-          name?: string;
-        }>) {
+        for (const file of files.filter(isUploadFileItem)) {
           if (file.size > MAX_FILE_SIZE) {
             set.status = 413;
             return {
@@ -160,10 +198,10 @@ export class ChatIngestionMiddleware {
     return (app: Elysia) => {
       return app.derive((ctx) => {
         const { body, set } = ctx;
-        const { uploadedFiles } = ctx as UploadContext;
+        const uploadedFiles: unknown[] | undefined = hasUploadedFiles(ctx) ? ctx.uploadedFiles : undefined;
 
         try {
-          const requestBody = body as Record<string, unknown>;
+          const requestBody = toRecordUnknown(body);
 
           // Validate request body options
           const options = ChatIngestionOptionsSchema.parse(requestBody);
@@ -198,8 +236,7 @@ export class ChatIngestionMiddleware {
           return { validatedOptions: options };
         } catch (error: unknown) {
           const errMsg = error instanceof Error ? error.message : String(error);
-          const errWithDetails = error instanceof Error && 'errors' in error ? error as Error & { errors?: unknown[] } : null;
-          const errDetails: unknown[] = Array.isArray(errWithDetails?.errors) ? errWithDetails.errors : [];
+          const errDetails: unknown[] = isErrorWithDetails(error) ? error.errors : [];
           logger.error('Chat ingestion validation failed', { error: errMsg });
           set.status = 400;
           return {
@@ -219,7 +256,9 @@ export class ChatIngestionMiddleware {
     return (app: Elysia) => {
       return app.derive(async (ctx) => {
         const { set } = ctx;
-        const { uploadedFiles, validatedOptions } = ctx as ValidationContext;
+        const ctxValidation = hasValidationContext(ctx) ? ctx : null;
+        const uploadedFiles: unknown[] | undefined = ctxValidation?.uploadedFiles;
+        const validatedOptions: ChatIngestionOptions | undefined = ctxValidation?.validatedOptions;
 
         try {
           if (!uploadedFiles || !validatedOptions) {
@@ -235,11 +274,9 @@ export class ChatIngestionMiddleware {
           const processedFiles: ProcessedChatFile[] = [];
           const validationErrors: string[] = [];
 
-          for (const file of uploadedFiles as Array<{
-            originalname?: string;
-            name?: string;
-            size: number;
-          }>) {
+          for (const file of uploadedFiles.filter((f): f is FormatFileItem =>
+            typeof f === 'object' && f !== null && 'size' in f
+          )) {
             try {
               // oxlint-disable-next-line no-await-in-loop
               const processedFile = await this.processFile(file, validatedOptions.userId);
@@ -305,7 +342,8 @@ export class ChatIngestionMiddleware {
     return (app: Elysia) => {
       return app.derive(async (ctx) => {
         const { set } = ctx;
-        const { chatFiles } = ctx as FileContext;
+        const ctxFile = hasFileContext(ctx) ? ctx : null;
+        const chatFiles: ProcessedChatFile[] | undefined = ctxFile?.chatFiles;
 
         try {
           if (!chatFiles) {
@@ -401,7 +439,9 @@ export class ChatIngestionMiddleware {
     return (app: Elysia) => {
       return app.derive((ctx) => {
         const { set } = ctx;
-        const { chatFiles, validatedOptions } = ctx as FileContext;
+        const ctxJob = hasFileContext(ctx) ? ctx : null;
+        const chatFiles: ProcessedChatFile[] | undefined = ctxJob?.chatFiles;
+        const validatedOptions: ChatIngestionOptions | undefined = ctxJob?.validatedOptions;
 
         try {
           if (!chatFiles) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -77,6 +77,8 @@ export const GlobalAutocomplete = forwardRef<
     const [showEnhancementPanel, setShowEnhancementPanel] = useState(false);
 
     const suggestionsRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const debouncedValue = useDebounce(value, 300);
 
     // Use conversation intelligence for autocomplete with user's default LLM provider
@@ -210,23 +212,43 @@ export const GlobalAutocomplete = forwardRef<
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [handleClickOutside]);
 
-    const InputComponent = multiline ? Textarea : Input;
+    useImperativeHandle(
+      ref,
+      () => {
+        const el = multiline ? textareaRef.current : inputRef.current;
+        if (!el) throw new Error('GlobalAutocomplete: ref element not attached');
+        return el;
+      },
+      [multiline]
+    );
 
     return (
       <div className="relative">
         <div className="relative">
-          {/* @ts-expect-error -- ref is HTMLInputElement | HTMLTextAreaElement; InputComponent switches between the two */}
-          <InputComponent
-            ref={ref}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className={`pr-20 ${className}`}
-            rows={multiline ? rows : undefined}
-            disabled={disabled}
-            autoComplete="off"
-          />
+          {multiline ? (
+            <Textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              className={`pr-20 ${className}`}
+              rows={rows}
+              disabled={disabled}
+              autoComplete="off"
+            />
+          ) : (
+            <Input
+              ref={inputRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              className={`pr-20 ${className}`}
+              disabled={disabled}
+              autoComplete="off"
+            />
+          )}
 
           {/* Magic Enhancement Button */}
           <div

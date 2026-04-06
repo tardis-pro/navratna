@@ -172,7 +172,7 @@ async function fileExists(filePath: string): Promise<boolean> {
 
 async function readJson(filePath: string): Promise<unknown> {
   const raw = await readFile(filePath, 'utf-8');
-  return JSON.parse(raw) as unknown;
+  return JSON.parse(raw);
 }
 
 function defaultSystemPrompt(agentName: string): string {

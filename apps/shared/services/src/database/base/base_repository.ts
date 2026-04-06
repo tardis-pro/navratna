@@ -1,19 +1,29 @@
 import {
   getControlDb,
   getIntelligenceDb,
+  type IntelligenceDB,
+  type ControlDB,
 } from '../drizzle/clients/index';
 import { sql, and } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { IRepository, FindManyOptions } from '@uaip/types';
+
+type AnyPlaneDB = IntelligenceDB | ControlDB;
 
 export abstract class BaseRepository<T extends Record<string, unknown>> implements IRepository<T> {
   protected abstract get tableName(): string;
   protected abstract get plane(): 'intelligence' | 'control';
 
-  protected get db(): NodePgDatabase<Record<string, unknown>> {
-    return (this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb()) as NodePgDatabase<Record<string, unknown>>;
+  protected get db(): AnyPlaneDB {
+    return this.plane === 'intelligence' ? getIntelligenceDb() : getControlDb();
+  }
+
+  private rowToT(row: Record<string, unknown>): T {
+    // Raw SQL rows from Drizzle execute() are Record<string,unknown>.
+    // T is constrained to Record<string,unknown>, so this is a safe identity.
+    // eslint-disable-next-line -- generic base-to-subtype narrowing; T extends Record<string,unknown>
+    return row as T;
   }
 
   private buildWhere(conditions: Record<string, unknown>): SQL | undefined {
@@ -31,7 +41,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       const result = await this.db.execute(
         sql`SELECT * FROM ${sql.identifier(this.tableName)} WHERE id = ${id} LIMIT 1`
       );
-      return (result.rows[0] as T) ?? null;
+      return result.rows[0] ? this.rowToT(result.rows[0]) : null;
     } catch (error) {
       logger.error(`BaseRepository.findById failed for ${this.tableName}`, {
         id,
@@ -60,7 +70,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       if (options.offset != null) query = sql`${query} OFFSET ${options.offset}`;
 
       const result = await this.db.execute(query);
-      return result.rows as T[];
+      return result.rows.map((r) => this.rowToT(r));
     } catch (error) {
       logger.error(`BaseRepository.findMany failed for ${this.tableName}`, {
         conditions,
@@ -84,7 +94,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       const result = await this.db.execute(
         sql`INSERT INTO ${sql.identifier(this.tableName)} (${cols}) VALUES (${vals}) RETURNING *`
       );
-      return result.rows[0] as T;
+      return this.rowToT(result.rows[0]);
     } catch (error) {
       logger.error(`BaseRepository.create failed for ${this.tableName}`, {
         error: error instanceof Error ? error.message : String(error),
@@ -104,7 +114,7 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
       const result = await this.db.execute(
         sql`UPDATE ${sql.identifier(this.tableName)} SET ${setClauses}, updated_at = NOW() WHERE id = ${id} RETURNING *`
       );
-      return (result.rows[0] as T) ?? null;
+      return result.rows[0] ? this.rowToT(result.rows[0]) : null;
     } catch (error) {
       logger.error(`BaseRepository.update failed for ${this.tableName}`, {
         id,
@@ -180,7 +190,12 @@ export abstract class BaseRepository<T extends Record<string, unknown>> implemen
     return records.length;
   }
 
-  async transaction<R>(callback: (db: unknown) => Promise<R>): Promise<R> {
-    return this.db.transaction(callback as Parameters<typeof this.db.transaction>[0]) as Promise<R>;
+  async transaction<R>(callback: (db: AnyPlaneDB) => Promise<R>): Promise<R> {
+    if (this.plane === 'intelligence') {
+      const db = getIntelligenceDb();
+      return db.transaction((tx: IntelligenceDB) => callback(tx));
+    }
+    const db = getControlDb();
+    return db.transaction((tx: ControlDB) => callback(tx));
   }
 }

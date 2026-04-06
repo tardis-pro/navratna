@@ -289,11 +289,7 @@ export class UnifiedToolRegistry {
   private isInitialized = false;
 
   private asRecord(value: unknown): Record<string, unknown> {
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return isRecord(value) ? value : {};
   }
 
   private recordToToolDefinition(record: Record<string, unknown>): ToolDefinition {

@@ -276,12 +276,12 @@ export class OAuthCapabilityDiscovery {
 
   private constructor() {}
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return this.isRecord(value) ? value : {};
   }
 
   public static getInstance(): OAuthCapabilityDiscovery {
@@ -531,8 +531,7 @@ export class OAuthCapabilityDiscovery {
       return undefined;
     }
 
-    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-    const tokenData: Record<string, unknown> = typeof tokenInfo === 'object' && tokenInfo !== null && !Array.isArray(tokenInfo) ? tokenInfo : {};
+    const tokenData: Record<string, unknown> = this.asRecord(tokenInfo);
     const accessToken = tokenData.accessToken || tokenData.access_token;
     if (typeof accessToken !== 'string' || accessToken.length === 0) {
       return undefined;

@@ -8,6 +8,24 @@ import {
   ConceptExtractionResult,
   ConceptProperty,
 } from './concept_extractor_service';
+
+type RelationshipType = ConceptRelationship['relationshipType'];
+const VALID_RELATIONSHIP_TYPES: ReadonlyArray<RelationshipType> = [
+  'IS_A', 'PART_OF', 'RELATED_TO', 'INSTANCE_OF', 'CAUSES', 'USED_FOR',
+] as const;
+
+function isRelationshipType(v: unknown): v is RelationshipType {
+  return typeof v === 'string' && (VALID_RELATIONSHIP_TYPES as readonly string[]).includes(v);
+}
+
+function isConceptProperty(v: unknown): v is ConceptProperty {
+  if (typeof v !== 'object' || v === null) return false;
+  return (
+    'name' in v && typeof v.name === 'string' &&
+    'value' in v && typeof v.value === 'string' &&
+    'confidence' in v && typeof v.confidence === 'number'
+  );
+}
 import { KnowledgeRepository } from '../database/repositories/knowledge_repository';
 import { KnowledgeSyncService } from './knowledge_sync_service';
 
@@ -513,10 +531,10 @@ export class OntologyBuilderService {
             ? item.metadata.domain
             : domain;
         const properties: ConceptProperty[] = Array.isArray(item.metadata.properties)
-          ? (item.metadata.properties as ConceptProperty[])
+          ? item.metadata.properties.filter(isConceptProperty)
           : [];
         const instances: string[] = Array.isArray(item.metadata.instances)
-          ? (item.metadata.instances as string[])
+          ? item.metadata.instances.filter((v: unknown): v is string => typeof v === 'string')
           : [];
 
         return {
@@ -545,8 +563,8 @@ export class OntologyBuilderService {
               ? item.metadata.targetConceptId
               : null;
           const relationshipType: ConceptRelationship['relationshipType'] | null =
-            typeof item.metadata.relationshipType === 'string'
-              ? (item.metadata.relationshipType as ConceptRelationship['relationshipType'])
+            isRelationshipType(item.metadata.relationshipType)
+              ? item.metadata.relationshipType
               : null;
 
           if (!sourceConceptId || !targetConceptId || !relationshipType) {
@@ -556,7 +574,7 @@ export class OntologyBuilderService {
           const evidence: string[] =
             Array.isArray(item.metadata.evidence) &&
             item.metadata.evidence.every((entry: unknown) => typeof entry === 'string')
-              ? (item.metadata.evidence as string[])
+              ? item.metadata.evidence.filter((entry: unknown): entry is string => typeof entry === 'string')
               : [];
 
           return {

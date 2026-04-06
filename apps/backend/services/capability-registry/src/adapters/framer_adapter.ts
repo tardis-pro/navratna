@@ -11,12 +11,12 @@ import type {
 
 const FRAMER_API_BASE = 'https://api.framer.com/v1'
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
 function toRecord(v: unknown): Record<string, unknown> {
-  if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-    // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-    return v
-  }
-  return {}
+  return isRecord(v) ? v : {}
 }
 
 function isFramerStyleTokens(v: unknown): v is FramerStyleTokens {

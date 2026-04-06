@@ -13,12 +13,26 @@ function getNum(v: unknown, fallback = 0): number {
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
-function getRecord(v: unknown): Record<string, unknown> | undefined {
-  return isRecord(v) ? v : undefined;
+
+function isEpisodeContext(v: unknown): v is Episode['context'] {
+  if (!isRecord(v)) return false;
+  return v.when instanceof Date || typeof v.when === 'string' || v.when !== undefined;
+}
+function isEpisodeExperience(v: unknown): v is Episode['experience'] {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v.actions) && Array.isArray(v.decisions) && Array.isArray(v.outcomes);
+}
+function isEpisodeSignificance(v: unknown): v is Episode['significance'] {
+  if (!isRecord(v)) return false;
+  return typeof v.importance === 'number';
+}
+function isEpisodeConnections(v: unknown): v is Episode['connections'] {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v.relatedEpisodes);
 }
 
 export function extractItemMetadata(item: KnowledgeItem): { metadata: Record<string, unknown> | undefined } {
-  const metadata = getRecord(item.metadata);
+  const metadata = isRecord(item.metadata) ? item.metadata : undefined;
   return { metadata };
 }
 
@@ -267,19 +281,19 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
       similarTo: [],
     };
 
+    const rawType = getStr(metadata.episodeType) || 'learning';
+    const validTypes = ['discussion', 'operation', 'learning', 'problem_solving', 'collaboration'] as const;
+    type EpisodeType = Episode['type'];
+    const episodeType: EpisodeType = validTypes.find((t) => t === rawType) ?? 'learning';
+
     return {
       agentId: getStr(metadata.agentId, 'unknown'),
       episodeId: item.sourceIdentifier || item.id,
-      // @ts-expect-error -- episodeType stored as string enum value; runtime data matches Episode['type']
-      type: getStr(metadata.episodeType) || 'learning',
-      // @ts-expect-error -- Episode sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      context: getRecord(metadata.context) ?? defaultContext,
-      // @ts-expect-error -- Episode sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      experience: getRecord(metadata.experience) ?? defaultExperience,
-      // @ts-expect-error -- Episode sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      significance: getRecord(metadata.significance) ?? defaultSignificance,
-      // @ts-expect-error -- Episode sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      connections: getRecord(metadata.connections) ?? defaultConnections,
+      type: episodeType,
+      context: isEpisodeContext(metadata.context) ? metadata.context : defaultContext,
+      experience: isEpisodeExperience(metadata.experience) ? metadata.experience : defaultExperience,
+      significance: isEpisodeSignificance(metadata.significance) ? metadata.significance : defaultSignificance,
+      connections: isEpisodeConnections(metadata.connections) ? metadata.connections : defaultConnections,
     };
   }
 
@@ -310,11 +324,14 @@ Significance: Importance=${episode.significance.importance}, Novelty=${episode.s
       }
     }
 
+    const validTypes = ['discussion', 'operation', 'learning', 'problem_solving', 'collaboration'] as const;
+    type EpisodeType = Episode['type'];
+    const safeType: EpisodeType = validTypes.find((t) => t === episodeType) ?? 'learning';
+
     return {
       agentId: item.createdBy ?? 'unknown',
       episodeId: item.id,
-      // @ts-expect-error -- episodeType is a string parsed from content; structurally matches Episode['type']
-      type: episodeType,
+      type: safeType,
       context,
       experience: {
         actions: [],

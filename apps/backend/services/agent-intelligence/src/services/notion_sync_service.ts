@@ -63,9 +63,7 @@ async function notionRequest<T>(path: string, method: string, body?: unknown): P
     return undefined;
   }
 
-  const json: unknown = await response.json();
-  // @ts-expect-error — generic fetch wrapper: runtime JSON shape matches T as specified by caller
-  return json;
+  return await response.json();
 }
 
 function markdownToNotionBlocks(markdown: string): Array<Record<string, unknown>> {

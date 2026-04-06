@@ -41,8 +41,7 @@ export class CollaborationPatternRunner extends EventEmitter {
 
   private static ensureRecord(value: unknown): Record<string, unknown> {
     if (typeof value !== 'object' || value === null) return {};
-    // @ts-expect-error -- value is object & not null; structurally matches Record<string, unknown>
-    return value;
+    return Object.fromEntries(Object.entries(value));
   }
 
   async executePattern(

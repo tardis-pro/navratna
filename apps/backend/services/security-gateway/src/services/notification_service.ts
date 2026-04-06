@@ -221,8 +221,10 @@ export class NotificationService {
       headers: {
         'Content-Type': 'application/json',
         Authorization: String(webhookConfig.authHeader || ''),
-        // @ts-expect-error -- Argument type mismatch
-        'X-UAIP-Signature': this.generateWebhookSignature(payload, webhookConfig.secret),
+        'X-UAIP-Signature': this.generateWebhookSignature(
+          payload,
+          typeof webhookConfig.secret === 'string' ? webhookConfig.secret : undefined
+        ),
       },
       body: JSON.stringify(payload),
     });
@@ -677,10 +679,8 @@ export class NotificationService {
       const approvalNotification: ApprovalNotification = {
         type: notification.type,
         recipientId: notification.recipient,
-        // @ts-expect-error -- Type not assignable
-        workflowId: notification.data?.workflowId,
-        // @ts-expect-error -- Type not assignable
-        operationId: notification.data?.operationId,
+        workflowId: typeof notification.data?.workflowId === 'string' ? notification.data.workflowId : '',
+        operationId: typeof notification.data?.operationId === 'string' ? notification.data.operationId : '',
         metadata: {
           subject: notification.subject,
           message: notification.message,

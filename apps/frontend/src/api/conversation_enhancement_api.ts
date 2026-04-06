@@ -51,7 +51,6 @@ export const conversationEnhancementAPI = {
   ): Promise<unknown> {
     return edenRequest(`${BASE}/analyze`, {
       method: 'POST',
-      // @ts-expect-error -- messageHistory/conversationState are unknown; runtime shape matches ConversationAnalysisRequest
       body: { discussionId, messageHistory, conversationState, analysisType: 'flow' },
     });
   },
@@ -63,7 +62,6 @@ export const conversationEnhancementAPI = {
   ): Promise<unknown> {
     return edenRequest(`${BASE}/analyze`, {
       method: 'POST',
-      // @ts-expect-error -- messageHistory/conversationState are unknown; runtime shape matches ConversationAnalysisRequest
       body: { discussionId, messageHistory, conversationState, analysisType: 'insights' },
     });
   },
@@ -75,7 +73,6 @@ export const conversationEnhancementAPI = {
   ): Promise<unknown> {
     return edenRequest(`${BASE}/analyze`, {
       method: 'POST',
-      // @ts-expect-error -- messageHistory/conversationState are unknown; runtime shape matches ConversationAnalysisRequest
       body: { discussionId, messageHistory, conversationState, analysisType: 'patterns' },
     });
   },

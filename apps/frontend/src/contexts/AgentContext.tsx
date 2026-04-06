@@ -409,10 +409,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       try {
         const providers = await uaipAPI.llm.getProviders();
 
+        const providersAny: any = providers; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getProviders returns compatible shape; FrontendModelProvider is a superset
         setModelState((prev) => ({
           ...prev,
-          // @ts-expect-error -- getProviders returns a compatible shape; FrontendModelProvider is a superset
-          providers,
+          providers: providersAny,
           loadingProviders: false,
         }));
         loadingRefs.current.providersLoaded = true;

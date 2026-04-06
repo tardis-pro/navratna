@@ -387,7 +387,7 @@ export class ProjectManagementService {
       assigneeId: updates.assigneeId ?? null,
       dueAt: updates.dueAt ?? null,
       completedAt: updates.completedAt ?? null,
-      metadata: (updates.metadata ?? null) as Record<string, unknown> | null,
+      metadata: updates.metadata ?? {},
       createdAt: new Date(),
       updatedAt: new Date(),
     };

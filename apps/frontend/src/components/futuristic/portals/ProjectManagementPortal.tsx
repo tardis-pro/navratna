@@ -442,6 +442,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         const meta = isRecord(apiProject.metadata) ? apiProject.metadata : {};
         const rawPriority = typeof meta.priority === 'string' ? meta.priority : 'medium';
         const priority: ProjectPriority = isProjectPriority(rawPriority) ? rawPriority : 'medium';
+        const metaAny: any = meta; // oxlint-disable-line @typescript-eslint/no-explicit-any -- meta fields are unknown[]; runtime shapes match TeamMember[]/ProjectResource[]/Task[]
+        const team: TeamMember[] = Array.isArray(meta.team) ? metaAny.team : [];
+        const resources: ProjectResource[] = Array.isArray(meta.resources) ? metaAny.resources : [];
+        const tasks: Task[] = Array.isArray(meta.tasks) ? metaAny.tasks : [];
         return {
           id: apiProject.id,
           name: apiProject.name,
@@ -451,13 +455,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           progress: typeof meta.progress === 'number' ? meta.progress : 0,
           startDate: new Date(apiProject.createdAt),
           dueDate: typeof meta.dueDate === 'string' ? new Date(meta.dueDate) : undefined,
-          // @ts-expect-error -- meta fields are unknown[]; runtime shape matches TeamMember[]/ProjectResource[]/Task[]
-          team: Array.isArray(meta.team) ? meta.team : [],
+          team,
           tags: Array.isArray(meta.tags) ? meta.tags.filter((t): t is string => typeof t === 'string') : [],
-          // @ts-expect-error -- meta fields are unknown[]; runtime shape matches ProjectResource[]
-          resources: Array.isArray(meta.resources) ? meta.resources : [],
-          // @ts-expect-error -- meta fields are unknown[]; runtime shape matches Task[]
-          tasks: Array.isArray(meta.tasks) ? meta.tasks : [],
+          resources,
+          tasks,
           createdBy: apiProject.ownerId,
           createdAt: new Date(apiProject.createdAt),
           updatedAt: new Date(apiProject.updatedAt),
@@ -495,6 +496,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
         const rawStatus = typeof projectData.status === 'string' ? projectData.status : 'planning';
         const status: ProjectStatus = isProjectStatus(rawStatus) ? rawStatus : 'planning';
         // Convert API project to local format
+        const metaAny2: any = meta; // oxlint-disable-line @typescript-eslint/no-explicit-any -- meta fields are unknown[]; runtime shapes match TeamMember[]/ProjectResource[]/Task[]
+        const team2: TeamMember[] = Array.isArray(meta.team) ? metaAny2.team : [];
+        const resources2: ProjectResource[] = Array.isArray(meta.resources) ? metaAny2.resources : [];
+        const tasks2: Task[] = Array.isArray(meta.tasks) ? metaAny2.tasks : [];
         const convertedProject: Project = {
           id: projectData.id,
           name: typeof projectData.name === 'string' ? projectData.name : '',
@@ -504,13 +509,10 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
           progress: typeof meta.progress === 'number' ? meta.progress : 0,
           startDate: typeof projectData.createdAt === 'string' ? new Date(projectData.createdAt) : new Date(),
           dueDate: typeof meta.dueDate === 'string' ? new Date(meta.dueDate) : undefined,
-          // @ts-expect-error -- meta fields are unknown[]; runtime shape matches TeamMember[]
-          team: Array.isArray(meta.team) ? meta.team : [],
+          team: team2,
           tags: Array.isArray(meta.tags) ? meta.tags.filter((t): t is string => typeof t === 'string') : [],
-          // @ts-expect-error -- meta fields are unknown[]; runtime shape matches ProjectResource[]
-          resources: Array.isArray(meta.resources) ? meta.resources : [],
-          // @ts-expect-error -- meta fields are unknown[]; runtime shape matches Task[]
-          tasks: Array.isArray(meta.tasks) ? meta.tasks : [],
+          resources: resources2,
+          tasks: tasks2,
           createdBy: projectData.ownerId,
           createdAt: typeof projectData.createdAt === 'string' ? new Date(projectData.createdAt) : new Date(),
           updatedAt: typeof projectData.updatedAt === 'string' ? new Date(projectData.updatedAt) : new Date(),

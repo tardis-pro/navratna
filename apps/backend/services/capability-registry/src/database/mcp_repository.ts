@@ -8,6 +8,7 @@
 import { logger } from '@uaip/utils';
 import { getControlDb, eq, desc, sql } from '@uaip/shared-services/drizzle/clients';
 import { mcpServers, mcpToolCalls } from '@uaip/shared-services/drizzle/control';
+import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import type { ControlDB } from '@uaip/shared-services';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -238,9 +239,8 @@ export class McpRepository {
 
   // ── Server operations ─────────────────────────────────────────────────────
 
-  async createServer(data: Record<string, unknown>): Promise<MCPServer> {
+  async createServer(data: NewMCPServer): Promise<MCPServer> {
     try {
-      // @ts-expect-error -- Drizzle insert type is stricter than Record<string, unknown>; caller validates fields before passing
       const insertQuery = this.db.insert(mcpServers).values(data);
       const [row] = await insertQuery.returning();
 

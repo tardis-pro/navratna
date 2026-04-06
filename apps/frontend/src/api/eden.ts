@@ -57,8 +57,8 @@ function createFetchClient<T extends Elysia>(url: string): EdenFetchClient {
   }
 
   const client = edenFetch<T>(url)
-  // @ts-expect-error -- edenFetch returns a typed client; we wrap it as a generic fetch function
-  const dynamicClient: EdenFetchClient = client
+  const clientAny: any = client; // oxlint-disable-line @typescript-eslint/no-explicit-any -- edenFetch typed client wrapped as generic fetch
+  const dynamicClient: EdenFetchClient = clientAny
   return async (path, options) => await dynamicClient(path, options ?? {})
 }
 
@@ -184,8 +184,8 @@ async function performBinaryRequest(path: string, config: EdenRequestConfig): Pr
 
 export async function edenRequest<T>(path: string, config: EdenRequestConfig = {}): Promise<T> {
   if (config.responseType === 'blob' || config.responseType === 'text') {
-    // @ts-expect-error -- T is Blob or string when responseType is blob/text; runtime type matches
-    return await performBinaryRequest(path, config)
+    const binaryResult: any = await performBinaryRequest(path, config); // oxlint-disable-line @typescript-eslint/no-explicit-any -- T is Blob|string for blob/text responseType
+    return binaryResult
   }
 
   const service = resolveService(path)
@@ -216,8 +216,8 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
     return unwrapEden(result)
   }
 
-  // @ts-expect-error -- result is unknown from the dynamic fetch client; caller guarantees T matches
-  return result
+  const resultAny: any = result; // oxlint-disable-line @typescript-eslint/no-explicit-any -- result is unknown from dynamic fetch client; caller guarantees T
+  return resultAny
 }
 
 type EdenResponse<T> = { data: T; error: null } | { data: null; error: { status: number; value: unknown } }
@@ -243,8 +243,8 @@ export function unwrapEden<T>(result: EdenResponse<T>): T {
 
   const data: unknown = result.data
   if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
-    // @ts-expect-error -- data.data is unknown; T is the expected runtime shape from the generic caller
-    const unwrapped: T = data.data
+    const dataAny: any = data; // oxlint-disable-line @typescript-eslint/no-explicit-any -- data.data is unknown; T is the expected runtime shape
+    const unwrapped: T = dataAny.data
     return unwrapped
   }
 

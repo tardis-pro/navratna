@@ -70,6 +70,10 @@ export class DiscussionService {
     this.cleanupInterval = setInterval(() => this.evictStaleEntries(), 5 * 60 * 1000);
   }
 
+  getDatabaseService(): DatabaseService {
+    return this.databaseService;
+  }
+
   dispose(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
@@ -104,22 +108,37 @@ export class DiscussionService {
   }
 
   private async hydrateDiscussionRelations(
-    discussion: Record<string, unknown>
+    discussion: DiscussionType
   ): Promise<DiscussionType> {
     const participantManagementService = new (
       await import('./participant_management_service')
     ).ParticipantManagementService(this.databaseService)
 
-    const participants = await participantManagementService.getDiscussionParticipants(
-      typeof discussion.id === 'string' ? discussion.id : String(discussion.id)
+    const rawParticipants = await participantManagementService.getDiscussionParticipants(
+      discussion.id
     )
 
-    const hydrated = {
-      ...discussion,
-      participants: participants.map((participant) => ({ ...participant })),
-    };
-    // @ts-expect-error -- databaseService returns Record<string,unknown>; shape matches DiscussionType at runtime
-    return hydrated;
+    const participants: DiscussionParticipantType[] = rawParticipants.map((p) => ({
+      id: p.id,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt ?? undefined,
+      discussionId: p.discussionId,
+      agentId: p.agentId,
+      userId: p.userId ?? undefined,
+      role: toParticipantRole(p.role),
+      joinedAt: p.joinedAt,
+      leftAt: p.leftAt ?? undefined,
+      isActive: p.isActive,
+      messageCount: p.messageCount,
+      interruptionCount: 0,
+      questionsAsked: 0,
+      questionsAnswered: 0,
+      topics: new Array<string>(),
+      tags: new Array<string>(),
+      metadata: p.metadata ?? undefined,
+    }));
+
+    return { ...discussion, participants };
   }
 
   // ===== DISCUSSION LIFECYCLE MANAGEMENT =====
@@ -194,7 +213,7 @@ export class DiscussionService {
         updatedAt: new Date(),
       };
 
-      const createdDiscussion = await this.databaseService.create<Record<string, unknown>>(
+      const createdDiscussion = await this.databaseService.create<DiscussionType>(
         'discussions',
         discussionData
       );
@@ -257,7 +276,7 @@ export class DiscussionService {
       }
 
       // Fetch from database with relations
-      const discussion = await this.databaseService.findById<Record<string, unknown>>(
+      const discussion = await this.databaseService.findById<DiscussionType>(
         'discussions',
         id
       );
@@ -292,13 +311,13 @@ export class DiscussionService {
       void participants;
       void outcomes;
       void analytics;
-      await this.databaseService.update<Record<string, unknown>>('discussions', id, {
+      await this.databaseService.update<DiscussionType>('discussions', id, {
         ...discussionUpdates,
         updatedAt: new Date(),
       });
 
       // Fetch the updated discussion with all relations (especially participants)
-      const updatedDiscussion = await this.databaseService.findById<Record<string, unknown>>(
+      const updatedDiscussion = await this.databaseService.findById<DiscussionType>(
         'discussions',
         id
       );

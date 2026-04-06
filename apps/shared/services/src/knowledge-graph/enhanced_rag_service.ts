@@ -37,16 +37,19 @@ function getPayloadString(payload: Record<string, unknown>, key: string): string
   return typeof val === 'string' ? val : '';
 }
 
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 function getPayloadRecord(payload: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
   const val = payload[key];
-  if (typeof val !== 'object' || val === null || Array.isArray(val)) return undefined;
-  return val as Record<string, unknown>;
+  return isPlainRecord(val) ? val : undefined;
 }
 
 function getPayloadNumberArray(payload: Record<string, unknown>, key: string): number[] | undefined {
   const val = payload[key];
   if (!Array.isArray(val)) return undefined;
-  return val as number[];
+  return val.filter((item): item is number => typeof item === 'number');
 }
 
 function mapCandidateToResult(candidate: VectorCandidate, index: number, includeEmbeddings = false): EnhancedSearchResult {
@@ -111,14 +114,19 @@ export class EnhancedRAGService {
 
       if (useReranking && filteredCandidates.length > 1) {
         // Step 3: Rerank results for better relevance
-        const candidatesWithContent = filteredCandidates.map((c) => ({
-          id: c.id,
-          content: typeof c.payload?.content === 'string' ? c.payload.content : '',
-          metadata: (typeof c.payload?.metadata === 'object' && c.payload.metadata !== null)
-            ? (c.payload.metadata as Record<string, unknown>)
-            : undefined,
-          score: c.score,
-        }));
+        const candidatesWithContent = filteredCandidates.map((c) => {
+          const rawMeta = c.payload?.metadata;
+          const metadata: Record<string, unknown> | undefined =
+            rawMeta !== null && typeof rawMeta === 'object'
+              ? Object.fromEntries(Object.entries(rawMeta))
+              : undefined;
+          return {
+            id: c.id,
+            content: typeof c.payload?.content === 'string' ? c.payload.content : '',
+            metadata,
+            score: c.score,
+          };
+        });
         results = await this.rerankResults(query, candidatesWithContent, topK);
       } else {
         // Use vector similarity scores only

@@ -104,6 +104,8 @@ export class ContentClassifier {
       [KnowledgeType.EPISODIC]: this.calculateKeywordScore(content, this.episodicKeywords),
       [KnowledgeType.SEMANTIC]: this.calculateKeywordScore(content, this.semanticKeywords),
       [KnowledgeType.FACTUAL]: 0.5, // Default baseline
+      [KnowledgeType.REPO_CONTEXT]: 0,
+      [KnowledgeType.CODE_SYMBOL]: 0,
     };
 
     // Additional heuristics

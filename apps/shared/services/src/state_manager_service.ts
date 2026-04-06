@@ -172,8 +172,7 @@ export class StateManagerService {
       // Update in database
       await this.operationStateRepo.updateOperationState(
         operationId,
-        updatedState,
-        // @ts-expect-error -- StateUpdateOptions is structurally compatible with Record<string, unknown>
+        Object.fromEntries(Object.entries(updatedState)),
         updates
       );
 

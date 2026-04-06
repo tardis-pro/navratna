@@ -1151,6 +1151,7 @@ export interface CompensationResult {
 
 // State Manager Types (moved from backend/shared/services)
 export interface StateUpdateOptions {
+  [key: string]: unknown;
   status?: string;
   currentStep?: string;
   completedSteps?: string[];

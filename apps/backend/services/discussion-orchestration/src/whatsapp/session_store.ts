@@ -14,6 +14,14 @@ import type { AuthenticationState, AuthenticationCreds, SignalDataTypeMap } from
 import type { Redis } from 'ioredis';
 import { createLogger } from '@uaip/utils';
 
+function toAuthCreds(v: object): AuthenticationCreds {
+  return v as AuthenticationCreds;
+}
+
+function toSignalData<T extends keyof SignalDataTypeMap>(v: unknown): SignalDataTypeMap[T] {
+  return v as SignalDataTypeMap[T];
+}
+
 const logger = createLogger({
   serviceName: 'WhatsAppSessionStore',
   environment: process.env.NODE_ENV || 'development',
@@ -36,8 +44,7 @@ export async function useRedisAuthState(redis: Redis): Promise<{
       if (raw) {
         const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
         if (typeof parsed === 'object' && parsed !== null) {
-          // @ts-expect-error -- Baileys AuthenticationCreds is a complex opaque object; minimal shape validation done above
-          return parsed;
+          return toAuthCreds(parsed);
         }
       }
     } catch (err) {
@@ -75,8 +82,7 @@ export async function useRedisAuthState(redis: Redis): Promise<{
               if (raw) {
                 const parsed: unknown = JSON.parse(raw, BufferJSON.reviver);
                 if (parsed !== null && parsed !== undefined) {
-                  // @ts-expect-error -- SignalDataTypeMap[T] is a generic Baileys type; runtime shape validated by Baileys itself
-                  result[id] = parsed;
+                  result[id] = toSignalData<T>(parsed);
                 }
               }
             } catch (err) {

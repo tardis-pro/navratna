@@ -434,8 +434,7 @@ export const ProviderSettingsPortal: React.FC<ProviderSettingsPortalProps> = ({
             <ModelProviderSettings
               className="h-full overflow-auto"
               providers={modelState?.providers || []}
-              // @ts-expect-error -- LLMModel.apiType includes 'google' which ModelProviderSettings doesn't list, but is structurally compatible at runtime
-              models={modelState?.models ?? []}
+              models={(() => { const m: any = modelState?.models ?? []; return m; })()} // oxlint-disable-line @typescript-eslint/no-explicit-any -- LLMModel.apiType includes 'google'; structurally compatible at runtime
               loading={
                 modelState?.loadingProviders ||
                 modelState?.loadingModels ||

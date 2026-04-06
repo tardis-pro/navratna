@@ -63,7 +63,6 @@ export default function WorkspacePage() {
   const [workspaceState, setWorkspaceState] = useState<StoredWorkspaceState | null>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      // @ts-expect-error -- JSON.parse returns any; runtime shape matches StoredWorkspaceState
       const parsed: StoredWorkspaceState = JSON.parse(raw);
       return raw ? parsed : null;
     } catch {
@@ -81,7 +80,6 @@ export default function WorkspacePage() {
   const [sessions, setSessions] = useState<Array<{ sessionId: string; createdAt: number }>>(() => {
     try {
       const raw = localStorage.getItem(sessionsKey);
-      // @ts-expect-error -- JSON.parse returns any; runtime shape matches Array<{sessionId, createdAt}>
       const parsed: Array<{ sessionId: string; createdAt: number }> = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch {

@@ -339,8 +339,8 @@ export abstract class BaseWidgetComponent<
     logger.warn(
       'BaseWidgetComponent is deprecated. Use functional components with useWidget hook instead.'
     );
-    // @ts-expect-error -- deprecated method; S is unconstrained, null is safe with strictNullChecks off
-    return null;
+    const nullState: any = null; // oxlint-disable-line @typescript-eslint/no-explicit-any -- deprecated method; S is unconstrained generic, null bridges to S with strictNullChecks off
+    return nullState;
   }
 
   protected renderContent(): ReactNode {

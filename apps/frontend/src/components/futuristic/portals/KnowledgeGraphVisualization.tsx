@@ -209,8 +209,8 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
       if (onNodeSelect) onNodeSelect({ id: node.id, data: node.data });
 
       // Click-to-expand: find neighbors in the full dataset and add them to the graph
-      // @ts-expect-error -- getNodes() returns Node[]; KnowledgeNode extends Node with compatible data shape
-      const currentNodes: KnowledgeNode[] = getNodes();
+      const getNodesAny: any = getNodes; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getNodes returns Node[]; KnowledgeNode extends Node with compatible data shape
+      const currentNodes: KnowledgeNode[] = getNodesAny();
       const currentNodeIds = new Set(currentNodes.map((n) => n.id));
 
       const connectedEdges = allFetchedEdgesRef.current.filter(
@@ -393,8 +393,8 @@ const KnowledgeGraphVisualizationInner: React.FC<KnowledgeGraphVisualizationInne
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     // Filter nodes based on search term
-    // @ts-expect-error -- getNodes() returns Node[]; KnowledgeNode extends Node with compatible data shape
-    const allNodes: KnowledgeNode[] = getNodes();
+    const getNodesAny2: any = getNodes; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getNodes returns Node[]; KnowledgeNode extends Node with compatible data shape
+    const allNodes: KnowledgeNode[] = getNodesAny2();
     if (term) {
       const _filteredNodes = allNodes.filter((node) => {
         const d = node.data;

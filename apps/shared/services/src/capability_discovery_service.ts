@@ -249,13 +249,9 @@ export class CapabilityDiscoveryService {
 
   private mapCapabilityFromDB(row: CapabilityRow): Capability {
     const meta = row.metadata ?? {};
-    const validTypes: string[] = Object.values(CapabilityType);
-    // @ts-expect-error -- row.type is validated against CapabilityType values; safe to assign
-    const type: Capability['type'] = validTypes.includes(row.type) ? row.type : CapabilityType.TOOL;
-    const validStatuses: string[] = Object.values(CapabilityStatus);
+    const type = Object.values(CapabilityType).find((t) => t === row.type) ?? CapabilityType.TOOL;
     const rawStatus = typeof meta.status === 'string' ? meta.status : '';
-    // @ts-expect-error -- rawStatus is validated against CapabilityStatus values; safe to assign
-    const status: Capability['status'] = validStatuses.includes(rawStatus) ? rawStatus : CapabilityStatus.ACTIVE;
+    const status = Object.values(CapabilityStatus).find((s) => s === rawStatus) ?? CapabilityStatus.ACTIVE;
     const deps = Array.isArray(meta.dependencies)
       ? meta.dependencies.filter((d): d is string => typeof d === 'string')
       : [];
@@ -313,15 +309,12 @@ export class CapabilityDiscoveryService {
     }
 
     if (typeof requirements === 'object' && requirements !== null) {
-      // @ts-expect-error -- requirements is narrowed to object by the guard above
-      const req: Record<string, unknown> = requirements;
+      const req = Object.fromEntries(Object.entries(requirements));
       const VALID_LEVELS = ['low', 'medium', 'high', 'critical'] as const;
       type SecurityLevelValue = (typeof VALID_LEVELS)[number];
       const rawLevel = req.minimumSecurityLevel;
       const minimumSecurityLevel: SecurityLevelValue =
-        typeof rawLevel === 'string' && (VALID_LEVELS as readonly string[]).includes(rawLevel)
-          ? (rawLevel as SecurityLevelValue)
-          : 'medium';
+        VALID_LEVELS.find((l) => l === rawLevel) ?? 'medium';
       return {
         minimumSecurityLevel,
         requiredPermissions: Array.isArray(req.requiredPermissions)

@@ -1,4 +1,5 @@
 import { chat } from '@tanstack/ai';
+import type { AIAdapter } from '@tanstack/ai';
 import { openai } from '@tanstack/ai-openai';
 import { anthropic } from '@tanstack/ai-anthropic';
 import { ollama } from '@tanstack/ai-ollama';
@@ -16,7 +17,7 @@ export class TanStackProvider extends BaseProvider {
     super(config, `TanStack-${config.type}`);
   }
 
-  private async createAdapter(): Promise<unknown> {
+  private async createAdapter(): Promise<AIAdapter> {
     const { type, baseUrl } = this.config;
 
     switch (type) {
@@ -54,8 +55,7 @@ export class TanStackProvider extends BaseProvider {
       const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
       const model = request.model || this.config.defaultModel || 'gpt-4o';
 
-      // @ts-expect-error -- adapter is unknown; model/maxTokens/temperature are runtime-valid but not in TextActivityOptions type
-      const response = await chat({ adapter, model, messages, maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 });
+      const response = await chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
 
       // Collect full response from stream
       let content = '';
@@ -92,8 +92,7 @@ export class TanStackProvider extends BaseProvider {
     const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
     const model = request.model || this.config.defaultModel || 'gpt-4o';
 
-    // @ts-expect-error -- adapter is unknown; model/maxTokens/temperature are runtime-valid but not in TextActivityOptions type
-    const stream = await chat({ adapter, model, messages, maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 });
+    const stream = await chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
 
     let tokenIndex = 0;
 

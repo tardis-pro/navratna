@@ -309,13 +309,13 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
 
   let configLabelKey: string = key;
 
-  // @ts-expect-error -- payload is narrowed to non-null object but TS can't index it without a cast
-  const payloadRecord: Record<string, unknown> = payload;
+  const payloadAny: any = payload; // oxlint-disable-line @typescript-eslint/no-explicit-any -- payload is narrowed to non-null object; indexing requires any bridge
+  const payloadRecord: Record<string, unknown> = payloadAny;
   if (key in payload && typeof payloadRecord[key] === 'string') {
     configLabelKey = payloadRecord[key];
   } else if (payloadPayload) {
-    // @ts-expect-error -- payloadPayload is narrowed to non-null object but TS can't index it without a cast
-    const payloadPayloadRecord: Record<string, unknown> = payloadPayload;
+    const payloadPayloadAny: any = payloadPayload; // oxlint-disable-line @typescript-eslint/no-explicit-any -- payloadPayload is narrowed to non-null object; indexing requires any bridge
+    const payloadPayloadRecord: Record<string, unknown> = payloadPayloadAny;
     if (key in payloadPayload && typeof payloadPayloadRecord[key] === 'string') {
       configLabelKey = payloadPayloadRecord[key];
     }

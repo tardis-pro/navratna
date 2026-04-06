@@ -259,8 +259,7 @@ export function registerUserRoutes() {
         try {
           const { userService } = await getServices();
           const repo = userService.getUserLLMPreferenceRepository();
-          // @ts-expect-error -- Property not found
-          const prefs = await repo.findByUser(user.id);
+          const prefs = await repo.findByUserId(user.id);
           return prefs;
         } catch {
           set.status = 500;
@@ -285,29 +284,19 @@ export function registerUserRoutes() {
         try {
           const { userService } = await getServices();
           const repo = userService.getUserLLMPreferenceRepository();
-          // @ts-expect-error -- Property not found
-          await repo.bulkUpsert(
-            parsed.data.preferences.map(
-              ({
-                taskType,
-                preferredProvider,
-                preferredModel,
-                fallbackModel,
-                settings,
-                description,
-                priority,
-              }) => ({
-                userId: user.id,
-                taskType,
-                preferredProvider,
-                preferredModel,
-                fallbackModel,
-                settings,
-                description,
-                priority,
-              })
-            )
-          );
+          for (const pref of parsed.data.preferences) {
+            await repo.upsertForUser(user.id, {
+              preferences: {
+                taskType: pref.taskType,
+                preferredProvider: pref.preferredProvider,
+                preferredModel: pref.preferredModel,
+                fallbackModel: pref.fallbackModel,
+                settings: pref.settings,
+                description: pref.description,
+                priority: pref.priority,
+              },
+            });
+          }
           return { message: 'Preferences updated' };
         } catch {
           set.status = 500;

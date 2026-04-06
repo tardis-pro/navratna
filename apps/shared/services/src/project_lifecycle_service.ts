@@ -27,7 +27,7 @@ export class ProjectLifecycleService {
     startDate?: Date;
     completionPercentage?: number;
   } {
-    const meta = project.metadata as Record<string, unknown> | undefined;
+    const meta = project.metadata;
     return {
       budgetUtilization:
         typeof meta?.['budgetUtilization'] === 'number' ? meta['budgetUtilization'] : undefined,

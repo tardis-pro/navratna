@@ -5,8 +5,9 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
-import { ToolCategory } from '@uaip/types';
+import { ToolCategory, MCPServerType } from '@uaip/types';
 import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService } from '@uaip/shared-services';
+import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
 import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcp_secrets.js';
@@ -176,12 +177,12 @@ export class MCPClientService extends EventEmitter {
     // config is loaded from DB on demand
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return this.isRecord(value) ? value : {};
   }
 
   private asRecordArray(value: unknown): Record<string, unknown>[] {
@@ -1206,10 +1207,10 @@ export class MCPClientService extends EventEmitter {
     try {
       const mcpService = this.mcpRepo;
       const existing = await mcpService.getServerByName(serverName);
-      const payload: Record<string, unknown> = {
+      const payload: NewMCPServer = {
         name: serverName,
         description: `MCP server ${serverName}`,
-        type: 'custom',
+        type: MCPServerType.CUSTOM,
         command: config.command,
         args: config.args || [],
         env: config.env,

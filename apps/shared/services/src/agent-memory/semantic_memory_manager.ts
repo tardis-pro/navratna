@@ -9,6 +9,21 @@ function getStr(v: unknown, fallback = ''): string {
 function getNum(v: unknown, fallback = 0): number {
   return typeof v === 'number' ? v : fallback;
 }
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+function isSemanticKnowledge(v: unknown): v is SemanticMemory['knowledge'] {
+  if (!isRecord(v)) return false;
+  return typeof v.definition === 'string' && Array.isArray(v.relationships) && Array.isArray(v.examples);
+}
+function isSemanticSources(v: unknown): v is SemanticMemory['sources'] {
+  if (!isRecord(v)) return false;
+  return Array.isArray(v.episodeIds) && typeof v.reinforcements === 'number';
+}
+function isSemanticUsage(v: unknown): v is SemanticMemory['usage'] {
+  if (!isRecord(v)) return false;
+  return typeof v.timesAccessed === 'number' && typeof v.successRate === 'number';
+}
 
 
 export class SemanticMemoryManager {
@@ -358,13 +373,10 @@ Usage: Accessed ${concept.usage.timesAccessed} times, Success rate: ${concept.us
     return {
       agentId: getStr(metadata.agentId) || item.agentId || item.createdBy,
       concept: getStr(metadata.concept),
-      // @ts-expect-error -- SemanticMemory sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      knowledge: metadata.knowledge ?? defaultKnowledge,
+      knowledge: isSemanticKnowledge(metadata.knowledge) ? metadata.knowledge : defaultKnowledge,
       confidence: getNum(metadata.confidence) || item.confidence || 0.5,
-      // @ts-expect-error -- SemanticMemory sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      sources: metadata.sources ?? defaultSources,
-      // @ts-expect-error -- SemanticMemory sub-objects stored as Record<string,unknown>; structurally compatible at runtime
-      usage: metadata.usage ?? defaultUsage,
+      sources: isSemanticSources(metadata.sources) ? metadata.sources : defaultSources,
+      usage: isSemanticUsage(metadata.usage) ? metadata.usage : defaultUsage,
     };
   }
 

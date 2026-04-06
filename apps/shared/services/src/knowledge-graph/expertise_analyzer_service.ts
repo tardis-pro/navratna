@@ -633,8 +633,7 @@ export class ExpertiseAnalyzerService {
   private async analyzeExpertiseIndicators(evidence: string[]): Promise<ExpertiseIndicator[]> {
     const indicators: ExpertiseIndicator[] = [];
 
-    // @ts-expect-error -- Object.keys always returns runtime keys of this typed Record
-    const indicatorTypes: Array<ExpertiseIndicator['type']> = Object.keys(this.expertiseIndicators);
+    const indicatorTypes = Object.keys(this.expertiseIndicators) as Array<ExpertiseIndicator['type']>;
     for (const type of indicatorTypes) {
       const patterns = this.expertiseIndicators[type];
       const matches: string[] = [];

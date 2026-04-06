@@ -31,8 +31,7 @@ export class EmbeddingService extends BaseEmbeddingService {
       throw new Error(`OpenAI API error: ${response.statusText}`);
     }
 
-    // @ts-expect-error -- response.json() returns unknown; shape validated by OpenAI API contract
-    const json: { data: Array<{ embedding: number[] }> } = await response.json();
+    const json = await response.json() as { data: Array<{ embedding: number[] }> };
     return json;
   }
 

@@ -197,15 +197,15 @@ type TaskWithMetrics = { metrics?: { completionPercentage?: number; estimatedTim
 type TaskWithAssignee = { assigneeType?: string; assignedToUser?: { name?: string; email?: string }; assignedToAgent?: { name?: string } };
 
 export const calculateTaskProgress = (task: unknown) => {
-  // @ts-expect-error -- task is unknown at runtime; TaskWithMetrics is the expected shape
-  const t: TaskWithMetrics = task;
+  const taskAny: any = task; // oxlint-disable-line @typescript-eslint/no-explicit-any -- task is unknown; TaskWithMetrics is the expected shape
+  const t: TaskWithMetrics = taskAny;
   if (!t?.metrics) return 0;
   return t.metrics.completionPercentage || 0;
 };
 
 export const getEstimatedVsActualTime = (task: unknown) => {
-  // @ts-expect-error -- task is unknown at runtime; TaskWithMetrics is the expected shape
-  const t: TaskWithMetrics = task;
+  const taskAny: any = task; // oxlint-disable-line @typescript-eslint/no-explicit-any -- task is unknown; TaskWithMetrics is the expected shape
+  const t: TaskWithMetrics = taskAny;
   if (!t?.metrics) return { estimated: 0, actual: 0, variance: 0 };
 
   const estimated = t.metrics.estimatedTime || 0;
@@ -216,8 +216,8 @@ export const getEstimatedVsActualTime = (task: unknown) => {
 };
 
 export const getTaskAssigneeDisplay = (task: unknown) => {
-  // @ts-expect-error -- task is unknown at runtime; TaskWithAssignee is the expected shape
-  const t: TaskWithAssignee = task;
+  const taskAny: any = task; // oxlint-disable-line @typescript-eslint/no-explicit-any -- task is unknown; TaskWithAssignee is the expected shape
+  const t: TaskWithAssignee = taskAny;
   if (!t.assigneeType) return 'Unassigned';
 
   const prefix = t.assigneeType === 'agent' ? '🤖' : '👤';

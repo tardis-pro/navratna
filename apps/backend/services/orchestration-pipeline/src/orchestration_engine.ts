@@ -257,9 +257,10 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private extractSetupProjectWorkspaceInput(operation: Operation): SetupProjectWorkspaceInput {
-    // @ts-expect-error -- workspaceSetupInput is a runtime extension of Operation not in the static type
-    const fromTopLevel: unknown = operation.workspaceSetupInput;
-    if (isSetupProjectWorkspaceInput(fromTopLevel)) return fromTopLevel;
+    if (isRecord(operation)) {
+      const fromTopLevel = operation['workspaceSetupInput'];
+      if (isSetupProjectWorkspaceInput(fromTopLevel)) return fromTopLevel;
+    }
 
     const ctx = operation.context;
     const fromContext = isRecord(ctx) ? ctx['workspaceSetupInput'] : undefined;

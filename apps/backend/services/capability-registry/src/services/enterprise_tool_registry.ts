@@ -38,6 +38,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+function isToolDefinition(v: unknown): v is ToolDefinition {
+  return isRecord(v) && typeof v.id === 'string' && typeof v.name === 'string';
+}
+
 export class EnterpriseToolRegistry {
   private tools = new Map<string, ToolDefinition>();
   private toolInstances = new Map<string, unknown>();
@@ -57,11 +61,7 @@ export class EnterpriseToolRegistry {
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return isRecord(value) ? value : {};
   }
 
   async initialize(): Promise<void> {
@@ -673,12 +673,11 @@ export class EnterpriseToolRegistry {
   private async handleToolRegistration(event: unknown): Promise<void> {
     const eventData = this.asRecord(event);
     const toolData = eventData.tool;
-    if (!isRecord(toolData) || typeof toolData.id !== 'string' || typeof toolData.name !== 'string') {
+    if (!isToolDefinition(toolData)) {
       logger.warn('handleToolRegistration: invalid tool payload', { event });
       return;
     }
     try {
-      // @ts-expect-error -- toolData is validated to have id/name; full ToolDefinition shape enforced by registerTool's internal validation
       await this.registerTool(toolData);
     } catch (error) {
       logger.error('Failed to handle tool registration', { error, toolData });

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, join, relative, resolve } from 'node:path'
 import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
 import {
+  KnowledgeType,
   SourceType,
   type EnvVarSchema,
   type OperationalAnalysis,
@@ -534,10 +535,9 @@ export class RepoIngestionService {
       const intelligenceDb = getIntelligenceDb()
       const [createdKnowledgeItem] = await intelligenceDb
         .insert(knowledgeItems)
-        // @ts-expect-error -- 'repo-context' extends KnowledgeType enum not yet updated; db column is text
         .values({
           content: JSON.stringify(repoContext),
-          type: 'repo-context',
+          type: KnowledgeType.REPO_CONTEXT,
           sourceType: sourceIsGitUrl ? SourceType.GIT_REPOSITORY : SourceType.FILE_SYSTEM,
           sourceIdentifier: trimmedSource,
           sourceUrl: sourceIsGitUrl ? trimmedSource : undefined,

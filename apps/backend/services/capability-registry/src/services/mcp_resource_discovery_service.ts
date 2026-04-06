@@ -75,12 +75,12 @@ export class MCPResourceDiscoveryService extends EventEmitter {
     };
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return this.isRecord(value) ? value : {};
   }
 
   public static getInstance(): MCPResourceDiscoveryService {

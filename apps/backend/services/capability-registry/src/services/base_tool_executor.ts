@@ -823,11 +823,7 @@ export class BaseToolExecutor {
         const channelId = this.requiredString(parameters.channelId, 'channelId');
         const text = this.requiredString(parameters.text, 'text');
         const rawOpts = parameters.options;
-        let opts: Record<string, unknown> = {};
-        if (typeof rawOpts === 'object' && rawOpts !== null && !Array.isArray(rawOpts)) {
-          // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-          opts = rawOpts;
-        }
+        const opts = asRecord(rawOpts);
         return adapter.sendMessage(channelId, text, opts);
       }
       case 'list-channels':

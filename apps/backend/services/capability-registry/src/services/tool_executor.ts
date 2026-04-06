@@ -127,7 +127,6 @@ export class ToolExecutor {
     try {
       // Store initial execution record
       await this.toolService.createToolExecution({
-        id: execution.id,
         toolId: execution.toolId,
         agentId: execution.agentId,
         parameters: execution.parameters,
@@ -136,7 +135,6 @@ export class ToolExecutor {
         approvalRequired: execution.approvalRequired,
         retryCount: execution.retryCount,
         maxRetries: execution.maxRetries,
-        metadata: execution.metadata,
       });
 
       // Check if approval is required

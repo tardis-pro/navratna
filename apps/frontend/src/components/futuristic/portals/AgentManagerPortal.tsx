@@ -8,8 +8,10 @@ import { AgentEditModal } from '../../AgentEditModal';
 import type { FrontendAgentState as AgentState } from '@uaip/types';
 import { Persona as _Persona, PersonaDisplay } from '@uaip/types';
 
-// @ts-expect-error -- API response is untyped; runtime shape matches AgentState
-const createAgentStateFromBackend = (data: unknown): AgentState => data;
+const createAgentStateFromBackend = (data: unknown): AgentState => {
+  const dataAny: any = data; // oxlint-disable-line @typescript-eslint/no-explicit-any -- API response is untyped; runtime shape matches AgentState
+  return dataAny;
+};
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip_api';
 import { edenRequest } from '../../../api/eden';

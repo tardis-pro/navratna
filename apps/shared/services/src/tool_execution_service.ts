@@ -86,8 +86,7 @@ export class ToolExecutionService {
 
   private static toRecord(value: unknown): Record<string, unknown> | undefined {
     if (typeof value !== 'object' || value === null) return undefined;
-    // @ts-expect-error -- value narrowed to object & not null; structurally matches Record<string, unknown>
-    return value;
+    return Object.fromEntries(Object.entries(value));
   }
 
   private parseToolRequest(
@@ -227,7 +226,7 @@ export class ToolExecutionService {
     return { toolId, actualAgentId, actualParameters, securityContext, requestId, correlationId, idempotencyKey, execution };
   }
 
-  private toEntityExecution(execution: ToolExecutionType): Partial<ToolExecutionEntity> {
+  private toEntityExecution(execution: ToolExecutionType): Omit<Partial<ToolExecutionEntity>, 'toolId'> & { toolId: string } {
     return {
       id: execution.id,
       toolId: execution.toolId,

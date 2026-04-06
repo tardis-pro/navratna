@@ -113,8 +113,7 @@ export const discussionFeature: Feature = {
   },
 
   websocket(io: MinimalWebSocketServer): void {
-    // @ts-expect-error -- io is MinimalWebSocketServer at the call site but is a SocketIOServer at runtime; typed variable required for Socket.IO handler APIs
-    const socketIO: SocketIOServer = io
+    const socketIO = io as SocketIOServer
 
     new UserChatHandler(socketIO, capturedEventBus)
 

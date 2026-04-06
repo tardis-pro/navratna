@@ -6,22 +6,6 @@ import {
 } from '@uaip/shared-services/drizzle/control';
 import type { RepeatableJob, RepeatOptions } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
-// BullMQ queue contract is an EventBusService internal implementation detail.
-interface RepeatableQueue {
-  add(
-    name: string,
-    data: Record<string, unknown>,
-    opts: { jobId: string; repeat: RepeatOptions; removeOnComplete: number; removeOnFail: number }
-  ): Promise<unknown>;
-  getRepeatableJobs(): Promise<RepeatableJob[]>;
-  removeRepeatableByKey(key: string): Promise<void>;
-}
-
-// Internal queue accessor is intentionally local to avoid leaking transport internals.
-interface EventBusWithInternalQueue {
-  getOrCreateQueue(eventType: string): RepeatableQueue;
-}
-
 const WORKFLOW_QUEUE_EVENT = 'workflow.definition.trigger';
 
 export class WorkflowEngineService {
@@ -117,10 +101,8 @@ export class WorkflowEngineService {
     });
   }
 
-  private getQueue(): RepeatableQueue {
-    // @ts-expect-error -- getOrCreateQueue is an internal BullMQ extension not in the EventBusService public interface
-    const bus: EventBusWithInternalQueue = this.eventBusService;
-    return bus.getOrCreateQueue(WORKFLOW_QUEUE_EVENT);
+  private getQueue() {
+    return this.eventBusService.getOrCreateQueue(WORKFLOW_QUEUE_EVENT);
   }
 
   private buildRepeatOptions(definition: WorkflowDefinition): RepeatOptions | null {

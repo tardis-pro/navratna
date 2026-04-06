@@ -24,18 +24,29 @@ function getNum(v: unknown, fallback?: number): number | undefined {
 function getBool(v: unknown, fallback: boolean): boolean {
   return typeof v === 'boolean' ? v : fallback;
 }
-function getRecord(v: unknown): Record<string, unknown> | undefined {
-  if (typeof v !== 'object' || v === null || Array.isArray(v)) return undefined;
-  return v as Record<string, unknown>;
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
-function getArr<T>(v: unknown): T[] {
+function getRecord(v: unknown): Record<string, unknown> | undefined {
+  return isRecord(v) ? v : undefined;
+}
+function getStrArr(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
-  return v as T[];
+  return v.filter((x): x is string => typeof x === 'string');
+}
+function isToolExample(x: unknown): x is ToolExample {
+  return (
+    typeof x === 'object' &&
+    x !== null &&
+    'name' in x &&
+    'description' in x &&
+    'input' in x &&
+    'expectedOutput' in x
+  );
 }
 function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
-  const values: string[] = Object.values(enumObj);
-  if (typeof v !== 'string' || !values.includes(v)) return undefined;
-  return v as T[keyof T];
+  if (typeof v !== 'string') return undefined;
+  return Object.values(enumObj).find((val): val is T[keyof T] => val === v);
 }
 
 export class ToolDatabase {
@@ -289,10 +300,10 @@ export class ToolDatabase {
       executionTimeEstimate: getNum(entity.execution_time_estimate),
       costEstimate: getNum(entity.cost_estimate),
       author: getStr(entity.author),
-      tags: getArr<string>(entity.tags),
-      dependencies: getArr<string>(entity.dependencies),
+      tags: getStrArr(entity.tags),
+      dependencies: getStrArr(entity.dependencies),
       rateLimits: getRecord(entity.rate_limits),
-      examples: getArr<ToolExample>(entity.examples),
+      examples: Array.isArray(entity.examples) ? entity.examples.filter(isToolExample) : [],
     };
   }
 

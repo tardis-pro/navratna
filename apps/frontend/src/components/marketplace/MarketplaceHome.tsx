@@ -22,9 +22,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
 
   // Mock data for demo
   useEffect(() => {
-    // In real implementation, fetch from API
-    // @ts-expect-error -- mock data objects don't fully conform to MarketplaceItem schema (missing required fields like authorId, pricing)
-    const mockFeatured: MarketplaceItem[] = [
+    const mockFeaturedRaw: any[] = [ // oxlint-disable-line @typescript-eslint/no-explicit-any -- mock data omits required MarketplaceItem fields; runtime shape sufficient for display
       {
         id: '1',
         name: '🎯 UberAgent Pro',
@@ -73,9 +71,9 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         },
       },
     ];
+    const mockFeatured: MarketplaceItem[] = mockFeaturedRaw;
 
-    // @ts-expect-error -- mock data objects don't fully conform to MarketplaceItem schema (missing required fields like authorId, pricing)
-    const mockTrending: MarketplaceItem[] = [
+    const mockTrendingRaw: any[] = [ // oxlint-disable-line @typescript-eslint/no-explicit-any -- mock data omits required MarketplaceItem fields; runtime shape sufficient for display
       {
         id: '3',
         name: '🔥 ViralGPT',
@@ -123,6 +121,7 @@ export const MarketplaceHome: React.FC<MarketplaceHomeProps> = ({ onItemClick })
         },
       },
     ];
+    const mockTrending: MarketplaceItem[] = mockTrendingRaw;
 
     setFeaturedItems(mockFeatured);
     setTrendingItems(mockTrending);

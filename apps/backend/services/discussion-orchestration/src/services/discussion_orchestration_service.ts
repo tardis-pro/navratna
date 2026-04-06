@@ -15,11 +15,29 @@ import { DiscussionService } from '@uaip/shared-services/discussion';
 import { TurnStrategyService } from './turn_strategy_service.js';
 import type { IWebSocketHandler } from '@uaip/types';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 export interface DiscussionOrchestrationResult {
   success: boolean;
   data?: Record<string, unknown>;
   error?: string;
   events?: DiscussionEvent[];
+}
+
+type ParticipantRole = DiscussionParticipant['role'];
+
+const VALID_PARTICIPANT_ROLES: readonly ParticipantRole[] = [
+  'participant',
+  'moderator',
+  'observer',
+  'facilitator',
+] as const;
+
+function toValidRole(role: string): ParticipantRole {
+  const found = VALID_PARTICIPANT_ROLES.find((r) => r === role);
+  return found ?? 'participant';
 }
 
 interface TurnRequestEntry {
@@ -465,9 +483,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Discussion not found' };
       }
 
-      // Enterprise participant lookup - use the participant management service
-      // @ts-expect-error -- databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface
-      const participantManagementService = new ParticipantManagementService(this.discussionService.databaseService);
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
 
       // Try to find participant by participantId first
       let participant = await participantManagementService.getParticipantById(participantId);
@@ -1326,14 +1342,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
       return null;
     }
 
-    if (state.workingMemoryContext && typeof state.workingMemoryContext === 'object') {
-      // @ts-expect-error -- narrowed to object above; structurally matches Record<string, unknown>
-      return state.workingMemoryContext;
+    if (state.workingMemoryContext && typeof state.workingMemoryContext === 'object' && !Array.isArray(state.workingMemoryContext)) {
+      return Object.fromEntries(Object.entries(state.workingMemoryContext));
     }
 
-    if (state.context && typeof state.context === 'object') {
-      // @ts-expect-error -- narrowed to object above; structurally matches Record<string, unknown>
-      return state.context;
+    if (state.context && typeof state.context === 'object' && !Array.isArray(state.context)) {
+      return Object.fromEntries(Object.entries(state.context));
     }
 
     return null;
@@ -1763,9 +1777,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Update rate limit timestamp
       this.participationRateLimits.set(participationKey, now);
-      // Use enterprise participant management service
-      // @ts-expect-error -- databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface
-      const participantManagementService = new ParticipantManagementService(this.discussionService.databaseService);
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
 
       // Get active agent participants
       const activeParticipants = await participantManagementService.getActiveParticipants(
@@ -1814,10 +1826,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
           agentIds: neverParticipatedAgents.map((p) => p.agentId),
         });
 
-        // Trigger participation for the first agent who has never participated
         const agentToTrigger = neverParticipatedAgents[0];
-        // @ts-expect-error -- role is typed as string from DB result but is always a valid DiscussionParticipant role value at runtime
-        await this.triggerAgentParticipationEvent(discussion.id, agentToTrigger);
+        const typedAgentToTrigger: DiscussionParticipant = {
+          ...agentToTrigger,
+          role: toValidRole(agentToTrigger.role),
+        };
+        await this.triggerAgentParticipationEvent(discussion.id, typedAgentToTrigger);
       }
       // Phase 2: Main discussion phase - continue conversation with participated agents
       else if (participatedAgents.length > 0 && discussion.state.currentTurn) {
@@ -2019,9 +2033,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
           let participantName = 'Unknown';
           if (msgParticipant?.agentId) {
             try {
-              // Try to get agent information for proper name
-              // @ts-expect-error -- databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface
-              const agentData: unknown = await this.discussionService.databaseService?.getAgentById?.(msgParticipant.agentId);
+              const dbSvc: unknown = this.discussionService.getDatabaseService();
+              const agentData: unknown = typeof dbSvc === 'object' && dbSvc !== null && 'getAgentById' in dbSvc && typeof (dbSvc as Record<string, unknown>).getAgentById === 'function'
+                ? await (dbSvc as { getAgentById: (id: string) => Promise<unknown> }).getAgentById(msgParticipant.agentId)
+                : undefined;
               const agentName = agentData !== null && typeof agentData === 'object' && 'name' in agentData && typeof agentData.name === 'string'
                 ? agentData.name
                 : undefined;
@@ -2031,9 +2046,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
             }
           } else if (msgParticipant?.userId) {
             try {
-              // Try to get user information for proper name
-              // @ts-expect-error -- databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface
-              const userData: unknown = await this.discussionService.databaseService?.getUserById?.(msgParticipant.userId);
+              const dbSvcU: unknown = this.discussionService.getDatabaseService();
+              const userData: unknown = typeof dbSvcU === 'object' && dbSvcU !== null && 'getUserById' in dbSvcU && typeof (dbSvcU as Record<string, unknown>).getUserById === 'function'
+                ? await (dbSvcU as { getUserById: (id: string) => Promise<unknown> }).getUserById(msgParticipant.userId)
+                : undefined;
               const userEmail = userData !== null && typeof userData === 'object' && 'email' in userData && typeof userData.email === 'string'
                 ? userData.email
                 : undefined;
@@ -2274,8 +2290,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
    private async getActiveParticipants(discussionId: string): Promise<DiscussionParticipant[]> {
     try {
-      // @ts-expect-error -- databaseService is a private runtime field not exposed in the DiscussionService TypeScript interface
-      const participantManagementService = new ParticipantManagementService(this.discussionService.databaseService);
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
       const validRoles = new Set<string>(['participant', 'moderator', 'observer', 'facilitator']);
       type ParticipantRole = 'participant' | 'moderator' | 'observer' | 'facilitator';
       const isValidRole = (r: unknown): r is ParticipantRole => typeof r === 'string' && validRoles.has(r);
@@ -2431,9 +2446,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return;
       }
 
-      // artifactConfig is a Drizzle column not reflected in the Discussion domain type
-      // @ts-expect-error -- artifactConfig is a Drizzle column not in the Discussion domain type
-      const artifactConfig: Record<string, unknown> | undefined = discussion.artifactConfig;
+      const rawConfig = isRecord(discussion.metadata) ? discussion.metadata['artifactConfig'] : undefined;
+      const artifactConfig = isRecord(rawConfig) ? rawConfig : undefined;
 
       // Get recent messages for context
       const recentMessages = await this.getDiscussionMessages(discussionId, { limit: 50 });
@@ -2529,11 +2543,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
     discussion: Discussion,
     messages: Record<string, unknown>[]
   ): string {
-    // First check if discussion has configured artifact type
-    // @ts-expect-error -- artifactConfig is a Drizzle column not in the Discussion domain type
-    const artifactConfig: Record<string, unknown> | undefined = discussion.artifactConfig;
-    if (artifactConfig?.['enabled'] && artifactConfig?.['artifactType']) {
-      return String(artifactConfig['artifactType']);
+    const rawConfig = isRecord(discussion.metadata) ? discussion.metadata['artifactConfig'] : undefined;
+    const artifactConfig = isRecord(rawConfig) ? rawConfig : undefined;
+    if (artifactConfig?.['enabled'] && typeof artifactConfig?.['artifactType'] === 'string') {
+      return artifactConfig['artifactType'];
     }
 
     // Fallback to content-based detection

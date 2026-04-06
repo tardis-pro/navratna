@@ -68,7 +68,13 @@ async function generateConstellationName(cluster: KnowledgeCluster): Promise<str
       return fallbackConstellationName(cluster)
     }
 
-    // @ts-expect-error -- llm is unknown; guard above confirms it has generateResponse method
+    type LLMWithGenerateResponse = { generateResponse: (opts: Record<string, unknown>) => Promise<{ content: string }> };
+    function isLLMWithGenerateResponse(v: object): v is LLMWithGenerateResponse {
+      return 'generateResponse' in v && typeof (v as { generateResponse: unknown }).generateResponse === 'function';
+    }
+    if (!isLLMWithGenerateResponse(llm)) {
+      return fallbackConstellationName(cluster)
+    }
     const response = await llm.generateResponse({
       messages: [
         {

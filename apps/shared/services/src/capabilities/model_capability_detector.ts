@@ -1,6 +1,10 @@
 import { logger } from '@uaip/utils';
 import { ModelCapability, ModelCapabilityDetection, LLMProviderType } from '@uaip/types';
 
+function isModelCapability(v: string): v is ModelCapability {
+  return (Object.values(ModelCapability) as string[]).includes(v);
+}
+
 interface CapabilityTestResult {
   supported: boolean;
   confidence: number;
@@ -50,13 +54,13 @@ export class ModelCapabilityDetector {
     if (baseUrl && apiKey) {
       const additionalCapabilities = await this.performAPITests(modelId, provider, baseUrl, apiKey);
 
-      for (const [capability, result] of Object.entries(additionalCapabilities)) {
-        // @ts-expect-error -- capability is a key of additionalCapabilities whose keys are ModelCapability values
-        if (result.supported && !detectedCapabilities.includes(capability)) {
-          // @ts-expect-error -- capability is a key of additionalCapabilities whose keys are ModelCapability values
-          detectedCapabilities.push(capability);
+      for (const [capabilityKey, result] of Object.entries(additionalCapabilities)) {
+        if (isModelCapability(capabilityKey)) {
+          if (result.supported && !detectedCapabilities.includes(capabilityKey)) {
+            detectedCapabilities.push(capabilityKey);
+          }
         }
-        testResults[capability] = result;
+        testResults[capabilityKey] = result;
       }
     }
 

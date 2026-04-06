@@ -123,7 +123,7 @@ export class EventBusService {
     process.on('SIGTERM', () => this.gracefulShutdown('SIGTERM'));
   }
 
-  private getOrCreateQueue(eventType: string): Queue {
+  public getOrCreateQueue(eventType: string): Queue {
     if (!this.queues.has(eventType)) {
       const queue = new Queue(eventType, {
         connection: getBullMQConnection(),

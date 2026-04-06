@@ -212,8 +212,8 @@ export class ProjectService extends BaseDomainService {
       return result.rows[0] ?? null;
     }
     const setClauses = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
-    // @ts-expect-error -- k is a string key of data; indexing by string is safe here
-    const values = [id, ...keys.map((k) => data[k])];
+    const dataRecord = Object.fromEntries(Object.entries(data));
+    const values = [id, ...keys.map((k) => dataRecord[k])];
     const result = await pool.query(
       `UPDATE project_files SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       values
@@ -241,7 +241,7 @@ export class ProjectService extends BaseDomainService {
     if (!project) throw new Error('Project not found');
     const rawMetadata = project.metadata;
     const metadata: Record<string, unknown> = (typeof rawMetadata === 'object' && rawMetadata !== null && !Array.isArray(rawMetadata))
-      ? (rawMetadata as Record<string, unknown>)
+      ? Object.fromEntries(Object.entries(rawMetadata))
       : {};
     const tools: string[] = Array.isArray(metadata.allowedTools)
       ? metadata.allowedTools.filter((t): t is string => typeof t === 'string')

@@ -15,14 +15,20 @@ interface KnowledgeFilters {
   offset?: number;
 }
 
+type KnowledgeIngestRequestExtended = KnowledgeIngestRequest & {
+  userId?: string;
+  agentId?: string;
+  summary?: string;
+};
+
 type KnowledgeCreateRequest =
   | typeof knowledgeItems.$inferInsert
-  | (KnowledgeIngestRequest & {
-      userId?: string;
-      agentId?: string;
-      summary?: string;
-    })
+  | KnowledgeIngestRequestExtended
   | object;
+
+function isKnowledgeIngestRequestExtended(v: object): v is KnowledgeIngestRequestExtended {
+  return 'source' in v && typeof (v as { source: unknown }).source === 'object' && (v as { source: unknown }).source !== null;
+}
 
 type RelationshipCreateRequest =
   | typeof knowledgeRelationships.$inferInsert
@@ -172,12 +178,8 @@ export class KnowledgeRepository {
   }
 
   private normalizeCreateRequest(request: KnowledgeCreateRequest): typeof knowledgeItems.$inferInsert {
-    if (typeof request === 'object' && request !== null && 'source' in request) {
-      const ingestRequest = request as KnowledgeIngestRequest & {
-        userId?: string;
-        agentId?: string;
-        summary?: string;
-      };
+    if (typeof request === 'object' && request !== null && isKnowledgeIngestRequestExtended(request)) {
+      const ingestRequest = request;
       return {
         content: ingestRequest.content,
         type: ingestRequest.type,

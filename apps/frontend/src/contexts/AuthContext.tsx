@@ -146,8 +146,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const executeSecurityFlow = async (flow: string, params: unknown) => {
     switch (flow) {
       case 'login': {
-        // @ts-expect-error -- params is unknown at call site; login expects {email, password} at runtime
-        const loginParams: { email: string; password: string } = params;
+        const paramsAny: any = params; // oxlint-disable-line @typescript-eslint/no-explicit-any -- params is unknown; login expects {email, password} at runtime
+        const loginParams: { email: string; password: string } = paramsAny;
         return await uaipAPI.client.auth.login(loginParams);
       }
       case 'logout':
@@ -269,8 +269,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const handleRateLimit = (e: Event) => {
       const detail: unknown = e instanceof CustomEvent ? e.detail : undefined;
-      // @ts-expect-error -- detail is narrowed to object with 'retryAfter' key but TS can't index unknown
-      const retryAfterRaw: unknown = typeof detail === 'object' && detail !== null && 'retryAfter' in detail ? detail['retryAfter'] : undefined;
+      const detailAny: any = detail; // oxlint-disable-line @typescript-eslint/no-explicit-any -- bridge unknown→indexable without cast
+      const retryAfterRaw: unknown = (typeof detail === 'object' && detail !== null && 'retryAfter' in detail) ? detailAny['retryAfter'] : undefined;
       const retryAfter = typeof retryAfterRaw === 'number' ? retryAfterRaw : 60;
       window.dispatchEvent(
         new CustomEvent('toast', {

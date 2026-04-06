@@ -96,8 +96,8 @@ const snakeToCamel = (value: string): string => value.replace(/_([a-z])/g, (_m, 
 
 const mapRowToCamelCase = <TRow extends Record<string, unknown>>(row: TRow): TRow => {
   const mappedEntries = Object.entries(row).map(([key, val]) => [snakeToCamel(key), val] as const);
-  // @ts-expect-error -- Object.fromEntries cannot preserve generic TRow shape; entries are structurally identical
-  return Object.fromEntries(mappedEntries);
+  // Object.fromEntries cannot preserve generic TRow shape; entries are structurally identical
+  return Object.fromEntries(mappedEntries) as TRow;
 };
 
 const mapRowsToCamelCase = <TRow extends Record<string, unknown>>(rows: TRow[]): TRow[] =>
@@ -110,6 +110,14 @@ class DrizzleRepository<T extends ObjectLiteral> {
 
   private get pool() {
     return INTELLIGENCE_TABLES.has(this.table) ? getIntelligencePool() : getControlPool();
+  }
+
+  async findOneById(id: string): Promise<T | null> {
+    assertSafeColumnName('id');
+    const q = `SELECT * FROM "${this.table}" WHERE "id" = $1 LIMIT 1`;
+    const result = await this.pool.query<T>(q, [id]);
+    const row = result.rows[0];
+    return row ? mapRowToCamelCase(row) : null;
   }
 
   async findOne(opts: { where?: Partial<T>; select?: (keyof T)[] }): Promise<T | null> {
@@ -1074,8 +1082,7 @@ export class DatabaseService {
   ): Promise<T | null> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
-    // @ts-expect-error -- { id: string } satisfies Partial<T> at runtime (T extends { id: string }) but TS can't narrow in generic context
-    return await repository.findOne({ where: { id } });
+    return await repository.findOneById(id);
   }
 
   public async update<T extends ObjectLiteral & { id: string }>(
@@ -1086,8 +1093,7 @@ export class DatabaseService {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     await repository.update(id, data);
-    // @ts-expect-error -- { id: string } satisfies Partial<T> at runtime (T extends { id: string }) but TS can't narrow in generic context
-    return await repository.findOne({ where: { id } });
+    return await repository.findOneById(id);
   }
 
   public async delete<T extends ObjectLiteral>(tableName: string, id: string): Promise<boolean> {
@@ -1099,13 +1105,12 @@ export class DatabaseService {
 
   public async findMany<T extends ObjectLiteral>(
     tableName: string,
-    conditions: Partial<ObjectLiteral>,
+    conditions: Partial<T>,
     options?: { order?: Partial<Record<string, string>>; take?: number; skip?: number }
   ): Promise<T[]> {
     await this.ensureInitialized();
     const repository = new DrizzleRepository<T>(tableName);
     return await repository.find({
-      // @ts-expect-error -- Partial<ObjectLiteral> is assignable to Partial<T extends ObjectLiteral> at runtime but TS can't narrow generics here
       where: conditions,
       order: options?.order,
       take: options?.take,

@@ -131,10 +131,13 @@ import type { StringValue } from 'ms';
 
 const DURATION_PATTERN = /^\d+(\s*[a-zA-Z]+)?$/;
 
+function isStringValue(value: string): value is StringValue {
+  return DURATION_PATTERN.test(value);
+}
+
 function parseDuration(value: string | undefined): StringValue | undefined {
   if (!value) return undefined;
-  if (!DURATION_PATTERN.test(value)) return undefined;
-  // @ts-expect-error -- runtime-validated: DURATION_PATTERN confirms value matches ms StringValue format
+  if (!isStringValue(value)) return undefined;
   return value;
 }
 export interface CorsConfig {

@@ -147,11 +147,11 @@ export class CodingAgentSocketHandler {
       if (!('sessionId' in raw) || typeof raw.sessionId !== 'string') return;
       if (!('type' in raw) || typeof raw.type !== 'string') return;
       const payloadRaw = 'payload' in raw && typeof raw.payload === 'object' && raw.payload !== null ? raw.payload : {};
+      const payload: Record<string, unknown> = Object.fromEntries(Object.entries(payloadRaw));
       const data: CodingAgentEventData = {
         type: raw.type,
         sessionId: raw.sessionId,
-        // @ts-expect-error -- narrowed to non-null object; structurally matches Record<string, unknown>
-        payload: payloadRaw,
+        payload,
         timestamp: 'timestamp' in raw && (typeof raw.timestamp === 'string' || raw.timestamp instanceof Date) ? raw.timestamp : new Date(),
       };
       this.broadcastToSession(data.sessionId, data);

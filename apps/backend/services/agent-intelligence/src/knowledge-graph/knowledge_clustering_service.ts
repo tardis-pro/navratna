@@ -181,7 +181,7 @@ export class KnowledgeClusteringService {
     const averageConfidence = this.calculateAverageConfidence(cluster.similarChunks);
 
     // Create knowledge item entity as plain object
-    const knowledgeItem = {
+    const knowledgeItem: KnowledgeItemEntity = {
       id: '', // Will be assigned by database
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -191,16 +191,21 @@ export class KnowledgeClusteringService {
       confidence: averageConfidence,
       sourceType: SourceType.CLUSTERED,
       sourceIdentifier: `cluster_${cluster.clusterId}`,
+      sourceUrl: null,
+      createdBy: null,
+      organizationId: null,
+      userId: null,
+      agentId: null,
+      summary: null,
       metadata: {
         clusterId: cluster.clusterId,
         originalItemsCount: cluster.similarChunks.length,
         consolidatedAt: new Date().toISOString(),
         sources: cluster.sources,
       },
-      accessLevel: 'public' as const,
+      accessLevel: 'public',
     };
 
-    // @ts-expect-error — plain object satisfies KnowledgeItemEntity shape; optional fields omitted intentionally
     return knowledgeItem;
   }
 

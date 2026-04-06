@@ -8,18 +8,14 @@ import { EventBusService } from '../event_bus_service';
 import type { Agent, NewAgent } from '../database/drizzle/schemas/intelligence_schema';
 import type { CapabilityRow } from '../database/repositories/capability_repository';
 
-type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
-type JsonObject = { [key: string]: JsonValue };
-
 interface Capability {
   id: string;
   name: string;
   description?: string;
   type: string;
-  configuration?: JsonObject;
+  configuration?: Record<string, unknown>;
   isEnabled: boolean;
-  metadata?: JsonObject;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,13 +25,11 @@ const toCapability = (row: CapabilityRow): Capability => ({
   name: row.name,
   description: row.description ?? undefined,
   type: row.type,
-  // @ts-expect-error -- row.configuration is Record<string,unknown>; JsonObject requires JsonValue values, safe at runtime
   configuration:
     row.configuration && typeof row.configuration === 'object'
       ? { ...row.configuration }
       : undefined,
   isEnabled: row.isEnabled,
-  // @ts-expect-error -- row.metadata is Record<string,unknown>; JsonObject requires JsonValue values, safe at runtime
   metadata:
     row.metadata && typeof row.metadata === 'object'
       ? { ...row.metadata }

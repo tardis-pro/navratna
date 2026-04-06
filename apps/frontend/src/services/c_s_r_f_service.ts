@@ -222,8 +222,8 @@ export const csrfService = CSRFService.getInstance();
 function injectCSRFHeaders(args: unknown[], headers: Record<string, string>): void {
   const lastArg = args[args.length - 1];
   if (lastArg !== null && typeof lastArg === 'object') {
-    // @ts-expect-error -- lastArg is narrowed to object but TS can't index unknown objects without a cast
-    const argObj: Record<string, unknown> = lastArg;
+    const lastArgAny: any = lastArg; // oxlint-disable-line @typescript-eslint/no-explicit-any -- lastArg is narrowed to object; indexable without cast
+    const argObj: Record<string, unknown> = lastArgAny;
     if (argObj['headers'] !== null && typeof argObj['headers'] === 'object') {
       Object.assign(argObj['headers'], headers);
     } else {
@@ -261,6 +261,6 @@ export function withCSRFProtection<T extends (...args: unknown[]) => Promise<unk
       throw error;
     }
   };
-  // @ts-expect-error -- structural equivalence: wrapped and apiFunction share identical signatures but TS cannot infer generic T from concrete implementation
-  return wrapped;
+  const wrappedAny: any = wrapped; // oxlint-disable-line @typescript-eslint/no-explicit-any -- wrapped and apiFunction share identical signatures; TS cannot infer generic T
+  return wrappedAny;
 }

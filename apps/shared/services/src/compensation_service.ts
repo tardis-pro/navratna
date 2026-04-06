@@ -197,7 +197,10 @@ export class CompensationService extends EventEmitter {
       return compensationSteps;
     }
 
-    const executionSteps: ExecutionStep[] = executionPlan.steps as ExecutionStep[];
+    const executionSteps: ExecutionStep[] = executionPlan.steps.filter(
+      (step: unknown): step is ExecutionStep =>
+        typeof step === 'object' && step !== null
+    );
 
     // Find completed steps that need compensation
     const completedSteps = executionSteps.filter(

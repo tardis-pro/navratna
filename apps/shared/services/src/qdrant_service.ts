@@ -6,6 +6,10 @@ import type {
 } from '@uaip/types';
 import { config } from '@uaip/config';
 
+function isPlainRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
 export class QdrantService {
   private qdrantUrl: string;
   private isConnected: boolean = false;
@@ -562,14 +566,14 @@ export class QdrantService {
       }
 
       const data: unknown = await response.json();
-      if (typeof data !== 'object' || data === null || !('result' in data)) {
+      if (!isPlainRecord(data) || !('result' in data)) {
         return null;
       }
-      const result: unknown = (data as { result: unknown })['result'];
-      if (typeof result !== 'object' || result === null) {
+      const result: unknown = data['result'];
+      if (!isPlainRecord(result)) {
         return null;
       }
-      const r: Record<string, unknown> = result as Record<string, unknown>;
+      const r: Record<string, unknown> = result;
       const payload: Record<string, unknown> =
         typeof r.payload === 'object' && r.payload !== null
           ? { ...r.payload }

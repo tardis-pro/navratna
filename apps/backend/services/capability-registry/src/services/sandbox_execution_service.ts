@@ -56,12 +56,12 @@ export class SandboxExecutionService {
     this.eventBus = EventBusService.getInstance();
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return this.isRecord(value) ? value : {};
   }
 
   static getInstance(): SandboxExecutionService {

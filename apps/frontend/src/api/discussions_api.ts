@@ -40,8 +40,8 @@ export const discussionsAPI = {
     }
 
     if (isRecord(response) && 'discussions' in response && Array.isArray(response['discussions'])) {
-      // @ts-expect-error -- array elements are Discussion objects; runtime-validated by API contract
-      return response['discussions'];
+      const arr: any = response['discussions']; // oxlint-disable-line @typescript-eslint/no-explicit-any -- elements are Discussion objects; runtime-validated
+      return arr;
     }
 
     return [];
@@ -126,8 +126,8 @@ export const discussionsAPI = {
       return response;
     }
     if (isRecord(response) && 'messages' in response && Array.isArray(response['messages'])) {
-      // @ts-expect-error -- array elements are DiscussionMessage objects; runtime-validated by API contract
-      return response['messages'];
+      const arr: any = response['messages']; // oxlint-disable-line @typescript-eslint/no-explicit-any -- elements are DiscussionMessage objects; runtime-validated
+      return arr;
     }
     return [];
   },

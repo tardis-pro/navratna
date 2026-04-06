@@ -127,8 +127,8 @@ export const knowledgeAPI = {
       return [];
     }
 
-    // @ts-expect-error -- items is any[] after Array.isArray; KnowledgeItem[] is structurally compatible at runtime
-    return items;
+    const itemsAny: any = items; // oxlint-disable-line @typescript-eslint/no-explicit-any -- items is unknown[]; KnowledgeItem[] is structurally compatible at runtime
+    return itemsAny;
   },
 
   async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {

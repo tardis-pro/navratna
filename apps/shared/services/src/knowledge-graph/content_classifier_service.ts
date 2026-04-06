@@ -103,7 +103,9 @@ export class ContentClassifier {
       [KnowledgeType.EXPERIENTIAL]: this.calculateKeywordScore(content, this.experientialKeywords),
       [KnowledgeType.EPISODIC]: this.calculateKeywordScore(content, this.episodicKeywords),
       [KnowledgeType.SEMANTIC]: this.calculateKeywordScore(content, this.semanticKeywords),
-      [KnowledgeType.FACTUAL]: 0.5, // Default baseline
+      [KnowledgeType.FACTUAL]: 0.5,
+      [KnowledgeType.REPO_CONTEXT]: 0,
+      [KnowledgeType.CODE_SYMBOL]: 0,
     };
 
     // Additional heuristics
@@ -126,8 +128,7 @@ export class ContentClassifier {
     }
 
     // Return the type with the highest score
-    // @ts-expect-error -- Object.keys always returns runtime keys of this typed Record<KnowledgeType, number>
-    const scoreKeys: KnowledgeType[] = Object.keys(scores);
+    const scoreKeys = Object.keys(scores) as KnowledgeType[];
     const topType = scoreKeys.reduce((best, key) => scores[key] > scores[best] ? key : best);
 
     return topType;

@@ -123,8 +123,10 @@ export class AgentTaskTypeResolver {
   ): LLMTaskType {
     const pref = preferences[0];
     if (pref?.taskType && typeof pref.taskType === 'string') {
-      // @ts-expect-error -- pref.taskType is string; runtime value is always a valid LLMTaskType
-      return pref.taskType;
+      const matched = Object.values(LLMTaskType).find((t) => t === pref.taskType);
+      if (matched !== undefined) {
+        return matched;
+      }
     }
     return LLMTaskType.REASONING;
   }

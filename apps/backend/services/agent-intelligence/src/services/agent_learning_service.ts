@@ -67,6 +67,21 @@ interface ExtractedLearning {
   confidence: number;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isMemoryConsolidationPayload(
+  data: unknown
+): data is { agentId: string; requestId: string; requestedAt: string } {
+  if (!isRecord(data)) return false;
+  return (
+    typeof data.agentId === 'string' &&
+    typeof data.requestId === 'string' &&
+    typeof data.requestedAt === 'string'
+  );
+}
+
 export class AgentLearningService {
   private databaseService: DatabaseService;
   private eventBusService: EventBusService;
@@ -372,11 +387,10 @@ Performance: Efficiency=${interaction.performanceMetrics.efficiency}, Accuracy=$
 
   private async handleMemoryConsolidationRequest(message: EventBusMessage): Promise<void> {
     const rawData = message.data;
-    if (typeof rawData !== 'object' || rawData === null || !('agentId' in rawData) || !('requestId' in rawData)) {
+    if (!isMemoryConsolidationPayload(rawData)) {
       logger.warn('Invalid MemoryConsolidationRequestEvent payload', { data: rawData });
       return;
     }
-    // @ts-expect-error -- rawData narrowed by 'in' checks; MemoryConsolidationRequestEvent shape verified above
     const event: MemoryConsolidationRequestEvent = rawData;
     const { agentId, requestId } = event;
 

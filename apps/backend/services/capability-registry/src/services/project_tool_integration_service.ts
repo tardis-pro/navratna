@@ -1,5 +1,4 @@
-import { ProjectManagementService } from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/infra/database';
+import { ProjectManagementService, DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra';
 import { ProjectStatus } from '@uaip/types';
 import { UnifiedToolRegistry } from './unified_tool_registry.js';
@@ -59,17 +58,16 @@ export class ProjectToolIntegrationService {
     private eventBusService: EventBusService
   ) {
     this.toolRegistry = new UnifiedToolRegistry(eventBusService);
-    // @ts-expect-error -- DatabaseService from @uaip/infra/database is structurally compatible with @uaip/shared-services DatabaseService at runtime
     this.projectService = new ProjectManagementService(databaseService);
     this.setupEventSubscriptions();
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // @ts-expect-error -- structural narrowing: object is Record<string, unknown> after null/array checks
-      return value;
-    }
-    return {};
+    return this.isRecord(value) ? value : {};
   }
 
   async initialize(): Promise<void> {

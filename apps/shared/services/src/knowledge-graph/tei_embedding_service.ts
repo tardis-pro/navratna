@@ -1,6 +1,23 @@
 import { ContextRequest } from '@uaip/types';
 import { BaseEmbeddingService } from './base_embedding_service.js';
 
+function isNumberMatrix(v: unknown): v is number[][] {
+  return Array.isArray(v) && v.every((row) => Array.isArray(row) && row.every((n) => typeof n === 'number'));
+}
+
+function isRerankResultArray(v: unknown): v is RerankResult[] {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (item) =>
+        typeof item === 'object' &&
+        item !== null &&
+        'index' in item && typeof (item as { index: unknown }).index === 'number' &&
+        'score' in item && typeof (item as { score: unknown }).score === 'number'
+    )
+  );
+}
+
 export interface RerankResult {
   index: number;
   score: number;
@@ -95,8 +112,7 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
 
       // TEI returns array of embeddings, we want the first one for single input
       const dataArr: unknown[] = Array.isArray(data) ? data : [];
-      const embedding: unknown = Array.isArray(dataArr[0]) ? dataArr[0] : dataArr;
-      // @ts-expect-error -- embedding is unknown[] from JSON; runtime structure is number[]
+      const embedding = (Array.isArray(dataArr[0]) ? dataArr[0] : dataArr) as number[];
       return embedding;
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
@@ -140,7 +156,11 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
           throw new Error(`TEI batch embedding error: ${response.status} ${response.statusText}`);
         }
 
-        return response.json() as Promise<number[][]>;
+        const jsonData: unknown = await response.json();
+        if (!isNumberMatrix(jsonData)) {
+          throw new Error('TEI batch embedding response is not a valid number matrix');
+        }
+        return jsonData;
       });
 
       const batchResults = await Promise.all(batchPromises);
@@ -185,8 +205,11 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
         throw new Error(`TEI reranking error: ${response.status} ${response.statusText}`);
       }
 
-      // @ts-expect-error -- response.json() returns unknown; TEI rerank response shape validated at runtime
-      const results: RerankResult[] = await response.json();
+      const rawResults: unknown = await response.json();
+      if (!isRerankResultArray(rawResults)) {
+        throw new Error('TEI reranking response is not a valid RerankResult array');
+      }
+      const results = rawResults;
 
       // Sort by score descending and optionally limit results
       results.sort((a, b) => b.score - a.score);

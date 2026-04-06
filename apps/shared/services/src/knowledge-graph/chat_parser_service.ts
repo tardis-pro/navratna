@@ -6,6 +6,12 @@ export type { ParsedMessage, ParsedConversation, ChatParsingResult } from '@uaip
 
 type ChatPlatform = ParsedConversation['platform'];
 
+const VALID_CHAT_PLATFORMS: readonly ChatPlatform[] = ['claude', 'gpt', 'whatsapp', 'generic'];
+
+function isChatPlatform(v: string): v is ChatPlatform {
+  return (VALID_CHAT_PLATFORMS as readonly string[]).includes(v);
+}
+
 type ImportedMessage = {
   timestamp?: string | Date;
   role?: string;
@@ -19,7 +25,7 @@ type ImportedConversation = {
 };
 
 export class ChatParserService {
-  private readonly platformDetectors = {
+  private readonly platformDetectors: Record<ChatPlatform, RegExp[]> = {
     claude: [/Claude|Anthropic/i, /Human:|Assistant:/i, /"role":\s*"(human|assistant)"/i],
     gpt: [
       /ChatGPT|OpenAI/i,
@@ -32,6 +38,7 @@ export class ChatParserService {
       /\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}\s*-\s*.+?:/i,
       /WhatsApp Chat with/i,
     ],
+    generic: [],
   };
 
   async parseFile(content: string, filename: string): Promise<ChatParsingResult> {
@@ -108,12 +115,12 @@ export class ChatParserService {
     if (lowerFilename.includes('whatsapp') || lowerFilename.includes('chat.txt')) return 'whatsapp';
 
     // Check content patterns
-    for (const [platform, patterns] of Object.entries(this.platformDetectors)) {
+    for (const platform of Object.keys(this.platformDetectors) as Array<keyof typeof this.platformDetectors>) {
+      const patterns = this.platformDetectors[platform];
       const matchCount = patterns.filter((pattern) => pattern.test(content)).length;
       if (matchCount >= 2) {
         // Require at least 2 pattern matches for confidence
-        // @ts-expect-error -- platform is a key of platformDetectors whose keys are all valid ChatPlatform values
-        return platform;
+        if (isChatPlatform(platform)) return platform;
       }
     }
 
