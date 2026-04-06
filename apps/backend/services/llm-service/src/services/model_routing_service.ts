@@ -14,7 +14,8 @@ export class ModelRoutingService {
 
   private loadConfig(): ModelRoutingConfig {
     const fileContent = readFileSync(this.configPath, 'utf-8');
-    return JSON.parse(fileContent) as ModelRoutingConfig;
+    const config: ModelRoutingConfig = JSON.parse(fileContent);
+    return config;
   }
 
   getProviderForAgent(agentId: string): ProviderChain | null {

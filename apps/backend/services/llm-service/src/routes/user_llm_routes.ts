@@ -102,7 +102,8 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          const requestBody = body as CreateUserLLMProviderRequest;
+          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS CreateUserLLMProviderRequest at runtime
+          const requestBody: CreateUserLLMProviderRequest = body;
           const {
             name,
             description,
@@ -175,9 +176,8 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           if (authError) return authError;
 
           const { providerId } = params;
-          const requestBody = body as UpdateUserLLMProviderRequest;
-          const { name, description, baseUrl, defaultModel, priority, configuration } =
-            requestBody || {};
+          const requestBody: UpdateUserLLMProviderRequest = body;
+          const { name, description, baseUrl, defaultModel, priority, configuration } = requestBody;
 
           await userLLMService.updateUserProviderConfig(userId, providerId, {
             name,
@@ -209,7 +209,8 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           if (authError) return authError;
 
           const { providerId } = params;
-          const requestBody = body as UpdateApiKeyRequest;
+          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS UpdateApiKeyRequest at runtime
+          const requestBody: UpdateApiKeyRequest = body;
           const { apiKey } = requestBody;
 
           if (!apiKey) {
@@ -304,7 +305,8 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          const requestBody = body as UserLLMGenerateRequest;
+          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS UserLLMGenerateRequest at runtime
+          const requestBody: UserLLMGenerateRequest = body;
           const { prompt, systemPrompt, maxTokens, temperature, model } = requestBody || {};
 
           if (!prompt) {
@@ -341,7 +343,8 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          const request = body as AgentResponseRequest;
+          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS AgentResponseRequest at runtime
+          const request: AgentResponseRequest = body;
           const { agent, messages, context, tools } = request || {};
 
           if (!agent || !messages) {
@@ -385,15 +388,18 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const capabilities = [];
 
           for (const provider of userProviders) {
-            const config = provider.configuration as Record<string, unknown> | undefined;
+            const config = provider.configuration;
+            const rawModelCaps = config?.['modelCapabilities'];
+            const rawDetectedCaps = config?.['detectedCapabilities'];
+            const rawLastCheck = config?.['lastCapabilityCheck'];
             const providerCapabilities = {
               providerId: provider.id,
               providerName: provider.name,
               providerType: provider.type,
               defaultModel: provider.defaultModel,
-              modelCapabilities: (config?.modelCapabilities as Record<string, unknown>) || {},
-              detectedCapabilities: (config?.detectedCapabilities as string[]) || [],
-              lastCapabilityCheck: config?.lastCapabilityCheck as Date | undefined,
+              modelCapabilities: _isRecord(rawModelCaps) ? rawModelCaps : {},
+              detectedCapabilities: Array.isArray(rawDetectedCaps) ? rawDetectedCaps.filter((s): s is string => typeof s === 'string') : [],
+              lastCapabilityCheck: rawLastCheck instanceof Date ? rawLastCheck : undefined,
               isActive: provider.isActive,
             };
 
@@ -450,13 +456,13 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               provider.baseUrl
             );
 
-            const currentConfig = provider.configuration as Record<string, unknown> | undefined;
+            const currentConfig = provider.configuration;
             provider.configuration = {
               ...currentConfig,
               detectedCapabilities: detection.detectedCapabilities,
               lastCapabilityCheck: new Date(),
               capabilityTestResults: detection.testResults,
-            } as Record<string, unknown>;
+            };
 
             await userLLMService.updateUserProviderConfig(userId, provider.id, {
               configuration: provider.configuration,
@@ -497,7 +503,7 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
                     modelId: provider.defaultModel,
                     success: false,
                     error: `Provider type ${provider.type} is not supported for capability detection`,
-                    detectedCapabilities: [] as string[],
+                    detectedCapabilities: new Array<string>(),
                   });
                   continue;
                 }
@@ -509,13 +515,13 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
                   provider.baseUrl
                 );
 
-                const currentConfig = provider.configuration as Record<string, unknown> | undefined;
+                const currentConfig = provider.configuration;
                 provider.configuration = {
                   ...currentConfig,
                   detectedCapabilities: detection.detectedCapabilities,
                   lastCapabilityCheck: new Date(),
                   capabilityTestResults: detection.testResults,
-                } as Record<string, unknown>;
+                };
 
                 // oxlint-disable-next-line eslint/no-await-in-loop -- sequential processing required
                 await userLLMService.updateUserProviderConfig(userId, provider.id, {
@@ -537,7 +543,7 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
                 modelId: provider.defaultModel,
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error',
-                detectedCapabilities: [] as string[],
+                detectedCapabilities: new Array<string>(),
               });
             }
           }

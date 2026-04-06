@@ -22,6 +22,10 @@ interface LLMResponseData {
   model?: string;
 }
 
+function isLLMResponseData(v: unknown): v is LLMResponseData {
+  return typeof v === 'object' && v !== null && 'requestId' in v;
+}
+
 async function testLLMEventIntegration() {
   logger.info('Starting LLM event integration test...');
 
@@ -37,7 +41,11 @@ async function testLLMEventIntegration() {
 
   // Subscribe to response events first
   await eventBusService.subscribe('llm.agent.generate.response', async (event: EventBusMessage) => {
-    const { requestId, agentId, content, error, confidence, model } = event.data as LLMResponseData;
+    if (!isLLMResponseData(event.data)) {
+      logger.warn('Received malformed LLM response event', { data: event.data });
+      return;
+    }
+    const { requestId, agentId, content, error, confidence, model } = event.data;
 
     logger.info('Received LLM response event', {
       requestId,
