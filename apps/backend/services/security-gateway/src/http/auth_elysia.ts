@@ -97,11 +97,10 @@ type TokenInfo = {
 
 function isTokenInfo(v: unknown): v is TokenInfo {
   return (
-    typeof v === 'object' &&
-    v !== null &&
+    isRecord(v) &&
     'expiresAt' in v &&
     'user' in v &&
-    typeof (v as Record<string, unknown>).user === 'object'
+    typeof v['user'] === 'object'
   );
 }
 

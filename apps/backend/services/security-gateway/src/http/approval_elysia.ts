@@ -401,8 +401,8 @@ export function registerApprovalRoutes() {
       async (ctx) => {
         const user = getAuthUser(ctx);
         const { set, params, request, headers } = ctx;
-        const ctxBody = typeof ctx === 'object' && ctx !== null && 'body' in ctx ? (ctx as Record<string, unknown>).body : undefined;
-        const reason = typeof ctxBody === 'object' && ctxBody !== null && 'reason' in ctxBody ? String((ctxBody as Record<string, unknown>).reason) : undefined;
+        const ctxBody = typeof ctx === 'object' && ctx !== null && 'body' in ctx ? ctx.body : undefined;
+        const reason = typeof ctxBody === 'object' && ctxBody !== null && 'reason' in ctxBody ? String(ctxBody.reason) : undefined;
         try {
           const workflowId = params.workflowId;
           if (!reason || !reason.trim()) {

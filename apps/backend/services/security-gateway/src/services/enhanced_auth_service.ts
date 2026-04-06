@@ -25,6 +25,14 @@ import { AuditService } from './audit_service.js';
 import { config } from '@uaip/config';
 import * as speakeasy from 'speakeasy';
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function isMFAMethod(v: unknown): v is MFAMethod {
+  return typeof v === 'string' && new Set<string>(Object.values(MFAMethod)).has(v);
+}
+
 type OAuthUserInfoParam = {
   email?: string;
   id?: string;
@@ -396,9 +404,7 @@ export class EnhancedAuthService {
       );
       let verified = false;
 
-      const challengeType = typeof challenge.challengeType === 'string' && Object.values(MFAMethod).includes(challenge.challengeType as MFAMethod)
-        ? (challenge.challengeType as MFAMethod)
-        : null;
+      const challengeType = isMFAMethod(challenge.challengeType) ? challenge.challengeType : null;
       switch (challengeType) {
         case MFAMethod.TOTP:
           verified = this.verifyTOTPResponse(response, decryptedChallenge);
@@ -499,7 +505,7 @@ export class EnhancedAuthService {
         authenticationMethod: session.authenticationMethod,
         oauthProvider: session.oauthProvider ?? undefined,
         agentCapabilities: session.agentCapabilities ?? undefined,
-        deviceTrusted: (session.deviceInfo as DeviceInfoWithTrust | undefined)?.isTrusted ?? false,
+        deviceTrusted: isRecord(session.deviceInfo) && typeof session.deviceInfo['isTrusted'] === 'boolean' ? session.deviceInfo['isTrusted'] : false,
         // @ts-expect-error — UserEntity.agentConfig.allowedProviders is string[]; EnhancedUser expects OAuthProviderType[]; structurally compatible at runtime
         locationTrusted: this.isLocationTrusted(user, session),
         agentContext:
@@ -511,7 +517,7 @@ export class EnhancedAuthService {
                   `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
                   user.email,
                 capabilities: (user.agentConfig?.capabilities || []).filter(
-                  (c): c is AgentCapability => (Object.values(AgentCapability) as string[]).includes(c)
+                  (c): c is AgentCapability => new Set<string>(Object.values(AgentCapability)).has(c)
                 ),
                 connectedProviders: await this.getAgentConnectedProviders(user.id),
                 operationLimits: {
@@ -694,12 +700,14 @@ export class EnhancedAuthService {
   private async verifyAgentToken(token: string): Promise<EnhancedUser | null> {
     try {
       const decoded = jwt.verify(token, config.jwt.secret);
-      if (!decoded || typeof decoded === 'string' || typeof (decoded as jwt.JwtPayload).userId !== 'string') {
+      if (!decoded || typeof decoded === 'string') {
         return null;
       }
-      const decodedPayload = decoded as jwt.JwtPayload;
-
-      const agent = await this.userService.findUserById(decodedPayload.userId as string);
+      if (typeof decoded['userId'] !== 'string') {
+        return null;
+      }
+      const userId = decoded['userId'];
+      const agent = await this.userService.findUserById(userId);
       if (!agent || agent.userType !== UserType.AGENT) {
         return null;
       }

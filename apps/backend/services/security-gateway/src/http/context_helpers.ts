@@ -7,13 +7,16 @@ interface ContextWithUser {
   [key: string]: unknown;
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 function isContextWithUser(ctx: unknown): ctx is ContextWithUser {
   return (
-    typeof ctx === 'object' &&
-    ctx !== null &&
+    isRecord(ctx) &&
     'user' in ctx &&
-    typeof (ctx as { user?: unknown }).user === 'object' &&
-    (ctx as { user?: unknown }).user !== null
+    typeof ctx['user'] === 'object' &&
+    ctx['user'] !== null
   );
 }
 
