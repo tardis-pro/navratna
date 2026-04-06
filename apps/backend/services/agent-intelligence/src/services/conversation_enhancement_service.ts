@@ -150,7 +150,7 @@ const toLLMEventPayload = (
     return {};
   }
   if ('data' in event && typeof event.data === 'object' && event.data !== null) {
-    return event.data as EventWithDataPayload['data'];
+    return event.data;
   }
   const e: Record<string, unknown> = isRecord(event) ? event : {};
   return {
@@ -905,7 +905,7 @@ export class ConversationEnhancementService extends EventEmitter {
     try {
       const discussion = await this.databaseService.findById('discussions', discussionId);
       if (typeof discussion !== 'object' || discussion === null) return null;
-      return discussion as Discussion;
+      return discussion;
     } catch (error) {
       logger.error('Failed to get discussion data', { error, discussionId });
       return null;
@@ -931,7 +931,7 @@ export class ConversationEnhancementService extends EventEmitter {
       const rawDiscussion = await this.databaseService.findById('discussions', discussion.id);
       const fullDiscussion: DiscussionWithParticipants | null =
         typeof rawDiscussion === 'object' && rawDiscussion !== null
-          ? (rawDiscussion as DiscussionWithParticipants)
+          ? rawDiscussion
           : null;
       const participantMap = new Map<string, string>();
 

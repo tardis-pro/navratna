@@ -20,7 +20,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function isRelationshipType(v: unknown): v is RelationshipType {
-  return typeof v === 'string' && (VALID_RELATIONSHIP_TYPES as string[]).includes(v);
+  return typeof v === 'string' && VALID_RELATIONSHIP_TYPES.includes(v as RelationshipType);
 }
 
 function isConceptProperty(v: unknown): v is ConceptProperty {
@@ -423,13 +423,14 @@ export class OntologyBuilderService {
   private async saveOntologyToKnowledgeGraph(ontology: DomainOntology): Promise<void> {
     try {
       // Create knowledge ingest requests for each concept
+      const noUrl: string | undefined = undefined;
       const conceptItems: KnowledgeIngestRequest[] = ontology.concepts.map((concept) => ({
         content: `${concept.name}: ${concept.definition}`,
         type: KnowledgeType.CONCEPTUAL,
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}`,
-          url: undefined as string | undefined,
+          url: noUrl,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -460,7 +461,7 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_relationships`,
-          url: undefined as string | undefined,
+          url: noUrl,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -490,7 +491,7 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_metadata`,
-          url: undefined as string | undefined,
+          url: undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,

@@ -16,7 +16,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function isKnowledgeType(v: unknown): v is KnowledgeType {
-  return typeof v === 'string' && (Object.values(KnowledgeType) as string[]).includes(v);
+  return typeof v === 'string' && Object.values(KnowledgeType).includes(v as KnowledgeType);
 }
 
 function isUserEntity(v: unknown): v is UserEntity {

@@ -245,7 +245,7 @@ export class AgentCoreService {
       });
 
       // @ts-expect-error — Drizzle select result differs from Agent domain type (version: string vs number)
-      return savedAgent as Agent;
+      return savedAgent;
     } catch (error) {
       logger.error('Failed to create agent', { error, agentData });
       throw error;
@@ -262,7 +262,7 @@ export class AgentCoreService {
       const db = getIntelligenceDb();
       const result = await db.select().from(agents).where(eq(agents.id, agentId)).limit(1);
       // @ts-expect-error — Drizzle select result differs from Agent domain type (version: string vs number)
-      const agent = result[0] as Agent | null;
+      const agent: Agent | null = result[0] ?? null;
 
       if (agent) {
         // Publish agent accessed event for analytics
@@ -338,7 +338,7 @@ export class AgentCoreService {
       });
 
       // @ts-expect-error — Drizzle select result differs from Agent domain type (version: string vs number)
-      return agentsResult as Agent[];
+      return agentsResult;
     } catch (error) {
       logger.error('Failed to list agents', { error, filters });
       throw error;

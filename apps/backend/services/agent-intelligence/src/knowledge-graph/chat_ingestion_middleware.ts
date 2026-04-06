@@ -177,7 +177,7 @@ export class ChatIngestionMiddleware {
         const body: unknown = ctx?.body;
         // @ts-expect-error — Elysia middleware injects body/set but TS can't infer through groups
         const set: { status?: number | string } | undefined = ctx?.set;
-        const uploadedFiles: Record<string, unknown>[] | undefined = (ctx as UploadContext)?.uploadedFiles;
+        const uploadedFiles: Record<string, unknown>[] | undefined = isRecord(ctx) && Array.isArray(ctx.uploadedFiles) ? ctx.uploadedFiles as Record<string, unknown>[] : undefined;
 
         try {
           const requestBody: Record<string, unknown> = isRecord(body) ? body : {};
@@ -216,8 +216,8 @@ export class ChatIngestionMiddleware {
         } catch (error: unknown) {
           const err = error instanceof Error ? error : new Error(String(error));
           const zodErrors: Record<string, unknown>[] =
-            typeof error === 'object' && error !== null && Array.isArray((error as { errors?: unknown }).errors)
-              ? ((error as { errors: Record<string, unknown>[] }).errors)
+            isRecord(error) && Array.isArray(error.errors)
+              ? (error.errors as Record<string, unknown>[])
               : [];
           logger.error('Chat ingestion validation failed', { error: err.message });
           if (set) set.status = 400;
@@ -239,8 +239,8 @@ export class ChatIngestionMiddleware {
       return app.derive(async (ctx) => {
         // @ts-expect-error — Elysia middleware injects set but TS can't infer through groups
         const set: { status?: number | string } | undefined = ctx?.set;
-        const uploadedFiles: Record<string, unknown>[] | undefined = (ctx as ValidationContext)?.uploadedFiles;
-        const validatedOptions: ChatIngestionOptions | undefined = (ctx as ValidationContext)?.validatedOptions;
+        const uploadedFiles: Record<string, unknown>[] | undefined = isRecord(ctx) && Array.isArray(ctx.uploadedFiles) ? ctx.uploadedFiles as Record<string, unknown>[] : undefined;
+        const validatedOptions: ChatIngestionOptions | undefined = isRecord(ctx) && typeof ctx.validatedOptions === 'object' ? ctx.validatedOptions as ChatIngestionOptions : undefined;
 
         try {
           if (!uploadedFiles || !validatedOptions) {
@@ -329,7 +329,7 @@ export class ChatIngestionMiddleware {
       return app.derive(async (ctx) => {
         // @ts-expect-error — Elysia middleware injects set but TS can't infer through groups
         const set: { status?: number | string } | undefined = ctx?.set;
-        const chatFiles: ProcessedChatFile[] | undefined = (ctx as FileContext)?.chatFiles;
+        const chatFiles: ProcessedChatFile[] | undefined = isRecord(ctx) && Array.isArray(ctx.chatFiles) ? ctx.chatFiles as ProcessedChatFile[] : undefined;
 
         try {
           if (!chatFiles) {
@@ -426,8 +426,8 @@ export class ChatIngestionMiddleware {
       return app.derive((ctx) => {
         // @ts-expect-error — Elysia middleware injects set but TS can't infer through groups
         const set: { status?: number | string } | undefined = ctx?.set;
-        const chatFiles: ProcessedChatFile[] | undefined = (ctx as FileContext)?.chatFiles;
-        const validatedOptions: ChatIngestionOptions | undefined = (ctx as FileContext)?.validatedOptions;
+        const chatFiles: ProcessedChatFile[] | undefined = isRecord(ctx) && Array.isArray(ctx.chatFiles) ? ctx.chatFiles as ProcessedChatFile[] : undefined;
+        const validatedOptions: ChatIngestionOptions | undefined = isRecord(ctx) && typeof ctx.validatedOptions === 'object' ? ctx.validatedOptions as ChatIngestionOptions : undefined;
 
         try {
           if (!chatFiles) {

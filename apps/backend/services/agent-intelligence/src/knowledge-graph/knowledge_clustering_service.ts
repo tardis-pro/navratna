@@ -9,7 +9,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function isKnowledgeType(v: unknown): v is KnowledgeType {
-  return typeof v === 'string' && (Object.values(KnowledgeType) as string[]).includes(v);
+  return typeof v === 'string' && Object.values(KnowledgeType).includes(v as KnowledgeType);
 }
 
 export interface KnowledgeCluster {
@@ -201,7 +201,7 @@ export class KnowledgeClusteringService {
     };
 
     // @ts-expect-error — plain object satisfies KnowledgeItemEntity shape; optional fields omitted intentionally
-    return knowledgeItem as KnowledgeItemEntity;
+    return knowledgeItem;
   }
 
   /**

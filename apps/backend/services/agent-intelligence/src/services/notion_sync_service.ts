@@ -250,7 +250,8 @@ export function initNotionSyncEventListeners(): void {
     const eventBus = EventBusService.getInstance()
 
     eventBus.subscribe('artifact.created', async (data: unknown) => {
-      const payload = data as { artifactId: string; content: string; type: string; syncConfig?: NotionSyncConfig }
+      if (!isRecord(data) || typeof data.artifactId !== 'string' || typeof data.content !== 'string' || typeof data.type !== 'string') return;
+      const payload = { artifactId: data.artifactId, content: data.content, type: data.type, syncConfig: isRecord(data.syncConfig) ? data.syncConfig as unknown as NotionSyncConfig : undefined };
       if (payload.syncConfig && payload.syncConfig.autoSync) {
         await syncArtifactToNotion(payload.artifactId, payload.content, payload.type, payload.syncConfig).catch((error) => {
           logger.error('Auto artifact sync to Notion failed', {

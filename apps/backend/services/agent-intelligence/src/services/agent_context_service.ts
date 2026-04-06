@@ -300,7 +300,7 @@ export class AgentContextService {
       await this.respondToRequest(requestId, { success: false, error: 'Invalid conversationContext in event' });
       return;
     }
-    const conversationContext = rawConvCtx as ConversationContext;
+    const conversationContext: ConversationContext = rawConvCtx;
     const userRequest = typeof event.userRequest === 'string' ? event.userRequest : '';
     const userId = typeof event.userId === 'string' ? event.userId : undefined;
     try {
@@ -318,7 +318,7 @@ export class AgentContextService {
     const requestId = typeof event.requestId === 'string' ? event.requestId : '';
     const rawContextUpdate = isRecord(event.contextUpdate) ? event.contextUpdate : {};
     const knowledgeItemId = typeof rawContextUpdate.knowledgeItemId === 'string' ? rawContextUpdate.knowledgeItemId : undefined;
-    const contextUpdate = rawContextUpdate as Partial<KnowledgeItem>;
+    const contextUpdate: Partial<KnowledgeItem> = rawContextUpdate;
     try {
       if (knowledgeItemId) {
         await this.knowledgeGraphService.updateKnowledge(knowledgeItemId, contextUpdate);
@@ -339,7 +339,7 @@ export class AgentContextService {
       await this.respondToRequest(requestId, { success: false, error: 'Invalid conversationContext in event' });
       return;
     }
-    const conversationContext = rawConvCtx2 as ConversationContext;
+    const conversationContext: ConversationContext = rawConvCtx2;
     try {
       const contextInfo = this.extractContextualInformation(conversationContext);
       await this.respondToRequest(requestId, { success: true, data: contextInfo });
