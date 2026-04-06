@@ -11,7 +11,7 @@ import {
 import { logger } from '@uaip/utils';
 import { OperationStatus } from '@uaip/types';
 
-const OPERATION_STATUS_VALUES = Object.values(OperationStatus) as string[];
+const OPERATION_STATUS_VALUES: string[] = Object.values(OperationStatus);
 function isOperationStatus(v: string): v is OperationStatus {
   return OPERATION_STATUS_VALUES.includes(v);
 }

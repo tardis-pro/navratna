@@ -239,7 +239,10 @@ export class ProjectService extends BaseDomainService {
   private async getProjectAllowedTools(projectId: string): Promise<{ metadata: Record<string, unknown>; tools: string[] }> {
     const project = await this.findProjectById(projectId);
     if (!project) throw new Error('Project not found');
-    const metadata: Record<string, unknown> = (project.metadata as Record<string, unknown> | null | undefined) ?? {};
+    const rawMetadata = project.metadata;
+    const metadata: Record<string, unknown> = (typeof rawMetadata === 'object' && rawMetadata !== null && !Array.isArray(rawMetadata))
+      ? (rawMetadata as Record<string, unknown>)
+      : {};
     const tools: string[] = Array.isArray(metadata.allowedTools)
       ? metadata.allowedTools.filter((t): t is string => typeof t === 'string')
       : [];

@@ -66,11 +66,11 @@ export class QdrantService {
     if (typeof data !== 'object' || data === null || !('result' in data)) {
       return [];
     }
-    const result: unknown = (data as Record<string, unknown>).result;
-    if (!Array.isArray(result)) {
-      return [];
-    }
-    return result.filter(this.isQdrantPoint).map((point) => ({
+      const result: unknown = (data as { result: unknown })['result'];
+      if (!Array.isArray(result)) {
+        return [];
+      }
+      return result.filter(this.isQdrantPoint).map((point) => ({
       id: point.id,
       score: point.score,
       payload: point.payload,
@@ -500,7 +500,7 @@ export class QdrantService {
       if (typeof data !== 'object' || data === null || !('result' in data)) {
         return [];
       }
-      const result: unknown = (data as Record<string, unknown>).result;
+      const result: unknown = (data as { result: unknown }).result;
       if (!Array.isArray(result)) {
         return [];
       }
@@ -565,7 +565,7 @@ export class QdrantService {
       if (typeof data !== 'object' || data === null || !('result' in data)) {
         return null;
       }
-      const result: unknown = (data as Record<string, unknown>).result;
+      const result: unknown = (data as { result: unknown })['result'];
       if (typeof result !== 'object' || result === null) {
         return null;
       }
@@ -610,9 +610,9 @@ export class QdrantService {
       const rawData: unknown = await response.json();
       const rawPoints: unknown[] = (() => {
         if (typeof rawData !== 'object' || rawData === null || !('result' in rawData)) return [];
-        const res: unknown = (rawData as Record<string, unknown>).result;
+        const res: unknown = (rawData as { result: unknown })['result'];
         if (typeof res !== 'object' || res === null || !('points' in res)) return [];
-        const pts: unknown = (res as Record<string, unknown>).points;
+        const pts: unknown = (res as { points: unknown })['points'];
         return Array.isArray(pts) ? pts : [];
       })();
       return rawPoints

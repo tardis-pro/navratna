@@ -91,8 +91,9 @@ export class UnifiedModelSelectionFacade {
     agentLLMPreferenceRepository?: AgentLLMPreferenceRepository,
     llmProviderRepository?: LLMProviderRepository
   ) {
-    const resolvedAgentRepository =
-      (agentRepository as OrchestratorAgentRepository) ??
+    // @ts-expect-error -- agentRepository is AgentRepository; OrchestratorAgentRepository adds findOne which is provided by Object.assign fallback
+    const resolvedAgentRepository: OrchestratorAgentRepository =
+      agentRepository ??
       Object.assign(new AgentRepository(), {
         findOne: async ({ where }: { where: { id: string } }): Promise<{ createdBy?: string } | null> => {
           const agent = await new AgentRepository().findById(where.id);
@@ -100,14 +101,16 @@ export class UnifiedModelSelectionFacade {
         },
       });
 
-    const resolvedUserPrefRepository =
-      (userLLMPreferenceRepository as OrchestratorUserPreferenceRepository) ??
+    // @ts-expect-error -- userLLMPreferenceRepository is UserLLMPreferenceRepository; OrchestratorUserPreferenceRepository adds findOne provided by Object.assign fallback
+    const resolvedUserPrefRepository: OrchestratorUserPreferenceRepository =
+      userLLMPreferenceRepository ??
       Object.assign(new UserLLMPreferenceRepository(), {
         findOne: async (): Promise<null> => null,
       });
 
-    const resolvedAgentPrefRepository =
-      (agentLLMPreferenceRepository as OrchestratorAgentPreferenceRepository) ??
+    // @ts-expect-error -- agentLLMPreferenceRepository is AgentLLMPreferenceRepository; OrchestratorAgentPreferenceRepository adds findOne/find provided by Object.assign fallback
+    const resolvedAgentPrefRepository: OrchestratorAgentPreferenceRepository =
+      agentLLMPreferenceRepository ??
       Object.assign(new AgentLLMPreferenceRepository(), {
         findOne: async (): Promise<null> => null,
         find: async (): Promise<[]> => [],

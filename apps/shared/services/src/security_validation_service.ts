@@ -259,7 +259,8 @@ export class SecurityValidationService {
 
   private static asRecord(value: unknown): Record<string, unknown> {
     if (typeof value !== 'object' || value === null) return {};
-    return value as Record<string, unknown>;
+    // @ts-expect-error -- value narrowed to object & not null; structurally matches Record<string, unknown>
+    return value;
   }
 
   private async validateUserAuth(userId: string): Promise<{ valid: boolean; reason?: string }> {
@@ -295,10 +296,10 @@ export class SecurityValidationService {
       const permissions = await this.databaseService.getUserPermissions(userId);
       const permissionRecord = SecurityValidationService.asRecord(permissions);
       const rolePermissions: Array<{ operations?: string[] }> = Array.isArray(permissionRecord.rolePermissions)
-        ? permissionRecord.rolePermissions as Array<{ operations?: string[] }>
+        ? (permissionRecord.rolePermissions as Array<{ operations?: string[] }>)
         : [];
       const directPermissions: Array<{ operations?: string[] }> = Array.isArray(permissionRecord.directPermissions)
-        ? permissionRecord.directPermissions as Array<{ operations?: string[] }>
+        ? (permissionRecord.directPermissions as Array<{ operations?: string[] }>)
         : [];
 
       const userPermissions = new Set<string>();

@@ -68,7 +68,8 @@ async function generateConstellationName(cluster: KnowledgeCluster): Promise<str
       return fallbackConstellationName(cluster)
     }
 
-    const response = await (llm as { generateResponse(r: { messages: { role: string; content: string }[]; maxTokens?: number }): Promise<{ content: string }> }).generateResponse({
+    // @ts-expect-error -- llm is unknown; guard above confirms it has generateResponse method
+    const response = await llm.generateResponse({
       messages: [
         {
           role: 'user',

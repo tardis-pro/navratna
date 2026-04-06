@@ -182,7 +182,7 @@ export class MCPService {
 
     const result = await pool.query(query, params);
     type ToolCallRow = { status: string; execution_time_ms: number | null };
-    const rows: ToolCallRow[] = result.rows as ToolCallRow[];
+    const rows: ToolCallRow[] = result.rows;
 
     const stats = {
       total: rows.length,

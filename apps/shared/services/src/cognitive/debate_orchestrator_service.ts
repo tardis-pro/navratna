@@ -40,12 +40,14 @@ export class DebateOrchestratorService {
   private setupEventHandlers(): void {
     // Listen for debate-related events
     this.eventBus.subscribe('debate.argument.submitted', async (event) => {
-      const data = event.data as { debateId: string; agentId: string; content: string };
+      // @ts-expect-error -- event.data is unknown; debate.argument.submitted publisher always sets debateId/agentId/content
+      const data: { debateId: string; agentId: string; content: string } = event.data;
       await this.handleArgumentSubmission(data);
     });
 
     this.eventBus.subscribe('debate.vote.submitted', async (event) => {
-      const data = event.data as { debateId: string; agentId: string; content: string };
+      // @ts-expect-error -- event.data is unknown; debate.vote.submitted publisher always sets debateId/agentId/content
+      const data: { debateId: string; agentId: string; content: string } = event.data;
       await this.handleVoteSubmission(data);
     });
   }

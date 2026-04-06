@@ -11,7 +11,7 @@ import {
 import { logger } from '@uaip/utils';
 import { AgentRole, PersonaStatus, PersonaVisibility } from '@uaip/types';
 
-const AGENT_ROLE_VALUES = Object.values(AgentRole) as string[];
+const AGENT_ROLE_VALUES: string[] = Object.values(AgentRole);
 function isAgentRole(v: string): v is AgentRow['role'] {
   return AGENT_ROLE_VALUES.includes(v);
 }
@@ -39,7 +39,7 @@ export class AgentRepository {
       if (conditions.status !== undefined) clauses.push(eq(agents.status, conditions.status));
       const query = this.db.select().from(agents);
       return clauses.length > 0
-        ? query.where(and(...(clauses as [ReturnType<typeof eq>, ...ReturnType<typeof eq>[]])))
+        ? query.where(and(...clauses))
         : query.orderBy(desc(agents.createdAt));
     } catch (error) {
       logger.error('AgentRepository.findMany failed', { error: error instanceof Error ? error.message : String(error) });

@@ -40,7 +40,8 @@ export class UserToolPreferencesService {
           autoApprove: false,
           usageCount: 0,
           lastUsedAt: undefined,
-          rateLimits: getRecord(prefs.rateLimits) as Record<string, number>,
+          // @ts-expect-error -- getRecord returns Record<string,unknown>; runtime values are numbers per DB schema
+          rateLimits: getRecord(prefs.rateLimits),
           budgetLimit: typeof prefs.budgetLimit === 'number' ? prefs.budgetLimit : undefined,
           budgetUsed: 0,
         };

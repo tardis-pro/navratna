@@ -284,7 +284,8 @@ export class ToolService extends BaseDomainService {
     const toolRepo = this.getToolRepository();
     const results: Record<string, unknown>[] = [];
     for (const tool of tools) {
-      const created = await toolRepo.createTool(tool as Parameters<typeof toolRepo.createTool>[0]);
+      // @ts-expect-error -- tool is Record<string,unknown>; runtime shape satisfies createTool parameter
+      const created = await toolRepo.createTool(tool);
       results.push(created);
     }
     return results;
@@ -304,9 +305,8 @@ export class ToolService extends BaseDomainService {
     execution: Partial<Record<string, unknown>>
   ): Promise<Record<string, unknown>> {
     const executionRepo = this.getToolExecutionRepository();
-    return await executionRepo.createToolExecution(
-      execution as Parameters<typeof executionRepo.createToolExecution>[0]
-    );
+    // @ts-expect-error -- execution is Partial<Record<string,unknown>>; runtime shape satisfies createToolExecution parameter
+    return await executionRepo.createToolExecution(execution);
   }
 
   public async getToolExecution(executionId: string): Promise<ToolExecutionRow | null> {

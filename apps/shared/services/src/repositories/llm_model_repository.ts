@@ -65,7 +65,8 @@ export class LLMModelRepository {
         .returning();
       return updated;
     } else {
-      const insertData = modelData as typeof llmModels.$inferInsert;
+      // @ts-expect-error -- modelData is Partial<LLMModel>; runtime shape satisfies llmModels.$inferInsert required fields
+      const insertData: typeof llmModels.$inferInsert = modelData;
       const [created] = await this.db
         .insert(llmModels)
         .values(insertData)

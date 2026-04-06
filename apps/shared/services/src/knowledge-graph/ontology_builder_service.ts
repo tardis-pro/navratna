@@ -384,7 +384,6 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}`,
-          url: undefined as string | undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -415,7 +414,6 @@ export class OntologyBuilderService {
         source: {
           type: SourceType.AGENT_CONCEPT,
           identifier: `ontology_${ontology.domain}_relationships`,
-          url: undefined as string | undefined,
           metadata: {
             domain: ontology.domain,
             ontologyId: ontology.id,
@@ -546,19 +544,19 @@ export class OntologyBuilderService {
             typeof item.metadata.targetConceptId === 'string'
               ? item.metadata.targetConceptId
               : null;
-          const relationshipType =
+          const relationshipType: ConceptRelationship['relationshipType'] | null =
             typeof item.metadata.relationshipType === 'string'
-              ? item.metadata.relationshipType as ConceptRelationship['relationshipType']
+              ? (item.metadata.relationshipType as ConceptRelationship['relationshipType'])
               : null;
 
           if (!sourceConceptId || !targetConceptId || !relationshipType) {
             return null;
           }
 
-          const evidence =
+          const evidence: string[] =
             Array.isArray(item.metadata.evidence) &&
             item.metadata.evidence.every((entry: unknown) => typeof entry === 'string')
-              ? item.metadata.evidence as string[]
+              ? (item.metadata.evidence as string[])
               : [];
 
           return {

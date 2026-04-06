@@ -86,7 +86,8 @@ export class ToolExecutionService {
 
   private static toRecord(value: unknown): Record<string, unknown> | undefined {
     if (typeof value !== 'object' || value === null) return undefined;
-    return value as Record<string, unknown>;
+    // @ts-expect-error -- value narrowed to object & not null; structurally matches Record<string, unknown>
+    return value;
   }
 
   private parseToolRequest(

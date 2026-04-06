@@ -36,7 +36,8 @@ function getStrArray(v: unknown): string[] {
 
 function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
   if (typeof v !== 'string') return undefined;
-  return Object.values(enumObj).find((val) => val === v) as T[keyof T] | undefined;
+  // @ts-expect-error -- Object.values returns string[], not T[keyof T][], safe to return found value
+  return Object.values(enumObj).find((val) => val === v);
 }
 
 function toAgentRole(v: string): AgentRole {

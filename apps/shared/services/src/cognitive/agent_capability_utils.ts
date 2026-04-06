@@ -16,7 +16,7 @@ export async function fetchAgentCapabilitiesViaEventBus(
 
     eventBus.subscribe(`agent.capabilities.response.${requestId}`, async (event) => {
       clearTimeout(timeout);
-      const data: { capabilities?: string[] } = event.data as { capabilities?: string[] };
+      const data = event.data as { capabilities?: string[] };
       resolve(data?.capabilities ?? []);
     });
 

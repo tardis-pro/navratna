@@ -27,8 +27,19 @@ export class ProjectLifecycleService {
     startDate?: Date;
     completionPercentage?: number;
   } {
-    // @ts-expect-error -- ProjectEntity may have these optional fields at runtime; cast is safe
-    return project;
+    const meta = project.metadata as Record<string, unknown> | undefined;
+    return {
+      budgetUtilization:
+        typeof meta?.['budgetUtilization'] === 'number' ? meta['budgetUtilization'] : undefined,
+      isOverdue: typeof meta?.['isOverdue'] === 'boolean' ? meta['isOverdue'] : undefined,
+      isOverBudget: typeof meta?.['isOverBudget'] === 'boolean' ? meta['isOverBudget'] : undefined,
+      endDate: meta?.['endDate'] instanceof Date ? meta['endDate'] : undefined,
+      startDate: meta?.['startDate'] instanceof Date ? meta['startDate'] : undefined,
+      completionPercentage:
+        typeof meta?.['completionPercentage'] === 'number'
+          ? meta['completionPercentage']
+          : undefined,
+    };
   }
 
   private static getNotifyConfig(config: unknown): { message?: string; recipients?: unknown[] } {

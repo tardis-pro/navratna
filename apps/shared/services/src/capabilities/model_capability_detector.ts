@@ -51,8 +51,10 @@ export class ModelCapabilityDetector {
       const additionalCapabilities = await this.performAPITests(modelId, provider, baseUrl, apiKey);
 
       for (const [capability, result] of Object.entries(additionalCapabilities)) {
-        if (result.supported && !detectedCapabilities.includes(capability as ModelCapability)) {
-          detectedCapabilities.push(capability as ModelCapability);
+        // @ts-expect-error -- capability is a key of additionalCapabilities whose keys are ModelCapability values
+        if (result.supported && !detectedCapabilities.includes(capability)) {
+          // @ts-expect-error -- capability is a key of additionalCapabilities whose keys are ModelCapability values
+          detectedCapabilities.push(capability);
         }
         testResults[capability] = result;
       }

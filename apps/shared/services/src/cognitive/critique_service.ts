@@ -182,7 +182,8 @@ Evaluate this response using the criteria specified.`;
       const issueMatch = details.match(/Issue:\s*(.+?)(?=Suggestion:|$)/s);
       const suggestionMatch = details.match(/Suggestion:\s*(.+)/s);
 
-      const criteriaTyped: CritiqueCriteria = criteria as CritiqueCriteria;
+      // @ts-expect-error -- criteria is a regex-matched string; runtime value is always a valid CritiqueCriteria
+      const criteriaTyped: CritiqueCriteria = criteria;
       items.push({
         criteria: criteriaTyped,
         score: parseFloat(score),

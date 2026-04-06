@@ -280,7 +280,7 @@ export class CapabilityGapRadarService {
 
       this.eventBus.subscribe(`capability.alternatives.response.${requestId}`, async (event) => {
         clearTimeout(timeout);
-        const data: { alternatives?: string[] } = event.data as { alternatives?: string[] };
+        const data = event.data as { alternatives?: string[] };
         resolve(data?.alternatives ?? []);
       });
 

@@ -596,28 +596,12 @@ export class StateManagerService {
   }
 
   private async compressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
-    // Simple implementation - in production, use zlib or similar
-    // For now, just add a flag to indicate compression would be applied
-    const compressedData: Record<string, unknown> = { ...checkpoint.data, compressed: true };
-    const compressed: Checkpoint = { ...checkpoint, data: compressedData as Checkpoint['data'] };
-    return compressed;
+    // Simple stub — in production, use zlib or similar; no structural change needed
+    return checkpoint;
   }
 
   private async decompressCheckpoint(checkpoint: Checkpoint): Promise<Checkpoint> {
-    // Simple implementation - in production, use zlib or similar
-    const checkpointData: Record<string, unknown> = checkpoint.data as Record<string, unknown>;
-    if (checkpointData.compressed) {
-      const decompressed: Checkpoint = {
-        ...checkpoint,
-        data: {
-          ...checkpoint.data,
-        },
-      };
-      const decompressedData: Record<string, unknown> = { ...decompressed.data as Record<string, unknown> };
-      delete decompressedData.compressed;
-      decompressed.data = decompressedData as Checkpoint['data'];
-      return decompressed;
-    }
+    // Simple stub — in production, use zlib or similar; no structural change needed
     return checkpoint;
   }
 

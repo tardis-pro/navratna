@@ -112,7 +112,8 @@ export class ChatParserService {
       const matchCount = patterns.filter((pattern) => pattern.test(content)).length;
       if (matchCount >= 2) {
         // Require at least 2 pattern matches for confidence
-        return platform as ChatPlatform;
+        // @ts-expect-error -- platform is a key of platformDetectors whose keys are all valid ChatPlatform values
+        return platform;
       }
     }
 

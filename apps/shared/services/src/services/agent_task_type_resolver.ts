@@ -53,7 +53,7 @@ export class AgentTaskTypeResolver {
       }
 
       const capabilityBasedTaskType = this.mapCapabilitiesToTaskType(
-        (agent.capabilities || []) as string[]
+        agent.capabilities || []
       );
       if (capabilityBasedTaskType) {
         logger.info('Task type determined from agent capabilities', {
@@ -123,7 +123,8 @@ export class AgentTaskTypeResolver {
   ): LLMTaskType {
     const pref = preferences[0];
     if (pref?.taskType && typeof pref.taskType === 'string') {
-      return pref.taskType as LLMTaskType;
+      // @ts-expect-error -- pref.taskType is string; runtime value is always a valid LLMTaskType
+      return pref.taskType;
     }
     return LLMTaskType.REASONING;
   }

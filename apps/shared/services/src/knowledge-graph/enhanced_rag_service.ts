@@ -114,7 +114,9 @@ export class EnhancedRAGService {
         const candidatesWithContent = filteredCandidates.map((c) => ({
           id: c.id,
           content: typeof c.payload?.content === 'string' ? c.payload.content : '',
-          metadata: c.payload?.metadata as Record<string, unknown> | undefined,
+          metadata: (typeof c.payload?.metadata === 'object' && c.payload.metadata !== null)
+            ? (c.payload.metadata as Record<string, unknown>)
+            : undefined,
           score: c.score,
         }));
         results = await this.rerankResults(query, candidatesWithContent, topK);

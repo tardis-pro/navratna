@@ -885,7 +885,7 @@ export class KnowledgeSyncService {
         filters: {},
       });
 
-      return searchResult.map((r) => ({ payload: r.payload as QdrantPointPayload }));
+      return searchResult.map((r) => ({ payload: r.payload }));
     } catch (error) {
       logger.warn('Failed to scroll Qdrant points:', error);
       return [];
@@ -1016,7 +1016,7 @@ export class KnowledgeSyncService {
         oldId: (() => {
           const orig = item.metadata.originalProperties;
           if (typeof orig !== 'object' || orig === null || !('id' in orig)) return null;
-          const origId = (orig as Record<string, unknown>).id;
+          const origId = (orig as { id: unknown })['id'];
           return typeof origId === 'string' ? origId : null;
         })(),
         newId: pgEntity.id,

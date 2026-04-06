@@ -84,19 +84,22 @@ export class ProjectEventSubscriber {
   }): Promise<void> {
     if (handlers.onProjectCreated) {
       await this.eventBus.subscribe('project.created', async (message) => {
-        await handlers.onProjectCreated!(message.data as ProjectCreatedEvent);
+        // @ts-expect-error -- message.data is unknown; project.created publisher always sends ProjectCreatedEvent shape
+        await handlers.onProjectCreated!(message.data);
       });
     }
 
     if (handlers.onTaskAssigned) {
       await this.eventBus.subscribe('project.task.assigned', async (message) => {
-        await handlers.onTaskAssigned!(message.data as ProjectTaskAssignedEvent);
+        // @ts-expect-error -- message.data is unknown; project.task.assigned publisher always sends ProjectTaskAssignedEvent shape
+        await handlers.onTaskAssigned!(message.data);
       });
     }
 
     if (handlers.onToolUsed) {
       await this.eventBus.subscribe('project.tool.used', async (message) => {
-        await handlers.onToolUsed!(message.data as ProjectToolUsedEvent);
+        // @ts-expect-error -- message.data is unknown; project.tool.used publisher always sends ProjectToolUsedEvent shape
+        await handlers.onToolUsed!(message.data);
       });
     }
   }

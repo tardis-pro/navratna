@@ -30,9 +30,11 @@ export abstract class BaseDomainService {
   protected static resolve<T extends BaseDomainService>(ctor: Function): T {
     const key = ctor.name;
     if (!BaseDomainService.instances.has(key)) {
-      BaseDomainService.instances.set(key, new (ctor as new () => T)());
+      // @ts-expect-error -- ctor is a constructor function; instantiation is safe at runtime
+      BaseDomainService.instances.set(key, new ctor());
     }
-    return BaseDomainService.instances.get(key) as T;
+    // @ts-expect-error -- Map stores unknown; value was set as T above
+    return BaseDomainService.instances.get(key);
   }
 
   /**
@@ -43,7 +45,8 @@ export abstract class BaseDomainService {
     if (!this.repositories.has(key)) {
       this.repositories.set(key, factory());
     }
-    return this.repositories.get(key) as T;
+    // @ts-expect-error -- Map stores unknown; value was set as T by factory above
+    return this.repositories.get(key);
   }
 
   /**

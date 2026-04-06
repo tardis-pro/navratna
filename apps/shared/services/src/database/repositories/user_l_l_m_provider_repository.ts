@@ -16,7 +16,8 @@ export class UserLLMProviderRepository {
   async deleteUserProvider(id: string) { return this.delete(id); }
 
   async updateApiKey(id: string, apiKey: string) {
-    return this.update(id, { apiKey } as Partial<NewUserLLMProvider>);
+    const patch: Partial<NewUserLLMProvider> = { apiKeyEncrypted: apiKey };
+    return this.update(id, patch);
   }
 
   async updateProviderConfig(id: string, config: Partial<NewUserLLMProvider>) {
@@ -24,7 +25,11 @@ export class UserLLMProviderRepository {
   }
 
   async updateStatus(id: string, status: string) {
-    return this.update(id, { status } as Partial<NewUserLLMProvider>);
+    // status is stored in configuration.status — no top-level status column on userLLMProviders
+    const patch: Partial<NewUserLLMProvider> = {
+      configuration: { status },
+    };
+    return this.update(id, patch);
   }
 
   async getProviderStats(userId: string): Promise<{ total: number; active: number }> {

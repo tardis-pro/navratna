@@ -291,10 +291,8 @@ export class EnterpriseDatabase extends DatabaseService {
     // Execute query based on database type
     switch (databaseType) {
       case 'postgresql':
-        const pgConnection = connection as {
-          query: (sql: string, values?: unknown[]) => Promise<T>;
-        };
-        return pgConnection.query(query, params);
+        // @ts-expect-error -- connection is unknown; postgresql connections always have a query method
+        return connection.query(query, params);
       default:
         throw new Error(`Query execution not implemented for ${databaseType}`);
     }

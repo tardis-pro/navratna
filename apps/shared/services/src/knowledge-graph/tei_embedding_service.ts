@@ -96,7 +96,8 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
       // TEI returns array of embeddings, we want the first one for single input
       const dataArr: unknown[] = Array.isArray(data) ? data : [];
       const embedding: unknown = Array.isArray(dataArr[0]) ? dataArr[0] : dataArr;
-      return embedding as number[];
+      // @ts-expect-error -- embedding is unknown[] from JSON; runtime structure is number[]
+      return embedding;
     } catch (error) {
       console.error('TEI embedding generation failed:', error);
       const wrappedError = new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
@@ -128,7 +129,7 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
         batches.push(validTexts.slice(i, i + batchSize));
       }
 
-      const batchPromises = batches.map(async (batch) => {
+      const batchPromises = batches.map(async (batch): Promise<number[][]> => {
         const response = await this.fetchWithRetry(`${this.embeddingBaseUrl}/embed`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -139,12 +140,11 @@ export class TEIEmbeddingService extends BaseEmbeddingService {
           throw new Error(`TEI batch embedding error: ${response.status} ${response.statusText}`);
         }
 
-        return response.json();
+        return response.json() as Promise<number[][]>;
       });
 
       const batchResults = await Promise.all(batchPromises);
-      const flat: unknown[] = (batchResults as unknown[]).flat();
-      return flat.flat() as number[][];
+      return batchResults.flat();
     } catch (error) {
       console.error('TEI batch embedding generation failed:', error);
       const wrappedError = new Error(`Failed to generate batch embeddings: ${error instanceof Error ? error.message : String(error)}`);

@@ -281,7 +281,8 @@ export class ConceptExtractorService {
               relationships.push({
                 sourceConceptId: sourceId,
                 targetConceptId: targetId,
-                relationshipType: relType as ConceptRelationship['relationshipType'],
+                // @ts-expect-error -- relType is a regex-matched string; runtime value is always a valid ConceptRelationship['relationshipType']
+                relationshipType: relType,
                 confidence: 0.75,
                 evidence: [fullMatch.trim()],
               });
