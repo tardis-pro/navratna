@@ -14,6 +14,10 @@ import QRCode from 'qrcode';
 export type { LinkType, LinkStatus };
 export type ShortLinkEntity = typeof shortLinks.$inferSelect;
 
+function isStringNumberRecord(value: unknown): value is Record<string, number> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 type ShortLink = typeof shortLinks.$inferSelect;
 
 type LinkType = 'artifact' | 'project_file' | 'document' | 'external';
@@ -41,18 +45,10 @@ function parseLinkAnalytics(raw: Record<string, unknown>): LinkAnalytics {
     totalClicks: typeof raw.totalClicks === 'number' ? raw.totalClicks : undefined,
     uniqueClicks: typeof raw.uniqueClicks === 'number' ? raw.uniqueClicks : undefined,
     lastClickedAt: raw.lastClickedAt instanceof Date ? raw.lastClickedAt : undefined,
-    referrers: typeof raw.referrers === 'object' && raw.referrers !== null
-      ? (raw.referrers as Record<string, number>)
-      : undefined,
-    countries: typeof raw.countries === 'object' && raw.countries !== null
-      ? (raw.countries as Record<string, number>)
-      : undefined,
-    devices: typeof raw.devices === 'object' && raw.devices !== null
-      ? (raw.devices as Record<string, number>)
-      : undefined,
-    browsers: typeof raw.browsers === 'object' && raw.browsers !== null
-      ? (raw.browsers as Record<string, number>)
-      : undefined,
+    referrers: isStringNumberRecord(raw.referrers) ? raw.referrers : undefined,
+    countries: isStringNumberRecord(raw.countries) ? raw.countries : undefined,
+    devices: isStringNumberRecord(raw.devices) ? raw.devices : undefined,
+    browsers: isStringNumberRecord(raw.browsers) ? raw.browsers : undefined,
     clickHistory: Array.isArray(raw.clickHistory) ? raw.clickHistory : undefined,
   };
 }
