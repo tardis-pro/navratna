@@ -53,6 +53,10 @@ export abstract class BaseService {
 
   constructor(serviceConfig: ServiceConfig) {
     this.config = serviceConfig;
+
+    // Initialize observability first for maximum instrumentation coverage
+    this.initializeObservability();
+
     this.app = createAppServer();
     this.databaseService = DatabaseService.getInstance();
 
@@ -448,9 +452,6 @@ export abstract class BaseService {
 
   public async start(): Promise<void> {
     try {
-      // Initialize observability (must be first for full instrumentation coverage)
-      this.initializeObservability();
-
       // Initialize base components
       await this.initializeDatabase();
       await this.initializeEventBus();

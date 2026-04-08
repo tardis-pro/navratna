@@ -132,12 +132,14 @@ services:
   # SignOZ — Self-hosted APM (traces, metrics, logs via OpenTelemetry)
   # ==========================================================================
   signoz-clickhouse:
-    image: clickhouse/clickhouse-server:24.1-alpine
+    image: clickhouse/clickhouse-server:24.11-alpine
     container_name: uaip-signoz-clickhouse
     volumes:
       - signoz_clickhouse_data:/var/lib/clickhouse
       - ./clickhouse-config/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
       - ./clickhouse-config/signoz-databases.sql:/docker-entrypoint-initdb.d/signoz-databases.sql:ro
+      - ./clickhouse-config/users-override.xml:/etc/clickhouse-server/users.d/default-user.xml:ro
+      - ./clickhouse-config/json-type.xml:/etc/clickhouse-server/users.d/json-type.xml:ro
     ulimits:
       nofile:
         soft: 262144
