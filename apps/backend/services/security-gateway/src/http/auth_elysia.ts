@@ -16,6 +16,7 @@ import {
   apiKeyAuth,
   createRateLimiter,
   JWTValidator,
+  signJWT,
 } from '@uaip/middleware';
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/audit_service.js';
@@ -84,6 +85,16 @@ const changePasswordSchema = z.object({
     ),
 });
 
+const subdomainTokenSchema = z.object({
+  subdomain: z
+    .string()
+    .min(1, 'Subdomain is required')
+    .regex(
+      /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i,
+      'Invalid subdomain format'
+    ),
+});
+
 const internalTokenSchema = z.object({
   serviceName: z.string().min(1, 'Service name is required'),
   apiKey: z.string().min(1, 'API key is required'),
@@ -124,7 +135,7 @@ async function getAuthUser(authorization?: string | null) {
 
 // Strict rate limiter for sensitive auth endpoints: 10 attempts per 15 minutes.
 // Read-only endpoints (/me, /validate, /csrf-token) are skipped.
-const RATE_LIMITED_AUTH_PATHS = new Set(['/login', '/refresh', '/change-password', '/logout']);
+const RATE_LIMITED_AUTH_PATHS = new Set(['/login', '/refresh', '/change-password', '/logout', '/subdomain-token']);
 const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -497,6 +508,63 @@ export function registerAuthRoutes() {
     })
     )
   
+    // POST /subdomain-token — issue audience-restricted short-lived JWT for BFF subdomain pattern
+    .group('', (g) => // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
+    withRequiredAuth(g).post('/subdomain-token', async ({ body, set, user }) => {
+      const parsed = subdomainTokenSchema.safeParse(body);
+      if (!parsed.success) {
+        set.status = 400;
+        return { error: 'Validation Error', details: parsed.error.flatten() };
+      }
+
+      try {
+        const { subdomain } = parsed.data;
+
+        const token = await signJWT(
+          {
+            userId: user!.id,
+            email: user!.email,
+            role: user!.role,
+          },
+          {
+            audience: subdomain,
+            issuer: 'tardis',
+            expiresIn: '5m',
+          },
+        );
+
+        return {
+          success: true,
+          data: {
+            token,
+            subdomain,
+            expiresIn: 300, // 5 minutes in seconds
+          },
+        };
+      } catch (error) {
+        logger.error('Subdomain token generation error', { error, userId: user?.id });
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'Failed to generate subdomain token' };
+      }
+    }, {
+      body: t.Object({
+        subdomain: t.String({ minLength: 1 }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({
+            token: t.String(),
+            subdomain: t.String(),
+            expiresIn: t.Number(),
+          }),
+        }),
+        400: t.Object({ error: t.String(), details: t.Optional(t.Any()) }),
+        500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
+    })
+    )
+
     // GET /me
     .group('', (g) => // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
     withRequiredAuth(g).get('/me', async ({ set, user }) => {

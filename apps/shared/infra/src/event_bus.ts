@@ -566,6 +566,9 @@ export class EventBusService {
   // FIX: publishAndWait previously created ephemeral per-request BullMQ queues and
   // workers (via subscribe) that were never cleaned up, leaking Redis resources.
   // Now cleans up the ephemeral queue and worker after response or timeout.
+  //
+  // NOTE: For new callers, prefer publishAndWaitForResponse() which uses a single
+  // shared rpc.replies worker instead of creating ephemeral queues per request.
   public async publishAndWait(
     eventType: string,
     data: unknown,

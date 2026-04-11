@@ -16,6 +16,7 @@ import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.
 import { registerCognitivePortraitRoutes } from '../../agent-intelligence/src/routes/cognitive_portrait_routes.js'
 import { registerDeploymentRoutes } from './deployment/deployment_routes.js'
 import { registerOnboardingRoutes } from './onboarding/onboarding_routes.js'
+import { registerCompositionRoutes } from './composition/composition_routes.js'
 
 type CoreHealthStatus = 'ok' | 'degraded'
 
@@ -56,5 +57,6 @@ export const coreApp = new Elysia({ name: 'navratna-core' })
   .use(registerCognitivePortraitRoutes())
   .use(registerDeploymentRoutes(null))
   .use(registerOnboardingRoutes())
+  .use(registerCompositionRoutes())
 
 export type NavratnaCoreApp = typeof coreApp

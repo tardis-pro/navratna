@@ -687,6 +687,15 @@ export interface ConfidenceProfile {
   lastUpdated: Date;
 }
 
+/**
+ * Domain-scoped confidence profile — extends ConfidenceProfile with a domain
+ * field so that each agent tracks a separate EMA per domain.
+ */
+export interface DomainConfidenceProfile extends ConfidenceProfile {
+  domain: string;
+  lastComposedAt?: Date;
+}
+
 export interface ReasoningNode {
   id: string;
   type: 'observation' | 'inference' | 'assumption' | 'conclusion' | 'evidence' | 'uncertainty';

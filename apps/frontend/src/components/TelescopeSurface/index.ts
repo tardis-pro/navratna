@@ -22,3 +22,10 @@ export type { ForceNode } from './use_force_layout';
 
 // Shared types
 export type { ConstellationBlockMetadata } from './telescope_surface_types';
+
+// Spatial stability utilities
+export { assignRegion, arrangeByRegion, DEFAULT_GRAVITY } from './gravity_wells';
+export type { ScreenRegion, GravityWellConfig } from './gravity_wells';
+
+export { ChangeBudgetManager } from './change_budget';
+export type { ChangeBudgetConfig, BudgetResult } from './change_budget';

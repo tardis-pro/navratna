@@ -22,6 +22,7 @@ import {
   boolean,
   integer,
   decimal,
+  real,
   timestamp,
   jsonb,
   json,
@@ -879,6 +880,66 @@ export const deploymentEvents = pgTable(
   ]
 );
 
+// ─── WORKFLOW COMPOSITIONS & INSTANCES (Self-Composing Platform) ──────────
+
+export const workflowCompositions = pgTable(
+  'workflow_compositions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    version: varchar('version', { length: 50 }).default('1.0.0'),
+    category: varchar('category', { length: 100 }),
+    tags: jsonb('tags').$type<string[]>().default([]),
+    definition: jsonb('definition').notNull(), // Full CompositionDefinition
+    composedBy: varchar('composed_by', { length: 50 }), // agent, user, marketplace
+    agentId: uuid('agent_id'),
+    userId: uuid('user_id'),
+    isActive: boolean('is_active').default(true).notNull(),
+    isPublic: boolean('is_public').default(false).notNull(),
+    executionCount: integer('execution_count').default(0).notNull(),
+    successCount: integer('success_count').default(0).notNull(),
+    lastExecutedAt: timestamp('last_executed_at'),
+    avgExecutionMs: integer('avg_execution_ms'),
+    rating: real('rating'),
+    installCount: integer('install_count').default(0).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_wf_comp_category').on(t.category),
+    index('idx_wf_comp_active').on(t.isActive),
+    index('idx_wf_comp_user').on(t.userId),
+    index('idx_wf_comp_public').on(t.isPublic),
+  ]
+);
+
+export const workflowInstances = pgTable(
+  'workflow_instances',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workflowId: uuid('workflow_id')
+      .references(() => workflowCompositions.id)
+      .notNull(),
+    status: varchar('status', { length: 30 }).notNull().default('pending'),
+    // statuses: pending, running, paused, completed, failed, cancelled
+    currentStepId: varchar('current_step_id', { length: 100 }),
+    triggerType: varchar('trigger_type', { length: 30 }), // intent, event, schedule, webhook, manual
+    triggerData: jsonb('trigger_data').$type<Record<string, unknown>>(),
+    state: jsonb('state').$type<Record<string, unknown>>().default({}),
+    error: text('error'),
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_workflow_instances_status').on(t.status),
+    index('idx_workflow_instances_workflow_id').on(t.workflowId),
+    index('idx_workflow_instances_started_at').on(t.startedAt),
+  ]
+);
+
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -928,3 +989,80 @@ export type Deployment = typeof deployments.$inferSelect;
 export type NewDeployment = typeof deployments.$inferInsert;
 export type DeploymentEvent = typeof deploymentEvents.$inferSelect;
 export type NewDeploymentEvent = typeof deploymentEvents.$inferInsert;
+
+// ─── COMPOSITION ATTEMPTS (Replay Buffer) ────────────────────────────────
+
+export const compositionAttempts = pgTable(
+  'composition_attempts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    intent: text('intent').notNull(),
+    tools: jsonb('tools').$type<string[]>().notNull().default([]),
+    definition: jsonb('definition').$type<Record<string, unknown>>(),
+    outcome: varchar('outcome', { length: 30 }).notNull(), // 'success' | 'failure' | 'partial'
+    failureType: varchar('failure_type', { length: 30 }), // 'structural' | 'binding' | 'semantic' | 'runtime'
+    failureDetails: text('failure_details'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_composition_attempts_outcome').on(t.outcome),
+    index('idx_composition_attempts_created_at').on(t.createdAt),
+  ]
+);
+
+export type CompositionAttemptRow = typeof compositionAttempts.$inferSelect;
+export type NewCompositionAttemptRow = typeof compositionAttempts.$inferInsert;
+
+// ─── DOMAIN CONFIDENCE PROFILES ───────────────────────────────────────────
+
+export const domainConfidenceProfiles = pgTable(
+  'domain_confidence_profiles',
+  {
+    ...base,
+    // cross-plane ref: intelligence.agents.id — no DB FK
+    agentId: uuid('agent_id').notNull(),
+    domain: varchar('domain', { length: 100 }).notNull(),
+    accuracy: decimal('accuracy', { precision: 6, scale: 5 }).notNull().default('0.5'),
+    sampleSize: integer('sample_size').notNull().default(0),
+    lastComposedAt: timestamp('last_composed_at'),
+  },
+  (t) => [
+    uniqueIndex('idx_domain_confidence_agent_domain').on(t.agentId, t.domain),
+    index('idx_domain_confidence_domain').on(t.domain),
+  ]
+);
+
+export type DomainConfidenceProfileRow = typeof domainConfidenceProfiles.$inferSelect;
+export type NewDomainConfidenceProfileRow = typeof domainConfidenceProfiles.$inferInsert;
+
+// ─── COMPOSITION AUDIT EVENTS (Immutable / Merkle-chained) ──────────────
+
+export const compositionAuditEvents = pgTable(
+  'composition_audit_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventType: varchar('event_type', { length: 100 }).notNull(),
+    entityType: varchar('entity_type', { length: 100 }).notNull(),
+    entityId: uuid('entity_id').notNull(),
+    actorType: varchar('actor_type', { length: 20 })
+      .$type<'user' | 'agent' | 'system'>()
+      .notNull(),
+    actorId: varchar('actor_id', { length: 255 }).notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
+    previousHash: varchar('previous_hash', { length: 64 }),
+    currentHash: varchar('current_hash', { length: 64 }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_composition_audit_entity_id').on(t.entityId),
+    index('idx_composition_audit_event_type').on(t.eventType),
+    index('idx_composition_audit_created_at').on(t.createdAt),
+  ]
+);
+
+export type CompositionAuditEvent = typeof compositionAuditEvents.$inferSelect;
+export type NewCompositionAuditEvent = typeof compositionAuditEvents.$inferInsert;
+export type WorkflowComposition = typeof workflowCompositions.$inferSelect;
+export type NewWorkflowComposition = typeof workflowCompositions.$inferInsert;
+export type WorkflowInstance = typeof workflowInstances.$inferSelect;
+export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;

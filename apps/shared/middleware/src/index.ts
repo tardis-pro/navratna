@@ -51,6 +51,11 @@ export {
   recordError,
   recordUnhandledError,
   setupGlobalErrorHandlers,
+  recordWorkflowExecution,
+  recordWorkflowStep,
+  recordMCPCall,
+  setWorkflowQueueDepth,
+  setCircuitBreakerState,
 } from './metrics.js';
 export type { ErrorContext } from '@uaip/types';
 
@@ -111,6 +116,7 @@ export {
   verifyJWT,
   getKeyId,
   resetKeyPair,
+  rotateKeyPair,
 } from './jwks.js';
 
 // Token generation exports

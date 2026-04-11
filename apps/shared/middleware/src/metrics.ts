@@ -100,6 +100,40 @@ const llmRequestLatency = getOrCreateHistogram({
   buckets: [0.1, 0.3, 0.5, 1, 2, 5, 10, 20, 60],
 });
 
+// ---------------------------------------------------------------------------
+// Workflow Composition Metrics
+// ---------------------------------------------------------------------------
+
+const workflowExecutionsTotal = getOrCreateCounter({
+  name: 'workflow_executions_total',
+  help: 'Total workflow executions by workflow and status',
+  labelNames: ['workflow_name', 'status'],
+});
+
+const workflowStepDuration = getOrCreateHistogram({
+  name: 'workflow_step_duration_seconds',
+  help: 'Duration of individual workflow steps',
+  labelNames: ['workflow_name', 'step_type', 'mcp_server', 'status'],
+  buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60],
+});
+
+const workflowQueueDepth = getOrCreateGauge({
+  name: 'workflow_queue_depth',
+  help: 'Number of workflows waiting to execute',
+});
+
+const mcpCallsTotal = getOrCreateCounter({
+  name: 'mcp_calls_total',
+  help: 'Total MCP server calls by server, tool, and status',
+  labelNames: ['server', 'tool', 'status_code'],
+});
+
+const circuitBreakerState = getOrCreateGauge({
+  name: 'circuit_breaker_state',
+  help: 'Circuit breaker state (0=closed, 1=half-open, 2=open)',
+  labelNames: ['server'],
+});
+
 // Elysia metrics middleware plugin
 export function metricsMiddleware(app: Elysia): Elysia {
   if (!config.monitoring.metricsEnabled) {
@@ -360,6 +394,60 @@ export function setupGlobalErrorHandlers(serviceName: string): void {
     recordUnhandledError(error, 'unhandledRejection', serviceName);
     console.error('Unhandled Rejection:', reason);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Workflow & MCP metric helpers
+// ---------------------------------------------------------------------------
+
+export function recordWorkflowExecution(
+  workflowName: string,
+  status: 'completed' | 'failed' | 'cancelled',
+): void {
+  workflowExecutionsTotal.inc({ workflow_name: workflowName, status });
+}
+
+export function recordWorkflowStep(
+  workflowName: string,
+  stepType: string,
+  mcpServer: string,
+  status: string,
+  durationMs: number,
+): void {
+  workflowStepDuration.observe(
+    {
+      workflow_name: workflowName,
+      step_type: stepType,
+      mcp_server: mcpServer,
+      status,
+    },
+    durationMs / 1000,
+  );
+}
+
+export function recordMCPCall(
+  server: string,
+  tool: string,
+  statusCode: number,
+): void {
+  mcpCallsTotal.inc({ server, tool, status_code: statusCode });
+}
+
+export function setWorkflowQueueDepth(depth: number): void {
+  workflowQueueDepth.set(depth);
+}
+
+const CIRCUIT_STATE_VALUE: Record<string, number> = {
+  closed: 0,
+  'half-open': 1,
+  open: 2,
+};
+
+export function setCircuitBreakerState(
+  server: string,
+  state: 'closed' | 'half-open' | 'open',
+): void {
+  circuitBreakerState.set({ server }, CIRCUIT_STATE_VALUE[state] ?? 0);
 }
 
 // Metrics endpoint handler for Elysia

@@ -222,9 +222,60 @@ export type {
 export { CapabilityGapRadarService } from './cognitive/capability_gap_radar_service';
 export type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
 export { ConfidenceGatedExecutionService } from './cognitive/confidence_gated_execution_service';
-export type { ExecutionGate, ConfidenceProfile } from '@uaip/types';
+export type { ExecutionGate, ConfidenceProfile, DomainConfidenceProfile } from '@uaip/types';
 export { ExplanationDAGService } from './cognitive/explanation_d_a_g_service';
+export { CompositionPolicyService } from './composition/composition_policy_service';
+export type {
+  CompositionPolicy,
+  PolicyRule,
+  PolicyEvaluationResult,
+  PolicyViolation,
+  PolicyWarning,
+  EstimatedBlastRadius,
+} from './composition/composition_policy_service';
+export { ImmutableAuditService } from './composition/immutable_audit_service';
+export type {
+  CompositionAuditEventInput,
+  ChainVerificationResult,
+  AuditTrailOptions,
+  AuditTrailResult,
+  ActorType,
+} from './composition/immutable_audit_service';
+export { WorkflowValidator } from './composition/workflow_validator';
+export type {
+  ValidationError,
+  ValidationWarning,
+  WorkflowValidationResult,
+} from './composition/workflow_validator';
+export {
+  CircuitBreaker,
+  CircuitBreakerRegistry,
+  CircuitOpenError,
+} from './composition/circuit_breaker';
+export type {
+  CircuitState,
+  CircuitBreakerOptions,
+  CircuitBreakerSnapshot,
+} from './composition/circuit_breaker';
 export type { ReasoningNode, ReasoningEdge, ExplanationDAG } from '@uaip/types';
+export { MCPOutputValidator } from './composition/mcp_output_validator';
+export type {
+  ValidatedOutput,
+  InjectionScanResult,
+  SanitizedOutput,
+} from './composition/mcp_output_validator';
+export { SecretReferenceService } from './composition/secret_reference_service';
+export type {
+  SecretReference,
+  SecretScanResult,
+} from './composition/secret_reference_service';
+export {
+  resolvePath,
+  evaluateExpression,
+  executeTransformStep,
+  validateTransformExpression,
+  getAvailableTransforms,
+} from './composition/transform_engine';
 
 // =============================================================================
 // ENTITIES

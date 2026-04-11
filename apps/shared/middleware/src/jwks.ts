@@ -14,6 +14,7 @@ interface JWKSKeyPair {
 }
 
 let cachedKeyPair: JWKSKeyPair | null = null;
+let previousKeyPair: JWKSKeyPair | null = null;
 let initPromise: Promise<JWKSKeyPair> | null = null;
 
 /**
@@ -120,32 +121,55 @@ export async function getPrivateKey(): Promise<jose.KeyLike> {
  */
 export async function getPublicJWKS(): Promise<{ keys: jose.JWK[] }> {
   const kp = await initializeKeyPair();
-  const jwk = await jose.exportJWK(kp.publicKey);
+  const currentJwk = await jose.exportJWK(kp.publicKey);
 
-  return {
-    keys: [
-      {
-        ...jwk,
-        kid: kp.kid,
-        alg: 'RS256',
-        use: 'sig',
-      },
-    ],
-  };
+  const keys: jose.JWK[] = [
+    {
+      ...currentJwk,
+      kid: kp.kid,
+      alg: 'RS256',
+      use: 'sig',
+    },
+  ];
+
+  // Include the previous key for verification during rotation window
+  if (previousKeyPair) {
+    const prevJwk = await jose.exportJWK(previousKeyPair.publicKey);
+    keys.push({
+      ...prevJwk,
+      kid: previousKeyPair.kid,
+      alg: 'RS256',
+      use: 'sig',
+    });
+  }
+
+  return { keys };
+}
+
+export interface SignJWTOptions {
+  /** Override the audience claim (default: 'uaip-services') */
+  audience?: string;
+  /** Override the issuer claim (default: 'uaip') */
+  issuer?: string;
+  /** Override the expiration time (default: JWT_RS256_EXPIRY env or '15m') */
+  expiresIn?: string;
 }
 
 /**
  * Sign a JWT payload using RS256 with the JWKS private key.
  */
-export async function signJWT(payload: Record<string, unknown>): Promise<string> {
+export async function signJWT(
+  payload: Record<string, unknown>,
+  options?: SignJWTOptions,
+): Promise<string> {
   const kp = await initializeKeyPair();
 
   const token = await new jose.SignJWT(payload as jose.JWTPayload)
     .setProtectedHeader({ alg: 'RS256', kid: kp.kid })
     .setIssuedAt()
-    .setIssuer(JWT_ISSUER)
-    .setAudience(JWT_AUDIENCE)
-    .setExpirationTime(process.env.JWT_RS256_EXPIRY || '15m')
+    .setIssuer(options?.issuer ?? JWT_ISSUER)
+    .setAudience(options?.audience ?? JWT_AUDIENCE)
+    .setExpirationTime(options?.expiresIn ?? process.env.JWT_RS256_EXPIRY ?? '15m')
     .sign(kp.privateKey);
 
   return token;
@@ -155,24 +179,47 @@ export async function signJWT(payload: Record<string, unknown>): Promise<string>
  * Verify a JWT token using the JWKS public key (RS256).
  * Returns the decoded payload.
  */
-export async function verifyJWT(token: string): Promise<jose.JWTPayload> {
+export async function verifyJWT(token: string, options?: { audience?: string }): Promise<jose.JWTPayload> {
   const kp = await initializeKeyPair();
+  const verifyOptions = {
+    issuer: JWT_ISSUER,
+    audience: options?.audience ?? JWT_AUDIENCE,
+  };
 
+  // Try current key first
   try {
-    const { payload } = await jose.jwtVerify(token, kp.publicKey, {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    });
-
+    const { payload } = await jose.jwtVerify(token, kp.publicKey, verifyOptions);
     return payload;
-  } catch (error) {
-    if (error instanceof jose.errors.JWTExpired) {
+  } catch (currentKeyError) {
+    // If signature verification failed and we have a previous key, try that
+    if (
+      previousKeyPair &&
+      currentKeyError instanceof jose.errors.JWSSignatureVerificationFailed
+    ) {
+      try {
+        const { payload } = await jose.jwtVerify(token, previousKeyPair.publicKey, verifyOptions);
+        return payload;
+      } catch (prevKeyError) {
+        // Fall through to throw based on the previous key error
+        if (prevKeyError instanceof jose.errors.JWTExpired) {
+          throw new ApiError(401, 'Token expired', 'TOKEN_EXPIRED');
+        }
+        if (prevKeyError instanceof jose.errors.JWTClaimValidationFailed) {
+          throw new ApiError(401, 'Invalid token claims', 'INVALID_TOKEN');
+        }
+        // Previous key also failed — token is invalid
+        throw new ApiError(401, 'Invalid token signature', 'INVALID_TOKEN');
+      }
+    }
+
+    // No previous key or non-signature error — map to appropriate ApiError
+    if (currentKeyError instanceof jose.errors.JWTExpired) {
       throw new ApiError(401, 'Token expired', 'TOKEN_EXPIRED');
     }
-    if (error instanceof jose.errors.JWTClaimValidationFailed) {
+    if (currentKeyError instanceof jose.errors.JWTClaimValidationFailed) {
       throw new ApiError(401, 'Invalid token claims', 'INVALID_TOKEN');
     }
-    if (error instanceof jose.errors.JWSSignatureVerificationFailed) {
+    if (currentKeyError instanceof jose.errors.JWSSignatureVerificationFailed) {
       throw new ApiError(401, 'Invalid token signature', 'INVALID_TOKEN');
     }
     throw new ApiError(401, 'Invalid token', 'INVALID_TOKEN');
@@ -188,9 +235,37 @@ export async function getKeyId(): Promise<string> {
 }
 
 /**
+ * Rotate the signing key pair.
+ * Moves the current key pair to `previousKeyPair` (kept for verification)
+ * and generates a fresh RSA-2048 key pair for signing.
+ * The JWKS endpoint will expose both keys until the next rotation.
+ */
+export async function rotateKeyPair(): Promise<void> {
+  // Ensure current key pair is initialized
+  const current = await initializeKeyPair();
+
+  // Generate new key pair
+  const { privateKey, publicKey } = await jose.generateKeyPair('RS256', {
+    modulusLength: 2048,
+  });
+  const kid = await computeKid(publicKey);
+
+  // Demote current to previous, install new as current
+  previousKeyPair = current;
+  cachedKeyPair = { privateKey, publicKey, kid };
+  initPromise = null;
+
+  logger.info('JWKS: Key pair rotated', {
+    newKid: kid,
+    previousKid: previousKeyPair.kid,
+  });
+}
+
+/**
  * Reset the cached key pair. Useful for testing.
  */
 export function resetKeyPair(): void {
   cachedKeyPair = null;
+  previousKeyPair = null;
   initPromise = null;
 }
