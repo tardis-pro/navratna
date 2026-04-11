@@ -834,32 +834,50 @@ export const federatedTools = pgTable(
 
 // ─── DEPLOYMENTS ──────────────────────────────────────────────────────────
 
-export const deployments = pgTable('deployments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  subdomainName: varchar('subdomain_name', { length: 255 }).notNull(),
-  repoUrl: varchar('repo_url', { length: 512 }),
-  platform: varchar('platform', { length: 50 }).notNull(),
-  appName: varchar('app_name', { length: 255 }).notNull(),
-  status: varchar('status', { length: 50 }).notNull().default('provisioned'),
-  currentVersion: varchar('current_version', { length: 255 }),
-  previousVersion: varchar('previous_version', { length: 255 }),
-  url: varchar('url', { length: 512 }),
-  healthEndpoint: varchar('health_endpoint', { length: 255 }).default('/health'),
-  config: jsonb('config').$type<Record<string, unknown>>(),
-  lastHealthCheck: timestamp('last_health_check'),
-  lastDeployAt: timestamp('last_deploy_at'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
+export const deployments = pgTable(
+  'deployments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    subdomainName: varchar('subdomain_name', { length: 255 }).notNull(),
+    repoUrl: varchar('repo_url', { length: 512 }),
+    platform: varchar('platform', { length: 50 }).notNull(),
+    appName: varchar('app_name', { length: 255 }).notNull(),
+    status: varchar('status', { length: 50 }).notNull().default('provisioned'),
+    currentVersion: varchar('current_version', { length: 255 }),
+    previousVersion: varchar('previous_version', { length: 255 }),
+    url: varchar('url', { length: 512 }),
+    healthEndpoint: varchar('health_endpoint', { length: 255 }).default('/health'),
+    config: jsonb('config').$type<Record<string, unknown>>(),
+    lastHealthCheck: timestamp('last_health_check'),
+    lastDeployAt: timestamp('last_deploy_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_deployments_subdomain_name').on(t.subdomainName),
+    index('idx_deployments_platform').on(t.platform),
+    index('idx_deployments_status').on(t.status),
+    index('idx_deployments_app_name').on(t.appName),
+  ]
+);
 
-export const deploymentEvents = pgTable('deployment_events', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  deploymentId: uuid('deployment_id').references(() => deployments.id),
-  eventType: varchar('event_type', { length: 50 }).notNull(),
-  details: jsonb('details').$type<Record<string, unknown>>(),
-  triggeredBy: varchar('triggered_by', { length: 50 }).default('user'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+export const deploymentEvents = pgTable(
+  'deployment_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    deploymentId: uuid('deployment_id')
+      .notNull()
+      .references(() => deployments.id, { onDelete: 'cascade' }),
+    eventType: varchar('event_type', { length: 50 }).notNull(),
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    triggeredBy: varchar('triggered_by', { length: 50 }).default('user'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_deployment_events_deployment_id').on(t.deploymentId),
+    index('idx_deployment_events_event_type').on(t.eventType),
+  ]
+);
 
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
 

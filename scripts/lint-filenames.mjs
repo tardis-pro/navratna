@@ -10,8 +10,8 @@
  * Ignores: node_modules, dist, build, .git, coverage, generated files (*.d.ts)
  */
 
-import { readdir, stat } from 'node:fs/promises';
-import { join, basename, extname } from 'node:path';
+import { readdir } from 'node:fs/promises';
+import { join, basename } from 'node:path';
 
 const IGNORE_DIRS = new Set([
   'node_modules',

@@ -157,16 +157,23 @@ export class JWTValidator {
   }
 
   /**
-   * Verify a token using RS256 first, falling back to HS256.
-   * Allows a gradual migration from symmetric to asymmetric signing.
+   * Verify a token using the algorithm declared in its header.
+   * Checks the alg field BEFORE attempting verification to prevent
+   * algorithm confusion / downgrade attacks.
    */
   public static async verifyAny(token: string): Promise<JWTPayload> {
-    try {
-      return await this.verifyRS256(token);
-    } catch {
-      // RS256 failed — fall back to HS256
-      logger.debug('RS256 verification failed, falling back to HS256');
-      return this.verify(token);
+    const header = jwt.decode(token, { complete: true })?.header;
+    if (!header || !header.alg) {
+      throw new ApiError(401, 'Invalid token: missing algorithm header', 'INVALID_TOKEN');
+    }
+
+    switch (header.alg) {
+      case 'RS256':
+        return this.verifyRS256(token);
+      case 'HS256':
+        return this.verify(token);
+      default:
+        throw new ApiError(401, `Unsupported token algorithm: ${header.alg}`, 'INVALID_TOKEN');
     }
   }
 }

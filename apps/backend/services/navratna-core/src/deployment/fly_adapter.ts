@@ -33,10 +33,7 @@ function headers(): Record<string, string> {
   }
 }
 
-async function flyFetch<T = unknown>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function flyFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${FLY_API_BASE}${path}`
   const response = await fetch(url, {
     ...options,
@@ -50,9 +47,35 @@ async function flyFetch<T = unknown>(
     )
   }
 
+  // 204 No Content or empty body — valid for DELETE / fire-and-forget calls
+  if (response.status === 204) {
+    return undefined as T
+  }
+
   const text = await response.text()
-  if (!text) return undefined as T
+  if (!text) {
+    return undefined as T
+  }
   return JSON.parse(text) as T
+}
+
+/**
+ * Fire-and-forget variant for DELETE / POST calls where the response body is not needed.
+ * Avoids the unsafe `undefined as T` cast by returning void.
+ */
+async function flyFetchVoid(path: string, options: RequestInit = {}): Promise<void> {
+  const url = `${FLY_API_BASE}${path}`
+  const response = await fetch(url, {
+    ...options,
+    headers: { ...headers(), ...(options.headers as Record<string, string> ?? {}) },
+  })
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '<no body>')
+    throw new Error(
+      `Fly API ${options.method ?? 'GET'} ${path} returned ${response.status}: ${body}`
+    )
+  }
 }
 
 interface FlyApp {
@@ -98,7 +121,7 @@ export class FlyAdapter implements DeploymentAdapter {
         }
       }
       if (Object.keys(secretsPayload).length > 0) {
-        await flyFetch(`/apps/${config.appName}/secrets`, {
+        await flyFetchVoid(`/apps/${config.appName}/secrets`, {
           method: 'POST',
           body: JSON.stringify(secretsPayload),
         })
@@ -250,14 +273,13 @@ export class FlyAdapter implements DeploymentAdapter {
 
   async destroy(appName: string): Promise<void> {
     logger.info('fly: destroying app', { appName })
-    await flyFetch(`/apps/${appName}`, { method: 'DELETE' })
+    await flyFetchVoid(`/apps/${appName}`, { method: 'DELETE' })
     logger.info('fly: app destroyed', { appName })
   }
 
   async getLogs(appName: string, lines = 100): Promise<string[]> {
     // The Fly Machines API log endpoint returns ndjson
     try {
-      const url = `${FLY_API_BASE}/apps/${appName}/machines`
       const machines = await flyFetch<FlyMachine[]>(`/apps/${appName}/machines`)
       if (!machines || machines.length === 0) return []
 
@@ -306,7 +328,7 @@ export class FlyAdapter implements DeploymentAdapter {
       // Scale down: destroy excess machines (keep first N)
       const toRemove = machines.slice(replicas)
       for (const m of toRemove) {
-        await flyFetch(`/apps/${appName}/machines/${m.id}`, { method: 'DELETE' })
+        await flyFetchVoid(`/apps/${appName}/machines/${m.id}`, { method: 'DELETE' })
       }
     }
 

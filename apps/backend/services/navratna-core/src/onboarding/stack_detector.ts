@@ -1,14 +1,11 @@
 // Stack Detection Engine — analyzes a cloned repo directory and produces a StackProfile
 // Uses filesystem reads and regex parsing for fast, pragmatic detection
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, extname } from 'node:path'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { logger } from '@uaip/utils'
 import type {
   StackProfile,
-  DetectedLanguage,
-  DetectedRuntime,
-  ExistingDeployPlatform,
 } from '@uaip/types'
 
 function readFileSafe(filePath: string): string | null {

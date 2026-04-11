@@ -821,7 +821,8 @@ export class OAuthProviderService {
 
   private async encryptSecret(secret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(this.getEncryptionKey(), 'salt', 32);
+    const salt = crypto.randomBytes(16);
+    const key = crypto.scryptSync(this.getEncryptionKey(), salt, 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -829,17 +830,19 @@ export class OAuthProviderService {
     encrypted += cipher.final('hex');
 
     const authTag = cipher.getAuthTag().toString('hex');
-    return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+    return `${salt.toString('hex')}:${iv.toString('hex')}:${authTag}:${encrypted}`;
   }
 
   private async decryptSecret(encryptedSecret: string): Promise<string> {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(this.getEncryptionKey(), 'salt', 32);
 
     const parts = encryptedSecret.split(':');
 
-    if (parts.length === 3) {
-      const [ivHex, authTagHex, encrypted] = parts;
+    if (parts.length === 4) {
+      // Current format: salt:iv:authTag:encrypted (per-record random salt)
+      const [saltHex, ivHex, authTagHex, encrypted] = parts;
+      const salt = Buffer.from(saltHex, 'hex');
+      const key = crypto.scryptSync(this.getEncryptionKey(), salt, 32);
       const iv = Buffer.from(ivHex, 'hex');
       const decipher = crypto.createDecipheriv(algorithm, key, iv);
       decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
@@ -849,10 +852,26 @@ export class OAuthProviderService {
       return decrypted;
     }
 
+    // Legacy format (iv:authTag:encrypted with static salt) — decrypt but log migration needed
+    const legacyKey = crypto.scryptSync(this.getEncryptionKey(), 'salt', 32);
+
+    if (parts.length === 3) {
+      const [ivHex, authTagHex, encrypted] = parts;
+      const iv = Buffer.from(ivHex, 'hex');
+      const decipher = crypto.createDecipheriv(algorithm, legacyKey, iv);
+      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+
+      logger.warn('Decrypted secret using legacy static-salt format — re-encrypt recommended');
+      return decrypted;
+    }
+
     // Legacy format (iv:encrypted without auth tag) — decrypt but log migration needed
     const [ivHex, encrypted] = parts;
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    const decipher = crypto.createDecipheriv(algorithm, legacyKey, iv);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');

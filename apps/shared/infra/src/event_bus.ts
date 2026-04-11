@@ -302,10 +302,19 @@ export class EventBusService {
           jobId: job.id,
         });
 
+        // FIX: Execute handlers in parallel with Promise.allSettled to avoid
+        // one slow handler blocking all others. Individual failures are logged
+        // but do not prevent other handlers from completing.
         const handlers = this.subscribers.get(eventType) || [];
-        for (const h of handlers) {
-          // eslint-disable-next-line no-await-in-loop -- sequential handler execution required
-          await h(eventMessage);
+        const results = await Promise.allSettled(handlers.map((h) => h(eventMessage)));
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            this.logger.error('Event handler failed', {
+              eventType,
+              eventId: eventMessage.id,
+              error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+            });
+          }
         }
 
         this.logger.debug('Event processed successfully', {
@@ -554,6 +563,9 @@ export class EventBusService {
     return this.publish(eventType, data);
   }
 
+  // FIX: publishAndWait previously created ephemeral per-request BullMQ queues and
+  // workers (via subscribe) that were never cleaned up, leaking Redis resources.
+  // Now cleans up the ephemeral queue and worker after response or timeout.
   public async publishAndWait(
     eventType: string,
     data: unknown,
@@ -562,20 +574,45 @@ export class EventBusService {
     const correlationId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const responseEventType = `${eventType}.response.${correlationId}`;
 
+    // Helper to fully clean up the ephemeral queue/worker created for this request
+    const cleanupEphemeralQueue = async (): Promise<void> => {
+      try {
+        const worker = this.workers.get(responseEventType);
+        if (worker) {
+          await worker.close();
+          this.workers.delete(responseEventType);
+        }
+        const queue = this.queues.get(responseEventType);
+        if (queue) {
+          await queue.close();
+          this.queues.delete(responseEventType);
+        }
+        this.subscribers.delete(responseEventType);
+      } catch (cleanupErr) {
+        this.logger.debug('Ephemeral queue cleanup error (non-critical)', {
+          responseEventType,
+          error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+        });
+      }
+    };
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        this.unsubscribe(responseEventType, responseHandler).catch((err) => {
-          this.logger.warn('Failed to unsubscribe response handler on timeout', {
-            responseEventType,
-            error: err instanceof Error ? err.message : String(err),
+        this.unsubscribe(responseEventType, responseHandler)
+          .then(() => cleanupEphemeralQueue())
+          .catch((err) => {
+            this.logger.warn('Failed to clean up response handler on timeout', {
+              responseEventType,
+              error: err instanceof Error ? err.message : String(err),
+            });
           });
-        });
         reject(new Error(`Request timeout after ${timeoutMs}ms`));
       }, timeoutMs);
 
       const responseHandler: EventBusHandler = async (message: EventBusMessage) => {
         clearTimeout(timeout);
         await this.unsubscribe(responseEventType, responseHandler);
+        await cleanupEphemeralQueue();
 
         if (isRpcResponse<unknown>(message.data)) {
           if (message.data.error) {
@@ -600,6 +637,7 @@ export class EventBusService {
         })
         .catch((error) => {
           clearTimeout(timeout);
+          cleanupEphemeralQueue().catch(() => {});
           reject(error);
         });
     });

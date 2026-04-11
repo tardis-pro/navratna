@@ -41,10 +41,44 @@ function extractEventData<T extends object>(eventMessage: unknown): Partial<T> {
   return eventMessage.data as Partial<T>;
 }
 
+// FIX: Simple semaphore for concurrency-limiting parallel node executions per DAG.
+// Prevents unbounded parallelism from overwhelming downstream services.
+class Semaphore {
+  private current = 0;
+  private queue: Array<() => void> = [];
+
+  constructor(private readonly max: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.current < this.max) {
+      this.current++;
+      return;
+    }
+    return new Promise<void>((resolve) => {
+      this.queue.push(() => {
+        this.current++;
+        resolve();
+      });
+    });
+  }
+
+  release(): void {
+    this.current--;
+    const next = this.queue.shift();
+    if (next) next();
+  }
+}
+
+// FIX: TTL in ms for keeping completed/failed DAGs before pruning from memory.
+// Keeps results briefly available for retrieval, then removes to prevent OOM.
+const DAG_RETENTION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export class TaskDAGService {
   private static instance: TaskDAGService;
   private eventBus: EventBusService;
   private activeDAGs: Map<string, TaskDAG> = new Map();
+  // FIX: Track cleanup timers so they can be cancelled if needed
+  private dagCleanupTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(eventBus?: EventBusService) {
     this.eventBus = eventBus ?? EventBusService.getInstance();
@@ -55,6 +89,27 @@ export class TaskDAGService {
       TaskDAGService.instance = new TaskDAGService();
     }
     return TaskDAGService.instance;
+  }
+
+  // FIX: Schedule removal of completed/failed DAGs after TTL to prevent OOM.
+  // DAG remains accessible for result retrieval during the retention window.
+  private scheduleDAGCleanup(dagId: string): void {
+    // Clear any existing timer for this DAG (e.g., if re-executed)
+    const existing = this.dagCleanupTimers.get(dagId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      this.activeDAGs.delete(dagId);
+      this.dagCleanupTimers.delete(dagId);
+      logger.info('[TaskDAGService] Pruned completed DAG from memory', { dagId });
+    }, DAG_RETENTION_TTL_MS);
+
+    // Ensure the timer doesn't prevent process exit
+    if (timer && typeof timer === 'object' && 'unref' in timer) {
+      timer.unref();
+    }
+
+    this.dagCleanupTimers.set(dagId, timer);
   }
 
   // --------------------------------------------------------------------------
@@ -182,6 +237,10 @@ export class TaskDAGService {
 
     const batches = this.getExecutionOrder(dag);
 
+    // FIX: Concurrency limiter — max 20 concurrent node executions per DAG.
+    // Prevents a large batch from overwhelming downstream services (LLM, event bus, etc.).
+    const semaphore = new Semaphore(20);
+
     try {
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
@@ -192,8 +251,17 @@ export class TaskDAGService {
           taskIds: batch.map((n) => n.id),
         });
 
-        // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        const results = await Promise.allSettled(batch.map((node) => this.executeNode(dag, node)));
+        // oxlint-disable-next-line no-await-in-loop -- sequential batch processing required
+        const results = await Promise.allSettled(
+          batch.map(async (node) => {
+            await semaphore.acquire();
+            try {
+              return await this.executeNode(dag, node);
+            } finally {
+              semaphore.release();
+            }
+          })
+        );
 
         let batchFailed = false;
         for (let i = 0; i < results.length; i++) {
@@ -257,6 +325,9 @@ export class TaskDAGService {
         timestamp: new Date().toISOString(),
       });
 
+      // FIX: Schedule cleanup to prevent OOM from unbounded activeDAGs growth
+      this.scheduleDAGCleanup(dag.id);
+
       logger.info('[TaskDAGService] DAG execution finished', {
         dagId: dag.id,
         status: dag.status,
@@ -275,6 +346,9 @@ export class TaskDAGService {
         error: message,
         timestamp: new Date().toISOString(),
       });
+
+      // FIX: Schedule cleanup to prevent OOM from unbounded activeDAGs growth
+      this.scheduleDAGCleanup(dag.id);
 
       logger.error('[TaskDAGService] DAG execution error', {
         dagId: dag.id,

@@ -58,7 +58,7 @@ export interface DeploymentHealthStatus {
 }
 
 export interface DeploymentAdapter {
-  readonly platform: string;
+  readonly platform: DeploymentPlatform;
   provision(config: DeploymentConfig): Promise<DeploymentResult>;
   deploy(config: DeploymentConfig, image: string): Promise<DeploymentResult>;
   healthCheck(url: string, endpoint: string): Promise<DeploymentHealthStatus>;

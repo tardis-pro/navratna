@@ -87,6 +87,8 @@ const changePasswordSchema = z.object({
 const internalTokenSchema = z.object({
   serviceName: z.string().min(1, 'Service name is required'),
   apiKey: z.string().min(1, 'API key is required'),
+  permissions: z.array(z.string()).optional(),
+  scopes: z.array(z.string()).optional(),
 });
 
 type TokenInfo = {
@@ -638,17 +640,29 @@ export function registerAuthRoutes() {
         set.status = 400;
         return { error: 'Validation Error', details: parsed.error.flatten() };
       }
-      const { serviceName, apiKey } = parsed.data;
-  
+      const { serviceName, apiKey, permissions: requestedPermissions, scopes: requestedScopes } = parsed.data;
+
       try {
         const { auditService } = await getServices();
-  
+
         const validKey = await apiKeyAuth.validateAPIKey(apiKey);
         if (!validKey || validKey.serviceName !== serviceName) {
           set.status = 401;
           return { error: 'Invalid service credentials' };
         }
-  
+
+        // Use the API key's registered permissions/scopes.
+        // If the request asks for a subset, intersect; never escalate beyond what the key allows.
+        const keyPermissions = validKey.permissions ?? ['read'];
+        const keyScopes = validKey.scopes ?? [`service:${serviceName.toLowerCase().replace(/\s+/g, '-')}`];
+
+        const effectivePermissions = requestedPermissions
+          ? requestedPermissions.filter((p) => keyPermissions.includes(p))
+          : keyPermissions;
+        const effectiveScopes = requestedScopes
+          ? requestedScopes.filter((s) => keyScopes.includes(s))
+          : keyScopes;
+
         // Generate internal token
         const expiresAt = Date.now() + 3600000; // 1 hour
         const internalToken = jwt.sign(
@@ -656,8 +670,8 @@ export function registerAuthRoutes() {
             serviceId: serviceName.toLowerCase().replace(/\s+/g, '-'),
             serviceName,
             type: 'internal',
-            permissions: ['read', 'write', 'execute'],
-            scopes: [`service:${serviceName.toLowerCase().replace(/\s+/g, '-')}`],
+            permissions: effectivePermissions,
+            scopes: effectiveScopes,
           },
           config.jwt.secret,
           { expiresIn: '1h' }
@@ -693,6 +707,8 @@ export function registerAuthRoutes() {
       body: t.Object({
         serviceName: t.String({ minLength: 1 }),
         apiKey: t.String({ minLength: 1 }),
+        permissions: t.Optional(t.Array(t.String())),
+        scopes: t.Optional(t.Array(t.String())),
       }),
       response: {
         200: t.Object({
