@@ -47,8 +47,9 @@ const parseExpiryToSeconds = (value?: string | number): number | undefined => {
 const getAuthCookieOptions = () => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  sameSite: (process.env.COOKIE_SAME_SITE || 'lax') as 'lax' | 'strict' | 'none',
   path: '/',
+  ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
 });
 
 async function getServices() {
@@ -557,13 +558,14 @@ export function registerAuthRoutes() {
       try {
         const token = csrfProtection.generateToken();
   
-        // Set cookie for browser access
+        // Set cookie for browser access (needs httpOnly: false so JS can read it)
+        const csrfCookieOptions = getAuthCookieOptions();
         cookie['csrf-token'].set({
           value: token,
+          ...csrfCookieOptions,
           httpOnly: false,
-          sameSite: 'strict',
+          sameSite: 'strict' as const,
           maxAge: 3600,
-          path: '/',
         });
   
         return {

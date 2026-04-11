@@ -771,6 +771,96 @@ export const integrationEvents = pgTable('integration_events', {
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
 
+// ─── FEDERATION ───────────────────────────────────────────────────────────
+
+export const federatedSubdomains = pgTable(
+  'federated_subdomains',
+  {
+    ...base,
+    name: varchar('name', { length: 255 }).notNull(),
+    subdomain: varchar('subdomain', { length: 255 }).notNull().unique(),
+    description: text('description'),
+    mcpManifestUrl: text('mcp_manifest_url').notNull(),
+    mcpServerUrl: text('mcp_server_url').notNull(),
+    transport: varchar('transport', { length: 50 }).notNull().default('streamable-http'),
+    status: text('status')
+      .$type<'discovered' | 'healthy' | 'degraded' | 'down' | 'deregistered'>()
+      .notNull()
+      .default('discovered'),
+    toolsCount: integer('tools_count').notNull().default(0),
+    lastCrawlAt: timestamp('last_crawl_at'),
+    lastHealthyAt: timestamp('last_healthy_at'),
+    healthEndpoint: text('health_endpoint'),
+    iconUrl: text('icon_url'),
+    category: varchar('category', { length: 100 }),
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    manifestVersion: varchar('manifest_version', { length: 50 }),
+    authType: varchar('auth_type', { length: 50 }).notNull().default('tardis-jwt'),
+    authConfig: jsonb('auth_config').$type<Record<string, unknown>>(),
+    autoDiscovered: boolean('auto_discovered').notNull().default(true),
+    registeredBy: uuid('registered_by').references(() => users.id, { onDelete: 'set null' }),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    uniqueIndex('idx_federated_subdomains_subdomain').on(t.subdomain),
+    index('idx_federated_subdomains_status').on(t.status),
+    index('idx_federated_subdomains_category').on(t.category),
+  ]
+);
+
+export const federatedTools = pgTable(
+  'federated_tools',
+  {
+    ...base,
+    subdomainId: uuid('subdomain_id')
+      .notNull()
+      .references(() => federatedSubdomains.id, { onDelete: 'cascade' }),
+    toolName: varchar('tool_name', { length: 255 }).notNull(),
+    description: text('description'),
+    inputSchema: jsonb('input_schema').$type<Record<string, unknown>>().notNull(),
+    category: varchar('category', { length: 100 }),
+    isActive: boolean('is_active').notNull().default(true),
+    callCount: integer('call_count').notNull().default(0),
+    avgResponseMs: integer('avg_response_ms'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    index('idx_federated_tools_subdomain').on(t.subdomainId),
+    index('idx_federated_tools_name').on(t.toolName),
+    index('idx_federated_tools_category').on(t.category),
+    index('idx_federated_tools_active').on(t.isActive),
+  ]
+);
+
+// ─── DEPLOYMENTS ──────────────────────────────────────────────────────────
+
+export const deployments = pgTable('deployments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  subdomainName: varchar('subdomain_name', { length: 255 }).notNull(),
+  repoUrl: varchar('repo_url', { length: 512 }),
+  platform: varchar('platform', { length: 50 }).notNull(),
+  appName: varchar('app_name', { length: 255 }).notNull(),
+  status: varchar('status', { length: 50 }).notNull().default('provisioned'),
+  currentVersion: varchar('current_version', { length: 255 }),
+  previousVersion: varchar('previous_version', { length: 255 }),
+  url: varchar('url', { length: 512 }),
+  healthEndpoint: varchar('health_endpoint', { length: 255 }).default('/health'),
+  config: jsonb('config').$type<Record<string, unknown>>(),
+  lastHealthCheck: timestamp('last_health_check'),
+  lastDeployAt: timestamp('last_deploy_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const deploymentEvents = pgTable('deployment_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  deploymentId: uuid('deployment_id').references(() => deployments.id),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  details: jsonb('details').$type<Record<string, unknown>>(),
+  triggeredBy: varchar('triggered_by', { length: 50 }).default('user'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -812,3 +902,11 @@ export type OAuthState = typeof oauthStates.$inferSelect;
 export type NewOAuthState = typeof oauthStates.$inferInsert;
 export type AgentOAuthConnection = typeof agentOAuthConnections.$inferSelect;
 export type NewAgentOAuthConnection = typeof agentOAuthConnections.$inferInsert;
+export type FederatedSubdomain = typeof federatedSubdomains.$inferSelect;
+export type NewFederatedSubdomain = typeof federatedSubdomains.$inferInsert;
+export type FederatedTool = typeof federatedTools.$inferSelect;
+export type NewFederatedTool = typeof federatedTools.$inferInsert;
+export type Deployment = typeof deployments.$inferSelect;
+export type NewDeployment = typeof deployments.$inferInsert;
+export type DeploymentEvent = typeof deploymentEvents.$inferSelect;
+export type NewDeploymentEvent = typeof deploymentEvents.$inferInsert;

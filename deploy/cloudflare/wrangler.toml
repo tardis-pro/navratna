@@ -28,7 +28,8 @@ routes = [{ pattern = "api.navratna.app/*", zone_name = "navratna.app" }]
 ENVIRONMENT = "production"
 BACKEND_URL = "https://backend.navratna.app"
 FRONTEND_URL = "https://navratna.app"
-CORS_ORIGINS = "https://navratna.app,https://www.navratna.app"
+CORS_ORIGINS = "https://navratna.app,https://www.navratna.app,https://tardis.digital,https://*.tardis.digital"
+BASE_DOMAIN = "tardis.digital"
 
 # R2 Bucket binding
 [[env.production.r2_buckets]]
@@ -39,6 +40,13 @@ bucket_name = "navratna-storage-prod"
 [[env.production.kv_namespaces]]
 binding = "CACHE"
 id = "" # Set after creating namespace: wrangler kv:namespace create CACHE
+
+# KV for subdomain -> target origin routing
+# Create with: wrangler kv:namespace create SUBDOMAIN_ROUTES
+# Add entries: wrangler kv:key put --namespace-id=<id> "chess" "https://chess-app.fly.dev"
+[[env.production.kv_namespaces]]
+binding = "SUBDOMAIN_ROUTES"
+id = "" # Set after creating namespace: wrangler kv:namespace create SUBDOMAIN_ROUTES
 
 # Rate limiting
 [[env.production.unsafe.bindings]]
@@ -59,6 +67,7 @@ ENVIRONMENT = "staging"
 BACKEND_URL = "https://backend-staging.navratna.app"
 FRONTEND_URL = "https://staging.navratna.app"
 CORS_ORIGINS = "https://staging.navratna.app"
+BASE_DOMAIN = "tardis.digital"
 
 [[env.staging.r2_buckets]]
 binding = "STORAGE"
@@ -79,6 +88,7 @@ ENVIRONMENT = "development"
 BACKEND_URL = "http://localhost:8081"
 FRONTEND_URL = "http://localhost:5173"
 CORS_ORIGINS = "http://localhost:5173,http://localhost:3000"
+BASE_DOMAIN = "tardis.digital"
 
 # Local R2 bucket for development
 [[env.development.r2_buckets]]

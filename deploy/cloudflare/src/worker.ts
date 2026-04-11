@@ -22,12 +22,16 @@ interface Env {
   BACKEND_URL: string;
   FRONTEND_URL: string;
   CORS_ORIGINS: string;
+  BASE_DOMAIN: string; // e.g. "tardis.digital"
 
   // R2 Storage
   STORAGE: R2Bucket;
 
   // KV Cache
   CACHE: KVNamespace;
+
+  // KV for subdomain routing (subdomain -> target origin)
+  SUBDOMAIN_ROUTES: KVNamespace;
 
   // Secrets (set via wrangler secret)
   JWT_SECRET?: string;
@@ -53,7 +57,76 @@ const _SERVICE_ROUTES: Record<string, string> = {
   '/api/v1/llm': '/api/v1/llm',
   '/api/v1/audit': '/api/v1/audit',
   '/api/v1/approvals': '/api/v1/approvals',
+  '/api/v1/federation': '/api/v1/federation',
 };
+
+/**
+ * Extract subdomain from the Host header.
+ * Returns null for the bare domain or www.
+ * Examples:
+ *   "chess.tardis.digital" -> "chess"
+ *   "api.tardis.digital"   -> "api"
+ *   "tardis.digital"       -> null
+ *   "www.tardis.digital"   -> null
+ */
+function extractSubdomain(host: string, baseDomain: string): string | null {
+  // Strip port if present
+  const hostname = host.split(':')[0].toLowerCase();
+  if (hostname === baseDomain || hostname === `www.${baseDomain}`) {
+    return null;
+  }
+  const suffix = `.${baseDomain}`;
+  if (!hostname.endsWith(suffix)) {
+    return null;
+  }
+  const sub = hostname.slice(0, -suffix.length);
+  // Only allow single-level subdomains (no dots)
+  if (sub.includes('.') || sub.length === 0) {
+    return null;
+  }
+  return sub;
+}
+
+/**
+ * Proxy a request to a target origin, preserving path and query.
+ */
+async function proxyToOrigin(
+  request: Request,
+  targetOrigin: string,
+  cf?: CfProperties
+): Promise<Response> {
+  const url = new URL(request.url);
+  const target = new URL(url.pathname + url.search, targetOrigin);
+
+  const headers = new Headers(request.headers);
+  headers.set('X-Forwarded-For', request.headers.get('CF-Connecting-IP') || '');
+  headers.set('X-Forwarded-Proto', 'https');
+  headers.set('X-Forwarded-Host', url.hostname);
+  headers.set('X-Real-IP', request.headers.get('CF-Connecting-IP') || '');
+  headers.delete('host');
+
+  if (cf) {
+    headers.set('X-CF-Colo', (cf.colo as string) || '');
+    headers.set('X-CF-Country', (cf.country as string) || '');
+  }
+
+  const response = await fetch(target.toString(), {
+    method: request.method,
+    headers,
+    body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+  });
+
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.set('X-Served-By', 'cloudflare-worker');
+  responseHeaders.set('X-Edge-Location', ((cf?.colo as string) || 'unknown'));
+  responseHeaders.set('X-Routed-Subdomain', url.hostname);
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+  });
+}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -104,6 +177,49 @@ app.use('*', async (c, next) => {
     credentials: true,
     maxAge: 86400,
   })(c, next);
+});
+
+// ---------------------------------------------------------------------------
+// Subdomain routing middleware
+// Routes requests based on Host header:
+//   tardis.digital        -> FRONTEND_URL (Cloudflare Pages)
+//   api.tardis.digital    -> BACKEND_URL (Fly.io)
+//   {sub}.tardis.digital  -> KV lookup in SUBDOMAIN_ROUTES -> proxy to target
+// ---------------------------------------------------------------------------
+app.use('*', async (c, next) => {
+  const baseDomain = c.env.BASE_DOMAIN || 'tardis.digital';
+  const host = c.req.header('Host') || '';
+  const subdomain = extractSubdomain(host, baseDomain);
+
+  // No subdomain (bare domain or www) -> continue to default handler
+  if (!subdomain) {
+    return next();
+  }
+
+  // api.tardis.digital -> proxy to backend
+  if (subdomain === 'api') {
+    return proxyToOrigin(c.req.raw, c.env.BACKEND_URL, c.req.raw.cf as CfProperties | undefined);
+  }
+
+  // Known subdomain -> look up target from KV store
+  if (c.env.SUBDOMAIN_ROUTES) {
+    const target = await c.env.SUBDOMAIN_ROUTES.get(subdomain);
+    if (target) {
+      // target is stored as a full origin, e.g. "https://chess-app.fly.dev"
+      return proxyToOrigin(c.req.raw, target, c.req.raw.cf as CfProperties | undefined);
+    }
+  }
+
+  // Unknown subdomain -> 404 with helpful message
+  return c.json(
+    {
+      error: 'Subdomain not found',
+      subdomain,
+      host,
+      message: `No application is registered for ${subdomain}.${baseDomain}`,
+    },
+    404
+  );
 });
 
 // Health check endpoint

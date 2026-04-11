@@ -14,6 +14,8 @@ import { registerLLMRoutes } from '../../llm-service/src/routes/llm_routes.js'
 import { registerUserLLMRoutes } from '../../llm-service/src/routes/user_llm_routes.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
 import { registerCognitivePortraitRoutes } from '../../agent-intelligence/src/routes/cognitive_portrait_routes.js'
+import { registerDeploymentRoutes } from './deployment/deployment_routes.js'
+import { registerOnboardingRoutes } from './onboarding/onboarding_routes.js'
 
 type CoreHealthStatus = 'ok' | 'degraded'
 
@@ -52,5 +54,7 @@ export const coreApp = new Elysia({ name: 'navratna-core' })
   .use(registerUserLLMRoutes(null))
   .use(registerKnowledgeIngestRoutes())
   .use(registerCognitivePortraitRoutes())
+  .use(registerDeploymentRoutes(null))
+  .use(registerOnboardingRoutes())
 
 export type NavratnaCoreApp = typeof coreApp

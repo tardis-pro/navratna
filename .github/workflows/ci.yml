@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '18'
-  PNPM_VERSION: '8'
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10'
 
 jobs:
   changes:
@@ -41,11 +41,11 @@ jobs:
               - 'tailwind.config.ts'
               - 'eslint.config.js'
             backend:
-              - 'backend/**'
+              - 'apps/backend/**'
             shared:
-              - 'backend/shared/**'
+              - 'apps/shared/**'
             services:
-              - 'backend/services/**'
+              - 'apps/backend/services/**'
 
   frontend-ci:
     name: Frontend CI
@@ -119,20 +119,16 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        working-directory: backend
         run: pnpm install --frozen-lockfile
 
       - name: Lint shared packages
-        working-directory: backend
-        run: pnpm -r --filter "./shared/**" lint || echo "Lint command not found, skipping"
+        run: pnpm -r --filter "./apps/shared/**" lint || echo "Lint command not found, skipping"
 
       - name: Lint services
-        working-directory: backend
-        run: pnpm -r --filter "./services/**" lint || echo "Lint command not found, skipping"
+        run: pnpm -r --filter "./apps/backend/services/**" lint || echo "Lint command not found, skipping"
 
       - name: Build shared packages and services
-        working-directory: backend
-        run: pnpm run build:shared && pnpm run build:services
+        run: pnpm run build:shared && pnpm run build:backend
 
   docker-build:
     name: Docker Build Test
@@ -149,8 +145,8 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: false
           tags: uaip-backend:test
           cache-from: type=gha

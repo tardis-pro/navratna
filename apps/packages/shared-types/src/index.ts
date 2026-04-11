@@ -118,3 +118,5 @@ export * from './drift-detection';
 export * from './openclaw';
 export * from './integrations';
 export * from './cognitive_portrait';
+export * from './deployment';
+export * from './onboarding';

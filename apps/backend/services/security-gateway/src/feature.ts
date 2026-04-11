@@ -14,6 +14,7 @@ import { registerKnowledgeRoutes } from './http/knowledge_elysia.js'
 import { registerContactRoutes } from './http/contacts_elysia.js'
 import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from './http/dashboard_elysia.js'
+import { registerOIDCRoutes } from './http/oidc_elysia.js'
 
 export const securityFeature: Feature = {
   name: 'security-gateway',
@@ -32,6 +33,7 @@ export const securityFeature: Feature = {
     app.use(registerContactRoutes())
     app.use(registerToolPreferenceRoutes())
     app.use(registerDashboardRoutes())
+    app.use(registerOIDCRoutes())
     return app
   },
 }

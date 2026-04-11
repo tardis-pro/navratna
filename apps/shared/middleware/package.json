@@ -23,6 +23,7 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "elysia": "catalog:backend",
+    "jose": "^5.9.6",
     "jsonwebtoken": "catalog:backend",
     "prom-client": "catalog:backend",
     "@sentry/bun": "catalog:backend",

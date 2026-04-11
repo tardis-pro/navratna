@@ -9,8 +9,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '18'
-  PNPM_VERSION: '8'
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10'
 
 jobs:
   pr-info:
@@ -63,11 +63,11 @@ jobs:
               - 'tailwind.config.ts'
               - 'eslint.config.js'
             backend:
-              - 'backend/**'
+              - 'apps/backend/**'
             shared:
-              - 'backend/shared/**'
+              - 'apps/shared/**'
             services:
-              - 'backend/services/**'
+              - 'apps/backend/services/**'
             docs:
               - '**/*.md'
               - 'docs/**'
@@ -88,7 +88,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Check file naming conventions
-        working-directory: navratna
         run: node scripts/lint-filenames.mjs
 
   lint-commits:
@@ -189,24 +188,19 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        working-directory: backend
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        working-directory: backend
         run: pnpm run lint
 
       - name: Type check
-        working-directory: backend
         run: pnpm exec tsc --noEmit
 
       - name: Build shared packages
-        working-directory: backend
-        run: pnpm run build-shared
+        run: pnpm run build:shared
 
       - name: Build services
-        working-directory: backend
-        run: pnpm run build-services
+        run: pnpm run build:backend
 
   security-checks:
     name: Security Checks
@@ -241,10 +235,7 @@ jobs:
         run: pnpm audit --audit-level moderate
 
       - name: Backend security audit
-        working-directory: backend
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm audit --audit-level moderate
+        run: pnpm audit --audit-level moderate
 
   docs-checks:
     name: Documentation Checks

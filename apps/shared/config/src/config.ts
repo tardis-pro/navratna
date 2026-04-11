@@ -214,6 +214,13 @@ export interface SecurityConfig {
   encryptionAlgorithm: string;
 }
 
+export interface CookieConfig {
+  /** Cookie domain for cross-subdomain SSO (e.g. '.tardis.digital') */
+  domain?: string;
+  /** SameSite attribute: 'lax' | 'strict' | 'none' */
+  sameSite: 'lax' | 'strict' | 'none';
+}
+
 export interface Config {
   database: DatabaseConfig;
   redis: RedisConfig;
@@ -232,6 +239,7 @@ export interface Config {
   notifications: NotificationsConfig;
   orchestration: OrchestrationConfig;
   security: SecurityConfig;
+  cookie: CookieConfig;
   port: number;
   environment: string;
   enterprise: {
@@ -544,6 +552,10 @@ const defaultConfig: Config = {
   security: {
     encryptionKey: process.env.ENCRYPTION_KEY || 'uaip_dev_encryption_key_change_in_production',
     encryptionAlgorithm: process.env.ENCRYPTION_ALGORITHM || 'aes-256-gcm',
+  },
+  cookie: {
+    domain: process.env.COOKIE_DOMAIN || undefined,
+    sameSite: (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') || 'lax',
   },
   port: parseInt(process.env.PORT || '3000'),
   environment: process.env.NODE_ENV || 'development',

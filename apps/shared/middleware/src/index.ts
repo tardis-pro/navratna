@@ -103,6 +103,16 @@ export type { AgentContext, AgentExecution } from './agent_middleware.js';
 // JWT validator exports
 export { JWTValidator } from './j_w_t_validator.js';
 
+// JWKS (JSON Web Key Set) exports — RS256 asymmetric key signing
+export {
+  getPrivateKey,
+  getPublicJWKS,
+  signJWT,
+  verifyJWT,
+  getKeyId,
+  resetKeyPair,
+} from './jwks.js';
+
 // Token generation exports
 export { generateAuthTokens } from './token_generator.js';
 export type { TokenPayload } from '@uaip/types';

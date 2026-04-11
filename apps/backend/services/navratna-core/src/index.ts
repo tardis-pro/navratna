@@ -10,6 +10,7 @@ import { agentIntelligenceFeature } from '../../agent-intelligence/src/feature.j
 import { discussionFeature } from '../../discussion-orchestration/src/feature.js'
 import { artifactFeature } from '../../artifact-service/src/feature.js'
 import { llmFeature } from '../../llm-service/src/feature.js'
+import { deploymentFeature } from './deployment/feature.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
 
 const DEGRADED_P95_THRESHOLD_MS = 1000
@@ -27,6 +28,7 @@ class NavratnaCoreService extends BaseService {
     .register(process.env.FEATURE_DISCUSSION !== 'false' && discussionFeature)
     .register(process.env.FEATURE_ARTIFACTS !== 'false' && artifactFeature)
     .register(process.env.FEATURE_LLM !== 'false' && llmFeature)
+    .register(process.env.FEATURE_DEPLOYMENT !== 'false' && deploymentFeature)
 
   private io: SocketIOServer
   private bunEngine: BunEngine
