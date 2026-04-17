@@ -277,7 +277,9 @@ export class EventBusService {
         if (typeof authToken === 'string' && authToken.startsWith('Bearer ')) {
           const token = authToken.substring(7);
           try {
-            const decoded = jwt.verify(token, config.jwt.secret);
+            const decoded = jwt.verify(token, config.jwt.secret, {
+              algorithms: ['HS256'],
+            });
             if (typeof decoded !== 'object' || decoded === null || !('type' in decoded)) {
               this.logger.warn('Invalid token payload in event message', { eventType });
               throw new Error('Invalid token payload');

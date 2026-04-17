@@ -742,7 +742,7 @@ export function registerAuthRoutes() {
             scopes: effectiveScopes,
           },
           config.jwt.secret,
-          { expiresIn: '1h' }
+          { algorithm: 'HS256', expiresIn: '1h' }
         );
   
         await auditService.logEvent({

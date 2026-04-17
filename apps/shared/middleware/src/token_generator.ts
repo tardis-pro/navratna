@@ -26,6 +26,7 @@ export function generateAuthTokens(payload: TokenPayload): {
   };
 
   const refreshToken = jwt.sign(refreshPayload, config.jwt.refreshSecret, {
+    algorithm: 'HS256',
     expiresIn: config.jwt.refreshTokenExpiry || '7d',
   });
 

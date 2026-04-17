@@ -68,6 +68,7 @@ export class JWTValidator {
   public static verify(token: string): JWTPayload {
     try {
       const rawDecoded = jwt.verify(token, this.JWT_SECRET, {
+        algorithms: ['HS256'],
         issuer: JWT_ISSUER,
         audience: JWT_AUDIENCE,
       });
