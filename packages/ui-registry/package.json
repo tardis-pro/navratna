@@ -1,0 +1,28 @@
+{
+  "name": "@uaip/ui-registry",
+  "version": "1.0.0",
+  "description": "Verified component registry for spec-driven workflow block rendering",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@uaip/types": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
