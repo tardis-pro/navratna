@@ -43,6 +43,7 @@
     "morgan": "^1.10.0",
     "neo4j-driver": "catalog:backend",
     "pg": "catalog:backend",
+    "prom-client": "catalog:backend",
     "uuid": "^11.1.0",
     "winston": "catalog:backend",
     "zod": "catalog:"

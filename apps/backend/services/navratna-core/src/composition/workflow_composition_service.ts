@@ -7,6 +7,12 @@
 
 import { logger } from '@uaip/utils'
 import {
+  workflowExecutionTotal,
+  workflowExecutionDuration,
+  workflowPolicyViolationsTotal,
+  workflowActiveExecutions,
+} from '@uaip/shared-services'
+import {
   getControlDb,
   eq,
   and,
@@ -337,6 +343,10 @@ export class WorkflowCompositionService {
       emails: 0,
     })
     if (!policyEvaluation.allowed) {
+      for (const v of policyEvaluation.violations) {
+        workflowPolicyViolationsTotal.inc({ domain, violation_code: v.rule.type })
+      }
+      workflowExecutionTotal.inc({ workflow_id: id, domain, status: 'blocked' })
       const messages = policyEvaluation.violations.map((v) => v.message).join('; ')
       throw new Error(`Workflow execution blocked by policy: ${messages}`)
     }
@@ -386,6 +396,8 @@ export class WorkflowCompositionService {
       .returning()
 
     this.policyService.recordExecution(domain)
+    workflowExecutionTotal.inc({ workflow_id: id, domain, status: initialStatus })
+    workflowActiveExecutions.inc({ domain })
 
     if (initialStatus !== 'pending_approval') {
       await db

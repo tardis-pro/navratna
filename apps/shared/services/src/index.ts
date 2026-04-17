@@ -276,6 +276,13 @@ export {
   validateTransformExpression,
   getAvailableTransforms,
 } from './composition/transform_engine';
+export {
+  workflowExecutionTotal,
+  workflowExecutionDuration,
+  workflowPolicyViolationsTotal,
+  workflowActiveExecutions,
+  workflowStepFailuresTotal,
+} from './composition/workflow_metrics';
 
 // =============================================================================
 // ENTITIES
