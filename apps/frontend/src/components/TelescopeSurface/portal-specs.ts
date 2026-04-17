@@ -94,4 +94,218 @@ export const PORTAL_SPECS: Record<string, PortalBlockSpec> = {
       { label: 'Create Agent', type: 'custom' },
     ],
   },
+
+  settings: {
+    display: 'card',
+    title: 'Settings Hub',
+    fields: [
+      { key: 'generalSettings', label: 'General Settings', type: 'text' },
+      { key: 'agentSettings', label: 'Agent Settings', type: 'text' },
+      { key: 'providerSettings', label: 'Model Providers', type: 'text' },
+      { key: 'systemConfig', label: 'System Configuration', type: 'text' },
+    ],
+    data: {
+      generalSettings: 'User preferences, onboarding, theme',
+      agentSettings: 'AI agent configuration and model assignment',
+      providerSettings: 'LLM provider connections and API configuration',
+      systemConfig: 'Global system preferences and advanced options',
+    },
+  },
+
+  dashboard: {
+    display: 'card',
+    title: 'Dashboard',
+    fields: [
+      { key: 'activeAgents', label: 'Active Agents', type: 'number' },
+      { key: 'openDiscussions', label: 'Open Discussions', type: 'number' },
+      { key: 'artifacts', label: 'Artifacts', type: 'number' },
+      { key: 'systemStatus', label: 'System Status', type: 'status' },
+    ],
+  },
+
+  artifacts: {
+    display: 'table',
+    title: 'Artifacts',
+    fields: [
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'type', label: 'Type', type: 'badge' },
+      { key: 'createdAt', label: 'Created', type: 'date' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    actions: [
+      { label: 'Create Artifact', type: 'custom' },
+    ],
+  },
+
+  knowledge: {
+    display: 'table',
+    title: 'Knowledge',
+    fields: [
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'type', label: 'Type', type: 'badge' },
+      { key: 'tags', label: 'Tags', type: 'text' },
+      { key: 'createdAt', label: 'Created', type: 'date' },
+    ],
+    actions: [
+      { label: 'Add Knowledge', type: 'custom' },
+    ],
+  },
+
+  'event-stream': {
+    display: 'table',
+    title: 'Event Stream',
+    fields: [
+      { key: 'type', label: 'Type', type: 'badge' },
+      { key: 'message', label: 'Message', type: 'text' },
+      { key: 'source', label: 'Source', type: 'text' },
+      { key: 'timestamp', label: 'Time', type: 'date' },
+    ],
+  },
+
+  'operations-monitor': {
+    display: 'table',
+    title: 'Operations Monitor',
+    fields: [
+      { key: 'name', label: 'Operation', type: 'text' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'progress', label: 'Progress', type: 'progress' },
+      { key: 'startedAt', label: 'Started', type: 'date' },
+    ],
+    actions: [
+      { label: 'Pause All', type: 'custom' },
+      { label: 'Stop All', type: 'custom' },
+    ],
+  },
+
+  'capability-registry': {
+    display: 'table',
+    title: 'Capabilities',
+    fields: [
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'category', label: 'Category', type: 'badge' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'version', label: 'Version', type: 'text' },
+    ],
+  },
+
+  'insights-panel': {
+    display: 'card',
+    title: 'Insights',
+    fields: [
+      { key: 'topInsight', label: 'Top Insight', type: 'text' },
+      { key: 'riskLevel', label: 'Risk Level', type: 'status' },
+      { key: 'confidence', label: 'Confidence', type: 'progress' },
+      { key: 'generatedAt', label: 'Generated', type: 'date' },
+    ],
+  },
+
+  'intelligence-panel': {
+    display: 'card',
+    title: 'Intelligence Panel',
+    fields: [
+      { key: 'mode', label: 'Analysis Mode', type: 'badge' },
+      { key: 'discussionCount', label: 'Discussions Analyzed', type: 'number' },
+      { key: 'avgResponseTime', label: 'Avg Response Time', type: 'number' },
+      { key: 'topAgent', label: 'Top Agent', type: 'text' },
+    ],
+    actions: [
+      { label: 'Deep Analysis', type: 'custom' },
+    ],
+  },
+
+  'project-management': {
+    display: 'table',
+    title: 'Projects',
+    fields: [
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'progress', label: 'Progress', type: 'progress' },
+      { key: 'updatedAt', label: 'Updated', type: 'date' },
+    ],
+    actions: [
+      { label: 'New Project', type: 'custom' },
+    ],
+  },
+
+  'system-config': {
+    display: 'form',
+    title: 'System Configuration',
+    fields: [
+      { key: 'theme', label: 'Theme', type: 'text' },
+      { key: 'language', label: 'Language', type: 'text' },
+      { key: 'maxConcurrentAgents', label: 'Max Concurrent Agents', type: 'number' },
+      { key: 'logLevel', label: 'Log Level', type: 'text' },
+    ],
+    actions: [
+      { label: 'Save Changes', type: 'approve' },
+      { label: 'Reset Defaults', type: 'reject' },
+    ],
+  },
+
+  'provider-settings': {
+    display: 'table',
+    title: 'Model Providers',
+    fields: [
+      { key: 'name', label: 'Provider', type: 'text' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'models', label: 'Models', type: 'number' },
+      { key: 'defaultModel', label: 'Default Model', type: 'text' },
+    ],
+    actions: [
+      { label: 'Add Provider', type: 'custom' },
+    ],
+  },
+
+  'tool-management': {
+    display: 'table',
+    title: 'Tool Management',
+    fields: [
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'category', label: 'Category', type: 'badge' },
+      { key: 'status', label: 'Status', type: 'status' },
+      { key: 'type', label: 'Type', type: 'text' },
+    ],
+    actions: [
+      { label: 'Register Tool', type: 'custom' },
+    ],
+  },
+
+  'atomic-knowledge': {
+    display: 'card',
+    title: 'Knowledge Viewer',
+    fields: [
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'content', label: 'Content', type: 'text' },
+      { key: 'type', label: 'Type', type: 'badge' },
+      { key: 'relevance', label: 'Relevance', type: 'progress' },
+    ],
+  },
+
+  'security-gateway': {
+    display: 'approval-prompt',
+    title: 'Security Gateway',
+    fields: [
+      { key: 'operation', label: 'Pending Operation', type: 'text' },
+      { key: 'requestedBy', label: 'Requested By', type: 'text' },
+      { key: 'riskLevel', label: 'Risk Level', type: 'status' },
+      { key: 'requestedAt', label: 'Requested At', type: 'date' },
+    ],
+    actions: [
+      { label: 'Approve', type: 'approve' },
+      { label: 'Reject', type: 'reject' },
+    ],
+  },
+
+  'tools-panel': {
+    display: 'table',
+    title: 'Tools Panel',
+    fields: [
+      { key: 'name', label: 'Tool', type: 'text' },
+      { key: 'category', label: 'Category', type: 'badge' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    actions: [
+      { label: 'Execute Tool', type: 'custom' },
+    ],
+  },
 };

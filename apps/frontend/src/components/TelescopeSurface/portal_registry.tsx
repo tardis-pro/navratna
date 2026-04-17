@@ -5,6 +5,7 @@ import { autoArrangeBlocks } from '@/components/MaterializableBlock';
 import { WorkflowBlockRenderer } from '@/components/WorkflowBlockRenderer';
 import { PORTAL_SPECS } from './portal-specs';
 
+// @spec-escape-hatch: wraps UnifiedChatSystem (WebSocket streaming + multi-session)
 const ChatPortal = lazy(() =>
   import('../futuristic/portals/ChatPortal').then((m) => ({ default: m.ChatPortal }))
 );
@@ -40,6 +41,7 @@ const ToolManagementPortal = lazy(() =>
     default: m.ToolManagementPortal,
   }))
 );
+// @spec-escape-hatch: 3-tab tool UI (Discover/Manage/Monitor) with MCP config upload
 const UnifiedToolPortal = lazy(() => import('../futuristic/portals/UnifiedToolPortal'));
 const SystemConfigPortal = lazy(() =>
   import('../futuristic/portals/SystemConfigPortal').then((m) => ({
@@ -59,9 +61,11 @@ const IntelligencePanelPortal = lazy(() =>
     default: m.IntelligencePanelPortal,
   }))
 );
+// @spec-escape-hatch: WebRTC + WebSocket voice/video chat
 const UserChatPortal = lazy(() =>
   import('../futuristic/portals/UserChatPortal').then((m) => ({ default: m.UserChatPortal }))
 );
+// @spec-escape-hatch: multi-session WebRTC + WebSocket chat (1738 lines)
 const ConsolidatedUserChatPortal = lazy(() =>
   import('../futuristic/portals/ConsolidatedUserChatPortal').then((m) => ({
     default: m.ConsolidatedUserChatPortal,
@@ -84,6 +88,7 @@ const DiscussionControlsPortal = lazy(() =>
     default: m.DiscussionControlsPortal,
   }))
 );
+// @spec-escape-hatch: live WebSocket discussion engine (1108 lines, turn-based, real-time)
 const DiscussionPortal = lazy(() =>
   import('../DiscussionPortal').then((m) => ({ default: m.DiscussionPortal }))
 );
@@ -105,10 +110,13 @@ const EventStreamMonitor = lazy(() =>
 const InsightsPanel = lazy(() =>
   import('../futuristic/portals/InsightsPanel').then((m) => ({ default: m.InsightsPanel }))
 );
+// @spec-escape-hatch: ReactFlow + Dagre interactive graph — visual-spatial, beyond 8-type spec
 const KnowledgeGraphVisualization = lazy(() =>
   import('../futuristic/portals/KnowledgeGraphVisualization')
 );
+// @spec-escape-hatch: ReactFlow mind-map builder — drag-drop visual graph editor
 const MindMap = lazy(() => import('../futuristic/portals/MindMap'));
+// @spec-escape-hatch: wraps UnifiedChatSystem in floating mode (WebSocket)
 const MultiChatManager = lazy(() =>
   import('../futuristic/portals/MultiChatManager').then((m) => ({
     default: m.MultiChatManager,
@@ -119,6 +127,7 @@ const OperationsMonitor = lazy(() =>
     default: m.OperationsMonitor,
   }))
 );
+// @spec-escape-hatch: multi-step project setup wizard (1011 lines, GitHub + team integration)
 const ProjectOnboardingFlow = lazy(() =>
   import('../futuristic/portals/ProjectOnboardingFlow').then((m) => ({
     default: m.ProjectOnboardingFlow,
@@ -140,36 +149,16 @@ const WorkflowStudioPortal = lazy(() =>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
   chat: ChatPortal,
-  'agent-manager': AgentManagerPortal,
-  knowledge: KnowledgePortal,
-  artifacts: ArtifactsPortal,
-  'project-management': ProjectManagementPortal,
-  settings: SettingsPortal,
-  security: SecurityPortal,
-  'provider-settings': ProviderSettingsPortal,
-  'tool-management': ToolManagementPortal,
-  'unified-tool': UnifiedToolPortal,
-  'system-config': SystemConfigPortal,
-  'general-settings': GeneralSettingsPortal,
-  dashboard: DashboardPortal,
-  'intelligence-panel': IntelligencePanelPortal,
   'user-chat': UserChatPortal,
   'consolidated-user-chat': ConsolidatedUserChatPortal,
-  'mini-browser': MiniBrowserPortal,
+  'unified-tool': UnifiedToolPortal,
+  discussion: DiscussionPortal,
   'discussion-log': DiscussionLogPortal,
   'discussion-controls': DiscussionControlsPortal,
-  discussion: DiscussionPortal,
-  'atomic-knowledge': AtomicKnowledgeViewer,
-  'capability-registry': CapabilityRegistry,
-  'event-stream': EventStreamMonitor,
-  'insights-panel': InsightsPanel,
   'knowledge-graph': KnowledgeGraphVisualization,
   'mind-map': MindMap,
   'multi-chat': MultiChatManager,
-  'operations-monitor': OperationsMonitor,
   'project-onboarding': ProjectOnboardingFlow,
-  'security-gateway': SecurityGateway,
-  'tools-panel': ToolsPanel,
   'workflow-studio': WorkflowStudioPortal,
 };
 
