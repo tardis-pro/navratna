@@ -65,6 +65,14 @@ export class WorkflowCompositionService {
   // ─── CRUD ──────────────────────────────────────────────────────────────
 
   async create(definition: CompositionDefinition, userId: string): Promise<WorkflowComposition> {
+    const secretScan = this.secretService.scanForRawSecrets(definition)
+    if (!secretScan.clean) {
+      throw new Error(
+        `Workflow definition contains raw secrets and cannot be stored. ` +
+        `Use vault:// or secret:// references. Flagged paths: ${secretScan.flaggedPaths.join(', ')}`
+      )
+    }
+
     const db = getControlDb()
 
     const [record] = await db
@@ -121,7 +129,14 @@ export class WorkflowCompositionService {
     if (updates.tags !== undefined) updateValues.tags = updates.tags
     if (updates.isPublic !== undefined) updateValues.isPublic = updates.isPublic
 
-    // Deactivate on definition change — must be re-validated
+    const secretScan = this.secretService.scanForRawSecrets(mergedDefinition)
+    if (!secretScan.clean) {
+      throw new Error(
+        `Workflow definition update contains raw secrets and cannot be stored. ` +
+        `Use vault:// or secret:// references. Flagged paths: ${secretScan.flaggedPaths.join(', ')}`
+      )
+    }
+
     if (existing.isActive) {
       updateValues.isActive = false
     }
