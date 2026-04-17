@@ -482,6 +482,28 @@ export async function buildDynamicBlocks(
 }
 
 // ---------------------------------------------------------------------------
+// createInitialBlocks — full surface initializer
+//
+// Replaces portal_registry.createInitialBlocks(). Generates the full initial
+// MaterializableBlockData array for TelescopeSurface using BASE_SURFACE_BLOCK_CATALOG.
+// ---------------------------------------------------------------------------
+
+export function createInitialBlocks(): MaterializableBlockData[] {
+  const all = Object.values(BASE_SURFACE_BLOCK_CATALOG).map((spec) => ({
+    ...spec,
+    ...BLOCK_LAYOUT_DEFAULTS,
+  }));
+
+  return autoArrangeBlocks(all, {
+    gridCols: 3,
+    blockWidth: 400,
+    blockHeight: 500,
+    gap: 24,
+    padding: 24,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Surface snapshot — debugging utility
 // ---------------------------------------------------------------------------
 

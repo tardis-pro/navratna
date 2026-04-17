@@ -1,5 +1,40 @@
 import type { BlockDisplayType, FieldProjection, ActionProjection } from '@uaip/types';
 
+export const PORTAL_LABELS: Record<string, string> = {
+  chat: 'Chat',
+  'agent-manager': 'Agent Manager',
+  knowledge: 'Knowledge',
+  artifacts: 'Artifacts',
+  'project-management': 'Projects',
+  settings: 'Settings',
+  security: 'Security',
+  'provider-settings': 'Providers',
+  'tool-management': 'Tools',
+  'unified-tool': 'Tools',
+  'system-config': 'System Config',
+  'general-settings': 'General Settings',
+  dashboard: 'Dashboard',
+  'intelligence-panel': 'Intelligence',
+  'user-chat': 'User Chat',
+  'consolidated-user-chat': 'Chat',
+  'mini-browser': 'Browser',
+  'discussion-log': 'Discussion Log',
+  'discussion-controls': 'Discussion Controls',
+  discussion: 'Discussion',
+  'atomic-knowledge': 'Knowledge Viewer',
+  'capability-registry': 'Capabilities',
+  'event-stream': 'Event Stream',
+  'insights-panel': 'Insights',
+  'knowledge-graph': 'Knowledge Graph',
+  'mind-map': 'Mind Map',
+  'multi-chat': 'Multi Chat',
+  'operations-monitor': 'Operations',
+  'project-onboarding': 'Project Setup',
+  'security-gateway': 'Security Gateway',
+  'tools-panel': 'Tools Panel',
+  'workflow-studio': 'Workflow Studio',
+};
+
 export interface PortalBlockSpec {
   display: BlockDisplayType;
   title?: string;
