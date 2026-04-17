@@ -506,3 +506,37 @@ export const CompositionDefinitionSchema = z.object({
 });
 
 export type CompositionDefinition = z.infer<typeof CompositionDefinitionSchema>;
+
+export function adaptV1BlockToUINode(block: WorkflowBlockProjection): UINode {
+  const bindings: Record<string, BindingValue> = {};
+
+  for (const field of block.fields ?? []) {
+    bindings[field.key] = { kind: 'literal', value: '' };
+  }
+
+  const fieldMeta = (block.fields ?? []).map((f) => ({
+    key: f.key,
+    label: f.label,
+    type: f.type,
+    format: f.format,
+  }));
+
+  const actionSlots: UINode[] = (block.actions ?? []).map((a) => ({
+    kind: 'action',
+    variant: a.type,
+    bindings: {
+      label: { kind: 'literal', value: a.label },
+      stepId: { kind: 'literal', value: a.stepId ?? '' },
+      confirmation: { kind: 'literal', value: a.confirmation ?? '' },
+    },
+  }));
+
+  return {
+    kind: block.display,
+    variant: 'default',
+    bindings,
+    slots: actionSlots.length > 0 ? actionSlots : undefined,
+    constraints: [],
+    fallback: { kind: 'status-badge', variant: 'default', bindings: { label: { kind: 'literal', value: 'Loading…' } } },
+  };
+}

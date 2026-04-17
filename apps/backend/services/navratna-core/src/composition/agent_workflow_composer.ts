@@ -354,11 +354,15 @@ export class AgentWorkflowComposer {
 
     try {
       const rawResponse = await this.requestLLMCompletion(prompt, requestId);
-      const parsed = this.parseJSONResponse<WorkflowUIProjection>(rawResponse);
+      const parsed = this.parseJSONResponse<Record<string, unknown>>(rawResponse);
 
-      if (parsed && parsed.blocks && parsed.intentTriggers) {
+      if (
+        parsed &&
+        Array.isArray(parsed['intentTriggers']) &&
+        Array.isArray(parsed['blocks'])
+      ) {
         logger.info('[AgentWorkflowComposer] Phase 4 complete');
-        return parsed;
+        return parsed as unknown as WorkflowUIProjection;
       }
     } catch (error) {
       logger.warn('[AgentWorkflowComposer] UI projection LLM failed, using fallback', {
@@ -515,9 +519,10 @@ Do NOT include wrapper text. Return ONLY valid JSON.`;
       name: s.name,
       type: s.type,
       tool: s.tool,
+      requiresApproval: s.requiresApproval,
     }));
 
-    return `You are generating a UI projection for a workflow in the Telescope interface.
+    return `You are generating a v2 UI projection for a workflow in the Telescope interface.
 
 ## Workflow Intent
 ${intent}
@@ -526,14 +531,36 @@ ${intent}
 ${JSON.stringify(stepSummary, null, 2)}
 
 ## Instructions
-Generate a WorkflowUIProjection JSON object with:
-- "intentTriggers": array of short phrases that should activate this workflow (3-5 phrases)
-- "constellation": { "icon": emoji, "color": hex color, "category": domain category }
-- "blocks": array of { "stepId": string, "display": one of "card"|"status-badge"|"form"|"chart"|"table"|"timeline"|"approval-prompt"|"custom-url", "title": string, "fields": [{ "key": string, "label": string, "type": one of "text"|"number"|"currency"|"date"|"status"|"link"|"badge"|"progress" }] }
-- "expressions": { "idle": "calm", "running": "working", "waitingApproval": "attentive", "completed": "satisfied", "failed": "alarmed" }
-- "ambient": { "showInMorningOpen": boolean, "attentionWeight": 0-1, "whisperTemplate": optional string }
 
-Return ONLY valid JSON. No wrapper text.`;
+Generate a WorkflowUIProjection JSON object. Use version:1 schema (v1 for backward compat):
+
+- "version": 1
+- "intentTriggers": array of short phrases that activate this workflow (3-5 phrases)
+- "constellation": { "icon": emoji, "color": hex color, "category": domain category }
+- "blocks": array of block objects per step. Each block MUST include:
+  - "stepId": the step ID string
+  - "display": one of "card"|"status-badge"|"form"|"chart"|"table"|"timeline"|"approval-prompt"|"custom-url"
+  - "title": human-readable step name
+  - "fields": array of field projections. Use token-aware keys:
+    - { "key": "$state.<stepId>.fieldName", "label": "Human Label", "type": "text"|"number"|"currency"|"date"|"status"|"link"|"badge"|"progress" }
+    - The "key" MUST start with "$state." to reference live workflow state
+  - "actions": array of action projections (REQUIRED for every block, include at minimum a status action):
+    - Valid types: "approve"|"reject"|"retry"|"skip"|"custom"
+    - Each action MUST have: { "label": string, "type": string, "stepId": string }
+    - For approval steps: include BOTH "approve" and "reject" actions
+    - For regular steps: include "retry" and optionally "skip"
+    - Never emit an empty actions array — always provide at least one action
+- "expressions": { "idle": "calm", "running": "working", "waitingApproval": "attentive", "completed": "satisfied", "failed": "alarmed" }
+- "ambient": { "showInMorningOpen": boolean, "attentionWeight": 0.0–1.0, "whisperTemplate": optional string template }
+
+## Token Reference Rules
+- Field keys MUST use "$state.stepId.fieldName" path syntax (not raw field names)
+- Use descriptive labels that match the data semantics
+- For currency fields: type:"currency", format:"USD"
+- For date fields: type:"date"
+- For status indicators: type:"status"
+
+Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
   }
 
   // --------------------------------------------------------------------------

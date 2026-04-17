@@ -1,0 +1,108 @@
+name: Verify UI Registry
+
+on:
+  pull_request:
+    paths:
+      - 'packages/ui-registry/**'
+      - 'apps/packages/shared-types/src/workflow_composition.ts'
+      - 'apps/frontend/src/components/WorkflowBlockRenderer/**'
+
+concurrency:
+  group: ui-registry-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-registry:
+    name: Verify Component Registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared types
+        run: pnpm --filter @uaip/types build
+
+      - name: Build ui-registry
+        run: pnpm --filter @uaip/ui-registry build || echo "No build script — source-only package"
+
+      - name: TypeScript check — ui-registry
+        run: npx tsc --noEmit --skipLibCheck -p packages/ui-registry/tsconfig.json
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend for registry testing
+        run: pnpm --filter @council/frontend build
+        env:
+          VITE_API_BASE_URL: http://localhost:8081
+
+      - name: Run registry verification
+        run: node scripts/verify-ui-registry.mjs
+        env:
+          REGISTRY_VERIFICATION_MODE: ci
+
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry-verification-results
+          path: tmp/registry-verification/
+          retention-days: 14
+
+  contrast-check:
+    name: Contrast Check (3 themes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install axe-core CLI
+        run: pnpm add -g @axe-core/cli
+
+      - name: Run contrast checks
+        run: node scripts/check-registry-contrast.mjs --themes light,dark,high-contrast
+        env:
+          AXECORE_VERSION: 4.x
+
+      - name: Upload contrast reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contrast-reports
+          path: tmp/contrast-reports/
+          retention-days: 7
