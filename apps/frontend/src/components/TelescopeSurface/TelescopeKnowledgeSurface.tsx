@@ -14,7 +14,8 @@ import type { BlockVisibility } from '@/components/MaterializableBlock/materiali
 import type { AttentionItem } from '@/components/AttentionBudget';
 import { Portal } from '@/components/futuristic/Portal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { PORTAL_COMPONENTS, PORTAL_LABELS } from './portal_registry';
+import { PORTAL_COMPONENTS } from './portal-escape-hatches';
+import { PORTAL_LABELS } from './portal-specs';
 import { MapWallpaper } from '@/components/futuristic/desktop/MapWallpaper';
 import { cn } from '@/lib/utils';
 

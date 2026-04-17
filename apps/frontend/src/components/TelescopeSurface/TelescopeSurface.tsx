@@ -15,7 +15,7 @@ import {
   getExpressionColor,
 } from '@/components/MaterializableBlock/materializable_block_styles';
 import { MaterializableBlock } from '@/components/MaterializableBlock';
-import { renderPortalContent } from './portal_registry';
+import { renderPortalContent } from './portal-escape-hatches';
 import { cn } from '@/lib/utils';
 import { IntentField } from '@/components/IntentField/IntentField';
 import type { IntentOption } from '@/components/IntentField/intent_field_types';

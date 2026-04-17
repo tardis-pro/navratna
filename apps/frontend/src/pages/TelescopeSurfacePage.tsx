@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { TelescopeSurface, useTelescopeSurface } from '@/components/TelescopeSurface';
-import { createInitialBlocks } from '@/components/TelescopeSurface/portal_registry';
+import { createInitialBlocks } from '@/components/TelescopeSurface/dynamic_block_registry';
 import { WelcomeConstellation } from '@/components/TelescopeSurface/WelcomeConstellation';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useKnowledge } from '@/contexts/KnowledgeContext';

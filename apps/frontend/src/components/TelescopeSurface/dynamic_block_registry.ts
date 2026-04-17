@@ -7,7 +7,6 @@ import type {
 } from '@uaip/types';
 import { autoArrangeBlocks } from '@/components/MaterializableBlock';
 import { edenRequest } from '@/api/eden';
-import { createInitialBlocks } from './portal_registry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,6 +16,8 @@ export interface DynamicRegistryConfig {
   /** IDs of stable blocks that always show (e.g., ['chat', 'agent-manager', 'dashboard']) */
   baseBlocks: string[];
 }
+
+type BaseBlockSpec = Omit<MaterializableBlockData, 'position' | 'dimensions'>;
 
 interface FederationSubdomain {
   id: string;
@@ -35,11 +36,295 @@ interface SubdomainsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Base surface block catalog
+//
+// Self-contained replacement for portal_registry.createInitialBlocks().
+// Allows dynamic_block_registry to be fully independent of portal_registry so
+// portal_registry can be deleted once the portal migration is complete (Epic 32).
+//
+// Scores mirror the legacy portal_registry values:
+//   0.9  → chat, agent-manager, dashboard          (visible, high-priority)
+//   0.8  → discussion family, user-chat            (visible)
+//   0.75 → knowledge, artifacts, project-mgmt, intelligence, insights
+//   0.7  → operations-monitor
+//   0.65 → event-stream, security-gateway, workflow-studio
+//   0.6  → settings tier (security, providers, tools, general-settings, etc.)
+//   0.55 → atomic-knowledge
+//   0.5  → mind-map, multi-chat
+//   0.45 → project-onboarding
+//   0.4  → system-config, mini-browser             (hidden)
+// ---------------------------------------------------------------------------
+
+const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
+  chat: {
+    id: 'chat',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.9,
+    visibility: 'visible',
+    metadata: { title: 'Chat' },
+  },
+  'agent-manager': {
+    id: 'agent-manager',
+    type: 'portal',
+    expression: 'attentive',
+    relevanceScore: 0.9,
+    visibility: 'visible',
+    metadata: { title: 'Agent Manager' },
+  },
+  dashboard: {
+    id: 'dashboard',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.9,
+    visibility: 'visible',
+    metadata: { title: 'Dashboard' },
+  },
+  discussion: {
+    id: 'discussion',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.8,
+    visibility: 'visible',
+    metadata: { title: 'Discussion' },
+  },
+  'discussion-log': {
+    id: 'discussion-log',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.8,
+    visibility: 'faded',
+    metadata: { title: 'Discussion Log' },
+  },
+  'discussion-controls': {
+    id: 'discussion-controls',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.8,
+    visibility: 'faded',
+    metadata: { title: 'Discussion Controls' },
+  },
+  'user-chat': {
+    id: 'user-chat',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.8,
+    visibility: 'visible',
+    metadata: { title: 'User Chat' },
+  },
+  'consolidated-user-chat': {
+    id: 'consolidated-user-chat',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.8,
+    visibility: 'visible',
+    metadata: { title: 'Consolidated Chat' },
+  },
+  knowledge: {
+    id: 'knowledge',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.75,
+    visibility: 'visible',
+    metadata: { title: 'Knowledge' },
+  },
+  artifacts: {
+    id: 'artifacts',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.75,
+    visibility: 'visible',
+    metadata: { title: 'Artifacts' },
+  },
+  'project-management': {
+    id: 'project-management',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.75,
+    visibility: 'visible',
+    metadata: { title: 'Projects' },
+  },
+  'intelligence-panel': {
+    id: 'intelligence-panel',
+    type: 'portal',
+    expression: 'attentive',
+    relevanceScore: 0.75,
+    visibility: 'visible',
+    metadata: { title: 'Intelligence' },
+  },
+  'insights-panel': {
+    id: 'insights-panel',
+    type: 'portal',
+    expression: 'attentive',
+    relevanceScore: 0.75,
+    visibility: 'visible',
+    metadata: { title: 'Insights' },
+  },
+  'operations-monitor': {
+    id: 'operations-monitor',
+    type: 'portal',
+    expression: 'working',
+    relevanceScore: 0.7,
+    visibility: 'faded',
+    metadata: { title: 'Operations' },
+  },
+  'event-stream': {
+    id: 'event-stream',
+    type: 'portal',
+    expression: 'working',
+    relevanceScore: 0.65,
+    visibility: 'faded',
+    metadata: { title: 'Event Stream' },
+  },
+  'security-gateway': {
+    id: 'security-gateway',
+    type: 'portal',
+    expression: 'attentive',
+    relevanceScore: 0.65,
+    visibility: 'faded',
+    metadata: { title: 'Security Gateway' },
+  },
+  'workflow-studio': {
+    id: 'workflow-studio',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.65,
+    visibility: 'faded',
+    metadata: { title: 'Workflow Studio' },
+  },
+  settings: {
+    id: 'settings',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Settings' },
+  },
+  security: {
+    id: 'security',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Security' },
+  },
+  'provider-settings': {
+    id: 'provider-settings',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Provider Settings' },
+  },
+  'tool-management': {
+    id: 'tool-management',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Tool Management' },
+  },
+  'unified-tool': {
+    id: 'unified-tool',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Unified Tools' },
+  },
+  'general-settings': {
+    id: 'general-settings',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'General Settings' },
+  },
+  'capability-registry': {
+    id: 'capability-registry',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Capabilities' },
+  },
+  'knowledge-graph': {
+    id: 'knowledge-graph',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Knowledge Graph' },
+  },
+  'tools-panel': {
+    id: 'tools-panel',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'Tools Panel' },
+  },
+  'atomic-knowledge': {
+    id: 'atomic-knowledge',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.55,
+    visibility: 'faded',
+    metadata: { title: 'Knowledge Viewer' },
+  },
+  'mind-map': {
+    id: 'mind-map',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.5,
+    visibility: 'faded',
+    metadata: { title: 'Mind Map' },
+  },
+  'multi-chat': {
+    id: 'multi-chat',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.5,
+    visibility: 'faded',
+    metadata: { title: 'Multi Chat' },
+  },
+  'project-onboarding': {
+    id: 'project-onboarding',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.45,
+    visibility: 'hidden',
+    metadata: { title: 'Project Setup' },
+  },
+  'system-config': {
+    id: 'system-config',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.4,
+    visibility: 'hidden',
+    metadata: { title: 'System Config' },
+  },
+  'mini-browser': {
+    id: 'mini-browser',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.4,
+    visibility: 'hidden',
+    metadata: { title: 'Mini Browser' },
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 
 const DEFAULT_CONFIG: DynamicRegistryConfig = {
   baseBlocks: ['chat', 'agent-manager', 'dashboard'],
+};
+
+const BLOCK_LAYOUT_DEFAULTS = {
+  position: { x: 0, y: 0, z: 1 } as const,
+  dimensions: { width: 400, height: 500 } as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -117,6 +402,18 @@ function subdomainToBlock(subdomain: FederationSubdomain): MaterializableBlockDa
   };
 }
 
+function resolveBaseBlocks(ids: string[]): MaterializableBlockData[] {
+  return ids.reduce<MaterializableBlockData[]>((acc, id) => {
+    const spec = BASE_SURFACE_BLOCK_CATALOG[id];
+    if (!spec) {
+      console.warn(`[dynamic_block_registry] Unknown base block id "${id}" — not in catalog, skipping`);
+      return acc;
+    }
+    acc.push({ ...spec, ...BLOCK_LAYOUT_DEFAULTS });
+    return acc;
+  }, []);
+}
+
 // ---------------------------------------------------------------------------
 // Core API
 // ---------------------------------------------------------------------------
@@ -125,20 +422,18 @@ function subdomainToBlock(subdomain: FederationSubdomain): MaterializableBlockDa
  * Fetch active workflows and federated subdomains, then generate
  * MaterializableBlockData for the TelescopeSurface.
  *
- * Base layer blocks from portal_registry are filtered to those in
- * config.baseBlocks (stable blocks that always appear), then merged
- * with workflow-derived and federation-derived blocks.
+ * Base layer blocks are resolved from BASE_SURFACE_BLOCK_CATALOG (no dependency
+ * on portal_registry). They are filtered to those in config.baseBlocks (stable
+ * blocks that always appear), then merged with workflow-derived and
+ * federation-derived blocks.
  */
 export async function buildDynamicBlocks(
   config?: DynamicRegistryConfig,
 ): Promise<MaterializableBlockData[]> {
   const resolved = config ?? DEFAULT_CONFIG;
 
-  // 1. Keep base layer blocks from portal_registry
-  const allStaticBlocks = createInitialBlocks();
-  const baseBlocks = allStaticBlocks.filter((b) =>
-    resolved.baseBlocks.includes(b.id),
-  );
+  // 1. Resolve base blocks from internal catalog — no portal_registry dependency
+  const baseBlocks = resolveBaseBlocks(resolved.baseBlocks);
 
   // 2 + 3. Fetch active workflow compositions and generate blocks
   let workflowBlocks: MaterializableBlockData[] = [];
@@ -178,6 +473,28 @@ export async function buildDynamicBlocks(
   const merged = [...baseBlocks, ...workflowBlocks, ...federationBlocks];
 
   return autoArrangeBlocks(merged, {
+    gridCols: 3,
+    blockWidth: 400,
+    blockHeight: 500,
+    gap: 24,
+    padding: 24,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// createInitialBlocks — full surface initializer
+//
+// Replaces portal_registry.createInitialBlocks(). Generates the full initial
+// MaterializableBlockData array for TelescopeSurface using BASE_SURFACE_BLOCK_CATALOG.
+// ---------------------------------------------------------------------------
+
+export function createInitialBlocks(): MaterializableBlockData[] {
+  const all = Object.values(BASE_SURFACE_BLOCK_CATALOG).map((spec) => ({
+    ...spec,
+    ...BLOCK_LAYOUT_DEFAULTS,
+  }));
+
+  return autoArrangeBlocks(all, {
     gridCols: 3,
     blockWidth: 400,
     blockHeight: 500,
