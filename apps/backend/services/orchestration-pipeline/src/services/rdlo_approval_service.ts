@@ -327,8 +327,8 @@ export class RDLOApprovalService {
       {
         jobId: `rdlo-approval-timeout:${approvalId}`,
         delay: timeoutMs,
-        removeOnComplete: 100,
-        removeOnFail: 100,
+        removeOnComplete: { age: 86400, count: 100 },
+        removeOnFail: { age: 604800, count: 100 },
         attempts: 1,
       }
     )

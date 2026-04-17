@@ -42,8 +42,8 @@ export class WorkflowEngineService {
       {
         jobId,
         repeat,
-        removeOnComplete: 100,
-        removeOnFail: 100,
+          removeOnComplete: { age: 86400, count: 100 },
+          removeOnFail: { age: 604800, count: 100 },
       }
     );
 

@@ -67,6 +67,7 @@ export class EventBusService {
   private config: EventBusConfig;
   private logger: winston.Logger;
   private isClosing: boolean = false;
+  private sweepInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(eventBusConfig: EventBusConfig, eventBusLogger: winston.Logger) {
     this.config = eventBusConfig;
@@ -128,8 +129,8 @@ export class EventBusService {
       const queue = new Queue(eventType, {
         connection: getBullMQConnection(),
         defaultJobOptions: {
-          removeOnComplete: 100,
-          removeOnFail: 50,
+          removeOnComplete: { age: 86400, count: 100 },
+          removeOnFail: { age: 604800, count: 50 },
           attempts: 3,
           backoff: {
             type: 'exponential',
@@ -504,6 +505,39 @@ export class EventBusService {
     return stats;
   }
 
+  public async sweepStaleQueues(): Promise<number> {
+    let cleaned = 0;
+
+    for (const [eventType, queue] of this.queues.entries()) {
+      if (this.workers.has(eventType)) continue;
+
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- sweep processes queues sequentially to avoid thundering-herd on Redis
+        const jobCounts = await queue.getJobCounts('active', 'waiting', 'delayed');
+        const hasActiveJobs = jobCounts.active > 0 || jobCounts.waiting > 0 || jobCounts.delayed > 0;
+
+        if (!hasActiveJobs) {
+          // oxlint-disable-next-line no-await-in-loop -- must await close before deleting from map
+          await queue.close();
+          this.queues.delete(eventType);
+          cleaned++;
+          this.logger.debug('Swept stale publish-only queue', { eventType });
+        }
+      } catch (error) {
+        this.logger.debug('Error checking queue during sweep, skipping', {
+          eventType,
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+      }
+    }
+
+    if (cleaned > 0) {
+      this.logger.info('Stale queue sweep completed', { cleaned, remaining: this.queues.size });
+    }
+
+    return cleaned;
+  }
+
   private async gracefulShutdown(signal: string): Promise<void> {
     if (this.isClosing) {
       this.logger.debug(`Event bus shutdown already in progress for ${signal}, skipping`);
@@ -513,6 +547,11 @@ export class EventBusService {
     this.isClosing = true;
     this.isConnected = false;
     this.logger.info(`Received ${signal}, shutting down EventBus gracefully`);
+
+    if (this.sweepInterval) {
+      clearInterval(this.sweepInterval);
+      this.sweepInterval = null;
+    }
 
     try {
       const allWorkers = [
@@ -554,22 +593,31 @@ export class EventBusService {
   public async connect(): Promise<void> {
     if (this.redis.status === 'ready') {
       this.isConnected = true;
-      return;
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`EventBus Redis connect timeout after 10s (host: ${this.redis.options?.host}:${this.redis.options?.port})`));
+        }, 10000);
+        this.redis.once('ready', () => {
+          clearTimeout(timeout);
+          this.isConnected = true;
+          resolve();
+        });
+        this.redis.once('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
     }
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`EventBus Redis connect timeout after 10s (host: ${this.redis.options?.host}:${this.redis.options?.port})`));
-      }, 10000);
-      this.redis.once('ready', () => {
-        clearTimeout(timeout);
-        this.isConnected = true;
-        resolve();
-      });
-      this.redis.once('error', (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    });
+
+    if (!this.sweepInterval) {
+      this.sweepInterval = setInterval(() => {
+        this.sweepStaleQueues().catch((err) => {
+          this.logger.debug('Stale queue sweep error', { error: err instanceof Error ? err.message : 'Unknown' });
+        });
+      }, 30 * 60 * 1000);
+      this.sweepInterval.unref();
+    }
   }
 
   public async close(): Promise<void> {
