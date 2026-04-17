@@ -159,7 +159,7 @@ export const ApprovalPolicySchema = z.object({
 
 export type ApprovalPolicy = z.infer<typeof ApprovalPolicySchema>;
 
-// ─── UI PROJECTION ──────────────────────────────────────────────────────────
+// ─── UI PROJECTION v1 (legacy) ──────────────────────────────────────────────
 
 export const BlockDisplayTypeSchema = z.enum([
   'card',
@@ -214,7 +214,104 @@ const MicroexpressionRef = z.enum([
   'strained',
 ]);
 
-export const WorkflowUIProjectionSchema = z.object({
+// ─── UI PROJECTION v2 ───────────────────────────────────────────────────────
+// Spec-driven UI with live state bindings, structured predicates, and layout hints.
+
+// BindingValue: either a $state.X path reference or a literal value
+export const BindingValueSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('path'), path: z.string() }),   // { kind: 'path', path: '$state.customer.name' }
+  z.object({ kind: z.literal('literal'), value: z.unknown() }), // { kind: 'literal', value: 'Hello' }
+]);
+
+export type BindingValue = z.infer<typeof BindingValueSchema>;
+
+export type Predicate =
+  | { op: 'exists'; path: string }
+  | { op: 'not-exists'; path: string }
+  | { op: '==='; path: string; value: string | number | boolean }
+  | { op: '!=='; path: string; value: string | number | boolean }
+  | { op: '>'; path: string; value: number }
+  | { op: '<'; path: string; value: number }
+  | { op: '>='; path: string; value: number }
+  | { op: '<='; path: string; value: number }
+  | { op: 'in'; path: string; value: string[] }
+  | { op: 'not-in'; path: string; value: string[] }
+  | { op: 'and'; children: Predicate[] }
+  | { op: 'or'; children: Predicate[] }
+  | { op: 'not'; child: Predicate };
+
+const _PredicateBase = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('exists'), path: z.string() }),
+  z.object({ op: z.literal('not-exists'), path: z.string() }),
+  z.object({ op: z.literal('==='), path: z.string(), value: z.union([z.string(), z.number(), z.boolean()]) }),
+  z.object({ op: z.literal('!=='), path: z.string(), value: z.union([z.string(), z.number(), z.boolean()]) }),
+  z.object({ op: z.literal('>'), path: z.string(), value: z.number() }),
+  z.object({ op: z.literal('<'), path: z.string(), value: z.number() }),
+  z.object({ op: z.literal('>='), path: z.string(), value: z.number() }),
+  z.object({ op: z.literal('<='), path: z.string(), value: z.number() }),
+  z.object({ op: z.literal('in'), path: z.string(), value: z.array(z.string()) }),
+  z.object({ op: z.literal('not-in'), path: z.string(), value: z.array(z.string()) }),
+  z.object({ op: z.literal('and'), children: z.array(z.unknown()) }),
+  z.object({ op: z.literal('or'), children: z.array(z.unknown()) }),
+  z.object({ op: z.literal('not'), child: z.unknown() }),
+]);
+
+export const PredicateSchema = z.lazy(() => _PredicateBase);
+
+// LoadingPolicy — what to show while a bound value is loading
+export const LoadingPolicySchema = z.enum([
+  'skeleton',     // show skeleton placeholder
+  'spinner',      // show spinner
+  'blur',         // show blurred previous value
+  'hide',         // hide the node entirely
+]);
+
+export type LoadingPolicy = z.infer<typeof LoadingPolicySchema>;
+
+// LayoutHint — optional rendering guidance for the host surface
+export const LayoutHintSchema = z.object({
+  span: z.enum(['full', 'half', 'quarter']).optional(),
+  order: z.number().int().optional(),
+  pinned: z.boolean().optional(),
+});
+
+export type LayoutHint = z.infer<typeof LayoutHintSchema>;
+
+export type UINode = {
+  kind: string;
+  variant: string;
+  bindings?: Record<string, BindingValue>;
+  slots?: UINode[];
+  layoutHint?: LayoutHint;
+  constraints?: string[];
+  visibility?: Predicate;
+  enabled?: Predicate;
+  loadingPolicy?: LoadingPolicy;
+  fallback?: UINode;
+};
+
+const _UINodeBase = z.object({
+  kind: z.string(),
+  variant: z.string(),
+  bindings: z.record(BindingValueSchema).optional(),
+  slots: z.array(z.unknown()).optional(),
+  layoutHint: LayoutHintSchema.optional(),
+  constraints: z.array(z.string()).optional(),
+  visibility: PredicateSchema.optional(),
+  enabled: PredicateSchema.optional(),
+  loadingPolicy: LoadingPolicySchema.optional(),
+  fallback: z.unknown().optional(),
+});
+
+export const UINodeSchema = z.lazy(() => _UINodeBase);
+
+// ─── WorkflowUIProjection (versioned) ───────────────────────────────────────
+// version:1 → v1 flat schema (legacy)
+// version:2 → v2 UINode tree schema (spec-driven)
+
+export const WorkflowUIProjectionV1Schema = z.object({
+  version: z.literal(1).default(1),
+
   // Telescope integration
   intentTriggers: z.array(z.string()),
   constellation: z.object({
@@ -223,7 +320,7 @@ export const WorkflowUIProjectionSchema = z.object({
     category: z.string(),
   }),
 
-  // Block generation
+  // Block generation (v1 flat)
   blocks: z.array(WorkflowBlockProjectionSchema),
 
   // Microexpression mapping
@@ -242,6 +339,46 @@ export const WorkflowUIProjectionSchema = z.object({
     whisperTemplate: z.string().optional(),
   }),
 });
+
+export type WorkflowUIProjectionV1 = z.infer<typeof WorkflowUIProjectionV1Schema>;
+
+export const WorkflowUIProjectionV2Schema = z.object({
+  version: z.literal(2),
+
+  // Telescope integration
+  intentTriggers: z.array(z.string()),
+  constellation: z.object({
+    icon: z.string(),
+    color: z.string(),
+    category: z.string(),
+  }),
+
+  // v2 UINode tree — replaces flat blocks array
+  rootNode: UINodeSchema,
+
+  // Microexpression mapping
+  expressions: z.object({
+    idle: MicroexpressionRef,
+    running: MicroexpressionRef,
+    waitingApproval: MicroexpressionRef,
+    completed: MicroexpressionRef,
+    failed: MicroexpressionRef,
+  }),
+
+  // Ambient signals
+  ambient: z.object({
+    showInMorningOpen: z.boolean(),
+    attentionWeight: z.number().min(0).max(1),
+    whisperTemplate: z.string().optional(),
+  }),
+});
+
+export type WorkflowUIProjectionV2 = z.infer<typeof WorkflowUIProjectionV2Schema>;
+
+export const WorkflowUIProjectionSchema = z.union([
+  WorkflowUIProjectionV2Schema,
+  WorkflowUIProjectionV1Schema,
+]);
 
 export type WorkflowUIProjection = z.infer<typeof WorkflowUIProjectionSchema>;
 
