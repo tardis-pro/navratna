@@ -7,6 +7,12 @@
 
 import { logger } from '@uaip/utils'
 import {
+  workflowExecutionTotal,
+  workflowExecutionDuration,
+  workflowPolicyViolationsTotal,
+  workflowActiveExecutions,
+} from '@uaip/shared-services'
+import {
   getControlDb,
   eq,
   and,
@@ -17,6 +23,8 @@ import {
   WorkflowValidator,
   ImmutableAuditService,
   SecretReferenceService,
+  ConfidenceGatedExecutionService,
+  CompositionPolicyService,
 } from '@uaip/shared-services'
 import type {
   WorkflowComposition,
@@ -40,15 +48,21 @@ export class WorkflowCompositionService {
   private validator: WorkflowValidator
   private auditService: ImmutableAuditService
   private secretService: SecretReferenceService
+  private confidenceGateService: ConfidenceGatedExecutionService
+  private policyService: CompositionPolicyService
 
   constructor(
     validator?: WorkflowValidator,
     auditService?: ImmutableAuditService,
     secretService?: SecretReferenceService,
+    confidenceGateService?: ConfidenceGatedExecutionService,
+    policyService?: CompositionPolicyService,
   ) {
     this.validator = validator ?? WorkflowValidator.getInstance()
     this.auditService = auditService ?? ImmutableAuditService.getInstance()
+    this.confidenceGateService = confidenceGateService ?? ConfidenceGatedExecutionService.getInstance()
     this.secretService = secretService ?? SecretReferenceService.getInstance()
+    this.policyService = policyService ?? CompositionPolicyService.getInstance()
   }
 
   static getInstance(): WorkflowCompositionService {
@@ -61,6 +75,14 @@ export class WorkflowCompositionService {
   // ─── CRUD ──────────────────────────────────────────────────────────────
 
   async create(definition: CompositionDefinition, userId: string): Promise<WorkflowComposition> {
+    const secretScan = this.secretService.scanForRawSecrets(definition)
+    if (!secretScan.clean) {
+      throw new Error(
+        `Workflow definition contains raw secrets and cannot be stored. ` +
+        `Use vault:// or secret:// references. Flagged paths: ${secretScan.flaggedPaths.join(', ')}`
+      )
+    }
+
     const db = getControlDb()
 
     const [record] = await db
@@ -117,7 +139,14 @@ export class WorkflowCompositionService {
     if (updates.tags !== undefined) updateValues.tags = updates.tags
     if (updates.isPublic !== undefined) updateValues.isPublic = updates.isPublic
 
-    // Deactivate on definition change — must be re-validated
+    const secretScan = this.secretService.scanForRawSecrets(mergedDefinition)
+    if (!secretScan.clean) {
+      throw new Error(
+        `Workflow definition update contains raw secrets and cannot be stored. ` +
+        `Use vault:// or secret:// references. Flagged paths: ${secretScan.flaggedPaths.join(', ')}`
+      )
+    }
+
     if (existing.isActive) {
       updateValues.isActive = false
     }
@@ -285,7 +314,13 @@ export class WorkflowCompositionService {
 
   // ─── Execution ─────────────────────────────────────────────────────────
 
-  async execute(id: string, triggerData?: Record<string, unknown>, userId?: string): Promise<WorkflowInstance> {
+  async execute(
+    id: string,
+    triggerData?: Record<string, unknown>,
+    userId?: string,
+    agentId?: string,
+    agentConfidence?: number,
+  ): Promise<WorkflowInstance> {
     const existing = await this.get(id)
     if (!existing) {
       throw new Error(`Workflow composition not found: ${id}`)
@@ -297,6 +332,52 @@ export class WorkflowCompositionService {
 
     const db = getControlDb()
     const definition = existing.definition as unknown as CompositionDefinition
+    const domain = definition.category ?? 'general'
+
+    const workflowTools = definition.steps
+      .filter((s) => s.type === 'tool' && s.tool)
+      .map((s) => s.tool!)
+    const toolCount = new Set(workflowTools).size
+    const policyEvaluation = this.policyService.evaluate(workflowTools, domain, {
+      records: definition.steps.length,
+      emails: 0,
+    })
+    if (!policyEvaluation.allowed) {
+      for (const v of policyEvaluation.violations) {
+        workflowPolicyViolationsTotal.inc({ domain, violation_code: v.rule.type })
+      }
+      workflowExecutionTotal.inc({ workflow_id: id, domain, status: 'blocked' })
+      const messages = policyEvaluation.violations.map((v) => v.message).join('; ')
+      throw new Error(`Workflow execution blocked by policy: ${messages}`)
+    }
+
+    logger.info('Workflow pre-execution policy check passed', {
+      compositionId: id,
+      domain,
+      toolCount,
+      warnings: policyEvaluation.warnings.length,
+    })
+
+    let initialStatus: 'pending' | 'pending_approval' | 'running' = 'pending'
+    if (agentId !== undefined && agentConfidence !== undefined) {
+      const gate = await this.confidenceGateService.checkGate(
+        agentId,
+        'workflow_execution',
+        agentConfidence,
+        domain,
+      )
+      if (!gate.passed) {
+        initialStatus = 'pending_approval'
+        logger.warn('Workflow execution gated on confidence', {
+          compositionId: id,
+          agentId,
+          domain,
+          confidence: agentConfidence,
+          requiredConfidence: gate.requiredConfidence,
+          reason: gate.reason,
+        })
+      }
+    }
 
     // Determine trigger type from the trigger data or default to 'manual'
     const triggerType = triggerData?.triggerType as string ?? 'manual'
@@ -306,7 +387,7 @@ export class WorkflowCompositionService {
       .insert(workflowInstances)
       .values({
         workflowId: id,
-        status: 'pending',
+        status: initialStatus,
         triggerType,
         triggerData: triggerData ?? {},
         state: {},
@@ -314,12 +395,16 @@ export class WorkflowCompositionService {
       })
       .returning()
 
-    // TODO: Map to TaskDAGService for actual execution
-    // For now, mark as running — the DAG executor will pick it up
-    await db
-      .update(workflowInstances)
-      .set({ status: 'running', updatedAt: new Date() })
-      .where(eq(workflowInstances.id, instance.id))
+    this.policyService.recordExecution(domain)
+    workflowExecutionTotal.inc({ workflow_id: id, domain, status: initialStatus })
+    workflowActiveExecutions.inc({ domain })
+
+    if (initialStatus !== 'pending_approval') {
+      await db
+        .update(workflowInstances)
+        .set({ status: 'running', updatedAt: new Date() })
+        .where(eq(workflowInstances.id, instance.id))
+    }
 
     // Update execution stats on the composition
     await db

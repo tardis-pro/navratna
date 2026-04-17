@@ -6,7 +6,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
 import { ToolCategory, MCPServerType } from '@uaip/types';
-import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService } from '@uaip/shared-services';
+import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService, MCPOutputValidator } from '@uaip/shared-services';
 import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
@@ -171,10 +171,11 @@ export class MCPClientService extends EventEmitter {
   private toolGraphDatabase?: ToolGraphDatabase;
   /** Execution Plane repository — owns all MCP DB access. */
   private mcpRepo?: McpRepository;
+  private mcpOutputValidator: MCPOutputValidator;
 
   private constructor() {
     super();
-    // config is loaded from DB on demand
+    this.mcpOutputValidator = MCPOutputValidator.getInstance();
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -893,13 +894,26 @@ export class MCPClientService extends EventEmitter {
 
       this.addLog(serverName, `← ${toolName}: ${JSON.stringify(response).substring(0, 100)}...`);
 
-      // Complete the job in database
-      if (this.mcpRepo && jobId) {
-        const mcpService = this.mcpRepo;
-        await mcpService.completeToolCall(jobId, response, executionTime);
+      const tool = server.tools?.find((t) => t.name === toolName);
+      const outputSchema = (tool && typeof tool === 'object' && 'outputSchema' in tool)
+        ? (tool as { outputSchema: object }).outputSchema
+        : {};
+      const sanitized = this.mcpOutputValidator.sanitizeOutput(toolName, outputSchema, response);
+      const safeResponse = sanitized.sanitized;
+
+      if (sanitized.injectionFlags.length > 0) {
+        logger.warn('MCP tool response quarantined due to injection flags', {
+          serverName,
+          toolName,
+          injectionFlags: sanitized.injectionFlags,
+        });
       }
 
-      // Track tool execution in Neo4j graph
+      if (this.mcpRepo && jobId) {
+        const mcpService = this.mcpRepo;
+        await mcpService.completeToolCall(jobId, safeResponse, executionTime);
+      }
+
       await this.trackToolExecution(
         serverName,
         toolName,
@@ -909,19 +923,20 @@ export class MCPClientService extends EventEmitter {
         jobId
       );
 
-      // Publish success event
       await this.publishEvent('mcp.tool.executed', {
         serverName,
         toolName,
         parameters,
-        result: response,
+        result: safeResponse,
         executionTimeMs: executionTime,
         success: true,
         jobId,
+        strippedFields: sanitized.stripped,
+        injectionFlags: sanitized.injectionFlags,
         ...context,
       });
 
-      return response;
+      return safeResponse;
     } catch (error) {
       this.addLog(
         serverName,

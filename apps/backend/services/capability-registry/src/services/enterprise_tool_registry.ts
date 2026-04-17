@@ -545,7 +545,7 @@ export class EnterpriseToolRegistry {
     };
 
     // Execute through sandbox service
-    const response = await this.eventBusService.publishAndWait('sandbox.execute', sandbox, 30000);
+    const response = await this.eventBusService.request('sandbox.execute', sandbox);
     const responseData = this.asRecord(response);
 
     if (!responseData.success) {

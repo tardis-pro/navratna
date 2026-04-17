@@ -922,14 +922,18 @@ export const workflowInstances = pgTable(
       .references(() => workflowCompositions.id)
       .notNull(),
     status: varchar('status', { length: 30 }).notNull().default('pending'),
-    // statuses: pending, running, paused, completed, failed, cancelled
     currentStepId: varchar('current_step_id', { length: 100 }),
-    triggerType: varchar('trigger_type', { length: 30 }), // intent, event, schedule, webhook, manual
+    triggerType: varchar('trigger_type', { length: 30 }),
     triggerData: jsonb('trigger_data').$type<Record<string, unknown>>(),
     state: jsonb('state').$type<Record<string, unknown>>().default({}),
     error: text('error'),
     startedAt: timestamp('started_at'),
     completedAt: timestamp('completed_at'),
+    agentId: uuid('agent_id'),
+    failedStepId: varchar('failed_step_id', { length: 100 }),
+    toolCallCount: integer('tool_call_count').notNull().default(0),
+    totalLatencyMs: integer('total_latency_ms'),
+    outputSnapshot: jsonb('output_snapshot').$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -937,6 +941,33 @@ export const workflowInstances = pgTable(
     index('idx_workflow_instances_status').on(t.status),
     index('idx_workflow_instances_workflow_id').on(t.workflowId),
     index('idx_workflow_instances_started_at').on(t.startedAt),
+    index('idx_workflow_instances_agent_id').on(t.agentId),
+  ]
+);
+
+export const workflowInstanceSteps = pgTable(
+  'workflow_instance_steps',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    instanceId: uuid('instance_id')
+      .references(() => workflowInstances.id)
+      .notNull(),
+    stepId: varchar('step_id', { length: 100 }).notNull(),
+    stepName: varchar('step_name', { length: 255 }),
+    status: varchar('status', { length: 30 }).notNull().default('pending'),
+    toolName: varchar('tool_name', { length: 255 }),
+    inputSnapshot: jsonb('input_snapshot').$type<Record<string, unknown>>(),
+    outputSnapshot: jsonb('output_snapshot').$type<Record<string, unknown>>(),
+    errorMessage: text('error_message'),
+    latencyMs: integer('latency_ms'),
+    startedAt: timestamp('started_at'),
+    completedAt: timestamp('completed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_workflow_instance_steps_instance_id').on(t.instanceId),
+    index('idx_workflow_instance_steps_step_id').on(t.stepId),
+    index('idx_workflow_instance_steps_status').on(t.status),
   ]
 );
 
@@ -1066,3 +1097,5 @@ export type WorkflowComposition = typeof workflowCompositions.$inferSelect;
 export type NewWorkflowComposition = typeof workflowCompositions.$inferInsert;
 export type WorkflowInstance = typeof workflowInstances.$inferSelect;
 export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;
+export type WorkflowInstanceStep = typeof workflowInstanceSteps.$inferSelect;
+export type NewWorkflowInstanceStep = typeof workflowInstanceSteps.$inferInsert;

@@ -818,11 +818,7 @@ export class UnifiedToolRegistry {
 
     try {
       // Execute through sandbox service via event bus
-      const result = await this.eventBusService.publishAndWait(
-        'sandbox.execute.tool',
-        sandbox,
-        (tool.sandboxing?.timeoutMs ?? 0) + 5000 // Add buffer to event timeout
-      );
+      const result = await this.eventBusService.request('sandbox.execute.tool', sandbox);
 
       const resultRecord = this.asRecord(result);
 

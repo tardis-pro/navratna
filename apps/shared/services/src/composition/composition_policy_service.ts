@@ -5,16 +5,27 @@ import { logger } from '@uaip/utils';
 // ---------------------------------------------------------------------------
 
 export type PolicyRule =
+  /** (1) Deny individual tools from being used at all. */
+  | { type: 'deny_tool'; tool: string; reason: string }
+  /** (2) Deny specific tool combinations (e.g. payment-initiation + external-webhook). */
   | { type: 'deny_combination'; tools: string[]; reason: string }
-  | { type: 'require_approval_for_domain'; domain: string; approvers: string[] }
+  /** (3) Blast-radius limits: cap production writes / financial impact / email blasts. */
   | {
       type: 'blast_radius_limit';
       maxRecords?: number;
       maxAmount?: number;
       maxEmails?: number;
     }
+  /** (4) Rate limits: max executions per hour for a domain. */
   | { type: 'rate_limit'; maxExecutionsPerHour: number }
+  /** (5) Approval gate: domain requires human sign-off before execution. */
+  | { type: 'require_approval_for_domain'; domain: string; approvers: string[] }
+  /** (6) Domain confidence threshold: block execution below minimum agent confidence. */
+  | { type: 'confidence_threshold'; domain: string; minConfidence: number }
+  /** (7) Secret reference enforcement: workflow inputs must use vault refs, not inline values. */
+  | { type: 'secret_reference_required'; fieldPatterns: string[] }
   | { type: 'require_dry_run' }
+  /** (8) Output schema validation: enforce declared output schema on all tool results. */
   | { type: 'require_schema_validation' };
 
 export interface CompositionPolicy {
@@ -137,18 +148,12 @@ export class CompositionPolicyService {
   // Evaluation
   // -------------------------------------------------------------------------
 
-  /**
-   * Evaluate a workflow definition against all active policies.
-   *
-   * @param workflowTools  - tool IDs referenced in the workflow
-   * @param domain         - the domain of the workflow (e.g. "finance", "hr")
-   * @param estimatedBlastRadius - optional blast-radius estimates
-   * @returns PolicyEvaluationResult with allowed flag, violations, and warnings
-   */
   evaluate(
     workflowTools: string[],
     domain: string,
-    estimatedBlastRadius: EstimatedBlastRadius = {}
+    estimatedBlastRadius: EstimatedBlastRadius = {},
+    domainConfidence?: number,
+    workflowInputFields?: string[]
   ): PolicyEvaluationResult {
     const violations: PolicyViolation[] = [];
     const warnings: PolicyWarning[] = [];
@@ -163,7 +168,9 @@ export class CompositionPolicyService {
           domain,
           estimatedBlastRadius,
           violations,
-          warnings
+          warnings,
+          domainConfidence,
+          workflowInputFields
         );
       }
     }
@@ -203,9 +210,14 @@ export class CompositionPolicyService {
     domain: string,
     blast: EstimatedBlastRadius,
     violations: PolicyViolation[],
-    warnings: PolicyWarning[]
+    warnings: PolicyWarning[],
+    domainConfidence?: number,
+    workflowInputFields?: string[]
   ): void {
     switch (rule.type) {
+      case 'deny_tool':
+        this.evaluateDenyTool(policy, rule, workflowTools, violations);
+        break;
       case 'deny_combination':
         this.evaluateDenyCombination(policy, rule, workflowTools, violations);
         break;
@@ -218,8 +230,13 @@ export class CompositionPolicyService {
       case 'rate_limit':
         this.evaluateRateLimit(policy, rule, domain, violations);
         break;
+      case 'confidence_threshold':
+        this.evaluateConfidenceThreshold(policy, rule, domain, domainConfidence, violations);
+        break;
+      case 'secret_reference_required':
+        this.evaluateSecretReferenceRequired(policy, rule, workflowInputFields ?? [], violations);
+        break;
       case 'require_dry_run':
-        // Dry-run requirement is a warning — the caller decides enforcement
         warnings.push({
           policyId: policy.id,
           policyName: policy.name,
@@ -346,13 +363,82 @@ export class CompositionPolicyService {
     }
   }
 
+  private evaluateDenyTool(
+    policy: CompositionPolicy,
+    rule: Extract<PolicyRule, { type: 'deny_tool' }>,
+    workflowTools: string[],
+    violations: PolicyViolation[]
+  ): void {
+    if (workflowTools.includes(rule.tool)) {
+      violations.push({
+        policyId: policy.id,
+        policyName: policy.name,
+        rule,
+        message: `Tool "${rule.tool}" is denied. Reason: ${rule.reason}`,
+      });
+    }
+  }
+
+  private evaluateConfidenceThreshold(
+    policy: CompositionPolicy,
+    rule: Extract<PolicyRule, { type: 'confidence_threshold' }>,
+    domain: string,
+    domainConfidence: number | undefined,
+    violations: PolicyViolation[]
+  ): void {
+    if (domain.toLowerCase() !== rule.domain.toLowerCase()) return;
+    if (domainConfidence === undefined) {
+      violations.push({
+        policyId: policy.id,
+        policyName: policy.name,
+        rule,
+        message: `Domain "${domain}" requires confidence ≥ ${rule.minConfidence} but no confidence score was provided.`,
+      });
+      return;
+    }
+    if (domainConfidence < rule.minConfidence) {
+      violations.push({
+        policyId: policy.id,
+        policyName: policy.name,
+        rule,
+        message: `Domain "${domain}" confidence ${domainConfidence.toFixed(3)} is below minimum ${rule.minConfidence}.`,
+      });
+    }
+  }
+
+  private evaluateSecretReferenceRequired(
+    policy: CompositionPolicy,
+    rule: Extract<PolicyRule, { type: 'secret_reference_required' }>,
+    workflowInputFields: string[],
+    violations: PolicyViolation[]
+  ): void {
+    const VAULT_REF_PREFIX = 'vault:';
+    const bare: string[] = [];
+    for (const field of workflowInputFields) {
+      const matchesPattern = rule.fieldPatterns.some((pattern) => {
+        if (pattern.endsWith('*')) {
+          return field.startsWith(pattern.slice(0, -1));
+        }
+        return field === pattern;
+      });
+      if (matchesPattern && !field.startsWith(VAULT_REF_PREFIX)) {
+        bare.push(field);
+      }
+    }
+    if (bare.length > 0) {
+      violations.push({
+        policyId: policy.id,
+        policyName: policy.name,
+        rule,
+        message: `Fields must use vault references (vault:...) but found inline values: ${bare.join(', ')}`,
+      });
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Cleanup
   // -------------------------------------------------------------------------
 
-  /**
-   * Clear all rate-limit counters (useful for testing).
-   */
   clearRateLimitCounters(): void {
     this.rateLimitCounters.clear();
   }

@@ -276,6 +276,13 @@ export {
   validateTransformExpression,
   getAvailableTransforms,
 } from './composition/transform_engine';
+export {
+  workflowExecutionTotal,
+  workflowExecutionDuration,
+  workflowPolicyViolationsTotal,
+  workflowActiveExecutions,
+  workflowStepFailuresTotal,
+} from './composition/workflow_metrics';
 
 // =============================================================================
 // ENTITIES
@@ -284,6 +291,13 @@ export {
 // Drizzle type aliases for backward-compat
 export type { ShortLink as ShortLinkEntity } from './database/drizzle/schemas/intelligence_schema';
 export type { Project } from './database/drizzle/schemas/control_schema';
+export type {
+  WorkflowInstance,
+  NewWorkflowInstance,
+  WorkflowInstanceStep,
+  NewWorkflowInstanceStep,
+} from './database/drizzle/schemas/control_schema';
+export { workflowInstanceSteps } from './database/drizzle/schemas/control_schema';
 
 // Contact Management Enums
 export { ContactStatus, ContactType } from './database/repositories/user_contact_repository';

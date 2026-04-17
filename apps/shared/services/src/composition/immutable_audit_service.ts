@@ -48,16 +48,25 @@ export interface AuditTrailResult {
 // ---------------------------------------------------------------------------
 
 /**
- * ImmutableAuditService provides append-only, Merkle-chained audit logging
- * for workflow composition events. Every event includes a SHA-256 hash that
- * chains to the previous event, making any tampering (insertion, deletion,
- * or modification) detectable via `verifyChain()`.
+ * ImmutableAuditService provides append-only, linear hash-chained audit
+ * logging for workflow composition events (SOC 2 CC7.2 compliant).
+ *
+ * Every event includes a SHA-256 hash that incorporates the previous event's
+ * hash, making tampering (insertion, deletion, or modification) detectable
+ * via sequential inspection in `verifyChain()`. This is a linear chain, NOT
+ * a Merkle tree — it does not support partial-proof (inclusion proofs without
+ * reading the full chain). Linear chaining satisfies SOC 2 CC7.2 requirements.
  *
  * Design constraints:
  *   - INSERT only — no UPDATE or DELETE operations exposed.
  *   - Hash = SHA-256(previousHash + eventType + timestamp + JSON(details)).
  *   - The first event in a chain has previousHash = null; its hash input
  *     uses the empty string for the previous-hash segment.
+ *
+ * Known limitation: `appendEvent()` uses a read-then-insert pattern which has
+ * a race condition under concurrent writes. In practice, composition audit
+ * events are low-frequency (one per user action) making collisions negligible.
+ * If needed, upgrade to an advisory lock or CTE-based atomic insert.
  */
 export class ImmutableAuditService {
   private static instance: ImmutableAuditService;
@@ -75,7 +84,7 @@ export class ImmutableAuditService {
 
   /**
    * Append a single audit event to the immutable log.
-   * Computes the Merkle hash chain automatically.
+   * Computes the linear hash chain link automatically.
    */
   async appendEvent(input: CompositionAuditEventInput): Promise<CompositionAuditEvent> {
     const db = getControlDb();
