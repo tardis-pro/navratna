@@ -103,26 +103,34 @@ export function setupWebSocketHandlers(
         socket.lastActivity = new Date();
         socket.messageCount = 0;
         socket.rateLimitReset = Date.now() + 60000;
+        logger.info('WebSocket authenticated successfully', {
+          socketId: socket.id,
+          userId: preAuthenticatedUserId,
+          authMethod: 'nginx_pre_auth',
+        });
         return next();
       }
 
-      // Extract token from multiple possible sources
+      // Extract token from multiple possible sources, tracking auth method for observability
       let token = socket.handshake.auth?.token;
+      let authMethod = 'handshake_auth';
 
       if (!token && socket.handshake.headers.authorization) {
         const authHeader = socket.handshake.headers.authorization;
         if (authHeader.startsWith('Bearer ')) {
           token = authHeader.substring(7);
+          authMethod = 'authorization_header';
         }
       }
 
       if (!token && typeof socket.handshake.query?.token === 'string') {
         token = socket.handshake.query.token;
+        authMethod = 'query_param';
       }
 
       if (!token) {
         token = extractAccessTokenFromCookieHeader(socket.handshake.headers.cookie);
-      }
+        if (token) authMethod = 'cookie';
 
       if (!token) {
         logger.warn('WebSocket connection attempted without token', {
@@ -212,6 +220,7 @@ export function setupWebSocketHandlers(
         role: payload.role,
         securityLevel: socket.securityLevel,
         sessionId: socket.sessionId,
+        authMethod,
       });
 
       next();
