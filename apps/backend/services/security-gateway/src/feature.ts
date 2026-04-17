@@ -12,6 +12,7 @@ import { registerOAuthRoutes } from './http/oauth_elysia.js'
 import { registerPersonaRoutes } from './http/persona_elysia.js'
 import { registerKnowledgeRoutes } from './http/knowledge_elysia.js'
 import { registerContactRoutes } from './http/contacts_elysia.js'
+import { registerProjectRoutes } from './http/projects_elysia.js'
 import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from './http/dashboard_elysia.js'
 import { registerOIDCRoutes } from './http/oidc_elysia.js'
@@ -31,6 +32,7 @@ export const securityFeature: Feature = {
     app.use(registerPersonaRoutes())
     app.use(registerKnowledgeRoutes())
     app.use(registerContactRoutes())
+    app.use(registerProjectRoutes())
     app.use(registerToolPreferenceRoutes())
     app.use(registerDashboardRoutes())
     app.use(registerOIDCRoutes())

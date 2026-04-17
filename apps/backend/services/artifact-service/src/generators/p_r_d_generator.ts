@@ -1,7 +1,6 @@
-// PRD Generator - Generates Product Requirements Documents
-// Epic 4 Implementation
-
 import { ArtifactConversationContext } from '@uaip/types';
+import type { ArtifactRequest } from '@uaip/types';
+import { LLMService } from '@uaip/llm-service';
 
 import { ArtifactGenerator } from '../interfaces';
 import { logger, InternalServerError } from '@uaip/utils';
@@ -55,14 +54,35 @@ export class PRDGenerator implements ArtifactGenerator {
       messageCount: context.messages.length,
     });
 
+    const requirements = this.extractRequirements(context.messages);
+
     try {
-      // Extract requirements and decisions from conversation
-      const requirements = this.extractRequirements(context.messages);
+      const llmRequest: ArtifactRequest = {
+        type: 'prd',
+        context: context.messages.slice(-10).map((m) => m.content).join('\n'),
+        requirements,
+        constraints: context.decisions?.map((d) => String(d)) ?? [],
+      }
+
+      const llmResponse = await LLMService.getInstance().generateArtifact(llmRequest)
+      if (llmResponse.content && !llmResponse.error) {
+        return llmResponse.content
+      }
+
+      logger.warn('LLM PRD generation returned empty content, falling back to template', {
+        conversationId: context.conversationId,
+      })
+    } catch (llmError) {
+      logger.warn('LLM PRD generation failed, falling back to template', {
+        conversationId: context.conversationId,
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      })
+    }
+
+    try {
       const decisions = this.extractDecisions(context.messages);
       const objectives = this.extractObjectives(context.messages);
       const projectName = this.extractProjectName(context.messages) || 'New Project';
-
-      // Generate PRD document
       return this.generatePRDDocument(projectName, objectives, requirements, decisions);
     } catch (error) {
       logger.error('PRD generation failed:', error);
