@@ -1,7 +1,6 @@
-// Test Generator - Generates test cases and test suites
-// Epic 4 Implementation
-
 import { ArtifactConversationContext } from '@uaip/types';
+import type { ArtifactRequest } from '@uaip/types';
+import { LLMService } from '@uaip/llm-service';
 
 import { ArtifactGenerator } from '../interfaces';
 import { logger, InternalServerError } from '@uaip/utils';
@@ -57,16 +56,36 @@ export class TestGenerator implements ArtifactGenerator {
       messageCount: context.messages.length,
     });
 
+    const testRequirements = this.extractTestRequirements(context.messages);
+    const language = this.detectLanguage(context.messages) || 'typescript';
+    const framework = this.detectTestFramework(context.messages) || 'jest';
+
     try {
-      // Extract test requirements from conversation
-      const testRequirements = this.extractTestRequirements(context.messages);
+      const llmRequest: ArtifactRequest = {
+        type: 'test',
+        language,
+        context: context.messages.slice(-10).map((m) => m.content).join('\n'),
+        requirements: testRequirements,
+        constraints: [`framework: ${framework}`],
+      }
+
+      const llmResponse = await LLMService.getInstance().generateArtifact(llmRequest)
+      if (llmResponse.content && !llmResponse.error) {
+        return llmResponse.content
+      }
+
+      logger.warn('LLM test generation returned empty content, falling back to template', {
+        conversationId: context.conversationId,
+      })
+    } catch (llmError) {
+      logger.warn('LLM test generation failed, falling back to template', {
+        conversationId: context.conversationId,
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      })
+    }
+
+    try {
       const functionName = this.extractFunctionName(context.messages) || 'testFunction';
-
-      // Detect language/framework from context
-      const language = this.detectLanguage(context.messages) || 'typescript';
-      const framework = this.detectTestFramework(context.messages) || 'jest';
-
-      // Generate tests based on language and framework
       return this.generateTestCode(functionName, testRequirements, language, framework);
     } catch (error) {
       logger.error('Test generation failed:', error);

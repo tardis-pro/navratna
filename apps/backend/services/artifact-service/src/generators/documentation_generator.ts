@@ -1,7 +1,6 @@
-// Documentation Generator - Generates technical documentation
-// Epic 4 Implementation
-
 import { ArtifactConversationContext } from '@uaip/types';
+import type { ArtifactRequest } from '@uaip/types';
+import { LLMService } from '@uaip/llm-service';
 
 import { ArtifactGenerator } from '../interfaces';
 import { logger, InternalServerError } from '@uaip/utils';
@@ -48,14 +47,36 @@ export class DocumentationGenerator implements ArtifactGenerator {
       messageCount: context.messages.length,
     });
 
+    const docType = this.detectDocumentationType(context.messages);
+
     try {
-      // Extract documentation requirements from conversation
-      const docType = this.detectDocumentationType(context.messages);
+      const llmRequest: ArtifactRequest = {
+        type: 'documentation',
+        context: context.messages.slice(-10).map((m) => m.content).join('\n'),
+        requirements: [],
+        constraints: [`doc-type: ${docType}`],
+      }
+
+      const llmResponse = await LLMService.getInstance().generateArtifact(llmRequest)
+      if (llmResponse.content && !llmResponse.error) {
+        return llmResponse.content
+      }
+
+      logger.warn('LLM documentation generation returned empty content, falling back to template', {
+        conversationId: context.conversationId,
+      })
+    } catch (llmError) {
+      logger.warn('LLM documentation generation failed, falling back to template', {
+        conversationId: context.conversationId,
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      })
+    }
+
+    try {
       const projectName = this.extractProjectName(context.messages) || 'Project';
       const features = this.extractFeatures(context.messages);
       const apiEndpoints = this.extractAPIEndpoints(context.messages);
 
-      // Generate documentation based on type
       switch (docType) {
         case 'readme':
           return this.generateReadme(projectName, features);

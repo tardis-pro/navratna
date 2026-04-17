@@ -1,7 +1,6 @@
-// Code Generator - Generates code diffs and suggestions
-// Epic 4 Implementation
-
 import { ArtifactConversationContext } from '@uaip/types';
+import type { ArtifactRequest } from '@uaip/types';
+import { LLMService } from '@uaip/llm-service';
 
 import { TemplateManager } from '../templates/template_manager.js';
 import { logger, InternalServerError } from '@uaip/utils';
@@ -67,33 +66,48 @@ export class CodeGenerator implements ArtifactGenerator {
       messageCount: context.messages.length,
     });
 
+    const requirements = this.extractRequirements(context.messages);
+    const language = this.detectLanguage(context.messages) || 'typescript';
+
     try {
-      // Extract requirements from conversation
-      const requirements = this.extractRequirements(context.messages);
+      const llmRequest: ArtifactRequest = {
+        type: 'code',
+        language,
+        context: context.messages.slice(-10).map((m) => m.content).join('\n'),
+        requirements,
+        constraints: context.decisions?.map((d) => String(d)) ?? [],
+      }
+
+      const llmResponse = await LLMService.getInstance().generateArtifact(llmRequest)
+      if (llmResponse.content && !llmResponse.error) {
+        return llmResponse.content
+      }
+
+      logger.warn('LLM code generation returned empty content, falling back to template', {
+        conversationId: context.conversationId,
+        model: llmResponse.model,
+      })
+    } catch (llmError) {
+      logger.warn('LLM code generation failed, falling back to template', {
+        conversationId: context.conversationId,
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      })
+    }
+
+    try {
       const functionName = this.extractFunctionName(context.messages) || 'generatedFunction';
-
-      // Detect language from context
-      const language = this.detectLanguage(context.messages) || 'typescript';
-
-      // Generate code based on language
-      let generatedCode: string;
 
       switch (language.toLowerCase()) {
         case 'typescript':
         case 'javascript':
-          generatedCode = this.generateTypeScriptCode(functionName, requirements);
-          break;
+          return this.generateTypeScriptCode(functionName, requirements);
         case 'python':
-          generatedCode = this.generatePythonCode(functionName, requirements);
-          break;
+          return this.generatePythonCode(functionName, requirements);
         case 'java':
-          generatedCode = this.generateJavaCode(functionName, requirements);
-          break;
+          return this.generateJavaCode(functionName, requirements);
         default:
-          generatedCode = this.generateGenericCode(functionName, requirements, language);
+          return this.generateGenericCode(functionName, requirements, language);
       }
-
-      return generatedCode;
     } catch (error) {
       logger.error('Code generation failed:', error);
       throw new InternalServerError(
