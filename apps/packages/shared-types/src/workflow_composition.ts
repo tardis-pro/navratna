@@ -278,12 +278,8 @@ export type WorkflowStateMachine = z.infer<typeof WorkflowStateMachineSchema>;
 // Safety policies for what agents can compose
 
 export const PolicyRuleSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('deny_tool'), tool: z.string(), reason: z.string() }),
   z.object({ type: z.literal('deny_combination'), tools: z.array(z.string()), reason: z.string() }),
-  z.object({
-    type: z.literal('require_approval_for_domain'),
-    domain: z.string(),
-    approvers: z.array(z.string()),
-  }),
   z.object({
     type: z.literal('blast_radius_limit'),
     maxRecords: z.number().int().positive().optional(),
@@ -293,6 +289,20 @@ export const PolicyRuleSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('rate_limit'),
     maxExecutionsPerHour: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal('require_approval_for_domain'),
+    domain: z.string(),
+    approvers: z.array(z.string()),
+  }),
+  z.object({
+    type: z.literal('confidence_threshold'),
+    domain: z.string(),
+    minConfidence: z.number().min(0).max(1),
+  }),
+  z.object({
+    type: z.literal('secret_reference_required'),
+    fieldPatterns: z.array(z.string()),
   }),
   z.object({ type: z.literal('require_dry_run') }),
   z.object({ type: z.literal('require_schema_validation') }),
