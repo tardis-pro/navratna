@@ -25,7 +25,7 @@ export const VerticalRelationshipSchema = z.object({
   name: z.string(),
   from: z.string(),
   to: z.string(),
-  cardinality: z.enum(['one-to-one', 'one-to-many', 'many-to-many']),
+  cardinality: z.enum(['one-to-one', 'one-to-many', 'many-to-one', 'many-to-many']),
 });
 
 export const MCPToolDeclarationSchema = z.object({
