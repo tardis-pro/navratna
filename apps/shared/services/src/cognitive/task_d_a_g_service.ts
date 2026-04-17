@@ -73,6 +73,10 @@ class Semaphore {
 // Keeps results briefly available for retrieval, then removes to prevent OOM.
 const DAG_RETENTION_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// OOM guard: maximum number of concurrent active DAGs in memory.
+// Configurable via MAX_CONCURRENT_DAGS env var. Default: 100.
+const MAX_CONCURRENT_DAGS = parseInt(process.env.MAX_CONCURRENT_DAGS || '100', 10);
+
 export class TaskDAGService {
   private static instance: TaskDAGService;
   private eventBus: EventBusService;
@@ -89,6 +93,21 @@ export class TaskDAGService {
       TaskDAGService.instance = new TaskDAGService();
     }
     return TaskDAGService.instance;
+  }
+
+  private enforceDAGLimit(caller: string): void {
+    if (this.activeDAGs.size >= MAX_CONCURRENT_DAGS) {
+      const activeCount = this.activeDAGs.size;
+      logger.warn('[TaskDAGService] DAG limit reached — backpressure applied', {
+        activeCount,
+        limit: MAX_CONCURRENT_DAGS,
+        caller,
+      });
+      throw new Error(
+        `Maximum concurrent DAGs limit reached (${activeCount}/${MAX_CONCURRENT_DAGS}). ` +
+        `Retry after current DAGs complete. Configure via MAX_CONCURRENT_DAGS env var.`
+      );
+    }
   }
 
   // FIX: Schedule removal of completed/failed DAGs after TTL to prevent OOM.
@@ -117,6 +136,7 @@ export class TaskDAGService {
   // --------------------------------------------------------------------------
 
   async decompose(goal: string): Promise<TaskDAG> {
+    this.enforceDAGLimit('decompose');
     logger.info('[TaskDAGService] Decomposing goal into DAG', { goal });
 
     const prompt = this.buildDecomposePrompt(goal);
@@ -231,6 +251,7 @@ export class TaskDAGService {
   // --------------------------------------------------------------------------
 
   async executeDAG(dag: TaskDAG): Promise<TaskDAG> {
+    this.enforceDAGLimit('executeDAG');
     logger.info('[TaskDAGService] Starting DAG execution', { dagId: dag.id });
     dag.status = 'executing';
     this.activeDAGs.set(dag.id, dag);
@@ -560,6 +581,14 @@ ${goal}
 
   getAllDAGs(): TaskDAG[] {
     return Array.from(this.activeDAGs.values());
+  }
+
+  public getStats(): { activeCount: number; limit: number; pendingCleanup: number } {
+    return {
+      activeCount: this.activeDAGs.size,
+      limit: MAX_CONCURRENT_DAGS,
+      pendingCleanup: this.dagCleanupTimers.size,
+    };
   }
 
   // --------------------------------------------------------------------------
