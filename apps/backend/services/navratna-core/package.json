@@ -32,6 +32,7 @@
     "@uaip/config": "workspace:*",
     "@uaip/infra": "workspace:*",
     "@uaip/llm-service": "workspace:*",
+    "@uaip/oie": "workspace:*",
     "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
