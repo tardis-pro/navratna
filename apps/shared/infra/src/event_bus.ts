@@ -288,6 +288,21 @@ export class EventBusService {
               this.logger.warn('Invalid token type in event message', { eventType });
               throw new Error('Invalid token type');
             }
+            // Validate scopes — service must have permission for this event topic
+            if ('scopes' in decoded && Array.isArray(decoded.scopes)) {
+              const topicPrefix = eventType.split('.').slice(0, 2).join('.');
+              const hasScope = decoded.scopes.some((scope: string) =>
+                eventType.startsWith(scope) || topicPrefix.startsWith(scope) || scope === '*'
+              );
+              if (!hasScope) {
+                this.logger.warn('Service token lacks scope for event topic', {
+                  eventType,
+                  scopes: decoded.scopes,
+                  serviceId: 'serviceId' in decoded ? decoded.serviceId : 'unknown',
+                });
+                throw new Error(`Insufficient scope for event: ${eventType}`);
+              }
+            }
           } catch (tokenError) {
             this.logger.warn('Failed to validate internal token in event', {
               eventType,

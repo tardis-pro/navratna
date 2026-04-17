@@ -508,7 +508,7 @@ export class AgentEventOrchestrator {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'internal-service'}`,
+          Authorization: `Bearer ${this.getServiceToken()}`,
         },
         body: JSON.stringify(operation),
       });
@@ -1102,7 +1102,7 @@ export class AgentEventOrchestrator {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.INTERNAL_SERVICE_TOKEN || 'internal-service'}`,
+            Authorization: `Bearer ${this.getServiceToken()}`,
           },
           body: JSON.stringify({ reason, compensate: true, force: false }),
         }
@@ -1185,6 +1185,17 @@ export class AgentEventOrchestrator {
     }
 
     return 'success' in data && typeof data.success === 'boolean' && 'data' in data;
+  }
+
+  private getServiceToken(): string {
+    const token = process.env.INTERNAL_SERVICE_TOKEN;
+    if (!token) {
+      throw new Error(
+        'INTERNAL_SERVICE_TOKEN environment variable is required for service-to-service communication. ' +
+          'Generate one via POST /api/v1/auth/internal-token with valid service API key.'
+      );
+    }
+    return token;
   }
 
   private isOrchestrationEventPayload(data: unknown): data is OrchestrationEventPayload {

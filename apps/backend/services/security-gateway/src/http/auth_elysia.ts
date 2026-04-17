@@ -742,7 +742,7 @@ export function registerAuthRoutes() {
             scopes: effectiveScopes,
           },
           config.jwt.secret,
-          { algorithm: 'HS256', expiresIn: '1h' }
+          { algorithm: 'HS256', expiresIn: '1h', issuer: 'uaip', audience: 'uaip-services' }
         );
   
         await auditService.logEvent({
