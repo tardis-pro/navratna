@@ -72,11 +72,13 @@ const MiniBrowserPortal = lazy(() =>
     default: m.MiniBrowserPortal,
   }))
 );
+// @spec-escape-hatch: real-time WebSocket chat log — streaming data, not spec-compatible
 const DiscussionLogPortal = lazy(() =>
   import('../futuristic/portals/DiscussionLogPortal').then((m) => ({
     default: m.DiscussionLogPortal,
   }))
 );
+// @spec-escape-hatch: real-time discussion controls — WebSocket dispatch, role-gated UI
 const DiscussionControlsPortal = lazy(() =>
   import('../futuristic/portals/DiscussionControlsPortal').then((m) => ({
     default: m.DiscussionControlsPortal,
@@ -128,6 +130,7 @@ const SecurityGateway = lazy(() =>
 const ToolsPanel = lazy(() =>
   import('../futuristic/portals/ToolsPanel').then((m) => ({ default: m.ToolsPanel }))
 );
+// @spec-escape-hatch: multi-view workflow editor (list/create/edit/history) — beyond 8-type spec model
 const WorkflowStudioPortal = lazy(() =>
   import('../futuristic/portals/WorkflowStudioPortal').then((m) => ({
     default: m.WorkflowStudioPortal,
