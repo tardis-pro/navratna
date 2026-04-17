@@ -371,6 +371,21 @@ export class WorkflowCompositionService {
       .limit(limit)
   }
 
+  async getLatestInstanceState(compositionId: string): Promise<WorkflowInstance | null> {
+    const db = getControlDb()
+
+    const rows = await db
+      .select()
+      .from(workflowInstances)
+      .where(and(
+        eq(workflowInstances.workflowId, compositionId),
+      ))
+      .orderBy(desc(workflowInstances.updatedAt))
+      .limit(1)
+
+    return rows[0] ?? null
+  }
+
   // ─── Testing helpers ───────────────────────────────────────────────────
 
   static resetInstance(): void {
