@@ -61,7 +61,7 @@ function projectionToBlock(
 
   return {
     id: blockId,
-    type: 'portal',
+    type: 'workflow',
     expression: workflowExpressionForState(composition.ui),
     relevanceScore: composition.ui.ambient.attentionWeight,
     visibility: 'visible',
