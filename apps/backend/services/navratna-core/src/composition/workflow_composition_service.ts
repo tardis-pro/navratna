@@ -18,6 +18,7 @@ import {
   ImmutableAuditService,
   SecretReferenceService,
   ConfidenceGatedExecutionService,
+  CompositionPolicyService,
 } from '@uaip/shared-services'
 import type {
   WorkflowComposition,
@@ -42,17 +43,20 @@ export class WorkflowCompositionService {
   private auditService: ImmutableAuditService
   private secretService: SecretReferenceService
   private confidenceGateService: ConfidenceGatedExecutionService
+  private policyService: CompositionPolicyService
 
   constructor(
     validator?: WorkflowValidator,
     auditService?: ImmutableAuditService,
     secretService?: SecretReferenceService,
     confidenceGateService?: ConfidenceGatedExecutionService,
+    policyService?: CompositionPolicyService,
   ) {
     this.validator = validator ?? WorkflowValidator.getInstance()
     this.auditService = auditService ?? ImmutableAuditService.getInstance()
     this.confidenceGateService = confidenceGateService ?? ConfidenceGatedExecutionService.getInstance()
     this.secretService = secretService ?? SecretReferenceService.getInstance()
+    this.policyService = policyService ?? CompositionPolicyService.getInstance()
   }
 
   static getInstance(): WorkflowCompositionService {
@@ -324,6 +328,26 @@ export class WorkflowCompositionService {
     const definition = existing.definition as unknown as CompositionDefinition
     const domain = definition.category ?? 'general'
 
+    const workflowTools = definition.steps
+      .filter((s) => s.type === 'tool' && s.tool)
+      .map((s) => s.tool!)
+    const toolCount = new Set(workflowTools).size
+    const policyEvaluation = this.policyService.evaluate(workflowTools, domain, {
+      records: definition.steps.length,
+      emails: 0,
+    })
+    if (!policyEvaluation.allowed) {
+      const messages = policyEvaluation.violations.map((v) => v.message).join('; ')
+      throw new Error(`Workflow execution blocked by policy: ${messages}`)
+    }
+
+    logger.info('Workflow pre-execution policy check passed', {
+      compositionId: id,
+      domain,
+      toolCount,
+      warnings: policyEvaluation.warnings.length,
+    })
+
     let initialStatus: 'pending' | 'pending_approval' | 'running' = 'pending'
     if (agentId !== undefined && agentConfidence !== undefined) {
       const gate = await this.confidenceGateService.checkGate(
@@ -360,6 +384,8 @@ export class WorkflowCompositionService {
         startedAt: new Date(),
       })
       .returning()
+
+    this.policyService.recordExecution(domain)
 
     if (initialStatus !== 'pending_approval') {
       await db
