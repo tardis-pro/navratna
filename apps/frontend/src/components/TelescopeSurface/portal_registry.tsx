@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import type { MaterializableBlockData } from '@/components/MaterializableBlock/materializable_block_types';
 import { autoArrangeBlocks } from '@/components/MaterializableBlock';
+import { WorkflowBlockRenderer } from '@/components/WorkflowBlockRenderer';
+import { PORTAL_SPECS } from './portal-specs';
 
 const ChatPortal = lazy(() =>
   import('../futuristic/portals/ChatPortal').then((m) => ({ default: m.ChatPortal }))
@@ -483,6 +485,19 @@ export function createInitialBlocks(): MaterializableBlockData[] {
 }
 
 export function renderPortalContent(portalId: string): ReactNode | null {
+  const spec = PORTAL_SPECS[portalId];
+  if (spec) {
+    return (
+      <WorkflowBlockRenderer
+        display={spec.display}
+        title={spec.title}
+        fields={spec.fields}
+        actions={spec.actions}
+        data={spec.data}
+      />
+    );
+  }
+
   const Portal = PORTAL_COMPONENTS[portalId];
   if (!Portal) return null;
   return (
