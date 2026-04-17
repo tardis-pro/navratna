@@ -1,4 +1,4 @@
-import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
+import { getIntelligenceDb, knowledgeItems, ServiceFactory } from '@uaip/shared-services'
 import { KnowledgeType, SourceType } from '@uaip/types'
 import type { SymbolInfo } from '@uaip/types'
 import { logger } from '@uaip/utils'
@@ -31,12 +31,54 @@ export class SemanticIndexService {
       summary: `Code symbol ${symbol.name} (${symbol.kind})`,
     }))
 
-    // TODO: Add Qdrant vector embedding sync once the embeddings service is available.
-    await intelligenceDb.insert(knowledgeItems).values(values)
+    const inserted = await intelligenceDb
+      .insert(knowledgeItems)
+      .values(values)
+      .returning({ id: knowledgeItems.id })
 
     logger.info('Semantic symbol indexing completed', {
       repoId,
       symbolCount: symbols.length,
     })
+
+    await this.syncToQdrant(symbols, inserted.map((r) => r.id), repoId)
+  }
+
+  private async syncToQdrant(symbols: SymbolInfo[], knowledgeIds: string[], repoId: string): Promise<void> {
+    try {
+      const factory = ServiceFactory.getInstance()
+      const [embeddingService, qdrantService] = await Promise.all([
+        factory.getSmartEmbeddingService(),
+        factory.getQdrantService(),
+      ])
+
+      let synced = 0
+      for (let i = 0; i < symbols.length; i++) {
+        const symbol = symbols[i]
+        const knowledgeItemId = knowledgeIds[i]
+        if (!symbol || !knowledgeItemId) {
+          continue
+        }
+
+        const text = `${symbol.name} ${symbol.kind} in ${symbol.file}`
+        const embeddings = await embeddingService.generateEmbeddings(text)
+        if (embeddings.length > 0) {
+          await qdrantService.store(knowledgeItemId, embeddings)
+          synced++
+        }
+      }
+
+      logger.info('Vector embedding sync to Qdrant completed', {
+        repoId,
+        symbolCount: symbols.length,
+        synced,
+      })
+    } catch (qdrantError) {
+      logger.warn('Failed to sync vector embeddings to Qdrant; PostgreSQL data intact', {
+        repoId,
+        symbolCount: symbols.length,
+        error: qdrantError instanceof Error ? qdrantError.message : String(qdrantError),
+      })
+    }
   }
 }
