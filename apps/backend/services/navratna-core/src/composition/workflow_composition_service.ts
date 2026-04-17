@@ -17,6 +17,7 @@ import {
   WorkflowValidator,
   ImmutableAuditService,
   SecretReferenceService,
+  ConfidenceGatedExecutionService,
 } from '@uaip/shared-services'
 import type {
   WorkflowComposition,
@@ -40,14 +41,17 @@ export class WorkflowCompositionService {
   private validator: WorkflowValidator
   private auditService: ImmutableAuditService
   private secretService: SecretReferenceService
+  private confidenceGateService: ConfidenceGatedExecutionService
 
   constructor(
     validator?: WorkflowValidator,
     auditService?: ImmutableAuditService,
     secretService?: SecretReferenceService,
+    confidenceGateService?: ConfidenceGatedExecutionService,
   ) {
     this.validator = validator ?? WorkflowValidator.getInstance()
     this.auditService = auditService ?? ImmutableAuditService.getInstance()
+    this.confidenceGateService = confidenceGateService ?? ConfidenceGatedExecutionService.getInstance()
     this.secretService = secretService ?? SecretReferenceService.getInstance()
   }
 
@@ -285,7 +289,13 @@ export class WorkflowCompositionService {
 
   // ─── Execution ─────────────────────────────────────────────────────────
 
-  async execute(id: string, triggerData?: Record<string, unknown>, userId?: string): Promise<WorkflowInstance> {
+  async execute(
+    id: string,
+    triggerData?: Record<string, unknown>,
+    userId?: string,
+    agentId?: string,
+    agentConfidence?: number,
+  ): Promise<WorkflowInstance> {
     const existing = await this.get(id)
     if (!existing) {
       throw new Error(`Workflow composition not found: ${id}`)
@@ -297,6 +307,28 @@ export class WorkflowCompositionService {
 
     const db = getControlDb()
     const definition = existing.definition as unknown as CompositionDefinition
+    const domain = definition.category ?? 'general'
+
+    let initialStatus: 'pending' | 'pending_approval' | 'running' = 'pending'
+    if (agentId !== undefined && agentConfidence !== undefined) {
+      const gate = await this.confidenceGateService.checkGate(
+        agentId,
+        'workflow_execution',
+        agentConfidence,
+        domain,
+      )
+      if (!gate.passed) {
+        initialStatus = 'pending_approval'
+        logger.warn('Workflow execution gated on confidence', {
+          compositionId: id,
+          agentId,
+          domain,
+          confidence: agentConfidence,
+          requiredConfidence: gate.requiredConfidence,
+          reason: gate.reason,
+        })
+      }
+    }
 
     // Determine trigger type from the trigger data or default to 'manual'
     const triggerType = triggerData?.triggerType as string ?? 'manual'
@@ -306,7 +338,7 @@ export class WorkflowCompositionService {
       .insert(workflowInstances)
       .values({
         workflowId: id,
-        status: 'pending',
+        status: initialStatus,
         triggerType,
         triggerData: triggerData ?? {},
         state: {},
@@ -314,12 +346,12 @@ export class WorkflowCompositionService {
       })
       .returning()
 
-    // TODO: Map to TaskDAGService for actual execution
-    // For now, mark as running — the DAG executor will pick it up
-    await db
-      .update(workflowInstances)
-      .set({ status: 'running', updatedAt: new Date() })
-      .where(eq(workflowInstances.id, instance.id))
+    if (initialStatus !== 'pending_approval') {
+      await db
+        .update(workflowInstances)
+        .set({ status: 'running', updatedAt: new Date() })
+        .where(eq(workflowInstances.id, instance.id))
+    }
 
     // Update execution stats on the composition
     await db
