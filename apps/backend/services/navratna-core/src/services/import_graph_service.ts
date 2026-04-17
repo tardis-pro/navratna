@@ -1,8 +1,14 @@
 import { dirname, relative, resolve } from 'node:path'
-import { getIntelligenceDb, knowledgeItems } from '@uaip/shared-services'
+import { getIntelligenceDb, knowledgeItems, ServiceFactory } from '@uaip/shared-services'
 import type { ImportEdge, ImportInfo } from '@uaip/types'
 import { KnowledgeType, SourceType } from '@uaip/types'
 import { logger } from '@uaip/utils'
+
+type Neo4jEdge = {
+  from: string
+  to: string
+  symbols: string[]
+}
 
 export class ImportGraphService {
   async buildGraph(imports: ImportInfo[], repoRoot: string): Promise<void> {
@@ -21,7 +27,6 @@ export class ImportGraphService {
 
     const intelligenceDb = getIntelligenceDb()
 
-    // TODO: Persist import graph relationships in Neo4j when the graph driver is available.
     await intelligenceDb.insert(knowledgeItems).values({
       type: KnowledgeType.PROCEDURAL,
       content: JSON.stringify({ edges }),
@@ -40,5 +45,45 @@ export class ImportGraphService {
       repoRoot,
       edgeCount: edges.length,
     })
+
+    await this.persistToNeo4j(edges, repoRoot)
+  }
+
+  private async persistToNeo4j(edges: ImportEdge[], repoRoot: string): Promise<void> {
+    if (edges.length === 0) {
+      return
+    }
+
+    try {
+      const factory = ServiceFactory.getInstance()
+      const graphDb = await factory.getToolGraphDatabase()
+
+      const cypher = `
+        UNWIND $edges AS edge
+        MERGE (from:File {path: edge.from, repoRoot: $repoRoot})
+        MERGE (to:File {path: edge.to, repoRoot: $repoRoot})
+        MERGE (from)-[r:IMPORTS]->(to)
+        SET r.symbols = edge.symbols, r.updatedAt = datetime()
+      `
+
+      const neo4jEdges: Neo4jEdge[] = edges.map((edge) => ({
+        from: edge.from,
+        to: edge.to,
+        symbols: edge.symbols ?? [],
+      }))
+
+      await graphDb.runQuery(cypher, { edges: neo4jEdges, repoRoot })
+
+      logger.info('Import graph persisted to Neo4j', {
+        repoRoot,
+        edgeCount: edges.length,
+      })
+    } catch (neo4jError) {
+      logger.warn('Failed to persist import graph to Neo4j; PostgreSQL data intact', {
+        repoRoot,
+        edgeCount: edges.length,
+        error: neo4jError instanceof Error ? neo4jError.message : String(neo4jError),
+      })
+    }
   }
 }
