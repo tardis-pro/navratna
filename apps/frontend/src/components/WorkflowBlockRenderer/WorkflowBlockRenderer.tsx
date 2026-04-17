@@ -6,6 +6,7 @@ import type {
   FieldProjection,
   ActionProjection,
 } from '@uaip/types';
+import { DynamicForm } from './DynamicForm.js';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -207,66 +208,6 @@ function StatusBadge({ title, fields = [], data }: StatusBadgeProps) {
   return (
     <div className="inline-flex items-center gap-2">
       <StatusBadgeInline label={label} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// DynamicForm
-// ---------------------------------------------------------------------------
-
-interface DynamicFormProps {
-  title?: string;
-  fields: FieldProjection[];
-  data?: Record<string, unknown>;
-  actions?: ActionProjection[];
-  onAction?: (action: ActionProjection) => void;
-}
-
-function DynamicForm({ title, fields, data, actions = [], onAction }: DynamicFormProps) {
-  const [formData, setFormData] = useState<Record<string, unknown>>(() => {
-    const initial: Record<string, unknown> = {};
-    for (const f of fields) {
-      initial[f.key] = resolveFieldValue(data, f.key) ?? '';
-    }
-    return initial;
-  });
-
-  const handleChange = useCallback((key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  const inputType = (fieldType: FieldProjection['type']): string => {
-    switch (fieldType) {
-      case 'number':
-      case 'currency':
-      case 'progress':
-        return 'number';
-      case 'date':
-        return 'date';
-      default:
-        return 'text';
-    }
-  };
-
-  return (
-    <div className="rounded-xl border border-border/50 bg-background/60 backdrop-blur-sm p-4">
-      {title && <h3 className="text-sm font-semibold text-foreground mb-3">{title}</h3>}
-      <div className="space-y-3">
-        {fields.map((field) => (
-          <label key={field.key} className="block">
-            <span className="text-xs text-muted-foreground mb-1 block">{field.label}</span>
-            <input
-              type={inputType(field.type)}
-              value={String(formData[field.key] ?? '')}
-              onChange={(e) => handleChange(field.key, e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-background/80 border border-border/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-              placeholder={field.label}
-            />
-          </label>
-        ))}
-      </div>
-      <ActionBar actions={actions} onAction={onAction} />
     </div>
   );
 }
@@ -766,5 +707,4 @@ export function WorkflowBlockRenderer({
   }
 }
 
-// Also export sub-components for direct use
-export { DataCard, StatusBadge, DynamicForm, DynamicChart, DynamicTable, Timeline, ApprovalCard, CustomURL };
+export { DataCard, StatusBadge, DynamicChart, DynamicTable, Timeline, ApprovalCard, CustomURL };

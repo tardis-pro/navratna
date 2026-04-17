@@ -9,7 +9,17 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { logger } from '@uaip/utils'
 import { CompositionDefinitionSchema } from '@uaip/types'
+import { EventBusService } from '@uaip/shared-services'
 import { WorkflowCompositionService } from './workflow_composition_service.js'
+
+type WorkflowInstanceStatePayload = {
+  workflowId: string;
+  instanceId: string;
+  currentState: Record<string, unknown>;
+  machineState: string;
+  stateVersion: number;
+  updatedAt: string;
+};
 
 // ─── AUTH ───────────────────────────────────────────────────────────────
 
@@ -287,4 +297,149 @@ export function registerCompositionRoutes() {
         return { success: false, error: error instanceof Error ? error.message : 'Failed to delete composition' }
       }
     })
+
+    .get('/api/v1/compositions/:id/instance-state', async ({ params, set, headers, request }) => {
+      const userId = getUserId(headers, request)
+      if (!userId || userId === 'anonymous') {
+        set.status = 403
+        return { success: false, error: 'Authentication required' }
+      }
+
+      try {
+        const service = WorkflowCompositionService.getInstance()
+
+        const composition = await service.get(params.id)
+        if (!composition) {
+          set.status = 404
+          return { success: false, error: 'Composition not found' }
+        }
+
+        const instance = await service.getLatestInstanceState(params.id)
+        if (!instance) {
+          set.status = 404
+          return { success: false, error: 'No instance state found for this composition' }
+        }
+
+        const payload: WorkflowInstanceStatePayload = {
+          workflowId: params.id,
+          instanceId: instance.id,
+          currentState: (instance.state as Record<string, unknown>) ?? {},
+          machineState: instance.status,
+          stateVersion: new Date(instance.updatedAt).getTime(),
+          updatedAt: new Date(instance.updatedAt).toISOString(),
+        }
+
+        return { success: true, data: payload }
+      } catch (error) {
+        logger.error('composition: get instance-state failed', {
+          compositionId: params.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        set.status = 500
+        return { success: false, error: 'Failed to retrieve instance state' }
+      }
+    })
+
+    .post('/api/v1/compositions/:id/actions', async ({ params, body, set, headers, request }) => {
+      const userId = getUserId(headers, request)
+      if (!userId || userId === 'anonymous') {
+        set.status = 403
+        return { success: false, error: 'Authentication required' }
+      }
+
+      const parsed = _actionPayloadSchema.safeParse(body)
+      if (!parsed.success) {
+        set.status = 400
+        return { success: false, error: 'Validation Error', details: parsed.error.flatten() }
+      }
+
+      const { stepId, actionType, payload: actionPayload } = parsed.data
+
+      const idempotencyKey = `${params.id}:${stepId}:${actionType}`
+      const now = Date.now()
+      const lastSeen = _actionIdempotencyCache.get(idempotencyKey)
+      if (lastSeen !== undefined && now - lastSeen < 300) {
+        return { success: true, data: { idempotent: true } }
+      }
+      _actionIdempotencyCache.set(idempotencyKey, now)
+
+      try {
+        const service = WorkflowCompositionService.getInstance()
+        const composition = await service.get(params.id)
+        if (!composition) {
+          set.status = 404
+          return { success: false, error: 'Composition not found' }
+        }
+
+        const instance = await service.getLatestInstanceState(params.id)
+        if (!instance) {
+          set.status = 404
+          return { success: false, error: 'No active instance for this composition' }
+        }
+
+        logger.info('composition: action dispatched', {
+          compositionId: params.id,
+          instanceId: instance.id,
+          stepId,
+          actionType,
+          userId,
+        })
+
+        const statePayload: WorkflowInstanceStatePayload = {
+          workflowId: params.id,
+          instanceId: instance.id,
+          currentState: (instance.state as Record<string, unknown>) ?? {},
+          machineState: instance.status,
+          stateVersion: new Date(instance.updatedAt).getTime(),
+          updatedAt: new Date(instance.updatedAt).toISOString(),
+        }
+
+        await publishWorkflowStateChanged(params.id, statePayload)
+
+        return {
+          success: true,
+          data: {
+            currentMachineState: instance.status,
+            stepId,
+            actionType,
+            actionPayload,
+          },
+        }
+      } catch (error) {
+        logger.error('composition: action dispatch failed', {
+          compositionId: params.id,
+          stepId,
+          actionType,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        set.status = 500
+        return { success: false, error: 'Failed to dispatch action' }
+      }
+    })
+}
+
+const _actionIdempotencyCache = new Map<string, number>();
+
+const _actionPayloadSchema = z.object({
+  stepId: z.string(),
+  actionType: z.enum(['approve', 'reject', 'retry', 'skip', 'custom']),
+  payload: z.record(z.unknown()).optional(),
+});
+
+export async function publishWorkflowStateChanged(
+  compositionId: string,
+  payload: WorkflowInstanceStatePayload,
+): Promise<void> {
+  try {
+    const bus = EventBusService.getInstance()
+    await bus.publish('workflow.state-changed', {
+      compositionId,
+      ...payload,
+    })
+  } catch (error) {
+    logger.error('composition: failed to publish workflow.state-changed', {
+      compositionId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 }

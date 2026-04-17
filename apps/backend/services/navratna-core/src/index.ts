@@ -12,6 +12,7 @@ import { artifactFeature } from '../../artifact-service/src/feature.js'
 import { llmFeature } from '../../llm-service/src/feature.js'
 import { deploymentFeature } from './deployment/feature.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
+import { WorkflowStateHandler } from './composition/workflow_state_handler.js'
 
 const DEGRADED_P95_THRESHOLD_MS = 1000
 
@@ -143,6 +144,11 @@ class NavratnaCoreService extends BaseService {
 
   protected async setupEventSubscriptions(): Promise<void> {
     await this.factory.subscribeEvents(this.eventBusService)
+
+    const workflowStateHandler = new WorkflowStateHandler(this.io, this.eventBusService)
+    await workflowStateHandler.subscribe()
+    workflowStateHandler.setupSocketJoin(this.io)
+
     logger.info('navratna-core event subscriptions configured')
   }
 

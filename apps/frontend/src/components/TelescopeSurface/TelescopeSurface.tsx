@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope } from 'lucide-react';
+import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope, Workflow } from 'lucide-react';
+import { WorkflowBlockRenderer } from '@/components/WorkflowBlockRenderer';
+import type { BlockDisplayType, FieldProjection, ActionProjection } from '@uaip/types';
 import type {
   MaterializableBlockData,
   MaterializableBlockType,
@@ -39,6 +41,7 @@ const BLOCK_TYPE_ICONS: Record<MaterializableBlockType, React.ReactNode> = {
   artifact: <FileCode className="w-4 h-4" />,
   discussion: <MessageSquare className="w-4 h-4" />,
   task: <ListTodo className="w-4 h-4" />,
+  workflow: <Workflow className="w-4 h-4" />,
 };
 
 const BLOCK_TYPE_LABELS: Record<MaterializableBlockType, string> = {
@@ -47,6 +50,7 @@ const BLOCK_TYPE_LABELS: Record<MaterializableBlockType, string> = {
   artifact: 'Artifact',
   discussion: 'Discussion',
   task: 'Task',
+  workflow: 'Workflow',
 };
 
 // ---------------------------------------------------------------------------
@@ -608,6 +612,16 @@ export function TelescopeSurface({
                     {block.type === 'portal' ? (
                       <MaterializableBlock block={block}>
                         {renderPortalContent(block.id)}
+                      </MaterializableBlock>
+                    ) : block.type === 'workflow' ? (
+                      <MaterializableBlock block={block}>
+                        <WorkflowBlockRenderer
+                          display={(block.metadata?.display as BlockDisplayType) ?? 'card'}
+                          fields={block.metadata?.fields as FieldProjection[] | undefined}
+                          actions={block.metadata?.actions as ActionProjection[] | undefined}
+                          data={block.metadata?.data as Record<string, unknown> | undefined}
+                          title={typeof block.metadata?.title === 'string' ? block.metadata.title : undefined}
+                        />
                       </MaterializableBlock>
                     ) : (
                       <TelescopeBlock

@@ -120,5 +120,5 @@ export * from './integrations';
 export * from './cognitive_portrait';
 export * from './deployment';
 export * from './onboarding';
-// Workflow Composition types — Layer 2 self-composing platform
 export * from './workflow_composition';
+export * from './design_tokens';

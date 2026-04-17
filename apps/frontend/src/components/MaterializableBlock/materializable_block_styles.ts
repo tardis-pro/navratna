@@ -80,6 +80,11 @@ export const BLOCK_TYPE_COLORS: Record<
     border: 'oklch(70% 0.2 75 / 0.5)',
     accent: 'oklch(78% 0.22 75)',
   },
+  workflow: {
+    bg: 'oklch(15% 0.04 200 / 0.85)',
+    border: 'oklch(62% 0.22 200 / 0.5)',
+    accent: 'oklch(70% 0.24 200)',
+  },
 };
 
 export function getExpressionColor(expression: Microexpression): string {

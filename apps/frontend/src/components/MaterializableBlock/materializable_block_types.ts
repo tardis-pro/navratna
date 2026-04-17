@@ -4,7 +4,7 @@ import type { Microexpression } from '@uaip/types';
 /**
  * Block types that can be materialized on TelescopeSurface
  */
-export type MaterializableBlockType = 'agent' | 'portal' | 'artifact' | 'discussion' | 'task';
+export type MaterializableBlockType = 'agent' | 'portal' | 'artifact' | 'discussion' | 'task' | 'workflow';
 
 /**
  * Visibility states for materializable blocks
