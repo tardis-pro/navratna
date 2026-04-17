@@ -825,14 +825,19 @@ export class EnhancedAuthService {
       throw new Error(`Unsupported cipher algorithm: ${rawAlg}`);
     }
     const algorithm = rawAlg;
-    const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
+    const salt = crypto.randomBytes(16);
+    if (salt.length < 16) {
+      throw new Error('Salt must be at least 16 bytes');
+    }
+    const key = crypto.scryptSync(config.security.encryptionKey, salt, 32);
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
     let encrypted = cipher.update(challenge, 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
-    return `${iv.toString('hex')}:${encrypted}`;
+    const authTag = cipher.getAuthTag();
+    return `${salt.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
   }
 
   private async decryptChallenge(encryptedChallenge: string): Promise<string> {
@@ -841,15 +846,32 @@ export class EnhancedAuthService {
       throw new Error(`Unsupported cipher algorithm: ${rawAlg}`);
     }
     const algorithm = rawAlg;
-    const key = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
+    const parts = encryptedChallenge.split(':');
 
-    const [ivHex, encrypted] = encryptedChallenge.split(':');
+    if (parts.length === 4) {
+      // Current format: salt:iv:authTag:encrypted (per-record random salt)
+      const [saltHex, ivHex, authTagHex, encrypted] = parts;
+      const salt = Buffer.from(saltHex, 'hex');
+      const key = crypto.scryptSync(config.security.encryptionKey, salt, 32);
+      const iv = Buffer.from(ivHex, 'hex');
+      const decipher = crypto.createDecipheriv(algorithm, key, iv);
+      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      return decrypted;
+    }
+
+    // Legacy format: iv:encrypted (static salt, no auth tag)
+    const legacyKey = crypto.scryptSync(config.security.encryptionKey, 'salt', 32);
+    const [ivHex, encrypted] = parts;
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    const decipher = crypto.createDecipheriv(algorithm, legacyKey, iv);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
 
+    logger.warn('Decrypted challenge using legacy static-salt format without auth tag — re-encrypt recommended');
     return decrypted;
   }
 

@@ -266,34 +266,53 @@ export class LLMAgentProviderService {
 
   private encrypt(text: string): string {
     try {
-      const key = crypto.scryptSync(config.security.encryptionKey, 'llm-agent-salt', 32);
+      const salt = crypto.randomBytes(16);
+      if (salt.length < 16) {
+        throw new Error('Salt must be at least 16 bytes');
+      }
+      const key = crypto.scryptSync(config.security.encryptionKey, salt, 32);
       const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      return `${iv.toString('hex')}:${encrypted}`;
+      const authTag = cipher.getAuthTag();
+      return `${salt.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
     } catch {
-      // Fallback to base64 if config not ready (e.g. tests)
       return Buffer.from(text).toString('base64');
     }
   }
 
   private decrypt(encoded: string): string {
-    try {
-      if (!encoded.includes(':')) {
-        // Legacy base64 fallback
-        return Buffer.from(encoded, 'base64').toString('utf-8');
-      }
-      const key = crypto.scryptSync(config.security.encryptionKey, 'llm-agent-salt', 32);
-      const [ivHex, encrypted] = encoded.split(':');
+    if (!encoded.includes(':')) {
+      return Buffer.from(encoded, 'base64').toString('utf-8');
+    }
+
+    const parts = encoded.split(':');
+
+    if (parts.length === 4) {
+      // Current format: salt:iv:authTag:encrypted (GCM with per-record random salt)
+      const [saltHex, ivHex, authTagHex, encrypted] = parts;
+      const salt = Buffer.from(saltHex, 'hex');
+      const key = crypto.scryptSync(config.security.encryptionKey, salt, 32);
       const iv = Buffer.from(ivHex, 'hex');
-      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;
-    } catch {
-      // Fallback for legacy base64
-      return Buffer.from(encoded, 'base64').toString('utf-8');
     }
+
+    // Legacy format: iv:encrypted (CBC with static salt)
+    const legacyKey = crypto.scryptSync(config.security.encryptionKey, 'llm-agent-salt', 32);
+    const [ivHex, encrypted] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', legacyKey, iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    logger.warn(
+      'Decrypted LLM provider credential using legacy static-salt CBC format — re-encrypt recommended'
+    );
+    return decrypted;
   }
 }
