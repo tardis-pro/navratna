@@ -1,6 +1,33 @@
 # Database Migrations
 
-This directory contains database migration scripts for the UAIP backend.
+## Canonical Migration Path
+
+**Use Drizzle ORM migrations.** The canonical schema initialisation is handled by:
+
+```bash
+pnpm --filter @uaip/shared-services drizzle:migrate
+```
+
+This applies `apps/shared/services/src/database/drizzle/migrations/0000_odd_tyrannus.sql`,
+which creates all tables for both the Intelligence (PC-A) and Control (PC-B) planes.
+
+### What lives in this directory
+
+| File | Status | Notes |
+|------|--------|-------|
+| `008-add-agent-description.sql` | **Superseded** | Column already in `0000_odd_tyrannus.sql` |
+| `009-add-agent-user-llm-provider.sql` | **Superseded** | Column already in `0000_odd_tyrannus.sql` |
+
+> **Warning**: Files 001-007 were never committed to this repository (see `docs/database-hygiene/PM-243-migration-history-findings.md`).
+> Runner scripts `database/scripts/run-migration-006.sql` and `run-migration-007.sql` reference
+> SQL files that do not exist and must not be executed.
+
+Do NOT run migrations 008/009 against a Drizzle-initialised database — the columns already
+exist and the unguarded `ALTER TABLE ADD COLUMN` will fail.
+
+---
+
+## Legacy handwritten migrations (historical reference only)
 
 ## Migration 006: Add Authentication Columns and Tables
 

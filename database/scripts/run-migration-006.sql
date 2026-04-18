@@ -1,7 +1,15 @@
--- Script to run Migration 006: Add Authentication Columns and Tables
--- This script can be run safely on existing databases
+-- ORPHANED RUNNER SCRIPT — DO NOT EXECUTE
+--
+-- This script references ../migrations/006_add_authentication_columns_and_tables.sql
+-- which no longer exists in the repository (was never committed to git).
+--
+-- Canonical schema initialisation: pnpm --filter @uaip/shared-services drizzle:migrate
+-- See: docs/database-hygiene/PM-245-fresh-install-procedure.md
+--
+-- Retained for historical reference only. Executing this script will fail.
 
-\echo 'Starting Migration 006: Add Authentication Columns and Tables'
+\echo 'ORPHANED SCRIPT — 006_add_authentication_columns_and_tables.sql does not exist. Use Drizzle migrate instead.'
+\quit
 
 -- Start transaction
 BEGIN;
