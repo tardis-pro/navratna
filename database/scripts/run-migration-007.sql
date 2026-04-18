@@ -1,7 +1,15 @@
--- Script to run Migration 007: Add Timestamp Columns to Audit Events
--- This script adds missing created_at and updated_at columns to audit_events table
+-- ORPHANED RUNNER SCRIPT — DO NOT EXECUTE
+--
+-- This script references ../migrations/007_add_audit_events_timestamps.sql
+-- which no longer exists in the repository (was never committed to git).
+--
+-- Canonical schema initialisation: pnpm --filter @uaip/shared-services drizzle:migrate
+-- See: docs/database-hygiene/PM-245-fresh-install-procedure.md
+--
+-- Retained for historical reference only. Executing this script will fail.
 
-\echo 'Starting Migration 007: Add Timestamp Columns to Audit Events'
+\echo 'ORPHANED SCRIPT — 007_add_audit_events_timestamps.sql does not exist. Use Drizzle migrate instead.'
+\quit
 
 -- Start transaction
 BEGIN;
