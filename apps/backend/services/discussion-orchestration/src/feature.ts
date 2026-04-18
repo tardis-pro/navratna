@@ -116,49 +116,57 @@ export const discussionFeature: Feature = {
     const socketIO = io as SocketIOServer
 
     new UserChatHandler(socketIO, capturedEventBus)
+    logger.info('discussion-orchestration: UserChatHandler bound to io')
 
     try {
       new ConversationIntelligenceHandler(socketIO, capturedEventBus)
+      logger.info('discussion-orchestration: ConversationIntelligenceHandler bound to io')
     } catch (error) {
       logger.error('Failed to initialize ConversationIntelligenceHandler:', error)
     }
 
     try {
       new TaskNotificationHandler(socketIO, capturedEventBus)
+      logger.info('discussion-orchestration: TaskNotificationHandler bound to io')
     } catch (error) {
       logger.error('Failed to initialize TaskNotificationHandler:', error)
     }
 
     try {
       new StreamingHandler(socketIO, capturedEventBus)
+      logger.info('discussion-orchestration: StreamingHandler bound to io')
     } catch (error) {
       logger.error('Failed to initialize StreamingHandler:', error)
     }
 
     try {
       new CodingAgentSocketHandler(socketIO, capturedEventBus)
+      logger.info('discussion-orchestration: CodingAgentSocketHandler bound to io')
     } catch (error) {
       logger.error('Failed to initialize CodingAgentSocketHandler:', error)
     }
 
     try {
       new WhatsAppHandler(socketIO, capturedEventBus)
+      logger.info('discussion-orchestration: WhatsAppHandler bound to io')
     } catch (error) {
       logger.error('Failed to initialize WhatsAppHandler:', error)
     }
 
     try {
       new DebateHandler(socketIO, capturedEventBus)
+      logger.info('discussion-orchestration: DebateHandler bound to io')
     } catch (error) {
       logger.error('Failed to initialize DebateHandler:', error)
     }
 
     try {
       setupWebSocketHandlers(socketIO, orchestrationService)
+      logger.info('discussion-orchestration: setupWebSocketHandlers bound to io')
     } catch (error) {
       logger.error('Failed to initialize discussion WebSocket handlers:', error)
     }
 
-    logger.info('discussion-orchestration WebSocket handlers initialized')
+    logger.info('discussion-orchestration: all 8 WebSocket handlers bound to io instance')
   },
 }
