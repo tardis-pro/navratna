@@ -24,6 +24,7 @@ import { registerToolRoutes } from '../../capability-registry/src/routes/tool_ro
 import { registerWorkspaceRoutes } from '../../capability-registry/src/routes/workspace_routes.js'
 import { registerGitHubWebhookRoutes } from '../../orchestration-pipeline/src/routes/github_webhook_routes.js'
 import { registerJiraWebhookRoutes } from '../../orchestration-pipeline/src/routes/jira_webhook_routes.js'
+import { registerCanvaRoutes } from '../../capability-registry/src/routes/canva_routes.js'
 
 type GatewayHealthStatus = 'ok' | 'degraded'
 
@@ -60,5 +61,6 @@ export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .use(registerWorkspaceRoutes())
   .use(registerGitHubWebhookRoutes())
   .use(registerJiraWebhookRoutes())
+  .use(registerCanvaRoutes())
 
 export type NavratnaGatewayApp = typeof gatewayApp
