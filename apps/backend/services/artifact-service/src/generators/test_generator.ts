@@ -418,6 +418,70 @@ test('${req}', () => {
   .join('\n')}`;
   }
 
+  async generateUnitTest(
+    functionName: string,
+    functionBody: string,
+    framework: string
+  ): Promise<string> {
+    const request: ArtifactRequest = {
+      type: 'test',
+      language: 'typescript',
+      context: `Function name: ${functionName}\nFunction body:\n${functionBody}`,
+      requirements: [`Write unit tests for ${functionName}`],
+      constraints: [`framework: ${framework}`],
+    };
+
+    try {
+      const response = await LLMService.getInstance().generateArtifact(request);
+      if (response.content && !response.error) {
+        return response.content;
+      }
+    } catch (llmError) {
+      logger.warn('LLM generateUnitTest failed, using template fallback', {
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      });
+    }
+
+    return this.generateJavaScriptTests(functionName, [], framework);
+  }
+
+  async generateMock(serviceInterface: string): Promise<string> {
+    const request: ArtifactRequest = {
+      type: 'test',
+      language: 'typescript',
+      context: `Service interface:\n${serviceInterface}`,
+      requirements: ['Generate a vi.mock() factory for the service interface'],
+      constraints: ['framework: vitest', 'use vi.fn() for all methods'],
+    };
+
+    try {
+      const response = await LLMService.getInstance().generateArtifact(request);
+      if (response.content && !response.error) {
+        return response.content;
+      }
+    } catch (llmError) {
+      logger.warn('LLM generateMock failed, using template fallback', {
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      });
+    }
+
+    return this.buildMockTemplate(serviceInterface);
+  }
+
+  private buildMockTemplate(serviceInterface: string): string {
+    const methodMatches = serviceInterface.matchAll(/(\w+)\s*\(/g);
+    const methods = Array.from(methodMatches, (m) => m[1]).filter(
+      (m) => m !== 'constructor' && m !== 'class' && m !== 'interface'
+    );
+
+    if (methods.length === 0) {
+      return `vi.mock('./service', () => ({\n  default: { mock: vi.fn() }\n}));`;
+    }
+
+    const stubs = methods.map((m) => `    ${m}: vi.fn()`).join(',\n');
+    return `vi.mock('./service', () => ({\n  default: {\n${stubs}\n  }\n}));`;
+  }
+
   private capitalizeFirst(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
