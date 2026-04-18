@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { withRequiredAuth, t } from '@uaip/middleware'
-import { DiscussionStatus } from '@uaip/types'
+import { DiscussionStatus, TurnStrategy } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import {
   count,
@@ -567,6 +567,76 @@ export function registerDiscussionRoutes(
           body: t.Object({ summary: t.Optional(t.String()) }),
           response: {
             200: t.Object({ success: t.Literal(true), message: t.String() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
+        })
+
+        .put('/:id/turn-strategy', async (ctx) => {
+          try {
+            const body: { strategy: string; config?: Record<string, unknown> } | undefined = ctx.body
+            const strategyValue = body?.strategy
+            const validStrategies = Object.values(TurnStrategy) as string[]
+            if (!strategyValue || !validStrategies.includes(strategyValue)) {
+              ctx.set.status = 400
+              return {
+                success: false,
+                error: `Invalid turn strategy. Valid values: ${validStrategies.join(', ')}`,
+              }
+            }
+            const discussion = await discussionService.updateDiscussion(ctx.params.id, {
+              turnStrategy: {
+                strategy: strategyValue as TurnStrategy,
+                ...(body?.config ?? {}),
+              },
+            })
+            return { success: true, data: discussion }
+          } catch (error) {
+            logger.error('Failed to update turn strategy', { error, id: ctx.params.id })
+            ctx.set.status = 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to update turn strategy',
+            }
+          }
+        }, {
+          body: t.Object({
+            strategy: t.String(),
+            config: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
+            400: t.Object({ success: t.Literal(false), error: t.String() }),
+          },
+        })
+
+        .patch('/:id/status', async (ctx) => {
+          try {
+            const body: { status: string } | undefined = ctx.body
+            const statusValue = body?.status
+            const validStatuses = Object.values(DiscussionStatus) as string[]
+            if (!statusValue || !validStatuses.includes(statusValue)) {
+              ctx.set.status = 400
+              return {
+                success: false,
+                error: `Invalid status. Valid values: ${validStatuses.join(', ')}`,
+              }
+            }
+            const discussion = await discussionService.updateDiscussion(ctx.params.id, {
+              status: statusValue as DiscussionStatus,
+            })
+            return { success: true, data: discussion }
+          } catch (error) {
+            logger.error('Failed to update discussion status', { error, id: ctx.params.id })
+            ctx.set.status = 400
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : 'Failed to update discussion status',
+            }
+          }
+        }, {
+          body: t.Object({ status: t.String() }),
+          response: {
+            200: t.Object({ success: t.Literal(true), data: t.Any() }),
             400: t.Object({ success: t.Literal(false), error: t.String() }),
           },
         })

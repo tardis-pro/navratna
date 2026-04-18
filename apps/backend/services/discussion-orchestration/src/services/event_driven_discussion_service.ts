@@ -1,7 +1,19 @@
 /**
- * Event-Driven Discussion Service
- * Replaces direct API calls with event bus communication
- * Zero Trust Architecture Implementation
+ * @deprecated PM-324: This service uses a custom event-bus RPC pattern (publishAndWait).
+ * All discussion operations are now available as direct Elysia HTTP routes in
+ * `discussion_routes.ts`:
+ *   - createDiscussion   → POST   /api/v1/discussions
+ *   - getDiscussion      → GET    /api/v1/discussions/:id
+ *   - updateStatus       → PATCH  /api/v1/discussions/:id/status
+ *   - startDiscussion    → POST   /api/v1/discussions/:id/start
+ *   - endDiscussion      → POST   /api/v1/discussions/:id/end
+ *   - addMessage         → POST   /api/v1/discussions/:id/participants/:pid/messages
+ *   - updateTurnStrategy → PUT    /api/v1/discussions/:id/turn-strategy
+ *   - addAgent           → POST   /api/v1/discussions/:id/participants
+ *   - removeAgent        → DELETE /api/v1/discussions/:id/participants/:pid
+ *
+ * Do not instantiate or extend this class for new features. Remove once all
+ * callers are confirmed gone.
  */
 
 import { EventEmitter } from 'events';
