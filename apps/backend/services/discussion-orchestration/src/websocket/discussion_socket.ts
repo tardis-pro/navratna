@@ -131,6 +131,7 @@ export function setupWebSocketHandlers(
       if (!token) {
         token = extractAccessTokenFromCookieHeader(socket.handshake.headers.cookie);
         if (token) authMethod = 'cookie';
+      }
 
       if (!token) {
         logger.warn('WebSocket connection attempted without token', {
