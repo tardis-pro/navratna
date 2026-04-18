@@ -266,6 +266,73 @@ function ${functionName}() {
 // ${functionName}();`;
   }
 
+  async generateFunction(
+    signature: string,
+    description: string,
+    language: string
+  ): Promise<string> {
+    const request: ArtifactRequest = {
+      type: 'code',
+      language,
+      context: `Function signature: ${signature}\nDescription: ${description}`,
+      requirements: [description],
+      constraints: [`signature: ${signature}`],
+    };
+
+    try {
+      const response = await LLMService.getInstance().generateArtifact(request);
+      if (response.content && !response.error) {
+        return response.content;
+      }
+    } catch (llmError) {
+      logger.warn('LLM generateFunction failed, using template fallback', {
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      });
+    }
+
+    const lang = language.toLowerCase();
+    if (lang === 'python') {
+      return `def ${this.extractFunctionNameFromSignature(signature)}():\n    """${description}"""\n    raise NotImplementedError`;
+    }
+    return `export function ${this.extractFunctionNameFromSignature(signature)}() {\n  // ${description}\n  throw new Error('Not implemented');\n}`;
+  }
+
+  async generateClass(
+    className: string,
+    methods: string[],
+    description: string
+  ): Promise<string> {
+    const methodList = methods.join(', ');
+    const request: ArtifactRequest = {
+      type: 'code',
+      language: 'typescript',
+      context: `Class name: ${className}\nDescription: ${description}\nMethods: ${methodList}`,
+      requirements: [description, `Implement methods: ${methodList}`],
+    };
+
+    try {
+      const response = await LLMService.getInstance().generateArtifact(request);
+      if (response.content && !response.error) {
+        return response.content;
+      }
+    } catch (llmError) {
+      logger.warn('LLM generateClass failed, using template fallback', {
+        error: llmError instanceof Error ? llmError.message : String(llmError),
+      });
+    }
+
+    const methodStubs = methods
+      .map((m) => `  ${m}() {\n    throw new Error('Not implemented');\n  }`)
+      .join('\n\n');
+
+    return `export class ${className} {\n${methodStubs}\n}`;
+  }
+
+  private extractFunctionNameFromSignature(signature: string): string {
+    const match = signature.match(/(?:function\s+)?(\w+)\s*\(/);
+    return match?.[1] ?? 'generatedFunction';
+  }
+
   private capitalizeFirst(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
