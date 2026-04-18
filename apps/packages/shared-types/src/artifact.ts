@@ -13,7 +13,8 @@ export type ArtifactType =
   | 'report'
   | 'analysis'
   | 'code-diff'
-  | 'workflow';
+  | 'workflow'
+  | 'canva-design';
 
 export type ValidationStatus = 'pending' | 'valid' | 'invalid' | 'warning';
 
@@ -52,8 +53,16 @@ export interface ArtifactMetadata {
   author?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  generatedBy?: string; // Added for service tracking
-  template?: string; // Added for template tracking
+  generatedBy?: string;
+  template?: string;
+}
+
+export interface CanvaDesignArtifactMetadata extends ArtifactMetadata {
+  canva_design_id: string;
+  canva_source_url: string;
+  canva_template_id?: string;
+  export_format?: 'png' | 'pdf' | 'mp4';
+  export_url?: string;
 }
 
 export interface TraceabilityInfo {
