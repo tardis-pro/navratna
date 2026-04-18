@@ -18,4 +18,5 @@ export type {
   FrontendConfig,
   NotificationsConfig,
   SecurityConfig,
+  CanvaConfig,
 } from './config.js';

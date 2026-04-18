@@ -214,6 +214,12 @@ export interface SecurityConfig {
   encryptionAlgorithm: string;
 }
 
+export interface CanvaConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
 export interface CookieConfig {
   /** Cookie domain for cross-subdomain SSO (e.g. '.tardis.digital') */
   domain?: string;
@@ -240,6 +246,7 @@ export interface Config {
   orchestration: OrchestrationConfig;
   security: SecurityConfig;
   cookie: CookieConfig;
+  canva: CanvaConfig;
   port: number;
   environment: string;
   enterprise: {
@@ -552,6 +559,11 @@ const defaultConfig: Config = {
   security: {
     encryptionKey: process.env.ENCRYPTION_KEY || 'uaip_dev_encryption_key_change_in_production',
     encryptionAlgorithm: process.env.ENCRYPTION_ALGORITHM || 'aes-256-gcm',
+  },
+  canva: {
+    clientId: process.env.CANVA_CLIENT_ID ?? '',
+    clientSecret: process.env.CANVA_CLIENT_SECRET ?? '',
+    redirectUri: process.env.CANVA_REDIRECT_URI ?? '',
   },
   cookie: {
     domain: process.env.COOKIE_DOMAIN || undefined,

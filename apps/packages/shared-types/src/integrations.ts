@@ -458,7 +458,11 @@ export interface FramerPrototypeResult {
   error?: string;
 }
 
-// ─── Shared Adapter Interface ────────────────────────────────────────────
+export interface CanvaAdapterConfig {
+  clientId?: string;
+  clientSecret?: string;
+  redirectUri?: string;
+}
 
 export interface IntegrationHealthCheck {
   provider: IntegrationProvider;
