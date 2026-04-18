@@ -573,7 +573,7 @@ export function registerDiscussionRoutes(
 
         .put('/:id/turn-strategy', async (ctx) => {
           try {
-            const body: { strategy: string; config?: Record<string, unknown> } | undefined = ctx.body
+            const body = ctx.body as { strategy: string; config?: Record<string, unknown> } | undefined
             const strategyValue = body?.strategy
             const validStrategies = Object.values(TurnStrategy) as string[]
             if (!strategyValue || !validStrategies.includes(strategyValue)) {
@@ -611,7 +611,7 @@ export function registerDiscussionRoutes(
 
         .patch('/:id/status', async (ctx) => {
           try {
-            const body: { status: string } | undefined = ctx.body
+            const body = ctx.body as { status: string } | undefined
             const statusValue = body?.status
             const validStatuses = Object.values(DiscussionStatus) as string[]
             if (!statusValue || !validStatuses.includes(statusValue)) {

@@ -44,7 +44,7 @@ export class WorkflowStateHandler {
   }
 
   async subscribe(): Promise<void> {
-    await this.bus.subscribe('workflow.state-changed', async (event: EventBusMessage) => {
+    await this.bus.subscribe('workflow.state-changed', async (event) => {
       try {
         const payload = toWorkflowStateChangedData(event.data);
         if (!payload) {
