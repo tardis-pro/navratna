@@ -3,6 +3,8 @@ import {
   ArtifactGenerationTemplate as ArtifactTemplate,
   ArtifactConversationContext as GenerationContext,
   type ConversationMessage,
+  type ArtifactType,
+  type ValidationResult,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
@@ -165,6 +167,53 @@ export class TemplateManager implements ITemplateManager {
       }
     }
     return 'DataProcessor';
+  }
+
+  loadTemplate(id: string): ArtifactTemplate {
+    const tmpl = this.templates.get(id);
+    if (!tmpl) {
+      throw new Error(`Template not found: ${id}`);
+    }
+    return tmpl;
+  }
+
+  substituteVariables(template: ArtifactTemplate, vars: Record<string, string>): string {
+    let result = template.template;
+    for (const [key, value] of Object.entries(vars)) {
+      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+    }
+    return result;
+  }
+
+  validateOutput(content: string, type: ArtifactType): ValidationResult {
+    const errors: ValidationResult['errors'] = [];
+    const warnings: ValidationResult['warnings'] = [];
+
+    if (!content || content.trim().length === 0) {
+      errors.push({ code: 'EMPTY_CONTENT', message: 'Generated content is empty', severity: 'error' });
+    }
+
+    if (type === 'code' || type === 'test') {
+      if (content.includes('TODO:') || content.includes('throw new Error(\'Not implemented\')')) {
+        warnings.push({ code: 'INCOMPLETE_IMPL', message: 'Generated code contains unimplemented placeholders', severity: 'warning' });
+      }
+    }
+
+    if (type === 'prd') {
+      if (!content.includes('##')) {
+        warnings.push({ code: 'MISSING_SECTIONS', message: 'PRD may be missing required section headers', severity: 'warning' });
+      }
+    }
+
+    const isValid = errors.length === 0;
+    return {
+      status: isValid ? (warnings.length > 0 ? 'warning' : 'valid') : 'invalid',
+      isValid,
+      errors,
+      warnings,
+      suggestions: warnings.map((w) => w.message),
+      score: isValid ? Math.max(0.5, 1 - warnings.length * 0.1) : 0,
+    };
   }
 
   private initializeDefaultTemplates(): void {
