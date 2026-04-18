@@ -15,8 +15,6 @@
       "@uaip/shared-services/*": ["../../../shared/services/src/*"],
       "@uaip/middleware": ["../../../shared/middleware/src"],
       "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
-      "@uaip/llm-service": ["../../../shared/llm-service/src"],
-      "@uaip/llm-service/*": ["../../../shared/llm-service/src/*"],
       "@uaip/infra": ["../../../shared/infra/src"],
       "@uaip/infra/*": ["../../../shared/infra/src/*"]
     },
@@ -44,6 +42,9 @@
     },
     {
       "path": "../../../shared/config"
+    },
+    {
+      "path": "../../../shared/llm-service"
     }
   ],
   "include": ["src/**/*"],

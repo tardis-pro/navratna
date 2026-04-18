@@ -520,6 +520,9 @@ importers:
       '@uaip/infra':
         specifier: workspace:*
         version: link:../../../shared/infra
+      '@uaip/llm-service':
+        specifier: workspace:*
+        version: link:../../../shared/llm-service
       '@uaip/middleware':
         specifier: workspace:*
         version: link:../../../shared/middleware
