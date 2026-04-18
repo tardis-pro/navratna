@@ -1,11 +1,18 @@
 import crypto from 'crypto';
 import { logger } from '@uaip/utils';
-import { getControlDb } from '../database/drizzle/clients/index';
+import { getControlDb, type ControlDB } from '../database/drizzle/clients/index';
 import { eq, and, gte, lte, desc, asc, sql } from 'drizzle-orm';
 import {
   compositionAuditEvents,
   type CompositionAuditEvent,
 } from '../database/drizzle/schemas/control_schema';
+
+/**
+ * Stable numeric key for pg_advisory_xact_lock used by appendEvent().
+ * Chosen to be unique within the application's lock namespace.
+ * Lock is transaction-scoped and released automatically on commit/rollback.
+ */
+const AUDIT_CHAIN_LOCK_KEY = 1_889_735_670;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,10 +70,8 @@ export interface AuditTrailResult {
  *   - The first event in a chain has previousHash = null; its hash input
  *     uses the empty string for the previous-hash segment.
  *
- * Known limitation: `appendEvent()` uses a read-then-insert pattern which has
- * a race condition under concurrent writes. In practice, composition audit
- * events are low-frequency (one per user action) making collisions negligible.
- * If needed, upgrade to an advisory lock or CTE-based atomic insert.
+ * Concurrency: `appendEvent()` acquires `pg_advisory_xact_lock` within a
+ * transaction to serialize concurrent appends and preserve chain integrity.
  */
 export class ImmutableAuditService {
   private static instance: ImmutableAuditService;
@@ -82,49 +87,50 @@ export class ImmutableAuditService {
   // Append
   // -----------------------------------------------------------------------
 
-  /**
-   * Append a single audit event to the immutable log.
-   * Computes the linear hash chain link automatically.
-   */
   async appendEvent(input: CompositionAuditEventInput): Promise<CompositionAuditEvent> {
     const db = getControlDb();
     const now = new Date();
 
-    // Fetch the most recent event to obtain its hash for chaining.
-    const [lastEvent] = await db
-      .select({ currentHash: compositionAuditEvents.currentHash })
-      .from(compositionAuditEvents)
-      .orderBy(desc(compositionAuditEvents.createdAt))
-      .limit(1);
+    const inserted = await db.transaction(async (tx: ControlDB) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_LOCK_KEY})`);
 
-    const previousHash: string | null = lastEvent?.currentHash ?? null;
-    const currentHash = this.computeHash(
-      previousHash ?? '',
-      input.eventType,
-      now.toISOString(),
-      input.details,
-    );
+      const [lastEvent] = await tx
+        .select({ currentHash: compositionAuditEvents.currentHash })
+        .from(compositionAuditEvents)
+        .orderBy(desc(compositionAuditEvents.createdAt))
+        .limit(1);
 
-    const [inserted] = await db
-      .insert(compositionAuditEvents)
-      .values({
-        eventType: input.eventType,
-        entityType: input.entityType,
-        entityId: input.entityId,
-        actorType: input.actorType,
-        actorId: input.actorId,
-        details: input.details,
-        previousHash,
-        currentHash,
-        createdAt: now,
-      })
-      .returning();
+      const previousHash: string | null = lastEvent?.currentHash ?? null;
+      const currentHash = this.computeHash(
+        previousHash ?? '',
+        input.eventType,
+        now.toISOString(),
+        input.details,
+      );
+
+      const [row] = await tx
+        .insert(compositionAuditEvents)
+        .values({
+          eventType: input.eventType,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          actorType: input.actorType,
+          actorId: input.actorId,
+          details: input.details,
+          previousHash,
+          currentHash,
+          createdAt: now,
+        })
+        .returning();
+
+      return row;
+    });
 
     logger.info('Composition audit event appended', {
       eventId: inserted.id,
       eventType: input.eventType,
       entityId: input.entityId,
-      currentHash,
+      currentHash: inserted.currentHash,
     });
 
     return inserted;
