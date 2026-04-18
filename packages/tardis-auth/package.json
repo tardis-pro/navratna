@@ -21,6 +21,10 @@
   "dependencies": {
     "jose": "^6.0.0"
   },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "typescript": "catalog:"
+  },
   "peerDependencies": {
     "elysia": ">=1.0.0",
     "express": ">=4.0.0",

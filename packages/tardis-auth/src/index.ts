@@ -1,5 +1,30 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 
+type GettableHeaders = { get(name: string): string | null };
+type RecordHeaders = Record<string, string | string[] | undefined>;
+type HeadersLike = GettableHeaders | RecordHeaders;
+
+/**
+ * Shape consumed by {@link TardisAuth.extractToken}. Both Node.js
+ * `IncomingMessage` (record-style headers) and Fetch `Request` (Headers
+ * instance) satisfy this structurally, so callers across Elysia/Hono/Express
+ * can pass their native request object without casts.
+ */
+export interface ExtractTokenRequest {
+  headers: HeadersLike;
+}
+
+function readHeader(headers: HeadersLike, name: string): string | null {
+  if (typeof (headers as GettableHeaders).get === "function") {
+    const value = (headers as GettableHeaders).get(name);
+    return typeof value === "string" ? value : null;
+  }
+  const bag = headers as RecordHeaders;
+  const raw = bag[name] ?? bag[name.toLowerCase()];
+  if (Array.isArray(raw)) return raw[0] ?? null;
+  return typeof raw === "string" ? raw : null;
+}
+
 /**
  * Authenticated user payload extracted from a TARDIS JWT.
  */
@@ -83,38 +108,17 @@ export class TardisAuth {
    *
    * @returns The raw JWT string, or null if not found.
    */
-  extractToken(request: {
-    headers: { get?: (name: string) => string | null | undefined; [key: string]: unknown };
-    [key: string]: unknown;
-  }): string | null {
-    // Support both Headers (fetch API) and plain object (node http)
-    let authHeader: string | null | undefined;
-    if (typeof request.headers.get === "function") {
-      authHeader = request.headers.get("authorization");
-    } else {
-      authHeader = (request.headers as Record<string, string | undefined>)[
-        "authorization"
-      ];
-    }
-
+  extractToken(request: ExtractTokenRequest): string | null {
+    const authHeader = readHeader(request.headers, "authorization");
     if (authHeader?.startsWith("Bearer ")) {
       return authHeader.slice(7);
     }
 
-    // Try cookie header
-    let cookieHeader: string | null | undefined;
-    if (typeof request.headers.get === "function") {
-      cookieHeader = request.headers.get("cookie");
-    } else {
-      cookieHeader = (request.headers as Record<string, string | undefined>)[
-        "cookie"
-      ];
-    }
-
+    const cookieHeader = readHeader(request.headers, "cookie");
     if (cookieHeader) {
       const match = cookieHeader.match(/(?:^|;\s*)access_token=([^;]+)/);
       if (match) {
-        return match[1];
+        return match[1] ?? null;
       }
     }
 
