@@ -32,7 +32,10 @@
     "test:integration:oauth": "./scripts/run-integration-tests.sh oauth",
     "test:integration:security": "./scripts/run-integration-tests.sh security",
     "test:integration:coverage": "./scripts/run-integration-tests.sh coverage",
-    "test:integration:cleanup": "./scripts/run-integration-tests.sh cleanup"
+    "test:integration:cleanup": "./scripts/run-integration-tests.sh cleanup",
+    "test:smoke": "./scripts/smoke-test-core.sh && ./scripts/smoke-test-gateway.sh",
+    "test:smoke:core": "./scripts/smoke-test-core.sh",
+    "test:smoke:gateway": "./scripts/smoke-test-gateway.sh"
   },
   "devDependencies": {
     "@macrodata/opencode": "^0.2.1",

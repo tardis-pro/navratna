@@ -1,6 +1,7 @@
 import type { Elysia } from 'elysia'
 import type { DatabaseService } from '@uaip/infra/database'
 import type { EventBusService } from './event_bus_service.js'
+import { logger } from '@uaip/utils'
 
 /**
  * Structural subset of socket.io Server. Avoids hard dependency on socket.io
@@ -56,8 +57,17 @@ export class FeatureFactory {
   }
 
   mountWebSocket(io: MinimalWebSocketServer): void {
-    for (const f of this.features) {
-      f.websocket?.(io)
+    if (!io) {
+      logger.error('FeatureFactory.mountWebSocket: io is null/undefined — WebSocket handlers will not be bound')
+      return
+    }
+    const wsFeatures = this.features.filter((f) => typeof f.websocket === 'function')
+    if (wsFeatures.length === 0) {
+      logger.warn('FeatureFactory.mountWebSocket: no features have websocket handlers registered')
+    }
+    for (const f of wsFeatures) {
+      logger.info(`FeatureFactory: binding WebSocket handlers for feature "${f.name}"`)
+      f.websocket!(io)
     }
   }
 

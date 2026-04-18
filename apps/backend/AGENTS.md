@@ -68,9 +68,32 @@ docker compose -f infrastructure/docker-compose.infrastructure.yml up -d
 | API test collection entry | `UAIP_Backend_API_Collection.postman_collection.json`          |
 | Shared backend script     | Root `scripts/` (not here)                                     |
 
+## ROUTE PARITY STATUS
+
+See `docs/audits/PM-200-route-parity-audit.md` for full audit.
+
+### navratna-core (port 3001) — ~97% parity with legacy services
+
+Consolidated: agent-intelligence + discussion-orchestration + artifact-service + llm-service.
+
+- **Covered**: All extracted route files from all 4 legacy services + cognitive portrait routes
+- **Missing**: `GET /api/v1/info`, `GET /api/v1/users/online`, WhatsApp status, debug routes (all low-priority)
+- **Smoke tests**: `scripts/smoke-test-core.sh` (14 route groups)
+
+### navratna-gateway (port 3002) — ~95% parity with legacy services
+
+Consolidated: security-gateway + orchestration-pipeline + capability-registry.
+
+- **Covered**: All auth, security, orchestration, capability, tools, workspace, federation routes
+- **Missing**: `GET/POST /api/v1/operations`, GitHub/Jira webhook routes in `orchestrationFeature.ts`
+- **Note**: `app.ts` type stub includes GH/Jira webhooks but `orchestrationFeature.ts` does not — they are inactive in production
+- **Smoke tests**: `scripts/smoke-test-gateway.sh` (20+ route groups)
+
 ## NOTES
 
 - `SERVICE_ARCHITECTURE.md` references RabbitMQ — stale. BullMQ on Redis is the event bus.
 - `package.json` here is the backend workspace root (NX workspace member) — not the repo root.
 - `.env` lives here — derived from `sample.env` at repo root. Never commit it.
 - `test-*.sh` scripts are manual smoke tests — not wired to CI.
+- `scripts/smoke-test-core.sh` and `scripts/smoke-test-gateway.sh` test v3 route coverage — run against local stack after `docker compose up`.
+- `pnpm test:smoke` in workspace root runs both smoke scripts.

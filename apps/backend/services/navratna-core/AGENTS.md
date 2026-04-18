@@ -30,14 +30,27 @@ Exposed at: `POST /api/v1/knowledge/ingest` — accepts `{ repoUrl, branch?, dep
 
 ### Imported routes
 
-| Import                        | Source                                                  | Exposes                                             |
-| ----------------------------- | ------------------------------------------------------- | --------------------------------------------------- |
-| `registerAgentRoutes`         | `agent-intelligence/src/routes/agent.routes.ts`         | **ONE route only**: `POST /api/v1/agents/relevance` |
-| `registerConstellationRoutes` | `agent-intelligence/src/routes/constellation.routes.ts` | `POST /api/v1/knowledge/constellations`             |
-| `registerArtifactRoutes`      | `artifact-service/src/routes/artifactRoutes.ts`         | 8 routes under `/api/v1/artifacts`                  |
-| `registerShortLinkRoutes`     | `artifact-service/src/routes/shortLinkRoutes.ts`        | 7 routes under `/api/v1/links` + `/s/:shortCode`    |
-| `registerLLMRoutes`           | `llm-service/src/routes/llm.routes.ts`                  | 17 routes under `/api/v1/llm`                       |
-| `registerUserLLMRoutes`       | `llm-service/src/routes/user-llm.routes.ts`             | 13 routes under `/api/v1/user/llm`                  |
+Registered via `FeatureFactory.mountRoutes()` through the feature instances in `index.ts`. Also declared as a type stub in `src/app.ts`.
+
+| Import                           | Source                                                             | Exposes                                                                   |
+| -------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `registerAgentRoutes`            | `agent-intelligence/src/routes/agent_routes.ts`                    | `POST /api/v1/agents/relevance`                                           |
+| `registerAgentCrudRoutes`        | `agent-intelligence/src/routes/agents_crud_routes.ts`              | Agent CRUD under `/api/v1/agents`                                         |
+| `registerAgentChatRoutes`        | `agent-intelligence/src/routes/agent_chat_routes.ts`               | `POST /api/v1/agents/:id/chat`, approvals                                 |
+| `registerAgentCapabilityRoutes`  | `agent-intelligence/src/routes/agent_capability_routes.ts`         | Capability/learning routes under `/api/v1/agents`                         |
+| `registerAgentMemoryRoutes`      | `agent-intelligence/src/routes/agent_memory_routes.ts`             | Memory CRUD under `/api/v1/agents/:id/memory`                             |
+| `registerConstellationRoutes`    | `agent-intelligence/src/routes/constellation_routes.ts`            | `POST /api/v1/knowledge/constellations`                                   |
+| `registerCognitivePortraitRoutes`| `agent-intelligence/src/routes/cognitive_portrait_routes.ts`       | `GET/POST /api/v1/users/:userId/cognitive-portrait`, personalization      |
+| `registerPersonaRoutes`          | `discussion-orchestration/src/routes/persona_routes.ts`            | Persona CRUD under `/api/v1/personas`                                     |
+| `registerDiscussionRoutes`       | `discussion-orchestration/src/routes/discussion_routes.ts`         | Discussion CRUD + messaging under `/api/v1/discussions`                   |
+| `registerArtifactRoutes`         | `artifact-service/src/routes/artifact_routes.ts`                   | 8 routes under `/api/v1/artifacts`                                        |
+| `registerShortLinkRoutes`        | `artifact-service/src/routes/short_link_routes.ts`                 | 7 routes under `/api/v1/links` + `/s/:shortCode`                          |
+| `registerLLMRoutes`              | `llm-service/src/routes/llm_routes.ts`                             | 17 routes under `/api/v1/llm`                                             |
+| `registerUserLLMRoutes`          | `llm-service/src/routes/user_llm_routes.ts`                        | 13 routes under `/api/v1/user/llm`                                        |
+| `registerKnowledgeIngestRoutes`  | `navratna-core/src/routes/knowledge_ingest_routes.ts`              | `POST /api/v1/knowledge/ingest`                                           |
+| `registerDeploymentRoutes`       | `navratna-core/src/deployment/deployment_routes.ts`                | Deployment management under `/api/v1/deploy`                              |
+| `registerOnboardingRoutes`       | `navratna-core/src/onboarding/onboarding_routes.ts`                | Onboarding config generation                                              |
+| `registerCompositionRoutes`      | `navratna-core/src/composition/composition_routes.ts`              | Workflow composition under `/api/v1/compose`                              |
 
 ### ⚠️ CRITICAL GAP
 
@@ -58,10 +71,16 @@ Imported: `UserChatHandler`, `ConversationIntelligenceHandler`, `TaskNotificatio
 
 ## WHAT IT EXPOSES
 
+- Agent CRUD, chat, capability, memory routes (`/api/v1/agents`)
 - `POST /api/v1/agents/relevance` — relevance scoring
 - `POST /api/v1/knowledge/constellations` — multi-agent constellation coordination
-- `POST /api/v1/knowledge/ingest` — repo ingestion (native service)
+- `GET/POST /api/v1/users/:userId/cognitive-portrait` — cognitive portrait + calibration
+- `GET /api/v1/users/:userId/personalization-vector` — per-user personalization
+- Persona CRUD (`/api/v1/personas`)
+- Discussion CRUD + messaging (`/api/v1/discussions`)
 - All artifact, short-link, LLM, and user-LLM routes (see service AGENTS.md files)
+- `POST /api/v1/knowledge/ingest` — repo ingestion (native service)
+- Deployment, onboarding, and composition routes
 - `GET /health`
 - Socket.IO namespaces (4)
 
