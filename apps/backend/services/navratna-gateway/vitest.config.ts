@@ -12,6 +12,11 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
       exclude: ['node_modules', 'dist', 'src/__tests__', '**/*.test.ts', '**/*.config.ts'],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 70,
+      },
     },
     testTimeout: 10000,
     hookTimeout: 10000,
