@@ -101,8 +101,7 @@ export class SimplifiedSyncService {
     try {
       const result = await this.graphDb.runQuery(
         `
-        MATCH (n)
-        WHERE n.content IS NOT NULL
+        MATCH (n:KnowledgeItem) WHERE n.content IS NOT NULL
         RETURN 
           COALESCE(n.id, toString(id(n))) as id,
           n.content as content,
@@ -238,8 +237,7 @@ export class SimplifiedSyncService {
       // Count Neo4j items
       const neo4jResult = await this.graphDb.runQuery(
         `
-        MATCH (n)
-        WHERE n.content IS NOT NULL
+        MATCH (n:KnowledgeItem) WHERE n.content IS NOT NULL
         RETURN count(n) as count
       `,
         {}

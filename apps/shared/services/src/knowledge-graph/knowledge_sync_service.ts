@@ -716,7 +716,7 @@ export class KnowledgeSyncService {
         try {
             const neo4jResult = await this.graphDb.runQuery(
                 `
-        MATCH (n)
+        MATCH (n:KnowledgeItem) WHERE n.id IS NOT NULL
         RETURN
           COALESCE(n.id, toString(id(n))) as id,
           COALESCE(n.content, n.name, n.title, 'Auto-generated content') as content,
@@ -991,12 +991,18 @@ export class KnowledgeSyncService {
             }
 
             // Add KnowledgeItem label to the existing node and update properties
+            if (!pgEntity.userId) {
+                logger.warn(`Skipping Neo4j conversion for ${item.id}: userId is required`);
+                return;
+            }
+
             const cypher = `
-        MATCH (n)
-        WHERE n.name = $content OR n.title = $content OR n.content = $content
-           OR (n.id IS NOT NULL AND n.id = $oldId)
+        MATCH (n) WHERE (n.name = $content OR n.title = $content OR n.content = $content
+           OR (n.id IS NOT NULL AND n.id = $oldId))
+           AND (n.userId = $userId OR n.userId IS NULL)
         SET n:KnowledgeItem,
             n.id = $newId,
+            n.userId = $userId,
             n.content = $content,
             n.type = $type,
             n.sourceType = $sourceType,
@@ -1013,6 +1019,7 @@ export class KnowledgeSyncService {
       `;
 
             const params = {
+                userId: pgEntity.userId,
                 oldId: (() => {
                     const orig = item.metadata.originalProperties;
                     if (typeof orig !== 'object' || orig === null || !('id' in orig)) return null;

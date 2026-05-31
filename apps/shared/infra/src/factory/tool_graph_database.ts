@@ -66,7 +66,7 @@ export class ToolGraphDatabase {
 
       // Verify connection
       const session = await this.getSession();
-      await session.run('MATCH (n) RETURN n LIMIT 1');
+      await session.run('RETURN 1');
       await session.close();
 
       this.isInitialized = true;
