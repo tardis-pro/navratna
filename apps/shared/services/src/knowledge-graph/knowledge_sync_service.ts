@@ -871,23 +871,12 @@ export class KnowledgeSyncService {
         return result;
     }
 
-    /**
-     * Scroll through all Qdrant points (since there's no "get all" method)
-     */
-    private async scrollAllQdrantPoints(): Promise<QdrantPoint[]> {
-        // This is a simplified version - in practice you'd use Qdrant's scroll API
-        // For now, we'll use a high limit search with a dummy vector
+    private async scrollAllQdrantPoints(tenantId: string = 'system'): Promise<QdrantPoint[]> {
         try {
-            const dummyVector = new Array(768).fill(0); // Adjust dimensions as needed
-            const searchResult = await this.qdrantService.search(dummyVector, {
-                limit: 10000, // High limit to get all points
-                threshold: 0, // Very low threshold to get all points
-                filters: {},
-            });
-
-            return searchResult.map((r) => ({ payload: r.payload }));
+            const rawPoints = await this.qdrantService.scrollAllQdrantPoints(tenantId, 10000);
+            return rawPoints.map((r) => ({ payload: r.payload }));
         } catch (error) {
-            logger.warn('Failed to scroll Qdrant points:', error);
+            logger.warn('Failed to scroll Qdrant points', { error: error instanceof Error ? error.message : String(error) });
             return [];
         }
     }

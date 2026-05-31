@@ -869,13 +869,13 @@ export class KnowledgeSyncService {
   /**
    * Scroll through all Qdrant points (since there's no "get all" method)
    */
-  private async scrollAllQdrantPoints(): Promise<
-    Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>
-  > {
+  private async scrollAllQdrantPoints(
+    tenantId: string = 'system'
+  ): Promise<Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>> {
     try {
-      return await this.qdrantService.scrollAll(10000);
+      return await this.qdrantService.scrollAllQdrantPoints(tenantId, 10000);
     } catch (error) {
-      logger.warn('Failed to scroll Qdrant points:', error);
+      logger.warn('Failed to scroll Qdrant points', { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }

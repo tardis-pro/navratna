@@ -865,6 +865,7 @@ export interface VectorSearchOptions {
   limit: number;
   threshold?: number;
   filters?: Record<string, unknown>;
+  tenantId?: string;
 }
 
 export interface VectorSearchResult {

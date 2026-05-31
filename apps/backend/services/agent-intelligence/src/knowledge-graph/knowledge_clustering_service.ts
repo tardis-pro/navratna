@@ -73,10 +73,11 @@ export class KnowledgeClusteringService {
    */
   async clusterSimilarKnowledge(
     minClusterSize: number = this.minClusterSize,
-    similarityThreshold: number = this.similarityThreshold
+    similarityThreshold: number = this.similarityThreshold,
+    tenantId: string = 'system'
   ): Promise<ClusteringResult> {
     // 1. Get all vectors from Qdrant
-    const allPoints = await this.getAllQdrantPoints();
+    const allPoints = await this.getAllQdrantPoints(tenantId);
 
     if (allPoints.length < minClusterSize) {
       return {
@@ -212,9 +213,9 @@ export class KnowledgeClusteringService {
   /**
    * Get all points from Qdrant collection
    */
-  private async getAllQdrantPoints(): Promise<QdrantPoint[]> {
+  private async getAllQdrantPoints(tenantId: string): Promise<QdrantPoint[]> {
     try {
-      const rawPoints = await this.qdrantService.scrollAll(10000);
+      const rawPoints = await this.qdrantService.scrollAllQdrantPoints(tenantId, 10000);
       return rawPoints.map((point) => {
         const knowledgeTypeRaw = point.payload.knowledgeType;
         const knowledgeType: KnowledgeType = isKnowledgeType(knowledgeTypeRaw) ? knowledgeTypeRaw : KnowledgeType.FACTUAL;

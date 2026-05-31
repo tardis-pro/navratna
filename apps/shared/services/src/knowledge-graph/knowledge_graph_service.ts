@@ -14,7 +14,7 @@ import {
   ChatIngestionOptions,
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { QdrantService } from '../qdrant_service';
+import { QdrantService, buildVectorFilters } from '../qdrant_service';
 import { KnowledgeRepository } from '../database/repositories/knowledge_repository';
 import { EmbeddingService } from './embedding_service';
 import { ContentClassifier } from './content_classifier_service';
@@ -135,14 +135,15 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       if (query && query.trim()) {
         try {
           const queryEmbedding = await this.embeddings.generateEmbedding(query);
-          const vectorFilters = this.buildVectorFilters(filters, scope);
+          const tenantId = scope?.userId ?? scope?.agentId ?? filters?.organizationId ?? 'system';
+          this.buildKnowledgeVectorFilters(tenantId, filters, scope);
 
           vectorResults = await this.searchAcrossCollections(
             queryEmbedding,
             {
               limit: options?.limit || 20,
               threshold: options?.similarityThreshold || 0.7,
-              filters: vectorFilters,
+              tenantId,
             },
             filters
           );
@@ -152,11 +153,9 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
             limit: options?.limit,
           });
         } catch (vectorError) {
-          // If vector search fails, fall back to repository search
-          console.warn(
-            'Vector search failed, falling back to repository search:',
-            vectorError.message
-          );
+          logger.warn('Vector search failed, falling back to repository search', {
+            error: vectorError instanceof Error ? vectorError.message : String(vectorError),
+          });
           filteredResults = await this.repository.applyFilters({
             ...(scope || {}),
             ...filters,
@@ -514,22 +513,27 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
   private async searchAcrossCollections(
     queryEmbedding: number[],
-    options: { limit: number; threshold: number; filters?: Record<string, unknown> },
+    options: { limit: number; threshold: number; filters?: Record<string, unknown>; tenantId: string },
     filters?: KnowledgeFilters
   ): Promise<VectorSearchResult[]> {
     const requestedTypes = filters?.types || [];
+    const searchOptions: { limit: number; threshold: number; tenantId: string } = {
+      limit: options.limit,
+      threshold: options.threshold,
+      tenantId: options.tenantId,
+    };
 
     if (requestedTypes.length === 1 && requestedTypes[0] === KnowledgeType.EPISODIC) {
-      return this.vectorDb.search(queryEmbedding, options, { collection: 'episodic' });
+      return this.vectorDb.search(queryEmbedding, searchOptions, { collection: 'episodic' });
     }
 
     if (requestedTypes.length === 1 && requestedTypes[0] === KnowledgeType.SEMANTIC) {
-      return this.vectorDb.search(queryEmbedding, options, { collection: 'semantic' });
+      return this.vectorDb.search(queryEmbedding, searchOptions, { collection: 'semantic' });
     }
 
     const [semanticResults, episodicResults] = await Promise.all([
-      this.vectorDb.search(queryEmbedding, options, { collection: 'semantic' }),
-      this.vectorDb.search(queryEmbedding, options, { collection: 'episodic' }),
+      this.vectorDb.search(queryEmbedding, searchOptions, { collection: 'semantic' }),
+      this.vectorDb.search(queryEmbedding, searchOptions, { collection: 'episodic' }),
     ]);
 
     const merged = new Map<string, VectorSearchResult>();
@@ -545,20 +549,18 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       .slice(0, options.limit);
   }
 
-  // Private helper methods
-  private buildVectorFilters(
+  private buildKnowledgeVectorFilters(
+    tenantId: string,
     filters?: KnowledgeFilters,
-    scope?: KnowledgeScope
+    _scope?: KnowledgeScope
   ): Record<string, unknown> {
-    if (!filters) return {};
+    const additionalFilters: Record<string, string | number | undefined> = {};
 
-    return {
-      tags: filters.tags,
-      types: filters.types,
-      confidence: filters.confidence,
-      sourceTypes: filters.sourceTypes,
-      scope: scope,
-    };
+    if (filters?.sourceTypes?.length) {
+      additionalFilters['source_type'] = filters.sourceTypes[0];
+    }
+
+    return buildVectorFilters(tenantId, additionalFilters);
   }
 
   private async enhanceWithRelationships(

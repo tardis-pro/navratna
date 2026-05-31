@@ -5,6 +5,41 @@ import type {
   VectorSearchOptions,
 } from '@uaip/types';
 import { config } from '@uaip/config';
+import { createLogger } from '@uaip/utils';
+
+const logger = createLogger({
+  serviceName: 'qdrant-service',
+  environment: process.env.NODE_ENV || 'development',
+  logLevel: process.env.LOG_LEVEL || 'info',
+});
+
+/**
+ * Build a valid Qdrant filter with mandatory tenant isolation.
+ * Qdrant filter format: { must: [{ key, match: { value } }, ...] }
+ * tenantId is REQUIRED — throws if not provided.
+ */
+export function buildVectorFilters(
+  tenantId: string,
+  additionalFilters?: Record<string, unknown>
+): Record<string, unknown> {
+  if (!tenantId) {
+    throw new Error('tenantId is required for buildVectorFilters');
+  }
+
+  const mustClauses: Array<{ key: string; match: { value: unknown } }> = [
+    { key: 'tenant_id', match: { value: tenantId } },
+  ];
+
+  if (additionalFilters && typeof additionalFilters === 'object') {
+    for (const [key, value] of Object.entries(additionalFilters)) {
+      if (value !== undefined && value !== null) {
+        mustClauses.push({ key, match: { value } });
+      }
+    }
+  }
+
+  return { must: mustClauses };
+}
 
 function isPlainRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -135,9 +170,14 @@ export class QdrantService {
     options: VectorSearchOptions,
     collectionOptions?: CollectionOptions
   ): Promise<VectorSearchResult[]> {
+    if (!options.tenantId) {
+      throw new Error('tenantId is required for vector search');
+    }
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
+
+      const tenantFilter = buildVectorFilters(options.tenantId, options.filters as Record<string, unknown> | undefined);
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/search`, {
         method: 'POST',
@@ -148,19 +188,18 @@ export class QdrantService {
           vector: queryEmbedding,
           limit: options.limit,
           score_threshold: options.threshold,
-          filter: options.filters,
+          filter: tenantFilter,
           with_payload: true,
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Qdrant search error details:', {
+        logger.error('Qdrant search failed', {
           status: response.status,
           statusText: response.statusText,
           error: errorText,
           querySize: queryEmbedding?.length,
-          options,
         });
         throw new Error(`Qdrant search failed: ${response.statusText} - ${errorText}`);
       }
@@ -168,7 +207,7 @@ export class QdrantService {
       const data: unknown = await response.json();
       return this.mapSearchPoints(data);
     } catch (error) {
-      console.error('Qdrant search error:', error);
+      logger.error('Qdrant search error', { error: error instanceof Error ? error.message : String(error) });
       throw new Error(
         `Vector search failed: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error }
@@ -197,7 +236,7 @@ export class QdrantService {
 
       await this.putPoints(workingUrl, collectionName, points);
     } catch (error) {
-      console.error('Qdrant storage error:', error);
+      logger.error('Qdrant storage error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector storage failed: ${_errMsg}`, { cause: error });
     }
@@ -243,7 +282,7 @@ export class QdrantService {
         throw new Error(`Qdrant deletion failed: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Qdrant deletion error:', error);
+      logger.error('Qdrant deletion error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector deletion failed: ${_errMsg}`, { cause: error });
     }
@@ -297,14 +336,12 @@ export class QdrantService {
         throw new Error(`Unexpected response status: ${checkResponse.status}`);
       }
     } catch (error) {
-      console.error('Qdrant collection setup error:', error);
-      console.error('Environment info:', {
+      logger.error('Qdrant collection setup error', {
+        error: error instanceof Error ? error.message : String(error),
         NODE_ENV: process.env.NODE_ENV,
         DOCKER_ENV: process.env.DOCKER_ENV,
         HOSTNAME: process.env.HOSTNAME,
         platform: process.platform,
-        container: process.env.container,
-        KUBERNETES_SERVICE_HOST: process.env.KUBERNETES_SERVICE_HOST,
       });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to ensure Qdrant collection: ${_errMsg}`, { cause: error });
@@ -339,7 +376,7 @@ export class QdrantService {
 
       return response.json();
     } catch (error) {
-      console.error('Qdrant collection info error:', error);
+      logger.error('Qdrant collection info error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get collection info: ${_errMsg}`, { cause: error });
     }
@@ -387,7 +424,7 @@ export class QdrantService {
         this.embeddingDimensions = newDimensions;
       }
     } catch (error) {
-      console.error('Failed to update embedding dimensions:', error);
+      logger.error('Failed to update embedding dimensions', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update embedding dimensions: ${_errMsg}`, { cause: error });
     }
@@ -410,7 +447,7 @@ export class QdrantService {
         throw new Error(`Failed to delete collection: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Qdrant collection deletion error:', error);
+      logger.error('Qdrant collection deletion error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to delete collection: ${_errMsg}`, { cause: error });
     }
@@ -461,7 +498,7 @@ export class QdrantService {
       const collectionName = this.getCollectionName(collectionOptions);
       await this.putPoints(workingUrl, collectionName, points);
     } catch (error) {
-      console.error('Qdrant upsert error:', error);
+      logger.error('Qdrant upsert error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector upsert failed: ${_errMsg}`, { cause: error });
     }
@@ -514,7 +551,7 @@ export class QdrantService {
         )
         .map((point) => ({ id: point.id, vector: point.vector, payload: point.payload }));
     } catch (error) {
-      console.error('Qdrant get points error:', error);
+      logger.error('Qdrant get points error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector get points failed: ${_errMsg}`, { cause: error });
     }
@@ -526,7 +563,7 @@ export class QdrantService {
       const collectionName = this.getCollectionName(collectionOptions);
       await this.deleteByIds(workingUrl, collectionName, ids);
     } catch (error) {
-      console.error('Qdrant delete points error:', error);
+      logger.error('Qdrant delete points error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector delete points failed: ${_errMsg}`, { cause: error });
     }
@@ -587,15 +624,27 @@ export class QdrantService {
         metadata: payload,
       };
     } catch (error) {
-      console.error('Qdrant get error:', error);
+      logger.error('Qdrant get error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector get failed: ${_errMsg}`, { cause: error });
     }
   }
 
-  async scrollAll(
+  async scrollAllQdrantPoints(
+    tenantId: string,
     limit: number = 10000,
     collectionOptions?: CollectionOptions
+  ): Promise<Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>> {
+    if (!tenantId) {
+      throw new Error('tenantId is required for scrollAllQdrantPoints');
+    }
+    return this.scrollAll(limit, collectionOptions, buildVectorFilters(tenantId));
+  }
+
+  async scrollAll(
+    limit: number = 10000,
+    collectionOptions?: CollectionOptions,
+    tenantFilter?: Record<string, unknown>
   ): Promise<Array<{ id: string; vector: number[]; payload: Record<string, unknown> }>> {
     try {
       const workingUrl = await this.ensureConnection();
@@ -604,7 +653,7 @@ export class QdrantService {
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit, with_payload: true, with_vector: true }),
+        body: JSON.stringify({ limit, with_payload: true, with_vector: true, filter: tenantFilter }),
       });
 
       if (!response.ok) {
@@ -634,7 +683,7 @@ export class QdrantService {
           payload: p.payload ?? {},
         }));
     } catch (error) {
-      console.error('Qdrant scroll error:', error);
+      logger.error('Qdrant scroll error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Vector scroll failed: ${_errMsg}`, { cause: error });
     }
