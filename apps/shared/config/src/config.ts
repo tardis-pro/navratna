@@ -503,14 +503,14 @@ const defaultConfig: Config = {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'uaip_dev_jwt_secret_key_change_in_production',
+    secret: process.env.JWT_SECRET || (() => { throw new Error('FATAL: JWT_SECRET environment variable is required'); })(),
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     refreshExpiresIn: parseDuration(process.env.JWT_REFRESH_EXPIRES_IN) || '1h',
     issuer: process.env.JWT_ISSUER || 'uaip-security-gateway',
     audience: process.env.JWT_AUDIENCE || 'uaip-services',
     accessTokenExpiry: parseDuration(process.env.JWT_ACCESS_TOKEN_EXPIRY) || '1h',
     refreshSecret:
-      process.env.JWT_REFRESH_SECRET || 'uaip_dev_jwt_refresh_secret_key_change_in_production',
+      process.env.JWT_REFRESH_SECRET || (() => { throw new Error('FATAL: JWT_REFRESH_SECRET environment variable is required'); })(),
     refreshTokenExpiry: parseDuration(process.env.JWT_REFRESH_TOKEN_EXPIRY) || '2h',
   },
   email: {
