@@ -1,12 +1,73 @@
 import { eq, desc, count } from 'drizzle-orm';
 import { getIntelligenceDb } from '../drizzle/clients/index';
 import { llmProviders, llmModels } from '../drizzle/schemas/intelligence_schema';
-import { logger } from '@uaip/utils';
+import { logger, encryptApiKey, decryptApiKey, isEncryptedApiKey } from '@uaip/utils';
 
 type LLMProviderRow = typeof llmProviders.$inferSelect;
 type NewLLMProvider = typeof llmProviders.$inferInsert;
 type LLMModelRow = typeof llmModels.$inferSelect;
 type NewLLMModel = typeof llmModels.$inferInsert;
+
+function getEncryptionKey(): string | null {
+  return process.env.LLM_PROVIDER_ENCRYPTION_KEY ?? null;
+}
+
+function encryptProviderKey(plaintext: string): string | null {
+  const key = getEncryptionKey();
+  if (!key) {
+    logger.warn('LLM_PROVIDER_ENCRYPTION_KEY not set — API key will not be stored', {
+      service: 'LLMProviderRepository',
+    });
+    return null;
+  }
+  return encryptApiKey(plaintext, key);
+}
+
+function decryptProviderRow(row: LLMProviderRow): LLMProviderRow {
+  const { apiKeyEncrypted } = row;
+  if (!apiKeyEncrypted) return row;
+
+  const key = getEncryptionKey();
+  if (!key) {
+    logger.warn('LLM_PROVIDER_ENCRYPTION_KEY not set — cannot decrypt stored API key', {
+      service: 'LLMProviderRepository',
+      providerId: row.id,
+    });
+    return row;
+  }
+
+  if (!isEncryptedApiKey(apiKeyEncrypted)) {
+    logger.warn('Stored apiKeyEncrypted value is not in expected encrypted format', {
+      service: 'LLMProviderRepository',
+      providerId: row.id,
+    });
+    return row;
+  }
+
+  try {
+    const decrypted = decryptApiKey(apiKeyEncrypted, key);
+    return { ...row, apiKeyEncrypted: decrypted };
+  } catch (error: unknown) {
+    logger.error('Failed to decrypt API key for provider', {
+      service: 'LLMProviderRepository',
+      providerId: row.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return row;
+  }
+}
+
+function prepareProviderInsert(data: NewLLMProvider): NewLLMProvider {
+  const { apiKeyEncrypted } = data;
+  if (!apiKeyEncrypted) return data;
+
+  if (isEncryptedApiKey(apiKeyEncrypted)) {
+    return data;
+  }
+
+  const encrypted = encryptProviderKey(apiKeyEncrypted);
+  return { ...data, apiKeyEncrypted: encrypted ?? undefined };
+}
 
 export class LLMProviderRepository {
   private get db() {
@@ -16,7 +77,7 @@ export class LLMProviderRepository {
   async findById(id: string): Promise<LLMProviderRow | null> {
     try {
       const [row] = await this.db.select().from(llmProviders).where(eq(llmProviders.id, id)).limit(1);
-      return row ?? null;
+      return row ? decryptProviderRow(row) : null;
     } catch (error: unknown) {
       logger.error('LLMProviderRepository.findById failed', {
         id,
@@ -30,11 +91,12 @@ export class LLMProviderRepository {
     try {
       const query = this.db.select().from(llmProviders).orderBy(desc(llmProviders.priority), desc(llmProviders.createdAt));
 
-      if (conditions.isActive === undefined) {
-        return query;
-      }
+      const rows: LLMProviderRow[] =
+        conditions.isActive === undefined
+          ? await query
+          : await query.where(eq(llmProviders.isActive, conditions.isActive));
 
-      return query.where(eq(llmProviders.isActive, conditions.isActive));
+      return rows.map(decryptProviderRow);
     } catch (error: unknown) {
       logger.error('LLMProviderRepository.findMany failed', {
         conditions,
@@ -57,8 +119,11 @@ export class LLMProviderRepository {
 
   async create(data: NewLLMProvider): Promise<LLMProviderRow> {
     try {
-      const [row] = await this.db.insert(llmProviders).values(data).returning();
-      return row;
+      const [row] = await this.db
+        .insert(llmProviders)
+        .values(prepareProviderInsert(data))
+        .returning();
+      return decryptProviderRow(row);
     } catch (error: unknown) {
       logger.error('LLMProviderRepository.create failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -69,8 +134,13 @@ export class LLMProviderRepository {
 
   async update(id: string, data: Partial<NewLLMProvider>): Promise<LLMProviderRow | null> {
     try {
-      const [row] = await this.db.update(llmProviders).set(data).where(eq(llmProviders.id, id)).returning();
-      return row ?? null;
+      const prepared = prepareProviderInsert(data as NewLLMProvider) as Partial<NewLLMProvider>;
+      const [row] = await this.db
+        .update(llmProviders)
+        .set(prepared)
+        .where(eq(llmProviders.id, id))
+        .returning();
+      return row ? decryptProviderRow(row) : null;
     } catch (error: unknown) {
       logger.error('LLMProviderRepository.update failed', {
         id,

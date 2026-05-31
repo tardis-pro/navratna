@@ -33,4 +33,7 @@ export { WidgetRegistry, globalWidgetRegistry } from './widget_registry';
 
 export type { UserContext, WidgetRegistryOptions } from './widget_registry';
 
+// Crypto utilities
+export { encryptApiKey, decryptApiKey, isEncryptedApiKey } from './crypto.js';
+
 // Agent transformation utilities
