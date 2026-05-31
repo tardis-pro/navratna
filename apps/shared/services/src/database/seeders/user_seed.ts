@@ -18,6 +18,12 @@ export class UserSeed {
   private db = getControlDb();
 
   async seed(): Promise<(typeof users.$inferSelect)[]> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'FATAL: UserSeed cannot run in production — would create default dev credentials'
+      );
+    }
+
     const seedData = await this.getSeedData();
 
     for (const user of seedData) {

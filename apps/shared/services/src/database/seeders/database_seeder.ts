@@ -20,6 +20,13 @@ export class DatabaseSeeder {
   private intelligenceDb = getIntelligenceDb();
 
   async seedAll(): Promise<void> {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'FATAL: DatabaseSeeder.seedAll() cannot run in production environment. ' +
+          'Set NODE_ENV to development or test to run seeders.'
+      );
+    }
+
     const results = {
       users: false,
       llmProviders: false,
