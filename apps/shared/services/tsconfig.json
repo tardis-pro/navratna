@@ -1,50 +1,10 @@
 {
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "target": "ES2022",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "skipLibCheck": true,
-    "strict": false,
-    "paths": {
-      "@uaip/infra/*": ["../infra/src/*"]
-    },
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "useDefineForClassFields": false,
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+    "target": "ES2022"
   },
-  "include": ["src/**/*"],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "src/migrations/**/*",
-    "src/__tests__/**/*",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "src/**/*.js"
-  ],
+  "files": [],
   "references": [
-    {
-      "path": "../../packages/shared-utils"
-    },
-    {
-      "path": "../../packages/shared-types"
-    },
-    {
-      "path": "../middleware"
-    },
-    {
-      "path": "../infra"
-    },
-    {
-      "path": "../config"
-    }
+    { "path": "./tsconfig.build.json" }
   ]
 }

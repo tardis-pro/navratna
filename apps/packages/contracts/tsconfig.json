@@ -1,18 +1,7 @@
 {
   "extends": "../../../tsconfig.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"],
+  "files": [],
   "references": [
-    {
-      "path": "../shared-types"
-    }
+    { "path": "./tsconfig.build.json" }
   ]
 }

@@ -1,16 +1,10 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "target": "ES2020"
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "src/__tests__/**/*", "**/*.test.ts", "src/**/*.js"],
+  "files": [],
   "references": [
-    { "path": "../../packages/shared-types" },
-    { "path": "../../packages/shared-utils" },
-    { "path": "../config" }
+    { "path": "./tsconfig.build.json" }
   ]
 }

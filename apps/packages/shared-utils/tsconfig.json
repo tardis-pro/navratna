@@ -1,15 +1,7 @@
 {
   "extends": "../shared-types/tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "paths": {
-      "@uaip/types": ["../shared-types/src"],
-      "@uaip/types/*": ["../shared-types/src/*"]
-    }
-  },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "src/**/*.js", "src/**/__tests__/**", "src/**/*.test.ts"],
-  "references": [{ "path": "../shared-types" }]
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.build.json" }
+  ]
 }

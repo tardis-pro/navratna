@@ -1,0 +1,32 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "types": ["node"],
+    "target": "ES2022",
+    "strict": false,
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/__tests__/**/*",
+    "src/migrations/**/*"
+  ],
+  "references": [
+    { "path": "../../packages/shared-utils/tsconfig.json" },
+    { "path": "../../packages/shared-types/tsconfig.json" },
+    { "path": "../middleware/tsconfig.json" },
+    { "path": "../infra/tsconfig.json" },
+    { "path": "../config/tsconfig.json" }
+  ]
+}
