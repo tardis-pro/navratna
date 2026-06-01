@@ -3,7 +3,8 @@ import { Queue, Worker, type Job } from 'bullmq';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
-import { QdrantService } from '@uaip/shared-services';
+import { QdrantService, ToolGraphDatabase } from '@uaip/shared-services';
+import { AuditService } from '../services/audit_service.js';
 
 type RedisConnectionOptions = {
   host: string;
@@ -115,8 +116,10 @@ export class CrossTenantProbeJob {
     } else {
       this.pgClient = { execute: async (rawSql, params) => loadPgClient().then((c) => c.execute(rawSql, params)) };
       this.qdrantService = new QdrantService();
-      this.neo4jService = { runQuery: async () => ({ records: [] }) };
-      this.auditService = { logSecurityEvent: async () => undefined };
+      // Real stores — a stub here would make the probe report "isolation healthy" during an
+      // actual Neo4j breach and silently swallow violations, defeating the daemon's purpose.
+      this.neo4jService = new ToolGraphDatabase();
+      this.auditService = new AuditService();
       this.redisConnection = defaultRedisConnection();
     }
   }
