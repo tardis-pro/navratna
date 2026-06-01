@@ -65,6 +65,8 @@ export enum AuditEventType {
   MFA_SUCCESS = 'mfa_success',
   MFA_FAILED = 'mfa_failed',
   SYSTEM_ERROR = 'system_error',
+
+  CROSS_TENANT_VIOLATION = 'cross_tenant_violation',
 }
 
 // Audit log entry

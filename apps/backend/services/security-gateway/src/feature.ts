@@ -20,10 +20,12 @@ import { registerOIDCRoutes } from './http/oidc_elysia.js'
 import { ErasureSweepJob } from './jobs/erasure_sweep_job.js'
 import { AuditRetentionJob } from './jobs/audit_retention_job.js'
 import { TokenCleanupJob } from './jobs/token_cleanup_job.js'
+import { CrossTenantProbeJob } from './jobs/cross_tenant_probe_job.js'
 
 let erasureSweepJob: ErasureSweepJob | null = null
 let auditRetentionJob: AuditRetentionJob | null = null
 let tokenCleanupJob: TokenCleanupJob | null = null
+let crossTenantProbeJob: CrossTenantProbeJob | null = null
 
 export const securityFeature: Feature = {
   name: 'security-gateway',
@@ -52,6 +54,15 @@ export const securityFeature: Feature = {
       await tokenCleanupJob.start()
     } catch (err) {
       logger.error('security-gateway: TokenCleanupJob failed to start', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    crossTenantProbeJob = new CrossTenantProbeJob()
+    try {
+      await crossTenantProbeJob.initialize()
+    } catch (err) {
+      logger.error('security-gateway: CrossTenantProbeJob failed to start', {
         error: err instanceof Error ? err.message : String(err),
       })
     }
@@ -110,6 +121,17 @@ export const securityFeature: Feature = {
         })
       }
       tokenCleanupJob = null
+    }
+
+    if (crossTenantProbeJob !== null) {
+      try {
+        await crossTenantProbeJob.stop()
+      } catch (err) {
+        logger.error('security-gateway: CrossTenantProbeJob failed to stop', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+      crossTenantProbeJob = null
     }
   },
 }
