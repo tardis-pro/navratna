@@ -481,6 +481,20 @@ export interface ConsolidationResult {
   connectionsFormed?: number;
 }
 
+export interface PurgeCertificate {
+  agentId: string;
+  purgedCount: number;
+  purgedConceptIds?: string[];
+  threshold: number;
+  timestamp: Date;
+  dryRun: boolean;
+}
+
+export type PurgeRunOptions = {
+  threshold?: number;
+  dryRun?: boolean;
+};
+
 // QuestionForge Entity Types
 export interface Assumption {
   id: string;

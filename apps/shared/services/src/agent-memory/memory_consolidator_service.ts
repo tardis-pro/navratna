@@ -1,5 +1,6 @@
 import {
   ConsolidationResult,
+  PurgeCertificate,
   WorkingMemory,
   Episode,
   SemanticMemory,
@@ -9,6 +10,11 @@ import { logger } from '@uaip/utils';
 import { WorkingMemoryManager } from './working_memory_manager';
 import { EpisodicMemoryManager } from './episodic_memory_manager';
 import { SemanticMemoryManager } from './semantic_memory_manager';
+import type { ToolGraphDatabase } from '../database/tool_graph_database';
+import type { ImmutableAuditService } from '../composition/immutable_audit_service';
+
+const DEFAULT_PURGE_THRESHOLD = 0.15;
+const DEFAULT_DECAY_K = 0.05;
 
 export class MemoryConsolidator {
   private readonly consolidationQueue: Array<{
@@ -20,8 +26,73 @@ export class MemoryConsolidator {
   constructor(
     private readonly workingMemoryManager: WorkingMemoryManager,
     private readonly episodicMemoryManager: EpisodicMemoryManager,
-    private readonly semanticMemoryManager: SemanticMemoryManager
+    private readonly semanticMemoryManager: SemanticMemoryManager,
+    private readonly neo4jClient?: ToolGraphDatabase,
+    private readonly auditService?: ImmutableAuditService
   ) {}
+
+  private calculateDecayScore(concept: SemanticMemory): number {
+    const daysSinceUsed = (Date.now() - concept.usage.lastUsed.getTime()) / 86_400_000;
+    const recencyScore = Math.exp(-DEFAULT_DECAY_K * daysSinceUsed);
+    const usageScore = Math.min(concept.usage.timesAccessed / 10, 1.0);
+    const reinforcementScore = Math.min(concept.sources.reinforcements / 5, 1.0);
+    const successScore = concept.usage.successRate ?? 0.5;
+    return recencyScore * 0.4 + usageScore * 0.25 + reinforcementScore * 0.2 + successScore * 0.15;
+  }
+
+  async runPurge(
+    agentId: string,
+    threshold: number = DEFAULT_PURGE_THRESHOLD,
+    dryRun: boolean = process.env['DRY_RUN_PURGE'] === 'true'
+  ): Promise<PurgeCertificate> {
+    const concepts = await this.semanticMemoryManager.getRelatedConcepts(agentId, '');
+
+    const belowThreshold = concepts.filter((c) => this.calculateDecayScore(c) < threshold);
+
+    if (dryRun) {
+      logger.info('DRY_RUN_PURGE: would purge concepts', {
+        agentId,
+        count: belowThreshold.length,
+      });
+      return { agentId, purgedCount: 0, dryRun: true, threshold, timestamp: new Date() };
+    }
+
+    for (const concept of belowThreshold) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential deletion required for audit integrity
+      await this.semanticMemoryManager.pruneMemory(agentId, concept.concept);
+
+      if (this.neo4jClient) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential deletion required for audit integrity
+        await this.neo4jClient.runQuery(
+          `MATCH (c:SemanticConcept {id: $id}) DETACH DELETE c`,
+          { id: concept.concept }
+        );
+      }
+    }
+
+    const purgedConceptIds = belowThreshold.map((c) => c.concept);
+    const certificate: PurgeCertificate = {
+      agentId,
+      purgedCount: belowThreshold.length,
+      purgedConceptIds,
+      threshold,
+      timestamp: new Date(),
+      dryRun: false,
+    };
+
+    if (belowThreshold.length > 0 && this.auditService) {
+      await this.auditService.appendEvent({
+        eventType: 'MEMORY_PURGE',
+        entityType: 'agent',
+        entityId: agentId,
+        actorType: 'agent',
+        actorId: agentId,
+        details: certificate as unknown as Record<string, unknown>,
+      });
+    }
+
+    return certificate;
+  }
 
   async consolidateMemories(agentId: string): Promise<ConsolidationResult> {
     return new Promise((resolve) => {

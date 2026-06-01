@@ -2,11 +2,13 @@ import { logger } from '@uaip/utils';
 import { MemoryConsolidator, WorkingMemoryManager } from '@uaip/shared-services';
 
 const CONSOLIDATION_INTERVAL_MS = 30 * 60 * 1000;
+const PURGE_EVERY_N_CYCLES = 4;
 
 export class MemoryConsolidationScheduler {
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
   private isRunning = false;
   private readonly trackedAgentIds = new Set<string>();
+  private cycleCount = 0;
 
   constructor(
     private readonly memoryConsolidator: MemoryConsolidator,
@@ -106,6 +108,19 @@ export class MemoryConsolidationScheduler {
         failed,
         total: this.trackedAgentIds.size,
       });
+
+      this.cycleCount += 1;
+      if (this.cycleCount % PURGE_EVERY_N_CYCLES === 0) {
+        for (const agentId of this.trackedAgentIds) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential purge avoids Qdrant overload
+          await this.memoryConsolidator.runPurge(agentId).catch((err: unknown) => {
+            logger.error('Purge failed for agent', {
+              agentId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+        }
+      }
     } catch (error) {
       logger.error('Memory consolidation cycle error', {
         error: error instanceof Error ? error.message : String(error),
