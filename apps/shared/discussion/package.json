@@ -9,8 +9,12 @@
     ".": {
       "@uaip/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
+    },
+    "./feature": {
+      "@uaip/source": "./src/feature.ts",
+      "types": "./dist/feature.d.ts",
+      "import": "./dist/feature.js"
     }
   },
   "scripts": {
@@ -25,7 +29,15 @@
     "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
-    "@uaip/utils": "workspace:*"
+    "@uaip/utils": "workspace:*",
+    "@hapi/boom": "catalog:backend",
+    "@socket.io/bun-engine": "^0.0.2",
+    "baileys": "catalog:backend",
+    "elysia": "catalog:backend",
+    "ioredis": "catalog:backend",
+    "socket.io": "catalog:backend",
+    "ws": "catalog:backend",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:backend",

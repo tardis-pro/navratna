@@ -5,7 +5,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "types": ["node"]
+    "types": ["node"],
+    "noImplicitAny": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**/*"],

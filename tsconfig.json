@@ -57,6 +57,9 @@
     },
     {
       "path": "./apps/shared/infra"
+    },
+    {
+      "path": "./apps/shared/agent-intelligence"
     }
   ],
   "compilerOptions": {
@@ -76,7 +79,9 @@
       "@uaip/shared-services": ["./apps/shared/services/src"],
       "@uaip/shared-services/*": ["./apps/shared/services/src/*"],
       "@uaip/llm-service": ["./apps/shared/llm-service/src"],
-      "@uaip/llm-service/*": ["./apps/shared/llm-service/src/*"]
+      "@uaip/llm-service/*": ["./apps/shared/llm-service/src/*"],
+      "@uaip/agent-intelligence-core": ["./apps/shared/agent-intelligence/src"],
+      "@uaip/agent-intelligence-core/*": ["./apps/shared/agent-intelligence/src/*"]
     },
     "types": ["node"],
     "lib": ["es2022"],

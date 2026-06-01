@@ -2,7 +2,9 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@uaip/agent-intelligence-core": ["../../../shared/agent-intelligence/src"],
+      "@uaip/agent-intelligence-core/*": ["../../../shared/agent-intelligence/src/*"]
     }
   },
   "files": [],

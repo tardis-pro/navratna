@@ -5,7 +5,9 @@
       "@/config": ["./src/config/index.ts"],
       "@/services/*": ["./src/services/*"],
       "@/websocket/*": ["./src/websocket/*"],
-      "@/strategies/*": ["./src/strategies/*"]
+      "@/strategies/*": ["./src/strategies/*"],
+      "@uaip/discussion-core": ["../../../shared/discussion/src"],
+      "@uaip/discussion-core/*": ["../../../shared/discussion/src/*"]
     }
   },
   "files": [],

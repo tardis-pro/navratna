@@ -9,8 +9,12 @@
     ".": {
       "@uaip/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
+    },
+    "./feature": {
+      "@uaip/source": "./src/feature.ts",
+      "types": "./dist/feature.d.ts",
+      "import": "./dist/feature.js"
     }
   },
   "scripts": {
@@ -26,7 +30,9 @@
     "@uaip/middleware": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
-    "@uaip/utils": "workspace:*"
+    "@uaip/utils": "workspace:*",
+    "elysia": "^1.2.25",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:backend",

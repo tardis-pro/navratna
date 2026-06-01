@@ -12,8 +12,8 @@
   "references": [
     { "path": "../llm-service" },
     { "path": "../artifact-service" },
-    { "path": "../discussion-orchestration" },
-    { "path": "../agent-intelligence" },
+    { "path": "../../../shared/discussion" },
+    { "path": "../../../shared/agent-intelligence" },
     { "path": "../../../packages/shared-utils" },
     { "path": "../../../packages/shared-types" },
     { "path": "../../../shared/services" },

@@ -18,7 +18,11 @@
       "@uaip/middleware": ["../shared/middleware/src"],
       "@uaip/middleware/*": ["../shared/middleware/src/*"],
       "@uaip/llm-service": ["../shared/llm-service/src"],
-      "@uaip/llm-service/*": ["../shared/llm-service/src/*"]
+      "@uaip/llm-service/*": ["../shared/llm-service/src/*"],
+      "@uaip/discussion-core": ["../shared/discussion/src"],
+      "@uaip/discussion-core/*": ["../shared/discussion/src/*"],
+      "@uaip/agent-intelligence-core": ["../shared/agent-intelligence/src"],
+      "@uaip/agent-intelligence-core/*": ["../shared/agent-intelligence/src/*"]
       // "@uaip/agent-intelligence": ["services/agent-intelligence/src"],
       // "@uaip/artifact-service": ["services/artifact-service/src"],
       // "@uaip/capability-registry": ["services/capability-registry/src"],
