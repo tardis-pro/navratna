@@ -136,8 +136,11 @@ export function registerPersonaRoutes() {
           return { error: 'User not found' };
         }
         const { personaData, onboardingProgress, behavioralPatterns } = validation.data;
-        if (personaData)
-          entity.userPersona = { ...entity.userPersona, ...personaData };
+        if (personaData && entity.userPersona) {
+          // Spreading partial updates onto an existing complete persona preserves all required fields.
+          // The cast is safe: entity.userPersona provides all required fields; personaData only overrides.
+          entity.userPersona = { ...entity.userPersona, ...personaData } as typeof entity.userPersona;
+        }
         if (onboardingProgress)
           entity.onboardingProgress = {
             ...defaultOnboardingProgress,

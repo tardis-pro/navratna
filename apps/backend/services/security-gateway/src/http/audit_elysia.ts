@@ -61,10 +61,13 @@ const userActivityQuerySchema = z.object({
   eventType: z.nativeEnum(AuditEventType).optional(),
 });
 
+type ValidationSuccess<T> = { error: null; value: T };
+type ValidationFailure = { error: { details: { message: string; path: string }[] }; value: null };
+
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
   data: unknown
-): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
+): ValidationSuccess<T> | ValidationFailure {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
   return {
@@ -90,19 +93,22 @@ type ExportParsedData = { data: unknown; recordCount: number };
 export function registerAuditRoutes() {
   return new Elysia().group('/api/v1/audit', (app) => withRequiredAuth(app).group('', (g) => withAdminGuard(g)
     .get('/logs', async ({ set, query }) => {
-      const { error, value } = validateWithZod(auditQuerySchema, query);
-      if (error) {
+      const result = validateWithZod(auditQuerySchema, query);
+      if (result.error) {
         set.status = 400;
         return {
           error: 'Validation Error',
-          details: error.details.map((d) => d.message),
+          details: result.error.details.map((d) => d.message),
         };
       }
+      const value = result.value;
+      const page = value.page ?? 1;
+      const limit = value.limit ?? 20;
       try {
         const { domainAuditService } = await getServices();
-        const offset = (value.page - 1) * value.limit;
+        const offset = (page - 1) * limit;
         const repo = domainAuditService.getAuditRepository();
-          const result = await repo.searchAuditLogs({
+          const auditResult = await repo.searchAuditLogs({
             ...value,
             offset,
             eventType: value.eventType != null
@@ -111,12 +117,12 @@ export function registerAuditRoutes() {
           });
         return {
           message: 'Audit logs retrieved successfully',
-          logs: result.logs,
+          logs: auditResult.logs,
           pagination: {
-            page: value.page,
-            limit: value.limit,
-            total: result.total,
-            pages: Math.ceil(result.total / value.limit),
+            page,
+            limit,
+            total: auditResult.total,
+            pages: Math.ceil(auditResult.total / limit),
           },
           filters: {
             eventType: value.eventType,
@@ -216,20 +222,24 @@ export function registerAuditRoutes() {
     .post('/export', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, body, request, headers } = ctx;
-      const { error, value } = validateWithZod(exportSchema, body);
-      if (error) {
+      const result = validateWithZod(exportSchema, body);
+      if (result.error) {
         set.status = 400;
         return {
           error: 'Validation Error',
-          details: error.details.map((d) => d.message),
+          details: result.error.details.map((d) => d.message),
         };
       }
+      const value = result.value;
       try {
         const { auditService } = await getServices();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const exportFormat = value.format ?? 'json';
         const exportData = await auditService.exportLogs(
-          value.startDate,
-          value.endDate,
-          value.format
+          value.startDate ?? thirtyDaysAgo,
+          value.endDate ?? new Date(),
+          exportFormat
         );
         let parsedData: ExportParsedData;
         try {
@@ -246,7 +256,7 @@ export function registerAuditRoutes() {
           eventType: AuditEventType.AUDIT_EXPORT,
           userId: user!.id,
           details: {
-            format: value.format,
+            format: exportFormat,
             eventType: value.eventType,
             startDate: value.startDate,
             endDate: value.endDate,
@@ -257,7 +267,7 @@ export function registerAuditRoutes() {
         });
         return {
           message: 'Audit logs exported successfully',
-          format: value.format,
+          format: exportFormat,
           recordCount: parsedData.recordCount,
           exportedAt: new Date().toISOString(),
           data: parsedData.data || exportData,
@@ -290,14 +300,15 @@ export function registerAuditRoutes() {
     .post('/compliance-report', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, body, request, headers } = ctx;
-      const { error, value } = validateWithZod(complianceReportSchema, body);
-      if (error) {
+      const result = validateWithZod(complianceReportSchema, body);
+      if (result.error) {
         set.status = 400;
         return {
           error: 'Validation Error',
-          details: error.details.map((d) => d.message),
+          details: result.error.details.map((d) => d.message),
         };
       }
+      const value = result.value;
       try {
         const { auditService } = await getServices();
         const report = await auditService.generateComplianceReport({
@@ -357,7 +368,7 @@ export function registerAuditRoutes() {
         const { page, limit, startDate, endDate } = parsedData;
         const offset = (page - 1) * limit;
         const repo = domainAuditService.getAuditRepository();
-        const result = await repo.getUserActivityAuditTrail(userId, {
+        const activityResult = await repo.getUserActivityAuditTrail(userId, {
           startDate,
           endDate,
           limit,
@@ -368,12 +379,12 @@ export function registerAuditRoutes() {
           userId,
           userEmail: null,
           userRole: null,
-          activities: result.logs,
+          activities: activityResult.logs,
           pagination: {
             page,
             limit,
-            total: result.total,
-            pages: Math.ceil(result.total / limit),
+            total: activityResult.total,
+            pages: Math.ceil(activityResult.total / limit),
           },
         };
       } catch {
@@ -398,15 +409,15 @@ export function registerAuditRoutes() {
       const { set, request, headers } = ctx;
       try {
         const { auditService } = await getServices();
-        const result = await auditService.cleanupOldLogs();
+        const cleanupResult = await auditService.cleanupOldLogs();
         await auditService.logSecurityEvent({
           eventType: AuditEventType.AUDIT_CLEANUP,
           userId: user!.id,
-          details: { deletedCount: result.deleted, oldestRetainedDate: result.archived },
+          details: { deletedCount: cleanupResult.deleted, oldestRetainedDate: cleanupResult.archived },
           ipAddress: request.headers.get('x-forwarded-for') || '',
           userAgent: headers['user-agent'],
         });
-        return { message: 'Audit cleanup completed successfully', result };
+        return { message: 'Audit cleanup completed successfully', result: cleanupResult };
       } catch {
         set.status = 500;
         return { error: 'Internal Server Error', message: 'Failed to cleanup audit logs' };

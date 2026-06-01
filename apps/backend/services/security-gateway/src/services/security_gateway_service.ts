@@ -46,10 +46,19 @@ export class SecurityGatewayService {
     request: SecurityValidationRequest
   ): Promise<SecurityValidationResult> {
     try {
+      const operation = request.operation;
+      const securityContext = request.securityContext;
+      if (!operation || !operation.type || !operation.resource) {
+        throw new _ApiError(400, 'Security validation requires operation with type and resource', 'INVALID_REQUEST');
+      }
+      if (!securityContext || !securityContext.userId) {
+        throw new _ApiError(400, 'Security validation requires security context with userId', 'INVALID_REQUEST');
+      }
+
       logger.info('Validating security for operation', {
-        operationType: request.operation.type,
-        resource: request.operation.resource,
-        userId: request.securityContext.userId,
+        operationType: operation.type,
+        resource: operation.resource,
+        userId: securityContext.userId,
       });
 
       // Perform risk assessment
@@ -74,7 +83,8 @@ export class SecurityGatewayService {
       const result: SecurityValidationResult = {
         allowed: policyResult.allowed && !approvalRequired,
         approvalRequired,
-        riskLevel: this.mapRiskLevelToSecurityLevel(riskAssessment.overallRisk),
+        // overallRisk is always set by assessRisk() via calculateOverallRiskLevel()
+        riskLevel: this.mapRiskLevelToSecurityLevel(riskAssessment.overallRisk!),
         conditions: policyResult.conditions,
         reasoning: this.buildReasoningText(request, riskAssessment, policyResult, approvalRequired),
         requiredApprovers,
@@ -86,22 +96,22 @@ export class SecurityGatewayService {
         eventType: result.allowed
           ? AuditEventType.PERMISSION_GRANTED
           : AuditEventType.PERMISSION_DENIED,
-        userId: request.securityContext.userId,
-        resourceType: request.operation.resource,
-        resourceId: request.operation.context?.resourceId,
+        userId: securityContext.userId,
+        resourceType: operation.resource,
+        resourceId: operation.context?.resourceId,
         details: {
-          operation: request.operation,
+          operation,
           riskAssessment,
           result,
           approvalRequired,
         },
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
+        ipAddress: securityContext.ipAddress,
+        userAgent: securityContext.userAgent,
         riskLevel: result.riskLevel,
       });
 
       logger.info('Security validation completed', {
-        operationType: request.operation.type,
+        operationType: operation.type,
         allowed: result.allowed,
         approvalRequired: result.approvalRequired,
         riskLevel: result.riskLevel,
@@ -110,22 +120,22 @@ export class SecurityGatewayService {
       return result;
     } catch (error) {
       logger.error('Security validation failed', {
-        operationType: request.operation.type,
+        operationType: request.operation?.type,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       // Audit the failure
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_VIOLATION,
-        userId: request.securityContext.userId,
-        resourceType: request.operation.resource,
+        userId: request.securityContext?.userId,
+        resourceType: request.operation?.resource,
         details: {
           operation: request.operation,
           error: error instanceof Error ? error.message : 'Unknown error',
           validationFailed: true,
         },
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
+        ipAddress: request.securityContext?.ipAddress,
+        userAgent: request.securityContext?.userAgent,
         riskLevel: SecurityLevel.HIGH,
       });
 
@@ -142,23 +152,34 @@ export class SecurityGatewayService {
     riskAssessment: RiskAssessment
   ): Promise<string> {
     try {
+      const operation = request.operation;
+      const securityContext = request.securityContext;
+      if (!operation || !operation.type) {
+        throw new _ApiError(400, 'Approval workflow requires operation with type', 'INVALID_REQUEST');
+      }
+      if (!securityContext || !securityContext.userId) {
+        throw new _ApiError(400, 'Approval workflow requires security context with userId', 'INVALID_REQUEST');
+      }
+
       const requiredApprovers = await this.getRequiredApprovers(request, riskAssessment);
 
       const approvalRequest: ApprovalRequest = {
         operationId,
-        operationType: request.operation.type,
+        operationType: operation.type,
         requiredApprovers,
-        securityLevel: this.mapRiskLevelToSecurityLevel(riskAssessment.overallRisk),
+        // overallRisk is always set by assessRisk() via calculateOverallRiskLevel()
+        securityLevel: this.mapRiskLevelToSecurityLevel(riskAssessment.overallRisk!),
         context: {
-          operation: request.operation,
+          operation,
           riskAssessment,
-          securityContext: request.securityContext,
+          securityContext,
         },
         expirationHours: this.calculateApprovalExpirationHours(riskAssessment),
         metadata: {
-          requestedBy: request.securityContext.userId,
+          requestedBy: securityContext.userId,
           requestedAt: new Date().toISOString(),
-          riskScore: riskAssessment.score,
+          // score is always set by assessRisk() as a computed number
+          riskScore: riskAssessment.score!,
           mitigations: riskAssessment.mitigations,
         },
       };
@@ -172,7 +193,8 @@ export class SecurityGatewayService {
         riskLevel: riskAssessment.overallRisk,
       });
 
-      return workflow.id;
+      // workflow.id is always provided by the database on creation
+      return workflow.id!;
     } catch (error) {
       logger.error('Failed to create approval workflow', {
         operationId,
@@ -186,38 +208,43 @@ export class SecurityGatewayService {
    * Public method to assess risk for an operation
    */
   public async assessRisk(request: SecurityValidationRequest): Promise<RiskAssessment> {
+    const operation = request.operation;
+    const securityContext = request.securityContext;
+    if (!operation || !operation.type || !operation.resource) {
+      throw new _ApiError(400, 'Risk assessment requires operation with type and resource', 'INVALID_REQUEST');
+    }
+    if (!securityContext || !securityContext.userId) {
+      throw new _ApiError(400, 'Risk assessment requires security context with userId', 'INVALID_REQUEST');
+    }
+
     const factors: RiskFactor[] = [];
     let totalScore = 0;
 
     // Operation type risk
-    const operationRisk = this.assessOperationTypeRisk(request.operation.type);
+    // Each assess*Risk() method always returns a RiskFactor with score set via Math.min(10, ...)
+    const operationRisk = this.assessOperationTypeRisk(operation.type);
     factors.push(operationRisk);
-    totalScore += operationRisk.score;
+    totalScore += operationRisk.score!;
 
-    // Resource type risk
-    const resourceRisk = this.assessResourceTypeRisk(request.operation.resource);
+    const resourceRisk = this.assessResourceTypeRisk(operation.resource);
     factors.push(resourceRisk);
-    totalScore += resourceRisk.score;
+    totalScore += resourceRisk.score!;
 
-    // User role risk
-    const userRisk = await this.assessUserRisk(request.securityContext);
+    const userRisk = await this.assessUserRisk(securityContext);
     factors.push(userRisk);
-    totalScore += userRisk.score;
+    totalScore += userRisk.score!;
 
-    // Time-based risk
     const timeRisk = this.assessTimeBasedRisk();
     factors.push(timeRisk);
-    totalScore += timeRisk.score;
+    totalScore += timeRisk.score!;
 
-    // Context-based risk
-    const contextRisk = this.assessContextRisk(request.operation.context || {});
+    const contextRisk = this.assessContextRisk(operation.context ?? {});
     factors.push(contextRisk);
-    totalScore += contextRisk.score;
+    totalScore += contextRisk.score!;
 
-    // Historical risk
-    const historicalRisk = await this.assessHistoricalRisk(request.securityContext.userId);
+    const historicalRisk = await this.assessHistoricalRisk(securityContext.userId);
     factors.push(historicalRisk);
-    totalScore += historicalRisk.score;
+    totalScore += historicalRisk.score!;
 
     // Calculate average score
     const averageScore = totalScore / factors.length;
@@ -280,7 +307,7 @@ export class SecurityGatewayService {
       };
     } catch (error) {
       logger.error('Failed to check approval requirement', {
-        operationType: request.operation.type,
+        operationType: request.operation?.type,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
@@ -334,7 +361,8 @@ export class SecurityGatewayService {
 
       if (policy.actions.maxRiskLevel) {
         const maxRiskScore = this.getScoreForRiskLevel(policy.actions.maxRiskLevel);
-        if (riskAssessment.score > maxRiskScore) {
+        // score is always set by assessRisk() as a computed number
+        if (riskAssessment.score! > maxRiskScore) {
           allowed = false;
           conditions.push(`Risk level exceeds policy maximum: ${policy.actions.maxRiskLevel}`);
         }
@@ -390,7 +418,7 @@ export class SecurityGatewayService {
       'critical_system_access',
     ];
 
-    if (highRiskOperations.includes(request.operation.type)) {
+    if (request.operation?.type && highRiskOperations.includes(request.operation.type)) {
       return true;
     }
 
@@ -404,6 +432,11 @@ export class SecurityGatewayService {
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<string[]> {
+    const operation = request.operation;
+    if (!operation || !operation.type || !operation.resource) {
+      throw new _ApiError(400, 'Approval requires operation with type and resource', 'INVALID_REQUEST');
+    }
+
     const approvers: Set<string> = new Set();
 
     // Risk-based approvers
@@ -422,12 +455,10 @@ export class SecurityGatewayService {
         break;
     }
 
-    // Operation-specific approvers
-    const operationApprovers = await this.getOperationSpecificApprovers(request.operation.type);
+    const operationApprovers = await this.getOperationSpecificApprovers(operation.type);
     operationApprovers.forEach((approver) => approvers.add(approver));
 
-    // Resource-specific approvers
-    const resourceApprovers = await this.getResourceSpecificApprovers(request.operation.resource);
+    const resourceApprovers = await this.getResourceSpecificApprovers(operation.resource);
     resourceApprovers.forEach((approver) => approvers.add(approver));
 
     return Array.from(approvers);
@@ -667,13 +698,14 @@ export class SecurityGatewayService {
   ): string {
     const parts: string[] = [];
 
+    // score, factors, and overallRisk are always set by assessRisk()
     parts.push(
-      `Risk assessment: ${riskAssessment.overallRisk} (score: ${riskAssessment.score.toFixed(2)})`
+      `Risk assessment: ${riskAssessment.overallRisk} (score: ${riskAssessment.score!.toFixed(2)})`
     );
 
-    if (riskAssessment.factors.length > 0) {
-      const topFactors = riskAssessment.factors
-        .sort((a, b) => b.score - a.score)
+    if (riskAssessment.factors!.length > 0) {
+      const topFactors = riskAssessment.factors!
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
         .slice(0, 3)
         .map((f) => f.description);
       parts.push(`Key risk factors: ${topFactors.join(', ')}`);
@@ -736,26 +768,24 @@ export class SecurityGatewayService {
     request: SecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): boolean {
-    // Check operation type
     if (
       policy.conditions.operationType &&
-      policy.conditions.operationType !== request.operation.type
+      policy.conditions.operationType !== request.operation?.type
     ) {
       return false;
     }
 
-    // Check resource type
     if (
       policy.conditions.resourceType &&
-      policy.conditions.resourceType !== request.operation.resource
+      policy.conditions.resourceType !== request.operation?.resource
     ) {
       return false;
     }
 
-    // Check minimum risk level
     if (policy.conditions.minRiskLevel && isSecurityLevel(policy.conditions.minRiskLevel)) {
       const minScore = this.getScoreForRiskLevel(policy.conditions.minRiskLevel);
-      if (riskAssessment.score < minScore) {
+      // score is always set by assessRisk() as a computed number
+      if (riskAssessment.score! < minScore) {
         return false;
       }
     }

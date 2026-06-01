@@ -11,7 +11,7 @@ import { logger, ConflictError, NotFoundError } from '@uaip/utils';
 
 export class LLMProviderManagementService {
   private static instance: LLMProviderManagementService;
-  private llmProviderRepository: LLMProviderRepository;
+  private llmProviderRepository!: LLMProviderRepository;
   private eventBusService: EventBusService | null = null;
   private initialized = false;
 
@@ -161,16 +161,17 @@ export class LLMProviderManagementService {
         provider.apiKeyEncrypted = request.apiKey;
       }
 
-      provider.updatedBy = updatedBy;
+      provider.updatedBy = updatedBy ?? null;
 
       const updatedProvider = await this.llmProviderRepository.update(id, provider);
+      if (!updatedProvider) {
+        throw new NotFoundError(`LLM provider with id ${id} not found after update`);
+      }
 
-      // Test connection if configuration changed
       if (request.baseUrl || request.apiKey || request.configuration) {
         await this.testProviderConnection(id);
       }
 
-      // Notify LLM service to refresh providers and cache
       await this.notifyProviderChange('provider.updated', id, provider.type);
 
       return this.mapToResponse(updatedProvider, this.computeStats(updatedProvider));
@@ -348,7 +349,7 @@ export class LLMProviderManagementService {
       totalErrors: String(totalErrs),
       errorRate: totalReqs > 0 ? totalErrs / totalReqs : 0,
       lastUsedAt: provider.lastUsedAt ?? undefined,
-      healthStatus: provider.healthCheckResult?.status,
+      healthStatus: provider.healthCheckResult?.status ?? undefined,
     };
   }
 
@@ -366,11 +367,11 @@ export class LLMProviderManagementService {
     return {
       id: provider.id,
       name: provider.name,
-      description: provider.description,
+      description: provider.description ?? undefined,
       type: provider.type,
       baseUrl: provider.baseUrl,
       hasApiKey: Boolean(provider.apiKeyEncrypted),
-      defaultModel: provider.defaultModel,
+      defaultModel: provider.defaultModel ?? undefined,
       configuration: provider.configuration,
       status: provider.status,
       isActive: provider.isActive,

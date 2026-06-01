@@ -180,7 +180,7 @@ export class AuditService {
         criticalEvents: events.filter((e) => e.riskLevel === SecurityLevel.CRITICAL).length,
         highRiskEvents: events.filter((e) => e.riskLevel === SecurityLevel.HIGH).length,
         failedLogins: events.filter(
-          (e) => e.eventType === AuditEventType.USER_LOGIN && e.details.success === false
+          (e) => e.eventType === AuditEventType.USER_LOGIN && e.details?.success === false
         ).length,
         permissionDenials: events.filter((e) => e.eventType === AuditEventType.PERMISSION_DENIED)
           .length,
@@ -283,7 +283,7 @@ export class AuditService {
       const alerts: string[] = [];
 
       // Multiple failed logins
-      if (event.eventType === AuditEventType.USER_LOGIN && event.details.success === false) {
+      if (event.eventType === AuditEventType.USER_LOGIN && event.details?.success === false) {
         const recentFailures = await this.countRecentEvents(
           AuditEventType.USER_LOGIN,
           event.userId,
@@ -400,7 +400,9 @@ export class AuditService {
 
     events.forEach((event) => {
       // Count by type
-      eventsByType[event.eventType] = eventsByType[event.eventType] + 1;
+      if (event.eventType) {
+        eventsByType[event.eventType] = eventsByType[event.eventType] + 1;
+      }
 
       // Count by risk level
       if (event.riskLevel) {
@@ -491,7 +493,7 @@ export class AuditService {
     const grouped: Record<string, { count: number; riskEvents: number }> = {};
 
     events.forEach((event) => {
-      const date = new Date(event.timestamp);
+      const date = event.timestamp ?? new Date();
       let key: string;
 
       if (groupBy === 'day') {
@@ -586,7 +588,7 @@ export class AuditService {
       event.riskLevel || '',
       event.ipAddress || '',
       event.userAgent || '',
-      event.timestamp.toISOString(),
+      (event.timestamp ?? new Date()).toISOString(),
       JSON.stringify(event.details),
     ]);
 
@@ -610,7 +612,7 @@ export class AuditService {
         <riskLevel>${event.riskLevel || ''}</riskLevel>
         <ipAddress>${event.ipAddress || ''}</ipAddress>
         <userAgent><![CDATA[${event.userAgent || ''}]]></userAgent>
-        <timestamp>${event.timestamp.toISOString()}</timestamp>
+        <timestamp>${(event.timestamp ?? new Date()).toISOString()}</timestamp>
         <details><![CDATA[${JSON.stringify(event.details)}]]></details>
       </event>
     `
@@ -732,6 +734,7 @@ export class AuditService {
       const criticalViolations = events.filter(
         (e) =>
           e.riskLevel === 'critical' &&
+          e.eventType !== undefined &&
           [
             AuditEventType.PERMISSION_DENIED,
             AuditEventType.SECURITY_VIOLATION,
@@ -776,6 +779,7 @@ export class AuditService {
 
     events.forEach((event) => {
       if (
+        event.eventType !== undefined &&
         [
           AuditEventType.PERMISSION_DENIED,
           AuditEventType.SECURITY_VIOLATION,

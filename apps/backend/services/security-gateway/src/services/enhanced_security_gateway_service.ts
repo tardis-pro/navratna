@@ -23,13 +23,15 @@ import type { PolicyEvaluationResult } from './security_gateway_service.js';
 
 type AgentRestrictions = {
   monitoring: {
-    logLevel: string;
-    alertThresholds: Record<string, number>;
+    logLevel: 'minimal' | 'standard' | 'detailed' | 'verbose';
+    alertThresholds?: Record<string, number>;
   };
   rateLimit?: {
     requests: number;
     windowMs: number;
   };
+  allowedOperations?: string[];
+  blockedOperations?: string[];
 };
 
 type OperationInput = {
@@ -60,21 +62,28 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest
   ): Promise<SecurityValidationResult> {
     try {
+      // Fail closed: both operation and securityContext are required for any security decision
+      if (!request.operation || !request.securityContext) {
+        throw new ApiError(400, 'Invalid security validation request: missing operation or securityContext', 'INVALID_REQUEST');
+      }
+      const operation = request.operation;
+      const securityContext = request.securityContext;
+
       logger.info('Validating enhanced security for operation', {
-        operationType: request.operation.type,
-        resource: request.operation.resource,
-        userId: request.securityContext.userId,
-        userType: request.securityContext.userType,
-        agentCapabilities: request.securityContext.agentCapabilities?.length || 0,
+        operationType: operation.type,
+        resource: operation.resource,
+        userId: securityContext.userId,
+        userType: securityContext.userType,
+        agentCapabilities: securityContext.agentCapabilities?.length ?? 0,
       });
 
       // Validate agent operations if applicable
-      if (request.securityContext.userType === UserType.AGENT) {
+      if (securityContext.userType === UserType.AGENT) {
         await this.validateAgentOperation(request);
       }
 
       // Check OAuth provider permissions if applicable
-      if (request.securityContext.oauthProvider) {
+      if (securityContext.oauthProvider) {
         await this.validateOAuthProviderPermissions(request);
       }
 
@@ -92,6 +101,11 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
 
       // Determine agent-specific restrictions
       const agentRestrictions = await this.getAgentRestrictions(request);
+
+      // riskAssessment.level and riskAssessment.overallRisk are always set by enhancedRiskAssessment()
+      if (!riskAssessment.level || !riskAssessment.overallRisk) {
+        throw new ApiError(500, 'Risk assessment returned incomplete data', 'RISK_ASSESSMENT_ERROR');
+      }
 
       const result: SecurityValidationResult = {
         allowed: isAllowed && !approvalRequirement.required,
@@ -111,42 +125,42 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
           ? AuditEventType.PERMISSION_GRANTED
           : AuditEventType.PERMISSION_DENIED,
         userId:
-          request.securityContext.userType === UserType.AGENT
+          securityContext.userType === UserType.AGENT
             ? undefined
-            : request.securityContext.userId,
+            : securityContext.userId,
         agentId:
-          request.securityContext.userType === UserType.AGENT
-            ? request.securityContext.userId
+          securityContext.userType === UserType.AGENT
+            ? securityContext.userId
             : undefined,
         details: {
-          operation: request.operation,
+          operation: operation,
           riskLevel: riskAssessment.level,
           approvalRequired: approvalRequirement.required,
           mfaRequired: mfaRequirement.required,
-          agentCapabilities: request.securityContext.agentCapabilities,
-          oauthProvider: request.securityContext.oauthProvider,
+          agentCapabilities: securityContext.agentCapabilities,
+          oauthProvider: securityContext.oauthProvider,
         },
       });
 
       logger.info('Enhanced security validation completed', {
-        operationType: request.operation.type,
+        operationType: operation.type,
         allowed: result.allowed,
         approvalRequired: result.approvalRequired,
         riskLevel: result.riskLevel,
-        userType: request.securityContext.userType,
+        userType: securityContext.userType,
         mfaRequired: result.mfaRequired,
       });
 
       return result;
     } catch (error) {
       logger.error('Enhanced security validation failed', {
-        operationType: request.operation.type,
-        userType: request.securityContext.userType,
+        operationType: request.operation?.type,
+        userType: request.securityContext?.userType,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_VIOLATION,
-        userId: request.securityContext.userId,
+        userId: request.securityContext?.userId,
         details: {
           error: error instanceof Error ? error.message : 'Unknown error',
           operation: request.operation,
@@ -161,7 +175,13 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
    * Validate agent-specific operations
    */
   private async validateAgentOperation(request: EnhancedSecurityValidationRequest): Promise<void> {
-    const agentContext = request.securityContext.agentContext;
+    // Fail closed: securityContext must be present for agent validation
+    if (!request.securityContext) {
+      throw new ApiError(400, 'Invalid request: missing securityContext', 'MISSING_SECURITY_CONTEXT');
+    }
+    const securityContext = request.securityContext;
+
+    const agentContext = securityContext.agentContext;
     if (!agentContext) {
       throw new ApiError(
         400,
@@ -171,8 +191,13 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     }
 
     // Check if agent has required capabilities for the operation
-    const requiredCapability = this.getRequiredCapabilityForOperation(request.operation.type);
-    if (requiredCapability && !agentContext.capabilities.includes(requiredCapability)) {
+    const operationType = request.operation?.type ?? '';
+    const requiredCapability = this.getRequiredCapabilityForOperation(operationType);
+    // agentContext.capabilities is always an array per schema (ZodArray, not optional)
+    // The Zod output type marks it as optional due to ZodObject shape inference, but the
+    // schema has `capabilities: z.array(...)` (required). Guard defensively anyway.
+    const capabilities = agentContext.capabilities ?? [];
+    if (requiredCapability && !capabilities.includes(requiredCapability)) {
       throw new ApiError(
         403,
         `Agent lacks required capability: ${requiredCapability}`,
@@ -183,14 +208,18 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     // Check operation limits
     if (agentContext.operationLimits) {
       const limits = agentContext.operationLimits;
+      // currentDailyOperations and currentConcurrentOperations have .default(0) in schema,
+      // so they are always numbers in the output type. Guard defensively for strict mode.
+      const currentDaily = limits.currentDailyOperations ?? 0;
+      const currentConcurrent = limits.currentConcurrentOperations ?? 0;
 
-      if (limits.maxDailyOperations && limits.currentDailyOperations >= limits.maxDailyOperations) {
+      if (limits.maxDailyOperations && currentDaily >= limits.maxDailyOperations) {
         throw new ApiError(429, 'Daily operation limit exceeded', 'DAILY_LIMIT_EXCEEDED');
       }
 
       if (
         limits.maxConcurrentOperations &&
-        limits.currentConcurrentOperations >= limits.maxConcurrentOperations
+        currentConcurrent >= limits.maxConcurrentOperations
       ) {
         throw new ApiError(429, 'Concurrent operation limit exceeded', 'CONCURRENT_LIMIT_EXCEEDED');
       }
@@ -203,19 +232,29 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private async validateOAuthProviderPermissions(
     request: EnhancedSecurityValidationRequest
   ): Promise<void> {
-    const { oauthProvider, userId, agentCapabilities } = request.securityContext;
+    // Fail closed: securityContext must be present
+    if (!request.securityContext) {
+      throw new ApiError(400, 'Invalid request: missing securityContext', 'MISSING_SECURITY_CONTEXT');
+    }
+    const securityContext = request.securityContext;
+    const { oauthProvider, userId, agentCapabilities } = securityContext;
 
     if (!oauthProvider) return;
 
     // For agents, validate OAuth operation permissions
-    if (request.securityContext.userType === UserType.AGENT && agentCapabilities) {
-      const requiredCapability = this.getRequiredCapabilityForOperation(request.operation.type);
+    if (securityContext.userType === UserType.AGENT && agentCapabilities) {
+      const operationType = request.operation?.type ?? '';
+      const requiredCapability = this.getRequiredCapabilityForOperation(operationType);
       if (!requiredCapability) return;
+
+      if (!userId) {
+        throw new ApiError(400, 'Invalid security context: missing userId for OAuth validation', 'MISSING_USER_ID');
+      }
 
       const canPerformOperation = await this.oauthProviderService.validateAgentOperation(
         userId,
-        oauthProvider,
-        request.operation.type,
+        oauthProvider as string, // OAuthProviderType is a string enum; safe widening
+        operationType,
         requiredCapability
       );
 
@@ -231,58 +270,84 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private async enhancedRiskAssessment(
     request: EnhancedSecurityValidationRequest
   ): Promise<RiskAssessment> {
+    // Fail closed: securityContext must be present for any risk assessment
+    if (!request.securityContext) {
+      throw new ApiError(400, 'Invalid request: missing securityContext', 'MISSING_SECURITY_CONTEXT');
+    }
+    const securityContext = request.securityContext;
+
+    // Fail closed: operation must be present
+    if (!request.operation) {
+      throw new ApiError(400, 'Invalid request: missing operation', 'MISSING_OPERATION');
+    }
+    const operation = request.operation;
+
     const factors: RiskFactor[] = [];
     let totalScore = 0;
 
     // Base operation risk
-    const operationRisk = this.assessOperationRisk(request.operation);
+    const operationRisk = this.assessOperationRisk(operation);
     factors.push(operationRisk);
-    totalScore += operationRisk.score;
+    // operationRisk.score is always a number (set explicitly in assessOperationRisk)
+    totalScore += operationRisk.score ?? 0;
 
-    // User type risk
-    const userTypeRisk = this.assessUserTypeRisk(request.securityContext.userType);
+    // User type risk — userType has .default(UserType.HUMAN) so always defined
+    const userType = securityContext.userType;
+    if (!userType) {
+      // Fail closed: user type required for risk decision
+      throw new ApiError(400, 'Invalid security context: missing userType', 'MISSING_USER_TYPE');
+    }
+    const userTypeRisk = this.assessUserTypeRisk(userType);
     factors.push(userTypeRisk);
-    totalScore += userTypeRisk.score;
+    totalScore += userTypeRisk.score ?? 0;
 
-    // Authentication method risk
-    const authMethodRisk = this.assessAuthMethodRisk(request.securityContext.authenticationMethod);
+    // Authentication method risk — authenticationMethod is required in schema
+    const authMethod = securityContext.authenticationMethod;
+    if (!authMethod) {
+      // Fail closed: auth method required for risk decision
+      throw new ApiError(400, 'Invalid security context: missing authenticationMethod', 'MISSING_AUTH_METHOD');
+    }
+    const authMethodRisk = this.assessAuthMethodRisk(authMethod);
     factors.push(authMethodRisk);
-    totalScore += authMethodRisk.score;
+    totalScore += authMethodRisk.score ?? 0;
 
     // OAuth provider risk (if applicable)
-    if (request.securityContext.oauthProvider) {
-      const oauthRisk = this.assessOAuthProviderRisk(request.securityContext.oauthProvider);
+    if (securityContext.oauthProvider) {
+      const oauthRisk = this.assessOAuthProviderRisk(securityContext.oauthProvider);
       factors.push(oauthRisk);
-      totalScore += oauthRisk.score;
+      totalScore += oauthRisk.score ?? 0;
     }
 
     // Agent capability risk (if applicable)
     if (
-      request.securityContext.agentCapabilities &&
-      request.securityContext.agentCapabilities.length > 0
+      securityContext.agentCapabilities &&
+      securityContext.agentCapabilities.length > 0
     ) {
       const capabilityRisk = this.assessAgentCapabilityRisk(
-        request.securityContext.agentCapabilities
+        securityContext.agentCapabilities
       );
       factors.push(capabilityRisk);
-      totalScore += capabilityRisk.score;
+      totalScore += capabilityRisk.score ?? 0;
     }
 
     // Session risk factors
-    if (request.securityContext.sessionRisk) {
+    if (securityContext.sessionRisk) {
+      const sessionRiskData = securityContext.sessionRisk;
+      // score is required in sessionRisk schema (z.number())
+      const sessionScore = sessionRiskData.score ?? 0;
       const sessionRisk: RiskFactor = {
         type: 'session_risk',
-        level: this.scoreToRiskLevel(request.securityContext.sessionRisk.score),
-        description: `Session risk score: ${request.securityContext.sessionRisk.score}`,
-        score: request.securityContext.sessionRisk.score,
-        mitigations: request.securityContext.sessionRisk.mitigations,
+        level: this.scoreToRiskLevel(sessionScore),
+        description: `Session risk score: ${sessionScore}`,
+        score: sessionScore,
+        mitigations: sessionRiskData.mitigations,
       };
       factors.push(sessionRisk);
-      totalScore += sessionRisk.score;
+      totalScore += sessionRisk.score ?? 0;
     }
 
     // MFA verification risk
-    if (!request.securityContext.mfaVerified) {
+    if (!securityContext.mfaVerified) {
       const mfaRisk: RiskFactor = {
         type: 'mfa_not_verified',
         level: RiskLevel.MEDIUM,
@@ -291,11 +356,11 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         mitigations: ['Require MFA verification'],
       };
       factors.push(mfaRisk);
-      totalScore += mfaRisk.score;
+      totalScore += mfaRisk.score ?? 0;
     }
 
     // Device trust risk
-    if (!request.securityContext.deviceTrusted) {
+    if (!securityContext.deviceTrusted) {
       const deviceRisk: RiskFactor = {
         type: 'untrusted_device',
         level: RiskLevel.MEDIUM,
@@ -304,14 +369,14 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
         mitigations: ['Enhanced monitoring', 'Additional verification'],
       };
       factors.push(deviceRisk);
-      totalScore += deviceRisk.score;
+      totalScore += deviceRisk.score ?? 0;
     }
 
     // Time-based risk
     const timeRisk = this.assessTimeBasedRisk();
-    if (timeRisk.score > 0) {
+    if ((timeRisk.score ?? 0) > 0) {
       factors.push(timeRisk);
-      totalScore += timeRisk.score;
+      totalScore += timeRisk.score ?? 0;
     }
 
     // Calculate overall risk level
@@ -338,13 +403,24 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<boolean> {
+    // Fail closed: securityContext is required for access control decisions
+    if (!request.securityContext) {
+      return false;
+    }
+    const securityContext = request.securityContext;
+
+    // riskAssessment.level is set by enhancedRiskAssessment — fail closed if missing
+    if (!securityContext.securityLevel || !riskAssessment.level) {
+      return false;
+    }
+
     // Check base security clearance
-    if (request.securityContext.securityLevel < riskAssessment.level) {
+    if (securityContext.securityLevel < riskAssessment.level) {
       return false;
     }
 
     // Agent-specific validation
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (securityContext.userType === UserType.AGENT) {
       try {
         await this.validateAgentOperation(request);
         return true;
@@ -354,7 +430,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     }
 
     // OAuth provider validation
-    if (request.securityContext.oauthProvider) {
+    if (securityContext.oauthProvider) {
       return await this.validateOAuthOperation(request);
     }
 
@@ -367,27 +443,34 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   private async validateOAuthOperation(
     request: EnhancedSecurityValidationRequest
   ): Promise<boolean> {
-    if (!request.securityContext.oauthProvider) {
+    if (!request.securityContext?.oauthProvider) {
       return true;
     }
+    const securityContext = request.securityContext;
 
     // For agent users, validate OAuth connection
-    if (request.securityContext.userType === UserType.AGENT) {
-      const requiredCapability = this.getRequiredCapabilityForOperation(request.operation.type);
+    if (securityContext.userType === UserType.AGENT) {
+      const operationType = request.operation?.type ?? '';
+      const requiredCapability = this.getRequiredCapabilityForOperation(operationType);
       if (requiredCapability) {
         try {
+          const agentUserId = securityContext.userId;
+          const agentOauthProvider = securityContext.oauthProvider;
+          if (!agentUserId) {
+            return false; // Fail closed: userId required for OAuth validation
+          }
           const validation = await this.oauthProviderService.validateAgentOperation(
-            request.securityContext.userId,
-            request.securityContext.oauthProvider,
-            request.operation.type,
+            agentUserId,
+            agentOauthProvider as string,
+            operationType,
             requiredCapability
           );
           return validation.allowed;
         } catch (error) {
           logger.error('OAuth operation validation failed', {
-            agentId: request.securityContext.userId,
-            provider: request.securityContext.oauthProvider,
-            operation: request.operation.type,
+            agentId: securityContext.userId,
+            provider: securityContext.oauthProvider,
+            operation: operationType,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
           return false;
@@ -405,26 +488,32 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<ApprovalRequirement> {
+    // Fail closed: securityContext is required for approval decisions
+    if (!request.securityContext) {
+      throw new ApiError(400, 'Invalid request: missing securityContext', 'MISSING_SECURITY_CONTEXT');
+    }
+    const securityContext = request.securityContext;
+
     // Base approval check
     const baseRequirement = await this.requiresApproval({
       operation: request.operation,
       securityContext: {
-        userId: request.securityContext.userId,
-        sessionId: request.securityContext.sessionId,
-        ipAddress: request.securityContext.ipAddress,
-        userAgent: request.securityContext.userAgent,
-        department: request.securityContext.department,
-        role: request.securityContext.role,
-        permissions: request.securityContext.permissions,
-        securityLevel: request.securityContext.securityLevel,
-        lastAuthentication: request.securityContext.lastAuthentication,
-        mfaVerified: request.securityContext.mfaVerified,
-        riskScore: request.securityContext.riskScore,
+        userId: securityContext.userId,
+        sessionId: securityContext.sessionId,
+        ipAddress: securityContext.ipAddress,
+        userAgent: securityContext.userAgent,
+        department: securityContext.department,
+        role: securityContext.role,
+        permissions: securityContext.permissions,
+        securityLevel: securityContext.securityLevel,
+        lastAuthentication: securityContext.lastAuthentication,
+        mfaVerified: securityContext.mfaVerified,
+        riskScore: securityContext.riskScore,
       },
     });
 
     // Additional approval requirements for agents
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (securityContext.userType === UserType.AGENT) {
       const agentApprovalRequired = this.requiresAgentApproval(request, riskAssessment);
       if (agentApprovalRequired) {
         return {
@@ -437,7 +526,8 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     }
 
     // Additional approval for high-risk OAuth operations
-    if (request.securityContext.oauthProvider && riskAssessment.overallRisk >= RiskLevel.HIGH) {
+    // riskAssessment.overallRisk is always set by enhancedRiskAssessment()
+    if (securityContext.oauthProvider && riskAssessment.overallRisk && riskAssessment.overallRisk >= RiskLevel.HIGH) {
       return {
         required: true,
         approvers: ['oauth-admin', 'security-admin'],
@@ -456,6 +546,13 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<{ required: boolean; methods?: MFAMethod[] }> {
+    // Fail closed: securityContext is required for MFA decisions
+    if (!request.securityContext) {
+      // Fail closed: deny access if context is missing
+      return { required: true, methods: [MFAMethod.TOTP] };
+    }
+    const securityContext = request.securityContext;
+
     // Always require MFA for critical operations
     if (riskAssessment.level === SecurityLevel.CRITICAL) {
       return {
@@ -465,7 +562,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     }
 
     // Require MFA for high-risk operations if not already verified
-    if (riskAssessment.level === SecurityLevel.HIGH && !request.securityContext.mfaVerified) {
+    if (riskAssessment.level === SecurityLevel.HIGH && !securityContext.mfaVerified) {
       return {
         required: true,
         methods: [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL],
@@ -473,18 +570,18 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     }
 
     // Require MFA for agent operations with sensitive capabilities
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (securityContext.userType === UserType.AGENT) {
       const sensitiveCapabilities = [
         AgentCapability.CODE_REPOSITORY,
         AgentCapability.EMAIL_ACCESS,
         AgentCapability.FILE_MANAGEMENT,
       ];
 
-      const hasSensitiveCapability = request.securityContext.agentCapabilities?.some((cap) =>
+      const hasSensitiveCapability = securityContext.agentCapabilities?.some((cap) =>
         sensitiveCapabilities.includes(cap)
       );
 
-      if (hasSensitiveCapability && !request.securityContext.mfaVerified) {
+      if (hasSensitiveCapability && !securityContext.mfaVerified) {
         return {
           required: true,
           methods: [MFAMethod.TOTP, MFAMethod.PUSH],
@@ -498,10 +595,11 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   /**
    * Get agent-specific restrictions
    */
-  private async getAgentRestrictions(request: EnhancedSecurityValidationRequest): Promise<unknown> {
-    if (request.securityContext.userType !== UserType.AGENT) {
+  private async getAgentRestrictions(request: EnhancedSecurityValidationRequest): Promise<AgentRestrictions | undefined> {
+    if (!request.securityContext || request.securityContext.userType !== UserType.AGENT) {
       return undefined;
     }
+    const securityContext = request.securityContext;
 
     const restrictions: AgentRestrictions = {
       monitoring: {
@@ -515,14 +613,14 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     };
 
     // Add rate limiting based on agent capabilities
-    if (request.securityContext.agentCapabilities) {
+    if (securityContext.agentCapabilities) {
       const highRiskCapabilities = [
         AgentCapability.CODE_REPOSITORY,
         AgentCapability.EMAIL_ACCESS,
         AgentCapability.FILE_MANAGEMENT,
       ];
 
-      const hasHighRiskCapability = request.securityContext.agentCapabilities.some((cap) =>
+      const hasHighRiskCapability = securityContext.agentCapabilities.some((cap) =>
         highRiskCapabilities.includes(cap)
       );
 
@@ -656,11 +754,11 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       AgentCapability.FILE_MANAGEMENT,
     ];
 
-    const hasSensitiveCapability = request.securityContext.agentCapabilities?.some((cap) =>
+    const hasSensitiveCapability = request.securityContext?.agentCapabilities?.some((cap) =>
       sensitiveCapabilities.includes(cap)
     );
 
-    if (hasSensitiveCapability && riskAssessment.level >= SecurityLevel.HIGH) {
+    if (hasSensitiveCapability && riskAssessment.level && riskAssessment.level >= SecurityLevel.HIGH) {
       return true;
     }
 
@@ -674,17 +772,18 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   ): string {
     const parts: string[] = [];
 
+    // riskAssessment.level and .score are set by enhancedRiskAssessment()
     parts.push(
-      `Risk assessment: ${riskAssessment.level} (score: ${riskAssessment.score.toFixed(2)})`
+      `Risk assessment: ${riskAssessment.level} (score: ${(riskAssessment.score ?? 0).toFixed(2)})`
     );
 
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (request.securityContext?.userType === UserType.AGENT) {
       parts.push(
         `Agent operation with capabilities: ${request.securityContext.agentCapabilities?.join(', ')}`
       );
     }
 
-    if (request.securityContext.oauthProvider) {
+    if (request.securityContext?.oauthProvider) {
       parts.push(`OAuth provider: ${request.securityContext.oauthProvider}`);
     }
 
@@ -752,7 +851,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     policy: AgentSecurityPolicy,
     request: EnhancedSecurityValidationRequest
   ): boolean {
-    const agentCapabilities = request.securityContext.agentCapabilities || [];
+    const agentCapabilities = request.securityContext?.agentCapabilities ?? [];
     const hasApplicableCapability = policy.applicableCapabilities.some((cap) =>
       agentCapabilities.includes(cap)
     );
@@ -760,7 +859,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     if (!hasApplicableCapability) return false;
 
     if (
-      request.securityContext.oauthProvider &&
+      request.securityContext?.oauthProvider &&
       !policy.allowedProviders.includes(request.securityContext.oauthProvider)
     ) {
       return false;
@@ -791,23 +890,28 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<{ allowed: boolean; conditions: string[]; appliedPolicies: string[] }> {
+    // Fail closed: securityContext required for policy evaluation
+    if (!request.securityContext) {
+      throw new ApiError(400, 'Invalid request: missing securityContext', 'MISSING_SECURITY_CONTEXT');
+    }
+    const securityContext = request.securityContext;
     // Apply both regular and agent-specific policies
     // This would combine the results from both policy sets
     return this.applySecurityPolicies(
       {
         operation: request.operation,
         securityContext: {
-          userId: request.securityContext.userId,
-          sessionId: request.securityContext.sessionId,
-          ipAddress: request.securityContext.ipAddress,
-          userAgent: request.securityContext.userAgent,
-          department: request.securityContext.department,
-          role: request.securityContext.role,
-          permissions: request.securityContext.permissions,
-          securityLevel: request.securityContext.securityLevel,
-          lastAuthentication: request.securityContext.lastAuthentication,
-          mfaVerified: request.securityContext.mfaVerified,
-          riskScore: request.securityContext.riskScore,
+          userId: securityContext.userId,
+          sessionId: securityContext.sessionId,
+          ipAddress: securityContext.ipAddress,
+          userAgent: securityContext.userAgent,
+          department: securityContext.department,
+          role: securityContext.role,
+          permissions: securityContext.permissions,
+          securityLevel: securityContext.securityLevel,
+          lastAuthentication: securityContext.lastAuthentication,
+          mfaVerified: securityContext.mfaVerified,
+          riskScore: securityContext.riskScore,
         },
       },
       riskAssessment
@@ -819,22 +923,27 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     riskAssessment: RiskAssessment,
     policyResult: { allowed: boolean; conditions: string[]; appliedPolicies: string[] }
   ): boolean {
+    // Fail closed: securityContext required for approval determination
+    if (!request.securityContext) {
+      return true; // Fail closed — require approval when context is missing
+    }
+    const securityContext = request.securityContext;
     // Enhanced approval logic for agents and OAuth operations
     const baseRequirement = this.determineApprovalRequirement(
       {
         operation: request.operation,
         securityContext: {
-          userId: request.securityContext.userId,
-          sessionId: request.securityContext.sessionId,
-          ipAddress: request.securityContext.ipAddress,
-          userAgent: request.securityContext.userAgent,
-          department: request.securityContext.department,
-          role: request.securityContext.role,
-          permissions: request.securityContext.permissions,
-          securityLevel: request.securityContext.securityLevel,
-          lastAuthentication: request.securityContext.lastAuthentication,
-          mfaVerified: request.securityContext.mfaVerified,
-          riskScore: request.securityContext.riskScore,
+          userId: securityContext.userId,
+          sessionId: securityContext.sessionId,
+          ipAddress: securityContext.ipAddress,
+          userAgent: securityContext.userAgent,
+          department: securityContext.department,
+          role: securityContext.role,
+          permissions: securityContext.permissions,
+          securityLevel: securityContext.securityLevel,
+          lastAuthentication: securityContext.lastAuthentication,
+          mfaVerified: securityContext.mfaVerified,
+          riskScore: securityContext.riskScore,
         },
       },
       riskAssessment,
@@ -842,14 +951,15 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     );
 
     // Additional approval requirements for agents
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (securityContext.userType === UserType.AGENT) {
       const sensitiveCapabilities = [AgentCapability.CODE_REPOSITORY, AgentCapability.EMAIL_ACCESS];
 
-      const hasSensitiveCapability = request.securityContext.agentCapabilities?.some((cap) =>
+      const hasSensitiveCapability = securityContext.agentCapabilities?.some((cap) =>
         sensitiveCapabilities.includes(cap)
       );
 
-      if (hasSensitiveCapability && riskAssessment.overallRisk >= RiskLevel.HIGH) {
+      // riskAssessment.overallRisk is set by enhancedRiskAssessment()
+      if (hasSensitiveCapability && riskAssessment.overallRisk && riskAssessment.overallRisk >= RiskLevel.HIGH) {
         return true;
       }
     }
@@ -861,21 +971,26 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     request: EnhancedSecurityValidationRequest,
     riskAssessment: RiskAssessment
   ): Promise<string[]> {
+    // Fail closed: securityContext required for approver determination
+    if (!request.securityContext) {
+      return ['security-admin']; // Fail closed — require security admin if context missing
+    }
+    const securityContext = request.securityContext;
     const baseApprovers = await this.getRequiredApprovers(
       {
         operation: request.operation,
         securityContext: {
-          userId: request.securityContext.userId,
-          sessionId: request.securityContext.sessionId,
-          ipAddress: request.securityContext.ipAddress,
-          userAgent: request.securityContext.userAgent,
-          department: request.securityContext.department,
-          role: request.securityContext.role,
-          permissions: request.securityContext.permissions,
-          securityLevel: request.securityContext.securityLevel,
-          lastAuthentication: request.securityContext.lastAuthentication,
-          mfaVerified: request.securityContext.mfaVerified,
-          riskScore: request.securityContext.riskScore,
+          userId: securityContext.userId,
+          sessionId: securityContext.sessionId,
+          ipAddress: securityContext.ipAddress,
+          userAgent: securityContext.userAgent,
+          department: securityContext.department,
+          role: securityContext.role,
+          permissions: securityContext.permissions,
+          securityLevel: securityContext.securityLevel,
+          lastAuthentication: securityContext.lastAuthentication,
+          mfaVerified: securityContext.mfaVerified,
+          riskScore: securityContext.riskScore,
         },
       },
       riskAssessment
@@ -884,10 +999,10 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     const enhancedApprovers = [...baseApprovers];
 
     // Add agent-specific approvers
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (securityContext.userType === UserType.AGENT) {
       enhancedApprovers.push('agent-supervisor');
 
-      if (request.securityContext.agentCapabilities?.includes(AgentCapability.CODE_REPOSITORY)) {
+      if (securityContext.agentCapabilities?.includes(AgentCapability.CODE_REPOSITORY)) {
         enhancedApprovers.push('code-review-team');
       }
     }
@@ -901,21 +1016,26 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     policyResult: PolicyEvaluationResult,
     approvalRequired: boolean
   ): string {
+    // Fail closed: securityContext required for reasoning
+    if (!request.securityContext) {
+      return 'Security reasoning unavailable: missing context';
+    }
+    const securityContext = request.securityContext;
     const baseReasoning = this.buildReasoningText(
       {
         operation: request.operation,
         securityContext: {
-          userId: request.securityContext.userId,
-          sessionId: request.securityContext.sessionId,
-          ipAddress: request.securityContext.ipAddress,
-          userAgent: request.securityContext.userAgent,
-          department: request.securityContext.department,
-          role: request.securityContext.role,
-          permissions: request.securityContext.permissions,
-          securityLevel: request.securityContext.securityLevel,
-          lastAuthentication: request.securityContext.lastAuthentication,
-          mfaVerified: request.securityContext.mfaVerified,
-          riskScore: request.securityContext.riskScore,
+          userId: securityContext.userId,
+          sessionId: securityContext.sessionId,
+          ipAddress: securityContext.ipAddress,
+          userAgent: securityContext.userAgent,
+          department: securityContext.department,
+          role: securityContext.role,
+          permissions: securityContext.permissions,
+          securityLevel: securityContext.securityLevel,
+          lastAuthentication: securityContext.lastAuthentication,
+          mfaVerified: securityContext.mfaVerified,
+          riskScore: securityContext.riskScore,
         },
       },
       riskAssessment,
@@ -925,17 +1045,17 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
 
     const enhancedReasons: string[] = [baseReasoning];
 
-    if (request.securityContext.userType === UserType.AGENT) {
+    if (securityContext.userType === UserType.AGENT) {
       enhancedReasons.push(
-        `Agent operation with ${request.securityContext.agentCapabilities?.length || 0} capabilities`
+        `Agent operation with ${securityContext.agentCapabilities?.length ?? 0} capabilities`
       );
     }
 
-    if (request.securityContext.oauthProvider) {
-      enhancedReasons.push(`OAuth provider: ${request.securityContext.oauthProvider}`);
+    if (securityContext.oauthProvider) {
+      enhancedReasons.push(`OAuth provider: ${securityContext.oauthProvider}`);
     }
 
-    if (!request.securityContext.deviceTrusted) {
+    if (!securityContext.deviceTrusted) {
       enhancedReasons.push('Untrusted device detected');
     }
 
@@ -999,7 +1119,7 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
    * Assess operation risk
    */
   private assessOperationRisk(operation: OperationInput): RiskFactor {
-    const operationType = operation.type || 'unknown';
+    const operationType = operation.type ?? 'unknown';
     let score = 1; // Base score
     let level = RiskLevel.LOW;
     let mitigations: string[] = [];
@@ -1092,34 +1212,37 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
     const recommendations: string[] = [];
 
     factors.forEach((factor) => {
+      // factor.score is required in RiskFactorSchema (z.number().min(0).max(10))
+      // Zod's ZodObject shape inference marks it as optional; guard with ?? 0
+      const score = factor.score ?? 0;
       switch (factor.type) {
         case 'user_type':
-          if (factor.score > 0) {
+          if (score > 0) {
             recommendations.push('Consider additional verification for agent operations');
           }
           break;
         case 'authentication_method':
-          if (factor.score > 1) {
+          if (score > 1) {
             recommendations.push('Upgrade to stronger authentication method');
           }
           break;
         case 'oauth_provider':
-          if (factor.score > 0) {
+          if (score > 0) {
             recommendations.push('Verify OAuth provider permissions and scope');
           }
           break;
         case 'agent_capability':
-          if (factor.score > 2) {
+          if (score > 2) {
             recommendations.push('Review agent capabilities and reduce if possible');
           }
           break;
         case 'device_trust':
-          if (factor.score > 0) {
+          if (score > 0) {
             recommendations.push('Verify device trust status');
           }
           break;
         case 'time_based':
-          if (factor.score > 0) {
+          if (score > 0) {
             recommendations.push('Consider delaying non-critical operations to business hours');
           }
           break;
@@ -1135,14 +1258,15 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   protected generateEnhancedMitigations(factors: RiskFactor[]): string[] {
     const mitigations: string[] = [];
 
-    const highRiskFactors = factors.filter((f) => f.score >= 2);
+    // factor.score is required in RiskFactorSchema; guard with ?? 0 for strict mode
+    const highRiskFactors = factors.filter((f) => (f.score ?? 0) >= 2);
 
     if (highRiskFactors.length > 0) {
       mitigations.push('Require additional approval');
       mitigations.push('Enable enhanced monitoring');
     }
 
-    const criticalFactors = factors.filter((f) => f.score >= 3);
+    const criticalFactors = factors.filter((f) => (f.score ?? 0) >= 3);
     if (criticalFactors.length > 0) {
       mitigations.push('Require MFA verification');
       mitigations.push('Limit operation scope');
@@ -1166,6 +1290,6 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       note_update: AgentCapability.NOTE_TAKING,
     };
 
-    return operationCapabilityMap[operationType] || null;
+    return operationCapabilityMap[operationType] ?? null;
   }
 }

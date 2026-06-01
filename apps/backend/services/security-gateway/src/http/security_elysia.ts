@@ -125,10 +125,13 @@ type RiskStats = {
   lowRiskCount: number;
 };
 
+type ValidationSuccess<T> = { error: null; value: T };
+type ValidationFailure = { error: { details: { message: string; path: string }[] }; value: null };
+
 function validateWithZod<T>(
   schema: z.ZodSchema<T>,
   data: unknown
-): { error: { details: { message: string; path: string }[] } | null; value: T | null } {
+): ValidationSuccess<T> | ValidationFailure {
   const result = schema.safeParse(data);
   if (result.success) return { error: null, value: result.data };
   return {
@@ -154,14 +157,15 @@ export function registerSecurityRoutes() {
     .post('/assess-risk', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, body, request, headers } = ctx;
-      const { error, value } = validateWithZod(riskAssessmentSchema, body);
-      if (error) {
+      const assessResult = validateWithZod(riskAssessmentSchema, body);
+      if (assessResult.error) {
         set.status = 400;
         return {
           error: 'Validation Error',
-          details: error.details.map((d) => d.message),
+          details: assessResult.error.details.map((d) => d.message),
         };
       }
+      const value = assessResult.value;
       try {
         const { securityGatewayService, auditService } = await getSecurityServices();
         const assessment = await securityGatewayService.assessRisk({
@@ -215,14 +219,15 @@ export function registerSecurityRoutes() {
     .post('/check-approval-required', async (ctx) => {
       const user = getAuthUser(ctx);
       const { set, body, request, headers } = ctx;
-      const { error, value } = validateWithZod(riskAssessmentSchema, body);
-      if (error) {
+      const approvalCheckResult = validateWithZod(riskAssessmentSchema, body);
+      if (approvalCheckResult.error) {
         set.status = 400;
         return {
           error: 'Validation Error',
-          details: error.details.map((d) => d.message),
+          details: approvalCheckResult.error.details.map((d) => d.message),
         };
       }
+      const approvalCheckValue = approvalCheckResult.value;
       try {
         const { securityGatewayService } = await getSecurityServices();
         const approvalRequired = await securityGatewayService.requiresApproval({
@@ -239,8 +244,8 @@ export function registerSecurityRoutes() {
             riskScore: 0,
           },
           operation: {
-            type: value.operationType,
-            resource: value.resourceType,
+            type: approvalCheckValue.operationType,
+            resource: approvalCheckValue.resourceType,
             action: 'access',
           },
         });
@@ -388,24 +393,25 @@ export function registerSecurityRoutes() {
       .post('/policies', async (ctx) => {
         const user = getAuthUser(ctx);
         const { set, body, request, headers } = ctx;
-        const { error, value } = validateWithZod(securityPolicySchema, body);
-        if (error) {
+        const createPolicyResult = validateWithZod(securityPolicySchema, body);
+        if (createPolicyResult.error) {
           set.status = 400;
           return {
             error: 'Validation Error',
-            details: error.details.map((d) => d.message),
+            details: createPolicyResult.error.details.map((d) => d.message),
           };
         }
+        const createPolicyValue = createPolicyResult.value;
         try {
           const { securityService, auditService } = await getSecurityServices();
           const repo = securityService!.getSecurityPolicyRepository();
           const newPolicy = await repo.createSecurityPolicy({
-            name: value.name,
-            description: value.description,
-            priority: value.priority,
-            isEnabled: value.isActive,
+            name: createPolicyValue.name,
+            description: createPolicyValue.description,
+            priority: createPolicyValue.priority,
+            isEnabled: createPolicyValue.isActive,
             policyType: 'custom',
-            rules: { conditions: value.conditions, actions: value.actions },
+            rules: { conditions: createPolicyValue.conditions, actions: createPolicyValue.actions },
             metadata: { createdBy: user!.id },
           });
           await auditService.logSecurityEvent({
@@ -446,19 +452,31 @@ export function registerSecurityRoutes() {
       })
       
       .put('/policies/:policyId', async ({ set, params, body }) => {
-        const { error, value } = validateWithZod(updatePolicySchema, body);
-        if (error) {
+        const updateResult = validateWithZod(updatePolicySchema, body);
+        if (updateResult.error) {
           set.status = 400;
           return {
             error: 'Validation Error',
-            details: error.details.map((d) => d.message),
+            details: updateResult.error.details.map((d) => d.message),
           };
         }
+        const updateValue = updateResult.value;
         try {
           const { securityService } = await getServices();
           const policyId = params.policyId;
           const repo = securityService!.getSecurityPolicyRepository();
-          const updated = await repo.updateSecurityPolicy(policyId, value);
+          // Map API schema fields to repository format:
+          // - isActive → isEnabled
+          // - conditions + actions → rules object
+          const updatePayload: Record<string, unknown> = {};
+          if (updateValue.name !== undefined) updatePayload.name = updateValue.name;
+          if (updateValue.description !== undefined) updatePayload.description = updateValue.description;
+          if (updateValue.priority !== undefined) updatePayload.priority = updateValue.priority;
+          if (updateValue.isActive !== undefined) updatePayload.isEnabled = updateValue.isActive;
+          if (updateValue.conditions !== undefined || updateValue.actions !== undefined) {
+            updatePayload.rules = { conditions: updateValue.conditions, actions: updateValue.actions };
+          }
+          const updated = await repo.updateSecurityPolicy(policyId, updatePayload);
           if (!updated) {
             set.status = 404;
             return { error: 'Policy Not Found', message: 'Security policy not found' };

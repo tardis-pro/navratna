@@ -137,7 +137,8 @@ export class OAuthProviderService {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
-        this.providers.set(provider.id, provider);
+        // DB OAuthProvider is stored via the OAuthProviderConfig interface; fields overlap at runtime
+        this.providers.set(provider.id, provider as unknown as OAuthProviderConfig);
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
@@ -160,21 +161,32 @@ export class OAuthProviderService {
         providerConfig.clientSecret = await this.encryptSecret(providerConfig.clientSecret);
       }
 
+      const providerType = providerConfig.type;
+      const providerClientId = providerConfig.clientId;
+      const providerRedirectUri = providerConfig.redirectUri;
+      const providerScope = providerConfig.scope;
+      const providerAuthUrl = providerConfig.authorizationUrl;
+      const providerTokenUrl = providerConfig.tokenUrl;
+      if (!providerType || !providerClientId || !providerRedirectUri || !providerScope || !providerAuthUrl || !providerTokenUrl) {
+        throw new ApiError(400, 'Provider configuration missing required fields', 'MISSING_REQUIRED_FIELDS');
+      }
+
       // Save to database
       const savedProvider = await this.oauthService.createOAuthProvider({
-        name: providerConfig.name || `${providerConfig.type}-provider`,
-        type: providerConfig.type,
-        clientId: providerConfig.clientId,
-        clientSecret: providerConfig.clientSecret,
-        redirectUri: providerConfig.redirectUri,
-        scope: providerConfig.scope,
-        authorizationUrl: providerConfig.authorizationUrl,
-        tokenUrl: providerConfig.tokenUrl,
+        name: providerConfig.name || `${providerType}-provider`,
+        type: providerType,
+        clientId: providerClientId,
+        clientSecret: providerConfig.clientSecret ?? '',
+        redirectUri: providerRedirectUri,
+        scope: providerScope,
+        authorizationUrl: providerAuthUrl,
+        tokenUrl: providerTokenUrl,
         userInfoUrl: providerConfig.userInfoUrl,
         revokeUrl: getRevokeUrl(providerConfig),
-        isEnabled: providerConfig.isEnabled || true,
+        isEnabled: providerConfig.isEnabled ?? true,
       });
-      this.providers.set(savedProvider.id, savedProvider);
+      // DB OAuthProvider is stored via the OAuthProviderConfig interface; fields overlap at runtime
+      this.providers.set(savedProvider.id, savedProvider as unknown as OAuthProviderConfig);
 
       const savedProviderCfgRec = isRecord(savedProvider.configuration) ? savedProvider.configuration : undefined;
       const savedProviderAgentCfg: OAuthProviderAgentConfig | undefined = savedProviderCfgRec
@@ -196,7 +208,7 @@ export class OAuthProviderService {
         agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
       });
 
-      return savedProvider;
+      return savedProvider as unknown as OAuthProviderConfig;
     } catch (error) {
       logger.error('Failed to create OAuth provider', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -249,29 +261,30 @@ export class OAuthProviderService {
         }
       }
 
+      if (!provider.type) {
+        throw new ApiError(500, 'OAuth provider type is missing', 'INVALID_PROVIDER');
+      }
       const endpoints = this.providerEndpoints.get(provider.type);
       if (!endpoints) {
         throw new ApiError(500, 'Provider endpoints not configured', 'ENDPOINTS_NOT_CONFIGURED');
       }
 
-      // Generate secure state and PKCE parameters
       const state = this.generateSecureState();
       const codeVerifier = provider.securityConfig?.requirePKCE
         ? this.generateCodeVerifier()
         : undefined;
       const codeChallenge = codeVerifier ? this.generateCodeChallenge(codeVerifier) : undefined;
 
-      // Store OAuth state with expiration
       const _oauthState: OAuthState = {
         state,
         providerId,
         redirectUri,
         codeVerifier: provider.securityConfig?.requirePKCE ? codeVerifier : undefined,
-        scope: provider.scope,
+        scope: provider.scope ?? [],
         userType,
         agentCapabilities,
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       };
 
       const stateEntity = await this.oauthService.createOAuthState({
@@ -282,18 +295,19 @@ export class OAuthProviderService {
         codeVerifier: codeVerifier,
       });
 
-      const params = new URLSearchParams({
-        client_id: provider.clientId,
+      const urlParamEntries: Record<string, string> = {
+        client_id: provider.clientId ?? '',
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: provider.scope.join(' '),
+        scope: (provider.scope ?? []).join(' '),
         state: stateEntity.state,
-        ...(provider.securityConfig?.requirePKCE && {
-          code_challenge: codeChallenge,
-          code_challenge_method: 'S256',
-        }),
         ...provider.additionalParams,
-      });
+      };
+      if (provider.securityConfig?.requirePKCE && codeChallenge) {
+        urlParamEntries['code_challenge'] = codeChallenge;
+        urlParamEntries['code_challenge_method'] = 'S256';
+      }
+      const params = new URLSearchParams(urlParamEntries);
 
       const authUrl = `${endpoints.authorization}?${params.toString()}`;
 
@@ -335,10 +349,14 @@ export class OAuthProviderService {
         throw new ApiError(400, 'Invalid or expired OAuth state', 'INVALID_STATE');
       }
 
+      if (!oauthStateEntity.providerId) {
+        throw new ApiError(400, 'OAuth state missing provider ID', 'INVALID_STATE');
+      }
+
       const oauthState: OAuthState = {
         state: oauthStateEntity.state,
         providerId: oauthStateEntity.providerId,
-        redirectUri: oauthStateEntity.redirectUrl,
+        redirectUri: oauthStateEntity.redirectUrl ?? undefined,
         codeVerifier: (() => {
           const meta = isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata : {};
           return typeof meta.codeVerifier === 'string' ? meta.codeVerifier : undefined;
@@ -350,17 +368,20 @@ export class OAuthProviderService {
         expiresAt: oauthStateEntity.expiresAt,
       };
 
-      const provider = this.providers.get(oauthState.providerId);
+      const provider = this.providers.get(oauthStateEntity.providerId);
       if (!provider) {
         throw new ApiError(404, 'OAuth provider not found', 'PROVIDER_NOT_FOUND');
       }
 
-      const endpoints = this.providerEndpoints.get(provider.type);
+      const providerType = provider.type;
+      if (!providerType) {
+        throw new ApiError(500, 'OAuth provider type is missing', 'INVALID_PROVIDER');
+      }
+      const endpoints = this.providerEndpoints.get(providerType);
       if (!endpoints) {
         throw new ApiError(500, 'Provider endpoints not configured', 'ENDPOINTS_NOT_CONFIGURED');
       }
 
-      // Exchange code for tokens
       const tokens = await this.exchangeCodeForTokens(
         provider,
         endpoints,
@@ -369,8 +390,7 @@ export class OAuthProviderService {
         oauthState.codeVerifier
       );
 
-      // Get user info from provider
-      const userInfo = await this.getUserInfo(provider.type, tokens.access_token);
+      const userInfo = await this.getUserInfo(providerType, tokens.access_token);
 
       // OAuth state already cleaned up by verifyAndConsumeOAuthState
 
@@ -424,37 +444,14 @@ export class OAuthProviderService {
           'AGENT_ACCESS_DENIED'
         );
       }
+      if (!provider.type) {
+        throw new ApiError(500, 'OAuth provider type is missing', 'INVALID_PROVIDER');
+      }
 
-      // Encrypt sensitive tokens
       const encryptedAccessToken = await this.encryptSecret(tokens.access_token);
       const encryptedRefreshToken = tokens.refresh_token
         ? await this.encryptSecret(tokens.refresh_token)
         : undefined;
-
-      const _connection: AgentOAuthConnection = {
-        id: crypto.randomUUID(),
-        agentId,
-        providerId,
-        providerType: provider.type,
-        capabilities,
-        accessToken: encryptedAccessToken,
-        refreshToken: encryptedRefreshToken,
-        tokenExpiresAt: tokens.expires_in
-          ? new Date(Date.now() + tokens.expires_in * 1000)
-          : undefined,
-        scope: provider.scope,
-        permissions,
-        isActive: true,
-        usageStats: {
-          totalRequests: 0,
-          dailyRequests: 0,
-          lastResetDate: new Date(),
-          errors: 0,
-          rateLimitHits: 0,
-        },
-        // createdAt: new Date(), // This will be set by the database
-        // updatedAt: new Date() // This will be set by the database
-      };
 
       const savedConnection = await this.oauthService.createAgentOAuthConnection({
         agentId,
@@ -466,7 +463,7 @@ export class OAuthProviderService {
         tokenExpiresAt: tokens.expires_in
           ? new Date(Date.now() + tokens.expires_in * 1000)
           : undefined,
-        scope: provider.scope,
+        scope: provider.scope ?? [],
       });
 
       await this.auditService.logEvent({
@@ -489,7 +486,8 @@ export class OAuthProviderService {
         permissions: permissions.length,
       });
 
-      return savedConnection;
+      // DB AgentOAuthConnection stored via AgentOAuthConnection interface; fields overlap at runtime
+      return savedConnection as unknown as AgentOAuthConnection;
     } catch (error) {
       logger.error('Failed to create agent OAuth connection', {
         agentId,
@@ -510,9 +508,11 @@ export class OAuthProviderService {
         return null;
       }
 
-      // Update usage statistics
       await this.updateConnectionUsage(connection);
 
+      if (!connection.accessToken) {
+        return null;
+      }
       return await this.decryptSecret(connection.accessToken);
     } catch (error) {
       logger.error('Failed to get agent access token', {
@@ -539,12 +539,10 @@ export class OAuthProviderService {
         return { allowed: false, reason: 'No active connection found' };
       }
 
-      // Check capability
-      if (!connection.capabilities.includes(capability)) {
+      if (!connection.capabilities?.includes(capability)) {
         return { allowed: false, reason: `Missing capability: ${capability}` };
       }
 
-      // Check permissions
       if (connection.permissions && !connection.permissions.includes(operation)) {
         return { allowed: false, reason: `Operation not permitted: ${operation}` };
       }
@@ -564,23 +562,25 @@ export class OAuthProviderService {
       // Check rate limits
       const provider = await this.getProviderConfig(providerId);
       const rateLimit = provider?.agentConfig?.rateLimit;
-      if (rateLimit && connection.usageStats) {
+      if (rateLimit?.windowMs && connection.usageStats) {
         const now = new Date();
         const _windowStart = new Date(now.getTime() - rateLimit.windowMs);
 
-        // Reset daily counter if needed
+        const lastResetDate = connection.usageStats.lastResetDate;
         if (
-          connection.usageStats.lastResetDate <
-          new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          lastResetDate &&
+          lastResetDate < new Date(now.getFullYear(), now.getMonth(), now.getDate())
         ) {
           connection.usageStats.dailyRequests = 0;
           connection.usageStats.lastResetDate = now;
-          await this.updateConnectionUsageStats(connection.id, connection.usageStats);
+          if (connection.id) {
+            await this.updateConnectionUsageStats(connection.id, connection.usageStats);
+          }
         }
 
         if (
-          connection.usageStats.dailyRequests >=
-          (provider.agentConfig?.monitoring?.maxDailyRequests || 1000)
+          (connection.usageStats.dailyRequests ?? 0) >=
+          (provider?.agentConfig?.monitoring?.maxDailyRequests ?? 1000)
         ) {
           return {
             allowed: false,
@@ -619,10 +619,12 @@ export class OAuthProviderService {
       }
 
       if (connection.expiresAt && connection.expiresAt < new Date()) {
-        return await this.refreshAgentToken(connection);
+        // DB AgentOAuthConnection stored via AgentOAuthConnection interface; fields overlap at runtime
+        return await this.refreshAgentToken(connection as unknown as AgentOAuthConnection);
       }
 
-      return connection;
+      // DB AgentOAuthConnection stored via AgentOAuthConnection interface; fields overlap at runtime
+      return connection as unknown as AgentOAuthConnection;
     } catch (error) {
       logger.error('Failed to get agent OAuth connection', {
         agentId,
@@ -645,8 +647,11 @@ export class OAuthProviderService {
         return null;
       }
 
+      if (!connection.providerId) {
+        return null;
+      }
       const provider = this.providers.get(connection.providerId);
-      if (!provider) {
+      if (!provider || !provider.type) {
         return null;
       }
 
@@ -672,6 +677,9 @@ export class OAuthProviderService {
         updatedAt: new Date(),
       };
 
+      if (!connection.id) {
+        throw new ApiError(500, 'Connection ID is missing', 'INVALID_CONNECTION');
+      }
       await this.oauthService.updateOAuthConnectionToken(connection.id, {
         accessToken: await this.encryptSecret(tokens.access_token),
         refreshToken: tokens.refresh_token
@@ -705,14 +713,17 @@ export class OAuthProviderService {
     redirectUri: string,
     codeVerifier?: string
   ): Promise<OAuthTokenResponse> {
-    const params = new URLSearchParams({
-      client_id: provider.clientId,
+    const tokenParams: Record<string, string> = {
+      client_id: provider.clientId ?? '',
       client_secret: provider.clientSecret ? await this.decryptSecret(provider.clientSecret) : '',
       code,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
-      ...(codeVerifier && { code_verifier: codeVerifier }),
-    });
+    };
+    if (codeVerifier) {
+      tokenParams['code_verifier'] = codeVerifier;
+    }
+    const params = new URLSearchParams(tokenParams);
 
     const response: AxiosResponse<OAuthTokenResponse> = await axios.post(endpoints.token, params, {
       headers: {
@@ -749,7 +760,7 @@ export class OAuthProviderService {
     refreshToken: string
   ): Promise<OAuthTokenResponse> {
     const params = new URLSearchParams({
-      client_id: provider.clientId,
+      client_id: provider.clientId ?? '',
       client_secret: provider.clientSecret ? await this.decryptSecret(provider.clientSecret) : '',
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
@@ -889,12 +900,11 @@ export class OAuthProviderService {
       throw new ApiError(400, 'Redirect URI is required', 'MISSING_REDIRECT_URI');
     }
 
-    // Validate URLs
     try {
-      const _redirectUrl = new URL(providerConfig.redirectUri);
-      const _authorizationUrl = new URL(providerConfig.authorizationUrl);
-      const _tokenUrl = new URL(providerConfig.tokenUrl);
-      const _userInfoUrl = new URL(providerConfig.userInfoUrl);
+      new URL(providerConfig.redirectUri);
+      if (providerConfig.authorizationUrl) new URL(providerConfig.authorizationUrl);
+      if (providerConfig.tokenUrl) new URL(providerConfig.tokenUrl);
+      if (providerConfig.userInfoUrl) new URL(providerConfig.userInfoUrl);
     } catch {
       throw new ApiError(400, 'Invalid URL in provider configuration', 'INVALID_URL');
     }
@@ -903,11 +913,12 @@ export class OAuthProviderService {
   private async getProviderConfig(providerId: string): Promise<OAuthProviderConfig | null> {
     try {
       const provider = await this.oauthService.findOAuthProvider(providerId);
-      return provider;
+      // DB OAuthProvider is stored via the OAuthProviderConfig interface; fields overlap at runtime
+      return provider as unknown as OAuthProviderConfig | null;
     } catch (error) {
       await this.auditService.logEvent({
         eventType: AuditEventType.SYSTEM_ERROR,
-        details: { error: error.message, operation: 'getProviderConfig', providerId },
+        details: { error: error instanceof Error ? error.message : 'Unknown error', operation: 'getProviderConfig', providerId },
       });
       throw error;
     }
@@ -946,7 +957,7 @@ export class OAuthProviderService {
   public async revokeAgentConnection(agentId: string, providerId: string): Promise<boolean> {
     try {
       const connection = await this.oauthService.findAgentOAuthConnection(agentId, providerId);
-      if (connection) {
+      if (connection?.id) {
         await this.oauthService.deactivateOAuthConnection(connection.id);
         return true;
       }

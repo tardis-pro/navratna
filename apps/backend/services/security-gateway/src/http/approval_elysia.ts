@@ -113,7 +113,9 @@ function calculateUrgency(workflow: WorkflowRecord): number {
     else if (hoursLeft < 4) urgency += 30;
     else if (hoursLeft < 12) urgency += 15;
   }
-  const hoursOld = (Date.now() - new Date(workflow.createdAt).getTime()) / 3600000;
+  const hoursOld = workflow.createdAt
+    ? (Date.now() - new Date(workflow.createdAt).getTime()) / 3600000
+    : 0;
   urgency += Math.min(25, hoursOld * 2);
   return urgency;
 }
@@ -210,7 +212,7 @@ export function registerApprovalRoutes() {
           startDate.setDate(startDate.getDate() - days);
           const { approvalWorkflowService } = await getServices();
           const all = await approvalWorkflowService.getUserWorkflows('');
-          const filtered = all.filter((w) => w.createdAt >= startDate);
+          const filtered = all.filter((w) => w.createdAt && w.createdAt >= startDate);
           const stats = {
             total: filtered.length,
             byStatus: {
@@ -287,8 +289,8 @@ export function registerApprovalRoutes() {
           filtered = filtered.filter((w) => w.metadata?.operationType === operationType);
         if (securityLevel)
           filtered = filtered.filter((w) => w.metadata?.securityLevel === securityLevel);
-        if (startDate) filtered = filtered.filter((w) => w.createdAt >= new Date(startDate));
-        if (endDate) filtered = filtered.filter((w) => w.createdAt <= new Date(endDate));
+        if (startDate) filtered = filtered.filter((w) => w.createdAt && w.createdAt >= new Date(startDate));
+        if (endDate) filtered = filtered.filter((w) => w.createdAt && w.createdAt <= new Date(endDate));
         const total = filtered.length;
         const page = filtered.slice(Number(offset), Number(offset) + Number(limit));
         return {
@@ -337,7 +339,9 @@ export function registerApprovalRoutes() {
           ApprovalStatus.PENDING
         ).catch((err: Error) => { logger.error('getUserWorkflows failed in /pending', { error: err.message, stack: err.stack }); throw err; });
         const detailed = await Promise.all(
-          pending.map(async (wf) => {
+          pending
+            .filter((wf): wf is ApprovalWorkflowEntry & { id: string } => typeof wf.id === 'string')
+            .map(async (wf) => {
             const status = await approvalWorkflowService!.getWorkflowStatus(wf.id);
             return {
               workflow: wf,
@@ -452,8 +456,9 @@ export function registerApprovalRoutes() {
         const { approvalWorkflowService } = await getServices();
         const status = await approvalWorkflowService.getWorkflowStatus(workflowId);
         const role = (user.role || '').toLowerCase();
+        const requiredApprovers = status.workflow.requiredApprovers ?? [];
         const isAuthorized =
-          status.workflow.requiredApprovers.includes(user.id) ||
+          requiredApprovers.includes(user.id) ||
           status.workflow.metadata?.createdBy === user.id ||
           role === 'admin' ||
           role === 'security-admin' ||

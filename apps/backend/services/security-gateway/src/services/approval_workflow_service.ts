@@ -90,8 +90,8 @@ export class ApprovalWorkflowService {
         requiredApprovers: savedWorkflow.requiredApprovers,
         currentApprovers: savedWorkflow.currentApprovers,
         status: Object.values(ApprovalStatus).find((s) => s === savedWorkflow.status) ?? ApprovalStatus.PENDING,
-        expiresAt: savedWorkflow.expiresAt,
-        metadata: savedWorkflow.metadata,
+        expiresAt: savedWorkflow.expiresAt ?? undefined,
+        metadata: savedWorkflow.metadata ?? undefined,
         createdAt: savedWorkflow.createdAt,
         updatedAt: savedWorkflow.updatedAt,
       };
@@ -148,6 +148,11 @@ export class ApprovalWorkflowService {
         decision: decision.decision,
       });
 
+      // Fail closed: all required decision fields must be present
+      if (!decision.workflowId || !decision.approverId || !decision.decision) {
+        throw new ApiError(400, 'Required fields missing from approval decision', 'INVALID_DECISION');
+      }
+
       // Get workflow
       const workflow = await this.getWorkflow(decision.workflowId);
       if (!workflow) {
@@ -169,6 +174,11 @@ export class ApprovalWorkflowService {
 
       // Update workflow status
       const updatedWorkflow = await this.updateWorkflowStatus(workflow, decision);
+
+      // Fail closed: updated workflow must have an ID to query status
+      if (!updatedWorkflow.id) {
+        throw new ApiError(500, 'Updated workflow missing ID', 'INVALID_WORKFLOW_STATE');
+      }
 
       // Get current status
       const status = await this.getWorkflowStatus(updatedWorkflow.id);
@@ -225,7 +235,8 @@ export class ApprovalWorkflowService {
 
       const rejectedBy = decisions.filter((d) => d.decision === 'reject').map((d) => d.approverId);
 
-      const pendingApprovers = workflow.requiredApprovers.filter(
+      const requiredApprovers = workflow.requiredApprovers ?? [];
+      const pendingApprovers = requiredApprovers.filter(
         (approver) => !approvedBy.includes(approver) && !rejectedBy.includes(approver)
       );
 
@@ -516,6 +527,10 @@ export class ApprovalWorkflowService {
    * Send workflow reminder
    */
   private async sendWorkflowReminder(workflow: ApprovalWorkflowType): Promise<void> {
+    if (!workflow.id) {
+      logger.error('Cannot send reminder: workflow missing ID');
+      return;
+    }
     const status = await this.getWorkflowStatus(workflow.id);
 
     if (status.pendingApprovers.length > 0) {
@@ -523,7 +538,6 @@ export class ApprovalWorkflowService {
         pendingApprovers: status.pendingApprovers,
       });
 
-      // Update last reminder time
       await this.securityService
         .getApprovalWorkflowRepository()
         .updateApprovalWorkflow(workflow.id, {
@@ -536,17 +550,17 @@ export class ApprovalWorkflowService {
    * Complete workflow
    */
   private async completeWorkflow(workflow: ApprovalWorkflowType, approved: boolean): Promise<void> {
+    if (!workflow.id) {
+      throw new ApiError(500, 'Cannot complete workflow: missing ID', 'INVALID_WORKFLOW_STATE');
+    }
     const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
 
-    // Update workflow status
     await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
       status: newStatus,
     });
 
-    // Notify stakeholders
     await this.notifyApprovers(workflow, approved ? 'approval_completed' : 'approval_rejected');
 
-    // Publish event
     await this.eventBusService.publish('approval.workflow.completed', {
       workflowId: workflow.id,
       operationId: workflow.operationId,
@@ -569,20 +583,23 @@ export class ApprovalWorkflowService {
     workflow: ApprovalWorkflowType,
     decision: ApprovalDecision
   ): Promise<ApprovalWorkflowType> {
-    // Add approver to current approvers if approving
+    if (!workflow.id) {
+      throw new ApiError(500, 'Cannot update workflow: missing ID', 'INVALID_WORKFLOW_STATE');
+    }
+    const currentApprovers = workflow.currentApprovers ?? [];
     if (
       decision.decision === 'approve' &&
-      !workflow.currentApprovers.includes(decision.approverId)
+      decision.approverId &&
+      !currentApprovers.includes(decision.approverId)
     ) {
-      workflow.currentApprovers.push(decision.approverId);
+      currentApprovers.push(decision.approverId);
     }
 
-    // Update in database
     await this.securityService.getApprovalWorkflowRepository().updateApprovalWorkflow(workflow.id, {
-      currentApprovers: workflow.currentApprovers,
+      currentApprovers,
     });
 
-    return { ...workflow, updatedAt: new Date() };
+    return { ...workflow, currentApprovers, updatedAt: new Date() };
   }
 
   /**
@@ -614,7 +631,8 @@ export class ApprovalWorkflowService {
       throw new ApiError(400, 'Workflow is not pending approval', 'WORKFLOW_NOT_PENDING');
     }
 
-    if (!workflow.requiredApprovers.includes(decision.approverId)) {
+    const requiredApprovers = workflow.requiredApprovers ?? [];
+    if (!decision.approverId || !requiredApprovers.includes(decision.approverId)) {
       throw new ApiError(
         403,
         'User is not authorized to approve this workflow',
@@ -636,7 +654,7 @@ export class ApprovalWorkflowService {
     additionalData?: Record<string, unknown>
   ): Promise<void> {
     try {
-      await this.processInBatches(workflow.requiredApprovers, async (approverId) =>
+      await this.processInBatches(workflow.requiredApprovers ?? [], async (approverId) =>
         this.notificationService.sendNotification({
           type,
           recipient: approverId,
@@ -747,8 +765,8 @@ export class ApprovalWorkflowService {
       requiredApprovers: entity.requiredApprovers,
       currentApprovers: entity.currentApprovers,
       status: Object.values(ApprovalStatus).find((s) => s === entity.status) ?? ApprovalStatus.PENDING,
-      expiresAt: entity.expiresAt,
-      metadata: entity.metadata,
+      expiresAt: entity.expiresAt ?? undefined,
+      metadata: entity.metadata ?? undefined,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };

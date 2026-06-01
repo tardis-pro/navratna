@@ -210,6 +210,10 @@ export function registerAuthRoutes() {
           };
         }
   
+        if (!user.passwordHash) {
+          set.status = 401;
+          return { error: 'Authentication Failed', message: 'Invalid email or password' };
+        }
         const isValidPassword = await bcrypt.compare(password, user.passwordHash);
         if (!isValidPassword) {
           const failedAttempts = (user.failedLoginAttempts || 0) + 1;
@@ -480,6 +484,10 @@ export function registerAuthRoutes() {
         if (!account) {
           set.status = 404;
           return { error: 'User Not Found', message: 'User account not found' };
+        }
+        if (!account.passwordHash) {
+          set.status = 401;
+          return { error: 'Authentication Failed', message: 'This account does not use password authentication' };
         }
         const isValid = await bcrypt.compare(parsed.data.currentPassword, account.passwordHash);
         if (!isValid) {

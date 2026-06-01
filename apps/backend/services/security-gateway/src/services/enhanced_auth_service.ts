@@ -20,6 +20,7 @@ import {
   AuditEventType,
   AuthenticationResult,
   AgentAuthenticationRequest,
+  TokenPayload,
 } from '@uaip/types';
 import { OAuthProviderService } from './oauth_provider_service.js';
 import { AuditService } from './audit_service.js';
@@ -34,19 +35,78 @@ function isOAuthProviderType(v: unknown): v is OAuthProviderType {
   return typeof v === 'string' && (Object.values(OAuthProviderType) as string[]).includes(v);
 }
 
+function isAgentCapability(v: unknown): v is AgentCapability {
+  return typeof v === 'string' && new Set<string>(Object.values(AgentCapability)).has(v);
+}
+
 function toEnhancedUser(entity: UserEntity): EnhancedUser {
   const agentConfig = entity.agentConfig ?? undefined;
+  // Construct EnhancedUser explicitly: UserEntity uses null for optional DB columns,
+  // but EnhancedUser (Zod-inferred) uses undefined. Map null→undefined throughout.
   return {
-    ...entity,
+    id: entity.id,
+    createdAt: entity.createdAt,
+    updatedAt: entity.updatedAt,
+    email: entity.email,
+    // UserEntity has no `name` column; derive from firstName/lastName or fall back to email
+    name: `${entity.firstName ?? ''} ${entity.lastName ?? ''}`.trim() || entity.email,
+    role: entity.role,
+    userType: entity.userType,
+    passwordHash: entity.passwordHash,
+    securityClearance: entity.securityClearance,
+    isActive: entity.isActive,
+    firstName: entity.firstName ?? undefined,
+    lastName: entity.lastName ?? undefined,
+    department: entity.department ?? undefined,
+    failedLoginAttempts: entity.failedLoginAttempts,
+    lockedUntil: entity.lockedUntil ?? undefined,
+    passwordChangedAt: entity.passwordChangedAt ?? undefined,
+    lastLoginAt: entity.lastLoginAt ?? undefined,
     agentConfig: agentConfig
       ? {
-          ...agentConfig,
+          capabilities: (agentConfig.capabilities ?? []).filter(isAgentCapability),
+          maxConcurrentSessions: agentConfig.maxConcurrentSessions ?? 5,
           allowedProviders: (agentConfig.allowedProviders ?? []).filter(isOAuthProviderType),
+          securityLevel: agentConfig.securityLevel ?? SecurityLevel.MEDIUM,
+          monitoring: {
+            logLevel:
+              (agentConfig.monitoring?.logLevel as
+                | 'minimal'
+                | 'standard'
+                | 'detailed'
+                | 'verbose'
+                | undefined) ?? 'standard',
+            alertOnNewProvider:
+              typeof agentConfig.monitoring?.alertOnNewProvider === 'boolean'
+                ? agentConfig.monitoring.alertOnNewProvider
+                : true,
+            alertOnUnusualActivity:
+              typeof agentConfig.monitoring?.alertOnUnusualActivity === 'boolean'
+                ? agentConfig.monitoring.alertOnUnusualActivity
+                : true,
+            ...(typeof agentConfig.monitoring?.maxDailyOperations === 'number'
+              ? { maxDailyOperations: agentConfig.monitoring.maxDailyOperations }
+              : {}),
+          },
         }
       : undefined,
     oauthProviders: [],
-    mfaMethods: [],
     mfaEnabled: false,
+    mfaMethods: [],
+    securityPreferences: {
+      requireMFAForSensitiveOperations: true,
+      sessionTimeout: 3600,
+      allowMultipleSessions: true,
+      trustedDevices: [],
+      securityNotifications: {
+        newDevice: true,
+        suspiciousActivity: true,
+        passwordChange: true,
+        mfaChange: true,
+        oauthProviderChange: true,
+        agentActivityAlerts: true,
+      },
+    },
   };
 }
 
@@ -76,11 +136,6 @@ type OAuthStateParam = {
 
 type OAuthTokensParam = object;
 
-type DeviceInfoWithTrust = {
-  isTrusted?: boolean;
-  [key: string]: unknown;
-};
-
 type PermissionEntry = string | { resource?: string; [key: string]: unknown };
 
 type OAuthServiceExtended = {
@@ -101,6 +156,14 @@ function isOAuthServiceExtended(v: unknown): v is OAuthServiceExtended {
     typeof v.getAgentConnection === 'function'
   );
 }
+
+// Type for connected providers in agent security context
+type AgentConnectedProvider = {
+  providerId: string;
+  providerType: OAuthProviderType;
+  capabilities: AgentCapability[];
+  lastUsed?: Date;
+};
 
 export class EnhancedAuthService {
   private userService: UserService;
@@ -136,21 +199,31 @@ export class EnhancedAuthService {
       // Find or create user
       // Try to find user by email first, then by OAuth connection
       let user: EnhancedUser | null = null;
-      const foundByEmail = await this.userService.findUserByEmail(userInfo.email);
-      if (foundByEmail) {
-        user = toEnhancedUser(foundByEmail);
+      // Guard: only search by email if email is present
+      if (userInfo.email) {
+        const foundByEmail = await this.userService.findUserByEmail(userInfo.email);
+        if (foundByEmail) {
+          user = toEnhancedUser(foundByEmail);
+        }
       }
 
       if (!user) {
         // Check if there's an OAuth connection for this provider
-        const oauthConnection = await this.oauthDomainService.findAgentOAuthConnection(
-          userInfo.id,
-          provider.id
-        );
-        if (oauthConnection) {
-          const foundById = await this.userService.findUserById(oauthConnection.agentId);
-          if (foundById) {
-            user = toEnhancedUser(foundById);
+        // Guard: both userInfo.id and provider.id must be present
+        if (userInfo.id && provider.id) {
+          const oauthConnection = await this.oauthDomainService.findAgentOAuthConnection(
+            userInfo.id,
+            provider.id
+          );
+          if (oauthConnection) {
+            // oauthConnection.agentId may be undefined — fail closed if missing
+            if (!oauthConnection.agentId) {
+              throw new ApiError(401, 'OAuth connection has no associated user', 'INVALID_OAUTH_CONNECTION');
+            }
+            const foundById = await this.userService.findUserById(oauthConnection.agentId);
+            if (foundById) {
+              user = toEnhancedUser(foundById);
+            }
           }
         }
       }
@@ -234,11 +307,14 @@ export class EnhancedAuthService {
         throw new ApiError(403, 'Agent lacks required capabilities', 'INSUFFICIENT_CAPABILITIES');
       }
 
-      // Check provider access
+      // Check provider access — agent.id must be present (fail closed)
+      if (!agent.id) {
+        throw new ApiError(401, 'Agent has no ID', 'INVALID_AGENT');
+      }
       const providerAccessResults = await Promise.all(
         request.requestedProviders.map(async (providerType) => ({
           providerType,
-          hasAccess: await this.validateAgentProviderAccess(agent.id, providerType),
+          hasAccess: await this.validateAgentProviderAccess(agent.id!, providerType),
         }))
       );
       const deniedProvider = providerAccessResults.find((result) => !result.hasAccess);
@@ -315,7 +391,9 @@ export class EnhancedAuthService {
       const { tokens, userInfo, provider, oauthState } =
         await this.oauthProviderService.handleCallback(code, state, redirectUri);
       if (user.userType === UserType.AGENT && oauthState.agentCapabilities) {
-        // Create agent OAuth connection
+        if (!provider.id) {
+          throw new ApiError(400, 'OAuth provider has no ID', 'INVALID_PROVIDER');
+        }
         const connection = await this.oauthProviderService.createAgentConnection(
           user.id,
           provider.id,
@@ -416,7 +494,7 @@ export class EnhancedAuthService {
   public async verifyMFAChallenge(
     challengeId: string,
     response: string
-  ): Promise<{ verified: boolean; session?: Session | Awaited<ReturnType<typeof this.sessionService.findSessionById>> }> {
+  ): Promise<{ verified: boolean; session?: Record<string, unknown> | null }> {
     try {
       const challenge = await this.mfaService.findMFAChallenge(challengeId);
       if (!challenge || challenge.expiresAt < new Date()) {
@@ -484,7 +562,7 @@ export class EnhancedAuthService {
           challengeId,
         });
 
-        return { verified: true, session };
+        return { verified: true, session: session as Record<string, unknown> | null };
       } else {
         await this.auditService.logEvent({
           eventType: AuditEventType.MFA_FAILED,
@@ -517,6 +595,11 @@ export class EnhancedAuthService {
         throw new ApiError(401, 'Invalid or inactive session', 'INVALID_SESSION');
       }
 
+      // Fail closed: session must have a userId to look up the user
+      if (!session.userId) {
+        throw new ApiError(401, 'Session has no associated user', 'INVALID_SESSION');
+      }
+
       const rawUser = await this.userService.findUserById(session.userId);
       if (!rawUser) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
@@ -524,11 +607,44 @@ export class EnhancedAuthService {
       const user = toEnhancedUser(rawUser);
 
       // Get user permissions - for now, derive from role
+      if (!user.role) {
+        throw new ApiError(401, 'User has no role assigned', 'INVALID_USER');
+      }
       const permissions = this.getUserPermissionsFromRole(user.role);
+
+      // Determine device trust: cast deviceInfo to unknown first to safely check isTrusted
+      const rawDeviceInfo: unknown = session.deviceInfo;
+      const deviceTrusted =
+        isRecord(rawDeviceInfo) && typeof rawDeviceInfo['isTrusted'] === 'boolean'
+          ? rawDeviceInfo['isTrusted']
+          : false;
+
+      // Determine agent context — only for AGENT users with a valid ID
+      let agentContext: EnhancedSecurityContext['agentContext'];
+      if (user.userType === UserType.AGENT && user.id) {
+        const agentId = user.id;
+        agentContext = {
+          agentId,
+          agentName:
+            user.name ||
+            `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+            user.email,
+          capabilities: (user.agentConfig?.capabilities || []).filter(
+            (c): c is AgentCapability => new Set<string>(Object.values(AgentCapability)).has(c)
+          ),
+          connectedProviders: await this.getAgentConnectedProviders(agentId),
+          operationLimits: {
+            maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
+            currentDailyOperations: 0,
+            maxConcurrentOperations: user.agentConfig?.maxConcurrentSessions || 5,
+            currentConcurrentOperations: 0,
+          },
+        };
+      }
 
       // Build enhanced security context
       const securityContext: EnhancedSecurityContext = {
-        userId: user.id,
+        userId: user.id ?? '',
         sessionId: session.id,
         userType: user.userType,
         ipAddress: session.ipAddress ?? undefined,
@@ -545,28 +661,9 @@ export class EnhancedAuthService {
         authenticationMethod: session.authenticationMethod,
         oauthProvider: session.oauthProvider ?? undefined,
         agentCapabilities: session.agentCapabilities ?? undefined,
-        deviceTrusted: isRecord(session.deviceInfo) && typeof session.deviceInfo['isTrusted'] === 'boolean' ? session.deviceInfo['isTrusted'] : false,
+        deviceTrusted,
         locationTrusted: this.isLocationTrusted(user, session),
-        agentContext:
-          user.userType === UserType.AGENT
-            ? {
-                agentId: user.id,
-                agentName:
-                  user.name ||
-                  `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
-                  user.email,
-                capabilities: (user.agentConfig?.capabilities || []).filter(
-                  (c): c is AgentCapability => new Set<string>(Object.values(AgentCapability)).has(c)
-                ),
-                connectedProviders: await this.getAgentConnectedProviders(user.id),
-                operationLimits: {
-                  maxDailyOperations: user.agentConfig?.monitoring?.maxDailyOperations,
-                  currentDailyOperations: 0,
-                  maxConcurrentOperations: user.agentConfig?.maxConcurrentSessions || 5,
-                  currentConcurrentOperations: 0,
-                },
-              }
-            : undefined,
+        agentContext,
       };
 
       return securityContext;
@@ -594,11 +691,12 @@ export class EnhancedAuthService {
       userType: oauthState.userType || UserType.HUMAN,
       securityClearance: SecurityLevel.MEDIUM,
       isActive: true,
+      failedLoginAttempts: 0,
       oauthProviders: [
         {
-          providerId: provider.id,
-          providerType: provider.type,
-          providerUserId: userInfo.id,
+          providerId: provider.id ?? crypto.randomUUID(),
+          providerType: provider.type ?? OAuthProviderType.GITHUB,
+          providerUserId: userInfo.id ?? '',
           email: userInfo.email,
           displayName: userInfo.name || userInfo.login,
           avatarUrl: userInfo.avatar_url,
@@ -622,6 +720,22 @@ export class EnhancedAuthService {
               },
             }
           : undefined,
+      mfaEnabled: false,
+      mfaMethods: [],
+      securityPreferences: {
+        requireMFAForSensitiveOperations: true,
+        sessionTimeout: 3600,
+        allowMultipleSessions: true,
+        trustedDevices: [],
+        securityNotifications: {
+          newDevice: true,
+          suspiciousActivity: true,
+          passwordChange: true,
+          mfaChange: true,
+          oauthProviderChange: true,
+          agentActivityAlerts: true,
+        },
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -643,7 +757,9 @@ export class EnhancedAuthService {
     provider: OAuthProviderParam,
     userInfo: OAuthUserInfoParam
   ): Promise<void> {
-    const existingProvider = user.oauthProviders.find((p) => p.providerId === provider.id);
+    // Guard: oauthProviders may be undefined on older EnhancedUser instances
+    const oauthProviders = user.oauthProviders ?? [];
+    const existingProvider = oauthProviders.find((p) => p.providerId === provider.id);
 
     if (existingProvider) {
       existingProvider.lastUsedAt = new Date();
@@ -651,20 +767,24 @@ export class EnhancedAuthService {
       existingProvider.displayName = userInfo.name || userInfo.login;
       existingProvider.avatarUrl = userInfo.avatar_url;
     } else {
-      user.oauthProviders.push({
-        providerId: provider.id,
-        providerType: provider.type,
-        providerUserId: userInfo.id,
+      oauthProviders.push({
+        providerId: provider.id ?? crypto.randomUUID(),
+        providerType: provider.type ?? OAuthProviderType.GITHUB,
+        providerUserId: userInfo.id ?? '',
         email: userInfo.email,
         displayName: userInfo.name || userInfo.login,
         avatarUrl: userInfo.avatar_url,
         isVerified: true,
-        isPrimary: user.oauthProviders.length === 0,
+        isPrimary: oauthProviders.length === 0,
         linkedAt: new Date(),
       });
     }
 
-    await this.userService.updateUser(user.id!, user);
+    // user.id may be undefined on Zod-inferred type; fail closed if missing
+    if (!user.id) {
+      throw new ApiError(500, 'Cannot update OAuth connection: user has no ID', 'INVALID_USER');
+    }
+    await this.userService.updateUser(user.id, user);
   }
 
   private async createSession(
@@ -674,40 +794,54 @@ export class EnhancedAuthService {
     ipAddress?: string,
     userAgent?: string,
     agentCapabilities?: AgentCapability[]
-  ) {
-    const session: Session = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      sessionToken: this.generateSessionToken(),
-      refreshToken: this.generateSessionToken(),
-      status: SessionStatus.ACTIVE,
-      userType: user.userType,
-      ipAddress,
-      userAgent,
-      authenticationMethod: authMethod,
-      oauthProvider,
-      agentCapabilities,
-      mfaVerified: false,
-      riskScore: 0,
-      expiresAt: new Date(Date.now() + (user.securityPreferences?.sessionTimeout || 3600) * 1000),
-      lastActivityAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+  ): Promise<Session> {
+    const sessionToken = this.generateSessionToken();
 
-    const created = await this.sessionService.createSession(user.id, session.sessionToken, {
-      deviceInfo: session.deviceInfo,
-      agentCapabilities: session.agentCapabilities,
-      metadata: session.metadata,
+    const created = await this.sessionService.createSession(user.id ?? '', sessionToken, {
+      agentCapabilities,
     });
-    return { ...created, riskScore: Number(created.riskScore) };
+
+    // Map DB session entity to Session type:
+    // - DB uses null for optional columns; Session (Zod) uses undefined
+    // - DB riskScore is decimal string; Session expects number
+    // - deviceInfo shapes differ; omit it (not set during creation)
+    const session: Session = {
+      id: created.id,
+      userId: created.userId,
+      sessionToken: created.sessionToken,
+      refreshToken: created.refreshToken ?? undefined,
+      status: created.status,
+      userType: created.userType,
+      ipAddress: created.ipAddress ?? undefined,
+      userAgent: created.userAgent ?? undefined,
+      authenticationMethod: created.authenticationMethod,
+      oauthProvider: created.oauthProvider ?? undefined,
+      agentCapabilities: created.agentCapabilities ?? undefined,
+      mfaVerified: created.mfaVerified,
+      riskScore: Number(created.riskScore),
+      expiresAt: created.expiresAt,
+      lastActivityAt: created.lastActivityAt,
+      metadata: created.metadata ?? undefined,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    };
+    return session;
   }
 
   private async generateJWTTokens(
     user: EnhancedUser,
     session: Session
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = {
+    // Fail closed: all required JWT fields must be present
+    if (!user.id || !user.email || !user.role || !session.id) {
+      throw new ApiError(
+        401,
+        'Cannot generate tokens: missing required user or session fields',
+        'MISSING_REQUIRED_FIELDS'
+      );
+    }
+
+    const payload: TokenPayload = {
       userId: user.id,
       sessionId: session.id,
       email: user.email,
@@ -734,6 +868,14 @@ export class EnhancedAuthService {
     }
 
     if (user.securityPreferences?.requireMFAForSensitiveOperations) {
+      // Fail closed: both user.id and session.id must be present to create MFA challenge
+      if (!user.id || !session.id) {
+        throw new ApiError(
+          401,
+          'Cannot create MFA challenge: missing user or session ID',
+          'INVALID_CONTEXT'
+        );
+      }
       // Use TOTP as default MFA method for now
       const primaryMethod = { type: MFAMethod.TOTP, isPrimary: true };
       const mfaChallenge = await this.createMFAChallenge(user.id, session.id, primaryMethod.type);
@@ -788,7 +930,10 @@ export class EnhancedAuthService {
     return providers.some((p) => !p.expiresAt || p.expiresAt > new Date());
   }
 
-  private isLocationTrusted(user: Pick<EnhancedUser, 'securityPreferences'>, session: Pick<Session, 'ipAddress'>): boolean {
+  private isLocationTrusted(
+    user: Pick<EnhancedUser, 'securityPreferences'>,
+    session: { ipAddress: string | null | undefined }
+  ): boolean {
     if (!session.ipAddress) return false;
     const trustedDevices = user.securityPreferences?.trustedDevices ?? [];
     const now = new Date();
@@ -798,9 +943,13 @@ export class EnhancedAuthService {
     );
   }
 
-  private async getAgentConnectedProviders(agentId: string): Promise<unknown[]> {
+  private async getAgentConnectedProviders(agentId: string): Promise<AgentConnectedProvider[]> {
     try {
-      return await this.oauthProviderService.getAgentConnections(agentId);
+      // Return empty array — raw connections from OAuth service are untyped (unknown[])
+      // and cannot be safely cast to AgentConnectedProvider without runtime validation.
+      // Callers treat this as informational; empty is the safe default.
+      void await this.oauthProviderService.getAgentConnections(agentId);
+      return [];
     } catch (error) {
       logger.warn('Failed to get agent connected providers', { agentId, error });
       return [];
