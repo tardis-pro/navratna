@@ -1,7 +1,7 @@
 import { Queue, Worker, type Job } from 'bullmq';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { getControlDb, sql } from '@uaip/shared-services/database/drizzle/clients';
+import { getControlDb, sql } from '@uaip/shared-services/drizzle/clients';
 
 const QUEUE_NAME = 'audit-retention';
 const JOB_NAME = 'audit:retention:daily';

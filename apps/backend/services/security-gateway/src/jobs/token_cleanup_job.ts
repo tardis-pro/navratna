@@ -2,8 +2,8 @@ import { Queue, Worker, type Job } from 'bullmq';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { UserService } from '@uaip/shared-services';
-import { getControlDb, lt } from '@uaip/shared-services/database/drizzle/clients';
-import { passwordResetTokens } from '@uaip/shared-services/database/drizzle/schemas/control_schema';
+import { getControlDb, lt } from '@uaip/shared-services/drizzle/clients';
+import { passwordResetTokens } from '@uaip/shared-services/drizzle/control';
 
 const QUEUE_NAME = 'token-cleanup';
 const JOB_NAME = 'token:cleanup:daily';
