@@ -4,6 +4,14 @@
   "description": "UAIP Orchestration Pipeline Service - Operation execution and workflow coordination",
   "main": "dist/index.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "start": "node dist/index.js",
     "build": "tsc",

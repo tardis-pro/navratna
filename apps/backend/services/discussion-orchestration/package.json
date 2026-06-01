@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "description": "UAIP Discussion Orchestration Service - Manages discussion lifecycle, turn strategies, and real-time coordination",
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc --build && tsc-alias",
     "dev": "bun --hot src/index.ts",

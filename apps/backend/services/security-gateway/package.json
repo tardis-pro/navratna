@@ -4,6 +4,14 @@
   "type": "module",
   "description": "UAIP Security Gateway Service - Authentication, Authorization, and Approval Workflows",
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "bun --hot src/index.ts",

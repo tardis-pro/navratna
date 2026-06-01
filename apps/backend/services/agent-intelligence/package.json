@@ -4,6 +4,14 @@
     "description": "UAIP Agent Intelligence Engine - Context analysis and decision making",
     "main": "./dist/index.js",
     "type": "module",
+    "exports": {
+        ".": {
+            "@uaip/source": "./src/index.ts",
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
     "scripts": {
         "build": "tsc && tsc-alias",
         "dev": "bun --hot src/index.ts",

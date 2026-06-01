@@ -4,6 +4,14 @@
   "type": "module",
   "description": "UAIP LLM Service API - Centralized LLM Provider Management and Request Handling",
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "bun --hot src/index.ts",

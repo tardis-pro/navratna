@@ -4,6 +4,14 @@
   "description": "UAIP Artifact Generation and Management Service",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc && tsc-alias",
     "dev": "bun --hot src/index.ts",
