@@ -179,6 +179,8 @@ export class KnowledgeGraphService {
             vectorResults = await this.vectorDb.search(queryEmbedding, {
               limit: options?.limit || 20,
               threshold: options?.similarityThreshold || 0.7,
+              // TODO(tenant): use scope?.organizationId once KnowledgeScope carries it
+              tenantId: '00000000-0000-0000-0000-000000000001',
               filters: vectorFilters,
             });
             filteredResults = (await this.repository.applyFilters({
@@ -264,7 +266,12 @@ export class KnowledgeGraphService {
 
         // Store embeddings in vector database with scope metadata
         // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-        await this.vectorDb.store(knowledgeItem.id, embeddings);
+        await this.vectorDb.store(
+          knowledgeItem.id,
+          // TODO(tenant): use item.scope?.organizationId once KnowledgeScope carries it
+          '00000000-0000-0000-0000-000000000001',
+          embeddings
+        );
 
         // Sync to Qdrant + Neo4j immediately so constellations reflect new data
         this.knowledgeSync
@@ -322,6 +329,8 @@ export class KnowledgeGraphService {
       const _results = await this.vectorDb.search(contextEmbedding, {
         limit: 10,
         threshold: 0.6,
+        // TODO(tenant): use context.scope?.organizationId once KnowledgeScope carries it
+        tenantId: '00000000-0000-0000-0000-000000000001',
         filters: {
           tags: context.relevantTags,
           timeRange: context.timeRange,
@@ -372,7 +381,12 @@ export class KnowledgeGraphService {
     // Re-generate embeddings if content changed
     if (updates.content) {
       const embeddings = await this.embeddings.generateEmbeddings(updates.content);
-      await this.vectorDb.update(itemId, embeddings);
+      await this.vectorDb.update(
+        itemId,
+        // TODO(tenant): pass organizationId from update context once available
+        '00000000-0000-0000-0000-000000000001',
+        embeddings
+      );
     }
 
     return mapRowToKnowledgeItem(updatedItem);

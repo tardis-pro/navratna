@@ -147,9 +147,12 @@ export class SimplifiedSyncService {
           },
         }));
 
-        // Upsert to Qdrant
         // oxlint-disable-next-line no-await-in-loop
-        await this.qdrantService.upsert(qdrantDocs);
+        await this.qdrantService.upsert(
+          // TODO(tenant): resolve organizationId from Neo4j items once available
+          '00000000-0000-0000-0000-000000000001',
+          qdrantDocs
+        );
         successful += batch.length;
       } catch (error) {
         const errorMsg = `Batch ${i}-${i + batch.length} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;

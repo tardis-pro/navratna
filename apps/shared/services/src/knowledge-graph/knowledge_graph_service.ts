@@ -135,7 +135,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       if (query && query.trim()) {
         try {
           const queryEmbedding = await this.embeddings.generateEmbedding(query);
-          const tenantId = scope?.userId ?? scope?.agentId ?? filters?.organizationId ?? 'system';
+          const tenantId = (filters?.organizationId as string | undefined) ?? '00000000-0000-0000-0000-000000000001';
           this.buildKnowledgeVectorFilters(tenantId, filters, scope);
 
           vectorResults = await this.searchAcrossCollections(
@@ -239,9 +239,13 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
         try {
           // oxlint-disable-next-line no-await-in-loop
-          await this.vectorDb.store(knowledgeItem.id, embeddings, {
-            collection: collectionType,
-          });
+          await this.vectorDb.store(
+            knowledgeItem.id,
+            // TODO(tenant): use item.scope?.organizationId once KnowledgeScope carries it
+            '00000000-0000-0000-0000-000000000001',
+            embeddings,
+            { collection: collectionType }
+          );
         } catch (qdrantError) {
           logger.warn('Qdrant sync failed for knowledge item — item saved to Postgres only', {
             itemId: knowledgeItem.id,
@@ -293,6 +297,8 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       const results = await this.vectorDb.search(contextEmbedding, {
         limit: 10,
         threshold: 0.6,
+        // TODO(tenant): use context.scope?.organizationId once KnowledgeScope carries it
+        tenantId: '00000000-0000-0000-0000-000000000001',
         filters: {
           tags: context.relevantTags,
           timeRange: context.timeRange,
@@ -361,7 +367,12 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     // Re-generate embeddings if content changed
     if (updates.content) {
       const embeddings = await this.embeddings.generateEmbeddings(updates.content);
-      await this.vectorDb.update(itemId, embeddings);
+      await this.vectorDb.update(
+        itemId,
+        // TODO(tenant): pass organizationId from update context once available
+        '00000000-0000-0000-0000-000000000001',
+        embeddings
+      );
     }
 
     return updatedItem;

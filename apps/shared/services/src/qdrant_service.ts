@@ -217,6 +217,7 @@ export class QdrantService {
 
   async store(
     knowledgeItemId: string,
+    tenantId: string,
     embeddings: number[][],
     collectionOptions?: CollectionOptions
   ): Promise<void> {
@@ -229,6 +230,7 @@ export class QdrantService {
         vector: embedding,
         payload: {
           knowledge_item_id: knowledgeItemId,
+          tenant_id: tenantId,
           chunk_index: index,
           created_at: new Date().toISOString(),
         },
@@ -244,14 +246,12 @@ export class QdrantService {
 
   async update(
     knowledgeItemId: string,
+    tenantId: string,
     embeddings: number[][],
     collectionOptions?: CollectionOptions
   ): Promise<void> {
-    // Delete existing embeddings for this knowledge item
     await this.delete(knowledgeItemId, collectionOptions);
-
-    // Store new embeddings
-    await this.store(knowledgeItemId, embeddings, collectionOptions);
+    await this.store(knowledgeItemId, tenantId, embeddings, collectionOptions);
   }
 
   async delete(knowledgeItemId: string, collectionOptions?: CollectionOptions): Promise<void> {
@@ -291,6 +291,46 @@ export class QdrantService {
   async initialize(): Promise<void> {
     await this.ensureCollectionForType('episodic');
     await this.ensureCollectionForType('semantic');
+    await this.initializeTenantIndexes();
+  }
+
+  async initializeTenantIndexes(): Promise<void> {
+    const collections = ['knowledge_embeddings_episodic', 'knowledge_embeddings', 'code_symbols'];
+    let workingUrl: string;
+    try {
+      workingUrl = await this.ensureConnection();
+    } catch {
+      logger.warn('Qdrant not reachable — skipping tenant index creation');
+      return;
+    }
+    for (const collection of collections) {
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential to avoid partial-failure race on concurrent index creation
+        const response = await fetch(
+          `${workingUrl}/collections/${collection}/index`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              field_name: 'tenant_id',
+              field_schema: { type: 'keyword', is_tenant: true },
+            }),
+          }
+        );
+        if (!response.ok) {
+          // oxlint-disable-next-line no-await-in-loop -- must read error body from the same response before loop continues
+          const text = await response.text();
+          if (response.status !== 400 || !text.includes('already exists')) {
+            logger.warn('Could not create tenant_id index', { collection, status: response.status, text });
+          }
+        }
+      } catch (err) {
+        logger.warn('Error creating tenant_id index', {
+          collection,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   async ensureCollection(): Promise<void> {
@@ -349,10 +389,11 @@ export class QdrantService {
   }
 
   async storeVector(
+    tenantId: string,
     data: { knowledgeItemId: string; embeddings: number[][] },
     options: { collection: MemoryCollectionType }
   ): Promise<void> {
-    await this.store(data.knowledgeItemId, data.embeddings, { collection: options.collection });
+    await this.store(data.knowledgeItemId, tenantId, data.embeddings, { collection: options.collection });
   }
 
   async getCollectionInfo(collectionOptions?: CollectionOptions): Promise<{
@@ -464,6 +505,7 @@ export class QdrantService {
    * Upsert points (alternative to store for better performance)
    */
   async upsert(
+    tenantId: string,
     documents: Array<{
       id: string;
       content: string;
@@ -478,14 +520,16 @@ export class QdrantService {
       payload: {
         content: doc.content,
         knowledge_item_id: doc.id,
+        tenant_id: tenantId,
         ...doc.metadata,
         created_at: new Date().toISOString(),
       },
     }));
-    await this.upsertPoints(points, collectionOptions);
+    await this.upsertPoints(tenantId, points, collectionOptions);
   }
 
   async upsertPoints(
+    tenantId: string,
     points: Array<{
       id: string;
       vector: number[];
@@ -496,7 +540,11 @@ export class QdrantService {
     try {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
-      await this.putPoints(workingUrl, collectionName, points);
+      const taggedPoints = points.map((p) => ({
+        ...p,
+        payload: { ...p.payload, tenant_id: tenantId },
+      }));
+      await this.putPoints(workingUrl, collectionName, taggedPoints);
     } catch (error) {
       logger.error('Qdrant upsert error', { error: error instanceof Error ? error.message : String(error) });
       const _errMsg = error instanceof Error ? error.message : String(error);

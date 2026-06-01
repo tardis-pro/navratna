@@ -309,14 +309,11 @@ export class KnowledgeSyncService {
         updatedAt: knowledgeItem.updatedAt.toISOString(),
       };
 
-      // Upsert to Qdrant
-      await this.qdrantService.upsertPoints([
-        {
-          id: knowledgeItem.id,
-          vector: embedding,
-          payload: metadata,
-        },
-      ]);
+      await this.qdrantService.upsertPoints(
+        // TODO(tenant): resolve user.organizationId once UserEntity carries it
+        '00000000-0000-0000-0000-000000000001',
+        [{ id: knowledgeItem.id, vector: embedding, payload: metadata }]
+      );
     } catch (error) {
       logger.error('Error syncing to Qdrant with persona', {
         knowledgeItemId: knowledgeItem.id,
@@ -575,8 +572,11 @@ export class KnowledgeSyncService {
       },
     };
 
-    // Store in Qdrant
-    await this.qdrantService.upsertPoints([point]);
+    await this.qdrantService.upsertPoints(
+      // TODO(tenant): resolve item.organizationId once KnowledgeItemEntity carries it
+      '00000000-0000-0000-0000-000000000001',
+      [point]
+    );
   }
 
   /**

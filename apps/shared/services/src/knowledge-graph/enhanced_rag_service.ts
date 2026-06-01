@@ -23,6 +23,7 @@ export interface SearchOptions {
   rerankTopK?: number;
   includeEmbeddings?: boolean;
   filters?: Record<string, unknown>;
+  tenantId?: string;
 }
 
 type VectorCandidate = VectorSearchResult;
@@ -85,6 +86,8 @@ export class EnhancedRAGService {
       rerankTopK = topK * 2,
       includeEmbeddings = false,
       filters = {},
+      // TODO(tenant): callers should pass tenantId from request context
+      tenantId = '00000000-0000-0000-0000-000000000001',
     } = options;
 
     if (!query || query.trim().length === 0) {
@@ -101,6 +104,7 @@ export class EnhancedRAGService {
         limit: searchLimit,
         threshold: minScore,
         filters: filters,
+        tenantId,
       });
 
       // Filter by minimum score
@@ -189,8 +193,11 @@ export class EnhancedRAGService {
         metadata: doc.metadata || {},
       }));
 
-      // Store in vector database
-      await this.vectorStore.upsert(vectorDocuments);
+      await this.vectorStore.upsert(
+        // TODO(tenant): callers should pass tenantId from request context
+        '00000000-0000-0000-0000-000000000001',
+        vectorDocuments
+      );
     } catch (error) {
       console.error('Document indexing failed:', error);
       const wrappedError = new Error(`Failed to index documents: ${error instanceof Error ? error.message : String(error)}`);
@@ -221,6 +228,8 @@ export class EnhancedRAGService {
       const candidates = await this.vectorStore.search(document.embedding, {
         limit: topK + 1,
         threshold: minScore,
+        // TODO(tenant): callers should pass tenantId from request context
+        tenantId: '00000000-0000-0000-0000-000000000001',
         filters: { exclude_ids: [documentId] },
       });
 
