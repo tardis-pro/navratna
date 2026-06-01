@@ -359,6 +359,83 @@ export class UserErasureService {
       .where(eq(erasureLedger.erasureId, erasureId));
   }
 
+  async verifySweep(erasureId: string, userId: string): Promise<void> {
+    const db = getControlDb();
+    let hasResidual = false;
+
+    try {
+      const pgRows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (pgRows.length > 0) {
+        hasResidual = true;
+        logger.error('verifySweep: residual traces in pg_control', { erasureId, userId, store: 'pg_control', count: pgRows.length });
+      }
+    } catch (err) {
+      logger.error('verifySweep: pg_control check failed', { erasureId, userId, error: err instanceof Error ? err.message : String(err) });
+    }
+
+    try {
+      const neo4jResult = await this.neo4j.runQuery(
+        'MATCH (n) WHERE n.userId = $userId OR n.createdBy = $userId RETURN count(n) AS total',
+        { userId },
+      );
+      const total: number = neo4jResult.records[0]?.get('total')?.toNumber?.() ?? 0;
+      if (total > 0) {
+        hasResidual = true;
+        logger.error('verifySweep: residual traces in neo4j', { erasureId, userId, store: 'neo4j', count: total });
+      }
+    } catch (err) {
+      logger.error('verifySweep: neo4j check failed', { erasureId, userId, error: err instanceof Error ? err.message : String(err) });
+    }
+
+    try {
+      const filter = { must: [{ key: 'userId', match: { value: userId } }] };
+      const collections: Array<'episodic' | 'semantic'> = ['episodic', 'semantic'];
+      let qdrantTotal = 0;
+      for (const collection of collections) {
+        // oxlint-disable-next-line no-await-in-loop -- sequential scroll per collection, ordering matters
+        const points = await this.qdrant.scrollAll(1, { collection }, filter);
+        qdrantTotal += points.length;
+      }
+      if (qdrantTotal > 0) {
+        hasResidual = true;
+        logger.error('verifySweep: residual traces in qdrant', { erasureId, userId, store: 'qdrant', count: qdrantTotal });
+      }
+    } catch (err) {
+      logger.error('verifySweep: qdrant check failed', { erasureId, userId, error: err instanceof Error ? err.message : String(err) });
+    }
+
+    try {
+      const [patternA, patternB] = await Promise.all([
+        redisCacheService.keys(`*:${userId}:*`),
+        redisCacheService.keys(`user:${userId}*`),
+      ]);
+      const redisTotal = new Set([...patternA, ...patternB]).size;
+      if (redisTotal > 0) {
+        hasResidual = true;
+        logger.error('verifySweep: residual traces in redis', { erasureId, userId, store: 'redis', count: redisTotal });
+      }
+    } catch (err) {
+      logger.error('verifySweep: redis check failed', { erasureId, userId, error: err instanceof Error ? err.message : String(err) });
+    }
+
+    if (hasResidual) {
+      try {
+        await db
+          .update(erasureOutbox)
+          .set({ status: 'failed', error: 'verifySweep: residual traces detected after erasure' })
+          .where(eq(erasureOutbox.id, erasureId));
+      } catch (err) {
+        logger.error('verifySweep: failed to update erasureOutbox status', { erasureId, error: err instanceof Error ? err.message : String(err) });
+      }
+    } else {
+      logger.info('verifySweep: all stores clean', { erasureId, userId });
+    }
+  }
+
   async writeLedgerEntry({
     erasureId,
     surface,
