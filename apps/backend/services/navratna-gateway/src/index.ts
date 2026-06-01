@@ -64,6 +64,7 @@ class NavratnaGatewayService extends BaseService {
       clearInterval(this.keepAliveTimer)
       this.keepAliveTimer = undefined
     }
+    await this.factory.shutdown()
   }
 }
 

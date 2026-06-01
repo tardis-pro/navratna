@@ -3,15 +3,13 @@ import { withRequiredAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import { getIntelligenceDb, eq, ilike, and, sql, count, asc } from '@uaip/shared-services/drizzle/clients'
 import { agents } from '@uaip/shared-services/drizzle/intelligence'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
 type AgentCrudDeps = Pick<
   AgentIntelligenceService,
   'getAgent' | 'createAgent' | 'updateAgent' | 'deleteAgent'
 >
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const AGENT_LIST_DEFAULT_LIMIT = 12
 const AGENT_LIST_MAX_LIMIT = 100

@@ -81,13 +81,6 @@ scrape_configs:
     scrape_interval: 30s
     scrape_timeout: 10s
 
-  - job_name: 'rabbitmq'
-    static_configs:
-      - targets: ['rabbitmq:15692']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-    scrape_timeout: 10s
-
   - job_name: 'qdrant'
     static_configs:
       - targets: ['qdrant:6333']

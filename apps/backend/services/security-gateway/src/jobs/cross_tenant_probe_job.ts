@@ -118,7 +118,7 @@ export class CrossTenantProbeJob {
       this.qdrantService = new QdrantService();
       // Real stores — a stub here would make the probe report "isolation healthy" during an
       // actual Neo4j breach and silently swallow violations, defeating the daemon's purpose.
-      this.neo4jService = new ToolGraphDatabase();
+      this.neo4jService = new ToolGraphDatabase() as unknown as Neo4jClientLike;
       this.auditService = new AuditService();
       this.redisConnection = defaultRedisConnection();
     }

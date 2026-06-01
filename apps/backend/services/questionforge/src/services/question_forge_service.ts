@@ -15,11 +15,8 @@ import type {
   CouncilAgentAnalysis,
 } from '@uaip/types/questionforge';
 import { EventBusService } from '@uaip/shared-services';
-import { logger, NotFoundError } from '@uaip/utils';
+import { logger, NotFoundError, isRecord } from '@uaip/utils';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
 
 function isQuestion(v: unknown): v is Question {
   return isRecord(v) && typeof v.id === 'string' && typeof v.text === 'string';

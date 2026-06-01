@@ -4,7 +4,7 @@ import type { EventBusMessage } from '@uaip/types'
 import { UnifiedModelSelectionFacade } from '@uaip/shared-services'
 import { LLMService, UserLLMService, ModelBootstrapService } from '@uaip/llm-service'
 import type { ArtifactRequest } from '@uaip/types'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
 import { registerLLMRoutes } from './routes/llm_routes.js'
 import { registerUserLLMRoutes } from './routes/user_llm_routes.js'
@@ -15,9 +15,6 @@ let userLLMService: UserLLMService
 let modelBootstrapService: ModelBootstrapService
 let agentGenerationHandler: AgentGenerationHandler
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
 
 function extractRequestId(event: EventBusMessage): string | undefined {
   if (typeof event.correlationId === 'string') return event.correlationId

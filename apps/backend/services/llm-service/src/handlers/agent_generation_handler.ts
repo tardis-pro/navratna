@@ -1,11 +1,8 @@
 import { LLMService, UserLLMService } from '@uaip/llm-service';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { logger, NotFoundError, ValidationError } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError, isRecord } from '@uaip/utils';
 import type { AgentGenerationRequest, LLMResponse } from '@uaip/types';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
 
 export class AgentGenerationHandler {
   constructor(

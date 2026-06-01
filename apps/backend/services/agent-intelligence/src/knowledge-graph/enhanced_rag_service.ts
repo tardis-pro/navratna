@@ -195,8 +195,9 @@ export class EnhancedRAGService {
 
       // Search for similar documents
       const candidates = await this.vectorStore.search(document.embedding, {
-        limit: topK + 1, // +1 to exclude the original document
+        limit: topK + 1,
         threshold: minScore,
+        tenantId: 'default',
         filters: { exclude_ids: [documentId] },
       });
 

@@ -15,13 +15,10 @@ import type {
   StreamingLLMRequest,
   UserLLMProviderType,
 } from '@uaip/types';
-import { logger, ValidationError } from '@uaip/utils';
+import { logger, ValidationError, isRecord } from '@uaip/utils';
 
 const _artifactTypes: readonly LLMArtifactType[] = ['code', 'documentation', 'test', 'prd'];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isChatMessageArray(value: unknown): value is ChatMessage[] {
   return (

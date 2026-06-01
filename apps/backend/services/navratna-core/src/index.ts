@@ -2,7 +2,7 @@ import { BaseService } from '@uaip/shared-services'
 import { FeatureFactory } from '@uaip/shared-services/feature-factory'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as BunEngine } from '@socket.io/bun-engine'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 import type { EventBusMessage } from '@uaip/types'
 import { requestTimingPlugin, requestTimingBuffer } from './request_timing.js'
 
@@ -17,9 +17,6 @@ import { WorkflowStateHandler } from './composition/workflow_state_handler.js'
 
 const DEGRADED_P95_THRESHOLD_MS = 1000
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null
-}
 
 const roundToTwo = (value: number): number => Number(value.toFixed(2))
 const toMegabytes = (bytes: number): number => roundToTwo(bytes / (1024 * 1024))
@@ -156,6 +153,17 @@ class NavratnaCoreService extends BaseService {
 
   protected async checkServiceHealth(): Promise<boolean> {
     return true
+  }
+
+  protected async cleanup(): Promise<void> {
+    try {
+      this.io.close()
+    } catch (err) {
+      logger.error('navratna-core: Socket.IO close error', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+    await this.factory.shutdown()
   }
 
   public async start(): Promise<void> {

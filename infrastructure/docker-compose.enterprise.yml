@@ -427,36 +427,6 @@ services:
       retries: 3
     restart: unless-stopped
 
-  # RabbitMQ - Management network with enhanced security
-  rabbitmq-enterprise:
-    image: rabbitmq:4.1.0-management-alpine
-    container_name: uaip-rabbitmq-enterprise
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD}
-      RABBITMQ_SSL_CERTFILE: /etc/rabbitmq/ssl/server.crt
-      RABBITMQ_SSL_KEYFILE: /etc/rabbitmq/ssl/server.key
-      RABBITMQ_SSL_CACERTFILE: /etc/rabbitmq/ssl/ca.crt
-      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq-enterprise
-    ports:
-      - '5672:5672'
-      - '15672:15672'
-      - '5671:5671' # SSL AMQP
-    volumes:
-      - rabbitmq_enterprise_data:/var/lib/rabbitmq
-      - ./infrastructure/rabbitmq/ssl-certs:/etc/rabbitmq/ssl:ro
-      - ./infrastructure/rabbitmq/enterprise-config:/etc/rabbitmq:ro
-    networks:
-      - uaip-management-network
-      - uaip-application-network
-      - uaip-analytics-network
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: unless-stopped
-
   # =============================================================================
   # APPLICATION SERVICES WITH NETWORK SEGMENTATION
   # =============================================================================
@@ -475,7 +445,6 @@ services:
       - REDIS_SECURITY_URL=redis://:${REDIS_SECURITY_PASSWORD}@redis-security:6379
       - QDRANT_SECURITY_URL=http://qdrant-security:6333
       - NEO4J_SECURITY_URL=bolt://neo4j:${NEO4J_SECURITY_PASSWORD}@neo4j-security:7687
-      - RABBITMQ_URL=amqps://${RABBITMQ_ADMIN_USER}:${RABBITMQ_ADMIN_PASSWORD}@rabbitmq-enterprise:5671
       - JWT_SECRET=${JWT_SECRET_ENTERPRISE}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY_ENTERPRISE}
       # Zero Trust Configuration
@@ -493,7 +462,6 @@ services:
       - redis-security
       - qdrant-security
       - neo4j-security
-      - rabbitmq-enterprise
     networks:
       - uaip-security-network
       - uaip-management-network
@@ -520,7 +488,6 @@ services:
       - QDRANT_AGENT_URL=http://qdrant-agent:6333
       - NEO4J_KNOWLEDGE_URL=bolt://neo4j:${NEO4J_KNOWLEDGE_PASSWORD}@neo4j-knowledge:7687
       - NEO4J_AGENT_URL=bolt://neo4j:${NEO4J_AGENT_PASSWORD}@neo4j-agent:7687
-      - RABBITMQ_URL=amqps://${RABBITMQ_ADMIN_USER}:${RABBITMQ_ADMIN_PASSWORD}@rabbitmq-enterprise:5671
       # Zero Trust Configuration
       - ZERO_TRUST_MODE=enabled
       - SERVICE_ACCESS_MATRIX=application-tier
@@ -537,7 +504,6 @@ services:
       - qdrant-agent
       - neo4j-knowledge
       - neo4j-agent
-      - rabbitmq-enterprise
     networks:
       - uaip-application-network
     healthcheck:
@@ -561,7 +527,6 @@ services:
       - POSTGRES_OPERATIONS_URL=postgresql://uaip_ops_user:${POSTGRES_OPERATIONS_PASSWORD}@postgres-operations:5432/uaip_operations
       - NEO4J_OPERATIONS_URL=bolt://neo4j:${NEO4J_OPERATIONS_PASSWORD}@neo4j-operations:7687
       - REDIS_APPLICATION_URL=redis://:${REDIS_APPLICATION_PASSWORD}@redis-application:6379
-      - RABBITMQ_URL=amqps://${RABBITMQ_ADMIN_USER}:${RABBITMQ_ADMIN_PASSWORD}@rabbitmq-enterprise:5671
       # Zero Trust Configuration
       - ZERO_TRUST_MODE=enabled
       - SERVICE_ACCESS_MATRIX=operations-tier
@@ -576,7 +541,6 @@ services:
       - postgres-operations
       - neo4j-operations
       - redis-application
-      - rabbitmq-enterprise
     networks:
       - uaip-application-network
       - uaip-analytics-network
@@ -701,14 +665,6 @@ volumes:
       type: none
       o: bind
       device: /var/log/uaip/operations/neo4j
-
-  # Management Tier
-  rabbitmq_enterprise_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/lib/uaip/management/rabbitmq
 
 networks:
   # Level 5 - Top Secret Isolation (Future expansion)

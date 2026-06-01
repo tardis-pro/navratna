@@ -103,13 +103,6 @@ groups:
           component: 'redis'
           metric_type: 'cache_error_rate'
 
-      # RabbitMQ Logging
-      - record: rabbitmq_log_error_rate
-        expr: rate(rabbitmq_log_entries_total{level="error"}[5m])
-        labels:
-          component: 'rabbitmq'
-          metric_type: 'queue_error_rate'
-
       # Qdrant Logging
       - record: qdrant_log_error_rate
         expr: rate(qdrant_log_entries_total{level="error"}[5m])

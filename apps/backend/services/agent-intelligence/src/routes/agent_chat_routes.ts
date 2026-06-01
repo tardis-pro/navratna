@@ -3,7 +3,7 @@ import { withRequiredAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import type { AgentResponseRequest, ChatMessage, DocumentContext } from '@uaip/types'
 import type { UserLLMService } from '@uaip/llm-service'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
 type AgentChatDeps = Pick<AgentIntelligenceService, 'getAgent'>
 type UserLlmDeps = Pick<UserLLMService, 'generateAgentResponse'>
@@ -19,8 +19,6 @@ type SecurityDeps = {
   getApprovalDecisionRepository(): ApprovalDecisionRepo
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const toChatMessage = (value: unknown, index: number): ChatMessage | null => {
   if (!isRecord(value)) return null

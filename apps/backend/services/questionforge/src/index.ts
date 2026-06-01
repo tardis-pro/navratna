@@ -1,13 +1,10 @@
 import { BaseService } from '@uaip/shared-services';
 import type { ServiceConfig } from '@uaip/shared-services';
 
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ForgeRequest } from '@uaip/types';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
 
 function isForgeRequest(v: unknown): v is ForgeRequest {
   return isRecord(v) && typeof v.projectBriefText === 'string';

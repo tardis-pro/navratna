@@ -130,6 +130,7 @@ export class KnowledgeClusteringService {
       const searchResults = await this.qdrantService.search(referencePoint.vector, {
         limit: 50,
         threshold: threshold,
+        tenantId: 'default',
       });
 
       return searchResults.map((result) => {

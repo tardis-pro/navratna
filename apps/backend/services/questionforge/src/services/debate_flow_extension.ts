@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { EventBusService } from '@uaip/shared-services';
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import {
   Question,
   Contradiction,
@@ -13,9 +13,6 @@ import {
 } from '@uaip/types';
 import type { CouncilDebateResult } from '@uaip/types/questionforge';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
 
 export type AgentAnalysis = CouncilAgentAnalysis;
 

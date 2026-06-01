@@ -1,6 +1,6 @@
 import { ArtifactService } from '../artifact_service.js';
 import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import { withRequiredAuth } from '@uaip/middleware';
 
@@ -8,9 +8,6 @@ import { Elysia, t } from 'elysia';
 
 const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isArtifactType(value: unknown): value is ArtifactType {
   return (

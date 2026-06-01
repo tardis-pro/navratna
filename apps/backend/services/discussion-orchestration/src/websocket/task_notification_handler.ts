@@ -1,11 +1,8 @@
 import { Server, Socket } from 'socket.io';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import { authenticateConnection } from './websocket_security_utils.js';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
 
 function isTaskNotificationActor(v: unknown): v is TaskNotificationActor {
   return isRecord(v) && typeof v['id'] === 'string' && typeof v['name'] === 'string' &&

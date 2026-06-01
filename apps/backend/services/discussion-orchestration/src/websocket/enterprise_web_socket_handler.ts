@@ -6,7 +6,7 @@
 
 import { WebSocket, WebSocketServer } from 'ws';
 import { EventEmitter } from 'events';
-import { logger, ExternalServiceError, ValidationError } from '@uaip/utils';
+import { logger, ExternalServiceError, ValidationError, isRecord } from '@uaip/utils';
 import { validateServiceAccess, SERVICE_ACCESS_MATRIX, AccessLevel } from '@uaip/shared-services';
 import { config } from '../config/index.js';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -86,9 +86,6 @@ interface OutboundWebSocketMessage {
   payload: Record<string, unknown>;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isJoinLeavePayload(value: unknown): value is JoinLeavePayload {
   return isRecord(value) && typeof value.discussionId === 'string';

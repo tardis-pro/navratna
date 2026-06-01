@@ -5,7 +5,7 @@ import { PersonaService } from '@uaip/shared-services/persona'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import { getDatabaseConnectionString } from '@uaip/shared-services'
 import { DatabaseService } from '@uaip/infra/database'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 import { Server as SocketIOServer } from 'socket.io'
 
 import { DiscussionOrchestrationService } from './services/discussion_orchestration_service.js'
@@ -69,8 +69,6 @@ export const discussionFeature: Feature = {
   async events(bus: EventBusService): Promise<void> {
     await bus.subscribe('discussion.agent.message', async (event: EventBusMessage) => {
       try {
-        const isRecord = (v: unknown): v is Record<string, unknown> =>
-          typeof v === 'object' && v !== null && !Array.isArray(v)
         const rawPayload: unknown = isRecord(event.data) ? event.data : event
         const payload = isRecord(rawPayload) ? rawPayload : {}
         const discussionId = typeof payload.discussionId === 'string' ? payload.discussionId : ''

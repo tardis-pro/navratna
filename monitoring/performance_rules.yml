@@ -198,19 +198,6 @@ groups:
           component: 'redis'
           metric_type: 'memory_usage_percent'
 
-      # RabbitMQ Performance
-      - record: rabbitmq_messages_per_second
-        expr: rate(rabbitmq_queue_messages_published_total[5m])
-        labels:
-          component: 'rabbitmq'
-          metric_type: 'messages_per_second'
-
-      - record: rabbitmq_queue_depth
-        expr: rabbitmq_queue_messages_ready + rabbitmq_queue_messages_unacknowledged
-        labels:
-          component: 'rabbitmq'
-          metric_type: 'queue_depth'
-
       # Qdrant Performance
       - record: qdrant_search_operations_per_second
         expr: rate(qdrant_search_requests_total[5m])

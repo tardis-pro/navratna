@@ -1,10 +1,8 @@
 import { Elysia } from 'elysia'
 import { withRequiredAuth, t } from '@uaip/middleware'
 import { PersonaService } from '@uaip/shared-services/persona'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 export function registerPersonaRoutes(personaService: PersonaService) {
   return new Elysia()

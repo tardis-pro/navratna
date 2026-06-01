@@ -1,13 +1,10 @@
 import { Elysia } from 'elysia';
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import type { Question } from '@uaip/types';
 import { withRequiredAuth } from '@uaip/middleware';
 import { QuestionForgeService } from '../services/question_forge_service.js';
 import { InterviewCaptureService } from '../services/interview_capture_service.js';
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
 
 function isQuestion(v: unknown): v is Question {
   return isRecord(v) && typeof v.id === 'string' && typeof v.text === 'string';

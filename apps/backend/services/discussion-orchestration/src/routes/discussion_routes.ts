@@ -12,10 +12,8 @@ import {
 } from '@uaip/shared-services'
 import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js'
 import { participantGuard } from '../middleware/participant_guard.js'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const normalizeRole = (value: unknown): string | null =>
   typeof value === 'string' && value.trim().length > 0 ? value.trim().toLowerCase() : null

@@ -236,7 +236,6 @@ volumes:
   neo4j_plugins:
   redis_data:
   qdrant_data:
-  rabbitmq_data:
   prometheus_data:
   grafana_data:
   signoz_clickhouse_data:

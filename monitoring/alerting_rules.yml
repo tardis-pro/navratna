@@ -151,18 +151,6 @@ groups:
           summary: 'High error rate in Redis'
           description: 'Redis error rate: {{ $value }} errors/second'
 
-      # RabbitMQ Logging Alerts
-      - alert: RabbitMQHighErrors
-        expr: rabbitmq_log_error_rate > 0.01
-        for: 3m
-        labels:
-          severity: warning
-          component: rabbitmq
-          category: infrastructure_logging
-        annotations:
-          summary: 'High error rate in RabbitMQ'
-          description: 'RabbitMQ error rate: {{ $value }} errors/second'
-
       # Qdrant Logging Alerts
       - alert: QdrantHighErrors
         expr: qdrant_log_error_rate > 0.01

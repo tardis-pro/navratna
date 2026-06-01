@@ -1,15 +1,13 @@
 import { Elysia } from 'elysia'
 import { withRequiredAuth } from '@uaip/middleware'
 import type { SemanticMemoryManager } from '@uaip/shared-services'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
 type SemanticMemoryDeps = Pick<
   SemanticMemoryManager,
   'pruneMemory' | 'reinforceConcept' | 'downvoteMemory'
 >
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 export function registerAgentMemoryRoutes(
   semanticMemoryManager: SemanticMemoryDeps

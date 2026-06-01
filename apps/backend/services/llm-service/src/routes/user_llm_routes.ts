@@ -1,5 +1,5 @@
 import { UserLLMService, AgentResponseRequest } from '@uaip/llm-service';
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import { ModelCapabilityDetector } from '@uaip/shared-services';
 import type {
   UserLLMProviderType,
@@ -12,9 +12,6 @@ import type {
 import { LLMProviderType } from '@uaip/types';
 import { Elysia, t } from 'elysia';
 
-function _isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isUserLLMProviderType(value: unknown): value is UserLLMProviderType {
   switch (value) {
@@ -397,7 +394,7 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               providerName: provider.name,
               providerType: provider.type,
               defaultModel: provider.defaultModel,
-              modelCapabilities: _isRecord(rawModelCaps) ? rawModelCaps : {},
+              modelCapabilities: isRecord(rawModelCaps) ? rawModelCaps : {},
               detectedCapabilities: Array.isArray(rawDetectedCaps) ? rawDetectedCaps.filter((s): s is string => typeof s === 'string') : [],
               lastCapabilityCheck: rawLastCheck instanceof Date ? rawLastCheck : undefined,
               isActive: provider.isActive,

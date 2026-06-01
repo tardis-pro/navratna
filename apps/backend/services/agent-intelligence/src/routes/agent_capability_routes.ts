@@ -4,7 +4,7 @@ import type {
   AgentIntelligenceService,
   CapabilityDiscoveryService,
 } from '@uaip/shared-services'
-import { logger } from '@uaip/utils'
+import { logger, isRecord } from '@uaip/utils'
 
 type CapabilityRouteDeps = Pick<
   AgentIntelligenceService,
@@ -12,8 +12,6 @@ type CapabilityRouteDeps = Pick<
 >
 type CapabilityDiscoveryDeps = Pick<CapabilityDiscoveryService, 'getAgentCapabilities'>
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 export function registerAgentCapabilityRoutes(
   agentIntelligenceService: CapabilityRouteDeps,

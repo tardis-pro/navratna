@@ -576,6 +576,7 @@ export class UserLLMService {
           preferences: {},
           tags: new Array<string>(),
           metadata: request.agent.metadata || {},
+          organizationId: '',
           version: String(request.agent.version ?? 1),
           toolPermissions: {},
           toolPreferences: {},
@@ -611,7 +612,7 @@ export class UserLLMService {
         // Determine appropriate task type for the agent
         const taskTypeResolver = await this.getTaskTypeResolver();
         const taskType = await taskTypeResolver.determineTaskType(
-          agentForTaskType,
+          agentForTaskType as Parameters<typeof taskTypeResolver.determineTaskType>[0],
           {
             userIntent: request.messages?.[0]?.content,
             conversationHistory: request.messages,

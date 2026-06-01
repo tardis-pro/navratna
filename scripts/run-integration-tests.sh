@@ -17,7 +17,7 @@ TEST_ENV_FILE=".env.integration-test"
 LOCAL_ENV_FILE=".env.local"
 DOCKER_COMPOSE_FILE="infrastructure/docker-compose.test.yml"
 TEST_DB_NAME="council_integration_test"
-REQUIRED_SERVICES=("postgres" "redis" "rabbitmq")
+REQUIRED_SERVICES=("postgres" "redis")
 
 # Function to print colored output
 print_status() {
@@ -204,26 +204,9 @@ services:
       timeout: 5s
       retries: 5
 
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5673:5672"
-      - "15673:15672"
-    volumes:
-      - rabbitmq_test_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
 volumes:
   postgres_test_data:
   redis_test_data:
-  rabbitmq_test_data:
 EOF
     
     print_success "Created $DOCKER_COMPOSE_FILE"
@@ -261,7 +244,6 @@ run_tests() {
     export TEST_DB_NAME="$TEST_DB_NAME"
     export REDIS_HOST=localhost
     export REDIS_PORT=6380
-    export RABBITMQ_URL=amqp://guest:guest@localhost:5673
     
     # Run tests based on arguments
     local test_pattern=""

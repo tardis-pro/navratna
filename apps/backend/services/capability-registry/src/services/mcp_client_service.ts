@@ -790,6 +790,7 @@ export class MCPClientService extends EventEmitter {
       if (capabilities.length > 0) {
         const relatedTools = await this.toolGraphDatabase.getRelatedTools(
           toolId,
+          'default',
           ['SIMILAR_TO'],
           0.4
         );
@@ -824,7 +825,7 @@ export class MCPClientService extends EventEmitter {
         )
       ) {
         // Find tools that this tool might enhance
-        const potentialTargets = await this.toolGraphDatabase.getRelatedTools(toolId, [], 0.3);
+        const potentialTargets = await this.toolGraphDatabase.getRelatedTools(toolId, 'default', [], 0.3);
         for (const target of potentialTargets.slice(0, 2)) {
           if (target.id !== toolId && !target.id.startsWith('mcp-')) {
             // eslint-disable-next-line no-await-in-loop -- sequential processing required
@@ -2137,9 +2138,9 @@ export class MCPClientService extends EventEmitter {
 
     try {
       if (context) {
-        return await this.toolGraphDatabase.getContextualRecommendations(context, limit);
+        return await this.toolGraphDatabase.getContextualRecommendations(context, 'default', limit);
       } else {
-        return await this.toolGraphDatabase.getRecommendations(agentId, undefined, limit);
+        return await this.toolGraphDatabase.getRecommendations(agentId, 'default', undefined, limit);
       }
     } catch (error) {
       logger.error('Failed to get tool recommendations:', error);
@@ -2159,7 +2160,7 @@ export class MCPClientService extends EventEmitter {
     }
 
     try {
-      return await this.toolGraphDatabase.getRelatedTools(toolId, relationshipTypes, minStrength);
+      return await this.toolGraphDatabase.getRelatedTools(toolId, 'default', relationshipTypes, minStrength);
     } catch (error) {
       logger.error(`Failed to get related tools for ${toolId}:`, error);
       return [];
@@ -2223,7 +2224,7 @@ export class MCPClientService extends EventEmitter {
       let statistics = {};
       if (connectionStatus.isConnected) {
         try {
-          const popularTools = await this.toolGraphDatabase.getPopularTools(undefined, 5);
+          const popularTools = await this.toolGraphDatabase.getPopularTools('default', undefined, 5);
           statistics = {
             totalPopularTools: popularTools.length,
             samplePopularTools: popularTools.slice(0, 3).map((t) => ({

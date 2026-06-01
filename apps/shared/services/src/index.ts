@@ -221,6 +221,7 @@ export type {
   CapabilityGapResult,
   ErrorHistoryResult,
 } from '@uaip/types';
+export { fetchAgentCapabilitiesViaEventBus } from './cognitive/agent_capability_utils';
 export { CapabilityGapRadarService } from './cognitive/capability_gap_radar_service';
 export type { CapabilityAssessment, CapabilityGap } from '@uaip/types';
 export { ConfidenceGatedExecutionService } from './cognitive/confidence_gated_execution_service';
@@ -305,6 +306,8 @@ export { workflowInstanceSteps } from './database/drizzle/schemas/control_schema
 export { ContactStatus, ContactType } from './database/repositories/user_contact_repository';
 
 export { LLMModelRepository } from './repositories/llm_model_repository';
+
+export { base as schemaBase, llmPreferenceCommonColumns } from './database/drizzle/schemas/schema_base';
 
 // Database Seeders
 export { DefaultUserLLMProviderSeed } from './database/seeders/default_user_l_l_m_provider_seed';

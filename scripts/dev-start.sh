@@ -19,7 +19,7 @@ COMPOSE_FILE="docker-compose.yml"
 ENV_FILE=".env"
 
 # Service groups
-INFRASTRUCTURE_SERVICES="postgres neo4j redis qdrant rabbitmq"
+INFRASTRUCTURE_SERVICES="postgres neo4j redis qdrant"
 BACKEND_SERVICES="agent-intelligence orchestration-pipeline capability-registry security-gateway discussion-orchestration artifact-service llm-service"
 FRONTEND_SERVICES="frontend"
 MONITORING_SERVICES="prometheus grafana"
@@ -142,8 +142,6 @@ validate_environment() {
         "POSTGRES_USER" 
         "POSTGRES_PASSWORD"
         "REDIS_PASSWORD"
-        "RABBITMQ_DEFAULT_USER"
-        "RABBITMQ_DEFAULT_PASS"
     )
     
     local missing_vars=()
@@ -228,10 +226,6 @@ NEO4J_PASSWORD=uaip_dev_password
 # Redis Configuration
 REDIS_PASSWORD=uaip_redis_password
 
-# RabbitMQ Configuration
-RABBITMQ_DEFAULT_USER=uaip_user
-RABBITMQ_DEFAULT_PASS=uaip_password
-
 # =============================================================================
 # Security Configuration
 # =============================================================================
@@ -277,8 +271,6 @@ WATCHPACK_POLLING=true
 # NEO4J_HTTP_PORT=7474
 # REDIS_HOST=localhost
 # REDIS_PORT=6379
-# RABBITMQ_HOST=localhost
-# RABBITMQ_PORT=5672
 # QDRANT_HOST=localhost
 # QDRANT_PORT=6333
 EOF
@@ -323,7 +315,6 @@ show_service_status() {
     echo "======================"
     echo "📈 Grafana: http://localhost:3000 (admin/admin)"
     echo "📊 Prometheus: http://localhost:9090"
-    echo "🐰 RabbitMQ Management: http://localhost:15672 (${RABBITMQ_DEFAULT_USER:-uaip_user}/${RABBITMQ_DEFAULT_PASS:-uaip_password})"
     echo "🕸️ Neo4j Browser: http://localhost:7474 (${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-uaip_dev_password})"
     echo ""
 }

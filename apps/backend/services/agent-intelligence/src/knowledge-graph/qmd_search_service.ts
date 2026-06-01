@@ -163,7 +163,8 @@ export class QmdSearchService {
       const queryEmbedding = await this.embeddings.generateEmbedding(query);
       const results = await this.vectorDb.search(queryEmbedding, {
         limit,
-        threshold: 0.4, // lower threshold for broader recall; RRF handles quality
+        threshold: 0.4,
+        tenantId: 'default',
         filters: undefined,
       });
       return results.map((r) => ({
