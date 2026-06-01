@@ -18,15 +18,11 @@ const mockSqlTag = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) =
   values,
 }));
 
-vi.mock('@uaip/shared-services', () => ({
-  getControlDb: vi.fn().mockReturnValue(mockDb),
-}));
-
 vi.mock('drizzle-orm', () => ({
   sql: mockSqlTag,
 }));
 
-import { withTenant } from '../../tenant_middleware.js';
+import { withTenant, createTenantMiddlewarePlugin } from '../../tenant_middleware.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -44,7 +40,7 @@ describe('withTenant', () => {
     const tenantId = 'org-abc-123';
     const fn = vi.fn().mockResolvedValue('result');
 
-    const result = await withTenant(tenantId, fn);
+    const result = await withTenant(mockDb, tenantId, fn);
 
     expect(result).toBe('result');
     expect(mockDb.transaction).toHaveBeenCalledOnce();
@@ -56,21 +52,21 @@ describe('withTenant', () => {
     const expected = { data: 42 };
     const fn = vi.fn().mockResolvedValue(expected);
 
-    const result = await withTenant('tenant-xyz', fn);
+    const result = await withTenant(mockDb, 'tenant-xyz', fn);
 
     expect(result).toBe(expected);
   });
 
-  it('T3: fn still runs when withTenant called with empty tenantId via setTenantContext', async () => {
+  it('T3: missing organizationId — setTenantContext calls fn without entering transaction', async () => {
     const { logger } = await import('@uaip/utils');
 
     const noOrgFn = vi.fn().mockResolvedValue('fallback');
 
-    const { tenantMiddlewarePlugin } = await import('../../tenant_middleware.js');
+    const plugin = createTenantMiddlewarePlugin(() => mockDb);
     type DeriveFn = (ctx: { user?: { organizationId?: string } | null }) => {
       setTenantContext: <T>(fn: () => Promise<T>) => Promise<T>;
     };
-    const deriveCallbacks = (tenantMiddlewarePlugin as unknown as {
+    const deriveCallbacks = (plugin as unknown as {
       _defs?: { derive?: DeriveFn[] };
     })._defs?.derive;
 
