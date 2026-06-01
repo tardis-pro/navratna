@@ -173,5 +173,8 @@ export {
 } from './sentry.js';
 export type { SentryConfig } from './sentry.js';
 
+// Tenant middleware — per-request RLS tenant context
+export { tenantMiddlewarePlugin, withTenant } from './tenant_middleware.js';
+
 // Elysia TypeBox schema helpers — re-exported so services don't need a direct elysia dep
 export { t } from 'elysia';

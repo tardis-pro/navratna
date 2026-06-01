@@ -11,6 +11,7 @@
   "references": [
     { "path": "../../packages/shared-utils" },
     { "path": "../../packages/shared-types" },
-    { "path": "../config" }
+    { "path": "../config" },
+    { "path": "../services" }
   ]
 }

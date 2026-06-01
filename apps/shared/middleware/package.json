@@ -22,6 +22,8 @@
     "@uaip/config": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
+    "@uaip/shared-services": "workspace:*",
+    "drizzle-orm": "catalog:backend",
     "elysia": "catalog:backend",
     "jose": "^5.9.6",
     "jsonwebtoken": "catalog:backend",
