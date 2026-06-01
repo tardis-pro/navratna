@@ -3,19 +3,24 @@ import { Elysia, t } from 'elysia';
 import { z } from 'zod';
 import { getAuthUser } from './context_helpers.js';
 import { logger } from '@uaip/utils';
-import { UserService } from '@uaip/shared-services';
+import { UserService, UserErasureService } from '@uaip/shared-services';
 import { validateJWTToken as _validateJWTToken } from '@uaip/middleware';
 import { withOptionalAuth, withAdminGuard, withRequiredAuth } from '@uaip/middleware';
 import { AuditService } from '../services/audit_service.js';
 import { AuditEventType, LLMTaskType, LLMProviderType } from '@uaip/types';
+import { getControlDb } from '@uaip/shared-services';
+import { erasureOutbox } from '@uaip/shared-services/drizzle/control';
+import { and, eq } from '@uaip/shared-services/drizzle/clients';
 
 let userServiceSingleton: UserService | null = null;
 let auditServiceSingleton: AuditService | null = null;
+let erasureServiceSingleton: UserErasureService | null = null;
 
 async function getServices() {
   if (!userServiceSingleton) userServiceSingleton = UserService.getInstance();
   if (!auditServiceSingleton) auditServiceSingleton = new AuditService();
-  return { userService: userServiceSingleton, auditService: auditServiceSingleton };
+  if (!erasureServiceSingleton) erasureServiceSingleton = new UserErasureService();
+  return { userService: userServiceSingleton, auditService: auditServiceSingleton, erasureService: erasureServiceSingleton };
 }
 
 // Auth helpers now handled by Elysia plugin; ctx.user is injected by attachAuth
@@ -494,30 +499,63 @@ export function registerUserRoutes() {
         },
       })
       
-      // DELETE /api/v1/users/:userId (admin)
+      // DELETE /api/v1/users/:userId (admin) — initiates GDPR erasure (async, 202)
       .delete('/:userId', async ({ set, params }) => {
         try {
-          const { userService, auditService } = await getServices();
-          const ok = await userService.deleteUser(params.userId);
-          if (!ok) {
+          const { userService, auditService, erasureService } = await getServices();
+          const existing = await userService.findUserById(params.userId);
+          if (!existing) {
             set.status = 404;
             return { error: 'User Not Found', message: 'User not found' };
           }
+          const outbox = await erasureService.initiateErasure(params.userId);
+          // fire-and-forget: executeErasure runs async across all stores
+          erasureService.executeErasure(outbox.id).catch((err: unknown) => logger.error('Erasure execution failed', { erasureId: outbox.id, error: err }));
           await auditService.logSecurityEvent({
             eventType: AuditEventType.USER_DELETED,
             userId: undefined,
-            details: { deletedUserId: params.userId },
+            details: { deletedUserId: params.userId, erasureId: outbox.id },
             ipAddress: '',
             userAgent: '',
           });
-          return { message: 'User deleted successfully' };
-        } catch {
+          set.status = 202;
+          return { message: 'User erasure initiated', erasureId: outbox.id };
+        } catch (error) {
+          logger.error('Delete user error', { error });
           set.status = 500;
           return { error: 'Internal Server Error', message: 'Failed to delete user' };
         }
       }, {
         response: {
-          200: t.Object({ message: t.String() }),
+          202: t.Object({ message: t.String(), erasureId: t.String() }),
+          404: t.Object({ error: t.String(), message: t.String() }),
+          500: HttpErrorSchema,
+        },
+      })
+
+      // GET /api/v1/users/:userId/erasure/:erasureId (admin) — erasure status
+      .get('/:userId/erasure/:erasureId', async ({ set, params }) => {
+        try {
+          const db = getControlDb();
+          const rows = await db
+            .select()
+            .from(erasureOutbox)
+            .where(and(eq(erasureOutbox.id, params.erasureId), eq(erasureOutbox.userId, params.userId)))
+            .limit(1);
+          if (rows.length === 0) {
+            set.status = 404;
+            return { error: 'Erasure Not Found', message: 'Erasure record not found' };
+          }
+          const row = rows[0];
+          return { status: row.status, storesCompleted: row.storesCompleted, completedAt: row.completedAt ?? undefined };
+        } catch (error) {
+          logger.error('Get erasure status error', { error });
+          set.status = 500;
+          return { error: 'Internal Server Error', message: 'Failed to retrieve erasure status' };
+        }
+      }, {
+        response: {
+          200: t.Object({ status: t.String(), storesCompleted: t.Any(), completedAt: t.Optional(t.Any()) }),
           404: t.Object({ error: t.String(), message: t.String() }),
           500: HttpErrorSchema,
         },
