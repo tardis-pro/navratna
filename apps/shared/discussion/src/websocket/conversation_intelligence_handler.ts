@@ -9,6 +9,7 @@ import {
   TopicGenerationCompletedEvent,
   PromptSuggestionsCompletedEvent,
   AutocompleteSuggestionsReadyEvent,
+  EventBusMessage,
 } from '@uaip/types';
 import { extractAccessTokenFromCookieHeader } from './websocket_security_utils.js';
 
@@ -408,8 +409,8 @@ export class ConversationIntelligenceHandler {
 
   // Event Bus Handlers
 
-  private async handleIntentDetectionCompleted(event: IntentDetectionCompletedEvent) {
-    const { userId, conversationId, intent, suggestions, toolPreview } = event.data;
+  private async handleIntentDetectionCompleted(event: EventBusMessage): Promise<void> {
+    const { userId, conversationId, intent, suggestions, toolPreview } = event.data as IntentDetectionCompletedEvent['data'];
 
     // Emit to specific user's connections
     const userSockets = this.userConnections.get(userId);
@@ -444,8 +445,8 @@ export class ConversationIntelligenceHandler {
     }
   }
 
-  private async handleTopicGenerationCompleted(event: TopicGenerationCompletedEvent) {
-    const { conversationId, topicName, confidence } = event.data;
+  private async handleTopicGenerationCompleted(event: EventBusMessage): Promise<void> {
+    const { conversationId, topicName, confidence } = event.data as TopicGenerationCompletedEvent['data'];
 
     // Emit to conversation room
     this.io
@@ -457,8 +458,8 @@ export class ConversationIntelligenceHandler {
       });
   }
 
-  private async handlePromptSuggestionsCompleted(event: PromptSuggestionsCompletedEvent) {
-    const { userId, agentId, suggestions } = event.data;
+  private async handlePromptSuggestionsCompleted(event: EventBusMessage): Promise<void> {
+    const { userId, agentId, suggestions } = event.data as PromptSuggestionsCompletedEvent['data'];
 
     // Emit to user's connections
     const userSockets = this.userConnections.get(userId);
@@ -478,8 +479,8 @@ export class ConversationIntelligenceHandler {
     }
   }
 
-  private async handleAutocompleteSuggestionsReady(event: AutocompleteSuggestionsReadyEvent) {
-    const { userId, agentId, suggestions, queryTime } = event.data;
+  private async handleAutocompleteSuggestionsReady(event: EventBusMessage): Promise<void> {
+    const { userId, agentId, suggestions, queryTime } = event.data as AutocompleteSuggestionsReadyEvent['data'];
 
     // Emit to user's connections
     const userSockets = this.userConnections.get(userId);

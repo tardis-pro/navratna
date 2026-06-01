@@ -17,9 +17,9 @@
  */
 
 import { EventEmitter } from 'events';
-import { logger } from '@uaip/utils';
+import { logger, isRecord } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
-import { Discussion, Message, TurnStrategy, DiscussionStatus } from '@uaip/types';
+import { Discussion, Message, TurnStrategy, DiscussionStatus, EventBusMessage } from '@uaip/types';
 
 interface EventDrivenConfig {
   eventBusService: EventBusService;
@@ -28,19 +28,18 @@ interface EventDrivenConfig {
   complianceFlags: string[];
 }
 
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (reason?: unknown) => void;
+  timeout: NodeJS.Timeout;
+}
+
 export class EventDrivenDiscussionService extends EventEmitter {
   private eventBusService: EventBusService;
   private serviceName: string;
   private securityLevel: number;
   private complianceFlags: string[];
-  private pendingRequests = new Map<
-    string,
-    {
-      resolve: (value: unknown) => void;
-      reject: (reason?: unknown) => void;
-      timeout: NodeJS.Timeout;
-    }
-  >();
+  private pendingRequests = new Map<string, PendingRequest>();
 
   constructor(config: EventDrivenConfig) {
     super();
@@ -311,7 +310,8 @@ export class EventDrivenDiscussionService extends EventEmitter {
 
       // Store pending request
       this.pendingRequests.set(requestId, {
-        resolve,
+        // resolve widened to unknown — pendingRequests is a heterogeneous map of generic resolvers
+        resolve: resolve as (value: unknown) => void,
         reject,
         timeout: timeoutHandle,
       });
@@ -328,8 +328,8 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle discussion response events
    */
-  private handleDiscussionResponse(event: Record<string, unknown>): void {
-    const eventData = event;
+  private async handleDiscussionResponse(event: EventBusMessage): Promise<void> {
+    const eventData = isRecord(event.data) ? event.data : (event as unknown as Record<string, unknown>);
     const { requestId, data, error } = eventData;
     const pending = this.pendingRequests.get(typeof requestId === 'string' ? requestId : '');
 
@@ -346,8 +346,8 @@ export class EventDrivenDiscussionService extends EventEmitter {
     }
   }
 
-  private handleDiscussionError(event: Record<string, unknown>): void {
-    const eventData = event;
+  private async handleDiscussionError(event: EventBusMessage): Promise<void> {
+    const eventData = isRecord(event.data) ? event.data : (event as unknown as Record<string, unknown>);
     const { requestId, error } = eventData;
     const pending = this.pendingRequests.get(typeof requestId === 'string' ? requestId : '');
 
@@ -362,42 +362,42 @@ export class EventDrivenDiscussionService extends EventEmitter {
   /**
    * Handle real-time discussion updates
    */
-  private handleDiscussionUpdate(event: Record<string, unknown>): void {
+  private async handleDiscussionUpdate(event: EventBusMessage): Promise<void> {
     this.emit('discussion_updated', event);
   }
 
   /**
    * Handle message added events
    */
-  private handleMessageAdded(event: Record<string, unknown>): void {
+  private async handleMessageAdded(event: EventBusMessage): Promise<void> {
     this.emit('message_added', event);
   }
 
   /**
    * Handle turn changed events
    */
-  private handleTurnChanged(event: Record<string, unknown>): void {
+  private async handleTurnChanged(event: EventBusMessage): Promise<void> {
     this.emit('turn_changed', event);
   }
 
   /**
    * Handle agent joined events
    */
-  private handleAgentJoined(event: Record<string, unknown>): void {
+  private async handleAgentJoined(event: EventBusMessage): Promise<void> {
     this.emit('agent_joined', event);
   }
 
   /**
    * Handle agent left events
    */
-  private handleAgentLeft(event: Record<string, unknown>): void {
+  private async handleAgentLeft(event: EventBusMessage): Promise<void> {
     this.emit('agent_left', event);
   }
 
   /**
    * Handle agent response events
    */
-  private handleAgentResponse(event: Record<string, unknown>): void {
+  private async handleAgentResponse(event: EventBusMessage): Promise<void> {
     this.emit('agent_response', event);
   }
 
