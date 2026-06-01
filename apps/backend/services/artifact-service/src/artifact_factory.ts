@@ -71,9 +71,11 @@ export interface InsightsResult {
 
 export class ArtifactFactory {
   private generators: Map<string, ArtifactGenerator> = new Map();
-  private validator: ArtifactValidator;
-  private securityManager: SecurityManager;
-  private conversationAnalyzer: ConversationAnalyzer;
+  // Definite assignment: all three are unconditionally assigned in initializeServices(),
+  // which the constructor calls before any other method can run.
+  private validator!: ArtifactValidator;
+  private securityManager!: SecurityManager;
+  private conversationAnalyzer!: ConversationAnalyzer;
 
   constructor() {
     this.initializeServices();

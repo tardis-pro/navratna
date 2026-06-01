@@ -394,7 +394,7 @@ export class ArtifactService implements IArtifactService {
       };
 
       const originalReject = reject;
-      const rejectWithCleanup = (error: Error) => {
+      const rejectWithCleanup = (error: unknown) => {
         clearTimeout(timeout);
         originalReject(error);
       };

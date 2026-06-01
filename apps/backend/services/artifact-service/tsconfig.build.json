@@ -6,7 +6,7 @@
     "rootDir": "./src",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "types": ["node"],
-    "noImplicitAny": false,
+    "strict": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true

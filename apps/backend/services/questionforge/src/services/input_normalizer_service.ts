@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { EventBusService } from '@uaip/shared-services';
-import { logger, NotFoundError } from '@uaip/utils';
-import type { NormalizedBrief } from '@uaip/types';
+import { logger, NotFoundError, isRecord } from '@uaip/utils';
+import type { NormalizedBrief, EventBusMessage } from '@uaip/types';
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a structured data extraction engine. Given a project brief, notes, or transcript, extract the following information and return it as valid JSON only — no markdown, no explanation, no wrapping.
 
@@ -95,7 +95,7 @@ export class InputNormalizerService {
     return {
       projectName: asString(parsed.projectName, 'Untitled Project'),
       rawInput: '',
-      goals: asArray(parsed.goals).map((g: Record<string, unknown>) => ({
+      goals: asRecordArray(parsed.goals).map((g) => ({
         description: asString(g.description, ''),
         priority: asEnum(g.priority, ['high', 'medium', 'low'], 'medium') as
           | 'high'
@@ -103,18 +103,18 @@ export class InputNormalizerService {
           | 'low',
         ...(g.stakeholder ? { stakeholder: String(g.stakeholder) } : {}),
       })),
-      actors: asArray(parsed.actors).map((a: Record<string, unknown>) => ({
+      actors: asRecordArray(parsed.actors).map((a) => ({
         name: asString(a.name, ''),
         role: asString(a.role, ''),
         responsibilities: asArray(a.responsibilities).map(String),
       })),
-      assumptions: asArray(parsed.assumptions).map((a: Record<string, unknown>) => ({
+      assumptions: asRecordArray(parsed.assumptions).map((a) => ({
         content: asString(a.content, ''),
         confidence: typeof a.confidence === 'number' ? clamp(a.confidence, 0, 1) : 0.5,
         source: asString(a.source, 'inferred'),
         ...(a.stakeholder ? { stakeholder: String(a.stakeholder) } : {}),
       })),
-      constraints: asArray(parsed.constraints).map((c: Record<string, unknown>) => ({
+      constraints: asRecordArray(parsed.constraints).map((c) => ({
         description: asString(c.description, ''),
         type: asEnum(
           c.type,
@@ -123,18 +123,18 @@ export class InputNormalizerService {
         ),
         severity: asEnum(c.severity, ['hard', 'soft'] as const, 'soft' as const),
       })),
-      successMetrics: asArray(parsed.successMetrics).map((m: Record<string, unknown>) => ({
+      successMetrics: asRecordArray(parsed.successMetrics).map((m) => ({
         metric: asString(m.metric, ''),
         ...(m.target ? { target: String(m.target) } : {}),
         ...(m.measurement ? { measurement: String(m.measurement) } : {}),
       })),
       missingInformation: asArray(parsed.missingInformation).map(String),
-      contradictions: asArray(parsed.contradictions).map((c: Record<string, unknown>) => ({
+      contradictions: asRecordArray(parsed.contradictions).map((c) => ({
         itemA: asString(c.itemA, ''),
         itemB: asString(c.itemB, ''),
         description: asString(c.description, ''),
       })),
-      domainTerms: asArray(parsed.domainTerms).map((d: Record<string, unknown>) => ({
+      domainTerms: asRecordArray(parsed.domainTerms).map((d) => ({
         term: asString(d.term, ''),
         ...(d.definition ? { definition: String(d.definition) } : {}),
         context: asString(d.context, ''),
@@ -209,13 +209,12 @@ export class InputNormalizerService {
         reject(new Error('LLM extraction request timeout'));
       }, 60000);
 
-      this.eventBus.subscribe(
-        `llm.response.${requestId}`,
-        async (event: { data?: { content?: string } }) => {
-          clearTimeout(timeout);
-          resolve(event.data?.content || '');
-        }
-      );
+      this.eventBus.subscribe(`llm.response.${requestId}`, async (event: EventBusMessage) => {
+        clearTimeout(timeout);
+        const content =
+          isRecord(event.data) && typeof event.data.content === 'string' ? event.data.content : '';
+        resolve(content);
+      });
 
       this.eventBus.publish('llm.global.request', {
         requestId,
@@ -471,6 +470,10 @@ function asString(value: unknown, fallback: string): string {
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  return asArray(value).filter(isRecord);
 }
 
 function asEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
