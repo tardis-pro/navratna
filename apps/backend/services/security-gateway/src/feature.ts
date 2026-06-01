@@ -1,4 +1,5 @@
-import type { Feature } from '@uaip/shared-services/feature-factory'
+import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory'
+import { logger } from '@uaip/utils'
 import { Elysia } from 'elysia'
 
 import { registerAuthRoutes } from './http/auth_elysia.js'
@@ -16,9 +17,47 @@ import { registerProjectRoutes } from './http/projects_elysia.js'
 import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from './http/dashboard_elysia.js'
 import { registerOIDCRoutes } from './http/oidc_elysia.js'
+import { ErasureSweepJob } from './jobs/erasure_sweep_job.js'
+import { AuditRetentionJob } from './jobs/audit_retention_job.js'
+import { TokenCleanupJob } from './jobs/token_cleanup_job.js'
+
+let erasureSweepJob: ErasureSweepJob | null = null
+let auditRetentionJob: AuditRetentionJob | null = null
+let tokenCleanupJob: TokenCleanupJob | null = null
 
 export const securityFeature: Feature = {
   name: 'security-gateway',
+
+  async initialize(_deps: ServiceDeps): Promise<void> {
+    erasureSweepJob = new ErasureSweepJob()
+    try {
+      await erasureSweepJob.start()
+    } catch (err) {
+      logger.error('security-gateway: ErasureSweepJob failed to start', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    auditRetentionJob = new AuditRetentionJob()
+    try {
+      await auditRetentionJob.start()
+    } catch (err) {
+      logger.error('security-gateway: AuditRetentionJob failed to start', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    tokenCleanupJob = new TokenCleanupJob()
+    try {
+      await tokenCleanupJob.start()
+    } catch (err) {
+      logger.error('security-gateway: TokenCleanupJob failed to start', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
+    logger.info('security-gateway GDPR cron jobs started')
+  },
 
   routes<TApp extends Elysia>(app: TApp): TApp {
     app.use(registerAuthRoutes())
@@ -37,5 +76,40 @@ export const securityFeature: Feature = {
     app.use(registerDashboardRoutes())
     app.use(registerOIDCRoutes())
     return app
+  },
+
+  async shutdown(): Promise<void> {
+    if (erasureSweepJob !== null) {
+      try {
+        await erasureSweepJob.stop()
+      } catch (err) {
+        logger.error('security-gateway: ErasureSweepJob failed to stop', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+      erasureSweepJob = null
+    }
+
+    if (auditRetentionJob !== null) {
+      try {
+        await auditRetentionJob.stop()
+      } catch (err) {
+        logger.error('security-gateway: AuditRetentionJob failed to stop', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+      auditRetentionJob = null
+    }
+
+    if (tokenCleanupJob !== null) {
+      try {
+        await tokenCleanupJob.stop()
+      } catch (err) {
+        logger.error('security-gateway: TokenCleanupJob failed to stop', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+      tokenCleanupJob = null
+    }
   },
 }
