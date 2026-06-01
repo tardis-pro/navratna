@@ -24,14 +24,14 @@ type MutableStatusSet = {
   status?: number | string;
 };
 
-interface TaskSuccessResponse<T = TaskEntity> {
+export interface TaskSuccessResponse<T = TaskEntity> {
   success: true;
   data?: T;
   message?: string;
   total?: number;
 }
 
-interface TaskErrorResponse {
+export interface TaskErrorResponse {
   success: false;
   error: string;
   details?: string | z.ZodIssue[];

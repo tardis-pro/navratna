@@ -1,11 +1,11 @@
 import { WebSocket } from 'ws';
 import {
   DiscussionWebSocketHandler,
-  WebSocketConnection,
-} from '../websocket/discussion_web_socket_handler.js';
-import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js';
+  DiscussionOrchestrationService,
+} from '@uaip/discussion-core';
+import type { WebSocketConnection } from '@uaip/discussion-core';
 
-vi.mock('../websocket/websocket_security_utils.js', () => ({
+vi.mock('../../../../../shared/discussion/src/websocket/websocket_security_utils.js', () => ({
   authenticateConnection: vi.fn(() => ({
     authenticated: true,
     userId: 'user-1',
@@ -18,18 +18,17 @@ vi.mock('../websocket/websocket_security_utils.js', () => ({
   validateMessageSize: vi.fn(() => true),
 }));
 
-vi.mock('../websocket/redis_session_manager.js', () => ({
-  RedisSessionManager: vi.fn().mockImplementation(() => ({
-    checkConnectionLimits: vi.fn().mockResolvedValue(true),
-    createSession: vi.fn().mockResolvedValue(undefined),
-    removeSession: vi.fn().mockResolvedValue(undefined),
-    cleanupExpiredSessions: vi.fn().mockResolvedValue(undefined),
-    getSessionStats: vi
-      .fn()
-      .mockResolvedValue({ totalSessions: 0, activeUsers: 0, activeDiscussions: 0 }),
-    destroy: vi.fn().mockResolvedValue(undefined),
-  })),
-}));
+vi.mock('../../../../../shared/discussion/src/websocket/redis_session_manager.js', () => {
+  const RedisSessionManager = vi.fn().mockImplementation(function () {
+    this.checkConnectionLimits = vi.fn().mockResolvedValue(true);
+    this.createSession = vi.fn().mockResolvedValue(undefined);
+    this.removeSession = vi.fn().mockResolvedValue(undefined);
+    this.cleanupExpiredSessions = vi.fn().mockResolvedValue(undefined);
+    this.getSessionStats = vi.fn().mockResolvedValue({ totalSessions: 0, activeUsers: 0, activeDiscussions: 0 });
+    this.destroy = vi.fn().mockResolvedValue(undefined);
+  });
+  return { RedisSessionManager };
+});
 
 type HandlerInternals = {
   connectionTimers: Map<string, NodeJS.Timeout>;

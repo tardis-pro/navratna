@@ -675,18 +675,7 @@ export class UnifiedToolRegistry {
 
   private async getProjectContext(toolId: string, projectId: string): Promise<ProjectContext[]> {
     try {
-      // Simplified project usage lookup for now
-      const projectUsage: { usageCount: number; lastUsed: Date; successRate: number } | null = null;
-      if (projectUsage) {
-        return [
-          {
-            projectId,
-            usageCount: projectUsage.usageCount,
-            lastUsed: projectUsage.lastUsed,
-            effectiveness: projectUsage.successRate,
-          },
-        ];
-      }
+      void toolId; void projectId;
       return [];
     } catch (error) {
       logger.error('Failed to get project context', { error, toolId, projectId });
@@ -804,6 +793,9 @@ export class UnifiedToolRegistry {
     parameters: unknown,
     context: ExecutionContext
   ): Promise<unknown> {
+    if (!tool.sandboxing) {
+      throw new Error(`Sandboxed execution called but sandboxing config missing for tool ${tool.id}`);
+    }
     const sandbox = {
       toolId: tool.id,
       operation,
@@ -999,7 +991,7 @@ export class UnifiedToolRegistry {
         }
 
         // Usage frequency (mock scoring)
-        if (tool.metadata?.usageCount > 10) {
+        if ((tool.metadata?.usageCount ?? 0) > 10) {
           score += 0.2;
         }
 

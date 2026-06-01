@@ -10,10 +10,12 @@ import {
 } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
 import { DiscussionService } from '@uaip/shared-services/discussion';
-import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js';
-import { TurnStrategyService } from '../services/turn_strategy_service.js';
-import { ModeratedStrategy } from '../strategies/moderated_strategy.js';
-import { DiscussionWebSocketHandler } from '../websocket/discussion_web_socket_handler.js';
+import {
+  DiscussionOrchestrationService,
+  TurnStrategyService,
+  ModeratedStrategy,
+  DiscussionWebSocketHandler,
+} from '@uaip/discussion-core';
 
 const createParticipant = (
   id: string,

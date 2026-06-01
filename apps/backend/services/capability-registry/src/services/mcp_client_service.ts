@@ -6,7 +6,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { Readable } from 'stream';
 import { EventEmitter } from 'events';
 import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
-import { ToolCategory, MCPServerType } from '@uaip/types';
+import { ToolCategory, MCPServerType, MCPServerCapabilities } from '@uaip/types';
 import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService, MCPOutputValidator, ADMIN_ORG_ID } from '@uaip/shared-services';
 import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
@@ -64,6 +64,10 @@ type MCPEventData = {
 
 function isMCPEventData(v: unknown): v is MCPEventData {
   return typeof v === 'object' && v !== null;
+}
+
+function isMCPServerCapabilities(v: unknown): v is MCPServerCapabilities {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 function isStringRecord(v: unknown): v is Record<string, string> {
@@ -138,7 +142,7 @@ interface MCPServerState {
   startTime?: Date;
   lastHealthCheck?: Date;
   error?: string;
-  capabilities?: unknown;
+  capabilities?: MCPServerCapabilities;
   tools?: MCPTool[];
   resources?: MCPResource[];
   prompts?: MCPPrompt[];
@@ -380,9 +384,10 @@ export class MCPClientService extends EventEmitter {
         logger.info(`MCP server started successfully: ${serverName} (PID: ${childProcess.pid})`);
       }
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       serverState.status = 'error';
-      serverState.error = error.message;
-      this.emit('serverError', { serverName, error: error.message });
+      serverState.error = err.message;
+      this.emit('serverError', { serverName, error: err.message });
       throw error;
     }
   }
@@ -574,7 +579,9 @@ export class MCPClientService extends EventEmitter {
       const responseData = this.asRecord(response);
 
       const server = this.servers.get(serverName)!;
-      server.capabilities = responseData.capabilities;
+      server.capabilities = isMCPServerCapabilities(responseData.capabilities)
+        ? responseData.capabilities
+        : undefined;
 
       // Send initialized notification
       this.sendNotification(serverName, 'initialized');
@@ -1216,6 +1223,7 @@ export class MCPClientService extends EventEmitter {
   // Configuration Management
   private async loadServerConfig(serverName: string): Promise<MCPServerConfig | null> {
     try {
+      if (!this.mcpRepo) return null;
       const mcpService = this.mcpRepo;
       const entity = await mcpService.getServerByName(serverName);
       if (!entity) return null;
@@ -1228,6 +1236,9 @@ export class MCPClientService extends EventEmitter {
 
   async updateServerConfig(serverName: string, config: MCPServerConfig): Promise<void> {
     try {
+      if (!this.mcpRepo) {
+        throw new Error(`MCP repository not initialized: cannot update server config for ${serverName}`);
+      }
       const mcpService = this.mcpRepo;
       const existing = await mcpService.getServerByName(serverName);
       const payload: NewMCPServer = {
@@ -1274,6 +1285,9 @@ export class MCPClientService extends EventEmitter {
   async uninstallServer(serverName: string): Promise<void> {
     await this.stopServer(serverName);
     try {
+      if (!this.mcpRepo) {
+        throw new Error(`MCP repository not initialized: cannot uninstall server ${serverName}`);
+      }
       const mcpService = this.mcpRepo;
       const existing = await mcpService.getServerByName(serverName);
       if (existing) {
@@ -1307,11 +1321,12 @@ export class MCPClientService extends EventEmitter {
       server.lastHealthCheck = new Date();
       server.stats.uptime = Date.now() - (server.startTime?.getTime() || Date.now());
     } catch (error) {
-      logger.warn(`Health check failed for ${serverName}:`, error.message);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      logger.warn(`Health check failed for ${serverName}:`, errMsg);
       const server = this.servers.get(serverName)!;
       server.status = 'error';
-      server.error = `Health check failed: ${error.message}`;
-      this.emit('serverError', { serverName, error: error.message });
+      server.error = `Health check failed: ${errMsg}`;
+      this.emit('serverError', { serverName, error: errMsg });
     }
   }
 
@@ -1371,6 +1386,7 @@ export class MCPClientService extends EventEmitter {
 
   private async loadAllConfigs(): Promise<{ mcpServers: Record<string, MCPServerConfig> }> {
     try {
+      if (!this.mcpRepo) return { mcpServers: {} };
       const mcpService = this.mcpRepo;
       const entities = await mcpService.getAllServers();
       const mcpServers: Record<string, MCPServerConfig> = {};
@@ -1461,7 +1477,9 @@ export class MCPClientService extends EventEmitter {
 
       await this.eventBusService.subscribe('mcp.server.install', async (event) => {
         const d = this.mcpData(event);
-        await this.installServer(d.serverName!, d.config);
+        if (d.config) {
+          await this.installServer(d.serverName!, d.config);
+        }
       });
 
       await this.eventBusService.subscribe('mcp.server.uninstall', async (event) => {
@@ -1613,6 +1631,10 @@ export class MCPClientService extends EventEmitter {
 
   private async autoStartServers(): Promise<void> {
     try {
+      if (!this.mcpRepo) {
+        logger.warn('MCP repository not initialized, skipping auto-start');
+        return;
+      }
       const mcpService = this.mcpRepo;
       const entities = await mcpService.getAllServers();
       const toStart = entities.filter((e) => {
@@ -2196,7 +2218,7 @@ export class MCPClientService extends EventEmitter {
 
         return analytics;
       } else {
-        return await this.toolGraphDatabase.getToolUsageAnalytics(toolId, agentId);
+        return await this.toolGraphDatabase.getToolUsageAnalytics(toolId ?? 'default', agentId);
       }
     } catch (error) {
       logger.error('Failed to get usage analytics:', error);

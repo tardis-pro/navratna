@@ -132,13 +132,17 @@ export class OperationValidator {
   }
 
   private validateStepDependencies(operation: Operation): void {
+    if (!operation.steps) {
+      throw new OperationError('Operation has no steps', 'VALIDATION_ERROR');
+    }
+
     const stepIds = new Set(operation.steps.map((s) => s.id));
     const visited = new Set<string>();
     const visiting = new Set<string>();
 
     // Check for circular dependencies
     for (const step of operation.steps) {
-      if (!visited.has(step.id)) {
+      if (step.id && !visited.has(step.id)) {
         this.checkCircularDependencies(step, operation.steps, visited, visiting);
       }
     }

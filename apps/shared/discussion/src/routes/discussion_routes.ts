@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withRequiredAuth, t } from '@uaip/middleware'
+import { withNginxAuth, t } from '@uaip/middleware'
 import { DiscussionStatus, TurnStrategy } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import {
@@ -37,7 +37,7 @@ export function registerDiscussionRoutes(
 ) {
   return new Elysia()
     .group('/api/v1/discussions', (group) => {
-      return withRequiredAuth(group)
+      return withNginxAuth(group)
         .get('/', async (ctx) => {
           try {
             const { limit = '20', offset = '0', ...filters } = ctx.query
@@ -63,7 +63,7 @@ export function registerDiscussionRoutes(
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const userId: string = ctx.user.id
             const discussion = await discussionService.createDiscussion({
               ...body,
@@ -273,7 +273,7 @@ export function registerDiscussionRoutes(
 
         .post('/:id/start', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const startedBy: string = ctx.user.id
             const discussion = await discussionService.startDiscussion(ctx.params.id, startedBy)
             return { success: true, data: discussion }
@@ -294,7 +294,7 @@ export function registerDiscussionRoutes(
 
         .post('/:id/end', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const endedBy: string = ctx.user.id
             const body: { reason?: string } | undefined = ctx.body
             const discussion = await discussionService.endDiscussion(ctx.params.id, endedBy, body?.reason)
@@ -317,7 +317,7 @@ export function registerDiscussionRoutes(
 
         .post('/:id/participants', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const addedBy: string = ctx.user.id
             const result = await orchestrationService.addParticipant(
               ctx.params.id,
@@ -347,7 +347,7 @@ export function registerDiscussionRoutes(
 
         .delete('/:id/participants/:pid', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const removedBy: string = ctx.user.id
             await discussionService.removeParticipant(ctx.params.id, ctx.params.pid, removedBy)
             return { success: true, message: 'Participant removed' }
@@ -430,14 +430,14 @@ export function registerDiscussionRoutes(
 
         .post('/:id/advance-turn', async (ctx) => {
           try {
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const role = normalizeRole(ctx.user?.role) ?? normalizeRole(ctx.headers['x-user-role'])
             if (role !== 'admin' && role !== 'moderator') {
               ctx.set.status = 403
               return { success: false, error: 'Only moderators can force-advance turns' }
             }
 
-            // @ts-expect-error -- Elysia withRequiredAuth injects user context that TypeScript cannot infer through nested groups
+            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const forcedBy: string = ctx.user.id
             await discussionService.advanceTurn(ctx.params.id, forcedBy)
             return { success: true, message: 'Turn advanced' }

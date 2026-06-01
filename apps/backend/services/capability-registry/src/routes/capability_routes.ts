@@ -97,7 +97,7 @@ export function registerCapabilityRoutes(controller?: CapabilityController){
       try {
         const result = await capabilityController.registerCapability(ctx);
         const eventBus = EventBusService.getInstance();
-        const body = isRecord(ctx.body) ? ctx.body : {};
+        const body: Record<string, unknown> = isRecord(ctx.body) ? ctx.body : {};
 
         await eventBus.publish(CAPABILITY_INJECTED_EVENT, {
           name: body.name,
@@ -157,7 +157,9 @@ export function registerCapabilityRoutes(controller?: CapabilityController){
         500: CapabilityErrorSchema,
       },
     })
-    .delete('/:id', (ctx) => capabilityController.deleteCapability(ctx), {
+    .delete('/:id', async (ctx) => {
+      return capabilityController.deleteCapability(ctx) as Promise<{ success: boolean; error: string }>;
+    }, {
       response: { 200: CapabilityErrorSchema, 400: CapabilityErrorSchema, 500: CapabilityErrorSchema },
     })
   );

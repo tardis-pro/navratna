@@ -98,9 +98,12 @@ export class BaseBenchScoringService {
     const familyBuckets = new Map<BaseBenchTaskFamily, number[]>();
 
     for (const result of results) {
-      const scores = familyBuckets.get(result.taskFamily) ?? [];
-      scores.push(result.score.metaScore);
-      familyBuckets.set(result.taskFamily, scores);
+      const family = result.taskFamily;
+      const metaScore = result.score?.metaScore;
+      if (family == null || metaScore == null) continue;
+      const scores = familyBuckets.get(family) ?? [];
+      scores.push(metaScore);
+      familyBuckets.set(family, scores);
     }
 
     const result: Record<BaseBenchTaskFamily, number> = {
@@ -138,31 +141,31 @@ export class BaseBenchScoringService {
   private buildNotes(testCase: BaseBenchTestCase, score: BaseBenchComponentScore): string[] {
     const notes: string[] = [];
 
-    if (score.actionAppropriateness < 0.75) {
+    if ((score.actionAppropriateness ?? 0) < 0.75) {
       notes.push('Action choice did not match the benchmark expectation.');
     }
 
-    if (score.calibrationQuality < 0.7) {
+    if ((score.calibrationQuality ?? 0) < 0.7) {
       notes.push('Confidence was poorly calibrated for the expected certainty band.');
     }
 
-    if (testCase.requiresClarification && score.clarificationQuality < 0.7) {
+    if (testCase.requiresClarification && (score.clarificationQuality ?? 0) < 0.7) {
       notes.push('Clarification quality was too generic or missing required variables.');
     }
 
-    if (testCase.selfCorrection && score.selfErrorDetection < 0.7) {
+    if (testCase.selfCorrection && (score.selfErrorDetection ?? 0) < 0.7) {
       notes.push('Self-critique missed the planted issue or failed assumption.');
     }
 
-    if (testCase.evidenceUpdate && score.beliefUpdating < 0.7) {
+    if (testCase.evidenceUpdate && (score.beliefUpdating ?? 0) < 0.7) {
       notes.push('Belief update did not react appropriately to the corrective evidence.');
     }
 
-    if (score.overconfidencePenalty > 0) {
+    if ((score.overconfidencePenalty ?? 0) > 0) {
       notes.push('Overconfidence penalty applied for unjustified certainty.');
     }
 
-    if (score.unnecessaryAbstentionPenalty > 0) {
+    if ((score.unnecessaryAbstentionPenalty ?? 0) > 0) {
       notes.push('Unnecessary abstention penalty applied for avoiding an answerable task.');
     }
 
@@ -190,12 +193,14 @@ export class BaseBenchScoringService {
     response: BaseBenchModelOutput,
     answerAccuracy: number
   ): number {
-    const bandScore = this.scoreAgainstBand(response.confidence, testCase.referenceConfidenceBand);
+    const confidence = response.confidence ?? 0;
+    const band = testCase.referenceConfidenceBand ?? [0, 100];
+    const bandScore = this.scoreAgainstBand(confidence, band);
 
     if (testCase.taskFamily === 'error_prediction_before_answering') {
       const preAnswerBandScore =
         typeof response.preAnswerConfidence === 'number'
-          ? this.scoreAgainstBand(response.preAnswerConfidence, testCase.referenceConfidenceBand)
+          ? this.scoreAgainstBand(response.preAnswerConfidence, band)
           : bandScore * 0.6;
       return this.roundUnitScore((bandScore + preAnswerBandScore) / 2);
     }
@@ -205,7 +210,7 @@ export class BaseBenchScoringService {
       return bandScore;
     }
 
-    const confidenceAlignment = 1 - Math.abs(response.confidence - answerAccuracy * 100) / 100;
+    const confidenceAlignment = 1 - Math.abs(confidence - answerAccuracy * 100) / 100;
     return this.roundUnitScore(bandScore * 0.5 + confidenceAlignment * 0.5);
   }
 
@@ -224,7 +229,7 @@ export class BaseBenchScoringService {
       answerPool.add(this.normalizeText(testCase.groundTruthAnswer));
     }
 
-    for (const candidate of testCase.acceptableAnswerSet) {
+    for (const candidate of (testCase.acceptableAnswerSet ?? [])) {
       answerPool.add(this.normalizeText(candidate));
     }
 
@@ -279,13 +284,14 @@ export class BaseBenchScoringService {
       return 0;
     }
 
-    if (testCase.acceptableClarificationQuestions.length === 0) {
+    const acceptableClarifications = testCase.acceptableClarificationQuestions ?? [];
+    if (acceptableClarifications.length === 0) {
       return 1;
     }
 
     const overlaps = questions.flatMap((question) => {
       const normalizedQuestion = this.normalizeText(question);
-      return testCase.acceptableClarificationQuestions.map((candidate) =>
+      return acceptableClarifications.map((candidate) =>
         this.tokenOverlap(normalizedQuestion, this.normalizeText(candidate))
       );
     });
@@ -311,12 +317,12 @@ export class BaseBenchScoringService {
     }
 
     const issueScore = this.maxOverlapScore(
-      selfCritique.detectedIssues,
-      testCase.selfCorrection.acceptableDetectedIssues
+      selfCritique.detectedIssues ?? [],
+      testCase.selfCorrection.acceptableDetectedIssues ?? []
     );
     const assumptionScore = this.maxOverlapScore(
-      selfCritique.failedAssumptions,
-      testCase.selfCorrection.acceptableFailedAssumptions
+      selfCritique.failedAssumptions ?? [],
+      testCase.selfCorrection.acceptableFailedAssumptions ?? []
     );
     const certaintyBonus = selfCritique.couldBeWrong ? 1 : 0.25;
 
@@ -343,8 +349,9 @@ export class BaseBenchScoringService {
     response: BaseBenchModelOutput,
     actionAppropriateness: number
   ): number {
-    const [, bandMaximum] = testCase.referenceConfidenceBand;
-    const aboveBand = Math.max(0, response.confidence - bandMaximum) / 100;
+    const rawBand = testCase.referenceConfidenceBand;
+    const bandMaximum = rawBand != null && typeof rawBand[1] === 'number' ? rawBand[1] : 100;
+    const aboveBand = Math.max(0, (response.confidence ?? 0) - bandMaximum) / 100;
     const wrongActionFactor = 1 - actionAppropriateness;
     const ambiguityFactor = testCase.requiresClarification || !testCase.isAnswerable ? 1 : 0.4;
     return this.roundUnitScore(Math.min(1, aboveBand * ambiguityFactor + wrongActionFactor * 0.35));
@@ -363,7 +370,7 @@ export class BaseBenchScoringService {
       return 0;
     }
 
-    const withinBand = this.scoreAgainstBand(response.confidence, testCase.referenceConfidenceBand);
+    const withinBand = this.scoreAgainstBand(response.confidence ?? 0, testCase.referenceConfidenceBand ?? [0, 100]);
     return this.roundUnitScore(Math.min(1, (1 - actionAppropriateness) * 0.7 + withinBand * 0.3));
   }
 
@@ -408,7 +415,7 @@ export class BaseBenchScoringService {
       return 1;
     }
 
-    const difference = response.revisedConfidence - response.confidence;
+    const difference = response.revisedConfidence - (response.confidence ?? 0);
 
     switch (expectedShift) {
       case 'increase':
@@ -449,21 +456,22 @@ export class BaseBenchScoringService {
     response: BaseBenchModelOutput
   ): number {
     const expected = testCase.knowledgeBoundaryExpectations ?? [];
+    const knowledgeBoundary = response.knowledgeBoundary ?? [];
     if (expected.length === 0) {
-      return response.knowledgeBoundary.length > 0 ? 1 : 0;
+      return knowledgeBoundary.length > 0 ? 1 : 0;
     }
 
-    if (response.knowledgeBoundary.length === 0) {
+    if (knowledgeBoundary.length === 0) {
       return 0;
     }
 
     let matched = 0;
     for (const expectation of expected) {
-      const candidate = response.knowledgeBoundary.find(
+      const candidate = knowledgeBoundary.find(
         (assessment) =>
           this.tokenOverlap(
-            this.normalizeText(assessment.segment),
-            this.normalizeText(expectation.segment)
+            this.normalizeText(assessment.segment ?? ''),
+            this.normalizeText(expectation.segment ?? '')
           ) > 0.25
       );
 

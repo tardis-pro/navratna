@@ -103,6 +103,20 @@ export class ToolExecutionCoordinator {
     return typeof value === 'string' ? value : null;
   }
 
+  private toToolExecutionEvent(data: unknown): ToolExecutionEvent | null {
+    if (!isRecord(data)) return null;
+    if (typeof data.requestId !== 'string' || typeof data.toolId !== 'string' || typeof data.agentId !== 'string') return null;
+    return data as unknown as ToolExecutionEvent;
+  }
+
+  private toCancellationEvent(data: unknown): { requestId: string; reason?: string } | null {
+    if (!isRecord(data) || typeof data.requestId !== 'string') return null;
+    return {
+      requestId: data.requestId,
+      reason: typeof data.reason === 'string' ? data.reason : undefined,
+    };
+  }
+
   private constructor() {
     this.eventBus = EventBusService.getInstance();
     this.database = DatabaseService.getInstance();
@@ -131,17 +145,26 @@ export class ToolExecutionCoordinator {
       // Subscribe to tool execution requests
       await this.eventBus.subscribe(
         'tool.execute.request',
-        this.handleToolExecutionRequest.bind(this)
+        async (message) => {
+          const event = this.toToolExecutionEvent(message.data);
+          if (event) await this.handleToolExecutionRequest(event);
+        }
       );
 
       // Subscribe to sandbox execution requests
       await this.eventBus.subscribe(
         'sandbox.execute.tool',
-        this.handleSandboxExecutionRequest.bind(this)
+        async (message) => {
+          const event = this.toToolExecutionEvent(message.data);
+          if (event) await this.handleSandboxExecutionRequest(event);
+        }
       );
 
       // Subscribe to tool cancellation requests
-      await this.eventBus.subscribe('tool.execute.cancel', this.handleToolCancellation.bind(this));
+      await this.eventBus.subscribe('tool.execute.cancel', async (message) => {
+        const event = this.toCancellationEvent(message.data);
+        if (event) await this.handleToolCancellation(event);
+      });
 
       this.isListening = true;
       logger.info('Tool execution coordinator initialized and listening');

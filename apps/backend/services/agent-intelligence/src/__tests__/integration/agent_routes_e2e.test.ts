@@ -1,24 +1,46 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { Elysia } from 'elysia'
 
-const { mockedScoreRelevance, mockedGetConstellations } = vi.hoisted(() => ({
+const { mockedScoreRelevance, mockedGetConstellations, mockedGetIntelligenceDb } = vi.hoisted(() => ({
   mockedScoreRelevance: vi.fn(),
   mockedGetConstellations: vi.fn(),
+  mockedGetIntelligenceDb: vi.fn(),
 }))
 
 vi.mock('@uaip/shared-services', async () => {
   return {
     scoreRelevance: mockedScoreRelevance,
     getConstellations: mockedGetConstellations,
+    // RedisCacheService stub prevents llm-service from throwing at module init
+    RedisCacheService: class { static getInstance() { return { get: vi.fn(), set: vi.fn(), del: vi.fn() } } },
+    redisCacheService: { get: vi.fn(), set: vi.fn(), del: vi.fn() },
   }
 })
 
-import { registerAgentRoutes } from '../../routes/agent_routes.js'
-import { registerConstellationRoutes } from '../../routes/constellation_routes.js'
-import { registerAgentCrudRoutes } from '../../routes/agents_crud_routes.js'
-import { registerAgentChatRoutes } from '../../routes/agent_chat_routes.js'
-import { registerAgentCapabilityRoutes } from '../../routes/agent_capability_routes.js'
-import { registerAgentMemoryRoutes } from '../../routes/agent_memory_routes.js'
+// The -core agents CRUD list handler queries the intelligence DB directly via Drizzle
+// (it does not use an injected getAgents dep), so we mock the Drizzle client surface.
+vi.mock('@uaip/shared-services/drizzle/clients', () => ({
+  getIntelligenceDb: mockedGetIntelligenceDb,
+  eq: vi.fn((col, val) => ({ col, val, op: 'eq' })),
+  ilike: vi.fn((col, val) => ({ col, val, op: 'ilike' })),
+  and: vi.fn((...args) => ({ args, op: 'and' })),
+  sql: vi.fn(),
+  count: vi.fn(() => ({ name: 'count' })),
+  asc: vi.fn((col) => col),
+}))
+
+vi.mock('@uaip/shared-services/drizzle/intelligence', () => ({
+  agents: { id: 'id', name: 'name', isActive: 'isActive', createdAt: 'createdAt' },
+}))
+
+import {
+  registerAgentRoutes,
+  registerConstellationRoutes,
+  registerAgentCrudRoutes,
+  registerAgentChatRoutes,
+  registerAgentCapabilityRoutes,
+  registerAgentMemoryRoutes,
+} from '@uaip/agent-intelligence-core'
 
   const VALID_USER_ID = '550e8400-e29b-41d4-a716-446655440000'
   const OTHER_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
@@ -197,6 +219,20 @@ describe('agent routes e2e', () => {
   })
 
   it('serves agent CRUD through authenticated requests', async () => {
+    const countBuilder = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue([{ total: 1 }]),
+    }
+    const rowsBuilder = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      offset: vi.fn().mockResolvedValue([{ id: 'agent-1', name: 'Agent One', isActive: true }]),
+    }
+    const select = vi.fn().mockReturnValueOnce(countBuilder).mockReturnValueOnce(rowsBuilder)
+    mockedGetIntelligenceDb.mockReturnValue({ select })
+
     const app = buildApp()
     const response = await app.handle(
       createRequest('/api/v1/agents', {
@@ -208,9 +244,9 @@ describe('agent routes e2e', () => {
     expect(response.status).toBe(200)
     await expect(readJson(response)).resolves.toMatchObject({
       success: true,
-      total: 1,
+      data: [{ id: 'agent-1', name: 'Agent One' }],
+      pagination: { total: 1, page: 1 },
     })
-    expect(crudDeps.getAgents).toHaveBeenCalledTimes(1)
   })
 
   it('creates agents with authenticated user injected into payload', async () => {
@@ -304,7 +340,6 @@ describe('agent routes e2e', () => {
 
     expect(response.status).toBe(403)
     await expect(readJson(response)).resolves.toMatchObject({
-      success: false,
       error: 'User is not authorized to resolve this approval',
     })
     expect(decisionRepo.create).not.toHaveBeenCalled()

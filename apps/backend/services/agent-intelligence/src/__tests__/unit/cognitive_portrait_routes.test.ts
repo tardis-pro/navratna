@@ -1,9 +1,12 @@
+// cognitive_portrait_routes.test.ts — kept in backend, exercises @uaip/agent-intelligence-core route.
+// The vitest.config.ts aliases @uaip/agent-intelligence-core → apps/shared/agent-intelligence/dist so
+// the relative mock paths below resolve to the SAME absolute files that the -core route imports.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Elysia } from 'elysia'
-import { registerCognitivePortraitRoutes } from '../../routes/cognitive_portrait_routes.js'
+import { registerCognitivePortraitRoutes } from '@uaip/agent-intelligence-core'
 
 vi.mock('@uaip/middleware', () => ({
-  withRequiredAuth: (app: Elysia) => app,
+  withNginxAuth: (app: Elysia) => app,
   t: {
     Object: vi.fn(() => ({})),
     String: vi.fn(() => ({})),
@@ -11,16 +14,20 @@ vi.mock('@uaip/middleware', () => ({
   },
 }))
 
-vi.mock('@uaip/utils', () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
-}))
+vi.mock('@uaip/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@uaip/utils')>()
+  return {
+    ...actual,
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    },
+  }
+})
 
-vi.mock('../../services/cognitive_portrait_service.js', () => ({
+vi.mock('../../../../../../shared/agent-intelligence/dist/services/cognitive_portrait_service.js', () => ({
   getPortrait: vi.fn(),
   updateTrustCalibration: vi.fn(),
   getPersonalizationVector: vi.fn(),
@@ -30,7 +37,7 @@ import {
   getPortrait,
   updateTrustCalibration,
   getPersonalizationVector,
-} from '../../services/cognitive_portrait_service.js'
+} from '../../../../../../shared/agent-intelligence/dist/services/cognitive_portrait_service.js'
 
 const mockGetPortrait = vi.mocked(getPortrait)
 const mockUpdateTrustCalibration = vi.mocked(updateTrustCalibration)

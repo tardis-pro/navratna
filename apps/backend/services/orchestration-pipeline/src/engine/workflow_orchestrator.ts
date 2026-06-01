@@ -45,7 +45,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       status: OperationStatus.PENDING,
       startTime: Date.now(),
       currentStepIndex: 0,
-      executionContext: operation.context.executionContext,
+      executionContext: operation.context?.executionContext ?? {},
       state: initialState || {
         operationId: operation.id,
         completedSteps: [],
@@ -127,8 +127,10 @@ export class WorkflowOrchestrator extends EventEmitter {
         if (result.status === 'fulfilled') {
           const stepResult = result.value;
           stepResultsMap.set(stepResult.stepId || '', stepResult);
+          workflow.stepResults ??= [];
           workflow.stepResults.push(stepResult);
           if (stepResult.stepId) {
+            workflow.completedSteps ??= [];
             workflow.completedSteps.push(stepResult.stepId);
           }
         }
@@ -155,14 +157,16 @@ export class WorkflowOrchestrator extends EventEmitter {
     previousResults: Map<string, StepResult>
   ): Promise<StepResult> {
     try {
-      workflow.state.currentStep = step.id;
+      if (workflow.state) {
+        workflow.state.currentStep = step.id;
+      }
       await this.updateWorkflowState(workflow);
 
       const context: StepExecutionContext = {
-        operationId: operation.id || '',
-        workflowInstanceId: workflow.id,
+        operationId: operation.id ?? '',
+        workflowInstanceId: workflow.id ?? '',
         previousResults,
-        globalContext: workflow.context || {},
+        globalContext: workflow.context ?? {},
       };
 
       const result = await this.stepExecutionManager.executeStep(step, context);
@@ -213,7 +217,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       // Remove executed steps from remaining
       for (const step of currentGroup) {
         remaining.delete(step);
-        completed.add(step.id);
+        if (step.id) completed.add(step.id);
       }
 
       groups.push(currentGroup);
@@ -225,7 +229,7 @@ export class WorkflowOrchestrator extends EventEmitter {
   private async createCheckpoint(workflow: WorkflowInstance, operation: Operation): Promise<void> {
     const checkpoint: Checkpoint = {
       id: `cp-${workflow.id}-${Date.now()}`,
-      stepId: workflow.state.currentStep || 'workflow',
+      stepId: workflow.state?.currentStep ?? 'workflow',
       type: CheckpointType.PROGRESS_MARKER,
       data: {
         operationState: {
@@ -241,7 +245,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       timestamp: new Date(),
     };
 
-    await this.stateManagerService.saveCheckpoint(operation.id, checkpoint);
+    await this.stateManagerService.saveCheckpoint(operation.id ?? '', checkpoint);
   }
 
   private async updateWorkflowState(workflow: WorkflowInstance): Promise<void> {
@@ -257,20 +261,22 @@ export class WorkflowOrchestrator extends EventEmitter {
       lastUpdated: new Date(),
     };
 
-    await this.stateManagerService.updateOperationState(workflow.operationId, state);
+    await this.stateManagerService.updateOperationState(workflow.operationId ?? '', state);
 
     // Emit state update event
     await this.eventBusService.publish('operation.state.updated', {
-      operationId: workflow.operationId,
+      operationId: workflow.operationId ?? '',
       workflowId: workflow.id,
       state,
     });
   }
 
   private setWorkflowTimeout(workflow: WorkflowInstance, timeout: number): void {
+    if (!workflow.id) return;
+    const workflowId = workflow.id;
     const timer = setTimeout(() => {
       this.emit('workflow:timeout', {
-        workflowId: workflow.id,
+        workflowId,
         operationId: workflow.operationId,
         timeout,
       });
@@ -281,7 +287,7 @@ export class WorkflowOrchestrator extends EventEmitter {
       this.updateWorkflowState(workflow);
     }, timeout);
 
-    this.workflowTimeouts.set(workflow.id, timer);
+    this.workflowTimeouts.set(workflowId, timer);
   }
 
   private clearWorkflowTimeout(workflowId: string): void {
@@ -300,8 +306,8 @@ export class WorkflowOrchestrator extends EventEmitter {
     const outputs: Record<string, unknown> = {};
 
     for (const [stepId, result] of stepResults) {
-      const step = operation.steps.find((s) => s.id === stepId);
-      if (step && result.output) {
+      const step = (operation.steps ?? []).find((s) => s.id === stepId);
+      if (step?.name && result.output) {
         outputs[step.name] = result.output;
       }
     }
@@ -310,14 +316,15 @@ export class WorkflowOrchestrator extends EventEmitter {
   }
 
   private calculateMetrics(workflow: WorkflowInstance): OperationMetrics {
+    const startTime = workflow.startTime ?? 0;
     const duration = workflow.endTime
-      ? workflow.endTime - workflow.startTime
-      : Date.now() - workflow.startTime;
+      ? workflow.endTime - startTime
+      : Date.now() - startTime;
 
     let totalStepTime = 0;
     const resourceUsage: Record<string, unknown> = {};
 
-    for (const result of workflow.stepResults.values()) {
+    for (const result of (workflow.stepResults ?? []).values()) {
       if (result.metrics) {
         totalStepTime += result.metrics.executionTime || 0;
         if (result.metrics.resourceUsage) {
@@ -377,12 +384,12 @@ export class WorkflowOrchestrator extends EventEmitter {
     if (checkpointId) {
       // Restore from checkpoint
       const checkpoint = await this.stateManagerService.loadCheckpoint(
-        workflow.operationId,
+        workflow.operationId ?? '',
         checkpointId
       );
-      if (checkpoint) {
-        workflow.completedSteps = checkpoint.data.operationState.completedSteps || [];
-        workflow.executionContext = checkpoint.data.operationState.variables || {};
+      if (checkpoint?.data?.operationState) {
+        workflow.completedSteps = checkpoint.data.operationState.completedSteps ?? [];
+        workflow.executionContext = checkpoint.data.operationState.variables ?? {};
       }
     }
 

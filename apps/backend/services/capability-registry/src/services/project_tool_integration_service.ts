@@ -166,6 +166,7 @@ export class ProjectToolIntegrationService {
       return executionResult;
     } catch (error) {
       const executionTime = Date.now() - startTime;
+      const err = error instanceof Error ? error : new Error(String(error));
 
       logger.error('Project tool execution failed', {
         executionId,
@@ -175,20 +176,20 @@ export class ProjectToolIntegrationService {
       });
 
       // Record failed usage
-      await this.recordProjectToolUsage(request, null, executionTime, 0, error.message);
+      await this.recordProjectToolUsage(request, null, executionTime, 0, err.message);
 
       // Emit failure event
       await this.eventBusService.publish('project.tool.execution.failed', {
         executionId,
         toolId: request.toolId,
         projectId: request.context.projectId,
-        error: error.message,
+        error: err.message,
         duration: executionTime,
       });
 
       return {
         success: false,
-        error: error.message,
+        error: err.message,
         executionTime,
         actualCost: 0,
         metadata: {
@@ -500,17 +501,17 @@ export class ProjectToolIntegrationService {
         success: !errorMessage,
         executionTimeMs: executionTime,
         metadata: {
-          taskId: request.context.taskId,
+          taskId: request.context.taskId ?? null,
           toolName: request.toolId,
-          agentId: request.context.agentId,
+          agentId: request.context.agentId ?? null,
           operation: request.operation,
           cost: actualCost,
           input: this.sanitizeData(request.parameters),
           output: this.sanitizeData(result),
-          errorMessage,
-          priority: request.priority,
-          estimatedCost: request.estimatedCost,
-          estimatedDuration: request.estimatedDuration,
+          errorMessage: errorMessage ?? null,
+          priority: request.priority ?? null,
+          estimatedCost: request.estimatedCost ?? null,
+          estimatedDuration: request.estimatedDuration ?? null,
         },
       });
     } catch (error) {

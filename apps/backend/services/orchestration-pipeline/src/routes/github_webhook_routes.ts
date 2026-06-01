@@ -30,11 +30,13 @@ function isGitHubWebhookPayload(data: unknown): data is GitHubWebhookPayload {
 }
 
 function isGitHubCheckRunPayload(data: unknown): data is GitHubCheckRunPayload {
-  return isGitHubWebhookPayload(data) && isRecord(data['check_run'])
+  if (!isGitHubWebhookPayload(data)) return false
+  return isRecord((data as unknown as Record<string, unknown>)['check_run'])
 }
 
 function isGitHubCheckSuitePayload(data: unknown): data is GitHubCheckSuitePayload {
-  return isGitHubWebhookPayload(data) && isRecord(data['check_suite'])
+  if (!isGitHubWebhookPayload(data)) return false
+  return isRecord((data as unknown as Record<string, unknown>)['check_suite'])
 }
 
 const webhookBodySchema = z.object({
@@ -71,7 +73,7 @@ export function registerGitHubWebhookRoutes() {
       return { success: false, error: 'Invalid webhook payload' }
     }
 
-    if (isGitHubWebhookEventType(eventType) && isGitHubWebhookPayload(parsed.data)) {
+    if (eventType !== null && isGitHubWebhookEventType(eventType) && isGitHubWebhookPayload(parsed.data)) {
       routeGitHubWebhookEvent(
         eventType,
         parsed.data,

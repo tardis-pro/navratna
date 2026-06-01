@@ -27,7 +27,9 @@
     },
     "dependencies": {
         "@tobilu/qmd": "^2.1.0",
+        "@uaip/agent-intelligence-core": "workspace:*",
         "@uaip/config": "workspace:*",
+        "@uaip/discussion-core": "workspace:*",
         "@uaip/infra": "workspace:*",
         "@uaip/llm-service": "workspace:*",
         "@uaip/middleware": "workspace:*",

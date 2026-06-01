@@ -224,7 +224,7 @@ export class ComplexityScorerService {
       const parsed = JSON.parse(row.content)
       if (parsed && Array.isArray(parsed.edges)) {
         return parsed.edges.filter(
-          (e): e is ImportEdge => typeof e === 'object' && e !== null && 'from' in e && 'to' in e
+          (e: unknown): e is ImportEdge => typeof e === 'object' && e !== null && 'from' in e && 'to' in e
         )
       }
       return []

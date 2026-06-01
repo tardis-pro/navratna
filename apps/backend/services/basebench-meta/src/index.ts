@@ -3,6 +3,7 @@ import { BaseService } from '@uaip/shared-services';
 import type { ServiceConfig } from '@uaip/shared-services';
 import { config } from '@uaip/config';
 import { logger } from '@uaip/utils';
+import { BaseBenchCaseEvaluationRequestSchema } from '@uaip/types';
 
 import { registerBaseBenchRoutes } from './routes/basebench_routes.js';
 import { BaseBenchMetaService } from './services/basebench_meta_service.js';
@@ -41,7 +42,13 @@ class BaseBenchMetaApp extends BaseService {
     try {
       await this.subscribeWithErrorHandling(
         'basebench.evaluate.request',
-        async (data) => this.baseBenchService.evaluateCase(data),
+        async (data) => {
+          const parsed = BaseBenchCaseEvaluationRequestSchema.safeParse(data);
+          if (!parsed.success) {
+            throw new Error(`Invalid basebench.evaluate.request payload: ${parsed.error.message}`);
+          }
+          return this.baseBenchService.evaluateCase(parsed.data);
+        },
         {
           responseEvent: 'basebench.evaluate.response',
           errorEvent: 'basebench.evaluate.error',

@@ -21,6 +21,9 @@ export class BaseBenchMetaService {
 
   constructor() {
     for (const testCase of baseBenchMetaCases) {
+      if (!testCase.id) {
+        throw new Error(`BaseBench fixture is missing required 'id' field: ${testCase.title ?? '(unknown)'}`);
+      }
       this.cases.set(testCase.id, testCase);
     }
 
@@ -59,14 +62,20 @@ export class BaseBenchMetaService {
   }
 
   evaluateCase(request: BaseBenchCaseEvaluationRequest): BaseBenchCaseEvaluationResult {
+    if (!request.response) {
+      throw new ValidationError('BaseBench evaluation request is missing required field: response');
+    }
     const testCase = request.testCase ?? this.resolveCase(request.caseId);
     return this.scorer.evaluateCase(testCase, request.response);
   }
 
   evaluateBatch(entries: BaseBenchBatchEntry[]): BaseBenchBatchEvaluationResult {
-    const results = entries.map((entry) =>
-      this.scorer.evaluateCase(this.resolveCase(entry.caseId), entry.response)
-    );
+    const results = entries.map((entry) => {
+      if (!entry.response) {
+        throw new ValidationError('BaseBench batch entry is missing required field: response');
+      }
+      return this.scorer.evaluateCase(this.resolveCase(entry.caseId), entry.response);
+    });
 
     const summary = this.buildSummary(results);
     return {
@@ -81,7 +90,7 @@ export class BaseBenchMetaService {
       totalCases === 0
         ? 0
         : Number(
-            (results.reduce((sum, result) => sum + result.score.metaScore, 0) / totalCases).toFixed(
+            (results.reduce((sum, result) => sum + (result.score?.metaScore ?? 0), 0) / totalCases).toFixed(
               2
             )
           );
@@ -93,7 +102,10 @@ export class BaseBenchMetaService {
     };
 
     for (const result of results) {
-      verdictCounts[result.verdict] += 1;
+      const verdict = result.verdict;
+      if (verdict) {
+        verdictCounts[verdict] += 1;
+      }
     }
 
     const summary: BaseBenchRunSummary = {
@@ -127,8 +139,8 @@ export class BaseBenchMetaService {
     }
 
     const probabilities = answeredResults.map((result) => ({
-      probability: result.confidence / 100,
-      outcome: result.score.answerAccuracy,
+      probability: (result.confidence ?? 0) / 100,
+      outcome: result.score?.answerAccuracy ?? 0,
     }));
 
     const calibrationError = Number(
@@ -176,11 +188,12 @@ export class BaseBenchMetaService {
       const bucketStart = index * 10;
       const bucketEnd = bucketStart + 10;
       const entries = results.filter((result) => {
+        const conf = result.confidence ?? 0;
         if (index === 9) {
-          return result.confidence >= bucketStart && result.confidence <= 100;
+          return conf >= bucketStart && conf <= 100;
         }
 
-        return result.confidence >= bucketStart && result.confidence < bucketEnd;
+        return conf >= bucketStart && conf < bucketEnd;
       });
 
       if (entries.length === 0) {
@@ -195,9 +208,9 @@ export class BaseBenchMetaService {
       }
 
       const averageConfidence =
-        entries.reduce((sum, entry) => sum + entry.confidence, 0) / entries.length;
+        entries.reduce((sum, entry) => sum + (entry.confidence ?? 0), 0) / entries.length;
       const accuracy =
-        entries.reduce((sum, entry) => sum + entry.score.answerAccuracy, 0) / entries.length;
+        entries.reduce((sum, entry) => sum + (entry.score?.answerAccuracy ?? 0), 0) / entries.length;
 
       return {
         bucketStart,

@@ -98,7 +98,7 @@ export function registerBaseBenchRoutes(
           }
 
           try {
-            const entries = parsed.data.entries.map(toBatchEntry);
+            const entries = (parsed.data.entries ?? []).map(toBatchEntry);
             return {
               success: true,
               data: baseBenchService.evaluateBatch(entries),
@@ -152,7 +152,7 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
   return {
     answer,
     preAnswerConfidence:
-      typeof source.preAnswerConfidence === 'number' ? source.preAnswerConfidence : null,
+      typeof source.preAnswerConfidence === 'number' ? source.preAnswerConfidence : undefined,
     confidence: typeof source.confidence === 'number' ? source.confidence : 0,
     actionChoice:
       groundlessActionChoice === 'answer' ||
@@ -208,7 +208,7 @@ function toModelOutput(value?: Record<string, unknown>): BaseBenchModelOutput {
       : undefined,
     revisedAnswer,
     revisedConfidence:
-      typeof source.revisedConfidence === 'number' ? source.revisedConfidence : null,
+      typeof source.revisedConfidence === 'number' ? source.revisedConfidence : undefined,
   };
 }
 
@@ -344,6 +344,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function toNullableString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
+function toNullableString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }

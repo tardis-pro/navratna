@@ -5,7 +5,7 @@ import {
   DiscussionVisibility,
   TurnStrategy,
 } from '@uaip/types';
-import { TurnStrategyService } from '../services/turn_strategy_service.js';
+import { TurnStrategyService } from '@uaip/discussion-core';
 
 function createRoundRobinDiscussion(turnNumber: number) {
   return DiscussionSchema.parse({

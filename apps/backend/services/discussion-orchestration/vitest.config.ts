@@ -20,16 +20,21 @@ export default mergeConfig(
       },
     },
     resolve: {
-      alias: {
-        '@': path.resolve(import.meta.dirname, 'src'),
-        '@uaip/types': path.resolve(import.meta.dirname, '../../../packages/shared-types/src'),
-        '@uaip/utils': path.resolve(import.meta.dirname, '../../../packages/shared-utils/src'),
-        '@uaip/config': path.resolve(import.meta.dirname, '../../../shared/config/src'),
-        '@uaip/infra': path.resolve(import.meta.dirname, '../../../shared/infra/src'),
-        '@uaip/middleware': path.resolve(import.meta.dirname, '../../../shared/middleware/src'),
-        '@uaip/shared-services': path.resolve(import.meta.dirname, '../../../shared/services/src'),
-        '@uaip/llm-service': path.resolve(import.meta.dirname, '../../../shared/llm-service/src'),
-      },
+      alias: [
+        { find: '@', replacement: path.resolve(import.meta.dirname, 'src') },
+        { find: '@uaip/types', replacement: path.resolve(import.meta.dirname, '../../../packages/shared-types/src') },
+        { find: '@uaip/utils', replacement: path.resolve(import.meta.dirname, '../../../packages/shared-utils/src') },
+        { find: '@uaip/config', replacement: path.resolve(import.meta.dirname, '../../../shared/config/src') },
+        { find: '@uaip/infra', replacement: path.resolve(import.meta.dirname, '../../../shared/infra/src') },
+        { find: '@uaip/middleware', replacement: path.resolve(import.meta.dirname, '../../../shared/middleware/src') },
+        { find: '@uaip/shared-services/persona', replacement: path.resolve(import.meta.dirname, '../../../shared/services/src/persona_service.ts') },
+        { find: '@uaip/shared-services/discussion', replacement: path.resolve(import.meta.dirname, '../../../shared/services/src/discussion_service.ts') },
+        { find: '@uaip/shared-services/feature-factory', replacement: path.resolve(import.meta.dirname, '../../../shared/services/src/feature_factory.ts') },
+        { find: '@uaip/shared-services/event-bus', replacement: path.resolve(import.meta.dirname, '../../../shared/services/src/event_bus_service.ts') },
+        { find: '@uaip/shared-services', replacement: path.resolve(import.meta.dirname, '../../../shared/services/src') },
+        { find: '@uaip/llm-service', replacement: path.resolve(import.meta.dirname, '../../../shared/llm-service/src') },
+        { find: '@uaip/discussion-core', replacement: path.resolve(import.meta.dirname, '../../../shared/discussion/src') },
+      ],
     },
   })
 );

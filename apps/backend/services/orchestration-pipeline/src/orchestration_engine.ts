@@ -88,15 +88,22 @@ export class OrchestrationEngine extends EventEmitter {
    * Execute an operation with full orchestration
    */
   private buildOperationInsert(operation: Operation) {
+    if (!operation.id) throw new OperationError('Operation ID is required', 'VALIDATION_ERROR');
+    if (!operation.type) throw new OperationError('Operation type is required', 'VALIDATION_ERROR');
+    if (!operation.status) throw new OperationError('Operation status is required', 'VALIDATION_ERROR');
+    if (!operation.agentId) throw new OperationError('Agent ID is required', 'VALIDATION_ERROR');
+    if (!operation.userId) throw new OperationError('User ID is required', 'VALIDATION_ERROR');
+    if (!operation.executionPlan) throw new OperationError('Operation execution plan is required', 'VALIDATION_ERROR');
+
     return {
       id: operation.id,
-      type: operation.type,
+      type: String(operation.type),
       status: operation.status,
       priority: operation.priority,
       agentId: operation.agentId,
       userId: operation.userId,
-      name: operation.plan.description,
-      description: operation.plan.description,
+      name: operation.plan?.description ?? '',
+      description: operation.plan?.description,
       executionPlan: operation.executionPlan,
       context: operation.context,
       result: operation.results,
@@ -104,10 +111,10 @@ export class OrchestrationEngine extends EventEmitter {
       startedAt: operation.startedAt,
       completedAt: operation.completedAt,
       estimatedDuration: operation.estimatedDuration,
-      progress: operation.progress.percentage.toString(),
+      progress: operation.progress?.percentage != null ? operation.progress.percentage.toString() : undefined,
       currentStep: operation.currentStep,
-      totalSteps: operation.progress.totalSteps,
-      dependencies: operation.plan.dependencies ?? [],
+      totalSteps: operation.progress?.totalSteps,
+      dependencies: operation.plan?.dependencies ?? [],
       metadata: operation.metadata,
       timeoutDuration: operation.timeout,
       tags: operation.metadata?.tags ?? [],
@@ -257,13 +264,12 @@ export class OrchestrationEngine extends EventEmitter {
   }
 
   private extractSetupProjectWorkspaceInput(operation: Operation): SetupProjectWorkspaceInput {
-    if (isRecord(operation)) {
-      const fromTopLevel = operation['workspaceSetupInput'];
-      if (isSetupProjectWorkspaceInput(fromTopLevel)) return fromTopLevel;
-    }
+    const operationRecord = operation as unknown as Record<string, unknown>;
+    const fromTopLevel = operationRecord['workspaceSetupInput'];
+    if (isSetupProjectWorkspaceInput(fromTopLevel)) return fromTopLevel;
 
     const ctx = operation.context;
-    const fromContext = isRecord(ctx) ? ctx['workspaceSetupInput'] : undefined;
+    const fromContext = isRecord(ctx) ? (ctx as unknown as Record<string, unknown>)['workspaceSetupInput'] : undefined;
     if (isSetupProjectWorkspaceInput(fromContext)) return fromContext;
 
     throw new OperationError('Missing workspace setup input', 'VALIDATION_ERROR');
@@ -504,7 +510,7 @@ export class OrchestrationEngine extends EventEmitter {
         if (!isEventMessage(event.data)) return;
         await this.cancelOperation(
           event.data.operationId!,
-          event.data.reason,
+          event.data.reason ?? '',
           typeof event.data.compensate === 'boolean' ? event.data.compensate : false,
           typeof event.data.force === 'boolean' ? event.data.force : false
         );
@@ -565,6 +571,7 @@ export class OrchestrationEngine extends EventEmitter {
     );
 
     for (const operation of staleOperations) {
+      if (!operation.id) continue;
       logger.warn('Cleaning up stale operation', { operationId: operation.id });
       // oxlint-disable-next-line no-await-in-loop -- sequential processing required
       await this.cancelOperation(operation.id, 'Operation stale - automatic cleanup', false, true);

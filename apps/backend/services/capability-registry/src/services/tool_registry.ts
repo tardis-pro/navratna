@@ -407,13 +407,13 @@ export class ToolRegistry {
       }
 
       // Remove duplicates and sort by score
-      const uniqueRecommendations = recommendations.reduce((acc, current) => {
+      const uniqueRecommendations = recommendations.reduce<ToolRecommendation[]>((acc, current) => {
         const existing = acc.find((r) => r.toolId === current.toolId);
         if (!existing || current.score > existing.score) {
           return [...acc.filter((r) => r.toolId !== current.toolId), current];
         }
         return acc;
-      }, [] satisfies ToolRecommendation[]);
+      }, []);
 
       return uniqueRecommendations.sort((a, b) => b.score - a.score).slice(0, limit);
     } catch (error) {

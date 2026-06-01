@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Elysia } from 'elysia'
 
-import { registerDiscussionRoutes } from '../../../../discussion-orchestration/src/routes/discussion_routes.ts'
-import { registerPersonaRoutes } from '../../../../discussion-orchestration/src/routes/persona_routes.ts'
+import { registerDiscussionRoutes, registerPersonaRoutes } from '@uaip/discussion-core'
 
 const VALID_USER_ID = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -45,10 +44,8 @@ const orchestrationService = {
 describe('discussion/persona routes e2e', () => {
   const buildApp = () => {
     const app = new Elysia()
-    // @ts-expect-error -- mock services don't match full Elysia type signatures in test context
-    registerDiscussionRoutes(app, discussionService, orchestrationService)
-    // @ts-expect-error -- mock personaService doesn't match full Elysia type signature in test context
-    registerPersonaRoutes(app, personaService)
+    app.use(registerPersonaRoutes(personaService as never))
+    app.use(registerDiscussionRoutes(discussionService as never, orchestrationService as never))
     return app
   }
 
@@ -93,7 +90,8 @@ describe('discussion/persona routes e2e', () => {
 
   it('fails closed on missing auth headers for discussion routes', async () => {
     const app = buildApp()
-    const response = await app.handle(createRequest('/api/v1/discussions', { method: 'POST' }))
+    // Use GET to test auth-before-logic; POST would fail with 422 (body schema) before reaching auth guard
+    const response = await app.handle(createRequest('/api/v1/discussions', { method: 'GET' }))
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toMatchObject({ code: 'AUTH_REQUIRED' })
@@ -156,7 +154,7 @@ describe('discussion/persona routes e2e', () => {
     await app.handle(
       createRequest('/api/v1/discussions/discussion-1/advance-turn', {
         method: 'POST',
-        headers: { 'x-user-id': VALID_USER_ID },
+        headers: { 'x-user-id': VALID_USER_ID, 'x-user-role': 'moderator' },
       })
     )
     expect(discussionService.advanceTurn).toHaveBeenCalledWith('discussion-1', VALID_USER_ID)

@@ -40,8 +40,8 @@ export const createMockResponse = () => {
 
 export const createMockNext = () => vi.fn();
 
-// Mock environment variables for testing
 process.env.NODE_ENV = 'test';
 process.env.PORT = '3001';
 process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
+process.env.DELETION_HASH_SALT = process.env.DELETION_HASH_SALT || 'test-deletion-hash-salt';

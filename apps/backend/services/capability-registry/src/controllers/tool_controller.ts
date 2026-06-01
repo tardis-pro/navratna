@@ -515,7 +515,7 @@ export class ToolController {
         relationshipType: validatedRelationship.type,
         type: validatedRelationship.type,
         strength: validatedRelationship.strength,
-        reason: validatedRelationship.reason,
+        reason: validatedRelationship.reason ?? '',
         metadata: validatedRelationship.metadata,
       });
 
@@ -750,7 +750,8 @@ export class ToolController {
   // POST /api/v1/tools/validate
   async validateTool({ body, set }: ElysiaCtx): Promise<unknown> {
     try {
-      const validation = await this.toolRegistry.validateToolDefinition(body);
+      const toolBody: Partial<ToolDefinition> = isRecord(body) ? (body as Partial<ToolDefinition>) : {};
+      const validation = await this.toolRegistry.validateToolDefinition(toolBody);
 
       return {
         success: true,

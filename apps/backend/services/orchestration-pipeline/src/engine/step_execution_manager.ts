@@ -34,6 +34,9 @@ export class StepExecutionManager extends EventEmitter {
   }
 
   async executeStep(step: ExecutionStep, context: StepExecutionContext): Promise<StepResult> {
+    if (!step.id) {
+      throw new OperationError('Step missing id', 'EXECUTION_ERROR');
+    }
     const startTime = Date.now();
     this.activeSteps.set(step.id, step);
 
@@ -102,7 +105,7 @@ export class StepExecutionManager extends EventEmitter {
       this.clearStepTimeout(step.id);
 
       // Handle retry logic
-      if (step.retryPolicy && (step.retryCount || 0) < step.retryPolicy.maxRetries) {
+      if (step.retryPolicy && step.retryPolicy.maxRetries !== undefined && (step.retryCount || 0) < step.retryPolicy.maxRetries) {
         return await this.retryStep(step, context, error);
       }
 
@@ -291,18 +294,20 @@ export class StepExecutionManager extends EventEmitter {
   }
 
   private setStepTimeout(step: ExecutionStep, context: StepExecutionContext): void {
+    if (!step.id) return;
+    const stepId = step.id;
     const timeout = setTimeout(() => {
       this.emit('step:timeout', {
-        stepId: step.id,
+        stepId,
         operationId: context.operationId,
         timeout: step.timeout,
       });
 
       // Force fail the step
-      this.activeSteps.delete(step.id);
-    }, step.timeout!);
+      this.activeSteps.delete(stepId);
+    }, step.timeout!); // safe: setStepTimeout only called when step.timeout is truthy (see executeStep caller guard)
 
-    this.stepTimeouts.set(step.id, timeout);
+    this.stepTimeouts.set(stepId, timeout);
   }
 
   private clearStepTimeout(stepId: string): void {

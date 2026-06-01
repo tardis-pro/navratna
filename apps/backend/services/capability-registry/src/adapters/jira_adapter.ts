@@ -347,7 +347,7 @@ export class JiraAdapter {
     try {
       const authConfig = this.toolDefinition.authentication.config;
       const authRecord = toRecord(authConfig);
-      const tokenUrl = typeof authRecord.tokenUrl === 'string' ? authRecord.tokenUrl : undefined;
+      const tokenUrlRaw = typeof authRecord.tokenUrl === 'string' ? authRecord.tokenUrl : undefined;
 
       // In production, this would involve the full OAuth2 flow
       // For now, we'll use environment variables
@@ -358,6 +358,11 @@ export class JiraAdapter {
       if (!clientId || !clientSecret || !refreshToken) {
         throw new InternalServerError('Jira OAuth2 credentials not configured');
       }
+
+      if (!tokenUrlRaw) {
+        throw new InternalServerError('Jira OAuth2 token URL not configured');
+      }
+      const tokenUrl: string = tokenUrlRaw;
 
       // Exchange refresh token for access token
       const response = await axios.post(
@@ -399,7 +404,11 @@ export class JiraAdapter {
     try {
       const authConfig = this.toolDefinition.authentication.config;
       const authRecord2 = toRecord(authConfig);
-      const tokenUrl2 = typeof authRecord2.tokenUrl === 'string' ? authRecord2.tokenUrl : undefined;
+      const tokenUrl2Raw = typeof authRecord2.tokenUrl === 'string' ? authRecord2.tokenUrl : undefined;
+      if (!tokenUrl2Raw) {
+        throw new InternalServerError('Jira OAuth2 token URL not configured for refresh');
+      }
+      const tokenUrl2: string = tokenUrl2Raw;
       const clientId = process.env.JIRA_CLIENT_ID;
       const clientSecret = process.env.JIRA_CLIENT_SECRET;
 

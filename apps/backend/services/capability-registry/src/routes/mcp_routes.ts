@@ -261,8 +261,9 @@ export function registerMCPRoutes() {
           transportTypeValue === 'http' || transportTypeValue === 'streamable-http'
             ? transportTypeValue
             : 'stdio';
+        const rawArgs = Reflect.get(body, 'args');
         const installConfig = {
-          args: Array.isArray(Reflect.get(body, 'args')) ? Reflect.get(body, 'args').map(String) : [],
+          args: Array.isArray(rawArgs) ? rawArgs.map(String) : [],
           command:
             typeof Reflect.get(body, 'command') === 'string'
               ? Reflect.get(body, 'command')

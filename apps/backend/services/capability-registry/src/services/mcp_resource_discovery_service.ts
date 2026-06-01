@@ -186,7 +186,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
           name: resource.name,
           description: resource.description,
           mimeType: resource.mimeType,
-          serverName: resource.serverName,
+          serverName: resource.serverName ?? '',
           discoveredAt: resource.discoveredAt || new Date().toISOString(),
           category,
           tags,
@@ -212,7 +212,7 @@ export class MCPResourceDiscoveryService extends EventEmitter {
         return {
           name: prompt.name,
           description: prompt.description,
-          serverName: prompt.serverName,
+          serverName: prompt.serverName ?? '',
           arguments: prompt.arguments,
           discoveredAt: prompt.discoveredAt || new Date().toISOString(),
           category,

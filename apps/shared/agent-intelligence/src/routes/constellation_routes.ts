@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Elysia } from 'elysia'
-import { withRequiredAuth } from '@uaip/middleware'
+import { withNginxAuth } from '@uaip/middleware'
 import { getConstellations } from '@uaip/shared-services'
 import type { ConstellationRequest } from '@uaip/types'
 import { logger } from '@uaip/utils'
@@ -13,7 +13,7 @@ const constellationRequestSchema = z.object({
 })
 
 export function registerConstellationRoutes() {
-  return new Elysia().group('/api/v1/knowledge', (group) => withRequiredAuth(group).post('/constellations', async (ctx) => {
+  return new Elysia().group('/api/v1/knowledge', (group) => withNginxAuth(group).post('/constellations', async (ctx) => {
     const parsed = constellationRequestSchema.safeParse(ctx.body)
   
     if (!parsed.success) {
@@ -28,7 +28,7 @@ export function registerConstellationRoutes() {
     try {
       const request: ConstellationRequest = parsed.data
       const response = await getConstellations(request)
-      // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
+      // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
       const userId = ctx.user.id
       return {
         success: true,
@@ -36,7 +36,7 @@ export function registerConstellationRoutes() {
         ...response,
       }
     } catch (error) {
-      // @ts-expect-error -- withRequiredAuth injects user into Elysia context for guarded groups
+      // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
       const userId = ctx.user.id
       logger.error('Failed to build constellations', { error, userId })
       ctx.set.status = 500
