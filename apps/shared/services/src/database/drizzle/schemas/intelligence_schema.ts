@@ -77,6 +77,7 @@ import {
   MessageType,
 } from '@uaip/types';
 import { base, llmPreferenceCommonColumns } from './schema_base';
+import { ADMIN_ORG_ID } from '../constants';
 
 // ─── PERSONAS ──────────────────────────────────────────────────────────────
 
@@ -222,6 +223,7 @@ export const agents = pgTable(
     temperature: numericDecimal('temperature', { precision: 3, scale: 2 }),
     maxTokens: integer('max_tokens'),
     systemPrompt: text('system_prompt'),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
   },
   (t) => [
     uniqueIndex('idx_agents_name').on(t.name),
@@ -230,6 +232,7 @@ export const agents = pgTable(
     index('idx_agents_last_active').on(t.lastActiveAt),
     index('idx_agents_security_level').on(t.securityLevel),
     index('idx_agents_persona_id').on(t.personaId),
+    index('idx_agents_organization_id').on(t.organizationId),
   ]
 );
 
