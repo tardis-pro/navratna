@@ -41,3 +41,4 @@ export * from './repositories/index';
 export * from './drizzle/schemas/intelligence_schema';
 export * from './drizzle/schemas/control_schema';
 export { ToolGraphDatabase } from './tool_graph_database';
+export { ADMIN_ORG_ID, ADMIN_ORG_NAME, ADMIN_ORG_SLUG } from './drizzle/constants';

@@ -6,7 +6,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
 import { ToolCategory, MCPServerType } from '@uaip/types';
-import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService, MCPOutputValidator } from '@uaip/shared-services';
+import { ToolGraphDatabase, SecurityLevel, ToolService, AgentService, MCPOutputValidator, ADMIN_ORG_ID } from '@uaip/shared-services';
 import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
@@ -709,44 +709,48 @@ export class MCPClientService extends EventEmitter {
     }
 
     try {
-      // Create the tool node in Neo4j
-      await this.toolGraphDatabase.createToolNode({
-        id: String(toolRegistration.id || ''),
-        name: String(toolRegistration.name || ''),
-        description: String(toolRegistration.description || ''),
-        category: isToolCategory(toolRegistration.category) ? toolRegistration.category : ToolCategory.API,
-        version: String(toolRegistration.version || '1.0.0'),
-        tags: Array.isArray(mcpTool.capabilities) ? mcpTool.capabilities : [],
-        securityLevel: SecurityLevel.LOW, // Default for MCP tools
-        isEnabled: Boolean(toolRegistration.isEnabled),
-        requiresApproval: Boolean(toolRegistration.requiresApproval),
-        dependencies: [],
-        parameters:
-          mcpTool.inputSchema && typeof mcpTool.inputSchema === 'object' ? mcpTool.inputSchema : {},
-        returnType: {},
-        examples: [],
-        executionTimeEstimate:
-          typeof toolRegistration.executionTimeEstimate === 'number'
-            ? toolRegistration.executionTimeEstimate
-            : 0,
-        costEstimate:
-          typeof toolRegistration.costEstimate === 'number' ? toolRegistration.costEstimate : 0,
-        author: 'mcp-system',
-      });
-
-      // Create MCP Server node if it doesn't exist
-      await this.toolGraphDatabase.createMcpServerNode({
-        id: serverName,
-        name: serverName,
-        type: 'mcp',
-        status: 'active',
-        capabilities: this.servers.get(serverName)?.capabilities,
-        tags: ['mcp', 'external'],
-        metadata: {
-          config: this.servers.get(serverName)?.config,
-          registeredAt: new Date().toISOString(),
+      await this.toolGraphDatabase.createToolNode(
+        {
+          id: String(toolRegistration.id || ''),
+          name: String(toolRegistration.name || ''),
+          description: String(toolRegistration.description || ''),
+          category: isToolCategory(toolRegistration.category) ? toolRegistration.category : ToolCategory.API,
+          version: String(toolRegistration.version || '1.0.0'),
+          tags: Array.isArray(mcpTool.capabilities) ? mcpTool.capabilities : [],
+          securityLevel: SecurityLevel.LOW,
+          isEnabled: Boolean(toolRegistration.isEnabled),
+          requiresApproval: Boolean(toolRegistration.requiresApproval),
+          dependencies: [],
+          parameters:
+            mcpTool.inputSchema && typeof mcpTool.inputSchema === 'object' ? mcpTool.inputSchema : {},
+          returnType: {},
+          examples: [],
+          executionTimeEstimate:
+            typeof toolRegistration.executionTimeEstimate === 'number'
+              ? toolRegistration.executionTimeEstimate
+              : 0,
+          costEstimate:
+            typeof toolRegistration.costEstimate === 'number' ? toolRegistration.costEstimate : 0,
+          author: 'mcp-system',
         },
-      });
+        ADMIN_ORG_ID
+      );
+
+      await this.toolGraphDatabase.createMcpServerNode(
+        {
+          id: serverName,
+          name: serverName,
+          type: 'mcp',
+          status: 'active',
+          capabilities: this.servers.get(serverName)?.capabilities,
+          tags: ['mcp', 'external'],
+          metadata: {
+            config: this.servers.get(serverName)?.config,
+            registeredAt: new Date().toISOString(),
+          },
+        },
+        ADMIN_ORG_ID
+      );
 
       // Link tool to MCP server
       await this.toolGraphDatabase.linkToolToMcpServer(
@@ -1000,14 +1004,16 @@ export class MCPClientService extends EventEmitter {
       if (agentId) {
         await this.toolGraphDatabase.incrementUsage(agentId, toolId, executionTime, success);
 
-        // Create agent node if it doesn't exist
-        await this.toolGraphDatabase.createAgentNode({
-          id: agentId,
-          name: `Agent-${agentId}`,
-          role: 'assistant',
-          isActive: true,
-          capabilities: [],
-        });
+        await this.toolGraphDatabase.createAgentNode(
+          {
+            id: agentId,
+            name: `Agent-${agentId}`,
+            role: 'assistant',
+            isActive: true,
+            capabilities: [],
+          },
+          ADMIN_ORG_ID
+        );
       }
 
       // Create MCP tool call record in Neo4j

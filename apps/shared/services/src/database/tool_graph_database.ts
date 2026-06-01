@@ -206,8 +206,52 @@ export class ToolGraphDatabase {
     };
   }
 
-  // Tool Node Operations
-  async createToolNode(tool: ToolDefinition): Promise<void> {
+  // ===== TENANT MANAGEMENT METHODS =====
+
+  /**
+   * Create or update a :Tenant node for an organisation.
+   */
+  async createTenantNode(orgId: string, orgName: string): Promise<void> {
+    if (this.shouldSkipOperation(`Create tenant node ${orgId}`)) {
+      return;
+    }
+
+    return this.executeWithRetry(async (session) => {
+      await session.run(
+        `MERGE (t:Tenant {id: $orgId})
+         ON CREATE SET t.name = $orgName, t.createdAt = datetime()
+         ON MATCH SET t.name = $orgName`,
+        { orgId, orgName }
+      );
+      logger.info(`Tenant node created/updated: ${orgId}`);
+    }, `Create tenant node ${orgId}`);
+  }
+
+  /**
+   * Create OWNS relationship from the tenant to a specific node.
+   * @param orgId   - tenant/organisation UUID
+   * @param nodeId  - the owned node's `id` property
+   * @param nodeLabel - Neo4j label of the owned node (e.g. 'Tool', 'MCPServer', 'Agent')
+   */
+  async createOwnsRelationship(orgId: string, nodeId: string, nodeLabel: string): Promise<void> {
+    if (this.shouldSkipOperation(`Create OWNS relationship ${orgId} -> ${nodeLabel}:${nodeId}`)) {
+      return;
+    }
+
+    return this.executeWithRetry(async (session) => {
+      await session.run(
+        `MATCH (t:Tenant {id: $orgId})
+         MATCH (n:${nodeLabel} {id: $nodeId})
+         MERGE (t)-[:OWNS]->(n)`,
+        { orgId, nodeId }
+      );
+      logger.info(`OWNS relationship created: Tenant(${orgId}) -> ${nodeLabel}(${nodeId})`);
+    }, `Create OWNS relationship ${orgId} -> ${nodeLabel}:${nodeId}`);
+  }
+
+  // ===== TOOL NODE OPERATIONS =====
+
+  async createToolNode(tool: ToolDefinition, tenantId: string): Promise<void> {
     if (this.shouldSkipOperation(`Create tool node ${tool.id}`)) {
       return; // Gracefully skip if Neo4j not available
     }
@@ -220,6 +264,7 @@ export class ToolGraphDatabase {
              t.capabilities = $capabilities,
              t.tags = $tags,
              t.security_level = $securityLevel,
+             t.tenantId = $tenantId,
              t.created_at = datetime(),
              t.updated_at = datetime()`,
         {
@@ -229,10 +274,13 @@ export class ToolGraphDatabase {
           capabilities: tool.tags || [], // Using tags as capabilities for now
           tags: tool.tags || [],
           securityLevel: tool.securityLevel,
+          tenantId,
         }
       );
       logger.info(`Tool node created: ${tool.id}`);
     }, `Create tool node ${tool.id}`);
+
+    await this.createOwnsRelationship(tenantId, tool.id, 'Tool');
   }
 
   async updateToolNode(toolId: string, updates: Partial<ToolDefinition>): Promise<void> {
@@ -268,7 +316,8 @@ export class ToolGraphDatabase {
     }, `Delete tool node ${toolId}`);
   }
 
-  // Tool Relationship Operations
+  // ===== TOOL RELATIONSHIP OPERATIONS =====
+
   async addToolRelationship(
     fromToolId: string,
     toToolId: string,
@@ -297,6 +346,7 @@ export class ToolGraphDatabase {
 
   async getRelatedTools(
     toolId: string,
+    tenantId: string,
     relationshipTypes?: string[],
     minStrength = 0.5
   ): Promise<ToolDefinition[]> {
@@ -313,12 +363,14 @@ export class ToolGraphDatabase {
       const result = await session.run(
         `MATCH (t1:Tool {id: $toolId})-[r${typeFilter}]-(t2:Tool)
          WHERE r.strength >= $minStrength
+           AND t1.tenantId = $tenantId
+           AND t2.tenantId = $tenantId
          RETURN t2.id as id, t2.name as name, t2.category as category,
                 t2.tags as tags, t2.security_level as securityLevel,
                 r.strength as strength, type(r) as relationshipType
          ORDER BY r.strength DESC
          LIMIT 10`,
-        { toolId, minStrength }
+        { toolId, minStrength, tenantId }
       );
 
       return result.records.map((record) => ({
@@ -343,7 +395,8 @@ export class ToolGraphDatabase {
     }, `Get related tools for ${toolId}`);
   }
 
-  // Agent Usage Pattern Operations
+  // ===== AGENT USAGE PATTERN OPERATIONS =====
+
   async updateUsagePattern(pattern: UsagePattern): Promise<void> {
     const session = this.driver.session({ database: this.database });
     try {
@@ -401,9 +454,11 @@ export class ToolGraphDatabase {
     }
   }
 
-  // Recommendation Engine
+  // ===== RECOMMENDATION ENGINE =====
+
   async getRecommendations(
     agentId: string,
+    tenantId: string,
     context?: string,
     limit = 5
   ): Promise<ToolRecommendation[]> {
@@ -416,9 +471,11 @@ export class ToolGraphDatabase {
       // Get recommendations based on usage patterns and tool relationships
       const result = await session.run(
         `MATCH (a:Agent {id: $agentId})-[u:USES]->(t1:Tool)
+         WHERE a.tenantId = $tenantId AND t1.tenantId = $tenantId
          MATCH (t1)-[r:SIMILAR_TO|ENHANCES]-(t2:Tool)
          WHERE NOT EXISTS((a)-[:USES]->(t2))
-         WITH t2, 
+           AND t2.tenantId = $tenantId
+         WITH t2,
               avg(u.success_rate) as avg_success,
               avg(r.strength) as avg_relationship_strength,
               count(u) as usage_count
@@ -430,7 +487,7 @@ export class ToolGraphDatabase {
                 avg_relationship_strength as confidence
          ORDER BY score DESC
          LIMIT $limit`,
-        { agentId, limit }
+        { agentId, tenantId, limit }
       );
 
       return result.records.map((record) => ({
@@ -444,13 +501,18 @@ export class ToolGraphDatabase {
     }
   }
 
-  async getContextualRecommendations(context: string, limit = 5): Promise<ToolRecommendation[]> {
+  async getContextualRecommendations(
+    context: string,
+    tenantId: string,
+    limit = 5
+  ): Promise<ToolRecommendation[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(
         `MATCH (ctx:Context)-[s:SUGGESTS]->(t:Tool)
-         WHERE ctx.pattern CONTAINS $context 
-            OR ANY(keyword IN ctx.keywords WHERE keyword CONTAINS $context)
+         WHERE (ctx.pattern CONTAINS $context
+             OR ANY(keyword IN ctx.keywords WHERE keyword CONTAINS $context))
+           AND t.tenantId = $tenantId
          RETURN t.id as toolId,
                 t.name as toolName,
                 s.strength as score,
@@ -458,7 +520,7 @@ export class ToolGraphDatabase {
                 s.strength as confidence
          ORDER BY s.strength DESC, s.priority ASC
          LIMIT $limit`,
-        { context: context.toLowerCase(), limit }
+        { context: context.toLowerCase(), tenantId, limit }
       );
 
       return result.records.map((record) => ({
@@ -472,8 +534,10 @@ export class ToolGraphDatabase {
     }
   }
 
-  // Analytics and Insights
+  // ===== ANALYTICS AND INSIGHTS =====
+
   async getToolUsageAnalytics(
+    tenantId: string,
     toolId?: string,
     agentId?: string
   ): Promise<ToolUsageAnalyticsRecord[]> {
@@ -481,9 +545,9 @@ export class ToolGraphDatabase {
     try {
       let query = `
         MATCH (a:Agent)-[u:USES]->(t:Tool)
-        WHERE 1=1
+        WHERE a.tenantId = $tenantId AND t.tenantId = $tenantId
       `;
-      const params: Record<string, unknown> = {};
+      const params: Record<string, unknown> = { tenantId };
 
       if (toolId) {
         query += ' AND t.id = $toolId';
@@ -521,14 +585,15 @@ export class ToolGraphDatabase {
     }
   }
 
-  async getToolDependencies(toolId: string): Promise<string[]> {
+  async getToolDependencies(toolId: string, tenantId: string): Promise<string[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(
         `MATCH (t1:Tool {id: $toolId})-[:DEPENDS_ON]->(t2:Tool)
+         WHERE t1.tenantId = $tenantId AND t2.tenantId = $tenantId
          RETURN t2.id as dependencyId
          ORDER BY dependencyId`,
-        { toolId }
+        { toolId, tenantId }
       );
 
       return result.records.map((record) => record.get('dependencyId'));
@@ -539,6 +604,7 @@ export class ToolGraphDatabase {
 
   async findSimilarTools(
     toolId: string,
+    tenantId: string,
     minSimilarity = 0.6,
     limit = 5
   ): Promise<ToolRecommendation[]> {
@@ -547,6 +613,8 @@ export class ToolGraphDatabase {
       const result = await session.run(
         `MATCH (t1:Tool {id: $toolId})-[r:SIMILAR_TO]-(t2:Tool)
          WHERE r.strength >= $minSimilarity
+           AND t1.tenantId = $tenantId
+           AND t2.tenantId = $tenantId
          RETURN t2.id as toolId,
                 t2.name as toolName,
                 r.strength as score,
@@ -554,7 +622,7 @@ export class ToolGraphDatabase {
                 r.strength as confidence
          ORDER BY r.strength DESC
          LIMIT $limit`,
-        { toolId, minSimilarity, limit }
+        { toolId, tenantId, minSimilarity, limit }
       );
 
       return result.records.map((record) => ({
@@ -568,19 +636,21 @@ export class ToolGraphDatabase {
     }
   }
 
-  // Utility Methods
-  async getAgentToolPreferences(agentId: string): Promise<AgentToolPreference[]> {
+  // ===== UTILITY METHODS =====
+
+  async getAgentToolPreferences(agentId: string, tenantId: string): Promise<AgentToolPreference[]> {
     const session = this.driver.session({ database: this.database });
     try {
       const result = await session.run(
         `MATCH (a:Agent {id: $agentId})-[u:USES]->(t:Tool)
+         WHERE a.tenantId = $tenantId AND t.tenantId = $tenantId
          RETURN t.id as toolId,
                 t.name as toolName,
                 t.category as category,
                 u.frequency as frequency,
                 u.success_rate as successRate
          ORDER BY u.frequency DESC, u.success_rate DESC`,
-        { agentId }
+        { agentId, tenantId }
       );
 
       return result.records.map((record) => ({
@@ -595,16 +665,21 @@ export class ToolGraphDatabase {
     }
   }
 
-  async getPopularTools(category?: string, limit = 10): Promise<PopularToolRecord[]> {
+  async getPopularTools(
+    tenantId: string,
+    category?: string,
+    limit = 10
+  ): Promise<PopularToolRecord[]> {
     const session = this.driver.session({ database: this.database });
     try {
       let query = `
         MATCH (a:Agent)-[u:USES]->(t:Tool)
+        WHERE a.tenantId = $tenantId AND t.tenantId = $tenantId
       `;
-      const params: Record<string, unknown> = { limit };
+      const params: Record<string, unknown> = { tenantId, limit };
 
       if (category) {
-        query += ' WHERE t.category = $category';
+        query += ' AND t.category = $category';
         params.category = category;
       }
 
@@ -638,15 +713,18 @@ export class ToolGraphDatabase {
   /**
    * Create or update MCP Server node in Neo4j
    */
-  async createMcpServerNode(serverData: {
-    id: string;
-    name: string;
-    type: string;
-    status: string;
-    capabilities?: MCPServerCapabilities;
-    tags?: string[];
-    metadata?: Record<string, unknown>;
-  }): Promise<void> {
+  async createMcpServerNode(
+    serverData: {
+      id: string;
+      name: string;
+      type: string;
+      status: string;
+      capabilities?: MCPServerCapabilities;
+      tags?: string[];
+      metadata?: Record<string, unknown>;
+    },
+    tenantId: string
+  ): Promise<void> {
     if (this.shouldSkipOperation(`Create MCP server node ${serverData.id}`)) {
       return;
     }
@@ -660,6 +738,7 @@ export class ToolGraphDatabase {
              s.capabilities = $capabilities,
              s.tags = $tags,
              s.metadata = $metadata,
+             s.tenantId = $tenantId,
              s.updatedAt = datetime()
          RETURN s`,
         {
@@ -670,9 +749,12 @@ export class ToolGraphDatabase {
           capabilities: serverData.capabilities || {},
           tags: serverData.tags || [],
           metadata: serverData.metadata || {},
+          tenantId,
         }
       );
     }, `Create MCP server node ${serverData.id}`);
+
+    await this.createOwnsRelationship(tenantId, serverData.id, 'MCPServer');
   }
 
   /**
@@ -802,7 +884,10 @@ export class ToolGraphDatabase {
   /**
    * Get MCP Server dependencies and impact analysis
    */
-  async getMcpServerImpactAnalysis(serverId: string): Promise<{
+  async getMcpServerImpactAnalysis(
+    serverId: string,
+    tenantId: string
+  ): Promise<{
     dependentTools: string[];
     affectedAgents: string[];
     recentToolCalls: number;
@@ -820,13 +905,16 @@ export class ToolGraphDatabase {
     return await this.executeWithRetry(async (session) => {
       const result = await session.run(
         `MATCH (s:MCPServer {id: $serverId})
+         WHERE s.tenantId = $tenantId
          
          // Get tools hosted by this server
          OPTIONAL MATCH (s)<-[:HOSTED_BY]-(t:Tool)
+         WHERE t.tenantId = $tenantId
          WITH s, collect(DISTINCT t.id) as dependentTools
          
          // Get agents that use tools on this server
          OPTIONAL MATCH (s)<-[:EXECUTED_ON]-(tc:MCPToolCall)<-[:INITIATED]-(a:Agent)
+         WHERE a.tenantId = $tenantId
          WITH s, dependentTools, collect(DISTINCT a.id) as affectedAgents
          
          // Get recent tool call metrics (last 24 hours)
@@ -840,7 +928,7 @@ export class ToolGraphDatabase {
                 affectedAgents,
                 recentToolCalls,
                 averageResponseTime`,
-        { serverId }
+        { serverId, tenantId }
       );
 
       const record = result.records[0];
@@ -959,13 +1047,16 @@ export class ToolGraphDatabase {
   /**
    * Create or update Agent node in Neo4j
    */
-  async createAgentNode(agentData: {
-    id: string;
-    name: string;
-    role?: string;
-    isActive?: boolean;
-    capabilities?: string[];
-  }): Promise<void> {
+  async createAgentNode(
+    agentData: {
+      id: string;
+      name: string;
+      role?: string;
+      isActive?: boolean;
+      capabilities?: string[];
+    },
+    tenantId: string
+  ): Promise<void> {
     if (this.shouldSkipOperation(`Create agent node ${agentData.id}`)) {
       return;
     }
@@ -977,6 +1068,7 @@ export class ToolGraphDatabase {
              a.role = $role,
              a.isActive = $isActive,
              a.capabilities = $capabilities,
+             a.tenantId = $tenantId,
              a.updatedAt = datetime()
          RETURN a`,
         {
@@ -985,9 +1077,12 @@ export class ToolGraphDatabase {
           role: agentData.role || 'assistant',
           isActive: agentData.isActive !== false,
           capabilities: agentData.capabilities || [],
+          tenantId,
         }
       );
     }, `Create agent node ${agentData.id}`);
+
+    await this.createOwnsRelationship(tenantId, agentData.id, 'Agent');
   }
 
   /**

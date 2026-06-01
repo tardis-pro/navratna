@@ -1,8 +1,8 @@
-type IntegrationEventEntity = Record<string, unknown>;
 import { ToolGraphDatabase } from '../database/tool_graph_database';
 import { OutboxPublisher } from './outbox_publisher';
 import { IntegrationEvent, GraphSyncResult, GraphSyncBatch } from './integration_event';
 import { logger } from '@uaip/utils';
+import { ADMIN_ORG_ID } from '../database/drizzle/constants';
 
 export class GraphSyncWorker {
   private isRunning: boolean = false;
@@ -174,15 +174,18 @@ export class GraphSyncWorker {
     switch (action) {
       case 'CREATE':
       case 'UPDATE':
-        await this.toolGraphDatabase.createMcpServerNode({
-          id: event.entityId,
-          name: payload.name,
-          type: payload.type,
-          status: payload.status,
-          capabilities: payload.capabilities,
-          tags: payload.tags,
-          metadata: payload.metadata,
-        });
+        await this.toolGraphDatabase.createMcpServerNode(
+          {
+            id: event.entityId,
+            name: payload.name,
+            type: payload.type,
+            status: payload.status,
+            capabilities: payload.capabilities,
+            tags: payload.tags,
+            metadata: payload.metadata,
+          },
+          String(payload.organizationId ?? ADMIN_ORG_ID)
+        );
         break;
 
       case 'DELETE':
@@ -266,24 +269,27 @@ export class GraphSyncWorker {
     switch (action) {
       case 'CREATE':
       case 'UPDATE':
-        await this.toolGraphDatabase.createToolNode({
-          id: event.entityId,
-          name: payload.name,
-          description: payload.description || '',
-          category: payload.category,
-          version: payload.version || '1.0.0',
-          parameters: payload.parameters || {},
-          returnType: payload.returnType || {},
-          examples: payload.examples || [],
-          securityLevel: payload.securityLevel || 'safe',
-          requiresApproval: payload.requiresApproval || false,
-          dependencies: payload.dependencies || [],
-          author: payload.author || 'system',
-          tags: payload.tags || [],
-          isEnabled: payload.isEnabled !== false,
-          executionTimeEstimate: payload.executionTimeEstimate || 1000,
-          costEstimate: payload.costEstimate || 0,
-        });
+        await this.toolGraphDatabase.createToolNode(
+          {
+            id: event.entityId,
+            name: payload.name,
+            description: payload.description || '',
+            category: payload.category,
+            version: payload.version || '1.0.0',
+            parameters: payload.parameters || {},
+            returnType: payload.returnType || {},
+            examples: payload.examples || [],
+            securityLevel: payload.securityLevel || 'safe',
+            requiresApproval: payload.requiresApproval || false,
+            dependencies: payload.dependencies || [],
+            author: payload.author || 'system',
+            tags: payload.tags || [],
+            isEnabled: payload.isEnabled !== false,
+            executionTimeEstimate: payload.executionTimeEstimate || 1000,
+            costEstimate: payload.costEstimate || 0,
+          },
+          String(payload.organizationId ?? ADMIN_ORG_ID)
+        );
 
         // Link to MCP Server if specified
         if (payload.mcpServerId) {
@@ -321,13 +327,16 @@ export class GraphSyncWorker {
       case 'CREATE':
       case 'UPDATE':
         // Create or update Agent node in Neo4j
-        await this.toolGraphDatabase.createAgentNode({
-          id: event.entityId,
-          name: payload.name,
-          role: payload.role,
-          isActive: payload.isActive,
-          capabilities: payload.capabilities || [],
-        });
+        await this.toolGraphDatabase.createAgentNode(
+          {
+            id: event.entityId,
+            name: payload.name,
+            role: payload.role,
+            isActive: payload.isActive,
+            capabilities: payload.capabilities || [],
+          },
+          String(payload.organizationId ?? ADMIN_ORG_ID)
+        );
         break;
 
       case 'DELETE':
