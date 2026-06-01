@@ -82,6 +82,8 @@ export { LLMRequestTracker } from './llm_request_tracker_service';
 // Domain Service Base Class
 export { BaseDomainService } from './services/base_domain_service';
 
+export { UserErasureService } from './user_erasure_service';
+
 // Core Domain Services
 export { UserService } from './services/user_service';
 export { ToolService } from './services/tool_service';

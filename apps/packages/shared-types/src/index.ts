@@ -122,3 +122,4 @@ export * from './deployment';
 export * from './onboarding';
 export * from './workflow_composition';
 export * from './design_tokens';
+export * from './erasure';
