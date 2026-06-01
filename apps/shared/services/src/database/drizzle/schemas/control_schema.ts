@@ -30,6 +30,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { base, llmPreferenceCommonColumns } from './schema_base';
+import { ADMIN_ORG_ID } from '../constants';
 import type {
   AgentCapability,
   OperationStatus,
@@ -137,11 +138,16 @@ export const users = pgTable(
       interactionStyle: 'direct' | 'exploratory' | 'methodical';
       feedbackPreference: 'immediate' | 'summary' | 'detailed';
     }>(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .default(ADMIN_ORG_ID)
+      .references(() => organizations.id, { onDelete: 'restrict' }),
   },
   (t) => [
     uniqueIndex('idx_users_email').on(t.email),
     index('idx_users_is_active').on(t.isActive),
     index('idx_users_role').on(t.role),
+    index('idx_users_organization_id').on(t.organizationId),
   ]
 );
 
