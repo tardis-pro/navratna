@@ -1,49 +1,7 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
-    "noImplicitAny": false,
-    "composite": true,
-    "paths": {
-      "@uaip/types": ["../../../packages/shared-types/src"],
-      "@uaip/types/*": ["../../../packages/shared-types/src/*"],
-      "@uaip/utils": ["../../../packages/shared-utils/src"],
-      "@uaip/utils/*": ["../../../packages/shared-utils/src/*"],
-      "@uaip/config": ["../../../shared/config/src"],
-      "@uaip/config/*": ["../../../shared/config/src/*"],
-      "@uaip/shared-services": ["../../../shared/services/src"],
-      "@uaip/shared-services/*": ["../../../shared/services/src/*"],
-      "@uaip/middleware": ["../../../shared/middleware/src"],
-      "@uaip/middleware/*": ["../../../shared/middleware/src/*"],
-      "@uaip/llm-service": ["../../../shared/llm-service/src"],
-      "@uaip/llm-service/*": ["../../../shared/llm-service/src/*"],
-      "@uaip/infra": ["../../../shared/infra/src"],
-      "@uaip/infra/*": ["../../../shared/infra/src/*"],
-
-    },
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
-  },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "src/**/*.js", "src/__tests__/**/*", "src/**/*.test.ts"],
+  "files": [],
   "references": [
-    {
-      "path": "../../../packages/shared-utils"
-    },
-    {
-      "path": "../../../packages/shared-types"
-    },
-    {
-      "path": "../../../shared/services"
-    },
-    {
-      "path": "../../../shared/middleware"
-    },
-    {
-      "path": "../../../shared/infra"
-    },
-    {
-      "path": "../../../shared/config"
-    }
+    { "path": "./tsconfig.build.json" }
   ]
 }

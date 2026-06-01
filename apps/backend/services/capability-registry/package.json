@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -b tsconfig.build.json",
     "dev": "bun --hot src/index.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
