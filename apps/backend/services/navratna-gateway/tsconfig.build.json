@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "outDir": "dist",
+    "rootDir": "..",
+    "noImplicitAny": false,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/__tests__/**/*"],
+  "references": [
+    { "path": "../capability-registry" },
+    { "path": "../orchestration-pipeline" },
+    { "path": "../security-gateway" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../shared/services" },
+    { "path": "../../../shared/middleware" },
+    { "path": "../../../shared/infra" },
+    { "path": "../../../shared/config" }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "outDir": "dist",
+    "rootDir": "..",
+    "noImplicitAny": false,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "../**/__tests__/**/*", "../**/*.test.ts"],
+  "references": [
+    { "path": "../llm-service" },
+    { "path": "../artifact-service" },
+    { "path": "../discussion-orchestration" },
+    { "path": "../agent-intelligence" },
+    { "path": "../../../packages/shared-utils" },
+    { "path": "../../../packages/shared-types" },
+    { "path": "../../../shared/services" },
+    { "path": "../../../shared/middleware" },
+    { "path": "../../../shared/llm-service" },
+    { "path": "../../../shared/infra" },
+    { "path": "../../../shared/config" }
+  ]
+}
