@@ -8,6 +8,13 @@
       "when": 1774856970124,
       "tag": "0000_odd_tyrannus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780295785925,
+      "tag": "0001_colorful_wendigo",
+      "breakpoints": true
     }
   ]
 }

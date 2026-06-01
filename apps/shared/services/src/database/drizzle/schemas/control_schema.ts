@@ -50,6 +50,29 @@ import {
   SessionStatus,
 } from '@uaip/types';
 
+// ─── ORGANIZATIONS ─────────────────────────────────────────────────────────
+
+export const organizations = pgTable(
+  'organizations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull().unique(),
+    plan: varchar('plan', { length: 50 }).notNull().default('free'),
+    isActive: boolean('is_active').notNull().default(true),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_organizations_slug').on(t.slug),
+    index('idx_organizations_is_active').on(t.isActive),
+  ]
+);
+
+export type OrganizationRow = typeof organizations.$inferSelect;
+export type NewOrganizationRow = typeof organizations.$inferInsert;
+
 // ─── USERS & AUTH ──────────────────────────────────────────────────────────
 
 export const users = pgTable(
