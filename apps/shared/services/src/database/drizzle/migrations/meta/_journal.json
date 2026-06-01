@@ -15,6 +15,13 @@
       "when": 1780295785925,
       "tag": "0001_colorful_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780297529166,
+      "tag": "0002_empty_starhawk",
+      "breakpoints": true
     }
   ]
 }

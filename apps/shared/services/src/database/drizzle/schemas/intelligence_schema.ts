@@ -112,7 +112,7 @@ export const personas = pgTable(
       .default(PersonaVisibility.PRIVATE),
     // cross-plane ref: control.users.id — no DB FK
     createdBy: varchar('created_by').notNull(),
-    organizationId: varchar('organization_id'),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
     teamId: varchar('team_id'),
     version: integer('version').notNull().default(1),
     parentPersonaId: varchar('parent_persona_id'),
