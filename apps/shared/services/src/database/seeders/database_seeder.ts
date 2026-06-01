@@ -3,6 +3,7 @@ import { getIntelligenceDb } from '../drizzle/clients/index';
 import { users } from '../drizzle/schemas/control_schema';
 import { agents } from '../drizzle/schemas/intelligence_schema';
 import { personas } from '../drizzle/schemas/intelligence_schema';
+import { OrganizationSeed } from './organization_seed';
 import { UserSeed } from './user_seed';
 import { UserLLMProviderSeed } from './user_l_l_m_provider_seed';
 import { LLMPreferencesSeed } from './l_l_m_preferences_seed';
@@ -28,6 +29,7 @@ export class DatabaseSeeder {
     }
 
     const results = {
+      organizations: false,
       users: false,
       llmProviders: false,
       capabilities: false,
@@ -40,6 +42,13 @@ export class DatabaseSeeder {
       projects: false,
       workflowDefinitions: false,
     };
+
+    try {
+      await OrganizationSeed.seed();
+      results.organizations = true;
+    } catch (error) {
+      console.error('   ❌ Organization seeding failed:', error);
+    }
 
     try {
       await this.seedUsers();
