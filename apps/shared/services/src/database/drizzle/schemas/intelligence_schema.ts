@@ -296,7 +296,7 @@ export const knowledgeItems = pgTable(
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
     // cross-plane refs: control.users.id, intelligence.agents.id
     createdBy: varchar('created_by', { length: 36 }),
-    organizationId: varchar('organization_id', { length: 36 }),
+    organizationId: varchar('organization_id', { length: 36 }).notNull().default(ADMIN_ORG_ID),
     accessLevel: varchar('access_level', { length: 50 }).notNull().default('public'),
     userId: varchar('user_id', { length: 36 }),
     agentId: varchar('agent_id', { length: 36 }),
@@ -309,6 +309,7 @@ export const knowledgeItems = pgTable(
     index('idx_knowledge_items_created_at').on(t.createdAt),
     index('idx_knowledge_items_user_type').on(t.userId, t.type),
     index('idx_knowledge_items_agent_type').on(t.agentId, t.type),
+    index('idx_knowledge_items_organization_id').on(t.organizationId),
   ]
 );
 
@@ -348,7 +349,7 @@ export const discussions = pgTable('discussions', {
     .default(DiscussionVisibility.PRIVATE),
   // cross-plane ref: control.users.id — no DB FK
   createdBy: uuid('created_by').notNull(),
-  organizationId: uuid('organization_id'),
+  organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
   teamId: uuid('team_id'),
   startedAt: timestamp('started_at'),
   endedAt: timestamp('ended_at'),
@@ -373,7 +374,11 @@ export const discussions = pgTable('discussions', {
     topicProgression: Array<{ topic: string; timestamp: Date; confidence: number }>;
   }>(),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-});
+},
+(t) => [
+  index('idx_discussions_organization_id').on(t.organizationId),
+]
+);
 
 export const discussionParticipants = pgTable('discussion_participants', {
   ...base,
@@ -429,7 +434,12 @@ export const discussionMessages = pgTable('discussion_messages', {
     llmProvider?: string;
     isInitialParticipation?: boolean;
   }>(),
-});
+  organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
+},
+(t) => [
+  index('idx_discussion_messages_organization_id').on(t.organizationId),
+]
+);
 
 export const conversationContexts = pgTable('conversation_contexts', {
   ...base,
@@ -496,12 +506,14 @@ export const artifacts = pgTable(
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
     generationContext: jsonb('generation_context').$type<Record<string, unknown>>(),
     externalReferences: jsonb('external_references').$type<Record<string, string>>(),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
   },
   (t) => [
     index('idx_artifacts_type_created').on(t.type, t.createdAt),
     index('idx_artifacts_conversation_id').on(t.conversationId),
     index('idx_artifacts_generated_by').on(t.generatedBy),
     index('idx_artifacts_language_framework').on(t.language, t.framework),
+    index('idx_artifacts_organization_id').on(t.organizationId),
   ]
 );
 
@@ -602,10 +614,12 @@ export const llmProviders = pgTable(
     // cross-plane refs: control.users.id — no DB FK
     createdBy: uuid('created_by'),
     updatedBy: uuid('updated_by'),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
   },
   (t) => [
     uniqueIndex('idx_llm_providers_name').on(t.name),
     index('idx_llm_providers_type_active').on(t.type, t.isActive),
+    index('idx_llm_providers_organization_id').on(t.organizationId),
   ]
 );
 
@@ -624,7 +638,12 @@ export const llmModels = pgTable('llm_models', {
   capabilities: jsonb('capabilities').$type<string[]>().default([]),
   isEnabled: boolean('is_enabled').notNull().default(true),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-});
+  organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
+},
+(t) => [
+  index('idx_llm_models_organization_id').on(t.organizationId),
+]
+);
 
 export const shortLinks = pgTable(
   'short_links',
@@ -658,6 +677,7 @@ export const shortLinks = pgTable(
     utmSource: varchar('utm_source', { length: 200 }),
     utmMedium: varchar('utm_medium', { length: 200 }),
     utmCampaign: varchar('utm_campaign', { length: 200 }),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
   },
   (t) => [
     uniqueIndex('idx_short_links_code').on(t.shortCode),
@@ -665,6 +685,7 @@ export const shortLinks = pgTable(
     index('idx_short_links_type').on(t.type),
     index('idx_short_links_status').on(t.status),
     index('idx_short_links_expires_at').on(t.expiresAt),
+    index('idx_short_links_organization_id').on(t.organizationId),
   ]
 );
 
