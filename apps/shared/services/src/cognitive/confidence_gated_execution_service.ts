@@ -55,15 +55,13 @@ type ControlDB = import('../database/drizzle/clients/index').ControlDB;
 
 let _controlDb: ControlDB | null = null;
 
-function getDb(): ControlDB | null {
+async function getDb(): Promise<ControlDB | null> {
   if (_controlDb) return _controlDb;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getControlDb } = require('../database/drizzle/clients/index');
+    const { getControlDb } = await import('../database/drizzle/clients/index.js');
     _controlDb = getControlDb();
     return _controlDb;
   } catch {
-    // DB not initialized yet — will use in-memory only
     return null;
   }
 }
@@ -115,7 +113,7 @@ export class ConfidenceGatedExecutionService {
   async loadProfilesFromDb(): Promise<void> {
     if (this.dbLoaded) return;
 
-    const db = getDb();
+    const db = await getDb();
     if (!db) {
       logger.warn('Control DB not available — skipping profile load from DB');
       return;
@@ -156,7 +154,7 @@ export class ConfidenceGatedExecutionService {
    * Write-through: persist a single profile to DB.
    */
   private async persistProfile(profile: DomainConfidenceProfile): Promise<void> {
-    const db = getDb();
+    const db = await getDb();
     if (!db) return;
 
     try {

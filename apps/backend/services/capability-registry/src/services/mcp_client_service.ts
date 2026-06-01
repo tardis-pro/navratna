@@ -3,6 +3,7 @@
 // Part of capability-registry microservice
 
 import { spawn, ChildProcess } from 'child_process';
+import { Readable } from 'stream';
 import { EventEmitter } from 'events';
 import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils';
 import { ToolCategory, MCPServerType } from '@uaip/types';
@@ -1842,7 +1843,6 @@ export class MCPClientService extends EventEmitter {
 
   // Real-time log streaming for frontend
   getLogStream(serverName: string): NodeJS.ReadableStream {
-    const { Readable } = require('stream');
     const logStream = new Readable({ objectMode: true });
 
     const logHandler = (data: unknown) => {

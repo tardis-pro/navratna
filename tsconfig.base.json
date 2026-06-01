@@ -15,7 +15,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "moduleDetection": "force",
-    "ignoreDeprecations": "6.0",
     "types": []
   }
 }

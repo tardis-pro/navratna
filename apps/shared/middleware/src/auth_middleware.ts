@@ -1,4 +1,5 @@
 import { Elysia, type AnyElysia } from 'elysia';
+import jwt from 'jsonwebtoken';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { AuthContext, RequiredAuthContext, UserContext } from '@uaip/types';
@@ -301,8 +302,6 @@ export const diagnoseJWTSignatureError = (
   let tokenInfo: unknown = {};
 
   try {
-    // Dynamically import jwt to decode without verification
-    const jwt = require('jsonwebtoken');
     const decoded = jwt.decode(token, { complete: true });
     tokenInfo = {
       header: decoded?.header,
