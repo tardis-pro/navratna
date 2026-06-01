@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**/*"],
+  "references": [
+    { "path": "../../packages/shared-types/tsconfig.json" },
+    { "path": "../../packages/shared-utils/tsconfig.json" },
+    { "path": "../config/tsconfig.json" },
+    { "path": "../infra/tsconfig.json" },
+    { "path": "../middleware/tsconfig.json" },
+    { "path": "../services/tsconfig.json" }
+  ]
+}

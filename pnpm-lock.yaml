@@ -1630,6 +1630,40 @@ importers:
         specifier: 'catalog:'
         version: 6.0.2
 
+  apps/shared/agent-intelligence:
+    dependencies:
+      '@uaip/config':
+        specifier: workspace:*
+        version: link:../config
+      '@uaip/infra':
+        specifier: workspace:*
+        version: link:../infra
+      '@uaip/llm-service':
+        specifier: workspace:*
+        version: link:../llm-service
+      '@uaip/middleware':
+        specifier: workspace:*
+        version: link:../middleware
+      '@uaip/shared-services':
+        specifier: workspace:*
+        version: link:../services
+      '@uaip/types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@uaip/utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+    devDependencies:
+      '@types/node':
+        specifier: catalog:backend
+        version: 22.19.15
+      rimraf:
+        specifier: 'catalog:'
+        version: 6.1.3
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.2
+
   apps/shared/config:
     dependencies:
       dotenv:
@@ -1642,6 +1676,37 @@ importers:
       '@types/ms':
         specifier: ^2.1.0
         version: 2.1.0
+      '@types/node':
+        specifier: catalog:backend
+        version: 22.19.15
+      rimraf:
+        specifier: 'catalog:'
+        version: 6.1.3
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.2
+
+  apps/shared/discussion:
+    dependencies:
+      '@uaip/config':
+        specifier: workspace:*
+        version: link:../config
+      '@uaip/infra':
+        specifier: workspace:*
+        version: link:../infra
+      '@uaip/middleware':
+        specifier: workspace:*
+        version: link:../middleware
+      '@uaip/shared-services':
+        specifier: workspace:*
+        version: link:../services
+      '@uaip/types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@uaip/utils':
+        specifier: workspace:*
+        version: link:../../packages/shared-utils
+    devDependencies:
       '@types/node':
         specifier: catalog:backend
         version: 22.19.15
