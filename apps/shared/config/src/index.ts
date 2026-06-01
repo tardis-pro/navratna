@@ -19,4 +19,5 @@ export type {
   NotificationsConfig,
   SecurityConfig,
   CanvaConfig,
+  ErasureConfig,
 } from './config.js';

@@ -227,6 +227,10 @@ export interface CookieConfig {
   sameSite: 'lax' | 'strict' | 'none';
 }
 
+export interface ErasureConfig {
+  deletionHashSalt: string;
+}
+
 export interface Config {
   database: DatabaseConfig;
   redis: RedisConfig;
@@ -247,6 +251,7 @@ export interface Config {
   security: SecurityConfig;
   cookie: CookieConfig;
   canva: CanvaConfig;
+  erasure: ErasureConfig;
   port: number;
   environment: string;
   enterprise: {
@@ -512,6 +517,11 @@ const defaultConfig: Config = {
     refreshSecret:
       process.env.JWT_REFRESH_SECRET || (() => { throw new Error('FATAL: JWT_REFRESH_SECRET environment variable is required'); })(),
     refreshTokenExpiry: parseDuration(process.env.JWT_REFRESH_TOKEN_EXPIRY) || '2h',
+  },
+  erasure: {
+    deletionHashSalt:
+      process.env.DELETION_HASH_SALT ||
+      (() => { throw new Error('FATAL: DELETION_HASH_SALT environment variable is required'); })(),
   },
   email: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
