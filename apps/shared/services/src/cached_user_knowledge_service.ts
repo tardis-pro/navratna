@@ -573,7 +573,7 @@ export class CachedUserKnowledgeService extends UserKnowledgeService {
 
       logger.info('User knowledge cache warmed up successfully', { userId });
     } catch (error) {
-      logger.error('Error warming up user knowledge cache', { userId, error: error.message });
+      logger.error('Error warming up user knowledge cache', { userId, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 

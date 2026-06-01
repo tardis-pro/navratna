@@ -7,7 +7,7 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "types": ["node"],
     "target": "ES2022",
-    "strict": false,
+    "strict": true,
     "module": "preserve",
     "moduleResolution": "bundler",
     "experimentalDecorators": true,

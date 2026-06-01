@@ -53,7 +53,7 @@ class CachePerformanceTest {
       // Show performance metrics
       await this.showPerformanceMetrics();
     } catch (error) {
-      console.error('❌ Cache performance test failed:', error.message);
+      console.error('❌ Cache performance test failed:', error instanceof Error ? error.message : 'Unknown error');
       process.exit(1);
     }
   }

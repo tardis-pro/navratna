@@ -68,7 +68,7 @@ export class CacheIntegration {
       this.initialized = true;
       logger.info('Cache integration initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize cache integration', { error: error.message });
+      logger.error('Failed to initialize cache integration', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -194,7 +194,7 @@ export class CacheIntegration {
       this.initialized = false;
       logger.info('Cache integration shutdown completed');
     } catch (error) {
-      logger.error('Error during cache integration shutdown', { error: error.message });
+      logger.error('Error during cache integration shutdown', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 }

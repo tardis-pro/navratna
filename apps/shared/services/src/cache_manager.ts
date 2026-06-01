@@ -243,7 +243,7 @@ export class CacheManager {
           memoryUsage,
         };
       } catch (error) {
-        logger.error('Error getting cache statistics', { error: error.message });
+        logger.error('Error getting cache statistics', { error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 
@@ -287,7 +287,7 @@ export class CacheManager {
 
       logger.info('Cache cleanup completed');
     } catch (error) {
-      logger.error('Error during cache cleanup', { error: error.message });
+      logger.error('Error during cache cleanup', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
@@ -301,7 +301,7 @@ export class CacheManager {
       await redisCacheService.flushdb();
       logger.warn('All caches flushed successfully');
     } catch (error) {
-      logger.error('Error flushing caches', { error: error.message });
+      logger.error('Error flushing caches', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -356,7 +356,7 @@ export class CacheManager {
         memoryUsage,
       };
     } catch (error) {
-      logger.error('Error getting performance metrics', { error: error.message });
+      logger.error('Error getting performance metrics', { error: error instanceof Error ? error.message : 'Unknown error' });
       return {
         hitRate: 0,
         missRate: 0,
@@ -384,7 +384,7 @@ export class CacheManager {
             memoryUsage: health.statistics.memoryUsage,
           });
         } catch (error) {
-          logger.error('Error during scheduled cache maintenance', { error: error.message });
+          logger.error('Error during scheduled cache maintenance', { error: error instanceof Error ? error.message : 'Unknown error' });
         }
       },
       intervalMinutes * 60 * 1000

@@ -284,7 +284,7 @@ export class ToolExecutionService {
 
       return execution;
     } catch (error) {
-      this.markExecutionFailed(execution, error, `Failed to initiate tool execution ${requestId}:`);
+      this.markExecutionFailed(execution, error instanceof Error ? error : new Error(String(error)), `Failed to initiate tool execution ${requestId}:`);
     }
   }
 
@@ -443,7 +443,7 @@ export class ToolExecutionService {
 
       return await responsePromise;
     } catch (error) {
-      this.markExecutionFailed(execution, error, `Failed to execute tool synchronously ${requestId}:`);
+      this.markExecutionFailed(execution, error instanceof Error ? error : new Error(String(error)), `Failed to execute tool synchronously ${requestId}:`);
     }
   }
 }

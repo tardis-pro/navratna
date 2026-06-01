@@ -361,7 +361,7 @@ export class ExpertiseAnalyzerService {
         } catch (error) {
           logger.warn('Failed to analyze participant', {
             participant,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -385,7 +385,7 @@ export class ExpertiseAnalyzerService {
 
       return profiles;
     } catch (error) {
-      logger.error('Expertise analysis failed', { error: error.message });
+      logger.error('Expertise analysis failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       const wrappedError = new Error(`Expertise analysis failed: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -601,7 +601,7 @@ export class ExpertiseAnalyzerService {
     } catch (error) {
       logger.warn('Failed to analyze participant expertise', {
         participant,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }

@@ -159,20 +159,20 @@ export class RetryManager {
 
         return result;
       } catch (error) {
-        lastError = error;
+        lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (this.isRetryableError(error)) {
+        if (this.isRetryableError(lastError)) {
           logger.warn(`Attempt ${attempt + 1} failed, retrying...`, {
             context,
-            error: error.message,
+            error: lastError.message,
             retriesLeft: this.options.maxRetries - attempt,
           });
         } else {
           logger.error('Non-retryable error encountered', {
             context,
-            error: error.message,
+            error: lastError.message,
           });
-          throw error;
+          throw lastError;
         }
       }
     }
@@ -349,9 +349,10 @@ export class HealthCheckManager extends EventEmitter {
 
       return result;
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       const result: HealthCheckResult = {
         status: 'unhealthy',
-        details: { error: error.message },
+        details: { error: err.message },
         responseTime: Date.now() - startTime,
       };
 
@@ -360,7 +361,7 @@ export class HealthCheckManager extends EventEmitter {
       healthCheck.consecutiveFailures++;
 
       logger.warn(`Health check failed: ${name}`, {
-        error: error.message,
+        error: err.message,
         consecutiveFailures: healthCheck.consecutiveFailures,
       });
 

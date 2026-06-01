@@ -160,9 +160,10 @@ export class BatchProcessorService {
         totalExtracted,
       });
     } catch (error) {
-      logger.error(`Batch job ${jobId} failed`, { error: error.message });
-      this.updateJobStatus(jobId, 'failed', error.message);
-      throw error;
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Batch job ${jobId} failed`, { error: err.message });
+      this.updateJobStatus(jobId, 'failed', err.message);
+      throw err;
     }
   }
 
@@ -263,8 +264,9 @@ export class BatchProcessorService {
         processingTime: Date.now() - startTime,
       };
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       logger.error(`Error processing file ${file.name}`, {
-        error: error.message,
+        error: err.message,
         fileId: file.id,
       });
 
@@ -273,7 +275,7 @@ export class BatchProcessorService {
         success: false,
         conversationsFound: 0,
         knowledgeExtracted: 0,
-        error: error.message,
+        error: err.message,
         processingTime: Date.now() - startTime,
       };
     }

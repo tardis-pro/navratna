@@ -240,7 +240,7 @@ export class ModelCapabilityDetector {
         supported: false,
         confidence: 0.1,
         testMethod: 'api-call',
-        notes: `Failed to generate text: ${error.message}`,
+        notes: `Failed to generate text: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
@@ -278,7 +278,7 @@ export class ModelCapabilityDetector {
         supported: false,
         confidence: 0.1,
         testMethod: 'api-call',
-        notes: `Failed to test tool calling: ${error.message}`,
+        notes: `Failed to test tool calling: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
@@ -319,7 +319,7 @@ export class ModelCapabilityDetector {
         supported: false,
         confidence: 0.1,
         testMethod: 'api-call',
-        notes: `Failed to test vision capabilities: ${error.message}`,
+        notes: `Failed to test vision capabilities: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

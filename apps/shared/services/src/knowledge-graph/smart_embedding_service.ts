@@ -113,7 +113,7 @@ export class SmartEmbeddingService extends EmbeddingService {
           this.recordSuccess(startTime);
           return embedding;
         } catch (error) {
-          console.warn('TEI embedding failed, trying fallback:', error.message);
+          console.warn('TEI embedding failed, trying fallback:', error instanceof Error ? error.message : 'Unknown error');
 
           if (this.config.fallbackToOpenAI && this.healthStatus.openaiAvailable) {
             const embedding = await super.generateEmbedding(text);
@@ -154,7 +154,7 @@ export class SmartEmbeddingService extends EmbeddingService {
           this.recordSuccess(startTime);
           return embeddings;
         } catch (error) {
-          console.warn('TEI batch embedding failed, trying fallback:', error.message);
+          console.warn('TEI batch embedding failed, trying fallback:', error instanceof Error ? error.message : 'Unknown error');
 
           if (this.config.fallbackToOpenAI && this.healthStatus.openaiAvailable) {
             const embeddings = await super.generateBatchEmbeddings(texts);
@@ -188,7 +188,7 @@ export class SmartEmbeddingService extends EmbeddingService {
         return await this.teiService.generateEmbeddings(content);
       } catch (error) {
         if (this.config.fallbackToOpenAI && this.healthStatus.openaiAvailable) {
-          console.warn('TEI content embedding failed, using OpenAI fallback:', error.message);
+          console.warn('TEI content embedding failed, using OpenAI fallback:', error instanceof Error ? error.message : 'Unknown error');
           return await super.generateEmbeddings(content);
         }
         throw error;
@@ -209,7 +209,7 @@ export class SmartEmbeddingService extends EmbeddingService {
         return await this.teiService.generateContextEmbedding(context);
       } catch (error) {
         if (this.config.fallbackToOpenAI && this.healthStatus.openaiAvailable) {
-          console.warn('TEI context embedding failed, using OpenAI fallback:', error.message);
+          console.warn('TEI context embedding failed, using OpenAI fallback:', error instanceof Error ? error.message : 'Unknown error');
           return await super.generateContextEmbedding(context);
         }
         throw error;

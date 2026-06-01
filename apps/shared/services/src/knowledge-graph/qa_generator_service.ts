@@ -185,7 +185,7 @@ export class QAGeneratorService {
 
       return processedQA;
     } catch (error) {
-      logger.error('Q&A generation from knowledge failed', { error: error.message });
+      logger.error('Q&A generation from knowledge failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       const wrappedError = new Error(`Q&A generation failed: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -222,7 +222,7 @@ export class QAGeneratorService {
         } catch (error) {
           logger.warn('Failed to extract Q&A from conversation', {
             conversationId: conversation.id,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -258,7 +258,7 @@ export class QAGeneratorService {
 
       return processedQA;
     } catch (error) {
-      logger.error('Q&A generation from conversations failed', { error: error.message });
+      logger.error('Q&A generation from conversations failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       const wrappedError = new Error(`Q&A generation failed: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -366,7 +366,7 @@ export class QAGeneratorService {
       } catch (error) {
         logger.warn('Failed to generate Q&A from item', {
           itemId: item.id,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -1040,7 +1040,7 @@ export class QAGeneratorService {
 
       return intersection.size / union.size;
     } catch (error) {
-      logger.warn('Failed to calculate relevance', { error: error.message });
+      logger.warn('Failed to calculate relevance', { error: error instanceof Error ? error.message : 'Unknown error' });
       return 0.5; // Default relevance
     }
   }

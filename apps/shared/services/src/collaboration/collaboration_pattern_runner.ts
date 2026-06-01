@@ -108,15 +108,16 @@ export class CollaborationPatternRunner extends EventEmitter {
 
       return result;
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       context.endTime = new Date();
       context.errors.push({
         stepId: 'workflow',
-        error: error.message,
+        error: err.message,
         timestamp: new Date(),
       });
 
-      this.emit('workflow_failed', { workflowId, pattern, error });
-      logger.error(`Collaboration pattern failed: ${pattern.name}`, error);
+      this.emit('workflow_failed', { workflowId, pattern, error: err });
+      logger.error(`Collaboration pattern failed: ${pattern.name}`, err);
 
       return {
         success: false,
@@ -314,27 +315,28 @@ export class CollaborationPatternRunner extends EventEmitter {
 
       return result;
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       step.endTime = new Date();
       step.status = WorkflowStepStatus.FAILED;
-      step.errorDetails = error.message;
+      step.errorDetails = err.message;
 
       context.stepStatuses.set(step.id, WorkflowStepStatus.FAILED);
       context.errors.push({
         stepId: step.id,
-        error: error.message,
+        error: err.message,
         timestamp: new Date(),
       });
 
-      this.emit('step_failed', { workflowId: context.workflowId, step, error: error.message });
-      logger.error(`Step execution error: ${step.name}`, error);
+      this.emit('step_failed', { workflowId: context.workflowId, step, error: err.message });
+      logger.error(`Step execution error: ${step.name}`, err);
 
       if (this.persistWorkflowStep) {
-        await this.persistWorkflowStep(context.workflowId, step).catch((err) =>
-          logger.error('Failed to persist failed step:', err)
+        await this.persistWorkflowStep(context.workflowId, step).catch((persistErr) =>
+          logger.error('Failed to persist failed step:', persistErr)
         );
       }
 
-      return { success: false, error: error.message };
+      return { success: false, error: err.message };
     }
   }
 

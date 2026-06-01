@@ -146,14 +146,15 @@ export class DecisionEngine {
         executionPlan,
       };
     } catch (error) {
-      logger.error('Decision engine error:', error);
-      this.stateMachine.setError(`Decision engine failed: ${error.message}`);
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Decision engine error:', err);
+      this.stateMachine.setError(`Decision engine failed: ${err.message}`);
 
       return {
         selectedAction: null,
         resolvedCapabilities: [],
         confidence: 0,
-        reasoning: `Decision engine error: ${error.message}`,
+        reasoning: `Decision engine error: ${err.message}`,
       };
     }
   }

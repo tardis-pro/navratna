@@ -385,7 +385,7 @@ export class LearningDetectorService {
 
       return validatedMoments;
     } catch (error) {
-      logger.error('Learning moment detection failed', { error: error.message });
+      logger.error('Learning moment detection failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       const wrappedError = new Error(`Learning moment detection failed: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -861,7 +861,7 @@ export class LearningDetectorService {
         metadata: await this.buildMetadata(params, confidence, effectiveness),
       };
     } catch (error) {
-      logger.warn('Failed to create learning moment', { error: error.message });
+      logger.warn('Failed to create learning moment', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;
     }
   }

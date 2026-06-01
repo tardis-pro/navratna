@@ -194,7 +194,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       };
     } catch (error) {
       console.error('Knowledge search error:', error);
-      throw new Error(`Knowledge search failed: ${error.message}`, { cause: error });
+      throw new Error(`Knowledge search failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   }
 
@@ -270,7 +270,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
         results.push(knowledgeItem);
       } catch (error) {
         console.error(`Failed to ingest item: ${item.content.substring(0, 100)}...`, error);
-        errors.push(`Ingestion failed: ${error.message}`);
+        errors.push(`Ingestion failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -863,7 +863,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       result.processingTime = Date.now() - startTime;
       return result;
     } catch (error) {
-      result.errors = [error.message];
+      result.errors = [error instanceof Error ? error.message : 'Unknown error'];
       result.processingTime = Date.now() - startTime;
       return result;
     }
@@ -904,7 +904,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       return await this.qaGenerator.generateFromKnowledge(items, options);
     } catch (error) {
-      logger.error('Failed to generate Q&A from knowledge', { error: error.message, domain });
+      logger.error('Failed to generate Q&A from knowledge', { error: error instanceof Error ? error.message : 'Unknown error', domain });
       throw error;
     }
   }
@@ -919,7 +919,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.workflowExtractor.extractWorkflows(conversations, options);
     } catch (error) {
-      logger.error('Failed to extract workflows from chats', { error: error.message });
+      logger.error('Failed to extract workflows from chats', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -934,7 +934,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.expertiseAnalyzer.analyzeParticipantExpertise(conversations, options);
     } catch (error) {
-      logger.error('Failed to analyze participant expertise', { error: error.message });
+      logger.error('Failed to analyze participant expertise', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -951,7 +951,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
       const allMessages = conversations.flatMap((conv) => conv.messages || []);
       return await this.learningDetector.detectLearningMoments(allMessages, options);
     } catch (error) {
-      logger.error('Failed to detect learning moments', { error: error.message });
+      logger.error('Failed to detect learning moments', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -966,7 +966,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.qaGenerator.generateFromConversations(conversations, options);
     } catch (error) {
-      logger.error('Failed to generate Q&A from conversations', { error: error.message });
+      logger.error('Failed to generate Q&A from conversations', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -978,7 +978,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.qaGenerator.validateQAPairs(pairs);
     } catch (error) {
-      logger.error('Failed to validate Q&A pairs', { error: error.message });
+      logger.error('Failed to validate Q&A pairs', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -990,7 +990,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
     try {
       return await this.workflowExtractor.validateWorkflows(workflows);
     } catch (error) {
-      logger.error('Failed to validate workflows', { error: error.message });
+      logger.error('Failed to validate workflows', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -1011,7 +1011,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       return await this.learningDetector.trackLearningProgression(moments, participant);
     } catch (error) {
-      logger.error('Failed to track learning progression', { error: error.message, participant });
+      logger.error('Failed to track learning progression', { error: error instanceof Error ? error.message : 'Unknown error', participant });
       throw error;
     }
   }
@@ -1033,7 +1033,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
 
       return await this.learningDetector.generateLearningInsights(moments, [], transfers);
     } catch (error) {
-      logger.error('Failed to generate learning insights', { error: error.message });
+      logger.error('Failed to generate learning insights', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }

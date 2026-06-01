@@ -285,7 +285,7 @@ export class WorkflowExtractorService {
         } catch (error) {
           logger.warn('Failed to extract workflows from conversation', {
             conversationId: conversation.id,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -325,7 +325,7 @@ export class WorkflowExtractorService {
 
       return processedWorkflows;
     } catch (error) {
-      logger.error('Workflow extraction failed', { error: error.message });
+      logger.error('Workflow extraction failed', { error: error instanceof Error ? error.message : 'Unknown error' });
       const wrappedError = new Error(`Workflow extraction failed: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -392,7 +392,7 @@ export class WorkflowExtractorService {
       } catch (error) {
         logger.warn('Failed to build executable workflow from sequence', {
           sequenceId: sequence.id,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -702,7 +702,7 @@ export class WorkflowExtractorService {
         },
       };
     } catch (error) {
-      logger.warn('Failed to create workflow from sequence', { error: error.message });
+      logger.warn('Failed to create workflow from sequence', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;
     }
   }
@@ -757,7 +757,7 @@ export class WorkflowExtractorService {
         },
       };
     } catch (error) {
-      logger.warn('Failed to create workflow from steps', { error: error.message });
+      logger.warn('Failed to create workflow from steps', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;
     }
   }
@@ -812,7 +812,7 @@ export class WorkflowExtractorService {
         },
       };
     } catch (error) {
-      logger.warn('Failed to create decision workflow', { error: error.message });
+      logger.warn('Failed to create decision workflow', { error: error instanceof Error ? error.message : 'Unknown error' });
       return null;
     }
   }

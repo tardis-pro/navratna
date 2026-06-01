@@ -462,14 +462,15 @@ export class ServiceFactory {
   getLLMService(): unknown {
     if (!this.serviceInstances.has('llmService')) {
       this.logger.info('Creating LLM Service instance');
+      const factoryLogger = this.logger;
       // Placeholder LLM service - actual implementation would import from @uaip/llm-service
       const llmService = {
         async generateResponse(prompt: string, _options?: unknown): Promise<string> {
-          this.logger.info('LLM generateResponse called', { prompt: prompt.substring(0, 100) });
+          factoryLogger.info('LLM generateResponse called', { prompt: prompt.substring(0, 100) });
           return 'Mock LLM response';
         },
         async analyzeContent(_content: string): Promise<unknown> {
-          this.logger.info('LLM analyzeContent called');
+          factoryLogger.info('LLM analyzeContent called');
           return { sentiment: 'neutral', topics: [], confidence: 0.5 };
         },
       };
@@ -484,10 +485,11 @@ export class ServiceFactory {
   getUserLLMService(): unknown {
     if (!this.serviceInstances.has('userLLMService')) {
       this.logger.info('Creating User LLM Service instance');
+      const userLLMFactoryLogger = this.logger;
       // Placeholder User LLM service - actual implementation would import from @uaip/llm-service
       const userLLMService = {
         async getUserProviders(userId: string): Promise<unknown[]> {
-          this.logger.info('UserLLM getUserProviders called', { userId });
+          userLLMFactoryLogger.info('UserLLM getUserProviders called', { userId });
           return [];
         },
         async generateWithUserProvider(
@@ -495,7 +497,7 @@ export class ServiceFactory {
           prompt: string,
           providerId?: string
         ): Promise<string> {
-          this.logger.info('UserLLM generateWithUserProvider called', { userId, providerId });
+          userLLMFactoryLogger.info('UserLLM generateWithUserProvider called', { userId, providerId });
           return 'Mock user LLM response';
         },
       };

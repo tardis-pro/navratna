@@ -304,7 +304,7 @@ export class CachedUserService extends UserService {
 
       logger.info('User cache warmed up successfully', { userId });
     } catch (error) {
-      logger.error('Error warming up user cache', { userId, error: error.message });
+      logger.error('Error warming up user cache', { userId, error: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 

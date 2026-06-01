@@ -439,7 +439,7 @@ export class KnowledgeBootstrapService {
         logger.warn('Neo4j not connected, skipping sync statistics for Neo4j');
       }
     } catch (error) {
-      logger.warn('Failed to get Neo4j sync statistics:', error.message);
+      logger.warn('Failed to get Neo4j sync statistics:', error instanceof Error ? error.message : 'Unknown error');
     }
 
     // Check Qdrant sync status
