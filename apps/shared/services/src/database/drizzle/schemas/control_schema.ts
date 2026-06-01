@@ -16,6 +16,7 @@
 
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   text,
@@ -29,6 +30,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { base, llmPreferenceCommonColumns } from './schema_base';
 import { ADMIN_ORG_ID } from '../constants';
 import type {
@@ -1000,6 +1002,54 @@ export const workflowInstanceSteps = pgTable(
   ]
 );
 
+// ─── GDPR ERASURE ─────────────────────────────────────────────────────────
+
+export const erasureStatusEnum = pgEnum('erasure_status', [
+  'pending', 'in_progress', 'completed', 'failed',
+]);
+
+export const erasureSurfaceEnum = pgEnum('erasure_surface', [
+  'pg_control', 'pg_intelligence', 'neo4j', 'qdrant', 'redis',
+]);
+
+export const erasureOutbox = pgTable(
+  'erasure_outbox',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull(),
+    requestedAt: timestamp('requested_at').defaultNow().notNull(),
+    status: erasureStatusEnum('status').notNull().default('pending'),
+    storesCompleted: jsonb('stores_completed').$type<Record<string, boolean>>().notNull().default({}),
+    completedAt: timestamp('completed_at'),
+    error: text('error'),
+  },
+  (t) => [
+    index('idx_erasure_outbox_user_id').on(t.userId),
+    index('idx_erasure_outbox_status').on(t.status),
+    index('idx_erasure_outbox_requested_at').on(t.requestedAt),
+    uniqueIndex('idx_erasure_outbox_user_id_pending').on(t.userId, t.status).where(sql`status = 'pending'`),
+  ]
+);
+
+export const erasureLedger = pgTable(
+  'erasure_ledger',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    erasureId: uuid('erasure_id').notNull().references(() => erasureOutbox.id, { onDelete: 'restrict' }),
+    surface: erasureSurfaceEnum('surface').notNull(),
+    deletedCount: integer('deleted_count').notNull().default(0),
+    hashedSubject: varchar('hashed_subject', { length: 64 }).notNull(),
+    confirmedAt: timestamp('confirmed_at').defaultNow().notNull(),
+    certificateHash: varchar('certificate_hash', { length: 64 }).notNull(),
+  },
+  (t) => [
+    index('idx_erasure_ledger_erasure_id').on(t.erasureId),
+    index('idx_erasure_ledger_surface').on(t.surface),
+    index('idx_erasure_ledger_hashed_subject').on(t.hashedSubject),
+    uniqueIndex('idx_erasure_ledger_erasure_surface').on(t.erasureId, t.surface),
+  ]
+);
+
 // ─── TYPE EXPORTS ──────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -1128,3 +1178,7 @@ export type WorkflowInstance = typeof workflowInstances.$inferSelect;
 export type NewWorkflowInstance = typeof workflowInstances.$inferInsert;
 export type WorkflowInstanceStep = typeof workflowInstanceSteps.$inferSelect;
 export type NewWorkflowInstanceStep = typeof workflowInstanceSteps.$inferInsert;
+export type ErasureOutboxRow = typeof erasureOutbox.$inferSelect;
+export type NewErasureOutboxRow = typeof erasureOutbox.$inferInsert;
+export type ErasureLedgerRow = typeof erasureLedger.$inferSelect;
+export type NewErasureLedgerRow = typeof erasureLedger.$inferInsert;
