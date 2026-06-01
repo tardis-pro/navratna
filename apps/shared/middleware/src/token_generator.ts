@@ -1,26 +1,23 @@
 import { JWTValidator } from './j_w_t_validator.js';
 import { config } from '@uaip/config';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import type { TokenPayload } from '@uaip/types';
 
-/**
- * Generates both access and refresh tokens for authentication
- * Uses JWTValidator for access tokens and direct jwt.sign for refresh tokens
- */
 export function generateAuthTokens(payload: TokenPayload): {
   accessToken: string;
   refreshToken: string;
 } {
-  // Generate access token using JWTValidator (15m default)
+  const jti = randomUUID();
   const accessToken = JWTValidator.sign({
     userId: payload.userId,
     email: payload.email,
     role: payload.role,
     orgId: payload.organizationId,
     sessionId: payload.sessionId,
+    jti,
   });
 
-  // Generate refresh token with longer expiry (7d default)
   const refreshPayload = {
     ...payload,
     type: 'refresh',

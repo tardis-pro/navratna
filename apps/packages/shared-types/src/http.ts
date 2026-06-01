@@ -388,6 +388,7 @@ export interface TokenPayload {
   userType?: string;
   securityLevel?: number;
   agentCapabilities?: string[];
+  jti?: string;
 }
 
 // ============================================================================

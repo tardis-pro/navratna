@@ -16,11 +16,16 @@ interface JWTPayload {
   role: string;
   orgId?: string;
   sessionId?: string;
+  jti?: string;
   iat: number;
   exp: number;
   iss?: string;
   aud?: string;
 }
+
+type JtiBlocklistClient = {
+  exists(key: string): Promise<number>;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class JWTValidator {
@@ -63,10 +68,10 @@ export class JWTValidator {
     return jwtSecret;
   }
 
-  /**
-   * Verify an HS256 token (existing behavior, backward compatible).
-   */
-  public static verify(token: string): JWTPayload {
+  public static async verify(
+    token: string,
+    blocklist?: JtiBlocklistClient
+  ): Promise<JWTPayload> {
     try {
       const rawDecoded = jwt.verify(token, this.JWT_SECRET, {
         algorithms: ['HS256'],
@@ -83,6 +88,7 @@ export class JWTValidator {
       const role = rawDecoded['role'];
       const orgId = rawDecoded['orgId'];
       const sessionId = rawDecoded['sessionId'];
+      const jti = rawDecoded['jti'];
 
       if (typeof userId !== 'string' || typeof email !== 'string' || typeof role !== 'string') {
         throw new ApiError(401, 'Invalid token payload', 'INVALID_TOKEN');
@@ -94,6 +100,7 @@ export class JWTValidator {
         role,
         orgId: typeof orgId === 'string' ? orgId : undefined,
         sessionId: typeof sessionId === 'string' ? sessionId : undefined,
+        jti: typeof jti === 'string' ? jti : undefined,
         iat: typeof rawDecoded.iat === 'number' ? rawDecoded.iat : 0,
         exp: typeof rawDecoded.exp === 'number' ? rawDecoded.exp : 0,
         iss: typeof rawDecoded.iss === 'string' ? rawDecoded.iss : undefined,
@@ -102,6 +109,13 @@ export class JWTValidator {
 
       if (decoded.exp && Date.now() >= decoded.exp * 1000) {
         throw new ApiError(401, 'Token expired', 'TOKEN_EXPIRED');
+      }
+
+      if (blocklist && decoded.jti) {
+        const revoked = await blocklist.exists(`revoked:${decoded.jti}`);
+        if (revoked) {
+          throw Object.assign(new Error('Token has been revoked'), { code: 'TOKEN_REVOKED', status: 401 });
+        }
       }
 
       return decoded;
@@ -177,7 +191,7 @@ export class JWTValidator {
       case 'RS256':
         return this.verifyRS256(token);
       case 'HS256':
-        return this.verify(token);
+        return await this.verify(token);
       default:
         throw new ApiError(401, `Unsupported token algorithm: ${header.alg}`, 'INVALID_TOKEN');
     }

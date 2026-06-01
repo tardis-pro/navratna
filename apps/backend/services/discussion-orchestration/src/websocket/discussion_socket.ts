@@ -88,8 +88,7 @@ export function setupWebSocketHandlers(
     db: 2, // Use separate DB for WebSocket sessions
   });
 
-  // Enhanced authentication middleware with proper JWT validation
-  io.use((socket: AuthenticatedSocket, next) => {
+  io.use(async (socket: AuthenticatedSocket, next) => {
     try {
       const preAuthenticatedUserId = typeof socket.data?.user?.userId === 'string' ? socket.data.user.userId : undefined;
       if (preAuthenticatedUserId) {
@@ -143,8 +142,7 @@ export function setupWebSocketHandlers(
         return next(new Error('AUTH_TOKEN_REQUIRED'));
       }
 
-      // Validate JWT token using existing auth infrastructure
-      const tokenValidation = testJWTToken(token);
+      const tokenValidation = await testJWTToken(token);
 
       if (!tokenValidation.isValid) {
         logger.warn('Invalid JWT token for WebSocket connection', {

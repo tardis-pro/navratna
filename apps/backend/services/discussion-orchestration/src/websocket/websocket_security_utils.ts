@@ -45,15 +45,11 @@ export function extractAccessTokenFromCookieHeader(
   }
 }
 
-/**
- * Authenticate WebSocket connection using JWT token
- */
-export function authenticateConnection(
+export async function authenticateConnection(
   request: IncomingMessage,
   connectionId: string
-): AuthenticationResult {
+): Promise<AuthenticationResult> {
   try {
-    // Extract token from various sources
     const url = new URL(request.url || '', `http://${request.headers.host}`);
     let token = url.searchParams.get('token');
 
@@ -65,7 +61,6 @@ export function authenticateConnection(
     }
 
     if (!token && request.headers['sec-websocket-protocol']) {
-      // Check if token is in WebSocket protocol header
       const rawProtocol = request.headers['sec-websocket-protocol'];
       const protocols = Array.isArray(rawProtocol) ? rawProtocol.join(', ') : rawProtocol ?? '';
       const tokenMatch = protocols.match(/token\.([^,\s]+)/);
@@ -85,8 +80,7 @@ export function authenticateConnection(
       };
     }
 
-    // Validate JWT token
-    const tokenValidation = testJWTToken(token);
+    const tokenValidation = await testJWTToken(token);
 
     if (!tokenValidation.isValid) {
       logger.warn('Invalid JWT token for WebSocket connection', {

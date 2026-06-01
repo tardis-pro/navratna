@@ -115,8 +115,7 @@ export class TaskNotificationHandler {
 
     taskNamespace.use(async (socket, next) => {
       try {
-        // Simple authentication for now - could be enhanced later
-        const auth = authenticateConnection(socket.request, socket.id);
+        const auth = await authenticateConnection(socket.request, socket.id);
         if (auth.authenticated) {
           socket.data.user = { id: auth.userId, name: 'User' };
           next();

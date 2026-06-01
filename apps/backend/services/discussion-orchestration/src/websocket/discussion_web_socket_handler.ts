@@ -80,8 +80,7 @@ export class DiscussionWebSocketHandler implements IWebSocketHandler {
         return;
       }
 
-      // Authenticate the connection
-      const authResult = authenticateConnection(request, connectionId);
+      const authResult = await authenticateConnection(request, connectionId);
       if (!authResult.authenticated) {
         logger.warn('WebSocket connection rejected: authentication failed', {
           connectionId,

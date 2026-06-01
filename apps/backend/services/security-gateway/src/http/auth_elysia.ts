@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
-import { UserService } from '@uaip/shared-services';
+import { UserService, SessionService } from '@uaip/shared-services';
+import { getRedisClient } from '@uaip/infra';
 import {
   validateJWTToken,
   generateAuthTokens,
@@ -403,6 +404,24 @@ export function registerAuthRoutes() {
     // POST /logout
     .post('/logout', async ({ body, set, headers, cookie }) => {
       try {
+        const rawAccessToken =
+          (headers.authorization?.startsWith('Bearer ') ? headers.authorization.substring(7) : undefined) ??
+          (typeof cookie['access_token']?.value === 'string' ? cookie['access_token'].value : undefined);
+
+        if (rawAccessToken) {
+          const accessPayload = jwt.decode(rawAccessToken) as Record<string, unknown> | null;
+          const jti = typeof accessPayload?.['jti'] === 'string' ? accessPayload['jti'] : null;
+          const exp = typeof accessPayload?.['exp'] === 'number' ? accessPayload['exp'] : null;
+          if (jti && exp) {
+            const ttl = Math.max(exp - Math.floor(Date.now() / 1000), 1);
+            const redisClient = await getRedisClient();
+            if (redisClient) {
+              // VERIFY-AT-RUNTIME: getRedisClient() returns IORedis | null; null means Redis not initialized yet
+              await redisClient.setex(`revoked:${jti}`, ttl, '1');
+            }
+          }
+        }
+
         const authUser = await getAuthUser(headers.authorization);
         const { userService, auditService } = await getServices();
         const bodyRecord: Record<string, unknown> = isRecord(body) ? body : {};
@@ -674,7 +693,7 @@ export function registerAuthRoutes() {
     })
   
     // GET /validate - Token validation for nginx auth_request
-    .get('/validate', ({ headers, set }) => {
+    .get('/validate', async ({ headers, set }) => {
       try {
         const authHeader = headers.authorization;
   
@@ -684,7 +703,7 @@ export function registerAuthRoutes() {
         }
   
         const token = authHeader.substring(7);
-        const decoded = JWTValidator.verify(token);
+        const decoded = await JWTValidator.verify(token);
   
         // Set user info headers for nginx to forward to upstream services
         set.headers['X-User-ID'] = decoded.userId;
@@ -795,6 +814,68 @@ export function registerAuthRoutes() {
         }),
       },
     })
+
+    .group('', (g) => // @ts-expect-error -- Elysia middleware injects user but TS cannot infer through nested groups
+    withRequiredAuth(g).delete('/sessions/:sessionId', async ({ params, set, user }) => {
+      const { sessionId } = params;
+      try {
+        const sessionService = SessionService.getInstance();
+        const session = await sessionService.findSessionById(sessionId);
+
+        if (!session) {
+          set.status = 404;
+          return { error: 'Not Found', message: 'Session not found' };
+        }
+
+        const isOwner = session.userId === user!.id;
+        const isAdmin = user!.role === 'admin';
+
+        if (!isOwner && !isAdmin) {
+          set.status = 404;
+          return { error: 'Not Found', message: 'Session not found' };
+        }
+
+        const redisClient = await getRedisClient();
+        if (redisClient) {
+          // VERIFY-AT-RUNTIME: getRedisClient() may return null if Redis is not yet initialized
+          const sessionJti = typeof (session as Record<string, unknown>)['jti'] === 'string'
+            ? (session as Record<string, unknown>)['jti'] as string
+            : null;
+          if (sessionJti) {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const exp = typeof (session as Record<string, unknown>)['expiresAt'] === 'object'
+              ? Math.floor((session.expiresAt as Date).getTime() / 1000)
+              : null;
+            const ttl = exp ? Math.max(exp - nowSec, 1) : 900;
+            await redisClient.setex(`revoked:${sessionJti}`, ttl, '1');
+          }
+        }
+
+        await sessionService.invalidateSession(session.sessionToken);
+
+        return {
+          success: true,
+          data: { message: 'Session revoked successfully' },
+          meta: { timestamp: new Date() },
+        };
+      } catch (error) {
+        logger.error('Error revoking session', { error, sessionId, userId: user?.id });
+        set.status = 500;
+        return { error: 'Internal Server Error', message: 'An error occurred while revoking session' };
+      }
+    }, {
+      params: t.Object({ sessionId: t.String() }),
+      response: {
+        200: t.Object({
+          success: t.Literal(true),
+          data: t.Object({ message: t.String() }),
+          meta: t.Object({ timestamp: t.Any() }),
+        }),
+        404: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+        500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
+      },
+    })
+    )
   );
 
 }
