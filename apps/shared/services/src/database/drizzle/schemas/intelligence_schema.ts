@@ -296,7 +296,7 @@ export const knowledgeItems = pgTable(
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
     // cross-plane refs: control.users.id, intelligence.agents.id
     createdBy: varchar('created_by', { length: 36 }),
-    organizationId: varchar('organization_id', { length: 36 }).notNull().default(ADMIN_ORG_ID),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
     accessLevel: varchar('access_level', { length: 50 }).notNull().default('public'),
     userId: varchar('user_id', { length: 36 }),
     agentId: varchar('agent_id', { length: 36 }),

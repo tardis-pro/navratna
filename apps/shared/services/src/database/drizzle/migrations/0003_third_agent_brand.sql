@@ -1,0 +1,1 @@
+ALTER TABLE "knowledge_items" ALTER COLUMN "organization_id" SET DATA TYPE uuid;
