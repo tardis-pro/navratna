@@ -789,7 +789,12 @@ export const auditEvents = pgTable('audit_events', {
   resolved: boolean('resolved').default(false).notNull(),
   resolvedBy: uuid('resolved_by'),
   resolvedAt: timestamp('resolved_at'),
-});
+}, (t) => [
+  index('idx_audit_events_actor_id').on(t.actorId),
+  index('idx_audit_events_event_type').on(t.eventType),
+  index('idx_audit_events_created_at').on(t.createdAt),
+  index('idx_audit_events_entity_id').on(t.entityId),
+]);
 
 export const integrationEvents = pgTable('integration_events', {
   ...base,
