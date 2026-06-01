@@ -5,7 +5,7 @@
  */
 
 import { logger, AuthorizationError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
-import { SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
+import { AuditRepository, SERVICE_ACCESS_MATRIX, validateServiceAccess, AccessLevel } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
 import type {
@@ -49,6 +49,7 @@ export class EnterpriseToolRegistry {
   private databaseService: DatabaseService;
   private serviceName: string;
   private rateLimiters = new Map<string, RateLimiter>();
+  private readonly auditRepository = new AuditRepository();
 
   constructor(config: {
     eventBusService: EventBusService;
@@ -740,6 +741,17 @@ export class EnterpriseToolRegistry {
       timestamp: new Date().toISOString(),
       compliance: true,
     });
+    this.auditRepository
+      .createAuditEvent({
+        eventType: event,
+        action: event,
+        outcome: (auditData['outcome'] as string) ?? 'success',
+        actor_id: (auditData['agentId'] as string) ?? (auditData['userId'] as string),
+        entity_id: (auditData['toolId'] as string) ?? (auditData['agentId'] as string),
+        entity_type: 'tool',
+        details: auditData,
+      })
+      .catch((err: unknown) => logger.error('Failed to write audit event', { err, event }));
   }
 
   private auditToolExecution(

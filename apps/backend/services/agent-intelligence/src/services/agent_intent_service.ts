@@ -6,6 +6,7 @@
 
 import { Agent, KnowledgeItem, Episode } from '@uaip/types';
 import { logger, ValidationError } from '@uaip/utils';
+import { AuditRepository } from '@uaip/shared-services/audit-repository';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service.js';
@@ -92,6 +93,7 @@ export class AgentIntentService {
   private userLLMService: UserLLMService;
   private serviceName: string;
   private securityLevel: number;
+  private readonly auditRepository = new AuditRepository();
 
   constructor(config: AgentIntentConfig) {
     this.databaseService = config.databaseService;
@@ -186,7 +188,13 @@ Respond in JSON format.`,
 
       if (response.error) {
         logger.warn('LLM intent analysis failed, using fallback', { error: response.error });
-        return this.analyzeUserIntent(userRequest);
+        const fallback = this.analyzeUserIntent(userRequest);
+        this.auditLog('INTENT_ANALYZED', {
+          agentId: agent.id,
+          primary: fallback.primary,
+          confidence: fallback.confidence,
+        });
+        return fallback;
       }
 
       try {
@@ -218,7 +226,13 @@ Respond in JSON format.`,
         return intentAnalysis;
       } catch (parseError) {
         logger.warn('Failed to parse LLM intent analysis, using fallback', { parseError });
-        return this.analyzeUserIntent(userRequest);
+        const fallback = this.analyzeUserIntent(userRequest);
+        this.auditLog('INTENT_ANALYZED', {
+          agentId: agent.id,
+          primary: fallback.primary,
+          confidence: fallback.confidence,
+        });
+        return fallback;
       }
     } catch (error) {
       logger.error('Failed to analyze user intent', { error, agentId: agent.id });
@@ -929,5 +943,16 @@ Keep it conversational and helpful, as if speaking directly to the user.`,
       timestamp: new Date().toISOString(),
       compliance: true,
     });
+    this.auditRepository
+      .createAuditEvent({
+        eventType: event,
+        action: event,
+        outcome: (data['outcome'] as string) ?? 'success',
+        actor_id: (data['agentId'] as string) ?? (data['userId'] as string),
+        entity_id: data['agentId'] as string,
+        entity_type: 'agent',
+        details: data,
+      })
+      .catch((err: unknown) => logger.error('Failed to write audit event', { err, event }));
   }
 }

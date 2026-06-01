@@ -147,6 +147,11 @@
       "@uaip/source": "./src/feature_factory.ts",
       "types": "./dist/feature_factory.d.ts",
       "import": "./dist/feature_factory.js"
+    },
+    "./audit-repository": {
+      "@uaip/source": "./src/database/repositories/audit_repository.ts",
+      "types": "./dist/database/repositories/audit_repository.d.ts",
+      "import": "./dist/database/repositories/audit_repository.js"
     }
   }
 }

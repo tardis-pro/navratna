@@ -59,6 +59,15 @@ export enum AuditEventType {
   AGENT_OPERATION = 'agent_operation',
   AGENT_OPERATION_SUCCESS = 'agent_operation_success',
   AGENT_OPERATION_FAILED = 'agent_operation_failed',
+  PLAN_GENERATED = 'plan_generated',
+  LEARNING_APPLIED = 'learning_applied',
+  TOOL_REGISTERED = 'tool_registered',
+  TOOL_EXECUTION = 'tool_execution',
+  INTENT_PROCESSED = 'intent_processed',
+  INTENT_ANALYZED = 'INTENT_ANALYZED',
+  DISCUSSION_CREATED = 'discussion_created',
+  DISCUSSION_PARTICIPATED = 'DISCUSSION_PARTICIPATED',
+  CONTEXT_UPDATED = 'context_updated',
 
   // Security Events
   SECURITY_CONFIG_CHANGE = 'security_config_change',

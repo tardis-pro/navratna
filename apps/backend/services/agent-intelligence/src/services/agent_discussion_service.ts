@@ -15,6 +15,7 @@ import {
   SourceType,
 } from '@uaip/types';
 import { logger, ApiError, ConflictError, NotFoundError, ValidationError } from '@uaip/utils';
+import { AuditRepository } from '@uaip/shared-services/audit-repository';
 import { DiscussionService, LLMRequestTracker, ThoughtParserService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -92,6 +93,7 @@ export class AgentDiscussionService {
   private userLLMService: UserLLMService;
   private serviceName: string;
   private securityLevel: number;
+  private readonly auditRepository = new AuditRepository();
 
   // Track active LLM requests to prevent duplicates and monitor leaks
   private activeRequests = new Map<
@@ -567,6 +569,12 @@ export class AgentDiscussionService {
           },
         });
       }
+
+      this.auditLog('DISCUSSION_PARTICIPATED', {
+        agentId,
+        userId,
+        messageLength: message?.length || 0,
+      });
 
       return {
         response,
@@ -2338,5 +2346,16 @@ Reasoning: ${reasoning.join('; ')}`,
       timestamp: new Date().toISOString(),
       compliance: true,
     });
+    this.auditRepository
+      .createAuditEvent({
+        eventType: event,
+        action: event,
+        outcome: (data['outcome'] as string) ?? 'success',
+        actor_id: (data['agentId'] as string) ?? (data['userId'] as string),
+        entity_id: data['agentId'] as string,
+        entity_type: 'agent',
+        details: data,
+      })
+      .catch((err: unknown) => logger.error('Failed to write audit event', { err, event }));
   }
 }

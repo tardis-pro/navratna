@@ -7,6 +7,7 @@
 import { Agent, AgentState } from '@uaip/types';
 import { logger, InternalServerError, NotFoundError, ValidationError } from '@uaip/utils';
 import { PersonaService } from '@uaip/shared-services';
+import { AuditRepository } from '@uaip/shared-services/audit-repository';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { AgentIntelligenceStore } from './agent_intelligence_store.js';
@@ -71,6 +72,7 @@ export class AgentInitializationService {
   private serviceName: string;
   private securityLevel: number;
   private store: AgentIntelligenceStore;
+  private readonly auditRepository = new AuditRepository();
 
   constructor(config: AgentInitializationConfig) {
     this.databaseService = config.databaseService;
@@ -566,5 +568,16 @@ export class AgentInitializationService {
       timestamp: new Date().toISOString(),
       compliance: true,
     });
+    this.auditRepository
+      .createAuditEvent({
+        eventType: event,
+        action: event,
+        outcome: (data['outcome'] as string) ?? 'success',
+        actor_id: (data['agentId'] as string) ?? (data['userId'] as string),
+        entity_id: data['agentId'] as string,
+        entity_type: 'agent',
+        details: data,
+      })
+      .catch((err: unknown) => logger.error('Failed to write audit event', { err, event }));
   }
 }
