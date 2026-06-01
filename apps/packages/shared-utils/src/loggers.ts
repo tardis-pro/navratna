@@ -32,7 +32,7 @@ export const createLogger = (config: LoggerConfig) => {
   const developmentFormat = winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.colorize({ all: true }),
-    winston.format.printf((info) => {
+    winston.format.printf((info: winston.Logform.TransformableInfo) => {
       const { timestamp, level, message, ...meta } = info;
       const metaString = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : '';
       return `${timestamp} [${level}] [${config.serviceName}]: ${message}${metaString}`;
@@ -44,7 +44,7 @@ export const createLogger = (config: LoggerConfig) => {
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
     winston.format.json(),
-    winston.format.printf((info) => {
+    winston.format.printf((info: winston.Logform.TransformableInfo) => {
       const { timestamp, level, message, ...meta } = info;
       return JSON.stringify({
         timestamp,

@@ -47,7 +47,9 @@ export class RedisCacheService {
       await this.connectionPromise;
       return this.isConnected;
     } catch (error) {
-      logger.error('Failed to initialize Redis cache service', { error: error.message });
+      logger.error('Failed to initialize Redis cache service', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
@@ -118,7 +120,9 @@ export class RedisCacheService {
       logger.info('Redis cache service connection verified');
       return this.redis;
     } catch (error) {
-      logger.error('Redis cache service connection failed', { error: error.message });
+      logger.error('Redis cache service connection failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       await this.close();
       throw error;
     }
@@ -184,7 +188,10 @@ export class RedisCacheService {
         return null;
       }
     } catch (error) {
-      logger.error('Redis GET failed', { key, error: error.message });
+      logger.error('Redis GET failed', {
+        key,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return null;
     }
   }
@@ -197,7 +204,10 @@ export class RedisCacheService {
       await client.del(key);
       return true;
     } catch (error) {
-      logger.error('Redis DEL failed', { key, error: error.message });
+      logger.error('Redis DEL failed', {
+        key,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
@@ -210,7 +220,10 @@ export class RedisCacheService {
       const result = await client.exists(key);
       return result === 1;
     } catch (error) {
-      logger.error('Redis EXISTS failed', { key, error: error.message });
+      logger.error('Redis EXISTS failed', {
+        key,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
@@ -222,7 +235,10 @@ export class RedisCacheService {
 
       return await client.keys(pattern);
     } catch (error) {
-      logger.error('Redis KEYS failed', { pattern, error: error.message });
+      logger.error('Redis KEYS failed', {
+        pattern,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return [];
     }
   }
@@ -236,7 +252,9 @@ export class RedisCacheService {
       logger.info('Redis database flushed');
       return true;
     } catch (error) {
-      logger.error('Redis FLUSHDB failed', { error: error.message });
+      logger.error('Redis FLUSHDB failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }
@@ -250,7 +268,9 @@ export class RedisCacheService {
         await this.redis.quit();
         logger.info('Redis cache service connection closed gracefully');
       } catch (error) {
-        logger.warn('Error closing Redis cache service connection', { error: error.message });
+        logger.warn('Error closing Redis cache service connection', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
         this.redis.disconnect();
       }
       this.redis = null;
@@ -293,7 +313,7 @@ export class RedisCacheService {
         healthy: false,
         connected: false,
         responseTime: Date.now() - startTime,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
