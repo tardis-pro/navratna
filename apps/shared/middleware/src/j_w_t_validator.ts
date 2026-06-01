@@ -14,6 +14,7 @@ interface JWTPayload {
   userId: string;
   email: string;
   role: string;
+  orgId?: string;
   sessionId?: string;
   iat: number;
   exp: number;
@@ -80,6 +81,7 @@ export class JWTValidator {
       const userId = rawDecoded['userId'];
       const email = rawDecoded['email'];
       const role = rawDecoded['role'];
+      const orgId = rawDecoded['orgId'];
       const sessionId = rawDecoded['sessionId'];
 
       if (typeof userId !== 'string' || typeof email !== 'string' || typeof role !== 'string') {
@@ -90,6 +92,7 @@ export class JWTValidator {
         userId,
         email,
         role,
+        orgId: typeof orgId === 'string' ? orgId : undefined,
         sessionId: typeof sessionId === 'string' ? sessionId : undefined,
         iat: typeof rawDecoded.iat === 'number' ? rawDecoded.iat : 0,
         exp: typeof rawDecoded.exp === 'number' ? rawDecoded.exp : 0,
@@ -139,6 +142,7 @@ export class JWTValidator {
     const userId = josePayload['userId'];
     const email = josePayload['email'];
     const role = josePayload['role'];
+    const orgId = josePayload['orgId'];
     const sessionId = josePayload['sessionId'];
 
     if (typeof userId !== 'string' || typeof email !== 'string' || typeof role !== 'string') {
@@ -149,6 +153,7 @@ export class JWTValidator {
       userId,
       email,
       role,
+      orgId: typeof orgId === 'string' ? orgId : undefined,
       sessionId: typeof sessionId === 'string' ? sessionId : undefined,
       iat: typeof josePayload.iat === 'number' ? josePayload.iat : 0,
       exp: typeof josePayload.exp === 'number' ? josePayload.exp : 0,

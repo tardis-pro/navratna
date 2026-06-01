@@ -244,6 +244,8 @@ export function registerAuthRoutes() {
           userId: user.id,
           email: user.email,
           role: user.role,
+          // TODO(tenant): read organizationId from user row once UserService.findUserByEmail returns it
+          organizationId: (user as { organizationId?: string }).organizationId ?? '00000000-0000-0000-0000-000000000001',
         });
         await userService.createRefreshToken(
           user.id,
@@ -351,6 +353,8 @@ export function registerAuthRoutes() {
           userId: tokenData.user.id,
           email: tokenData.user.email,
           role: tokenData.user.role,
+          // TODO(tenant): read organizationId from user row once getRefreshTokenWithUser returns it
+          organizationId: (tokenData.user as { organizationId?: string }).organizationId ?? '00000000-0000-0000-0000-000000000001',
         });
   
         // Revoke old token and issue new one (prevents session fixation)

@@ -56,6 +56,7 @@ export interface UserContext {
   id: string;
   email: string;
   role: string;
+  organizationId: string;
   sessionId?: string;
   permissions?: string[];
   isAdmin?: boolean;
@@ -382,6 +383,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  organizationId: string;
   sessionId?: string;
   userType?: string;
   securityLevel?: number;

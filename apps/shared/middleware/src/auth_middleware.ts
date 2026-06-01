@@ -4,6 +4,8 @@ import { config } from '@uaip/config';
 import type { AuthContext, RequiredAuthContext, UserContext } from '@uaip/types';
 import { JWTValidator } from './j_w_t_validator.js';
 
+const ADMIN_ORG_ID = '00000000-0000-0000-0000-000000000001';
+
 export type { UserContext };
 
 // Context type for Elysia route handlers where withRequiredAuth has been applied
@@ -45,6 +47,7 @@ const createUserContext = (result: {
   userId?: string;
   email?: string;
   role?: string;
+  orgId?: string;
   sessionId?: string;
 }): UserContext | null => {
   if (!result.userId || !result.email || !result.role) {
@@ -55,6 +58,7 @@ const createUserContext = (result: {
     id: result.userId,
     email: result.email,
     role: result.role,
+    organizationId: result.orgId ?? ADMIN_ORG_ID,
     sessionId: result.sessionId,
   };
 };
@@ -179,6 +183,8 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
         id: userId,
         email: email || '',
         role: role || 'user',
+        // TODO(tenant): nginx does not forward orgId yet; default to admin org
+        organizationId: ADMIN_ORG_ID,
       },
     };
   });
@@ -365,6 +371,7 @@ export const validateJWTToken = async (
   userId?: string;
   email?: string;
   role?: string;
+  orgId?: string;
   username?: string;
   sessionId?: string;
   securityLevel?: number;
@@ -406,6 +413,7 @@ export const validateJWTToken = async (
         userId: decoded.userId,
         email: decoded.email,
         role: decoded.role,
+        orgId: decoded.orgId,
         username: decoded.email.split('@')[0],
         sessionId:
           decoded.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

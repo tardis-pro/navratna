@@ -16,6 +16,7 @@ export function generateAuthTokens(payload: TokenPayload): {
     userId: payload.userId,
     email: payload.email,
     role: payload.role,
+    orgId: payload.organizationId,
     sessionId: payload.sessionId,
   });
 

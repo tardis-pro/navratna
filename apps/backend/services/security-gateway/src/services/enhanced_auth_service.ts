@@ -712,6 +712,7 @@ export class EnhancedAuthService {
       sessionId: session.id,
       email: user.email,
       role: user.role,
+      organizationId: (user as { organizationId?: string }).organizationId ?? '00000000-0000-0000-0000-000000000001',
       userType: String(user.userType),
       securityLevel: typeof user.securityClearance === 'number' ? user.securityClearance : 0,
       agentCapabilities: Array.isArray(session.agentCapabilities) ? session.agentCapabilities.map(String) : [],
