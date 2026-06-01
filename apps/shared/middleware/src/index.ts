@@ -178,3 +178,6 @@ export { createTenantMiddlewarePlugin, withTenant } from './tenant_middleware.js
 
 // Elysia TypeBox schema helpers — re-exported so services don't need a direct elysia dep
 export { t } from 'elysia';
+
+// Security headers plugin — sets X-Content-Type-Options, X-Frame-Options, etc. on all responses
+export { securityHeadersPlugin } from './security_headers.js';
