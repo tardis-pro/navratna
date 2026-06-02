@@ -127,7 +127,8 @@ async function testLLMEventIntegration() {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
-  if (!responseReceived) {
+  const result = testResult as Record<string, unknown> | null;
+  if (!responseReceived || !result) {
     logger.error('Test failed: No response received within timeout');
     return {
       success: false,
@@ -138,16 +139,16 @@ async function testLLMEventIntegration() {
 
   const duration = Date.now() - start;
   logger.info('LLM event integration test completed', {
-    success: testResult?.success,
+    success: result.success,
     duration,
-    hasContent: !!testResult?.content,
-    confidence: testResult?.confidence,
+    hasContent: !!result.content,
+    confidence: result.confidence,
   });
 
   return {
-    ...testResult,
+    ...result,
     duration,
-    testSuccess: testResult?.success && !!testResult?.content,
+    testSuccess: !!result.success && !!result.content,
   };
 }
 

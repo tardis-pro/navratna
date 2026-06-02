@@ -85,6 +85,10 @@ export class WorkflowCompositionService {
 
     const db = getControlDb()
 
+    if (!definition.name) {
+      throw new Error('Workflow definition is missing a required name')
+    }
+
     const [record] = await db
       .insert(workflowCompositions)
       .values({
@@ -96,8 +100,8 @@ export class WorkflowCompositionService {
         definition: definition as unknown as Record<string, unknown>,
         composedBy: 'user',
         userId,
-        isActive: false, // Must be activated explicitly after validation
-        isPublic: definition.isPublic,
+        isActive: false,
+        isPublic: definition.isPublic ?? false,
       })
       .returning()
 
@@ -333,13 +337,12 @@ export class WorkflowCompositionService {
     const db = getControlDb()
     const definition = existing.definition as unknown as CompositionDefinition
     const domain = definition.category ?? 'general'
+    const steps = definition.steps ?? []
 
-    const workflowTools = definition.steps
-      .filter((s) => s.type === 'tool' && s.tool)
-      .map((s) => s.tool!)
+    const workflowTools = steps.flatMap((s) => (s.type === 'tool' && s.tool ? [s.tool] : []))
     const toolCount = new Set(workflowTools).size
     const policyEvaluation = this.policyService.evaluate(workflowTools, domain, {
-      records: definition.steps.length,
+      records: steps.length,
       emails: 0,
     })
     if (!policyEvaluation.allowed) {
@@ -426,7 +429,7 @@ export class WorkflowCompositionService {
       details: {
         instanceId: instance.id,
         triggerType,
-        stepsCount: definition.steps.length,
+        stepsCount: steps.length,
       },
     })
 

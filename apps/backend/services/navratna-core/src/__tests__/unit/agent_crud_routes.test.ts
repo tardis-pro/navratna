@@ -15,6 +15,7 @@ vi.mock('@uaip/middleware', () => {
 
 vi.mock('@uaip/utils', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
   NotFoundError: class NotFoundError extends Error {
     constructor(msg: string) { super(msg); this.name = 'NotFoundError'; }
   },
@@ -40,7 +41,7 @@ vi.mock('@uaip/shared-services/drizzle/intelligence', () => ({
   agents: { id: 'id', name: 'name', isActive: 'isActive', createdAt: 'createdAt' },
 }));
 
-import { registerAgentCrudRoutes } from '../../../../agent-intelligence/src/routes/agents_crud_routes.js';
+import { registerAgentCrudRoutes } from '@uaip/agent-intelligence-core';
 import { getIntelligenceDb } from '@uaip/shared-services/drizzle/clients';
 
 function buildApp(agentService: Record<string, unknown>) {

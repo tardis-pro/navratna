@@ -10,9 +10,9 @@ describe('navratna-core event subscription wiring', () => {
       publish: vi.fn(),
     }
 
-    const { discussionFeature } = await import(
-      '../../../../../../../apps/backend/services/discussion-orchestration/src/feature.js'
-    ).catch(() => ({ discussionFeature: null }))
+    const { discussionFeature } = await import('@uaip/discussion-core/feature').catch(() => ({
+      discussionFeature: null,
+    }))
 
     if (!discussionFeature) {
       expect(true).toBe(true)

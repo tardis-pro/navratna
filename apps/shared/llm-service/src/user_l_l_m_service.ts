@@ -834,7 +834,7 @@ export class UserLLMService {
   /**
    * Get provider configuration safely
    */
-  private getProviderConfig(userProvider: UserLLMProvider): LLMProviderConfig {
+  getProviderConfig(userProvider: UserLLMProvider): LLMProviderConfig {
     const getDefaultBaseUrl = (type: UserLLMProviderType): string => {
       switch (type) {
         case 'openai':

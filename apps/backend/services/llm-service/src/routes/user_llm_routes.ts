@@ -99,7 +99,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS CreateUserLLMProviderRequest at runtime
           const requestBody: CreateUserLLMProviderRequest = body;
           const {
             name,
@@ -206,7 +205,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           if (authError) return authError;
 
           const { providerId } = params;
-          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS UpdateApiKeyRequest at runtime
           const requestBody: UpdateApiKeyRequest = body;
           const { apiKey } = requestBody;
 
@@ -302,7 +300,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS UserLLMGenerateRequest at runtime
           const requestBody: UserLLMGenerateRequest = body;
           const { prompt, systemPrompt, maxTokens, temperature, model } = requestBody || {};
 
@@ -340,7 +337,6 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
 
-          // @ts-expect-error -- Elysia validates body via TypeBox schema; body IS AgentResponseRequest at runtime
           const request: AgentResponseRequest = body;
           const { agent, messages, context, tools } = request || {};
 
@@ -444,6 +440,13 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
               return {
                 success: false,
                 error: `Provider type ${provider.type} is not supported for capability detection`,
+              };
+            }
+
+            if (!provider.defaultModel) {
+              return {
+                success: false,
+                error: 'Provider has no default model configured for capability detection',
               };
             }
 

@@ -417,9 +417,15 @@ importers:
       '@tobilu/qmd':
         specifier: ^2.1.0
         version: 2.1.0(typescript@6.0.2)
+      '@uaip/agent-intelligence-core':
+        specifier: workspace:*
+        version: link:../../../shared/agent-intelligence
       '@uaip/config':
         specifier: workspace:*
         version: link:../../../shared/config
+      '@uaip/discussion-core':
+        specifier: workspace:*
+        version: link:../../../shared/discussion
       '@uaip/infra':
         specifier: workspace:*
         version: link:../../../shared/infra
@@ -751,6 +757,9 @@ importers:
       '@uaip/config':
         specifier: workspace:*
         version: link:../../../shared/config
+      '@uaip/discussion-core':
+        specifier: workspace:*
+        version: link:../../../shared/discussion
       '@uaip/infra':
         specifier: workspace:*
         version: link:../../../shared/infra
@@ -894,9 +903,15 @@ importers:
       '@socket.io/bun-engine':
         specifier: ^0.0.2
         version: 0.0.2(typescript@6.0.2)
+      '@uaip/agent-intelligence-core':
+        specifier: workspace:*
+        version: link:../../../shared/agent-intelligence
       '@uaip/config':
         specifier: workspace:*
         version: link:../../../shared/config
+      '@uaip/discussion-core':
+        specifier: workspace:*
+        version: link:../../../shared/discussion
       '@uaip/infra':
         specifier: workspace:*
         version: link:../../../shared/infra

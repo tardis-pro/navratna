@@ -151,7 +151,7 @@ export function registerLLMRoutes(
 
         // Generate LLM response
         .post('/generate', async ({ body }) => {
-          const payload = isRecord(body) ? body : {};
+          const payload: Record<string, unknown> = isRecord(body) ? body : {};
           const prompt = payload['prompt'];
           const systemPrompt = payload['systemPrompt'];
           const maxTokens = payload['maxTokens'];
@@ -519,11 +519,11 @@ export function registerLLMRoutes(
               throw new ValidationError('No active LLM providers configured for user');
             }
 
-            const providerConfig = userProvider.getProviderConfig();
-            if (providerConfig.type === 'google') {
+            if (userProvider.type === 'google') {
               throw new ValidationError('Google providers are not supported for streaming');
             }
 
+            const providerConfig = userLLMService.getProviderConfig(userProvider);
             const streamingProviderId = userProvider.id;
             const streamingConfig = {
               ...providerConfig,

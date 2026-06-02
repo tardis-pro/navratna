@@ -281,9 +281,7 @@ export class AgentWorkflowComposer {
   ): Partial<CompositionDefinition> {
     logger.info('[AgentWorkflowComposer] Phase 3: Applying policies', { domain });
 
-    const toolNames = (definition.steps ?? [])
-      .filter((s) => s.tool)
-      .map((s) => s.tool!);
+    const toolNames = (definition.steps ?? []).flatMap((s) => (s.tool ? [s.tool] : []));
 
     const evaluation = this.policyService.evaluate(toolNames, domain);
 
@@ -481,8 +479,9 @@ ${intent}
     allSteps: CompositionWorkflowStep[],
     toolSchema: Record<string, unknown>
   ): string {
+    const deps = step.dependsOn ?? [];
     const priorSteps = allSteps
-      .filter((s) => step.dependsOn.includes(s.id))
+      .filter((s) => s.id !== undefined && deps.includes(s.id))
       .map((s) => ({ id: s.id, name: s.name, tool: s.tool, output: s.output }));
 
     return `You are resolving input bindings for a workflow step.
@@ -578,8 +577,10 @@ Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
       return null;
     }
 
+    const dependsOn = step.dependsOn ?? [];
+
     // If no dependencies, all inputs must come from trigger
-    if (step.dependsOn.length === 0) {
+    if (dependsOn.length === 0) {
       const bindings: Record<string, InputBinding> = {};
       for (const key of Object.keys(properties)) {
         bindings[key] = { ref: 'trigger', path: key };
@@ -588,8 +589,8 @@ Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
     }
 
     // If single dependency and schema keys match output paths, bind deterministically
-    if (step.dependsOn.length === 1) {
-      const depId = step.dependsOn[0];
+    if (dependsOn.length === 1) {
+      const depId = dependsOn[0];
       const bindings: Record<string, InputBinding> = {};
       for (const key of Object.keys(properties)) {
         bindings[key] = { ref: 'step', stepId: depId, path: `result.${key}` };
@@ -602,7 +603,11 @@ Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
   }
 
   private validateDAGStructure(steps: CompositionWorkflowStep[]): void {
-    const ids = new Set(steps.map((s) => s.id));
+    const ids = new Set<string>();
+    for (const step of steps) {
+      if (!step.id) throw new Error('Workflow step is missing an id');
+      ids.add(step.id);
+    }
 
     // Check for duplicate IDs
     if (ids.size !== steps.length) {
@@ -611,7 +616,7 @@ Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
 
     // Check dependency references
     for (const step of steps) {
-      for (const dep of step.dependsOn) {
+      for (const dep of (step.dependsOn ?? [])) {
         if (!ids.has(dep)) {
           throw new Error(`Step "${step.id}" depends on non-existent step "${dep}"`);
         }
@@ -623,10 +628,12 @@ Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
     const visiting = new Set<string>();
     const adj = new Map<string, string[]>();
     for (const step of steps) {
+      if (!step.id) throw new Error('Workflow step is missing an id');
       adj.set(step.id, []);
     }
     for (const step of steps) {
-      for (const dep of step.dependsOn) {
+      if (!step.id) throw new Error('Workflow step is missing an id');
+      for (const dep of (step.dependsOn ?? [])) {
         adj.get(dep)?.push(step.id);
       }
     }
@@ -644,13 +651,14 @@ Return ONLY valid JSON. No wrapper text, no markdown, no explanation.`;
     };
 
     for (const step of steps) {
+      if (!step.id) throw new Error('Workflow step is missing an id');
       if (!visited.has(step.id) && hasCycle(step.id)) {
         throw new Error('DAG contains a cycle');
       }
     }
 
     // Must have at least one root node
-    const hasRoot = steps.some((s) => s.dependsOn.length === 0);
+    const hasRoot = steps.some((s) => (s.dependsOn ?? []).length === 0);
     if (!hasRoot) {
       throw new Error('DAG has no root node (every step has dependencies)');
     }

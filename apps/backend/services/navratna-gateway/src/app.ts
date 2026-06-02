@@ -17,6 +17,8 @@ import { registerProjectRoutes as registerSecurityProjectRoutes } from '../../se
 import { registerProjectRoutes as registerOrchestrationProjectRoutes } from '../../orchestration-pipeline/src/routes/project_routes.js'
 import { registerTaskRoutes } from '../../orchestration-pipeline/src/routes/task_routes.js'
 import { registerWorkflowRoutes } from '../../orchestration-pipeline/src/routes/workflow_routes.js'
+import type { TaskController } from '../../orchestration-pipeline/src/controllers/task_controller.js'
+import type { WorkflowEngineService } from '../../orchestration-pipeline/src/services/workflow_engine_service.js'
 import { registerCapabilityRoutes } from '../../capability-registry/src/routes/capability_routes.js'
 import { registerMCPRoutes } from '../../capability-registry/src/routes/mcp_routes.js'
 import { registerHealthRoutes } from '../../capability-registry/src/routes/health_routes.js'
@@ -33,6 +35,8 @@ type GatewayHealthResponse = {
   service: string
   features: string[]
 }
+
+const typeExportStub = null as unknown
 
 export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .get('/health', (): GatewayHealthResponse => ({ status: 'ok', service: 'navratna-gateway', features: [] }))
@@ -52,8 +56,8 @@ export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .use(registerSecurityProjectRoutes())
   .use(registerOrchestrationProjectRoutes())
   // Services are null here; app.ts is a type-export stub — services are initialized at runtime in index.ts
-  .use(registerTaskRoutes(null))
-  .use(registerWorkflowRoutes(null))
+  .use(registerTaskRoutes(typeExportStub as TaskController))
+  .use(registerWorkflowRoutes(typeExportStub as WorkflowEngineService))
   .use(registerCapabilityRoutes())
   .use(registerMCPRoutes())
   .use(registerHealthRoutes())

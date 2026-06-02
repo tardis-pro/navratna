@@ -29,7 +29,9 @@
   },
   "dependencies": {
     "@socket.io/bun-engine": "^0.0.2",
+    "@uaip/agent-intelligence-core": "workspace:*",
     "@uaip/config": "workspace:*",
+    "@uaip/discussion-core": "workspace:*",
     "@uaip/infra": "workspace:*",
     "@uaip/llm-service": "workspace:*",
     "@uaip/oie": "workspace:*",

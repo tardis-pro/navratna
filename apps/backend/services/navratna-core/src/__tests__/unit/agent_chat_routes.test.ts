@@ -15,6 +15,7 @@ vi.mock('@uaip/middleware', () => {
 
 vi.mock('@uaip/utils', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
   NotFoundError: class NotFoundError extends Error {
     constructor(msg: string) { super(msg); this.name = 'NotFoundError'; }
   },
@@ -31,7 +32,7 @@ vi.mock('@uaip/types', () => ({
   SourceType: { GIT_REPOSITORY: 'git_repository', FILE_SYSTEM: 'file_system' },
 }));
 
-import { registerAgentChatRoutes } from '../../../../agent-intelligence/src/routes/agent_chat_routes.js';
+import { registerAgentChatRoutes } from '@uaip/agent-intelligence-core';
 
 function authHeader() {
   return { Authorization: 'Bearer test-token' };
