@@ -1,8 +1,8 @@
 # Navratna — Sovereign Cognitive Shell
 
 **Version**: 3.1 — Sovereign Shell Evolution + Platform Expansion Vision
-**Status**: Backend 90% Complete | Telescope Phase 1 BUILT | v3.0 Transition Active
-**Last Updated**: 2026-03-21
+**Status**: Backend Complete | Telescope Phase 1 BUILT | v3.0 Consolidation Active (2 services) | Strict TypeScript across all packages
+**Last Updated**: 2026-06-01
 
 ## Overview
 
@@ -25,20 +25,20 @@ Three convergent products:
 
 ## System Architecture
 
-### Backend Services (7 → consolidating to 2)
+### Backend Services (v3.0 consolidation)
 
-| Service                  | Port       | Status     |
-| ------------------------ | ---------- | ---------- |
-| Agent Intelligence       | 3001       | Production |
-| Orchestration Pipeline   | 3002       | Production |
-| Capability Registry      | 3003       | Production |
-| Security Gateway         | 3004       | Production |
-| Discussion Orchestration | 3005       | Production |
-| LLM Service              | (via 3001) | Production |
-| Artifact Service         | (via 3002) | Production |
-| API Gateway (nginx)      | 8081       | Production |
+Two consolidated Bun/Elysia services are the primary runtime (~95–97% route parity with the legacy set). The legacy service directories are now **thin runners** that re-export from canonical shared packages (`@uaip/shared-services`, `@uaip/agent-intelligence-core`, `@uaip/discussion-core`) — single source of truth, no duplicated domain code.
 
-**v3.0 consolidation target**: 2 services (navratna-core + navratna-gateway)
+| Service              | Port | Status       | Consolidates                                                    |
+| -------------------- | ---- | ------------ | --------------------------------------------------------------- |
+| **navratna-core**    | 3001 | ⚡ v3 active | agent-intelligence + discussion-orchestration + artifact + llm  |
+| **navratna-gateway** | 3002 | ⚡ v3 active | security-gateway + orchestration-pipeline + capability-registry |
+| QuestionForge        | 3010 | product      | Stakeholder discovery council                                   |
+| BaseBench-Meta       | 3009 | product      | Metacognitive reliability benchmark                             |
+| OIE                  | —    | library      | Operational Intelligence Engine (BullMQ pipeline, Feature-mounted) |
+| API Gateway (nginx)  | 8081 | active       | Reverse proxy, JWT auth validation, CORS, rate limiting         |
+
+**Build system**: NX + pnpm workspaces. Every package compiles under TypeScript `strict: true` via per-package `tsconfig.build.json` composite project references. No Express (Elysia), no TypeORM (Drizzle + pg Pool), no RabbitMQ (BullMQ on Redis).
 
 ### Infrastructure
 
@@ -110,7 +110,7 @@ pnpm install
 pnpm dev
 
 # Or start infrastructure only (databases + observability)
-docker-compose up -d postgres neo4j redis qdrant
+docker compose -f infrastructure/docker-compose.infrastructure.yml up -d
 
 # Access
 # Frontend: http://localhost:5173
@@ -118,25 +118,23 @@ docker-compose up -d postgres neo4j redis qdrant
 # API Docs: http://localhost:8081/docs
 ```
 
-## Current State (2026-03-21)
+## Current State (2026-06-01)
 
 ### Completed
 
-- 7 production microservices (consolidating to 2)
-- 57 database entities, 17 migrations
+- **v3.0 service consolidation** — domain logic runs in navratna-core + navratna-gateway; legacy services reduced to thin runners re-exporting shared packages (duplicate domain code removed)
+- **Strict TypeScript across all packages** — every package compiles under `strict: true` with composite `tsconfig.build.json` project references; zero `as any` / `@ts-ignore` suppressions in source
+- **Single source of truth** — canonical domain layer in `@uaip/shared-services` + `@uaip/agent-intelligence-core` + `@uaip/discussion-core`
 - Triple-store knowledge graph with UUID-consistent sync
 - 14 agent personas seeded from OpenClaw
 - Telescope Phase 1 components (1,859 lines)
-- 132 passing middleware tests
 - Full MCP protocol support
-- 685-line agent learning service with 3-tier memory
+- Agent learning service with 3-tier memory
 - 4 OAuth adapters (Jira/Confluence/GitHub/Slack)
-- 20 active users
 
-### In Progress (Sprint 1: 2026-03-24 → 2026-04-04)
+### In Progress
 
 - Multi-machine topology (Tailscale mesh)
-- Service consolidation (7 → 2)
 - OpenShell sandboxed execution
 - Database init scripts
 
