@@ -38,7 +38,7 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "elysia": "catalog:backend",
-    "axios": "^1.7.7",
+    "axios": "catalog:backend",
     "base64url": "^3.0.1",
     "bcrypt": "catalog:backend",
     "bcryptjs": "^3.0.2",

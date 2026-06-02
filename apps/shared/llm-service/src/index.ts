@@ -4,6 +4,7 @@ import { LLMService } from './l_l_m_service.js';
 export { LLMService, llmService } from './l_l_m_service.js';
 export { UserLLMService } from './user_l_l_m_service.js';
 export { ModelBootstrapService } from './services/model_bootstrap_service.js';
+export type { CachedModelEntry } from './services/model_bootstrap_service.js';
 export { ApiKeyDecryptionService } from './services/api_key_decryption_service.js';
 
 // Interface exports

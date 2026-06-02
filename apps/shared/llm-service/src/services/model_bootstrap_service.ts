@@ -10,7 +10,7 @@ interface BootstrapStatus {
   status: 'completed';
 }
 
-interface CachedModelEntry {
+export interface CachedModelEntry {
   id: string;
   name: string;
   description?: string;
