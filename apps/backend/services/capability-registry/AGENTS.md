@@ -10,11 +10,13 @@ Tool/capability execution backbone. Tool registry, MCP protocol (client + server
 src/
 ├── index.ts                     # CapabilityRegistryService extends BaseService
 ├── routes/
-│   ├── toolRoutes.ts            # Tool CRUD + execute + search + recommendations
-│   ├── mcpRoutes.ts             # MCP server management + tool discovery + streaming
-│   ├── capabilityRoutes.ts      # Capability CRUD
-│   ├── workspaceRoutes.ts       # Workspace/coding agent
-│   └── healthRoutes.ts          # Detailed health: Neo4j/MCP/OAuth/cache/sandbox metrics
+│   ├── tool_routes.ts           # Tool CRUD + execute + search + recommendations
+│   ├── mcp_routes.ts            # MCP server management + tool discovery + streaming
+│   ├── capability_routes.ts     # Capability CRUD
+│   ├── workspace_routes.ts      # Workspace/coding agent
+│   ├── canva_routes.ts          # Canva OAuth + 4 MCP tools under /api/v1/canva (PM-22)
+│   ├── federation_routes.ts     # Federation with remote registries
+│   └── health_routes.ts         # Detailed health: Neo4j/MCP/OAuth/cache/sandbox metrics
 ├── services/                    # 28 service files
 │   ├── mcpClientService.ts      # MCP protocol client (2200+ lines)
 │   ├── toolRegistryService.ts   # Core tool registry
@@ -23,7 +25,8 @@ src/
 │   ├── oauthCapabilityDiscovery.ts  # Discover tools from Jira/GitHub/Slack/Confluence
 │   ├── skillImportService.ts    # Seeds OpenClaw skills as capabilities on boot
 │   └── integrationService.ts   # 5-second PG↔Neo4j↔Qdrant sync
-├── adapters/                    # Enterprise tool adapters (Jira, Confluence, Slack)
+├── adapters/                    # Enterprise tool adapters (Jira, Confluence, Slack, Canva, Notion, Framer)
+│   └── canva_adapter.ts         # PM-22: Canva OAuth 2.0 + 4 MCP tools (create-design, list-templates, export-design, update-brand-kit)
 ├── skills/                      # OpenClaw skill definitions
 └── __tests__/
     └── e2e/approval-flow.e2e.test.ts
@@ -41,6 +44,8 @@ src/
 | GET                 | `/api/v1/mcp/tools`             | Tool discovery via MCP                               |
 | GET/POST            | `/api/v1/capabilities`          | Capability CRUD                                      |
 | GET/POST            | `/api/v1/workspace`             | Workspace/coding agent execution                     |
+| GET/POST            | `/api/v1/canva/oauth/*`         | Canva OAuth 2.0 authorize + callback (PM-22)         |
+| GET/POST            | `/api/v1/canva/tools/*`         | 4 Canva MCP tools (create-design, list-templates, export-design, update-brand-kit); auth via `X-Canva-Access-Token` |
 | GET                 | `/health`                       | Detailed: DB + Neo4j + MCP + OAuth + cache + sandbox |
 
 ## KEY PATTERNS
@@ -61,7 +66,9 @@ PostgreSQL ↔ Neo4j ↔ Qdrant (UUID-consistent sync)
 
 **Tool cache** — Redis L1 + in-memory L2; invalidated on tool mutations.
 
-**OAuth capability discovery** — connects to Jira/GitHub/Slack/Confluence APIs and exposes their tools as registered capabilities.
+**OAuth capability discovery** — connects to Jira/GitHub/Slack/Confluence/Canva APIs and exposes their tools as registered capabilities.
+
+**Canva adapter (PM-22)** — `adapters/canva_adapter.ts` extends `BaseOAuthAdapter`. Exposes 4 MCP tool definitions (`canva_create_design`, `canva_list_templates`, `canva_export_design`, `canva_update_brand_kit`). Runtime auth via `X-Canva-Access-Token` request header on tool endpoints. Deployment gated on Canva Developer app approval — see `docs/integrations/canva-setup.md`.
 
 ## CONFIG
 

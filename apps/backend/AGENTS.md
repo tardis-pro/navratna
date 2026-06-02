@@ -1,6 +1,6 @@
 # apps/backend — Backend Workspace Root
 
-**Services**: 12 microservices in `services/` | **v3 Active**: navratna-core (3001), navratna-gateway (3002)
+**Services**: 13 microservices in `services/` | **v3 Active**: navratna-core (3001), navratna-gateway (3002)
 
 Backend workspace root. Contains shared backend config (tsconfig, esbuild, docker), API testing tools, and service orchestration. Individual service AGENTS.md files live in `services/<name>/`.
 
@@ -10,7 +10,7 @@ Backend workspace root. Contains shared backend config (tsconfig, esbuild, docke
 
 ```
 apps/backend/
-├── services/                    # All 12 microservices (see SERVICE MAP below)
+├── services/                    # All 13 microservices (see SERVICE MAP below)
 ├── docker/                      # Per-service Dockerfile templates
 ├── docker/                      # Per-service Dockerfile templates (docker-compose files moved to infrastructure/ at repo root)
 ├── esbuild.config.js            # Shared esbuild config for non-Bun builds
@@ -42,6 +42,7 @@ apps/backend/
 | marketplace-service      | 3008 | ⚠️ removal   | (skip — do not add features)                     |
 | questionforge            | 3010 | 🆕 product   | [→](services/questionforge/AGENTS.md)            |
 | basebench-meta           | 3009 | 🆕 product   | [→](services/basebench-meta/AGENTS.md)           |
+| **oie**                  | —    | 🆕 library   | [→](services/oie/AGENTS.md) — BullMQ pipeline, no HTTP port, mounted as Feature into navratna-core/gateway |
 
 ## TOOLING
 

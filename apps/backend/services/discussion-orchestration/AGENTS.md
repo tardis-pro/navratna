@@ -16,7 +16,11 @@ src/
 │   ├── discussionOrchestrationService.ts  # Core orchestration (2700+ lines)
 │   ├── turnStrategyService.ts   # Round-robin, priority, expertise-based turns
 │   ├── socialSimulation.ts      # Agent social simulation
+│   ├── event_driven_discussion_service.ts  # @deprecated PM-324 — RPC/publishAndWait pattern replaced by Elysia HTTP routes
 │   └── [others]
+├── routes/                      # Elysia HTTP routes
+│   ├── discussion_routes.ts     # Discussion CRUD + messaging (PM-324: formerly RPC)
+│   └── persona_routes.ts        # Persona CRUD
 ├── strategies/                  # Turn strategy implementations
 ├── websocket/                   # Socket.IO namespace config
 ├── whatsapp/                    # Baileys WhatsApp integration
@@ -91,4 +95,5 @@ pnpm --filter @uaip/discussion-orchestration test   # 70% coverage, 15s timeout
 - `enableEnterpriseEventBus: true` — compliance mode events via BullMQ (RabbitMQ removed)
 - `SERVICE_ACCESS_MATRIX` validates enterprise database access patterns
 - WhatsApp: `baileys` lib; QR pairing on first connect; session persisted to Redis
+- **PM-324**: `EventDrivenDiscussionService` (RPC/publishAndWait pattern) is `@deprecated` — all discussion operations now served as direct Elysia HTTP routes in `routes/discussion_routes.ts`. Do not instantiate for new features.
 - v3.0 target: Socket.IO setup + route handlers imported by `navratna-core`

@@ -16,15 +16,16 @@ src/
 │   ├── ArtifactFactory.ts       # Orchestrates all generators
 │   └── [supporting services]
 ├── generators/
-│   ├── CodeGenerator.ts         # Code artifact generation
-│   ├── TestGenerator.ts         # Test suite generation
-│   ├── PRDGenerator.ts          # Product Requirements Doc generation
-│   └── DocumentationGenerator.ts
+│   ├── code_generator.ts        # Code — generateFunction(signature, desc, lang) (PM-228) via LLM + TemplateManager
+│   ├── test_generator.ts        # Tests — generateUnitTest(), generateMock() (PM-230/231)
+│   ├── p_r_d_generator.ts       # Product Requirements Doc generation
+│   └── documentation_generator.ts
 ├── analysis/
 │   └── ConversationAnalyzer.ts  # Extracts decisions/action items/artifacts from transcripts
 ├── security/
 │   └── SecurityManager.ts       # Scans generated artifacts for vulnerabilities
-├── templates/                   # Artifact output templates
+├── templates/
+│   └── template_manager.ts      # TemplateManager (PM-232) — loadTemplate(), substituteVariables(), validateOutput()
 ├── validation/                  # Zod validation schemas
 ├── interfaces/                  # TypeScript interfaces for generators
 └── types/                       # Local type definitions
@@ -55,8 +56,8 @@ Auto-generation flow: `discussion.completed` event → `ConversationAnalyzer` ex
 
 All services use Drizzle ORM (TypeORM removed). Schema files in `@uaip/shared-services/src/database/drizzle/schemas/`:
 
-- `control.schema.ts` — operational tables
-- `intelligence.schema.ts` — knowledge/agent tables
+- `control_schema.ts` — operational tables
+- `intelligence_schema.ts` — knowledge/agent tables
 
 ```typescript
 import { drizzleService } from '@uaip/shared-services';
@@ -65,7 +66,11 @@ const db = drizzleService.getDb();
 
 ## GENERATORS
 
-Each generator receives `ArtifactContext` (conversation messages, decisions, participants) and returns structured artifacts. Templates in `src/templates/` control output format.
+Each generator receives `ArtifactContext` (conversation messages, decisions, participants) and returns structured artifacts. Templates in `src/templates/` control output format via `TemplateManager`.
+
+`TemplateManager` (`src/templates/template_manager.ts`, PM-232) — `loadTemplate(id)`, `substituteVariables(template, vars)`, `validateOutput(content, type)`. Used by `CodeGenerator` to apply language/framework-specific templates before LLM generation.
+
+`CodeGenerator.generateFunction(signature, desc, lang)` (PM-228) and `TestGenerator.generateUnitTest() / generateMock()` (PM-230/231) are the primary programmatic entrypoints for single-artifact generation — distinct from the event-triggered batch flow.
 
 After generation, `SecurityManager` scans for: hardcoded secrets, SQL injection patterns, XSS vectors, insecure dependencies in generated code.
 

@@ -30,6 +30,8 @@ src/
 ├── collaboration/              # CollaborationService
 ├── conversation/               # ConversationService
 ├── capabilities/               # CapabilityDiscoveryService
+├── composition/                # Composition-layer services
+│   └── immutable_audit_service.ts  # ImmutableAuditService — append-only hash-chained audit log; pg_advisory_xact_lock race fix (PM-323)
 ├── database/
 │   ├── base/                   # Base repository classes
 │   ├── repositories/           # 100+ TypeORM repository files
@@ -116,10 +118,10 @@ await CrossPlaneGuard.verify(pool, 'operations', agentId, 'Agent');
 
 Schema files (all schema changes go here):
 
-- `src/database/drizzle/schemas/intelligence.schema.ts` — PC-A (navratna-core domain)
-- `src/database/drizzle/schemas/control.schema.ts` — PC-B (navratna-gateway domain)
+- `src/database/drizzle/schemas/intelligence_schema.ts` — PC-A (navratna-core domain)
+- `src/database/drizzle/schemas/control_schema.ts` — PC-B (navratna-gateway domain)
 
-Migrations: `pnpm --filter @uaip/shared-services drizzle:generate` → `src/database/drizzle/migrations/`
+Migrations: `pnpm --filter @uaip/shared-services drizzle:generate` / `drizzle:push` → `src/database/drizzle/migrations/`. Baseline `0000_odd_tyrannus.sql` exists (PM-244); Drizzle migrate is canonical (PM-246), legacy SQL scripts 008/009 are superseded.
 
 ## CONVENTIONS
 

@@ -16,7 +16,7 @@ navratna/
 ├── apps/
 │   ├── frontend/                  # @council/frontend — React 19 + Vite SPA (port 5173)
 │   ├── backend/                   # Backend workspace root
-│   │   └── services/              # 12 microservices (v2 legacy + v3 consolidated)
+│   │   └── services/              # 13 microservices (v2 legacy + v3 consolidated + oie library)
 │   ├── packages/
 │   │   ├── shared-types/          # @uaip/types — all TS types/enums/interfaces
 │   │   ├── shared-utils/          # @uaip/utils — logger (Winston), utilities
@@ -60,14 +60,15 @@ navratna/
 | **navratna-gateway**     | `@uaip/navratna-gateway`         | 3002 | ⚡ v3 active | Consolidates: security-gateway + orchestration-pipeline + capability-registry                |
 | agent-intelligence       | `@uaip/agent-intelligence`       | 3001 | 🔄 legacy    | Agents, personas, memory, LLM chat, discussions                                              |
 | security-gateway         | `@uaip/security-gateway`         | 3004 | 🔄 legacy    | Auth, JWT, MFA, OAuth (Jira/GitHub/Slack/Confluence), approvals                              |
-| capability-registry      | `@uaip/capability-registry`      | 3003 | 🔄 legacy    | Tool registry, MCP protocol, sandbox execution, Neo4j sync                                   |
+| capability-registry      | `@uaip/capability-registry`      | 3003 | 🔄 legacy    | Tool registry, MCP protocol, sandbox execution, Neo4j sync, Canva integration (PM-22)        |
 | orchestration-pipeline   | `@uaip/orchestration-pipeline`   | 3002 | 🔄 legacy    | Workflow engine, tasks, projects, saga compensation                                          |
-| discussion-orchestration | `@uaip/discussion-orchestration` | 3005 | 🔄 legacy    | Socket.IO discussions, turn strategies, WhatsApp                                             |
+| discussion-orchestration | `@uaip/discussion-orchestration` | 3005 | 🔄 legacy    | Socket.IO discussions, Elysia HTTP discussion/persona routes (PM-324), turn strategies, WhatsApp |
 | artifact-service         | `@uaip/artifact-service`         | 3006 | 🔄 legacy    | AI-powered code/PRD/doc generation, Drizzle ORM                                              |
 | llm-service              | `@uaip/llm-service-api`          | 3007 | 🔄 legacy    | LLM provider routing, model catalog bootstrap                                                |
 | marketplace-service      | `@uaip/marketplace-service`      | 3008 | ⚠️ removal   | Agent/persona marketplace                                                                    |
 | questionforge            | `@uaip/questionforge`            | 3010 | 🆕 product   | Stakeholder discovery council                                                                |
 | basebench-meta           | `@uaip/basebench-meta`           | 3009 | 🆕 product   | Metacognitive reliability benchmark                                                          |
+| oie                      | `@uaip/oie`                      | —    | 🆕 library   | Operational Intelligence Engine — BullMQ pipeline (collector→triage→analyst→fix→verify→learn); Feature-mounted into navratna-core/gateway, no standalone port |
 
 ## COMMANDS
 
@@ -191,11 +192,11 @@ function createAgent(params: { name: string; personaId: string; config: AgentCon
 ## TESTING
 
 - **Framework**: **Vitest** (backend + frontend). `vitest.config.ts` is the active runner everywhere — no jest configs exist anywhere in the codebase.
-- **Coverage thresholds**: middleware 80%, security-gateway/discussion-orchestration 70%, orchestration-pipeline 75%; capability-registry and shared-services have no thresholds
+- **Coverage thresholds**: middleware 80%, security-gateway/discussion-orchestration/navratna-core/navratna-gateway 70%, orchestration-pipeline 75%; capability-registry and shared-services have no thresholds
 - **File convention**: `src/__tests__/unit/*.test.ts`, `src/__tests__/integration/*.test.ts`
 - **Shared test utilities**: `apps/shared/services/src/__tests__/helpers/testUtils.ts` (TestUtils: mock repos, pool, DB, eventBus, logger, UUID helpers) and `mocks/serviceMocks.ts` (ServiceMockFactory, 12 mock factories)
 - **Setup files**: `src/__tests__/setup.ts` — `afterEach(() => vi.clearAllMocks())`, sets `NODE_ENV=test`, suppresses SIGTERM handlers; security-gateway setup also adds `toBeOneOf()` custom matcher + `createMockRequest/Response/Next`
-- **No tests**: navratna-core, navratna-gateway, questionforge, artifact-service, llm-service have no `vitest.config.ts`; basebench-meta uses `tsx --test` (Node.js built-in runner)
+- **No tests**: questionforge, artifact-service, llm-service, oie have no `vitest.config.ts`; basebench-meta uses `tsx --test` (Node.js built-in runner). navratna-core/gateway were added in PM-208/209.
 - **Integration tests**: require Docker — run `docker-compose -f infrastructure/docker-compose.test.yml up -d` first; offset ports postgres→5433, redis→6380; rabbitmq:5673 in compose file is stale (RabbitMQ removed from prod)
 - **Per-service test run**: `pnpm --filter @uaip/<name> test`
 
@@ -213,15 +214,15 @@ function createAgent(params: { name: string; personaId: string; config: AgentCon
 
 | Plane                   | File                     | Owned by         | Tables                                                                                                                |
 | ----------------------- | ------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Intelligence** (PC-A) | `intelligence.schema.ts` | navratna-core    | agents, personas, discussions, messages, knowledge_items, artifacts, llm_providers, llm_models, short_links           |
-| **Control** (PC-B)      | `control.schema.ts`      | navratna-gateway | users, sessions, tokens, mfa, oauth, tools, mcp_servers, operations, tasks, projects, security_policies, audit_events |
+| **Intelligence** (PC-A) | `intelligence_schema.ts` | navratna-core    | agents, personas, discussions, messages, knowledge_items, artifacts, llm_providers, llm_models, short_links           |
+| **Control** (PC-B)      | `control_schema.ts`      | navratna-gateway | users, sessions, tokens, mfa, oauth, tools, mcp_servers, operations, tasks, projects, security_policies, audit_events |
 
 **Cross-plane constraint**: No DB-level FKs between planes. Use `CrossPlaneGuard.verify(pool, table, id, entityName)` before any cross-plane write.
 
 ```typescript
 import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-services';
-// Schema changes → apps/shared/services/src/database/drizzle/schemas/{intelligence,control}.schema.ts
-// Migrations: pnpm --filter @uaip/shared-services drizzle:generate  (no migration files exist yet)
+// Schema changes → apps/shared/services/src/database/drizzle/schemas/{intelligence,control}_schema.ts
+// Migrations: pnpm --filter @uaip/shared-services drizzle:generate (new) / drizzle:push (dev sync). Baseline migration 0000_odd_tyrannus.sql exists (PM-244). Canonical path is Drizzle migrate; legacy SQL scripts 008/009 are superseded (PM-246).
 ```
 
 ## INFRASTRUCTURE
@@ -248,11 +249,13 @@ import { getIntelligenceDb, getControlDb, CrossPlaneGuard } from '@uaip/shared-s
 - **ORM**: Drizzle (not TypeORM). `src/entities/` files are thin re-export shims — never add TypeORM decorators there.
 - **Event bus**: BullMQ on Redis only — RabbitMQ has been removed. `run-integration-tests.sh` script is stale (still references rabbitmq port 5673).
 - **CI workflows are stale** — reference old `backend/` path (pre-NX). Tests don't run in CI currently.
-- **`navratna-core` and `navratna-gateway` have zero tests** — no `vitest.config.ts` exists yet.
+- **`navratna-core` and `navratna-gateway` smoke tests**: `scripts/smoke-test-core.sh` (14 route groups) and `scripts/smoke-test-gateway.sh` (23 route groups). Unit/integration tests added PM-208/209 with 70% coverage thresholds.
 - **Default credentials** (dev only): `admin` / `admin` at `http://localhost:5173`.
 - **FeatureFactory pattern**: each legacy service exports `feature.ts` with a `Feature` interface (initialize/routes/events/websocket/shutdown). Consolidated services (navratna-core/gateway) import and register these via `FeatureFactory` — controlled by `FEATURE_*` env vars, default ON.
 - **CrossPlaneGuard**: `CrossPlaneGuard.verify(pool, table, id, entityName)` is defined in `@uaip/shared-services` but **not yet called in production code** — cross-plane writes are not currently guarded at the application layer.
 - **`navratna-core` own pipeline**: `RepoIngestionService`, `AstSymbolExtractor`, `SemanticIndexService`, `ImportGraphService` are navratna-core's own native services (not imported from legacy). Exposed at `POST /api/v1/knowledge/ingest`.
+- **OIE (Operational Intelligence Engine)**: `@uaip/oie` is a library-only Feature (no HTTP port, no `dev` script). Runs a BullMQ pipeline: SigNoz/Sentry collector → triage → auto-Jira + analyst (stub) → fix proposer (stub) → verifier (stub) → learner (stub) + 5-min SLO reconciliation loop. Ready to mount via `FeatureFactory` but not yet imported by navratna-core/gateway (no `FEATURE_OIE` wiring).
+- **Canva integration (PM-22)**: `capability-registry/src/adapters/canva_adapter.ts` + `src/routes/canva_routes.ts`. OAuth 2.0 + 4 MCP tools (create-design, list-templates, export-design, update-brand-kit). Auth via `X-Canva-Access-Token` header on tool endpoints.
 - **`persona_defaults.ts`** in `@uaip/types` is 4,014 lines of runtime persona seed data — the largest file in the codebase. It should not be treated as a types file.
 
 <!-- nx configuration start-->

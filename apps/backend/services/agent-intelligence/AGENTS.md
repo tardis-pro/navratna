@@ -10,8 +10,13 @@ Cognitive engine. Manages agents, personas, 3-tier memory (working/episodic/sema
 src/
 ├── index.ts                     # AgentIntelligenceService extends BaseService (2000+ lines)
 ├── routes/
-│   ├── agent.routes.ts          # Extended: learning, analytics, capability attachment
-│   └── constellation.routes.ts  # Multi-agent constellation coordination
+│   ├── agent_routes.ts              # Core agent relevance
+│   ├── agents_crud_routes.ts        # Agent CRUD
+│   ├── agent_chat_routes.ts         # Chat + approval resolution
+│   ├── agent_capability_routes.ts   # Capability/learning routes
+│   ├── agent_memory_routes.ts       # Memory CRUD
+│   ├── constellation_routes.ts      # Multi-agent constellation — POST /api/v1/knowledge/constellations
+│   └── cognitive_portrait_routes.ts # Cognitive portrait + trust calibration + personalization vector
 ├── services/
 │   ├── agent-core.service.ts    # Agent CRUD + state management
 │   ├── agent-discussion.service.ts  # Discussion participation, LLM chat (2300+ lines)
@@ -43,6 +48,10 @@ All inline in `src/index.ts` (Elysia) + registered route files:
 | POST                | `/api/v1/discussions/:id/messages`              | Add message to discussion          |
 | POST                | `/test/sync`                                    | Manual Neo4j/Qdrant sync trigger   |
 | GET                 | `/api/v1/debug/conversation-enhancement`        | Memory/leak diagnostics            |
+| GET                 | `/api/v1/users/:userId/cognitive-portrait`      | Compute/retrieve cognitive portrait |
+| POST                | `/api/v1/users/:userId/cognitive-portrait/calibrate` | Update trust calibration       |
+| GET                 | `/api/v1/users/:userId/personalization-vector`  | Per-user personalization vector    |
+| POST                | `/api/v1/knowledge/constellations`              | Multi-agent constellation coordination |
 
 ## EVENT BUS
 

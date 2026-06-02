@@ -29,9 +29,11 @@ type JtiBlocklistClient = {
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- static utility class pattern
 export class JWTValidator {
-  private static readonly JWT_SECRET = JWTValidator.validateJWTSecret();
-
-  private static validateJWTSecret(): string {
+  /**
+   * Read lazily on each call so that vi.mock('@uaip/config') in tests takes effect.
+   * Static eager initialization would capture the real config before mocks are applied.
+   */
+  private static getJWTSecret(): string {
     const jwtSecret = config.jwt.secret;
     const nodeEnv = process.env.NODE_ENV ?? '';
     const isDevOrTest = SAFE_ENVS_FOR_DEV_SECRET.has(nodeEnv);
@@ -73,7 +75,7 @@ export class JWTValidator {
     blocklist?: JtiBlocklistClient
   ): Promise<JWTPayload> {
     try {
-      const rawDecoded = jwt.verify(token, this.JWT_SECRET, {
+      const rawDecoded = jwt.verify(token, this.getJWTSecret(), {
         algorithms: ['HS256'],
         issuer: JWT_ISSUER,
         audience: JWT_AUDIENCE,
@@ -131,7 +133,7 @@ export class JWTValidator {
    * Sign an HS256 token (existing behavior, backward compatible).
    */
   public static sign(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-    return jwt.sign(payload, this.JWT_SECRET, {
+    return jwt.sign(payload, this.getJWTSecret(), {
       expiresIn: config.jwt.accessTokenExpiry || '15m',
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
