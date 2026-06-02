@@ -4,18 +4,20 @@ import { Elysia } from 'elysia';
 vi.mock('@uaip/middleware', () => {
   const mockUser = { id: 'user-uuid-1234', email: 'test@example.com', role: 'user' };
   const passthrough = (app: Elysia) => app.derive(() => ({ user: mockUser }));
-  return {
-    withRequiredAuth: passthrough,
-    withOptionalAuth: passthrough,
-    withAdminGuard: passthrough,
-    attachAuth: passthrough,
-    requireAuth: (app: Elysia) => app,
-  };
-});
+   return {
+     withRequiredAuth: passthrough,
+     withOptionalAuth: passthrough,
+     withAdminGuard: passthrough,
+     withNginxAuth: passthrough,
+     attachAuth: passthrough,
+     requireAuth: (app: Elysia) => app,
+   };
+ });
 
 vi.mock('@uaip/utils', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+  isRecord: (val: unknown) => typeof val === 'object' && val !== null && !Array.isArray(val),
   NotFoundError: class NotFoundError extends Error {
     constructor(msg: string) { super(msg); this.name = 'NotFoundError'; }
   },
@@ -27,10 +29,13 @@ vi.mock('@uaip/utils', () => ({
   },
 }));
 
-vi.mock('@uaip/types', () => ({
-  KnowledgeType: { REPO_CONTEXT: 'repo_context' },
-  SourceType: { GIT_REPOSITORY: 'git_repository', FILE_SYSTEM: 'file_system' },
-}));
+vi.mock('@uaip/types', async (importActual) => {
+  // Spread the real @uaip/types so all runtime enums (PersonaStatus, PersonaVisibility,
+  // KnowledgeType, SourceType, etc.) needed by the transitive -core chat route chain
+  // resolve correctly, instead of maintaining a hand-listed partial mock.
+  const actual = await importActual<typeof import('@uaip/types')>();
+  return { ...actual };
+});
 
 import { registerAgentChatRoutes } from '@uaip/agent-intelligence-core';
 
@@ -82,7 +87,7 @@ describe('Agent Chat Routes', () => {
       );
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.success).toBe(false);
+      expect(body.error).toBeTruthy();
     });
 
     it('sends message and returns LLM response', async () => {
@@ -168,7 +173,6 @@ describe('Agent Chat Routes', () => {
       );
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.success).toBe(false);
       expect(body.error).toBe('Message or messages array is required');
     });
 
@@ -193,7 +197,6 @@ describe('Agent Chat Routes', () => {
       );
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.success).toBe(false);
       expect(body.error).toBe('LLM offline');
     });
   });

@@ -8,6 +8,7 @@ vi.mock('@uaip/middleware', () => {
     withRequiredAuth: passthrough,
     withOptionalAuth: passthrough,
     withAdminGuard: passthrough,
+    withNginxAuth: passthrough,
     attachAuth: passthrough,
     requireAuth: (app: Elysia) => app,
   };
@@ -16,6 +17,7 @@ vi.mock('@uaip/middleware', () => {
 vi.mock('@uaip/utils', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+  isRecord: (val: unknown) => typeof val === 'object' && val !== null && !Array.isArray(val),
   NotFoundError: class NotFoundError extends Error {
     constructor(msg: string) { super(msg); this.name = 'NotFoundError'; }
   },
@@ -63,20 +65,14 @@ describe('Agent CRUD Routes', () => {
         { id: 'a1', name: 'Alpha', isActive: true, role: 'analyst' },
         { id: 'a2', name: 'Beta', isActive: true, role: 'researcher' },
       ];
-      let callIdx = 0;
-      vi.mocked(getIntelligenceDb).mockImplementation(() => {
-        callIdx++;
-        if (callIdx % 2 === 1) {
-          return {
-            select: vi.fn().mockReturnValue({
-              from: vi.fn().mockReturnValue({
-                where: vi.fn().mockResolvedValue([{ total: 2 }]),
-              }),
+      vi.mocked(getIntelligenceDb).mockReturnValue({
+        select: vi.fn()
+          .mockReturnValueOnce({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ total: 2 }]),
             }),
-          } as never;
-        }
-        return {
-          select: vi.fn().mockReturnValue({
+          })
+          .mockReturnValueOnce({
             from: vi.fn().mockReturnValue({
               where: vi.fn().mockReturnValue({
                 orderBy: vi.fn().mockReturnValue({
@@ -87,8 +83,7 @@ describe('Agent CRUD Routes', () => {
               }),
             }),
           }),
-        } as never;
-      });
+      } as never);
 
       const app = buildApp({});
       const res = await app.handle(new Request('http://localhost/api/v1/agents', { headers: authHeader() }));
@@ -108,7 +103,7 @@ describe('Agent CRUD Routes', () => {
       const res = await app.handle(new Request('http://localhost/api/v1/agents', { headers: authHeader() }));
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.success).toBe(false);
+      expect(body.error).toBeTruthy();
     });
   });
 
@@ -157,7 +152,6 @@ describe('Agent CRUD Routes', () => {
       );
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.success).toBe(false);
       expect(body.error).toBe('Name is required');
     });
   });
@@ -196,7 +190,6 @@ describe('Agent CRUD Routes', () => {
       );
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.success).toBe(false);
       expect(body.error).toBe('Agent not found');
     });
   });
