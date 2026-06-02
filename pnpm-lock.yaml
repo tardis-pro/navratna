@@ -154,7 +154,7 @@ catalogs:
       specifier: ^3.17.0
       version: 3.19.0
     ws:
-      specifier: ^8.18.2
+      specifier: ^8.20.0
       version: 8.20.0
   default:
     oxfmt:
