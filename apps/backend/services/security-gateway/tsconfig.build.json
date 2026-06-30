@@ -13,7 +13,7 @@
     "useDefineForClassFields": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**/*", "src/routes/**/*", "src/**/*.js"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**/*", "src/**/*.js"],
   "references": [
     { "path": "../../../shared/infra/tsconfig.json" },
     { "path": "../../../packages/shared-utils/tsconfig.json" },

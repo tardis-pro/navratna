@@ -27,10 +27,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
-// Lazy singletons for dependent services
-let userServiceSingleton: UserService | null = null;
-let auditServiceSingleton: AuditService | null = null;
-
 const parseExpiryToSeconds = (value?: string | number): number | undefined => {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -54,14 +50,14 @@ const getAuthCookieOptions = () => ({
   ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN }),
 });
 
+const getUserAgent = (request: Request, headers?: Record<string, string | undefined>) =>
+  headers?.['user-agent'] ?? request.headers.get('user-agent') ?? undefined;
+
 async function getServices() {
-  if (!userServiceSingleton) {
-    userServiceSingleton = UserService.getInstance();
-  }
-  if (!auditServiceSingleton) {
-    auditServiceSingleton = new AuditService();
-  }
-  return { userService: userServiceSingleton, auditService: auditServiceSingleton };
+  return {
+    userService: UserService.getInstance(),
+    auditService: new AuditService(),
+  };
 }
 
 // Schemas
@@ -176,7 +172,7 @@ export function registerAuthRoutes() {
             userId: undefined,
             details: { email, reason: 'User not found' },
             ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
+            userAgent: getUserAgent(request, headers as Record<string, string | undefined> | undefined),
           });
           set.status = 401;
           return { error: 'Authentication Failed', message: 'Invalid email or password' };
@@ -188,7 +184,7 @@ export function registerAuthRoutes() {
             userId: user.id,
             details: { email, reason: 'Account inactive' },
             ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
+            userAgent: getUserAgent(request, headers as Record<string, string | undefined> | undefined),
           });
           set.status = 401;
           return { error: 'Authentication Failed', message: 'Account is inactive' };
@@ -201,7 +197,7 @@ export function registerAuthRoutes() {
             userId: user.id,
             details: { email, reason: 'Account locked' },
             ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
+            userAgent: getUserAgent(request, headers as Record<string, string | undefined> | undefined),
           });
           set.status = 401;
           return {
@@ -237,7 +233,7 @@ export function registerAuthRoutes() {
               accountLocked: failedAttempts >= maxAttempts,
             },
             ipAddress: request.headers.get('x-forwarded-for') || '',
-            userAgent: headers['user-agent'],
+            userAgent: getUserAgent(request, headers as Record<string, string | undefined> | undefined),
           });
           set.status = 401;
           return { error: 'Authentication Failed', message: 'Invalid email or password' };
@@ -278,7 +274,7 @@ export function registerAuthRoutes() {
           userId: user.id,
           details: { email, rememberMe },
           ipAddress: request.headers.get('x-forwarded-for') || '',
-          userAgent: headers['user-agent'],
+          userAgent: getUserAgent(request, headers as Record<string, string | undefined> | undefined),
         });
   
         return {
@@ -406,7 +402,7 @@ export function registerAuthRoutes() {
     })
   
     // POST /logout
-    .post('/logout', async ({ body, set, headers, cookie }) => {
+    .post('/logout', async ({ body, set, headers, cookie, request }) => {
       try {
         const rawAccessToken =
           (headers.authorization?.startsWith('Bearer ') ? headers.authorization.substring(7) : undefined) ??
@@ -446,7 +442,7 @@ export function registerAuthRoutes() {
           userId: authUser?.id,
           details: { revokedAllTokens: !refreshToken },
           ipAddress: '',
-          userAgent: headers['user-agent'],
+          userAgent: getUserAgent(request, headers as Record<string, string | undefined> | undefined),
         });
   
         return {

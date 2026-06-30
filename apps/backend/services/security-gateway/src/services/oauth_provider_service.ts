@@ -185,30 +185,38 @@ export class OAuthProviderService {
         revokeUrl: getRevokeUrl(providerConfig),
         isEnabled: providerConfig.isEnabled ?? true,
       });
-      // DB OAuthProvider is stored via the OAuthProviderConfig interface; fields overlap at runtime
-      this.providers.set(savedProvider.id, savedProvider as unknown as OAuthProviderConfig);
 
-      const savedProviderCfgRec = isRecord(savedProvider.configuration) ? savedProvider.configuration : undefined;
-      const savedProviderAgentCfg: OAuthProviderAgentConfig | undefined = savedProviderCfgRec
-        ? { allowAgentAccess: typeof savedProviderCfgRec.allowAgentAccess === 'boolean' ? savedProviderCfgRec.allowAgentAccess : undefined }
-        : undefined;
+      const hydratedProvider = {
+        ...providerConfig,
+        ...savedProvider,
+        id: savedProvider.id ?? providerConfig.id,
+      } as OAuthProviderConfig;
+
+      const hydratedProviderId = hydratedProvider.id;
+      if (!hydratedProviderId) {
+        throw new ApiError(500, 'OAuth provider id is missing after persistence', 'PROVIDER_ID_MISSING');
+      }
+
+      this.providers.set(hydratedProviderId, hydratedProvider);
+
+      const savedProviderAgentCfg: OAuthProviderAgentConfig | undefined = providerConfig.agentConfig;
       await this.auditService.logEvent({
         eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
         details: {
           action: 'create_oauth_provider',
-          providerId: savedProvider.id,
-          providerType: savedProvider.type,
+          providerId: hydratedProviderId,
+          providerType: hydratedProvider.type,
           agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
         },
       });
 
       logger.info('OAuth provider created', {
-        providerId: savedProvider.id,
-        type: savedProvider.type,
+        providerId: hydratedProviderId,
+        type: hydratedProvider.type,
         agentAccess: savedProviderAgentCfg?.allowAgentAccess || false,
       });
 
-      return savedProvider as unknown as OAuthProviderConfig;
+      return hydratedProvider;
     } catch (error) {
       logger.error('Failed to create OAuth provider', {
         error: error instanceof Error ? error.message : 'Unknown error',

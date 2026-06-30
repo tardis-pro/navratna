@@ -17,6 +17,7 @@ import { registerProjectRoutes } from './http/projects_elysia.js'
 import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from './http/dashboard_elysia.js'
 import { registerOIDCRoutes } from './http/oidc_elysia.js'
+import { registerLLMAgentProviderRoutes } from './routes/llm_agent_provider_routes.js'
 import { ErasureSweepJob } from './jobs/erasure_sweep_job.js'
 import { AuditRetentionJob } from './jobs/audit_retention_job.js'
 import { TokenCleanupJob } from './jobs/token_cleanup_job.js'
@@ -86,6 +87,9 @@ export const securityFeature: Feature = {
     app.use(registerToolPreferenceRoutes())
     app.use(registerDashboardRoutes())
     app.use(registerOIDCRoutes())
+    app.use(registerLLMAgentProviderRoutes())
+    // github_webhook_routes.ts and jira_webhook_routes.ts intentionally not mounted
+    // until HMAC-SHA256 webhook signature verification is implemented (LOW-3 security gap)
     return app
   },
 

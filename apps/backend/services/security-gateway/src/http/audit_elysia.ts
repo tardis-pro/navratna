@@ -9,15 +9,11 @@ import { AuditService } from '../services/audit_service.js';
 import { AuditEventType } from '@uaip/types';
 import { getAuthUser } from './context_helpers.js';
 
-let domainAuditServiceSingleton: DomainAuditService | null = null;
-let auditServiceSingleton: AuditService | null = null;
-
 async function getServices() {
-  if (!domainAuditServiceSingleton) {
-    domainAuditServiceSingleton = DomainAuditService.getInstance();
-    auditServiceSingleton = new AuditService();
-  }
-  return { domainAuditService: domainAuditServiceSingleton!, auditService: auditServiceSingleton! };
+  return {
+    domainAuditService: DomainAuditService.getInstance(),
+    auditService: new AuditService(),
+  };
 }
 
 const auditQuerySchema = z.object({
@@ -387,9 +383,15 @@ export function registerAuditRoutes() {
             pages: Math.ceil(activityResult.total / limit),
           },
         };
-      } catch {
+      } catch (error) {
         set.status = 500;
-        return { error: 'Internal Server Error', message: 'Failed to retrieve user activity' };
+        return {
+          error: 'Internal Server Error',
+          message:
+            process.env.NODE_ENV === 'test'
+              ? `Failed to retrieve user activity: ${error instanceof Error ? error.message : String(error)}`
+              : 'Failed to retrieve user activity',
+        };
       }
     }, {
       response: {
