@@ -7,7 +7,7 @@
   "scripts": {
     "build": "nx run-many -t build",
     "build:shared": "nx run-many -t build --projects=@uaip/config,@uaip/types,@uaip/utils,@uaip/contracts,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service",
-    "build:backend": "nx run-many -t build --projects=tag:backend",
+    "build:backend": "nx run-many -t build --projects=tag:backend-service",
     "build:frontend": "nx run @council/frontend:build",
     "dev": "concurrently \"pnpm dev:frontend\" \"pnpm dev:backend\"",
     "dev:frontend": "nx run @council/frontend:dev",
@@ -44,6 +44,7 @@
     "concurrently": "catalog:dev",
     "dependency-cruiser": "^17.3.9",
     "jscpd": "^4.0.8",
+    "jsonwebtoken": "catalog:backend",
     "knip": "^6.0.6",
     "nx": "22.6.1",
     "oxfmt": "catalog:",
@@ -51,36 +52,8 @@
     "rev-dep": "^2.12.0",
     "rimraf": "catalog:",
     "tsx": "catalog:backend",
-    "typescript": "catalog:"
-  },
-  "pnpm": {
-    "overrides": {
-      "minimatch@9>brace-expansion": "^2.0.1",
-      "protobufjs": ">=7.5.8",
-      "@protobufjs/utf8": ">=1.1.1",
-      "axios": ">=1.16.0",
-      "basic-ftp": ">=5.3.1",
-      "vite": ">=8.0.5",
-      "esbuild": ">=0.25.0",
-      "ws": ">=8.20.1",
-      "picomatch": ">=4.0.4",
-      "brace-expansion@>=5.0.0 <5.0.6": ">=5.0.6",
-      "tmp": ">=0.2.6",
-      "qs": ">=6.15.2",
-      "follow-redirects": ">=1.16.0",
-      "fast-uri": ">=3.1.2",
-      "fast-xml-parser": ">=5.7.0",
-      "fast-xml-builder": ">=1.1.7",
-      "ip-address": ">=10.1.1",
-      "postcss": ">=8.5.10",
-      "uuid": ">=11.1.1",
-      "simple-git": ">=3.36.0",
-      "nodemailer": ">=8.0.5",
-      "hono": ">=4.12.18",
-      "@hono/node-server": ">=1.19.13",
-      "drizzle-orm": ">=0.45.2",
-      "@babel/plugin-transform-modules-systemjs": ">=7.29.4"
-    }
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
   },
   "engines": {
     "node": ">=18.0.0",
