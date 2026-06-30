@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { io as socketioClient, type Socket } from 'socket.io-client'
 
 const BASE_URL = process.env.NAVRATNA_CORE_URL || 'http://localhost:3001'

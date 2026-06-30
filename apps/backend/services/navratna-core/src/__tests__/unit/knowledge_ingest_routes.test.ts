@@ -49,9 +49,11 @@ vi.mock('@uaip/types', () => ({
 }));
 
 vi.mock('../../services/repo_ingestion_service.js', () => ({
-  RepoIngestionService: vi.fn().mockImplementation(() => ({
-    ingest: vi.fn(),
-  })),
+  RepoIngestionService: vi.fn(function RepoIngestionServiceMock() {
+    return {
+      ingest: vi.fn(),
+    };
+  }),
 }));
 
 import { registerKnowledgeIngestRoutes } from '../../routes/knowledge_ingest_routes.js';
@@ -71,9 +73,11 @@ describe('Knowledge Ingest Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIngest = vi.fn();
-    vi.mocked(RepoIngestionService).mockImplementation(() => ({
-      ingest: mockIngest,
-    }) as never);
+    vi.mocked(RepoIngestionService).mockImplementation(function RepoIngestionServiceMock() {
+      return {
+        ingest: mockIngest,
+      } as never;
+    });
   });
 
   describe('POST /api/v1/knowledge/ingest', () => {
