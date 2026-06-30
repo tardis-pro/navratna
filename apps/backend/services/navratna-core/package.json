@@ -34,8 +34,8 @@
     "@uaip/discussion-core": "workspace:*",
     "@uaip/infra": "workspace:*",
     "@uaip/llm-service": "workspace:*",
-    "@uaip/oie": "workspace:*",
     "@uaip/middleware": "workspace:*",
+    "@uaip/oie": "workspace:*",
     "@uaip/shared-services": "workspace:*",
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
@@ -48,6 +48,7 @@
     "@types/node": "catalog:backend",
     "nodemon": "catalog:backend",
     "rimraf": "^6.1.2",
+    "socket.io-client": "^4.8.3",
     "tsx": "catalog:backend",
     "typescript": "catalog:",
     "vitest": "catalog:backend"

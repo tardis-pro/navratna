@@ -39,6 +39,8 @@
   },
   "devDependencies": {
     "@types/node": "catalog:backend",
+    "bcrypt": "catalog:backend",
+    "jsonwebtoken": "catalog:backend",
     "nodemon": "catalog:backend",
     "rimraf": "^6.1.2",
     "tsx": "catalog:backend",

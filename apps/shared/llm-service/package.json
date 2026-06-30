@@ -20,7 +20,11 @@
     "lint": "oxlint src",
     "lint:fix": "oxlint --fix src",
     "format": "oxfmt --write src",
-    "format:check": "oxfmt --check src"
+    "format:check": "oxfmt --check src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage"
   },
   "dependencies": {
     "@tanstack/ai": "^0.0.3",
@@ -38,8 +42,10 @@
   "devDependencies": {
     "@types/node": "catalog:backend",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "catalog:backend",
     "rimraf": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
   },
   "files": [
     "dist",

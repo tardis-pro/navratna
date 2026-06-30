@@ -99,6 +99,7 @@
     "@types/react-dom": "catalog:frontend",
     "@vitejs/plugin-react": "catalog:frontend",
     "autoprefixer": "^10.4.23",
+    "jsdom": "^26.1.0",
     "postcss": "^8.5.10",
     "rimraf": "catalog:",
     "tailwindcss": "^4.1.18",
