@@ -1,0 +1,172 @@
+{
+  "date": "2026-06-02",
+  "domains": [
+    "self-hosted-agent-platform"
+  ],
+  "rubric_version": 1,
+  "field": [
+    {
+      "repo": "Mintplex-Labs/anything-llm",
+      "cluster": "self-hosted-agent-platform",
+      "role": "direct",
+      "type": "canonical",
+      "stars": 60932,
+      "pushed": "2026-06-02",
+      "why": "Dominant self-hosted AI platform"
+    },
+    {
+      "repo": "onyx-dot-app/onyx",
+      "cluster": "self-hosted-agent-platform",
+      "role": "direct",
+      "type": "canonical",
+      "stars": 29962,
+      "pushed": "2026-06-02",
+      "why": "Canonical self-hosted AI platform, best-in-class agentic RAG + connectors"
+    },
+    {
+      "repo": "letta-ai/letta",
+      "cluster": "self-hosted-agent-platform",
+      "role": "direct",
+      "type": "canonical",
+      "stars": 23093,
+      "pushed": "2026-05-14",
+      "why": "Canonical stateful agent platform, most mature persistent memory"
+    },
+    {
+      "repo": "langgenius/dify",
+      "cluster": "agent-framework",
+      "role": "reference",
+      "stars": 143510,
+      "why": "top of \"agent-framework\" cluster — broader-space reference, not a direct peer"
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "cluster": "agent-framework",
+      "role": "reference",
+      "stars": 52659,
+      "why": "top of \"agent-framework\" cluster — broader-space reference, not a direct peer"
+    },
+    {
+      "repo": "mem0ai/mem0",
+      "cluster": "agent-memory-layer",
+      "role": "reference",
+      "stars": 57383,
+      "why": "top of \"agent-memory-layer\" cluster — broader-space reference, not a direct peer"
+    },
+    {
+      "repo": "getzep/graphiti",
+      "cluster": "agent-memory-layer",
+      "role": "reference",
+      "stars": 26894,
+      "why": "top of \"agent-memory-layer\" cluster — broader-space reference, not a direct peer"
+    },
+    {
+      "repo": "agiresearch/AIOS",
+      "cluster": "agent-operating-system",
+      "role": "reference",
+      "stars": 5818,
+      "why": "top of \"agent-operating-system\" cluster — broader-space reference, not a direct peer"
+    },
+    {
+      "repo": "All-Hands-AI/OpenHands",
+      "cluster": "coding-agent-platform",
+      "role": "reference",
+      "stars": 75649,
+      "why": "top of \"coding-agent-platform\" cluster — broader-space reference, not a direct peer"
+    }
+  ],
+  "matrix": [
+    {
+      "id": "self-hosted-deploy",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "multi-llm-provider",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "rag-document-pipeline",
+      "us": "partial",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "persistent-agent-memory",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "vector-semantic-search",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "agent-runtime",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "mcp-tool-execution",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "auth-rbac",
+      "us": "met",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "data-connectors",
+      "us": "partial",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "public-docs-quickstart",
+      "us": "partial",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "sdk-client-libs",
+      "us": "missing",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "test-coverage",
+      "us": "partial",
+      "tier": "table-stakes"
+    },
+    {
+      "id": "sandboxed-tool-execution",
+      "us": "met",
+      "tier": "edge"
+    },
+    {
+      "id": "realtime-discussions",
+      "us": "met",
+      "tier": "edge"
+    },
+    {
+      "id": "knowledge-graph",
+      "us": "met",
+      "tier": "edge"
+    },
+    {
+      "id": "observability-tracing",
+      "us": "met",
+      "tier": "edge"
+    },
+    {
+      "id": "eval-benchmark",
+      "us": "met",
+      "tier": "edge"
+    }
+  ],
+  "coverage": {
+    "met": 7,
+    "total": 12,
+    "pct": 58
+  },
+  "tier": "LAGGING",
+  "gaps_total": 5
+}

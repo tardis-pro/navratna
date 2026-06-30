@@ -1,0 +1,91 @@
+{
+  "domain": "self-hosted-agent-platform",
+  "version": 1,
+  "capabilities": [
+    {
+      "id": "self-hosted-deploy",
+      "tier": "table-stakes",
+      "test": "docker-compose/k8s self-host deployment"
+    },
+    {
+      "id": "multi-llm-provider",
+      "tier": "table-stakes",
+      "test": "pluggable multi-LLM provider routing"
+    },
+    {
+      "id": "rag-document-pipeline",
+      "tier": "table-stakes",
+      "test": "ingest documents into retrievable RAG store"
+    },
+    {
+      "id": "persistent-agent-memory",
+      "tier": "table-stakes",
+      "test": "persistent cross-session agent memory"
+    },
+    {
+      "id": "vector-semantic-search",
+      "tier": "table-stakes",
+      "test": "vector semantic search over knowledge"
+    },
+    {
+      "id": "agent-runtime",
+      "tier": "table-stakes",
+      "test": "create/run custom agents with tools"
+    },
+    {
+      "id": "mcp-tool-execution",
+      "tier": "table-stakes",
+      "test": "MCP client to call external tools"
+    },
+    {
+      "id": "auth-rbac",
+      "tier": "table-stakes",
+      "test": "auth + multi-user role-based access control"
+    },
+    {
+      "id": "data-connectors",
+      "tier": "table-stakes",
+      "test": "first-class connectors to ingest external sources (Slack/Drive/GitHub/etc.)"
+    },
+    {
+      "id": "public-docs-quickstart",
+      "tier": "table-stakes",
+      "test": "hosted docs site + quickstart for new users"
+    },
+    {
+      "id": "sdk-client-libs",
+      "tier": "table-stakes",
+      "test": "published client SDK / REST API for integration"
+    },
+    {
+      "id": "test-coverage",
+      "tier": "table-stakes",
+      "test": "test suite covering core paths"
+    },
+    {
+      "id": "sandboxed-tool-execution",
+      "tier": "edge",
+      "test": "sandboxed/isolated code+tool execution"
+    },
+    {
+      "id": "realtime-discussions",
+      "tier": "edge",
+      "test": "real-time multi-agent conversation orchestration"
+    },
+    {
+      "id": "knowledge-graph",
+      "tier": "edge",
+      "test": "knowledge-graph extraction beyond flat RAG"
+    },
+    {
+      "id": "observability-tracing",
+      "tier": "edge",
+      "test": "OpenTelemetry tracing / observability"
+    },
+    {
+      "id": "eval-benchmark",
+      "tier": "edge",
+      "test": "built-in agent eval/benchmark harness"
+    }
+  ]
+}
