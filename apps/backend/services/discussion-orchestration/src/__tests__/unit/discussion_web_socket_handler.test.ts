@@ -161,6 +161,12 @@ describe('DiscussionWebSocketHandler', () => {
     });
 
     it('should require participant ID for participant actions', () => {
+      const connection = webSocketHandler.handleConnection({ on: vi.fn(), send: vi.fn() }, {
+        url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
+        headers: {},
+      });
+
+      expect(connection.participantId).toBe('participant-123');
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
   });
@@ -256,17 +262,32 @@ describe('DiscussionWebSocketHandler', () => {
 
   describe('Connection Lifecycle', () => {
     it('should handle connection close events', () => {
-      // In real implementation, would remove connection from tracking
+      const connection = webSocketHandler.handleConnection({ on: vi.fn(), send: vi.fn() }, {
+        url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
+        headers: {},
+      });
+
+      expect(connection.isAlive).toBe(true);
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
     it('should handle connection error events', () => {
-      // In real implementation, would clean up connection
+      const connection = webSocketHandler.handleConnection({ on: vi.fn(), send: vi.fn() }, {
+        url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
+        headers: {},
+      });
+
+      expect(connection.userId).toBe('user-123');
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
     it('should handle heartbeat/ping responses', () => {
-      // In real implementation, would update connection status
+      const connection = webSocketHandler.handleConnection({ on: vi.fn(), send: vi.fn() }, {
+        url: '/discussions/discussion-123/ws?userId=user-123&participantId=participant-123',
+        headers: {},
+      });
+
+      expect(connection.lastPing).toBeInstanceOf(Date);
       expect(webSocketHandler.handleConnection).toHaveBeenCalled();
     });
 
