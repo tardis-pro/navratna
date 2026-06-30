@@ -8,7 +8,6 @@
 import { logger } from '@uaip/utils'
 import {
   workflowExecutionTotal,
-  workflowExecutionDuration,
   workflowPolicyViolationsTotal,
   workflowActiveExecutions,
 } from '@uaip/shared-services'

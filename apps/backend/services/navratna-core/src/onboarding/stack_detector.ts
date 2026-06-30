@@ -220,7 +220,7 @@ export class StackDetector {
 
   private detectFromRequirementsTxt(repoPath: string, profile: StackProfile): void {
     // Check requirements.txt, pyproject.toml, setup.py
-    let content = readFileSafe(join(repoPath, 'requirements.txt'))
+    const content = readFileSafe(join(repoPath, 'requirements.txt'))
     const pyprojectContent = readFileSafe(join(repoPath, 'pyproject.toml'))
     const setupPy = existsSync(join(repoPath, 'setup.py'))
 

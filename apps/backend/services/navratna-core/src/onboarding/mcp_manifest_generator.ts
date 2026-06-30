@@ -117,7 +117,7 @@ export class MCPManifestGenerator {
       .replace(/^\/api\/v\d+\//, '')
       .replace(/^\//, '')
       .replace(/\//g, '_')
-      .replace(/[:{}\[\]()]/g, '')
+      .replace(/[:{}[\]()]/g, '')
       .replace(/_+/g, '_')
       .replace(/_$/, '')
       .toLowerCase()

@@ -599,7 +599,7 @@ CMD ["bin/app", "start"]
       .replace(/^\/api\/v\d+\//, '')
       .replace(/^\//, '')
       .replace(/\//g, '_')
-      .replace(/[:{}\[\]]/g, '')
+      .replace(/[:{}[\]]/g, '')
       .replace(/_+/g, '_')
       .replace(/_$/, '')
 

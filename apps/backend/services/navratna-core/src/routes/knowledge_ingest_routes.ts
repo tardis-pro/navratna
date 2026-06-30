@@ -3,8 +3,6 @@ import { withRequiredAuth } from '@uaip/middleware'
 import { logger } from '@uaip/utils'
 import { RepoIngestionService } from '../services/repo_ingestion_service.js'
 
-const repoIngestionService = new RepoIngestionService()
-
 function parseSourceFromBody(body: unknown): string | null {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return null
@@ -30,6 +28,8 @@ function isClientInputError(message: string): boolean {
 }
 
 export function registerKnowledgeIngestRoutes() {
+  const repoIngestionService = new RepoIngestionService()
+
   return new Elysia().group('/api/v1/knowledge', (group) => withRequiredAuth(group).post('/ingest', async (ctx) => {
     const source = parseSourceFromBody(ctx.body)
     if (!source) {
