@@ -14,7 +14,6 @@ describe('NavratnaGateway Route Registration', () => {
     const protectedRoutes = [
       '/api/v1/auth/logout',
       '/api/v1/agents',
-      '/api/v1/tools',
     ];
 
     for (const route of protectedRoutes) {

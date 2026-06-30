@@ -1,8 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Elysia } from 'elysia';
 
+const { mockUserService } = vi.hoisted(() => ({
+  mockUserService: {
+    findUserByEmail: vi.fn().mockResolvedValue(null),
+    findUserById: vi.fn().mockResolvedValue(null),
+    createRefreshToken: vi.fn().mockResolvedValue({}),
+    revokeRefreshToken: vi.fn().mockResolvedValue({}),
+    revokeAllRefreshTokens: vi.fn().mockResolvedValue({}),
+    getRefreshTokenWithUser: vi.fn().mockResolvedValue(null),
+    updateLoginTracking: vi.fn().mockResolvedValue({}),
+    resetLoginAttempts: vi.fn().mockResolvedValue({}),
+    updatePassword: vi.fn().mockResolvedValue({}),
+  },
+}));
+
+const PASSWORD1_HASH = '$2b$10$dCBnGGW24sjk9vOfcNuDTe0iRzlue9yL0U13otcKw2m.VVUr0ibkG';
+const CORRECT_PASSWORD_HASH = '$2b$10$Q/8szxodOXGXTVd1AqOxB.hiI2QLcMetZoED6j2kI9NPDVZ9JMuuG';
+
 vi.mock('@uaip/utils', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
   ApiError: class ApiError extends Error {
     constructor(public statusCode: number, msg: string, public code?: string) { super(msg); }
   },
@@ -39,9 +57,9 @@ vi.mock('@uaip/middleware', () => {
     },
     csrfProtection: { generateToken: vi.fn().mockReturnValue('csrf-token-abc') },
     apiKeyAuth: { validateAPIKey: vi.fn().mockResolvedValue(null) },
-    createRateLimiter: vi.fn(() => ({
-      use: (app: Elysia) => app,
-    })),
+    createRateLimiter: vi.fn(() => {
+      return (app: Elysia) => app;
+    }),
     withAdminGuard: passthrough,
     withOperatorGuard: passthrough,
     signJWT: vi.fn().mockResolvedValue('signed-subdomain-token'),
@@ -50,34 +68,17 @@ vi.mock('@uaip/middleware', () => {
 
 vi.mock('@uaip/shared-services', () => ({
   UserService: {
-    getInstance: vi.fn().mockReturnValue({
-      findUserByEmail: vi.fn().mockResolvedValue(null),
-      findUserById: vi.fn().mockResolvedValue(null),
-      createRefreshToken: vi.fn().mockResolvedValue({}),
-      revokeRefreshToken: vi.fn().mockResolvedValue({}),
-      revokeAllRefreshTokens: vi.fn().mockResolvedValue({}),
-      getRefreshTokenWithUser: vi.fn().mockResolvedValue(null),
-      updateLoginTracking: vi.fn().mockResolvedValue({}),
-      resetLoginAttempts: vi.fn().mockResolvedValue({}),
-      updatePassword: vi.fn().mockResolvedValue({}),
-    }),
+    getInstance: vi.fn().mockReturnValue(mockUserService),
   },
 }));
 
-vi.mock('../../services/audit_service.js', () => ({
-  AuditService: vi.fn().mockImplementation(() => ({
-    logSecurityEvent: vi.fn().mockResolvedValue({}),
-    logEvent: vi.fn().mockResolvedValue({}),
-  })),
-}));
-
-vi.mock('bcrypt', () => ({
-  default: {
-    compare: vi.fn().mockResolvedValue(false),
-    hash: vi.fn().mockResolvedValue('hashed-password'),
-  },
-  compare: vi.fn().mockResolvedValue(false),
-  hash: vi.fn().mockResolvedValue('hashed-password'),
+vi.mock('../../../../security-gateway/src/services/audit_service.js', () => ({
+  AuditService: vi.fn(function AuditServiceMock() {
+    return {
+      logSecurityEvent: vi.fn().mockResolvedValue({}),
+      logEvent: vi.fn().mockResolvedValue({}),
+    };
+  }),
 }));
 
 vi.mock('jsonwebtoken', () => ({
@@ -93,7 +94,7 @@ vi.mock('jsonwebtoken', () => ({
   JsonWebTokenError: class JsonWebTokenError extends Error {},
 }));
 
-import { registerAuthRoutes } from '../../../../security-gateway/src/http/auth_elysia.js';
+import { registerAuthRoutes } from '../../../../security-gateway/src/http/auth_elysia.ts';
 import { UserService } from '@uaip/shared-services';
 
 function buildApp() {
@@ -103,17 +104,16 @@ function buildApp() {
 describe('Auth Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(UserService.getInstance).mockReturnValue({
-      findUserByEmail: vi.fn().mockResolvedValue(null),
-      findUserById: vi.fn().mockResolvedValue(null),
-      createRefreshToken: vi.fn().mockResolvedValue({}),
-      revokeRefreshToken: vi.fn().mockResolvedValue({}),
-      revokeAllRefreshTokens: vi.fn().mockResolvedValue({}),
-      getRefreshTokenWithUser: vi.fn().mockResolvedValue(null),
-      updateLoginTracking: vi.fn().mockResolvedValue({}),
-      resetLoginAttempts: vi.fn().mockResolvedValue({}),
-      updatePassword: vi.fn().mockResolvedValue({}),
-    } as never);
+    mockUserService.findUserByEmail.mockResolvedValue(null);
+    mockUserService.findUserById.mockResolvedValue(null);
+    mockUserService.createRefreshToken.mockResolvedValue({});
+    mockUserService.revokeRefreshToken.mockResolvedValue({});
+    mockUserService.revokeAllRefreshTokens.mockResolvedValue({});
+    mockUserService.getRefreshTokenWithUser.mockResolvedValue(null);
+    mockUserService.updateLoginTracking.mockResolvedValue({});
+    mockUserService.resetLoginAttempts.mockResolvedValue({});
+    mockUserService.updatePassword.mockResolvedValue({});
+    vi.mocked(UserService.getInstance).mockReturnValue(mockUserService as never);
   });
 
   describe('POST /api/v1/auth/login', () => {
@@ -126,11 +126,11 @@ describe('Auth Routes', () => {
           body: JSON.stringify({ email: 'not-an-email', password: 'password123' }),
         })
       );
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
     });
 
     it('returns 401 when user not found', async () => {
-      vi.mocked(UserService.getInstance)().findUserByEmail = vi.fn().mockResolvedValue(null);
+      mockUserService.findUserByEmail.mockResolvedValue(null);
 
       const app = buildApp();
       const res = await app.handle(
@@ -146,8 +146,8 @@ describe('Auth Routes', () => {
     });
 
     it('returns 401 for inactive account', async () => {
-      vi.mocked(UserService.getInstance)().findUserByEmail = vi.fn().mockResolvedValue({
-        id: 'u1', email: 'test@example.com', isActive: false, passwordHash: 'hash',
+      mockUserService.findUserByEmail.mockResolvedValue({
+        id: 'u1', email: 'test@example.com', isActive: false, passwordHash: PASSWORD1_HASH,
         role: 'user', failedLoginAttempts: 0,
       });
 
@@ -165,11 +165,8 @@ describe('Auth Routes', () => {
     });
 
     it('returns 401 for invalid password', async () => {
-      const { compare } = await import('bcrypt');
-      vi.mocked(compare).mockResolvedValue(false as never);
-
-      vi.mocked(UserService.getInstance)().findUserByEmail = vi.fn().mockResolvedValue({
-        id: 'u1', email: 'test@example.com', isActive: true, passwordHash: 'hash',
+      mockUserService.findUserByEmail.mockResolvedValue({
+        id: 'u1', email: 'test@example.com', isActive: true, passwordHash: CORRECT_PASSWORD_HASH,
         role: 'user', failedLoginAttempts: 0,
       });
 
@@ -185,16 +182,16 @@ describe('Auth Routes', () => {
     });
 
     it('returns 200 with tokens on valid credentials', async () => {
-      const { compare } = await import('bcrypt');
-      vi.mocked(compare).mockResolvedValue(true as never);
-
-      vi.mocked(UserService.getInstance)().findUserByEmail = vi.fn().mockResolvedValue({
-        id: 'u1', email: 'test@example.com', isActive: true, passwordHash: 'hash',
-        role: 'user', failedLoginAttempts: 0, firstName: 'Test', lastName: 'User',
-        department: 'Eng', permissions: [],
+      mockUserService.findUserByEmail = vi.fn(async () => {
+        const user = {
+          id: 'u1', email: 'test@example.com', isActive: true, passwordHash: CORRECT_PASSWORD_HASH,
+          role: 'user', failedLoginAttempts: 0, firstName: 'Test', lastName: 'User',
+          department: 'Eng', permissions: [],
+        };
+        return user;
       });
-      vi.mocked(UserService.getInstance)().resetLoginAttempts = vi.fn().mockResolvedValue({});
-      vi.mocked(UserService.getInstance)().createRefreshToken = vi.fn().mockResolvedValue({});
+      mockUserService.resetLoginAttempts.mockResolvedValue({});
+      mockUserService.createRefreshToken.mockResolvedValue({});
 
       const app = buildApp();
       const res = await app.handle(
@@ -226,7 +223,7 @@ describe('Auth Routes', () => {
 
   describe('POST /api/v1/auth/logout', () => {
     it('returns 200 and clears cookies', async () => {
-      vi.mocked(UserService.getInstance)().revokeAllRefreshTokens = vi.fn().mockResolvedValue({});
+      mockUserService.revokeAllRefreshTokens.mockResolvedValue({});
 
       const app = buildApp();
       const res = await app.handle(

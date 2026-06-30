@@ -24,7 +24,7 @@ vi.mock('./jwks.js', () => ({
 }));
 
 import jwt from 'jsonwebtoken';
-import { JWTValidator } from '../../../../../shared/middleware/src/j_w_t_validator.js';
+import { JWTValidator } from '../../../../../../../apps/shared/middleware/src/j_w_t_validator.js';
 
 const TEST_SECRET = 'test-secret-that-is-at-least-32-characters-long';
 const JWT_OPTS = { algorithm: 'HS256' as const, issuer: 'uaip', audience: 'uaip-services' };
@@ -39,50 +39,50 @@ describe('JWTValidator', () => {
   });
 
   describe('verify', () => {
-    it('returns decoded payload for a valid token', () => {
+    it('returns decoded payload for a valid token', async () => {
       const token = signTestToken({ userId: 'u1', email: 'test@example.com', role: 'admin' });
-      const decoded = JWTValidator.verify(token);
+      const decoded = await JWTValidator.verify(token);
       expect(decoded.userId).toBe('u1');
       expect(decoded.email).toBe('test@example.com');
       expect(decoded.role).toBe('admin');
     });
 
-    it('throws ApiError for expired token', () => {
+    it('throws ApiError for expired token', async () => {
       const expired = signTestToken(
         { userId: 'u1', email: 'test@example.com', role: 'admin' },
         '-1s'
       );
-      expect(() => JWTValidator.verify(expired)).toThrow();
+      await expect(JWTValidator.verify(expired)).rejects.toThrow();
     });
 
-    it('throws ApiError for malformed token', () => {
-      expect(() => JWTValidator.verify('not.a.valid.token')).toThrow();
+    it('throws ApiError for malformed token', async () => {
+      await expect(JWTValidator.verify('not.a.valid.token')).rejects.toThrow();
     });
 
-    it('throws ApiError for missing token', () => {
-      expect(() => JWTValidator.verify('')).toThrow();
+    it('throws ApiError for missing token', async () => {
+      await expect(JWTValidator.verify('')).rejects.toThrow();
     });
 
-    it('throws ApiError when payload missing required fields', () => {
+    it('throws ApiError when payload missing required fields', async () => {
       const incomplete = jwt.sign({ sub: 'u1' }, TEST_SECRET, JWT_OPTS as never);
-      expect(() => JWTValidator.verify(incomplete)).toThrow();
+      await expect(JWTValidator.verify(incomplete)).rejects.toThrow();
     });
 
-    it('throws ApiError for wrong algorithm token', () => {
+    it('throws ApiError for wrong algorithm token', async () => {
       const wrongAlg = jwt.sign(
         { userId: 'u1', email: 'e@e.com', role: 'user' },
         TEST_SECRET,
         { algorithm: 'HS512' as never, issuer: 'uaip', audience: 'uaip-services' }
       );
-      expect(() => JWTValidator.verify(wrongAlg)).toThrow();
+      await expect(JWTValidator.verify(wrongAlg)).rejects.toThrow();
     });
   });
 
   describe('sign', () => {
-    it('produces a verifiable token', () => {
+    it('produces a verifiable token', async () => {
       const token = JWTValidator.sign({ userId: 'u2', email: 'user@example.com', role: 'user' });
       expect(typeof token).toBe('string');
-      const decoded = JWTValidator.verify(token);
+      const decoded = await JWTValidator.verify(token);
       expect(decoded.userId).toBe('u2');
     });
   });

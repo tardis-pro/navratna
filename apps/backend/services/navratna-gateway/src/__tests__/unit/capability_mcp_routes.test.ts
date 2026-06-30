@@ -68,19 +68,21 @@ vi.mock('../../../../capability-registry/src/services/mcp_resource_discovery_ser
 }));
 
 vi.mock('../../../../capability-registry/src/controllers/capability_controller.js', () => ({
-  CapabilityController: vi.fn().mockImplementation(() => ({
-    listCapabilities: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [], totalCount: 0 }, meta: { timestamp: new Date(), service: 'test' } }),
-    searchCapabilities: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [] }, meta: { timestamp: new Date(), service: 'test' } }),
-    getCapability: vi.fn().mockResolvedValue({ success: true, data: { capability: null } }),
-    registerCapability: vi.fn().mockResolvedValue({ success: true, data: {} }),
-    updateCapability: vi.fn().mockResolvedValue({ success: true, data: { capability: { id: 'c1' } } }),
-    deleteCapability: vi.fn().mockResolvedValue({ success: true }),
-    executeCapability: vi.fn().mockResolvedValue({ success: true, data: { execution: {} } }),
-    validateCapability: vi.fn().mockResolvedValue({ success: true, data: { validationResult: { valid: true, issues: [], recommendations: [] } } }),
-    getCategories: vi.fn().mockResolvedValue({ success: true, data: { categories: [] }, meta: { timestamp: new Date(), service: 'test' } }),
-    getRecommendations: vi.fn().mockResolvedValue({ success: true, data: { recommendations: [] }, meta: { timestamp: new Date(), service: 'test' } }),
-    getCapabilityDependencies: vi.fn().mockResolvedValue({ success: true, data: { dependencies: [] } }),
-  })),
+  CapabilityController: vi.fn(function CapabilityControllerMock() {
+    return {
+      listCapabilities: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [], totalCount: 0 }, meta: { timestamp: new Date(), service: 'test' } }),
+      searchCapabilities: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [] }, meta: { timestamp: new Date(), service: 'test' } }),
+      getCapability: vi.fn().mockResolvedValue({ success: true, data: { capability: null } }),
+      registerCapability: vi.fn().mockResolvedValue({ success: true, data: {} }),
+      updateCapability: vi.fn().mockResolvedValue({ success: true, data: { capability: { id: 'c1' } } }),
+      deleteCapability: vi.fn().mockResolvedValue({ success: true }),
+      executeCapability: vi.fn().mockResolvedValue({ success: true, data: { execution: {} } }),
+      validateCapability: vi.fn().mockResolvedValue({ success: true, data: { validationResult: { valid: true, issues: [], recommendations: [] } } }),
+      getCategories: vi.fn().mockResolvedValue({ success: true, data: { categories: [] }, meta: { timestamp: new Date(), service: 'test' } }),
+      getRecommendations: vi.fn().mockResolvedValue({ success: true, data: { recommendations: [] }, meta: { timestamp: new Date(), service: 'test' } }),
+      getCapabilityDependencies: vi.fn().mockResolvedValue({ success: true, data: { dependencies: [] } }),
+    };
+  }),
 }));
 
 import { registerCapabilityRoutes } from '../../../../capability-registry/src/routes/capability_routes.js';
