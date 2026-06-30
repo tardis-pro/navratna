@@ -232,9 +232,9 @@ services:
         ports:
             - "3009:3009"
         volumes:
-            - ./packages:/app/packages
+            - ./apps/packages:/app/packages
             - ./apps/shared:/app/shared
-            - ./backend/services/basebench-meta:/app/backend/services/basebench-meta
+            - ./apps/backend/services/basebench-meta:/app/backend/services/basebench-meta
             - /app/node_modules
             - /app/backend/node_modules
             - /app/shared/services/node_modules
@@ -275,9 +275,9 @@ services:
         ports:
             - "3010:3010"
         volumes:
-            - ./packages:/app/packages
+            - ./apps/packages:/app/packages
             - ./apps/shared:/app/shared
-            - ./backend/services/questionforge:/app/backend/services/questionforge
+            - ./apps/backend/services/questionforge:/app/backend/services/questionforge
             - /app/node_modules
             - /app/backend/node_modules
             - /app/shared/services/node_modules
@@ -331,7 +331,7 @@ services:
             - ./apps/frontend/.env.local:/app/apps/frontend/.env.local:ro
             - ./apps/frontend/tailwind.config.ts:/app/apps/frontend/tailwind.config.ts
             - ./apps/frontend/postcss.config.js:/app/apps/frontend/postcss.config.js
-            - ./packages:/app/packages
+            - ./apps/packages:/app/packages
             - /app/node_modules
             - /app/apps/frontend/node_modules
         networks:

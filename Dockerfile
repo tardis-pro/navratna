@@ -1,7 +1,7 @@
 FROM oven/bun:1 AS base
 
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-RUN curl -fsSL https://get.pnpm.io/install.sh | PNPM_HOME=/usr/local/bin ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
+RUN apt-get update && apt-get install -y curl libatomic1 && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://get.pnpm.io/install.sh | PNPM_VERSION=10.12.1 PNPM_HOME=/usr/local/bin ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
 
 WORKDIR /app
 
@@ -21,14 +21,34 @@ COPY apps/shared/   ./apps/shared/
 COPY apps/backend/package.json  ./apps/backend/
 COPY apps/backend/tsconfig.json ./apps/backend/
 COPY apps/backend/services/navratna-core/package.json        ./apps/backend/services/navratna-core/
+COPY apps/backend/services/navratna-core/tsconfig.json       ./apps/backend/services/navratna-core/
+COPY apps/backend/services/navratna-core/tsconfig.build.json ./apps/backend/services/navratna-core/
 COPY apps/backend/services/navratna-gateway/package.json     ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/navratna-gateway/tsconfig.json    ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/navratna-gateway/tsconfig.build.json ./apps/backend/services/navratna-gateway/
 COPY apps/backend/services/agent-intelligence/package.json   ./apps/backend/services/agent-intelligence/
+COPY apps/backend/services/agent-intelligence/tsconfig.json  ./apps/backend/services/agent-intelligence/
+COPY apps/backend/services/agent-intelligence/tsconfig.build.json ./apps/backend/services/agent-intelligence/
 COPY apps/backend/services/discussion-orchestration/package.json ./apps/backend/services/discussion-orchestration/
+COPY apps/backend/services/discussion-orchestration/tsconfig.json ./apps/backend/services/discussion-orchestration/
+COPY apps/backend/services/discussion-orchestration/tsconfig.build.json ./apps/backend/services/discussion-orchestration/
 COPY apps/backend/services/artifact-service/package.json     ./apps/backend/services/artifact-service/
+COPY apps/backend/services/artifact-service/tsconfig.json    ./apps/backend/services/artifact-service/
+COPY apps/backend/services/artifact-service/tsconfig.build.json ./apps/backend/services/artifact-service/
 COPY apps/backend/services/llm-service/package.json          ./apps/backend/services/llm-service/
+COPY apps/backend/services/llm-service/tsconfig.json         ./apps/backend/services/llm-service/
+COPY apps/backend/services/llm-service/tsconfig.build.json   ./apps/backend/services/llm-service/
 COPY apps/backend/services/security-gateway/package.json     ./apps/backend/services/security-gateway/
+COPY apps/backend/services/security-gateway/tsconfig.json    ./apps/backend/services/security-gateway/
+COPY apps/backend/services/security-gateway/tsconfig.build.json ./apps/backend/services/security-gateway/
 COPY apps/backend/services/orchestration-pipeline/package.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/orchestration-pipeline/tsconfig.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/orchestration-pipeline/tsconfig.build.json ./apps/backend/services/orchestration-pipeline/
 COPY apps/backend/services/capability-registry/package.json  ./apps/backend/services/capability-registry/
+COPY apps/backend/services/capability-registry/tsconfig.json ./apps/backend/services/capability-registry/
+COPY apps/backend/services/capability-registry/tsconfig.build.json ./apps/backend/services/capability-registry/
+COPY apps/backend/services/oie/package.json                  ./apps/backend/services/oie/
+COPY apps/backend/services/oie/tsconfig.json                 ./apps/backend/services/oie/
 
 RUN pnpm install --frozen-lockfile --shamefully-hoist
 
@@ -54,9 +74,11 @@ COPY apps/backend/services/orchestration-pipeline/src/          ./apps/backend/s
 COPY apps/backend/services/orchestration-pipeline/tsconfig.json ./apps/backend/services/orchestration-pipeline/
 COPY apps/backend/services/capability-registry/src/             ./apps/backend/services/capability-registry/src/
 COPY apps/backend/services/capability-registry/tsconfig.json    ./apps/backend/services/capability-registry/
+COPY apps/backend/services/oie/src/                             ./apps/backend/services/oie/src/
+COPY apps/backend/services/oie/tsconfig.json                    ./apps/backend/services/oie/
 
 # ── Build services ────────────────────────────────────────────────────────────
-RUN pnpm nx run-many -t build --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/security-gateway,@uaip/orchestration-pipeline,@uaip/capability-registry,@uaip/navratna-core,@uaip/navratna-gateway
+RUN pnpm nx run-many -t build --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/security-gateway,@uaip/orchestration-pipeline,@uaip/capability-registry,@uaip/oie,@uaip/navratna-core,@uaip/navratna-gateway
 
 RUN groupadd --gid 1001 nodejs && \
     useradd --uid 1001 --gid nodejs --no-create-home uaip && \
@@ -69,4 +91,4 @@ EXPOSE 3001 3002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:${SERVICE_PORT:-3001}/health || exit 1
 
-CMD ["bun", "run", "apps/backend/services/navratna-core/dist/index.js"]
+CMD ["bun", "run", "apps/backend/services/navratna-core/dist/navratna-core/src/index.js"]
