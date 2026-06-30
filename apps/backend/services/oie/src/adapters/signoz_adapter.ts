@@ -1,8 +1,8 @@
 import axios, { type AxiosInstance } from 'axios';
 import { logger } from '@uaip/utils';
 import type { ObservabilityAdapter } from '../types/observability_adapter.js';
-import type { BaseAdapter, AdapterConfigSchema, AdapterCapability, AdapterHealth } from '../types/base_adapter.js';
-import type { OIEError, OIEMetric, OIETrace, OIEIncident, QueryErrorsParams, QueryMetricsParams, QueryTracesParams, NewIncidentCallback } from '../types/observability_adapter.js';
+import type { AdapterConfigSchema, AdapterCapability, AdapterHealth } from '../types/base_adapter.js';
+import type { OIEError, OIEMetric, OIETrace, OIEIncident, QueryErrorsParams, QueryMetricsParams, QueryTracesParams } from '../types/observability_adapter.js';
 import type { OIEEvent, OIESeverity, StackFrame } from '../types/oie_event.js';
 import { randomUUID } from 'node:crypto';
 

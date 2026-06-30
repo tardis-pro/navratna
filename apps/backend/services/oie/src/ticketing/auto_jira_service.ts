@@ -1,4 +1,4 @@
-import { Queue, Worker, type Job } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { TriagedIncident } from '../types/triage.js';

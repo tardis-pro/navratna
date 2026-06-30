@@ -4,7 +4,6 @@ import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import type { ObservabilityAdapter } from '../types/observability_adapter.js';
 import type { OIEEvent } from '../types/oie_event.js';
-import { randomUUID } from 'node:crypto';
 
 const OIE_EVENTS_TOPIC = 'oie.events.collected';
 const LAST_POLL_KEY_PREFIX = 'oie:collector:last_poll:';

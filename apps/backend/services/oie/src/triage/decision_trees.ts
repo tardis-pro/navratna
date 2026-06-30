@@ -1,4 +1,4 @@
-import type { OIEEvent, OIESeverity, OIEEventType } from '../types/oie_event.js';
+import type { OIEEvent, OIESeverity } from '../types/oie_event.js';
 import type { ErrorCategory, TriageAction, TriageClassification } from '../types/triage.js';
 
 type OccurrenceCounts = { count1h: number; count24h: number };

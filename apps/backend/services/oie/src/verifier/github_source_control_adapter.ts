@@ -131,7 +131,7 @@ export class GitHubSourceControlAdapter implements SourceControlAdapter {
     return String(res.data);
   }
 
-  async addPRComment(ref: PullRequest, comment: string): Promise<void> {
+  async addPRComment(ref: PullRequest, _comment: string): Promise<void> {
     logger.warn('GitHubSourceControlAdapter.addPRComment: repo required — use PR URL to extract repo', { prUrl: ref.url });
   }
 }

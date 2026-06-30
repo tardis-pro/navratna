@@ -184,7 +184,6 @@ export class SentryAdapter implements ObservabilityAdapter {
   normalizeToOIEEvent(raw: OIEError | OIEIncident, projectId: string): OIEEvent {
     const isError = 'message' in raw && !('title' in raw);
     const message = isError ? (raw as OIEError).message : (raw as OIEIncident).title;
-    const count = 'count' in raw ? raw.count : 1;
     const severity = isError
       ? (['critical', 'high', 'medium', 'low'] as OIESeverity[]).find(s => s === (raw as OIEError).tags?.['level']) ?? 'medium'
       : (raw as OIEIncident).severity;
