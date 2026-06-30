@@ -1,4 +1,5 @@
 import { VectorSearchResult } from '@uaip/types';
+import { logger } from '@uaip/utils';
 import { TEIEmbeddingService } from './tei_embedding_service';
 import { QdrantService } from '../qdrant_service';
 
@@ -139,7 +140,7 @@ export class EnhancedRAGService {
 
       return results;
     } catch (error) {
-      console.error('Enhanced semantic search failed:', error);
+      logger.error('Enhanced semantic search failed', { error });
       const wrappedError = new Error(`Semantic search failed: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -199,7 +200,7 @@ export class EnhancedRAGService {
         vectorDocuments
       );
     } catch (error) {
-      console.error('Document indexing failed:', error);
+      logger.error('Document indexing failed', { error });
       const wrappedError = new Error(`Failed to index documents: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -239,7 +240,7 @@ export class EnhancedRAGService {
         .slice(0, topK)
         .map((c, i) => mapCandidateToResult(c, i));
     } catch (error) {
-      console.error('Similar documents search failed:', error);
+      logger.error('Similar documents search failed', { error });
       const wrappedError = new Error(`Failed to find similar documents: ${error instanceof Error ? error.message : String(error)}`);
       Object.assign(wrappedError, { cause: error });
       throw wrappedError;
@@ -278,7 +279,7 @@ export class EnhancedRAGService {
 
       return suggestions;
     } catch (error) {
-      console.error('Query suggestions failed:', error);
+      logger.error('Query suggestions failed', { error });
       return [];
     }
   }
@@ -304,7 +305,7 @@ export class EnhancedRAGService {
         vectorStore: vectorStoreHealth.status === 'fulfilled' ? vectorStoreHealth.value : false,
       };
     } catch (error) {
-      console.error('Health check failed:', error);
+      logger.error('Health check failed', { error });
       return {
         embedding: { status: 'error' },
         reranker: { status: 'error' },
@@ -339,7 +340,7 @@ export class EnhancedRAGService {
 
       return enhancedResults;
     } catch (error) {
-      console.error('Reranking failed, falling back to vector scores:', error);
+      logger.error('Reranking failed, falling back to vector scores', { error });
 
       // Fallback to original vector similarity scores
       return candidates.slice(0, topK).map((candidate, index) => ({

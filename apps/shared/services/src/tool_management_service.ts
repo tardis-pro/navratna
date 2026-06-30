@@ -9,6 +9,81 @@ type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
 
+type ToolDefinitionColumn =
+  | 'id'
+  | 'created_at'
+  | 'updated_at'
+  | 'name'
+  | 'description'
+  | 'category'
+  | 'parameters'
+  | 'return_type'
+  | 'examples'
+  | 'security_level'
+  | 'cost_estimate'
+  | 'execution_time_estimate'
+  | 'requires_approval'
+  | 'dependencies'
+  | 'version'
+  | 'author'
+  | 'tags'
+  | 'is_enabled'
+  | 'rate_limits'
+  | 'total_executions'
+  | 'successful_executions'
+  | 'average_execution_time'
+  | 'last_used_at'
+  | 'documentation_url'
+  | 'support_contact'
+  | 'changelog'
+  | 'deployment_config'
+  | 'environment_requirements'
+  | 'reliability_score'
+  | 'user_rating'
+  | 'maintenance_status';
+
+const ALLOWED_TOOL_COLUMNS = new Set<ToolDefinitionColumn>([
+  'id',
+  'created_at',
+  'updated_at',
+  'name',
+  'description',
+  'category',
+  'parameters',
+  'return_type',
+  'examples',
+  'security_level',
+  'cost_estimate',
+  'execution_time_estimate',
+  'requires_approval',
+  'dependencies',
+  'version',
+  'author',
+  'tags',
+  'is_enabled',
+  'rate_limits',
+  'total_executions',
+  'successful_executions',
+  'average_execution_time',
+  'last_used_at',
+  'documentation_url',
+  'support_contact',
+  'changelog',
+  'deployment_config',
+  'environment_requirements',
+  'reliability_score',
+  'user_rating',
+  'maintenance_status',
+]);
+
+const SAFE_IDENTIFIER_RE = /^[a-z][a-z0-9_]*$/;
+
+function assertSafeToolColumn(col: string): asserts col is ToolDefinitionColumn {
+  if (!SAFE_IDENTIFIER_RE.test(col) || !ALLOWED_TOOL_COLUMNS.has(col as ToolDefinitionColumn)) {
+    throw new Error(`Column "${col}" is not in the tool_definitions allowed-columns whitelist`);
+  }
+}
+
 type ToolUsageStats = {
   toolId: string;
   period: string;
@@ -47,8 +122,9 @@ export class ToolManagementService {
     try {
       const pool = getControlPool();
       const keys = objectKeys(toolData);
+      keys.forEach((k) => assertSafeToolColumn(String(k)));
       const values = keys.map((key) => toolData[key]);
-      const cols = keys.map((k) => `"${k}"`).join(', ');
+      const cols = keys.map((k) => `"${String(k)}"`).join(', ');
       const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
       const queryStr = `INSERT INTO "tool_definitions" (${cols}) VALUES (${placeholders}) RETURNING *`;
       const result = await pool.query(queryStr, values);
@@ -70,6 +146,7 @@ export class ToolManagementService {
         ]);
         return rows.rows[0] ?? null;
       }
+      keys.forEach((k) => assertSafeToolColumn(k));
       const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
       const values = [toolId, ...Object.values(data)];
       const result = await pool.query(

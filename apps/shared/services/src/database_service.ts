@@ -71,6 +71,18 @@ const ALL_KNOWN_TABLES = new Set([...INTELLIGENCE_TABLES, ...CONTROL_TABLES]);
 
 const SAFE_SQL_IDENTIFIER = /^[a-z][a-z0-9_]*$/;
 
+const SAFE_DB_IDENTIFIER_RE = /^[a-z][a-z0-9_]*$/i;
+
+type SqlMaintenanceOperation = 'VACUUM' | 'ANALYZE';
+
+function validateDbIdentifier(identifier: string, context: string): void {
+  if (!SAFE_DB_IDENTIFIER_RE.test(identifier)) {
+    throw new Error(
+      `Invalid ${context} identifier: "${identifier}" — must match /^[a-z][a-z0-9_]*$/i`
+    );
+  }
+}
+
 function assertSafeTableName(table: string): void {
   if (!SAFE_SQL_IDENTIFIER.test(table)) {
     throw new Error(`Unsafe table name rejected: "${table}"`);
@@ -927,24 +939,29 @@ export class DatabaseService {
    */
   public async vacuum(tableName?: string): Promise<void> {
     await this.ensureInitialized();
+    if (tableName) { validateDbIdentifier(tableName, 'table'); }
     const pool = getControlPool();
-    const query = tableName ? `VACUUM ${tableName}` : 'VACUUM';
+    const op: SqlMaintenanceOperation = 'VACUUM';
+    const query = tableName ? `${op} "${tableName}"` : op;
     await pool.query(query);
     logger.info('Database vacuum completed', { tableName });
   }
 
   public async analyze(tableName?: string): Promise<void> {
     await this.ensureInitialized();
+    if (tableName) { validateDbIdentifier(tableName, 'table'); }
     const pool = getControlPool();
-    const query = tableName ? `ANALYZE ${tableName}` : 'ANALYZE';
+    const op: SqlMaintenanceOperation = 'ANALYZE';
+    const query = tableName ? `${op} "${tableName}"` : op;
     await pool.query(query);
     logger.info('Database analyze completed', { tableName });
   }
 
   public async reindex(indexName?: string): Promise<void> {
     await this.ensureInitialized();
+    if (indexName) { validateDbIdentifier(indexName, 'index'); }
     const pool = getControlPool();
-    const query = indexName ? `REINDEX INDEX ${indexName}` : 'REINDEX DATABASE';
+    const query = indexName ? `REINDEX INDEX "${indexName}"` : 'REINDEX DATABASE';
     await pool.query(query);
     logger.info('Database reindex completed', { indexName });
   }
