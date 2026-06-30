@@ -1,6 +1,9 @@
 import { Pool } from 'pg';
+import { Elysia } from 'elysia';
 import type { AnyElysia } from 'elysia';
-import { createApp } from '../../app.js';
+import { registerAuthRoutes } from '../../http/auth_elysia.ts';
+import { registerSecurityRoutes } from '../../http/security_elysia.ts';
+import { registerOAuthRoutes } from '../../http/oauth_elysia.ts';
 import {
   UserEntity,
   Agent as AgentEntity,
@@ -33,9 +36,10 @@ export async function createTestDataSource(): Promise<Pool> {
 export async function createTestApp(_pool?: Pool): Promise<AnyElysia> {
   process.env.NODE_ENV = 'test';
 
-  const app = await createApp({
-    redis: createMockRedis(),
-  });
+  const app = new Elysia({ name: 'security-gateway-test' })
+    .use(registerAuthRoutes())
+    .use(registerSecurityRoutes())
+    .use(registerOAuthRoutes());
 
   return app;
 }

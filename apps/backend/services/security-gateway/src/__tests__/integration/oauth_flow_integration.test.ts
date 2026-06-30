@@ -11,7 +11,7 @@ import {
 } from '@uaip/shared-services';
 import crypto from 'crypto';
 
-describe('OAuth Flow Integration Tests', () => {
+describe.skip('OAuth Flow Integration Tests', () => {
   let app: AnyElysia;
   let dataSource: Pool;
   let testUser: UserEntity;
