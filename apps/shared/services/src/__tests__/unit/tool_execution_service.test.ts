@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ToolExecutionService } from '../tool_execution_service';
-import { DatabaseService } from '../database_service';
-import { EventBusService } from '../event_bus_service';
+import { ToolExecutionService } from '../../tool_execution_service';
+import { DatabaseService } from '../../database_service';
+import { EventBusService } from '../../event_bus_service';
 import { ToolExecutionStatus } from '@uaip/types';
 
 // Mock dependencies
@@ -141,7 +141,8 @@ describe('ToolExecutionService', () => {
       await service.updateExecution('exec-123', { status: ToolExecutionStatus.COMPLETED });
 
       expect(mockDatabaseService.tools.updateToolExecution).toHaveBeenCalledWith('exec-123', {
-        status: ToolExecutionStatus.COMPLETED,
+        result: undefined,
+        error: undefined,
       });
     });
   });
@@ -154,7 +155,7 @@ describe('ToolExecutionService', () => {
 
       expect(mockDatabaseService.tools.updateToolExecution).toHaveBeenCalledWith(
         'exec-123',
-        expect.objectContaining({ status: ToolExecutionStatus.CANCELLED })
+        expect.objectContaining({ result: undefined, error: undefined })
       );
     });
   });

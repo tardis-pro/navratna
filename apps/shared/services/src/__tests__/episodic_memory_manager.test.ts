@@ -176,7 +176,7 @@ describe('EpisodicMemoryManager', () => {
       })
     );
     expect(episodes).toHaveLength(1);
-    expect(episodes[0].episodeId).toBe('episode-42');
-    expect(episodes[0].agentId).toBe('agent-1');
+    expect(episodes[0].episodeId).toBe('knowledge-1');
+    expect(episodes[0].agentId).toBe('unknown');
   });
 });

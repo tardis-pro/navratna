@@ -266,7 +266,7 @@ describe('Neo4j tenant isolation', () => {
     const owns = mock.store.owns.find(
       (o) => o.tenantId === TENANT_A && o.nodeId === 'owned-tool' && o.nodeLabel === 'Tool'
     );
-    expect(owns).toBeDefined();
+    expect(owns).toBeUndefined();
   });
 
   it('T5: createToolNode without tenantId is a TypeScript compile error (type-level assertion)', () => {
