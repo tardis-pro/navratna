@@ -35,31 +35,28 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: '8'
+          version: '10'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'pnpm'
 
-      - name: Install frontend dependencies
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install backend dependencies
-        working-directory: backend
-        run: pnpm install --frozen-lockfile
-
-      - name: Build frontend
-        run: pnpm run build
-
-      - name: Build backend shared packages
-        working-directory: backend
-        run: pnpm run build-shared
+      - name: Build shared packages
+        run: pnpm build:shared
 
       - name: Build backend services
-        working-directory: backend
-        run: pnpm run build-services
+        run: pnpm build:backend
+
+      - name: Build frontend
+        run: pnpm build:frontend
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

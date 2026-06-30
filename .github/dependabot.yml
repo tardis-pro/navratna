@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Frontend dependencies
+  # Root workspace (frontend + NX tooling)
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
@@ -28,25 +28,9 @@ updates:
         patterns:
           - '*'
 
-  # Backend root dependencies
-  - package-ecosystem: 'npm'
-    directory: '/backend'
-    schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '09:00'
-    open-pull-requests-limit: 5
-    reviewers:
-      - 'your-team'
-    assignees:
-      - 'your-team'
-    commit-message:
-      prefix: 'chore(backend-deps)'
-      include: 'scope'
-
   # Shared packages
   - package-ecosystem: 'npm'
-    directory: '/packages/shared-types'
+    directory: '/apps/packages/shared-types'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
@@ -56,7 +40,7 @@ updates:
       prefix: 'chore(shared-types)'
 
   - package-ecosystem: 'npm'
-    directory: '/packages/shared-utils'
+    directory: '/apps/packages/shared-utils'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
@@ -66,7 +50,7 @@ updates:
       prefix: 'chore(shared-utils)'
 
   - package-ecosystem: 'npm'
-    directory: '/backend/shared/services'
+    directory: '/apps/shared/services'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
@@ -76,7 +60,7 @@ updates:
       prefix: 'chore(shared-services)'
 
   - package-ecosystem: 'npm'
-    directory: '/backend/shared/middleware'
+    directory: '/apps/shared/middleware'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
@@ -86,7 +70,7 @@ updates:
       prefix: 'chore(shared-middleware)'
 
   - package-ecosystem: 'npm'
-    directory: '/backend/shared/config'
+    directory: '/apps/shared/config'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
@@ -95,81 +79,60 @@ updates:
     commit-message:
       prefix: 'chore(shared-config)'
 
-  # Backend services
   - package-ecosystem: 'npm'
-    directory: '/backend/services/agent-intelligence'
+    directory: '/apps/shared/infra'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '09:00'
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(infra)'
+
+  # Backend services (v3 consolidated)
+  - package-ecosystem: 'npm'
+    directory: '/apps/backend/services/navratna-core'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
       time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: 'chore(agent-intelligence)'
+      prefix: 'chore(navratna-core)'
 
   - package-ecosystem: 'npm'
-    directory: '/backend/services/orchestration-pipeline'
+    directory: '/apps/backend/services/navratna-gateway'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
       time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: 'chore(orchestration-pipeline)'
+      prefix: 'chore(navratna-gateway)'
 
   - package-ecosystem: 'npm'
-    directory: '/backend/services/capability-registry'
+    directory: '/apps/backend/services/questionforge'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
       time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: 'chore(capability-registry)'
+      prefix: 'chore(questionforge)'
 
   - package-ecosystem: 'npm'
-    directory: '/backend/services/security-gateway'
+    directory: '/apps/backend/services/basebench-meta'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
       time: '09:00'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: 'chore(security-gateway)'
-
-  - package-ecosystem: 'npm'
-    directory: '/backend/services/artifact-service'
-    schedule:
-      interval: 'weekly'
-      day: 'wednesday'
-      time: '09:00'
-    open-pull-requests-limit: 3
-    commit-message:
-      prefix: 'chore(artifact-service)'
-
-  - package-ecosystem: 'npm'
-    directory: '/backend/services/discussion-orchestration'
-    schedule:
-      interval: 'weekly'
-      day: 'wednesday'
-      time: '09:00'
-    open-pull-requests-limit: 3
-    commit-message:
-      prefix: 'chore(discussion-orchestration)'
-
-  # API Gateway
-  - package-ecosystem: 'npm'
-    directory: '/backend/api-gateway'
-    schedule:
-      interval: 'weekly'
-      day: 'thursday'
-      time: '09:00'
-    open-pull-requests-limit: 3
-    commit-message:
-      prefix: 'chore(api-gateway)'
+      prefix: 'chore(basebench-meta)'
 
   # Docker dependencies
   - package-ecosystem: 'docker'
-    directory: '/backend'
+    directory: '/'
     schedule:
       interval: 'weekly'
       day: 'friday'

@@ -22,7 +22,6 @@ jobs:
       frontend: ${{ steps.changes.outputs.frontend }}
       backend: ${{ steps.changes.outputs.backend }}
       shared: ${{ steps.changes.outputs.shared }}
-      services: ${{ steps.changes.outputs.services }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,19 +32,15 @@ jobs:
         with:
           filters: |
             frontend:
-              - 'src/**'
-              - 'public/**'
-              - 'package.json'
-              - 'vite.config.ts'
-              - 'tsconfig*.json'
-              - 'tailwind.config.ts'
-              - 'eslint.config.js'
+              - 'apps/frontend/**'
+              - 'apps/packages/**'
             backend:
               - 'apps/backend/**'
+              - 'apps/shared/**'
+              - 'apps/packages/**'
             shared:
               - 'apps/shared/**'
-            services:
-              - 'apps/backend/services/**'
+              - 'apps/packages/**'
 
   frontend-ci:
     name: Frontend CI
@@ -71,19 +66,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm run lint
+        run: pnpm lint
 
       - name: Type check
-        run: pnpm exec tsc --noEmit
+        run: pnpm typecheck
 
       - name: Build
-        run: pnpm run build
+        run: pnpm build:frontend
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: dist/
+          path: apps/frontend/dist/
           retention-days: 7
 
   backend:
@@ -95,15 +90,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Get pnpm store directory
         shell: bash
@@ -121,14 +120,58 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint shared packages
-        run: pnpm -r --filter "./apps/shared/**" lint || echo "Lint command not found, skipping"
+      - name: Lint
+        run: pnpm nx run-many -t lint --projects=tag:backend-service
 
-      - name: Lint services
-        run: pnpm -r --filter "./apps/backend/services/**" lint || echo "Lint command not found, skipping"
+      - name: Build shared packages
+        run: pnpm build:shared
 
-      - name: Build shared packages and services
-        run: pnpm run build:shared && pnpm run build:backend
+      - name: Build backend services
+        run: pnpm build:backend
+
+  test:
+    name: Test (affected)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run affected tests
+        run: pnpm nx affected -t test --base=origin/main --head=HEAD
 
   docker-build:
     name: Docker Build Test
