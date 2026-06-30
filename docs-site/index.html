@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Navratna — Engineering Atlas</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --bg-soft: #11141b;
+    --panel: #151922;
+    --panel-2: #1b212c;
+    --border: #232b38;
+    --text: #e6edf3;
+    --text-dim: #9aa7b8;
+    --text-faint: #5d6b7e;
+    --accent: #6ea8fe;
+    --accent-2: #7ee787;
+    --feat: #7ee787;
+    --fix: #ffa657;
+    --chore: #a5a5b0;
+    --docs: #79c0ff;
+    --test: #d2a8ff;
+    --refactor: #f0c674;
+    --build: #56d4dd;
+    --merge: #6e7681;
+    --radius: 14px;
+    --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(110,168,254,.3); }
+
+  /* Layout */
+  .shell { display: flex; min-height: 100vh; }
+  nav.side {
+    width: 248px; flex-shrink: 0;
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto; padding: 28px 18px;
+  }
+  nav.side .brand { font-weight: 700; font-size: 20px; letter-spacing: -.5px; margin-bottom: 2px; }
+  nav.side .brand span { color: var(--accent); }
+  nav.side .tag { font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-bottom: 26px; }
+  nav.side a {
+    display: block; color: var(--text-dim); text-decoration: none;
+    padding: 8px 12px; border-radius: 8px; font-size: 14px; margin-bottom: 2px;
+    transition: all .15s; border-left: 2px solid transparent;
+  }
+  nav.side a:hover { background: var(--panel); color: var(--text); }
+  nav.side a.active { background: var(--panel-2); color: var(--accent); border-left-color: var(--accent); }
+  nav.side .grp { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-faint); margin: 22px 12px 8px; }
+
+  main { flex: 1; max-width: 1100px; margin: 0 auto; padding: 56px 48px 120px; }
+  section { margin-bottom: 96px; scroll-margin-top: 30px; }
+  h1 { font-size: 40px; letter-spacing: -1.2px; margin-bottom: 8px; }
+  h2 { font-size: 27px; letter-spacing: -.6px; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 18px; margin: 28px 0 12px; color: var(--text); }
+  p { color: var(--text-dim); margin-bottom: 14px; }
+  code { font-family: var(--mono); background: var(--panel-2); padding: 2px 6px; border-radius: 5px; font-size: .88em; color: var(--accent-2); }
+  a.link { color: var(--accent); }
+
+  .hero-sub { font-size: 18px; color: var(--text-dim); max-width: 720px; margin-bottom: 32px; }
+
+  /* Stat cards */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 14px; margin: 28px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .stat .n { font-size: 34px; font-weight: 700; letter-spacing: -1px; font-family: var(--mono); }
+  .stat .l { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .5px; margin-top: 4px; }
+  .stat .sub { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; margin: 18px 0; }
+  .mermaid-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; margin: 18px 0; overflow-x: auto; }
+  .mermaid { display: flex; justify-content: center; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+  td { color: var(--text-dim); vertical-align: top; }
+  tr:hover td { background: var(--panel); }
+  td strong { color: var(--text); }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-family: var(--mono); font-weight: 600; }
+  .pill.met { background: rgba(126,231,135,.15); color: var(--feat); }
+  .pill.partial { background: rgba(255,166,87,.15); color: var(--fix); }
+  .pill.missing { background: rgba(255,99,99,.15); color: #ff6363; }
+  .pill.edge { background: rgba(110,168,254,.15); color: var(--accent); }
+  .pill.ts { background: rgba(93,107,126,.18); color: var(--text-dim); }
+
+  /* Timeline / changelog */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content:''; position:absolute; left:7px; top:6px; bottom:6px; width:2px; background:var(--border); }
+  .tl-item { position: relative; margin-bottom: 30px; }
+  .tl-item::before { content:''; position:absolute; left:-26px; top:5px; width:12px; height:12px; border-radius:50%; background:var(--accent); border:3px solid var(--bg); }
+  .tl-item.sec::before { background: var(--feat); }
+  .tl-item .date { font-family: var(--mono); font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+  .tl-item h4 { font-size: 16px; margin-bottom: 6px; }
+  .tl-item ul { margin: 8px 0 0 18px; }
+  .tl-item li { color: var(--text-dim); font-size: 14px; margin-bottom: 4px; }
+
+  /* Decision log */
+  .decision { border-left: 3px solid var(--accent); background: var(--panel); border-radius: 0 var(--radius) var(--radius) 0; padding: 18px 22px; margin: 14px 0; }
+  .decision .q { font-weight: 600; color: var(--text); margin-bottom: 6px; font-size: 15px; }
+  .decision .a { color: var(--text-dim); font-size: 14px; }
+  .decision .tagline { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-top: 8px; }
+
+  /* Commit dashboard */
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; align-items: center; }
+  .controls select, .controls input {
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; font-family: var(--sans);
+  }
+  .chart { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin: 18px 0; }
+  .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; font-size: 13px; }
+  .bar-row .lbl { width: 130px; flex-shrink: 0; color: var(--text-dim); font-family: var(--mono); font-size: 12px; text-align: right; }
+  .bar-row .bar-track { flex: 1; background: var(--panel-2); border-radius: 6px; height: 22px; overflow: hidden; position: relative; }
+  .bar-row .bar-fill { height: 100%; border-radius: 6px; transition: width .6s cubic-bezier(.2,.8,.2,1); min-width: 2px; }
+  .bar-row .val { width: 46px; text-align: right; font-family: var(--mono); font-size: 12px; color: var(--text); }
+
+  .month-grid { display: flex; align-items: flex-end; gap: 4px; height: 180px; padding: 10px 0; overflow-x: auto; }
+  .month-col { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 38px; }
+  .month-col .mbar { width: 26px; background: linear-gradient(180deg, var(--accent), #2f5aa8); border-radius: 5px 5px 0 0; transition: height .6s; }
+  .month-col .mlbl { font-size: 9px; color: var(--text-faint); font-family: var(--mono); writing-mode: vertical-rl; }
+  .month-col .mval { font-size: 10px; color: var(--text-dim); font-family: var(--mono); }
+
+  .commit-list { max-height: 540px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  .commit { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; align-items: baseline; }
+  .commit:hover { background: var(--panel); }
+  .commit .c-date { font-family: var(--mono); font-size: 11px; color: var(--text-faint); width: 78px; flex-shrink: 0; }
+  .commit .c-type { font-family: var(--mono); font-size: 10px; font-weight: 700; width: 64px; flex-shrink: 0; text-transform: uppercase; }
+  .commit .c-msg { color: var(--text-dim); }
+  .commit .c-msg .pm { color: var(--accent); font-family: var(--mono); font-size: 11px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 4px; font-size: 12px; color: var(--text-dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } nav.side { display:none; } main { padding: 32px 20px 80px; } }
+  .footnote { color: var(--text-faint); font-size: 12px; font-family: var(--mono); margin-top: 10px; }
+  .kbd { font-family: var(--mono); font-size: 11px; background: var(--panel-2); border:1px solid var(--border); padding: 1px 6px; border-radius: 5px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="side">
+    <div class="brand">Navrat<span>na</span></div>
+    <div class="tag">UAIP · Engineering Atlas</div>
+    <div class="grp">Overview</div>
+    <a href="#summary" class="active">Executive Summary</a>
+    <a href="#story">Project Story</a>
+    <div class="grp">System</div>
+    <a href="#architecture">Architecture</a>
+    <a href="#flows">Flows &amp; Sequences</a>
+    <a href="#infra">Infrastructure</a>
+    <a href="#data">Data Planes</a>
+    <div class="grp">History</div>
+    <a href="#changelog">Change Log</a>
+    <a href="#decisions">Decision Log</a>
+    <a href="#commits">Commit Analytics</a>
+    <div class="grp">Posture</div>
+    <a href="#sota">SOTA Position</a>
+  </nav>
+
+  <main>
+    <!-- SUMMARY -->
+    <section id="summary">
+      <h1>Navratna Engineering Atlas</h1>
+      <p class="hero-sub">Sovereign Cognitive Shell / Unified Agent Intelligence Platform — a metacognitive agent OS with multi-agent orchestration, triple-store knowledge, and an ambient "Telescope" UI. This atlas captures what was built, every decision, and the full commit history since inception.</p>
+      <div class="stats">
+        <div class="stat"><div class="n" style="color:var(--accent)">543</div><div class="l">Total Commits</div><div class="sub">Apr 9 2025 → Jun 2 2026</div></div>
+        <div class="stat"><div class="n" style="color:var(--feat)">214</div><div class="l">Features</div><div class="sub">39% of all commits</div></div>
+        <div class="stat"><div class="n" style="color:var(--fix)">102</div><div class="l">Bug Fixes</div><div class="sub">19% of all commits</div></div>
+        <div class="stat"><div class="n" style="color:var(--docs)">~14</div><div class="l">Months Active</div><div class="sub">2.1 feat : 1 fix ratio</div></div>
+        <div class="stat"><div class="n" style="color:var(--test)">27</div><div class="l">Test Commits</div><div class="sub">+27 refactor</div></div>
+        <div class="stat"><div class="n" style="color:var(--build)">20</div><div class="l">Packages</div><div class="sub">strict TypeScript</div></div>
+      </div>
+      <p>Three convergent products run on one platform: <strong>UAIP Core</strong> (agent platform + Telescope UX), <strong>BaseBench-Meta</strong> (metacognitive reliability benchmark), and <strong>QuestionForge</strong> (stakeholder discovery council). The backend is consolidated from 7 legacy microservices into 2 Bun/Elysia runtimes (<code>navratna-core</code> :3001, <code>navratna-gateway</code> :3002) via the FeatureFactory pattern.</p>
+    </section>
+
+    <!-- STORY -->
+    <section id="story">
+      <h2>Project Story</h2>
+      <p>Navratna began on <strong>April 9, 2025</strong> as a weekend prototype — a "council of nicea": an LLM debate feature on a Vite + React + shadcn stack. Over ~14 months it evolved into a sovereign, multi-agent cognitive operating system.</p>
+      <div class="timeline">
+        <div class="tl-item sec"><div class="date">Apr 2025 · origin</div><h4>The Council of Nicea</h4><ul><li>Vite + React + shadcn scaffold, model selector, debate feature</li><li>"full blown council" — multi-agent debate prototype</li></ul></div>
+        <div class="tl-item"><div class="date">Jun–Jul 2025 · 212 commits</div><h4>Platform Foundation</h4><ul><li>Triple-store knowledge (PostgreSQL + Neo4j + Qdrant), agent personas, MCP protocol</li><li>Security gateway: JWT + MFA + OAuth (Jira/GitHub/Slack/Confluence)</li><li>Discussion orchestration, capability registry, artifact generation</li></ul></div>
+        <div class="tl-item"><div class="date">Dec 2025–Feb 2026 · 34 commits</div><h4>Telescope &amp; Vision</h4><ul><li>Strategic Vision 2026, BaseBench-Meta + QuestionForge specs</li><li>Telescope ambient-UX foundation</li></ul></div>
+        <div class="tl-item"><div class="date">Mar 2026 · 50 commits</div><h4>Telescope Phase 1 Built</h4><ul><li>IntentField, MaterializableBlock, Microexpression system, relevance engine</li><li>Approval gates, ThinkingIndicator, DecisionLog, Vitest setup</li></ul></div>
+        <div class="tl-item sec"><div class="date">Apr 2026 · 136 commits</div><h4>OIE + Spec-Driven Frontend (peak)</h4><ul><li>Operational Intelligence Engine: collector→triage→analyst→fix→verify→learn BullMQ pipeline (PM-176–187)</li><li>Spec-driven portals, WorkflowStateMachineRuntime, BindingResolver, react-hook-form + zod migration</li></ul></div>
+        <div class="tl-item sec"><div class="date">Jun 1–2 2026 · 61 commits</div><h4>Enterprise Hardening + TS6</h4><ul><li>Multi-tenant isolation (RLS, Neo4j/Qdrant tenant scoping), GDPR erasure saga, SOC 2 policies</li><li>Layer C: 20 packages to strict TypeScript, v3.0 service consolidation, 108 Dependabot vulns → 0</li></ul></div>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section id="architecture">
+      <h2>System Architecture</h2>
+      <p>All traffic flows through the nginx API gateway (:8081) which validates JWT via <code>auth_request</code> and forwards identity headers. Two consolidated Bun/Elysia services compose domain "Features" via the FeatureFactory. Legacy service directories are thin runners re-exporting canonical shared packages.</p>
+      <div class="mermaid-wrap">
+        <pre class="mermaid">
+graph TB
+  client["React 19 + Vite SPA<br/>Telescope UI · :5173"]
+  nginx{{"nginx API Gateway · :8081<br/>JWT auth_request · CORS · rate-limit"}}
+  client --> nginx
+
+  subgraph core["navratna-core · :3001"]
+    aif["agentIntelligenceFeature"]
+    df["discussionFeature"]
+    artf["artifactFeature"]
+    llmf["llmFeature"]
+  end
+  subgraph gw["navratna-gateway · :3002"]
+    secf["securityFeature"]
+    orchf["orchestrationFeature"]
+    capf["capabilityFeature"]
+  end
+  subgraph prod["Products"]
+    qf["QuestionForge · :3010"]
+    bb["BaseBench-Meta · :3009"]
+    oie["OIE · library Feature"]
+  end
+
+  nginx --> core
+  nginx --> gw
+  nginx --> prod
+
+  subgraph shared["@uaip/shared-services (canonical domain layer)"]
+    ff["FeatureFactory"]
+    svc["Persona · Discussion · AgentState<br/>AgentMemory · DecisionEngine"]
+  end
+  core --> shared
+  gw --> shared
+  prod --> shared
+
+  subgraph stores["Triple-Store + Cache"]
+    pg[("PostgreSQL :5432<br/>2-plane Drizzle")]
+    neo[("Neo4j :7687<br/>graph / KG")]
+    qd[("Qdrant :6333<br/>vectors 1024-d")]
+    rd[("Redis :6379<br/>cache · BullMQ bus")]
+  end
+  shared --> pg
+  shared --> neo
+  shared --> qd
+  shared --> rd
+        </pre>
+      </div>
+
+      <h3>FeatureFactory pattern — "symphony or a single note"</h3>
+      <p>Every domain exports a <code>Feature</code> object (initialize / routes / events / websocket / shutdown). Consolidated services register features; legacy services run the same feature standalone. Runtime-toggleable via <code>FEATURE_*</code> env vars.</p>
+      <div class="card">
+        <table>
+          <thead><tr><th>Service</th><th>Port</th><th>Status</th><th>Composes</th></tr></thead>
+          <tbody>
+            <tr><td><strong>navratna-core</strong></td><td>3001</td><td><span class="pill met">v3 active</span></td><td>agent-intelligence + discussion + artifact + llm</td></tr>
+            <tr><td><strong>navratna-gateway</strong></td><td>3002</td><td><span class="pill met">v3 active</span></td><td>security-gateway + orchestration + capability-registry</td></tr>
+            <tr><td>QuestionForge</td><td>3010</td><td><span class="pill edge">product</span></td><td>Stakeholder discovery council</td></tr>
+            <tr><td>BaseBench-Meta</td><td>3009</td><td><span class="pill edge">product</span></td><td>Metacognitive reliability benchmark</td></tr>
+            <tr><td>OIE</td><td>—</td><td><span class="pill ts">library</span></td><td>Operational Intelligence Engine (BullMQ pipeline)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FLOWS -->
+    <section id="flows">
+      <h2>Flows &amp; Sequences</h2>
+
+      <h3>1 · Authenticated request flow</h3>
+      <div class="mermaid-wrap"><pre class="mermaid">
+sequenceDiagram
+  participant U as Browser
+  participant N as nginx :8081
+  participant G as navratna-gateway
+  participant C as navratna-core
+  participant D as Stores
+  U->>N: request + JWT cookie
+  N->>G: auth_request /validate
+  G-->>N: 200 + X-User-ID / Role / Org
+  N->>C: forward + identity headers
+  Note over C: fail-closed if x-user-id missing
+  C->>C: withTenant() scopes request
+  C->>D: tenant-scoped query
+  D-->>C: rows (RLS enforced)
+  C-->>U: response
+      </pre></div>
+
+      <h3>2 · Multi-agent discussion (turn orchestration)</h3>
+      <div class="mermaid-wrap"><pre class="mermaid">
+sequenceDiagram
+  participant API as discussionFeature
+  participant DS as DiscussionService
+  participant TS as TurnStrategy
+  participant LLM as llmFeature
+  participant WS as Socket.IO
+  API->>DS: POST /discussions/:id/start
+  DS->>DS: load participants
+  loop each turn
+    DS->>TS: select next speaker
+    TS-->>DS: participant + weight
+    DS->>LLM: generate turn (memory-aware)
+    LLM-->>DS: response
+    DS->>WS: broadcast turn
+  end
+  DS->>API: consensus / huddle resolution
+      </pre></div>
+
+      <h3>3 · OIE self-healing pipeline (BullMQ)</h3>
+      <div class="mermaid-wrap"><pre class="mermaid">
+graph LR
+  obs["SigNoz / Sentry<br/>adapters"] --> col["Collector<br/>repeatable job"]
+  col --> tri["Triage Engine<br/>dedup · severity"]
+  tri --> jira["Auto-Jira"]
+  tri --> an["Analyst Agent"]
+  an --> fp["Fix Proposer<br/>+ Confidence Gate"]
+  fp -->|auto_pr| ver["Verifier<br/>GitHub adapter"]
+  fp -->|shadow_jury| ver
+  fp -->|jira_comment| jira
+  ver --> lr["Learner<br/>triple-store"]
+  lr -.recursive.-> tri
+  slo["Reconciliation<br/>per-project SLOs"] -.drift.-> tri
+      </pre></div>
+
+      <h3>4 · Knowledge ingestion → triple-store sync</h3>
+      <div class="mermaid-wrap"><pre class="mermaid">
+graph LR
+  src["Repo / chat-export<br/>POST /knowledge/ingest"] --> ast["AST Symbol Extractor"]
+  ast --> idx["Semantic Index Service"]
+  idx --> emb["embeddings 1024-d"]
+  emb --> qd[("Qdrant")]
+  ast --> ig["Import Graph Service"]
+  ig --> neo[("Neo4j KG")]
+  idx --> pg[("PostgreSQL<br/>knowledge_items")]
+  qd -. UUID-consistent .- neo
+  neo -. sync .- pg
+      </pre></div>
+    </section>
+
+    <!-- INFRA -->
+    <section id="infra">
+      <h2>Infrastructure</h2>
+      <div class="two-col">
+        <div class="card">
+          <h3>Runtime &amp; Build</h3>
+          <table><tbody>
+            <tr><td><strong>Language</strong></td><td>TypeScript 6.0.2 (strict, all 20 pkgs)</td></tr>
+            <tr><td><strong>Runtime</strong></td><td>Bun</td></tr>
+            <tr><td><strong>HTTP</strong></td><td>Elysia (no Express)</td></tr>
+            <tr><td><strong>ORM</strong></td><td>Drizzle + pg Pool (no TypeORM)</td></tr>
+            <tr><td><strong>Build</strong></td><td>NX 22.6.1 + pnpm workspaces</td></tr>
+            <tr><td><strong>Event bus</strong></td><td>BullMQ on Redis (no RabbitMQ)</td></tr>
+            <tr><td><strong>Lint/Fmt</strong></td><td>oxlint / oxfmt</td></tr>
+            <tr><td><strong>Frontend</strong></td><td>React 19 + Vite + Tailwind 4 + shadcn</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card">
+          <h3>Data &amp; Observability</h3>
+          <table><tbody>
+            <tr><td><span class="dot" style="background:var(--accent)"></span> <strong>PostgreSQL</strong></td><td>:5432 — 2-plane Drizzle, RLS</td></tr>
+            <tr><td><span class="dot" style="background:var(--feat)"></span> <strong>Neo4j</strong></td><td>:7474/:7687 — graph + KG</td></tr>
+            <tr><td><span class="dot" style="background:var(--fix)"></span> <strong>Qdrant</strong></td><td>:6333 — vectors 1024-d</td></tr>
+            <tr><td><span class="dot" style="background:var(--test)"></span> <strong>Redis</strong></td><td>:6379 — cache · bus · sessions</td></tr>
+            <tr><td><span class="dot" style="background:var(--docs)"></span> <strong>SignOZ</strong></td><td>:3301 — APM (OTel)</td></tr>
+            <tr><td><span class="dot" style="background:var(--build)"></span> <strong>Sentry</strong></td><td>:9000 — error tracking</td></tr>
+            <tr><td><span class="dot" style="background:var(--refactor)"></span> <strong>Prometheus</strong></td><td>:9090 + Grafana :3000</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <h3>Deployment surfaces</h3>
+      <p>Docker Compose (core infra + <code>--profile monitoring</code> stack), Cloudflare (Worker + Pages), Fly.io. Multi-machine Tailscale mesh topology in progress.</p>
+    </section>
+
+    <!-- DATA PLANES -->
+    <section id="data">
+      <h2>Data Planes</h2>
+      <p>Two-plane Drizzle schema with no cross-plane DB-level FKs. Cross-plane writes verified via <code>CrossPlaneGuard.verify()</code>.</p>
+      <div class="mermaid-wrap"><pre class="mermaid">
+graph TB
+  subgraph PCA["Intelligence Plane (PC-A) · navratna-core"]
+    a1["agents · personas · discussions"]
+    a2["messages · knowledge_items"]
+    a3["artifacts · llm_providers · llm_models"]
+  end
+  subgraph PCB["Control Plane (PC-B) · navratna-gateway"]
+    b1["users · sessions · tokens · mfa · oauth"]
+    b2["tools · mcp_servers · operations"]
+    b3["tasks · projects · security_policies"]
+    b4["audit_events · erasure_outbox · erasure_ledger"]
+  end
+  PCA -. CrossPlaneGuard.verify() .- PCB
+      </pre></div>
+    </section>
+
+    <!-- CHANGELOG -->
+    <section id="changelog">
+      <h2>Change Log</h2>
+      <p>Grouped by epoch. Full per-commit detail is in <a href="#commits" class="link">Commit Analytics</a>.</p>
+
+      <h3>v3.1 — Enterprise Hardening &amp; TS6 <span class="footnote">(Jun 1–2 2026 · 61 commits)</span></h3>
+      <div class="card">
+        <strong>Multi-tenant isolation &amp; compliance</strong>
+        <ul style="margin:8px 0 14px 18px; color:var(--text-dim); font-size:14px;">
+          <li><code>withTenant()</code> middleware; <code>organizationId</code> across JWT claims, users, agents, personas, knowledge_items</li>
+          <li>PostgreSQL FORCE ROW LEVEL SECURITY + RLS tenant policies; backfill migrations</li>
+          <li>Neo4j: tenantId on all nodes, <code>:Tenant</code> nodes + OWNS relationships, scoped MATCH queries</li>
+          <li>Qdrant: mandatory tenant_id on all writes + backfill; isolation integration tests</li>
+          <li>GDPR: UserErasureService saga across 5 stores, erasure_outbox/ledger tables, 24h sweep + 90-day audit retention crons</li>
+          <li>Six SOC 2 Type I policy documents; cross-tenant isolation probe daemon (6h BullMQ)</li>
+          <li>Redis sliding-window rate limiter (Lua), security-headers plugin, CSP, jti token revocation</li>
+        </ul>
+        <strong>Layer C — TS6 migration &amp; consolidation</strong>
+        <ul style="margin:8px 0 0 18px; color:var(--text-dim); font-size:14px;">
+          <li>C1–C3: <code>@uaip/source</code> exports on 20 packages, stub packages, per-package <code>tsconfig.build.json</code> split</li>
+          <li>C4–C6: removed ignoreDeprecations, moved agent-intelligence + discussion code to shared packages, strict mode everywhere</li>
+          <li>108 Dependabot vulnerabilities → 0</li>
+        </ul>
+      </div>
+
+      <h3>v3.0 — OIE &amp; Spec-Driven Frontend <span class="footnote">(Apr 2026 · 136 commits)</span></h3>
+      <div class="card"><ul style="margin:0 0 0 18px; color:var(--text-dim); font-size:14px;">
+        <li>Operational Intelligence Engine — full collector→triage→analyst→fix→verify→learn pipeline (PM-176–187)</li>
+        <li>Spec-driven portal rendering, WorkflowStateMachineRuntime, BindingResolver + useActionDispatcher</li>
+        <li>DynamicForm → react-hook-form + zod; security + agent-manager portals</li>
+      </ul></div>
+
+      <h3>v2.x — Telescope &amp; Foundation <span class="footnote">(Jun 2025 – Mar 2026)</span></h3>
+      <div class="card"><ul style="margin:0 0 0 18px; color:var(--text-dim); font-size:14px;">
+        <li>Telescope Phase 1: IntentField, MaterializableBlock, Microexpression, relevance engine</li>
+        <li>Triple-store knowledge graph, 14 agent personas, MCP protocol, OAuth adapters</li>
+        <li>Approval gates, ThinkingIndicator, DecisionLog, Vitest test infrastructure</li>
+      </ul></div>
+    </section>
+
+    <!-- DECISIONS -->
+    <section id="decisions">
+      <h2>Decision Log</h2>
+      <p>Architectural decisions captured from the production-ready, Layer-C, and table-stakes plans.</p>
+
+      <div class="decision"><div class="q">D1 · FeatureFactory / "MIDI" pattern</div><div class="a">Every domain is a self-contained Feature. navratna-core/gateway are pure compositions with zero business logic. Legacy services run the same Feature standalone.</div><div class="tagline">"work in a symphony or as a single note, or like MIDI through different instruments"</div></div>
+
+      <div class="decision"><div class="q">D2 · @uaip/shared-services is the single source of truth</div><div class="a">Subpar duplicate copies of PersonaService / DiscussionService in service directories were deleted. Domain logic lives only in canonical shared packages with sub-path exports.</div></div>
+
+      <div class="decision"><div class="q">D3 · Consolidate 7 services → 2 runtimes</div><div class="a">navratna-core (:3001) + navratna-gateway (:3002) are the primary runtime (~95–97% route parity). Legacy dirs reduced to thin runners. Single-owner v3 posture.</div></div>
+
+      <div class="decision"><div class="q">D4 · Fail-closed auth on all write paths</div><div class="a">No 'system' or 'anonymous' fallbacks. Missing <code>x-user-id</code> on state-changing endpoints fails closed. (E6 critical finding.)</div></div>
+
+      <div class="decision"><div class="q">D5 · Per-package tsconfig.build.json, never big-bang</div><div class="a">TS6 migration done one package at a time, verified after each. <code>@uaip/source</code> condition is the dev-resolution safety net, completed before any paths removal.</div></div>
+
+      <div class="decision"><div class="q">D6 · Storage split for lineage (hard rule)</div><div class="a">PostgreSQL = authoritative event log + outbox (system of record). Neo4j = async projection for traversal (never transactional). Qdrant = vectors only.</div></div>
+
+      <div class="decision"><div class="q">D7 · No Express, no TypeORM, no RabbitMQ</div><div class="a">Elysia is the HTTP framework, Drizzle + pg Pool the data layer, BullMQ-on-Redis the event bus. No fallbacks, no feature flags as architecture — rollback = git revert.</div></div>
+
+      <div class="decision"><div class="q">D8 · Gap F = Verified Autonomy Loop (the wedge)</div><div class="a">Reverse-impact + belief quarantine over an agent lineage control plane. Closing table-stakes is admission criteria; the Verified Autonomy Loop is the winning move. Productizes existing engine primitives only — does not touch the cognitive engine.</div></div>
+
+      <div class="decision"><div class="q">D9 · snake_case filenames</div><div class="a">All navratna filenames use snake_case (<code>agent_routes.ts</code>, <code>feature_factory.ts</code>). No inline types — extract to <code>@uaip/types</code> or local <code>types.ts</code>.</div></div>
+    </section>
+
+    <!-- COMMITS -->
+    <section id="commits">
+      <h2>Commit Analytics</h2>
+      <p>All <strong>543 commits</strong> since inception, parsed from conventional-commit prefixes. <span class="footnote">Filter and search below.</span></p>
+
+      <div class="chart">
+        <h3 style="margin-top:0">Commits per month</h3>
+        <div class="month-grid" id="monthGrid"></div>
+      </div>
+
+      <div class="chart">
+        <h3 style="margin-top:0">By type</h3>
+        <div id="typeBars"></div>
+      </div>
+
+      <div class="chart">
+        <h3 style="margin-top:0">By scope (top 18)</h3>
+        <div id="scopeBars"></div>
+      </div>
+
+      <h3>Browse commits</h3>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--feat)"></span>feat</span>
+        <span><span class="dot" style="background:var(--fix)"></span>fix</span>
+        <span><span class="dot" style="background:var(--chore)"></span>chore</span>
+        <span><span class="dot" style="background:var(--docs)"></span>docs</span>
+        <span><span class="dot" style="background:var(--test)"></span>test</span>
+        <span><span class="dot" style="background:var(--refactor)"></span>refactor</span>
+        <span><span class="dot" style="background:var(--build)"></span>build</span>
+      </div>
+      <div class="controls">
+        <select id="fType"><option value="">All types</option></select>
+        <select id="fScope"><option value="">All scopes</option></select>
+        <input id="fSearch" type="text" placeholder="search message…" style="flex:1;min-width:160px" />
+        <span class="footnote" id="count"></span>
+      </div>
+      <div class="commit-list" id="commitList"></div>
+    </section>
+
+    <!-- SOTA -->
+    <section id="sota">
+      <h2>SOTA Position</h2>
+      <p>Self-hosted-agent-platform domain scan (2026-06-02). Benchmarked against anything-llm, onyx, letta. Coverage: <strong>7/12 table-stakes met (58%)</strong> — tier LAGGING with a strong edge tier.</p>
+      <div class="two-col">
+        <div class="card">
+          <h3 style="margin-top:0">Table-stakes</h3>
+          <table><tbody>
+            <tr><td>self-hosted-deploy</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>multi-llm-provider</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>persistent-agent-memory</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>vector-semantic-search</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>agent-runtime</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>mcp-tool-execution</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>auth-rbac</td><td><span class="pill met">met</span></td></tr>
+            <tr><td>rag-document-pipeline</td><td><span class="pill partial">partial</span></td></tr>
+            <tr><td>data-connectors</td><td><span class="pill partial">partial</span></td></tr>
+            <tr><td>public-docs-quickstart</td><td><span class="pill partial">partial</span></td></tr>
+            <tr><td>test-coverage</td><td><span class="pill partial">partial</span></td></tr>
+            <tr><td>sdk-client-libs</td><td><span class="pill missing">missing</span></td></tr>
+          </tbody></table>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">Edge tier (differentiators)</h3>
+          <table><tbody>
+            <tr><td>sandboxed-tool-execution</td><td><span class="pill edge">met</span></td></tr>
+            <tr><td>realtime-discussions</td><td><span class="pill edge">met</span></td></tr>
+            <tr><td>knowledge-graph</td><td><span class="pill edge">met</span></td></tr>
+            <tr><td>observability-tracing</td><td><span class="pill edge">met</span></td></tr>
+            <tr><td>eval-benchmark</td><td><span class="pill edge">met</span></td></tr>
+          </tbody></table>
+          <p style="font-size:13px; margin-top:14px;">The wedge: <strong>Verified Autonomy Loop</strong> — lineage control plane with reverse-impact + belief quarantine, grounded in 2026 frontier research (MemLineage, TRACER, AAR standard).</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: {
+  background: '#151922', primaryColor: '#1b212c', primaryTextColor: '#e6edf3',
+  primaryBorderColor: '#2f5aa8', lineColor: '#5d6b7e', fontFamily: 'SF Mono, monospace', fontSize: '13px'
+}});
+
+const TYPE_COLOR = { feat:'#7ee787', fix:'#ffa657', chore:'#a5a5b0', docs:'#79c0ff', test:'#d2a8ff', refactor:'#f0c674', build:'#56d4dd', merge:'#6e7681', lint:'#f0c674', other:'#6e7681' };
+
+fetch('commits.json').then(r=>r.json()).then(commits=>{
+  // normalize odd types
+  commits.forEach(c=>{ if(c.type==='feaat'||c.type==='yoo') c.type='feat'; });
+
+  // Month chart
+  const byMonth={};
+  commits.forEach(c=>{const m=c.d.slice(0,7);byMonth[m]=(byMonth[m]||0)+1;});
+  const months=Object.keys(byMonth).sort();
+  const maxM=Math.max(...Object.values(byMonth));
+  document.getElementById('monthGrid').innerHTML=months.map(m=>{
+    const v=byMonth[m];const h=Math.max(6,Math.round(v/maxM*150));
+    return `<div class="month-col"><div class="mval">${v}</div><div class="mbar" style="height:${h}px"></div><div class="mlbl">${m}</div></div>`;
+  }).join('');
+
+  // Type bars
+  const byType={};
+  commits.forEach(c=>{byType[c.type]=(byType[c.type]||0)+1;});
+  const typeOrder=Object.entries(byType).sort((a,b)=>b[1]-a[1]);
+  const maxT=typeOrder[0][1];
+  document.getElementById('typeBars').innerHTML=typeOrder.map(([t,v])=>
+    `<div class="bar-row"><div class="lbl">${t}</div><div class="bar-track"><div class="bar-fill" style="width:${v/maxT*100}%;background:${TYPE_COLOR[t]||'#6e7681'}"></div></div><div class="val">${v}</div></div>`
+  ).join('');
+
+  // Scope bars
+  const byScope={};
+  commits.forEach(c=>{if(c.scope){const s=c.scope.split(',')[0].trim();byScope[s]=(byScope[s]||0)+1;}});
+  const scopeOrder=Object.entries(byScope).sort((a,b)=>b[1]-a[1]).slice(0,18);
+  const maxS=scopeOrder[0][1];
+  document.getElementById('scopeBars').innerHTML=scopeOrder.map(([s,v])=>
+    `<div class="bar-row"><div class="lbl">${s}</div><div class="bar-track"><div class="bar-fill" style="width:${v/maxS*100}%;background:var(--accent)"></div></div><div class="val">${v}</div></div>`
+  ).join('');
+
+  // Filters
+  const fType=document.getElementById('fType'),fScope=document.getElementById('fScope'),fSearch=document.getElementById('fSearch');
+  typeOrder.forEach(([t])=>fType.innerHTML+=`<option value="${t}">${t}</option>`);
+  Object.keys(byScope).sort().forEach(s=>fScope.innerHTML+=`<option value="${s}">${s}</option>`);
+
+  function pmLink(s){return s.replace(/\b(PM-\d+|#\d+)\b/g,'<span class="pm">$1</span>');}
+  function render(){
+    const t=fType.value,sc=fScope.value,q=fSearch.value.toLowerCase();
+    const list=commits.filter(c=>(!t||c.type===t)&&(!sc||(c.scope&&c.scope.split(',')[0].trim()===sc))&&(!q||c.s.toLowerCase().includes(q)));
+    document.getElementById('count').textContent=list.length+' / '+commits.length;
+    document.getElementById('commitList').innerHTML=list.map(c=>
+      `<div class="commit"><div class="c-date">${c.d}</div><div class="c-type" style="color:${TYPE_COLOR[c.type]||'#6e7681'}">${c.type}</div><div class="c-msg">${pmLink(c.s)}</div></div>`
+    ).join('')||'<div class="commit"><div class="c-msg">no matches</div></div>';
+  }
+  [fType,fScope].forEach(e=>e.onchange=render);fSearch.oninput=render;render();
+});
+
+// Scrollspy
+const links=[...document.querySelectorAll('nav.side a')];
+const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id='#'+e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')===id));}});},{rootMargin:'-20% 0px -70% 0px'}).observe&&secs.forEach(s=>s&&new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id='#'+e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')===id));}});},{rootMargin:'-20% 0px -70% 0px'}).observe(s));
+</script>
+</body>
+</html>
