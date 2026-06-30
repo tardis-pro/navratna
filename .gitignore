@@ -41,3 +41,8 @@ sprint/
 # Story files — live in Jira only, not in git
 **/.stories/
 docs/stories/
+# Agent session scratchpads (ephemeral — not for git)
+.omo/
+.sisyphus/
+.eng-manager/
+tmp/
