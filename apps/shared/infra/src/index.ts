@@ -19,6 +19,9 @@ export {
   isRedisCacheHealthy,
 } from './cache/index.js';
 
+// Redis TLS helper (Upstash / rediss:// support)
+export { getRedisTLSOptions, shouldUseRedisTLS } from './redis_tls.js';
+
 // Database services
 export { DatabaseService, DatabaseError } from './database/database_service.js';
 export { PgService, pgService } from './database/pg_service.js';

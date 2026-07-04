@@ -51,7 +51,7 @@ export class PersonaSeed extends BaseSeed {
         visibility: persona.visibility ?? PersonaVisibility.PRIVATE,
         createdBy:
           this.users[index % this.users.length]?.id || '00000000-0000-0000-0000-000000000000',
-        organizationId: persona.organizationId || null,
+        organizationId: persona.organizationId || '00000000-0000-0000-0000-000000000001',
         teamId: persona.teamId || null,
         version: persona.version || 1,
         parentPersonaId: persona.parentPersonaId || null,

@@ -1,0 +1,8 @@
+FROM oven/bun:1.3.14-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY deploy/cf-containers/egress_probe.mjs ./egress_probe.mjs
+ARG CACHE_BUST=0
+RUN echo "build $CACHE_BUST" > /app/.buildstamp
+EXPOSE 8080
+CMD ["bun", "egress_probe.mjs"]

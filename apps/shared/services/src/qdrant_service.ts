@@ -50,6 +50,7 @@ export class QdrantService {
   private isConnected: boolean = false;
   private embeddingDimensions: number;
   private collectionNames: Record<MemoryCollectionType, string>;
+  private apiKey?: string;
 
   constructor(
     qdrantUrl?: string,
@@ -59,6 +60,19 @@ export class QdrantService {
     this.qdrantUrl = qdrantUrl || config.database.qdrant.url;
     this.embeddingDimensions = embeddingDimensions;
     this.collectionNames = this.resolveCollectionNames(collectionName);
+    this.apiKey = config.database.qdrant.apiKey;
+  }
+
+  /**
+   * Build request headers with optional Qdrant Cloud api-key.
+   * Qdrant Cloud requires the `api-key` header on every request (including /healthz).
+   */
+  private qdrantHeaders(extra?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = { ...(extra ?? {}) };
+    if (this.apiKey) {
+      headers['api-key'] = this.apiKey;
+    }
+    return headers;
   }
 
   private resolveCollectionNames(baseCollectionName: string): Record<MemoryCollectionType, string> {
@@ -83,7 +97,7 @@ export class QdrantService {
   private async putPoints(workingUrl: string, collectionName: string, points: unknown[]): Promise<void> {
     const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ points }),
     });
     if (!response.ok) {
@@ -119,7 +133,7 @@ export class QdrantService {
   private async deleteByIds(workingUrl: string, collectionName: string, ids: string[]): Promise<void> {
     const response = await fetch(`${workingUrl}/collections/${collectionName}/points/delete`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ points: ids }),
     });
     if (!response.ok) {
@@ -149,6 +163,7 @@ export class QdrantService {
       const url = possibleUrls[index];
       try {
         const healthResponse = await fetch(`${url}/healthz`, {
+          headers: this.qdrantHeaders(),
           signal: AbortSignal.timeout(3000),
         });
 
@@ -181,9 +196,7 @@ export class QdrantService {
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/search`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           vector: queryEmbedding,
           limit: options.limit,
@@ -261,9 +274,7 @@ export class QdrantService {
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/delete`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           filter: {
             must: [
@@ -310,7 +321,7 @@ export class QdrantService {
           `${workingUrl}/collections/${collection}/index`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
               field_name: 'tenant_id',
               field_schema: { type: 'keyword', is_tenant: true },
@@ -345,6 +356,7 @@ export class QdrantService {
 
       // Check if collection exists
       const checkResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
+        headers: this.qdrantHeaders(),
         signal: AbortSignal.timeout(5000),
       });
 
@@ -352,9 +364,7 @@ export class QdrantService {
         // Create collection with dynamic embedding dimensions
         const createResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             vectors: {
               size: this.embeddingDimensions, // Dynamic embedding size
@@ -409,7 +419,9 @@ export class QdrantService {
       const workingUrl = await this.ensureConnection();
       const collectionName = this.getCollectionName(collectionOptions);
 
-      const response = await fetch(`${workingUrl}/collections/${collectionName}`);
+      const response = await fetch(`${workingUrl}/collections/${collectionName}`, {
+        headers: this.qdrantHeaders(),
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to get collection info: ${response.statusText}`);
@@ -427,6 +439,7 @@ export class QdrantService {
     try {
       const workingUrl = await this.ensureConnection();
       const response = await fetch(`${workingUrl}/healthz`, {
+        headers: this.qdrantHeaders(),
         signal: AbortSignal.timeout(3000),
       });
       return response.ok;
@@ -571,9 +584,7 @@ export class QdrantService {
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           ids: ids,
           with_payload: true,
@@ -637,9 +648,7 @@ export class QdrantService {
         `${workingUrl}/collections/${collectionName}/points/${documentId}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
         }
       );
 
@@ -700,7 +709,7 @@ export class QdrantService {
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}/points/scroll`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ limit, with_payload: true, with_vector: true, filter: tenantFilter }),
       });
 

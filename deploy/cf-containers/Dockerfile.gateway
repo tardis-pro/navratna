@@ -1,0 +1,93 @@
+# =============================================================================
+# Navratna Gateway — Cloudflare Containers image
+# =============================================================================
+# Built from repo root context (deploy/cf-containers/Dockerfile.gateway).
+# Reuses the workspace NX build, launches navratna-gateway listening on 8080.
+# =============================================================================
+
+FROM oven/bun:1 AS base
+
+RUN apt-get update && apt-get install -y curl libatomic1 && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://get.pnpm.io/install.sh | PNPM_VERSION=10.12.1 PNPM_HOME=/usr/local/bin ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
+
+WORKDIR /app
+
+# ── Workspace manifests ──────────────────────────────────────────────────────
+COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+COPY tsconfig.json ./
+COPY tsconfig.base.json ./
+COPY nx.json ./
+
+# ── Shared packages ──────────────────────────────────────────────────────────
+COPY apps/packages/ ./apps/packages/
+COPY apps/shared/   ./apps/shared/
+
+# ── Backend service manifests (install before copying source) ─────────────────
+COPY apps/backend/package.json  ./apps/backend/
+COPY apps/backend/tsconfig.json ./apps/backend/
+COPY apps/backend/services/navratna-gateway/package.json     ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/navratna-gateway/tsconfig.json    ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/navratna-gateway/tsconfig.build.json ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/security-gateway/package.json     ./apps/backend/services/security-gateway/
+COPY apps/backend/services/security-gateway/tsconfig.json    ./apps/backend/services/security-gateway/
+COPY apps/backend/services/security-gateway/tsconfig.build.json ./apps/backend/services/security-gateway/
+COPY apps/backend/services/orchestration-pipeline/package.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/orchestration-pipeline/tsconfig.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/orchestration-pipeline/tsconfig.build.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/capability-registry/package.json  ./apps/backend/services/capability-registry/
+COPY apps/backend/services/capability-registry/tsconfig.json ./apps/backend/services/capability-registry/
+COPY apps/backend/services/capability-registry/tsconfig.build.json ./apps/backend/services/capability-registry/
+COPY apps/backend/services/oie/package.json                  ./apps/backend/services/oie/
+COPY apps/backend/services/oie/tsconfig.json                 ./apps/backend/services/oie/
+
+RUN pnpm install --frozen-lockfile --shamefully-hoist
+
+# ── Build shared packages (NX resolves dep order) ────────────────────────────
+RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service
+
+# ── Strip stale compiled artifacts committed inside shared src/ trees ─────────
+# Some shared packages have old .js/.d.ts committed next to their .ts sources.
+# Bun resolves @uaip/* via the "@uaip/source" export condition → src/index.ts,
+# and when index.ts does `export … from './config'` Bun prefers a sibling
+# config.js over config.ts — loading STALE compiled code (missing recent edits).
+# Remove every compiled artifact from src/ so only .ts is ever resolved.
+RUN find apps/shared apps/packages -type d -name src -prune -exec sh -c \
+      'find "$1" -type f \( -name "*.js" -o -name "*.js.map" -o -name "*.d.ts" -o -name "*.d.ts.map" \) -delete' _ {} \;
+
+# ── Copy service sources (gateway imports from legacy sibling src/) ──────────
+COPY apps/backend/services/navratna-gateway/src/             ./apps/backend/services/navratna-gateway/src/
+COPY apps/backend/services/security-gateway/src/             ./apps/backend/services/security-gateway/src/
+COPY apps/backend/services/orchestration-pipeline/src/       ./apps/backend/services/orchestration-pipeline/src/
+COPY apps/backend/services/capability-registry/src/          ./apps/backend/services/capability-registry/src/
+COPY apps/backend/services/oie/src/                          ./apps/backend/services/oie/src/
+
+# ── Build gateway (+ its imported feature deps) ──────────────────────────────
+RUN pnpm nx run-many -t build --projects=@uaip/security-gateway,@uaip/orchestration-pipeline,@uaip/capability-registry,@uaip/oie,@uaip/navratna-gateway
+
+# ── Wire sibling feature dist into the paths gateway's compiled imports resolve to ─
+# gateway compiles with rootDir=".." so dist/navratna-gateway/src/app.js imports
+# ../../security-gateway/src/http/*.js → dist/security-gateway/src/http/*.js.
+# The siblings compile flat to their own dist/, so mirror that into gateway's dist.
+RUN GW_DIST=apps/backend/services/navratna-gateway/dist && \
+    mkdir -p "$GW_DIST/security-gateway/src" "$GW_DIST/orchestration-pipeline/src" "$GW_DIST/capability-registry/src" && \
+    cp -r apps/backend/services/security-gateway/dist/*       "$GW_DIST/security-gateway/src/" && \
+    cp -r apps/backend/services/orchestration-pipeline/dist/* "$GW_DIST/orchestration-pipeline/src/" && \
+    cp -r apps/backend/services/capability-registry/dist/*    "$GW_DIST/capability-registry/src/"
+
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --no-create-home uaip && \
+    chown -R uaip:nodejs /app
+
+USER uaip
+
+# Cloudflare Containers route to defaultPort; gateway reads NAVRATNA_GATEWAY_PORT
+ENV NODE_ENV=production
+ENV NAVRATNA_GATEWAY_PORT=8080
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+CMD ["bun", "apps/backend/services/navratna-gateway/dist/navratna-gateway/src/index.js"]

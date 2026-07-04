@@ -1,0 +1,54 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "navratna-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-03",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // api.navratna.tardis.digital → this Worker (custom_domain auto-creates DNS + TLS)
+  "routes": [
+    {
+      "pattern": "api.navratna.tardis.digital",
+      "custom_domain": true
+    }
+  ],
+
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+
+  // Two container images, each backed by its own Durable Object class.
+  // Built from the repo root (../../) so the Dockerfiles can COPY the workspace.
+  "containers": [
+    {
+      "class_name": "CoreContainer",
+      "image": "../../deploy/cf-containers/Dockerfile.core",
+      "image_build_context": "../../",
+      "image_vars": { "CACHE_BUST": "realcore-1783154000" },
+      "max_instances": 3,
+      "instance_type": "standard-1"
+    },
+    {
+      "class_name": "GatewayContainer",
+      "image": "../../deploy/cf-containers/Dockerfile.gateway",
+      "image_build_context": "../../",
+      "max_instances": 3,
+      "instance_type": "standard-1"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "CORE_CONTAINER", "class_name": "CoreContainer" },
+      { "name": "GATEWAY_CONTAINER", "class_name": "GatewayContainer" }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CoreContainer", "GatewayContainer"]
+    }
+  ]
+}

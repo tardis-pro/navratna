@@ -168,17 +168,14 @@ class NavratnaCoreService extends BaseService {
 
   public async start(): Promise<void> {
     try {
-      await this.initializeDatabase()
-      await this.initializeEventBus()
-
+      // Bind the listening port BEFORE heavy initialization. Cloudflare
+      // Containers enforce a port-ready deadline and kill the process (clean
+      // exit 0) if nothing binds the port within the startup window, which the
+      // managed DB/Redis/Neo4j/feature init below can exceed. Base routes
+      // register /health so the container is reachable immediately; heavy init
+      // then proceeds and /health reports 503 until dependencies connect.
       this.setupBaseMiddleware()
       this.setupBaseRoutes()
-
-      await this.initialize()
-      await this.setupRoutes()
-
-      this.setup404Handler()
-      this.setupErrorHandler()
 
       const bunHandler = this.bunEngine.handler()
       this.server = this.app.listen({
@@ -188,10 +185,19 @@ class NavratnaCoreService extends BaseService {
       })
 
       logger.info(
-        `navratna-core (Elysia + Socket.IO Bun engine) started on port ${this.config.port}`
+        `navratna-core (Elysia + Socket.IO Bun engine) listening on port ${this.config.port}; initializing dependencies…`
       )
 
       this.setupGracefulShutdown()
+
+      await this.initializeDatabase()
+      await this.initializeEventBus()
+
+      await this.initialize()
+      await this.setupRoutes()
+
+      this.setup404Handler()
+      this.setupErrorHandler()
 
       this.io.use(async (socket: Socket, next: (err?: Error) => void) => {
         try {
@@ -412,8 +418,35 @@ class NavratnaCoreService extends BaseService {
   }
 }
 
+const bootSink = process.env.BOOT_SINK_URL
+const bootCrumb = (phase: string, extra?: string): void => {
+  if (!bootSink) return
+  void fetch(bootSink, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ svc: 'core', phase, extra, t: Date.now() }),
+  }).catch(() => {})
+}
+
+process.on('exit', (code) => bootCrumb('process.exit', `code=${code}`))
+process.on('beforeExit', (code) => bootCrumb('beforeExit', `code=${code}`))
+process.on('SIGTERM', () => bootCrumb('SIGTERM'))
+process.on('uncaughtException', (e) => bootCrumb('uncaughtException', String(e?.stack ?? e)))
+process.on('unhandledRejection', (e) => bootCrumb('unhandledRejection', String(e)))
+
+bootCrumb('module-loaded')
+
 const service = new NavratnaCoreService()
-service.start().catch((error) => {
-  logger.error('Failed to start navratna-core', { error })
-  process.exit(1)
-})
+service
+  .start()
+  .then(() => bootCrumb('start-resolved'))
+  .catch((error) => {
+    bootCrumb('start-rejected', String(error?.stack ?? error))
+    logger.error('Failed to start navratna-core', { error })
+    process.exit(1)
+  })
+
+// Cloudflare Containers (Firecracker) drains the Bun event loop to exit(0)
+// after start() resolves, despite Bun.serve being active. This ref'd timer
+// pins the loop so the process stays alive to serve requests.
+setInterval(() => {}, 1 << 30)

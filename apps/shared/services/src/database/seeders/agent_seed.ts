@@ -28,7 +28,7 @@ export class AgentSeed extends BaseSeed {
     for (const agent of seedData) {
       await this.db
         .insert(agents)
-        .values(agent)
+        .values({ organizationId: '00000000-0000-0000-0000-000000000001', ...agent })
         .onConflictDoNothing();
     }
 

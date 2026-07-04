@@ -358,8 +358,17 @@ export abstract class BaseService {
       process.exit(0);
     };
 
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
+    const disableSignalExit = process.env.DISABLE_SIGNAL_EXIT === 'true';
+    process.on('SIGTERM', () => {
+      logger.warn(`${this.config.name}: SIGTERM received (disableSignalExit=${disableSignalExit})`);
+      if (disableSignalExit) return;
+      shutdown('SIGTERM');
+    });
+    process.on('SIGINT', () => {
+      logger.warn(`${this.config.name}: SIGINT received (disableSignalExit=${disableSignalExit})`);
+      if (disableSignalExit) return;
+      shutdown('SIGINT');
+    });
 
     process.on('uncaughtException', (error) => {
       logger.error(`${this.config.name}: Uncaught exception:`, error);
@@ -452,13 +461,24 @@ export abstract class BaseService {
 
   public async start(): Promise<void> {
     try {
+      // Bind the listening port BEFORE heavy initialization. Cloudflare
+      // Containers enforce a port-ready deadline and kill the process (clean
+      // exit 0) if nothing binds the port within the startup window — the
+      // managed DB/Redis/Neo4j/feature init below can exceed that window. The
+      // base routes register `/health`, `/info`, `/metrics` so the container is
+      // reachable immediately; heavy init then proceeds and `/health` reports
+      // 503 until dependencies are connected, 200 once ready.
+      this.setupBaseMiddleware();
+      this.setupBaseRoutes();
+
+      this.server = this.app.listen(this.config.port);
+      logger.info(`${this.config.name} (Elysia) listening on port ${this.config.port}; initializing dependencies…`);
+
+      this.setupGracefulShutdown();
+
       // Initialize base components
       await this.initializeDatabase();
       await this.initializeEventBus();
-
-      // Setup middleware and routes
-      this.setupBaseMiddleware();
-      this.setupBaseRoutes();
 
       // Service-specific initialization
       await this.initialize();
@@ -470,14 +490,7 @@ export abstract class BaseService {
       this.setup404Handler();
       this.setupErrorHandler();
 
-      // Start server - Elysia runtime (Bun)
-      this.server = this.app.listen(this.config.port);
-      logger.info(`${this.config.name} (Elysia) started on port ${this.config.port}`);
-
-      // Setup graceful shutdown
-      this.setupGracefulShutdown();
-
-      // Log startup info
+      logger.info(`${this.config.name} fully initialized on port ${this.config.port}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       logger.info(`Version: ${this.config.version || process.env.VERSION || '1.0.0'}`);
     } catch (error) {

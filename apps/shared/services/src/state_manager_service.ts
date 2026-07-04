@@ -9,6 +9,7 @@ import {
 import { logger, ApiError } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { DatabaseService } from '@uaip/infra/database';
+import { getRedisTLSOptions } from '@uaip/infra';
 import {
   OperationStateRepository,
   OperationCheckpointRepository,
@@ -52,6 +53,7 @@ export class StateManagerService {
       enableOfflineQueue: redisConfig.enableOfflineQueue,
       lazyConnect: true,
       commandTimeout: 5000,
+      ...getRedisTLSOptions(redisConfig.host),
     });
 
     this.compressionEnabled = config.getStateConfig().compressionEnabled;

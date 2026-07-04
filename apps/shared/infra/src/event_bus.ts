@@ -15,6 +15,7 @@ import type {
 } from '@uaip/types';
 import Redis from 'ioredis';
 import type { RedisOptions } from 'ioredis';
+import { getRedisTLSOptions } from './redis_tls.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,23 +32,27 @@ function isRpcResponse<T>(data: unknown): data is RpcResponseShape<T> {
 }
 
 function getRedisOptions(): RedisOptions {
+  const host = config.redis?.host || 'localhost';
   const opts: RedisOptions = {
-    host: config.redis?.host || 'localhost',
+    host,
     port: config.redis?.port || 6379,
     password: config.redis?.password || undefined,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    ...getRedisTLSOptions(host),
   };
   return opts;
 }
 
 function getBullMQConnection(): ConnectionOptions {
+  const host = config.redis?.host || 'localhost';
   const connection: ConnectionOptions = {
-    host: config.redis?.host || 'localhost',
+    host,
     port: config.redis?.port || 6379,
     password: config.redis?.password || undefined,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    ...getRedisTLSOptions(host),
   };
   return connection;
 }
