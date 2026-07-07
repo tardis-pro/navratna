@@ -53,9 +53,11 @@ function makePool(urlEnvVar: string, fallbackEnvVar = 'POSTGRES_URL'): pg.Pool {
       max: parseInt(process.env.DB_MAX_CONNECTIONS || '20'),
       connectionTimeoutMillis: parseInt(process.env.DB_TIMEOUT || '30000'),
       ssl:
-        process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'
-          ? { rejectUnauthorized: false }
-          : undefined,
+        process.env.DB_SSL === 'false'
+          ? undefined
+          : process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'
+            ? { rejectUnauthorized: false }
+            : undefined,
     });
   }
 

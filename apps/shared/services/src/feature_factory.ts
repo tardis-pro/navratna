@@ -41,8 +41,30 @@ export class FeatureFactory {
   }
 
   async initialize(deps: ServiceDeps): Promise<void> {
+    // Each feature's async init is bounded by a timeout and isolated by a
+    // try/catch. A slow or hanging dependency (Neo4j/BullMQ/DB) must never hold
+    // the port hostage — the process binds and serves whatever initialized. A
+    // feature that times out or throws degrades gracefully; its routes still
+    // mount (that is a separate synchronous path in mountRoutes).
+    const INIT_TIMEOUT_MS = 20_000
     for (const f of this.features) {
-      await f.initialize?.(deps)
+      if (!f.initialize) continue
+      try {
+        await Promise.race([
+          f.initialize(deps),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`feature "${f.name}" initialize timed out after ${INIT_TIMEOUT_MS}ms`)),
+              INIT_TIMEOUT_MS
+            )
+          ),
+        ])
+        logger.info(`FeatureFactory: feature "${f.name}" initialized`)
+      } catch (error) {
+        logger.error(`FeatureFactory: feature "${f.name}" init failed — continuing with degraded functionality`, {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
   }
 

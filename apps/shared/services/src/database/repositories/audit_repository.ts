@@ -7,6 +7,14 @@ import {
 } from '../drizzle/schemas/control_schema';
 import { logger } from '@uaip/utils';
 
+const AUDIT_IP_MAX_LEN = 45;
+
+function normalizeIpAddress(raw?: string | null): string | null {
+  if (!raw) return null;
+  const first = raw.split(',')[0].trim();
+  return first.slice(0, AUDIT_IP_MAX_LEN) || null;
+}
+
 export class AuditRepository {
   private get db() {
     return getControlDb();
@@ -55,7 +63,7 @@ export class AuditRepository {
         action: data.action ?? data.eventType ?? data.event_type ?? 'unknown',
         outcome: data.outcome ?? data.riskLevel ?? 'info',
         details: data.details ?? null,
-        ipAddress: data.ipAddress ?? data.ip_address ?? null,
+        ipAddress: normalizeIpAddress(data.ipAddress ?? data.ip_address),
         userAgent: data.userAgent ?? data.user_agent ?? null,
       };
       const [row] = await this.db.insert(auditEvents).values(insert).returning();

@@ -1,0 +1,69 @@
+FROM oven/bun:1 AS base
+
+RUN apt-get update && apt-get install -y curl libatomic1 && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://get.pnpm.io/install.sh | PNPM_VERSION=10.12.1 PNPM_HOME=/usr/local/bin ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
+
+WORKDIR /app
+
+COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+COPY tsconfig.json ./
+COPY tsconfig.base.json ./
+COPY nx.json ./
+
+COPY apps/packages/ ./apps/packages/
+COPY apps/shared/   ./apps/shared/
+
+COPY apps/backend/package.json  ./apps/backend/
+COPY apps/backend/tsconfig.json ./apps/backend/
+COPY apps/backend/services/navratna-core/package.json        ./apps/backend/services/navratna-core/
+COPY apps/backend/services/navratna-core/tsconfig.json       ./apps/backend/services/navratna-core/
+COPY apps/backend/services/navratna-core/tsconfig.build.json ./apps/backend/services/navratna-core/
+COPY apps/backend/services/agent-intelligence/package.json   ./apps/backend/services/agent-intelligence/
+COPY apps/backend/services/agent-intelligence/tsconfig.json  ./apps/backend/services/agent-intelligence/
+COPY apps/backend/services/agent-intelligence/tsconfig.build.json ./apps/backend/services/agent-intelligence/
+COPY apps/backend/services/discussion-orchestration/package.json ./apps/backend/services/discussion-orchestration/
+COPY apps/backend/services/discussion-orchestration/tsconfig.json ./apps/backend/services/discussion-orchestration/
+COPY apps/backend/services/discussion-orchestration/tsconfig.build.json ./apps/backend/services/discussion-orchestration/
+COPY apps/backend/services/artifact-service/package.json     ./apps/backend/services/artifact-service/
+COPY apps/backend/services/artifact-service/tsconfig.json    ./apps/backend/services/artifact-service/
+COPY apps/backend/services/artifact-service/tsconfig.build.json ./apps/backend/services/artifact-service/
+COPY apps/backend/services/llm-service/package.json          ./apps/backend/services/llm-service/
+COPY apps/backend/services/llm-service/tsconfig.json         ./apps/backend/services/llm-service/
+COPY apps/backend/services/llm-service/tsconfig.build.json   ./apps/backend/services/llm-service/
+COPY apps/backend/services/oie/package.json                  ./apps/backend/services/oie/
+COPY apps/backend/services/oie/tsconfig.json                 ./apps/backend/services/oie/
+
+RUN pnpm install --frozen-lockfile --shamefully-hoist
+
+RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service
+
+RUN find apps/shared apps/packages -type d -name src -prune -exec sh -c \
+      'find "$1" -type f \( -name "*.js" -o -name "*.js.map" -o -name "*.d.ts" -o -name "*.d.ts.map" \) -delete' _ {} \;
+
+COPY apps/backend/services/navratna-core/src/                ./apps/backend/services/navratna-core/src/
+COPY apps/backend/services/agent-intelligence/src/           ./apps/backend/services/agent-intelligence/src/
+COPY apps/backend/services/discussion-orchestration/src/     ./apps/backend/services/discussion-orchestration/src/
+COPY apps/backend/services/artifact-service/src/             ./apps/backend/services/artifact-service/src/
+COPY apps/backend/services/llm-service/src/                  ./apps/backend/services/llm-service/src/
+COPY apps/backend/services/oie/src/                          ./apps/backend/services/oie/src/
+
+RUN pnpm nx run-many -t build --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/oie,@uaip/navratna-core
+
+RUN CORE_DIST=apps/backend/services/navratna-core/dist && \
+    mkdir -p "$CORE_DIST/artifact-service/src" "$CORE_DIST/llm-service/src" && \
+    cp -r apps/backend/services/artifact-service/dist/* "$CORE_DIST/artifact-service/src/" && \
+    cp -r apps/backend/services/llm-service/dist/*       "$CORE_DIST/llm-service/src/"
+
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --no-create-home uaip && \
+    chown -R uaip:nodejs /app
+
+USER uaip
+
+ENV NODE_ENV=production
+ENV NAVRATNA_CORE_PORT=8080
+EXPOSE 8080
+
+CMD ["bun", "apps/backend/services/navratna-core/dist/navratna-core/src/index.js"]

@@ -471,9 +471,6 @@ export abstract class BaseService {
       this.setupBaseMiddleware();
       this.setupBaseRoutes();
 
-      this.server = this.app.listen(this.config.port);
-      logger.info(`${this.config.name} (Elysia) listening on port ${this.config.port}; initializing dependencies…`);
-
       this.setupGracefulShutdown();
 
       // Initialize base components
@@ -489,6 +486,12 @@ export abstract class BaseService {
       // Error handling
       this.setup404Handler();
       this.setupErrorHandler();
+
+      // Bind the port LAST. Elysia (Bun) compiles its router at .listen();
+      // routes registered after listen() are never served. All routes above
+      // must be registered before this call.
+      this.server = this.app.listen(this.config.port);
+      logger.info(`${this.config.name} (Elysia) listening on port ${this.config.port}`);
 
       logger.info(`${this.config.name} fully initialized on port ${this.config.port}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);

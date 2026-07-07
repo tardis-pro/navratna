@@ -4,6 +4,8 @@ import { config } from '@uaip/config';
 import { UserService } from '@uaip/shared-services';
 import { getControlDb, lt } from '@uaip/shared-services/drizzle/clients';
 import { passwordResetTokens } from '@uaip/shared-services/drizzle/control';
+import { getRedisTLSOptions } from '@uaip/infra';
+import type { RedisOptions } from 'ioredis';
 
 const QUEUE_NAME = 'token-cleanup';
 const JOB_NAME = 'token:cleanup:daily';
@@ -15,6 +17,7 @@ type RedisConnection = {
   password: string | undefined;
   maxRetriesPerRequest: null;
   enableReadyCheck: boolean;
+  tls?: RedisOptions['tls'];
 };
 
 function getConnection(): RedisConnection {
@@ -24,6 +27,7 @@ function getConnection(): RedisConnection {
     password: config.redis?.password ?? undefined,
     maxRetriesPerRequest: null as null,
     enableReadyCheck: false,
+    ...getRedisTLSOptions(config.redis?.host),
   };
 }
 

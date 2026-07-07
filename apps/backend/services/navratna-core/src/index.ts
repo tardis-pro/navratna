@@ -168,25 +168,8 @@ class NavratnaCoreService extends BaseService {
 
   public async start(): Promise<void> {
     try {
-      // Bind the listening port BEFORE heavy initialization. Cloudflare
-      // Containers enforce a port-ready deadline and kill the process (clean
-      // exit 0) if nothing binds the port within the startup window, which the
-      // managed DB/Redis/Neo4j/feature init below can exceed. Base routes
-      // register /health so the container is reachable immediately; heavy init
-      // then proceeds and /health reports 503 until dependencies connect.
       this.setupBaseMiddleware()
       this.setupBaseRoutes()
-
-      const bunHandler = this.bunEngine.handler()
-      this.server = this.app.listen({
-        port: this.config.port,
-        idleTimeout: 30,
-        websocket: 'websocket' in bunHandler ? bunHandler.websocket : undefined,
-      })
-
-      logger.info(
-        `navratna-core (Elysia + Socket.IO Bun engine) listening on port ${this.config.port}; initializing dependencies…`
-      )
 
       this.setupGracefulShutdown()
 
@@ -270,7 +253,16 @@ class NavratnaCoreService extends BaseService {
 
       await this.setupEventSubscriptions()
 
-      logger.info('navratna-core WebSocket handlers initialized')
+      const bunHandler = this.bunEngine.handler()
+      this.server = this.app.listen({
+        port: this.config.port,
+        idleTimeout: 30,
+        websocket: 'websocket' in bunHandler ? bunHandler.websocket : undefined,
+      })
+
+      logger.info(
+        `navratna-core (Elysia + Socket.IO Bun engine) listening on port ${this.config.port}`
+      )
     } catch (error) {
       logger.error('navratna-core: Failed to start:', error)
       process.exit(1)

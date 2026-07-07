@@ -841,6 +841,7 @@ export class DatabaseService {
       await pool.query('SELECT 1');
       return { status: 'healthy', timestamp: new Date().toISOString() };
     } catch (error) {
+      logger.error('DatabaseService.healthCheck failed', { error: String(error), stack: error instanceof Error ? error.stack : undefined });
       return { status: 'unhealthy', error: String(error), timestamp: new Date().toISOString() };
     }
   }

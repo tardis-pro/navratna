@@ -2,6 +2,8 @@ import { Queue, Worker, type Job } from 'bullmq';
 import { logger } from '@uaip/utils';
 import { config } from '@uaip/config';
 import { getControlDb, sql } from '@uaip/shared-services/drizzle/clients';
+import { getRedisTLSOptions } from '@uaip/infra';
+import type { RedisOptions } from 'ioredis';
 
 const QUEUE_NAME = 'audit-retention';
 const JOB_NAME = 'audit:retention:daily';
@@ -14,6 +16,7 @@ type RedisConnection = {
   password: string | undefined;
   maxRetriesPerRequest: null;
   enableReadyCheck: boolean;
+  tls?: RedisOptions['tls'];
 };
 
 function getConnection(): RedisConnection {
@@ -23,6 +26,7 @@ function getConnection(): RedisConnection {
     password: config.redis?.password ?? undefined,
     maxRetriesPerRequest: null as null,
     enableReadyCheck: false,
+    ...getRedisTLSOptions(config.redis?.host),
   };
 }
 
