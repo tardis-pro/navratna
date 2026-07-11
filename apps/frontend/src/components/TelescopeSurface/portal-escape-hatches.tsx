@@ -7,15 +7,10 @@ import { PORTAL_SPECS } from './portal-specs';
 const ChatPortal = lazy(() =>
   import('../futuristic/portals/ChatPortal').then((m) => ({ default: m.ChatPortal }))
 );
-// @spec-escape-hatch: WebRTC + WebSocket voice/video chat
-const UserChatPortal = lazy(() =>
-  import('../futuristic/portals/UserChatPortal').then((m) => ({ default: m.UserChatPortal }))
-);
-// @spec-escape-hatch: multi-session WebRTC + WebSocket chat (1738 lines)
-const ConsolidatedUserChatPortal = lazy(() =>
-  import('../futuristic/portals/ConsolidatedUserChatPortal').then((m) => ({
-    default: m.ConsolidatedUserChatPortal,
-  }))
+// Canonical settings hub — tabbed (General / Providers / System / Security).
+// Collapses the former provider-settings / general-settings / system-config blocks.
+const SettingsPortal = lazy(() =>
+  import('../futuristic/portals/SettingsPortal').then((m) => ({ default: m.SettingsPortal }))
 );
 // @spec-escape-hatch: 3-tab tool UI (Discover/Manage/Monitor) with MCP config upload
 const UnifiedToolPortal = lazy(() => import('../futuristic/portals/UnifiedToolPortal'));
@@ -59,18 +54,10 @@ const WorkflowStudioPortal = lazy(() =>
     default: m.WorkflowStudioPortal,
   }))
 );
-// @spec-escape-hatch: live LLM provider CRUD + per-task model preferences (useAgents data binding)
-const ProviderSettingsPortal = lazy(() =>
-  import('../futuristic/portals/ProviderSettingsPortal').then((m) => ({
-    default: m.ProviderSettingsPortal,
-  }))
-);
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
   chat: ChatPortal,
-  'user-chat': UserChatPortal,
-  'consolidated-user-chat': ConsolidatedUserChatPortal,
+  settings: SettingsPortal,
   'unified-tool': UnifiedToolPortal,
   discussion: DiscussionPortal,
   'discussion-log': DiscussionLogPortal,
@@ -80,7 +67,6 @@ export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.C
   'multi-chat': MultiChatManager,
   'project-onboarding': ProjectOnboardingFlow,
   'workflow-studio': WorkflowStudioPortal,
-  'provider-settings': ProviderSettingsPortal,
 };
 
 export function renderPortalContent(portalId: string): ReactNode | null {

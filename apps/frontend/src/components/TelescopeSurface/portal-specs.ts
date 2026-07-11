@@ -8,15 +8,9 @@ export const PORTAL_LABELS: Record<string, string> = {
   'project-management': 'Projects',
   settings: 'Settings',
   security: 'Security',
-  'provider-settings': 'Providers',
-  'tool-management': 'Tools',
   'unified-tool': 'Tools',
-  'system-config': 'System Config',
-  'general-settings': 'General Settings',
   dashboard: 'Dashboard',
   'intelligence-panel': 'Intelligence',
-  'user-chat': 'User Chat',
-  'consolidated-user-chat': 'Chat',
   'mini-browser': 'Browser',
   'discussion-log': 'Discussion Log',
   'discussion-controls': 'Discussion Controls',
@@ -31,7 +25,6 @@ export const PORTAL_LABELS: Record<string, string> = {
   'operations-monitor': 'Operations',
   'project-onboarding': 'Project Setup',
   'security-gateway': 'Security Gateway',
-  'tools-panel': 'Tools Panel',
   'workflow-studio': 'Workflow Studio',
 };
 
@@ -60,38 +53,6 @@ export interface PortalBlockSpec {
  *   - agent-manager:  agent list → table (CRUD/modals are escape-hatch — see docs/epic-32/)
  */
 export const PORTAL_SPECS: Record<string, PortalBlockSpec> = {
-  'tools-integrations': {
-    display: 'card',
-    title: 'Tools & Integrations',
-    fields: [
-      { key: 'status', label: 'Status', type: 'status' },
-      { key: 'notice', label: 'Notice', type: 'text' },
-      { key: 'successor', label: 'Use instead', type: 'text' },
-    ],
-    data: {
-      status: 'Deprecated',
-      notice: 'This portal has been consolidated into Unified Tools.',
-      successor: 'Open the "Unified Tools" portal to access all tool management features.',
-    },
-  },
-
-  'general-settings': {
-    display: 'card',
-    title: 'General Settings',
-    fields: [
-      { key: 'themeLabel', label: 'Theme', type: 'text' },
-      { key: 'notificationsLabel', label: 'Notifications', type: 'status' },
-      { key: 'compactViewLabel', label: 'Compact View', type: 'status' },
-      { key: 'note', label: 'Note', type: 'text' },
-    ],
-    data: {
-      themeLabel: 'Toggle via the theme switch in the header',
-      notificationsLabel: 'Coming Soon',
-      compactViewLabel: 'Coming Soon',
-      note: 'Interactive settings controls will land in a future update.',
-    },
-  },
-
   'mini-browser': {
     display: 'custom-url',
     title: 'Mini Browser',
@@ -128,23 +89,6 @@ export const PORTAL_SPECS: Record<string, PortalBlockSpec> = {
     actions: [
       { label: 'Create Agent', type: 'custom' },
     ],
-  },
-
-  settings: {
-    display: 'card',
-    title: 'Settings Hub',
-    fields: [
-      { key: 'generalSettings', label: 'General Settings', type: 'text' },
-      { key: 'agentSettings', label: 'Agent Settings', type: 'text' },
-      { key: 'providerSettings', label: 'Model Providers', type: 'text' },
-      { key: 'systemConfig', label: 'System Configuration', type: 'text' },
-    ],
-    data: {
-      generalSettings: 'User preferences, onboarding, theme',
-      agentSettings: 'AI agent configuration and model assignment',
-      providerSettings: 'LLM provider connections and API configuration',
-      systemConfig: 'Global system preferences and advanced options',
-    },
   },
 
   dashboard: {
@@ -262,35 +206,6 @@ export const PORTAL_SPECS: Record<string, PortalBlockSpec> = {
     ],
   },
 
-  'system-config': {
-    display: 'form',
-    title: 'System Configuration',
-    fields: [
-      { key: 'theme', label: 'Theme', type: 'text' },
-      { key: 'language', label: 'Language', type: 'text' },
-      { key: 'maxConcurrentAgents', label: 'Max Concurrent Agents', type: 'number' },
-      { key: 'logLevel', label: 'Log Level', type: 'text' },
-    ],
-    actions: [
-      { label: 'Save Changes', type: 'approve' },
-      { label: 'Reset Defaults', type: 'reject' },
-    ],
-  },
-
-  'tool-management': {
-    display: 'table',
-    title: 'Tool Management',
-    fields: [
-      { key: 'name', label: 'Name', type: 'text' },
-      { key: 'category', label: 'Category', type: 'badge' },
-      { key: 'status', label: 'Status', type: 'status' },
-      { key: 'type', label: 'Type', type: 'text' },
-    ],
-    actions: [
-      { label: 'Register Tool', type: 'custom' },
-    ],
-  },
-
   'atomic-knowledge': {
     display: 'card',
     title: 'Knowledge Viewer',
@@ -317,16 +232,4 @@ export const PORTAL_SPECS: Record<string, PortalBlockSpec> = {
     ],
   },
 
-  'tools-panel': {
-    display: 'table',
-    title: 'Tools Panel',
-    fields: [
-      { key: 'name', label: 'Tool', type: 'text' },
-      { key: 'category', label: 'Category', type: 'badge' },
-      { key: 'status', label: 'Status', type: 'status' },
-    ],
-    actions: [
-      { label: 'Execute Tool', type: 'custom' },
-    ],
-  },
 };
