@@ -22,7 +22,6 @@ export { PersonaSeed } from './persona_seed';
 export { AgentSeed } from './agent_seed';
 export { ToolDefinitionSeed } from './tool_definition_seed';
 export { ProjectSeed } from './project_seed';
-export { LLMProviderSeed } from './llm_provider_seed';
 export { CapabilitySeed } from './capability_seed';
 export { DefaultUserLLMProviderSeed } from './default_user_l_l_m_provider_seed';
 export { WorkflowDefinitionSeed } from './workflow_definition_seed';
