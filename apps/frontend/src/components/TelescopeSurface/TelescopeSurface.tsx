@@ -30,9 +30,14 @@ import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpressi
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MAX_VISIBLE_BLOCKS = 4;
+const DEFAULT_MAX_VISIBLE_BLOCKS = 10;
 const RELEVANCE_HIDDEN_THRESHOLD = 0.2;
 const RELEVANCE_FADED_THRESHOLD = 0.5;
+
+/** A block explicitly surfaced via intent is pinned — it bypasses the attention budget. */
+function isPinned(block: MaterializableBlockData): boolean {
+  return block.metadata?.pinned === true;
+}
 
 const BLOCK_TYPE_ICONS: Record<MaterializableBlockType, React.ReactNode> = {
   agent: <Bot className="w-4 h-4" />,
@@ -80,6 +85,10 @@ export interface UseTelescopeSurfaceReturn {
   addBlock: (data: MaterializableBlockData) => void;
   removeBlock: (id: string) => void;
   updateRelevance: (id: string, score: number) => void;
+  /** Pin a block so it is always visible regardless of the attention budget. */
+  pinBlock: (id: string) => void;
+  /** Merge in newly-materialized blocks (dedupe by id, preserving existing state). */
+  mergeBlocks: (incoming: MaterializableBlockData[]) => void;
   visibleCount: number;
   isAtCapacity: boolean;
 }
@@ -129,6 +138,33 @@ export function useTelescopeSurface(
     [applyRules]
   );
 
+  const pinBlock = useCallback(
+    (id: string) => {
+      setBlocks((prev) =>
+        applyRules(
+          prev.map((b) =>
+            b.id === id ? { ...b, metadata: { ...b.metadata, pinned: true } } : b
+          )
+        )
+      );
+    },
+    [applyRules]
+  );
+
+  const mergeBlocks = useCallback(
+    (incoming: MaterializableBlockData[]) => {
+      setBlocks((prev) => {
+        const existingIds = new Set(prev.map((b) => b.id));
+        const additions = incoming.filter((b) => !existingIds.has(b.id));
+        // No new blocks → return prev unchanged to avoid needless re-renders
+        // (important: this runs on a 30s refresh interval).
+        if (additions.length === 0) return prev;
+        return applyRules([...prev, ...additions]);
+      });
+    },
+    [applyRules]
+  );
+
   const visibleCount = useMemo(
     () => blocks.filter((b) => b.visibility !== 'hidden').length,
     [blocks]
@@ -136,17 +172,34 @@ export function useTelescopeSurface(
 
   const isAtCapacity = visibleCount >= maxVisibleBlocks;
 
-  return { blocks, addBlock, removeBlock, updateRelevance, visibleCount, isAtCapacity };
+  return {
+    blocks,
+    addBlock,
+    removeBlock,
+    updateRelevance,
+    pinBlock,
+    mergeBlocks,
+    visibleCount,
+    isAtCapacity,
+  };
 }
 
 function applyVisibilityRules(
   sorted: MaterializableBlockData[],
   maxVisible: number
 ): MaterializableBlockData[] {
-  return sorted.map((block, index) => ({
-    ...block,
-    visibility: deriveVisibility(block.relevanceScore, index, maxVisible),
-  }));
+  // Pinned blocks (intent-materialized) are always visible and do NOT consume
+  // the attention budget. Only non-pinned blocks are counted against maxVisible,
+  // preserving the ambient "most relevant float up" behaviour for everything else.
+  let budgetIndex = 0;
+  return sorted.map((block) => {
+    if (isPinned(block)) {
+      return { ...block, visibility: 'visible' as BlockVisibility };
+    }
+    const visibility = deriveVisibility(block.relevanceScore, budgetIndex, maxVisible);
+    budgetIndex += 1;
+    return { ...block, visibility };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -328,6 +381,11 @@ export interface TelescopeSurfaceProps {
   onIntentSelect?: (option: IntentOption) => void;
   maxVisibleBlocks?: number;
   className?: string;
+  /**
+   * Request that a materialized block be scrolled into view and focused.
+   * `nonce` retriggers the effect when the same block is selected again.
+   */
+  focusTarget?: { id: string; nonce: number };
 }
 
 export function TelescopeSurface({
@@ -336,6 +394,7 @@ export function TelescopeSurface({
   onIntentSelect,
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
+  focusTarget,
 }: TelescopeSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -352,6 +411,23 @@ export function TelescopeSurface({
 
   const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
   const [fogActive, setFogActive] = useState(true);
+
+  // Scroll a freshly-materialized block into view and focus it, so an
+  // intent selection visibly "opens" the capability rather than silently
+  // re-ranking. Deferred to the next frame so the block has mounted.
+  useEffect(() => {
+    if (!focusTarget) return;
+    const raf = requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(
+        `[data-block-id="${CSS.escape(focusTarget.id)}"]`
+      );
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget?.id, focusTarget?.nonce]);
 
   useEffect(() => {
     const unclaimed = visibleBlocks.filter((b) => !crystallizedIds.has(b.id));
@@ -452,8 +528,11 @@ export function TelescopeSurface({
                 return (
                 <motion.div
                   key={block.id}
+                  data-block-id={block.id}
+                  tabIndex={-1}
                   exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.95 }}
                   transition={{ duration: 0.4 }}
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 rounded-2xl"
                 >
                   <CrystallizationEffect isLoading={!crystallizedIds.has(block.id)} duration={400}>
                     {block.type === 'portal' ? (
