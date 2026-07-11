@@ -104,6 +104,10 @@ export class LLMService {
             ...providerConfig,
             type: this.normalizeApiType(providerType),
             baseUrl: dbProvider.baseUrl || 'http://localhost:11434',
+            // apiKeyEncrypted is decrypted to plaintext by the repository read path
+            // (LLMProviderRepository.decryptProviderRow). Pass it as the plain apiKey
+            // so BaseProvider.getApiKey() can authenticate model-fetch/chat calls.
+            apiKey: dbProvider.apiKeyEncrypted ?? undefined,
           };
 
           switch (providerType) {

@@ -315,6 +315,74 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
 };
 
 // ---------------------------------------------------------------------------
+// Portal search options (consumed by IntentField)
+// ---------------------------------------------------------------------------
+
+export interface PortalSearchOption {
+  id: string;
+  title: string;
+  keywords: string[];
+}
+
+const PORTAL_KEYWORDS: Record<string, string[]> = {
+  chat: ['chat', 'talk', 'message', 'ask', 'converse'],
+  'agent-manager': ['agent', 'agents', 'manage', 'bot', 'assistant', 'roster'],
+  dashboard: ['dashboard', 'home', 'overview', 'summary', 'status'],
+  discussion: ['discussion', 'debate', 'thread', 'multi-agent'],
+  'discussion-log': ['discussion', 'log', 'history', 'transcript'],
+  'discussion-controls': ['discussion', 'controls', 'turn', 'moderation'],
+  'user-chat': ['user', 'chat', 'direct', 'message'],
+  'consolidated-user-chat': ['consolidated', 'chat', 'unified', 'inbox'],
+  knowledge: ['knowledge', 'docs', 'documents', 'notes', 'memory'],
+  artifacts: ['artifacts', 'files', 'outputs', 'generated', 'code'],
+  'project-management': ['project', 'projects', 'tasks', 'planning', 'kanban'],
+  'intelligence-panel': ['intelligence', 'insights', 'analysis', 'metrics'],
+  'insights-panel': ['insights', 'analytics', 'trends', 'signals'],
+  'operations-monitor': ['operations', 'ops', 'monitor', 'health', 'runtime'],
+  'event-stream': ['events', 'stream', 'activity', 'feed', 'logs'],
+  'security-gateway': ['security', 'gateway', 'auth', 'access', 'policy'],
+  'workflow-studio': ['workflow', 'studio', 'automation', 'pipeline', 'compose'],
+  settings: ['settings', 'config', 'configuration', 'preferences', 'options'],
+  security: ['security', 'auth', 'permissions', 'access', 'mfa'],
+  'provider-settings': [
+    'provider',
+    'providers',
+    'llm',
+    'llm provider',
+    'model',
+    'models',
+    'api key',
+    'apikey',
+    'openai',
+    'anthropic',
+    'ollama',
+    'connection',
+  ],
+  'tool-management': ['tool', 'tools', 'management', 'integrations', 'mcp'],
+  'unified-tool': ['tools', 'unified', 'integrations', 'capabilities'],
+  'general-settings': ['general', 'settings', 'preferences', 'config'],
+  'capability-registry': ['capability', 'capabilities', 'registry', 'skills'],
+  'knowledge-graph': ['knowledge', 'graph', 'relationships', 'nodes', 'links'],
+  'tools-panel': ['tools', 'panel', 'utilities', 'integrations'],
+  'atomic-knowledge': ['knowledge', 'viewer', 'atomic', 'item', 'reader'],
+  'mind-map': ['mind map', 'mindmap', 'map', 'brainstorm', 'visual'],
+  'multi-chat': ['multi', 'chat', 'parallel', 'group'],
+  'project-onboarding': ['onboarding', 'setup', 'project', 'wizard', 'getting started'],
+  'system-config': ['system', 'config', 'advanced', 'admin'],
+  'mini-browser': ['browser', 'web', 'preview', 'url'],
+};
+
+export function getPortalSearchOptions(): PortalSearchOption[] {
+  return Object.values(BASE_SURFACE_BLOCK_CATALOG).map((spec) => {
+    const title = (spec.metadata?.title as string | undefined) ?? spec.id;
+    const derived = title.toLowerCase().split(/\s+/).filter(Boolean);
+    const extra = PORTAL_KEYWORDS[spec.id] ?? [];
+    const keywords = Array.from(new Set([...derived, ...extra, spec.id]));
+    return { id: spec.id, title, keywords };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Defaults
 // ---------------------------------------------------------------------------
 

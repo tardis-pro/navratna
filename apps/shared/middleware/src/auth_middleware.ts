@@ -162,6 +162,17 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
  */
 export function attachNginxAuth<T extends Elysia>(app: T) {
   return app.derive(({ headers }) => {
+    // Edge-trust gate: when EDGE_AUTH_SECRET is configured, only trust the
+    // forwarded identity headers on requests that carry a matching X-Edge-Auth
+    // header — i.e. requests that actually passed through the Cloudflare Worker.
+    // This prevents a client from reaching the public Fly app directly and
+    // forging X-User-* headers to impersonate any user. Unset secret = trust
+    // headers (local dev / pre-rollout), preserving existing behavior.
+    const edgeSecret = process.env.EDGE_AUTH_SECRET;
+    if (edgeSecret && headers['x-edge-auth'] !== edgeSecret) {
+      return { user: null };
+    }
+
     const userId = headers['x-user-id'];
     const email = headers['x-user-email'];
     const role = headers['x-user-role'];

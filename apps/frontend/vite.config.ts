@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import type { Plugin } from 'vite';
@@ -22,10 +23,11 @@ function backendLeakGuard(): Plugin {
   };
 }
 
-export default defineConfig(({ mode: _mode }) => {
-  const API_TARGET = process.env.VITE_API_TARGET;
-  const CORE = process.env.VITE_CORE_URL || 'http://localhost:3001';
-  const GATEWAY = process.env.VITE_GATEWAY_URL || 'http://localhost:3002';
+export default defineConfig(({ mode }) => {
+  const env = { ...process.env, ...loadEnv(mode, path.resolve(__dirname), '') };
+  const API_TARGET = env.VITE_API_TARGET;
+  const CORE = env.VITE_CORE_URL || 'http://localhost:3001';
+  const GATEWAY = env.VITE_GATEWAY_URL || 'http://localhost:3002';
 
   const toCore = { target: API_TARGET || CORE, changeOrigin: true, secure: false };
   const toGateway = { target: API_TARGET || GATEWAY, changeOrigin: true, secure: false };

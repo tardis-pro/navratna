@@ -112,6 +112,7 @@ export function MaterializableBlock({
   onVisibilityChange: _onVisibilityChange,
   onExpressionChange: _onExpressionChange,
   isDraggable = false,
+  layout = 'flow',
   children,
   className,
   style,
@@ -121,7 +122,7 @@ export function MaterializableBlock({
 
   const relevanceMotion = useMotionValue(block.relevanceScore);
   const springRelevance = useSpring(relevanceMotion, { stiffness: 100, damping: 18 });
-  const relevanceOpacity = useTransform(springRelevance, [0, 0.5, 1], [0.3, 0.6, 1]);
+  const relevanceOpacity = useTransform(springRelevance, [0, 0.5, 1], [0.9, 0.95, 1]);
 
   useEffect(() => {
     setLocalZIndex(block.position.z);
@@ -160,17 +161,28 @@ export function MaterializableBlock({
   const expressionColor = useMemo(() => getExpressionColor(block.expression), [block.expression]);
 
   const containerStyle: React.CSSProperties = useMemo(
-    () => ({
-      ...CONTAINER_STYLES,
-      width: block.dimensions.width,
-      height: block.dimensions.height,
-      left: block.position.x,
-      top: block.position.y,
-      zIndex: localZIndex,
-      ...baseStyle,
-      ...style,
-    }),
-    [block.dimensions.width, block.dimensions.height, block.position.x, block.position.y, localZIndex, baseStyle, style]
+    () =>
+      layout === 'flow'
+        ? {
+            ...CONTAINER_STYLES,
+            position: 'relative',
+            width: '100%',
+            minHeight: block.dimensions.height,
+            zIndex: localZIndex,
+            ...baseStyle,
+            ...style,
+          }
+        : {
+            ...CONTAINER_STYLES,
+            width: block.dimensions.width,
+            height: block.dimensions.height,
+            left: block.position.x,
+            top: block.position.y,
+            zIndex: localZIndex,
+            ...baseStyle,
+            ...style,
+          },
+    [layout, block.dimensions.width, block.dimensions.height, block.position.x, block.position.y, localZIndex, baseStyle, style]
   );
 
   if (block.visibility === 'hidden') {
@@ -189,7 +201,7 @@ export function MaterializableBlock({
         exit="exit"
         drag={isDraggable}
         onDragEnd={handleDragEnd}
-        whileHover={{ boxShadow: `0 0 20px ${expressionColor}` }}
+        whileHover={{ boxShadow: '0 4px 12px oklch(0% 0 0 / 0.12)' }}
         whileTap={{ scale: 0.98 }}
         style={{ ...containerStyle, opacity: relevanceOpacity }}
         className={cn('materializable-block', className)}
@@ -220,8 +232,8 @@ export function MaterializableBlock({
           <div
             style={{
               ...SCORE_BADGE_STYLES,
-              backgroundColor: `oklch(30% 0.02 264 / 0.8)`,
-              color: `oklch(80% 0.02 264)`,
+              backgroundColor: 'var(--color-muted)',
+              color: 'var(--color-muted-foreground)',
             }}
             className="materializable-block__score"
           >

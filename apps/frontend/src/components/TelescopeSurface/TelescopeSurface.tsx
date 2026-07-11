@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope, Workflow } from 'lucide-react';
 import { WorkflowBlockRenderer } from '@/components/WorkflowBlockRenderer';
@@ -31,7 +31,6 @@ import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpressi
 // ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_VISIBLE_BLOCKS = 4;
-const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const RELEVANCE_HIDDEN_THRESHOLD = 0.2;
 const RELEVANCE_FADED_THRESHOLD = 0.5;
 
@@ -155,116 +154,11 @@ function applyVisibilityRules(
 // ---------------------------------------------------------------------------
 
 const CosmicBackground = () => {
-  // Generate random stars
-  const stars = useMemo(() => {
-    return Array.from({ length: 100 }).map((_, i) => ({
-      id: i,
-      cx: `${Math.random() * 100}%`,
-      cy: `${Math.random() * 100}%`,
-      r: Math.random() * 1.5 + 0.5,
-      opacity: Math.random() * 0.5 + 0.1,
-      animationDuration: `${Math.random() * 3 + 2}s`,
-      animationDelay: `${Math.random() * 2}s`,
-    }));
-  }, []);
-
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Nebula Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[var(--color-llama1)] opacity-[0.03] blur-[120px] animate-pulse-glow" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[var(--color-llama2)] opacity-[0.03] blur-[100px] animate-pulse-glow" style={{ animationDelay: '2s' }} />
-      
-      {/* Starfield SVG */}
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        {stars.map((star) => (
-          <circle
-            key={star.id}
-            cx={star.cx}
-            cy={star.cy}
-            r={star.r}
-            fill="currentColor"
-            className="text-white animate-pulse-glow"
-            style={{
-              opacity: star.opacity,
-              animationDuration: star.animationDuration,
-              animationDelay: star.animationDelay,
-            }}
-          />
-        ))}
-      </svg>
-
-      {/* Scanline overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.1)_51%)] bg-[length:100%_4px] opacity-20 pointer-events-none" />
-      
-      {/* Sweeping scan line */}
-      <motion.div 
-        className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--color-llama1)] to-transparent opacity-30"
-        animate={{ y: ['0vh', '100vh'] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-      />
+      {/* Single subtle ambient glow — calm, content-first backdrop */}
+      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[var(--color-llama1)] opacity-[0.03] blur-[120px]" />
     </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// ConstellationLines
-// ---------------------------------------------------------------------------
-
-interface BlockCenter {
-  id: string;
-  x: number;
-  y: number;
-  relevanceScore: number;
-}
-
-interface ConstellationLinesProps {
-  centers: BlockCenter[];
-  containerRef: React.RefObject<HTMLDivElement>;
-}
-
-const ConstellationLines = ({ centers, containerRef }: ConstellationLinesProps) => {
-  if (centers.length < 2 || !containerRef.current) return null;
-
-  const containerRect = containerRef.current.getBoundingClientRect();
-
-  return (
-    <svg
-      className="absolute inset-0 w-full h-full pointer-events-none z-0"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="constellation-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="oklch(65% 0.12 250)" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="oklch(65% 0.12 290)" stopOpacity="0.1" />
-        </linearGradient>
-      </defs>
-
-      {centers.map((a, i) => {
-        const b = centers[i + 1];
-        if (!b) return null;
-        const x1 = a.x - containerRect.left;
-        const y1 = a.y - containerRect.top;
-        const x2 = b.x - containerRect.left;
-        const y2 = b.y - containerRect.top;
-        const strength = Math.sqrt(a.relevanceScore * b.relevanceScore);
-
-        return (
-          <motion.line
-            key={`line-${a.id}-${b.id}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="url(#constellation-grad)"
-            strokeWidth={strength * 1.5}
-            strokeDasharray="5 4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: strength * 0.5 }}
-            transition={{ duration: 1.2, delay: i * 0.15 }}
-          />
-        );
-      })}
-    </svg>
   );
 };
 
@@ -288,7 +182,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
   const relevanceOpacity = useTransform(
     springRelevance,
     [0, RELEVANCE_FADED_THRESHOLD, 1],
-    [0.3, 0.65, 1]
+    [0.9, 0.95, 1]
   );
 
   useEffect(() => {
@@ -310,16 +204,14 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
   );
 
   // Von Restorff effect for top ranked block
-  const borderStyle = isTopRanked 
-    ? { borderColor: 'oklch(85% 0.15 85)', boxShadow: '0 0 15px oklch(85% 0.15 85 / 0.3), inset 0 0 20px oklch(85% 0.15 85 / 0.1)' }
+  const borderStyle = isTopRanked
+    ? { borderColor: 'oklch(72% 0.14 85)', boxShadow: '0 1px 3px oklch(0% 0 0 / 0.08), 0 1px 2px oklch(0% 0 0 / 0.06)' }
     : { borderColor: typeColors.border };
 
   const scaleBase = isTopRanked ? 1.02 : 1;
 
   return (
     <motion.div
-      layout
-      layoutId={block.id}
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{
         scale: scaleBase,
@@ -345,8 +237,8 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
       aria-label={`${BLOCK_TYPE_LABELS[block.type]} block: ${block.metadata?.title ?? block.id} — ${relevancePercent}% relevant`}
       className={cn(
         "relative flex flex-col gap-3 rounded-2xl border-2 p-5 cursor-pointer overflow-hidden",
-        "backdrop-blur-xl min-h-[8rem]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+        "min-h-[8rem]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       )}
     >
       {/* Type-based gradient header strip */}
@@ -382,10 +274,9 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-1.5 bg-background/40 px-2 py-1 rounded-full border border-border/50">
             <span
-              className="w-2 h-2 rounded-full animate-pulse"
+              className="w-2 h-2 rounded-full"
               style={{
                 backgroundColor: expressionColor,
-                boxShadow: `0 0 8px ${expressionColor}`,
               }}
               title={`${block.expression} state`}
             />
@@ -409,14 +300,13 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
       <div className="flex flex-col gap-1.5 mt-2">
         <div className="flex justify-between items-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           <span>Relevance</span>
-          <span style={{ color: isTopRanked ? 'oklch(85% 0.15 85)' : typeColors.accent }}>{relevancePercent}%</span>
+          <span style={{ color: isTopRanked ? 'oklch(60% 0.14 85)' : typeColors.accent }}>{relevancePercent}%</span>
         </div>
-        <div className="h-1.5 w-full bg-background/50 rounded-full overflow-hidden border border-border/30">
-          <motion.div 
+        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden border border-border/30">
+          <motion.div
             className="h-full rounded-full"
-            style={{ 
-              backgroundColor: isTopRanked ? 'oklch(85% 0.15 85)' : typeColors.accent,
-              boxShadow: `0 0 10px ${isTopRanked ? 'oklch(85% 0.15 85)' : typeColors.accent}`
+            style={{
+              backgroundColor: isTopRanked ? 'oklch(60% 0.14 85)' : typeColors.accent,
             }}
             initial={{ width: 0 }}
             animate={{ width: `${relevancePercent}%` }}
@@ -447,10 +337,7 @@ export function TelescopeSurface({
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
 }: TelescopeSurfaceProps) {
-  const arrangeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [_arrangeKey, setArrangeKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [blockCenters, setBlockCenters] = useState<BlockCenter[]>([]);
 
   const processedBlocks = useMemo(() => {
     const sorted = sortByRelevance(blocks);
@@ -462,45 +349,6 @@ export function TelescopeSurface({
     () => processedBlocks.filter((b) => b.visibility !== 'hidden'),
     [processedBlocks]
   );
-
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const measure = () => {
-      const centers: BlockCenter[] = [];
-      visibleBlocks.forEach((block) => {
-        const el = container.querySelector<HTMLElement>(`[data-block-id="${block.id}"]`);
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        centers.push({
-          id: block.id,
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-          relevanceScore: block.relevanceScore,
-        });
-      });
-      setBlockCenters(centers);
-    };
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(container);
-    measure();
-
-    return () => observer.disconnect();
-  }, [visibleBlocks]);
-
-  useEffect(() => {
-    arrangeTimerRef.current = setInterval(() => {
-      setArrangeKey((k) => k + 1);
-    }, AUTO_REFRESH_INTERVAL_MS);
-
-    return () => {
-      if (arrangeTimerRef.current) {
-        clearInterval(arrangeTimerRef.current);
-      }
-    };
-  }, []);
 
   const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
   const [fogActive, setFogActive] = useState(true);
@@ -573,7 +421,6 @@ export function TelescopeSurface({
       aria-label="Telescope Surface — ambient block view"
     >
       <CosmicBackground />
-      <ConstellationLines centers={blockCenters} containerRef={containerRef} />
 
       <AttentionBudget
         activeCount={visibleBlocks.length}
@@ -601,10 +448,10 @@ export function TelescopeSurface({
         <BreathCycle systemLoad={systemLoad} isActive={true}>
           <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <AnimatePresence mode="popLayout">
-              {visibleBlocks.map((block, index) => (
+              {visibleBlocks.map((block, index) => {
+                return (
                 <motion.div
                   key={block.id}
-                  data-block-id={block.id}
                   exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.95 }}
                   transition={{ duration: 0.4 }}
                 >
@@ -632,7 +479,8 @@ export function TelescopeSurface({
                     )}
                   </CrystallizationEffect>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </div>
         </BreathCycle>

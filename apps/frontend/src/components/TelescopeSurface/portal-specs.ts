@@ -277,20 +277,6 @@ export const PORTAL_SPECS: Record<string, PortalBlockSpec> = {
     ],
   },
 
-  'provider-settings': {
-    display: 'table',
-    title: 'Model Providers',
-    fields: [
-      { key: 'name', label: 'Provider', type: 'text' },
-      { key: 'status', label: 'Status', type: 'status' },
-      { key: 'models', label: 'Models', type: 'number' },
-      { key: 'defaultModel', label: 'Default Model', type: 'text' },
-    ],
-    actions: [
-      { label: 'Add Provider', type: 'custom' },
-    ],
-  },
-
   'tool-management': {
     display: 'table',
     title: 'Tool Management',

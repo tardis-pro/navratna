@@ -141,7 +141,7 @@ export const llmAPI = {
         isDefault: boolean;
       }>
     > {
-      return edenWithCSRFRetry(() => userLlm.capabilities.get());
+      return edenWithCSRFRetry(() => userLlm.models.get());
     },
   },
 

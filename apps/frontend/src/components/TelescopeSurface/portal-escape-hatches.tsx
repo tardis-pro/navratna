@@ -59,6 +59,12 @@ const WorkflowStudioPortal = lazy(() =>
     default: m.WorkflowStudioPortal,
   }))
 );
+// @spec-escape-hatch: live LLM provider CRUD + per-task model preferences (useAgents data binding)
+const ProviderSettingsPortal = lazy(() =>
+  import('../futuristic/portals/ProviderSettingsPortal').then((m) => ({
+    default: m.ProviderSettingsPortal,
+  }))
+);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
@@ -74,6 +80,7 @@ export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.C
   'multi-chat': MultiChatManager,
   'project-onboarding': ProjectOnboardingFlow,
   'workflow-studio': WorkflowStudioPortal,
+  'provider-settings': ProviderSettingsPortal,
 };
 
 export function renderPortalContent(portalId: string): ReactNode | null {

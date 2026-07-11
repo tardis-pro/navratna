@@ -131,14 +131,47 @@ export class OAuthProviderService {
   }
 
   /**
+   * Map a persisted DB OAuth provider row to the runtime OAuthProviderConfig shape.
+   * DB columns (clientSecretEncrypted, scopes, configuration) differ from the runtime
+   * interface (clientSecret, scope, redirectUri, securityConfig, agentConfig) that the
+   * rest of this service reads, so we translate here rather than blind-casting.
+   */
+  private mapDbProviderToConfig(row: Record<string, unknown>): OAuthProviderConfig {
+    const configuration = isRecord(row.configuration) ? row.configuration : {};
+    const securityConfig = isRecord(configuration.securityConfig)
+      ? configuration.securityConfig
+      : { allowedUserTypes: [UserType.HUMAN, UserType.AGENT], requirePKCE: false, requireState: true };
+    const scopes = Array.isArray(row.scopes) ? (row.scopes as string[]) : [];
+
+    return {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      clientId: row.clientId,
+      // Runtime reads `clientSecret`; DB persists it (encrypted) in `clientSecretEncrypted`.
+      clientSecret: row.clientSecretEncrypted ?? undefined,
+      authorizationUrl: row.authorizationUrl ?? undefined,
+      tokenUrl: row.tokenUrl ?? undefined,
+      userInfoUrl: row.userInfoUrl ?? undefined,
+      scope: scopes,
+      isEnabled: Boolean(row.isEnabled),
+      redirectUri: typeof configuration.redirectUri === 'string' ? configuration.redirectUri : undefined,
+      additionalParams: isRecord(configuration.additionalParams)
+        ? (configuration.additionalParams as Record<string, string>)
+        : undefined,
+      securityConfig,
+      agentConfig: isRecord(configuration.agentConfig) ? configuration.agentConfig : undefined,
+    } as unknown as OAuthProviderConfig;
+  }
+
+  /**
    * Load OAuth providers from database
    */
   private async loadProviders(): Promise<void> {
     try {
       const providers = await this.oauthService.findEnabledOAuthProviders();
       for (const provider of providers) {
-        // DB OAuthProvider is stored via the OAuthProviderConfig interface; fields overlap at runtime
-        this.providers.set(provider.id, provider as unknown as OAuthProviderConfig);
+        this.providers.set(provider.id, this.mapDbProviderToConfig(provider as unknown as Record<string, unknown>));
       }
       logger.info('OAuth providers loaded', { count: providers.length });
     } catch (error) {
@@ -146,6 +179,23 @@ export class OAuthProviderService {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
+  }
+
+  /**
+   * The constructor kicks off loadProviders() fire-and-forget, which can race
+   * ahead of the DB connection (empty map) or predate a provider seed. Any code
+   * path that reads the in-memory map must call this first so a cold/empty map
+   * is (re)hydrated from the database on demand. Concurrent callers share one load.
+   */
+  private ensureLoadPromise: Promise<void> | null = null;
+  private async ensureProvidersLoaded(): Promise<void> {
+    if (this.providers.size > 0) return;
+    if (!this.ensureLoadPromise) {
+      this.ensureLoadPromise = this.loadProviders().finally(() => {
+        this.ensureLoadPromise = null;
+      });
+    }
+    await this.ensureLoadPromise;
   }
 
   /**
@@ -235,6 +285,7 @@ export class OAuthProviderService {
     agentCapabilities?: AgentCapability[]
   ): Promise<{ url: string; state: string; codeVerifier?: string }> {
     try {
+      await this.ensureProvidersLoaded();
       const provider = this.providers.get(providerId);
       if (!provider || !provider.isEnabled) {
         throw new ApiError(404, 'OAuth provider not found or disabled', 'PROVIDER_NOT_FOUND');
@@ -351,6 +402,7 @@ export class OAuthProviderService {
     oauthState: OAuthState;
   }> {
     try {
+      await this.ensureProvidersLoaded();
       // Retrieve and validate state
       const oauthStateEntity = await this.oauthService.verifyAndConsumeOAuthState(state);
       if (!oauthStateEntity) {
@@ -944,6 +996,7 @@ export class OAuthProviderService {
   public async getAvailableProviders(
     userType: UserType = UserType.HUMAN
   ): Promise<OAuthProviderConfig[]> {
+    await this.ensureProvidersLoaded();
     const allProviders = Array.from(this.providers.values());
     return allProviders.filter(
       (provider) =>

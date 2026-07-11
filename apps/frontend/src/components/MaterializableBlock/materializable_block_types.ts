@@ -66,6 +66,8 @@ export interface MaterializableBlockProps {
   isDraggable?: boolean;
   /** Whether the block can be resized */
   isResizable?: boolean;
+  /** Layout mode: `flow` (grid/flex child, default) or `absolute` (legacy free-floating window) */
+  layout?: 'flow' | 'absolute';
   /** Child content to render inside the block */
   children: ReactNode;
   /** Additional CSS class names */

@@ -29,6 +29,7 @@ interface Env {
   FRONTEND_URL: string; // https://navratna.tardis.digital
   CORS_ORIGINS: string; // comma-separated allowed origins
   JWT_SECRET: string; // HS256 secret (wrangler secret)
+  EDGE_AUTH_SECRET?: string; // shared secret proving a request came through this Worker
   STORAGE?: R2Bucket;
 }
 
@@ -51,6 +52,7 @@ interface RouteRule {
 const ROUTE_TABLE: RouteRule[] = [
   // --- gateway (security + orchestration + capability) ---
   { prefix: '/api/v1/auth', target: 'gateway' },
+  { prefix: '/api/v1/oauth', target: 'gateway' },
   { prefix: '/api/v1/security', target: 'gateway' },
   { prefix: '/api/v1/approvals', target: 'gateway' },
   { prefix: '/api/v1/users', target: 'gateway' },
@@ -58,32 +60,47 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/contacts', target: 'gateway' },
   { prefix: '/api/v1/projects', target: 'gateway' },
   { prefix: '/api/v1/operations', target: 'gateway' },
+  { prefix: '/api/v1/orchestration', target: 'gateway' },
+  { prefix: '/api/v1/workflows', target: 'gateway' },
+  { prefix: '/api/v1/tasks', target: 'gateway' },
+  { prefix: '/api/v1/dashboard', target: 'gateway' },
+  { prefix: '/api/v1/webhooks', target: 'gateway' },
   { prefix: '/api/v1/capabilities', target: 'gateway' },
+  { prefix: '/api/v1/workspaces', target: 'gateway' },
+  { prefix: '/api/v1/canva', target: 'gateway' },
   { prefix: '/api/v1/tools', target: 'gateway' },
   { prefix: '/api/v1/mcp', target: 'gateway' },
   { prefix: '/api/v1/federation', target: 'gateway' },
+  { prefix: '/api/v1/agent-llm-providers', target: 'gateway' }, // before /agents (core) is irrelevant — distinct prefix
+  { prefix: '/api/v1/providers', target: 'gateway' },
   { prefix: '/api/v1/llm/my-providers', target: 'gateway' },
   { prefix: '/.well-known/openid-configuration', target: 'gateway' },
   { prefix: '/.well-known/jwks.json', target: 'gateway' },
 
   // --- core (agent + discussion + artifact + llm) ---
   { prefix: '/api/v1/knowledge/constellations', target: 'core' }, // before /knowledge
+  { prefix: '/api/v1/knowledge/ingest', target: 'core' }, // before /knowledge parent
   { prefix: '/api/v1/agents', target: 'core' },
   { prefix: '/api/v1/personas', target: 'core' },
   { prefix: '/api/v1/discussions', target: 'core' },
   { prefix: '/api/v1/artifacts', target: 'core' },
   { prefix: '/api/v1/info', target: 'core' },
+  { prefix: '/api/v1/onboard', target: 'core' },
+  { prefix: '/api/v1/composition', target: 'core' },
   { prefix: '/api/v1/user/llm', target: 'core' }, // before /llm
   { prefix: '/api/v1/questionforge', target: 'core' },
   { prefix: '/api/v1/llm', target: 'core' },
   { prefix: '/socket.io', target: 'core' },
 
-  // --- knowledge parent (gateway) — AFTER constellations ---
+  // --- knowledge parent (gateway) — AFTER constellations + ingest ---
   { prefix: '/api/v1/knowledge', target: 'gateway' },
 ];
 
-/** Routes that must never have auth enforced / injected upstream needs. */
-const PUBLIC_PREFIXES = ['/api/v1/auth', '/.well-known/'];
+/**
+ * Routes that must never have auth enforced / injected upstream needs.
+ * OAuth initiate + provider callbacks run pre-authentication.
+ */
+const PUBLIC_PREFIXES = ['/api/v1/auth', '/api/v1/oauth', '/.well-known/'];
 
 function resolveTarget(pathname: string): Target | null {
   // Table is ordered specific-first, so the first prefix match wins.
@@ -257,7 +274,15 @@ export default {
     headers.delete('X-User-ID');
     headers.delete('X-User-Email');
     headers.delete('X-User-Role');
+    headers.delete('X-Edge-Auth'); // never allow a client to supply this
     headers.delete('Host');
+
+    // Prove to the Fly backends that this request came through the edge. The
+    // backends only trust X-User-* identity when this shared secret matches,
+    // which stops anyone from hitting *.fly.dev directly to forge a user.
+    if (env.EDGE_AUTH_SECRET) {
+      headers.set('X-Edge-Auth', env.EDGE_AUTH_SECRET);
+    }
     headers.set('X-Forwarded-Proto', 'https');
     headers.set('X-Forwarded-Host', url.hostname);
     const clientIp = request.headers.get('CF-Connecting-IP');

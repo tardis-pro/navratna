@@ -29,7 +29,7 @@ export default function TelescopeSurfacePage() {
     (option: IntentOption) => {
       const match = surface.blocks.find((b) => b.id === option.id);
       if (match) {
-        surface.updateRelevance(option.id, Math.min(match.relevanceScore + 0.15, 1.0));
+        surface.updateRelevance(option.id, 1.0);
       }
     },
     [surface]

@@ -683,72 +683,32 @@ export class EnhancedAuthService {
     provider: OAuthProviderParam,
     oauthState: OAuthStateParam
   ): Promise<EnhancedUser> {
-    const user: EnhancedUser = {
-      id: crypto.randomUUID(),
-      email: userInfo.email || `${userInfo.id}@${provider.type}.oauth`,
-      name: userInfo.name || userInfo.login || 'OAuth User',
-      role: oauthState.userType === UserType.AGENT ? 'agent' : 'user',
-      userType: oauthState.userType || UserType.HUMAN,
-      securityClearance: SecurityLevel.MEDIUM,
-      isActive: true,
-      failedLoginAttempts: 0,
-      oauthProviders: [
-        {
-          providerId: provider.id ?? crypto.randomUUID(),
-          providerType: provider.type ?? OAuthProviderType.GITHUB,
-          providerUserId: userInfo.id ?? '',
-          email: userInfo.email,
-          displayName: userInfo.name || userInfo.login,
-          avatarUrl: userInfo.avatar_url,
-          isVerified: true,
-          isPrimary: true,
-          linkedAt: new Date(),
-          capabilities: oauthState.agentCapabilities,
-        },
-      ],
-      agentConfig:
-        oauthState.userType === UserType.AGENT
-          ? {
-              capabilities: oauthState.agentCapabilities || [],
-              maxConcurrentSessions: 5,
-              allowedProviders: provider.type ? [provider.type] : [],
-              securityLevel: SecurityLevel.MEDIUM,
-              monitoring: {
-                logLevel: 'standard',
-                alertOnNewProvider: true,
-                alertOnUnusualActivity: true,
-              },
-            }
-          : undefined,
-      mfaEnabled: false,
-      mfaMethods: [],
-      securityPreferences: {
-        requireMFAForSensitiveOperations: true,
-        sessionTimeout: 3600,
-        allowMultipleSessions: true,
-        trustedDevices: [],
-        securityNotifications: {
-          newDevice: true,
-          suspiciousActivity: true,
-          passwordChange: true,
-          mfaChange: true,
-          oauthProviderChange: true,
-          agentActivityAlerts: true,
-        },
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // OAuth-only signup: provision a brand-new account for a first-time OAuth login.
+    const isAgent = oauthState.userType === UserType.AGENT;
+    const email = userInfo.email || `${userInfo.id}@${provider.type ?? 'oauth'}.oauth`;
 
-    await this.userService.createUser({
-      email: user.email || `${userInfo.id}@${provider.type}.oauth`,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      department: user.department,
+    // Derive first/last name from the provider's display name (e.g. "Jane Doe").
+    const displayName = userInfo.name || userInfo.login || '';
+    const [firstName, ...rest] = displayName.trim().split(/\s+/).filter(Boolean);
+    const lastName = rest.join(' ') || undefined;
+
+    // Persist through the shared UserService and return the DB-created row so the
+    // caller's session/JWT/refresh-token are bound to the real (existing) user id.
+    const created = await this.userService.createUser({
+      email,
+      firstName: firstName || undefined,
+      lastName,
+      role: isAgent ? 'agent' : 'user',
       isOAuthUser: true,
     });
-    return user;
+
+    logger.info('Provisioned new user from OAuth login', {
+      userId: created.id,
+      email,
+      provider: provider.type,
+    });
+
+    return toEnhancedUser(created);
   }
 
   private async updateUserOAuthConnection(

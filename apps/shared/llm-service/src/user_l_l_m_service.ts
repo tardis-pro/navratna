@@ -84,6 +84,15 @@ function isUserLLMProviderType(v: unknown): v is UserLLMProviderType {
   return validUserLLMProviderTypesSet.has(v);
 }
 
+const userLLMProviderTypeLabels: Record<UserLLMProviderType, string> = {
+  ollama: 'Ollama',
+  llmstudio: 'LLM Studio',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  custom: 'Custom',
+};
+
 /**
  * Map a DB row (which stores name/type/baseUrl inside configuration) to UserLLMProvider.
  * When creating a provider, we store those fields in configuration (see createUserProvider).
@@ -91,11 +100,12 @@ function isUserLLMProviderType(v: unknown): v is UserLLMProviderType {
 function mapDbRowToUserLLMProvider(row: UserLLMProviderDbRow): UserLLMProvider {
   const cfg = row.configuration ?? {};
   const rawType = cfg.type ?? row.providerId;
+  const resolvedType: UserLLMProviderType = isUserLLMProviderType(rawType) ? rawType : 'custom';
   return {
     id: row.id,
     userId: row.userId,
-    name: typeof cfg.name === 'string' ? cfg.name : row.providerId,
-    type: isUserLLMProviderType(rawType) ? rawType : 'custom',
+    name: typeof cfg.name === 'string' ? cfg.name : userLLMProviderTypeLabels[resolvedType],
+    type: resolvedType,
     description: typeof cfg.description === 'string' ? cfg.description : undefined,
     baseUrl: typeof cfg.baseUrl === 'string' ? cfg.baseUrl : undefined,
     apiKeyEncrypted: row.apiKeyEncrypted ?? undefined,
@@ -864,7 +874,10 @@ export class UserLLMService {
     return {
       type: providerConfigType,
       baseUrl: userProvider.baseUrl || getDefaultBaseUrl(userProvider.type),
-      // API key decryption is handled by the provider itself
+      // apiKeyEncrypted is already decrypted to plaintext by the repository read
+      // path (UserLLMProviderRepository.decryptProviderRow). Pass it as the plain
+      // apiKey so BaseProvider.getApiKey() can authenticate model-fetch/chat calls.
+      apiKey: userProvider.apiKeyEncrypted,
       defaultModel: userProvider.defaultModel,
       timeout,
       retries,

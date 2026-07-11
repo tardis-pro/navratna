@@ -191,7 +191,15 @@ class NavratnaCoreService extends BaseService {
           const rawRole = socket.handshake.headers['x-user-role']
           const userRole = Array.isArray(rawRole) ? rawRole[0] : rawRole
 
-          if (userId) {
+          // Edge-trust gate: only honor the forwarded x-user-id header when the
+          // request carries a valid X-Edge-Auth (i.e. came through the Worker).
+          // Otherwise fall through to real token validation below.
+          const edgeSecret = process.env.EDGE_AUTH_SECRET
+          const rawEdge = socket.handshake.headers['x-edge-auth']
+          const edgeHeader = Array.isArray(rawEdge) ? rawEdge[0] : rawEdge
+          const edgeTrusted = !edgeSecret || edgeHeader === edgeSecret
+
+          if (userId && edgeTrusted) {
             const UUID_REGEX =
               /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             if (!UUID_REGEX.test(userId)) {
