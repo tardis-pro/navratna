@@ -123,3 +123,5 @@ export * from './onboarding';
 export * from './workflow_composition';
 export * from './design_tokens';
 export * from './erasure';
+// Hybrid Execution Mesh types - NEW (spec 11)
+export * from './execution_mesh.js';
