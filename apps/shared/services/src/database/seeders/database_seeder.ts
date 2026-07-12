@@ -13,7 +13,6 @@ import { AgentSeed } from './agent_seed';
 import { ToolDefinitionSeed } from './tool_definition_seed';
 import { ProjectSeed } from './project_seed';
 import { CapabilitySeed } from './capability_seed';
-import { WorkflowDefinitionSeed } from './workflow_definition_seed';
 
 export class DatabaseSeeder {
   private controlDb = getControlDb();
@@ -39,7 +38,6 @@ export class DatabaseSeeder {
       agents: false,
       toolDefinitions: false,
       projects: false,
-      workflowDefinitions: false,
     };
 
     try {
@@ -117,13 +115,6 @@ export class DatabaseSeeder {
       results.projects = true;
     } catch (error) {
       console.error('   ❌ Project seeding failed:', error);
-    }
-
-    try {
-      await this.seedWorkflowDefinitions();
-      results.workflowDefinitions = true;
-    } catch (error) {
-      console.error('   ❌ Workflow definition seeding failed:', error);
     }
 
     const successCount = Object.values(results).filter(Boolean).length;
@@ -210,8 +201,4 @@ export class DatabaseSeeder {
     await projectSeed.seed();
   }
 
-  private async seedWorkflowDefinitions(): Promise<void> {
-    const workflowSeed = new WorkflowDefinitionSeed();
-    await workflowSeed.seed();
-  }
 }

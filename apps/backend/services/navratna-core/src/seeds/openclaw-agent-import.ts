@@ -16,11 +16,13 @@ import {
   LLMProviderType,
   PersonaStatus,
   PersonaVisibility,
+} from '@uaip/types';
+import {
   type AgentRouting,
   type ImportAgentData,
   type OpenClawModelDefinition,
   type OpenClawProviderDefinition,
-} from '@uaip/types';
+} from './openclaw_import_types.js';
 import { logger, NotFoundError } from '@uaip/utils';
 
 const OPENCLAW_AGENTS_DIR = '/home/pronit/workspace/tardis/bmad-navratna/openclaw-infra/agents';
