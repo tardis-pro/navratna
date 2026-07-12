@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json --pretty false",
     "build": "vite build",
     "test": "vitest",
     "build:dev": "vite build --mode development",
