@@ -446,7 +446,7 @@
     "enabled": false
   },
   {
-    "name": "bhagwan-heartbeat-deterministic",
+    "name": "bhagwan-heartbeat",
     "description": "Bhagwan Heartbeat (5m) \u2014 Deterministic",
     "trigger": {
       "kind": "every",
@@ -467,7 +467,7 @@
     "enabled": false
   },
   {
-    "name": "todo-enforcer-deterministic",
+    "name": "todo-enforcer",
     "description": "Todo Enforcer (30m) \u2014 Deterministic",
     "trigger": {
       "kind": "every",
