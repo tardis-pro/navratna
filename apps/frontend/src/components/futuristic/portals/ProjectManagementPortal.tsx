@@ -37,7 +37,8 @@ import { projectsAPI, type Project as _APIProject } from '../../../api/projects_
 import { ViewportSize } from '@/hooks/use_viewport';
 import { logger } from '@/utils/browser_logger';
 
-const PROJECT_STATUS_OPTIONS_SET = new Set<string>(['planning', 'active', 'paused', 'completed', 'archived']);
+const PROJECT_STATUS_OPTIONS = ['planning', 'active', 'paused', 'completed', 'archived'] as const;
+const PROJECT_STATUS_OPTIONS_SET = new Set<string>(PROJECT_STATUS_OPTIONS);
 
 type ProjectStatus = Project['status'];
 type ProjectPriority = Project['priority'];
