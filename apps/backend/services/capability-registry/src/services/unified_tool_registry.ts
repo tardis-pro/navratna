@@ -465,7 +465,12 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
 
     try {
-      const tool = await this.toolService.findToolById(toolId);
+      // Resolve by UUID id, or by name — callers reference native tools like "shell-exec"
+      // by name, and findToolById throws on a non-UUID value.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toolId);
+      const tool = isUuid
+        ? await this.toolService.findToolById(toolId)
+        : await this.toolService.findToolByName(toolId);
       if (!tool) return null;
 
       return {
