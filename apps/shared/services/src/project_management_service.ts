@@ -207,8 +207,11 @@ export class ProjectManagementService {
 
       const total = await qb.getCount();
 
-      if (filters.limit) qb.limit(filters.limit);
-      if (filters.offset) qb.offset(filters.offset);
+      // take/skip, not limit/offset — the repository is the Drizzle shim, which exposes
+      // only the subset of the TypeORM builder used here. A default limit is always
+      // supplied, so calling qb.limit() made every list request throw.
+      if (filters.limit) qb.take(filters.limit);
+      if (filters.offset) qb.skip(filters.offset);
 
       qb.orderBy('project.updatedAt', 'DESC');
 
@@ -339,7 +342,9 @@ export class ProjectManagementService {
         qb.andWhere('project.ownerId = :ownerId', { ownerId: filters.ownerId });
       }
 
-      const [projects, totalProjects] = await qb.getManyAndCount();
+      // The Drizzle shim has no getManyAndCount(); count first, then fetch.
+      const totalProjects = await qb.getCount();
+      const projects = await qb.getMany();
 
       const activeProjects = projects.filter((p: any) => p.status === ProjectStatus.ACTIVE).length;
       const completedProjects = projects.filter(

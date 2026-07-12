@@ -29,7 +29,14 @@ const projects = gatewayClient.api.v1.projects;
 export const projectsAPI = {
   async list(options?: ProjectListOptions): Promise<Project[]> {
     const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
-    return edenWithCSRFRetry(() => projects.get({ query }));
+    const result = await edenWithCSRFRetry(() => projects.get({ query }));
+
+    // The endpoint answers with a paginated envelope ({ projects, total }), not a bare
+    // array — callers .map() over this, so hand back the list itself.
+    if (result && !Array.isArray(result) && Array.isArray((result as { projects?: Project[] }).projects)) {
+      return (result as unknown as { projects: Project[] }).projects;
+    }
+    return Array.isArray(result) ? result : [];
   },
 
   async get(id: string): Promise<Project> {
