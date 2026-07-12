@@ -1,0 +1,38 @@
+name = "navratna-embed"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# =============================================================================
+# Embeddings worker — generates embeddings via Cloudflare Workers AI and returns
+# them in an OpenAI-compatible shape, so the backend's env-driven embedding
+# service (EMBEDDINGS_URL) can point here instead of api.openai.com.
+#
+# Model: @cf/baai/bge-large-en-v1.5 (1024-dim, highest-quality English embedding
+# model on Workers AI). Qdrant stays the vector store; this only GENERATES vectors.
+#
+# The [ai] binding gives `env.AI.run(...)` access to Workers AI.
+#
+# EMBED_SECRET is a wrangler SECRET (never a plaintext var). Set it with:
+#   npx wrangler secret put EMBED_SECRET
+#   npx wrangler secret put EMBED_SECRET --env production
+# Callers must send header  X-Embed-Auth: <EMBED_SECRET>  (403 otherwise).
+# =============================================================================
+
+[ai]
+binding = "AI"
+
+[observability]
+enabled = true
+
+[env.production]
+name = "navratna-embed"
+
+[env.production.ai]
+binding = "AI"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[env.development.vars]
+ENVIRONMENT = "development"
