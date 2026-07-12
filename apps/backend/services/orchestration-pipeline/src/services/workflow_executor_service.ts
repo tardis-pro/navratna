@@ -232,6 +232,7 @@ export class WorkflowExecutorService {
     if (output && typeof output === 'object') {
       const rec = output as Record<string, unknown>;
       if (typeof rec.stdout === 'string') return rec.stdout;
+      if (typeof rec.content === 'string') return rec.content; // agentTurn LLM output
       if (typeof rec.output === 'string') return rec.output;
     }
     return typeof output === 'string' ? output : '';

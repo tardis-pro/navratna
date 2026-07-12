@@ -1,0 +1,53 @@
+# openclaw-executor — the runtime image a shell/bash workflow step executes in.
+#
+# This is the answer to "does the runner have the dependencies": a step declares
+# `requires: [python3, sqlite3, ...]`, the scheduler routes it to a node advertising
+# those runtimes, and the node runs the command in THIS image (or the node itself is
+# this image). Everything the OpenClaw workflows shell out to is present here.
+#
+# BUILD (context = repo root; mount the openclaw-infra scripts/workspace at runtime):
+#   docker build -f apps/backend/services/exec-node-mcp/Dockerfile.executor -t uaip/openclaw-executor .
+#
+# RUN (as a node, self-registering into the mesh — see the mesh enrollment flow):
+#   docker run -d --restart unless-stopped \
+#     -e NAVRATNA_API_URL=https://<host> -e NAVRATNA_NODE_TOKEN=<token> \
+#     -v /srv/openclaw/scripts:/opt/openclaw/scripts:ro \
+#     -v /srv/openclaw/workspace:/workspace \
+#     -v /srv/openclaw/creds:/opt/openclaw/creds:ro \
+#     uaip/openclaw-executor
+
+FROM node:22-slim AS runtime
+
+# ── Runtime prerequisites the OpenClaw workflows shell out to ──────────────────
+# python3+pip  → *.py scripts (nidra-compile-digest, amy-format-report, r2 upload, …)
+# sqlite3      → todo-enforcer (opsdb/pb_data/data.db), bhagwan-heartbeat
+# curl/jq      → PocketBase checks, R2 uploads, webhooks
+# git          → gist publishing, repo ops
+# ca-certs     → TLS to external APIs
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3 python3-pip python3-venv \
+      sqlite3 curl jq git ca-certificates openssh-client \
+ && rm -rf /var/lib/apt/lists/*
+
+# Common Python deps the scripts import (requests for HTTP, feedparser for RSS ingest,
+# boto3 for R2/S3). Pin loosely; extend as scripts are ported.
+RUN pip3 install --no-cache-dir --break-system-packages \
+      requests feedparser boto3 python-dateutil
+
+# ── Node-agent (the mesh data-plane that receives and runs steps) ─────────────
+WORKDIR /app
+COPY --from=uaip/exec-node-mcp:latest /app /app
+
+# ── Layout the workflows expect ───────────────────────────────────────────────
+# /opt/openclaw/scripts  — the ported .py/.sh bodies (mounted read-only)
+# /opt/openclaw/creds     — provisioned credentials / OAuth tokens (mounted read-only)
+# /workspace              — per-agent state: leads/, reports/, memory/, SOUL.md, … (persistent)
+RUN mkdir -p /opt/openclaw/scripts /opt/openclaw/creds /workspace
+ENV OPENCLAW_SCRIPTS=/opt/openclaw/scripts \
+    OPENCLAW_CREDS=/opt/openclaw/creds \
+    WORKSPACE=/workspace \
+    NODE_ENV=production
+
+WORKDIR /app/apps/backend/services/exec-node-mcp
+CMD ["node", "dist/index.js"]

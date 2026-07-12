@@ -110,10 +110,12 @@ export class BaseToolExecutor {
     const timeoutMs = typeof params.timeoutMs === 'number' ? params.timeoutMs : 60000;
     const stdin = asString(params.stdin);
     try {
+      // Prior step output is exposed as $WF_STDIN (exec's `input` option is a no-op for
+      // exec), so a chained bash step can consume it: `echo "$WF_STDIN" >> file`.
       const { stdout, stderr } = await execAsync(command, {
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
-        ...(stdin ? { input: stdin } : {}),
+        env: { ...process.env, ...(stdin ? { WF_STDIN: stdin } : {}) },
       });
       return { ok: true, stdout, stderr, exitCode: 0 };
     } catch (error) {
