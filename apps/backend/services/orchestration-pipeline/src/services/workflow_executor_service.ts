@@ -238,7 +238,7 @@ export class WorkflowExecutorService {
     outcomes: StepOutcome[],
     workflowName: string
   ): Promise<void> {
-    const summary = `Workflow ${workflowName} completed: ${outcomes
+    const summary = `Workflow *${workflowName}* completed: ${outcomes
       .map((o) => `${o.stepId}=${o.status}`)
       .join(', ')}`;
 
@@ -252,8 +252,43 @@ export class WorkflowExecutorService {
       return;
     }
 
-    // email / slack delivery route through their own tools once registered; log until then.
-    logger.info('Workflow delivery (not yet wired for this channel)', {
+    if (delivery.type === 'slack') {
+      // delivery.target is a Slack incoming-webhook URL.
+      await this.runTool('http-request', {
+        method: 'POST',
+        url: delivery.target,
+        headers: { 'Content-Type': 'application/json' },
+        body: { text: summary },
+      }, SYSTEM_ID);
+      return;
+    }
+
+    if (delivery.type === 'whatsapp') {
+      // Meta WhatsApp Cloud API. target = recipient phone (E.164). Credentials from env.
+      const token = process.env.WHATSAPP_TOKEN;
+      const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+      if (!token || !phoneNumberId) {
+        logger.warn('WhatsApp delivery skipped — WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID not set', {
+          workflowName,
+        });
+        return;
+      }
+      await this.runTool('http-request', {
+        method: 'POST',
+        url: `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: {
+          messaging_product: 'whatsapp',
+          to: delivery.target,
+          type: 'text',
+          text: { body: summary },
+        },
+      }, SYSTEM_ID);
+      return;
+    }
+
+    // email intentionally not implemented.
+    logger.info('Workflow delivery channel not implemented', {
       channel: delivery.type,
       target: delivery.target,
       summary,

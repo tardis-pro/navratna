@@ -749,7 +749,7 @@ export const workflowDefinitions = pgTable('workflow_definitions', {
     .$type<Array<{ type: 'agentTurn' | 'bash' | 'httpCall'; [key: string]: unknown }>>()
     .notNull(),
   delivery: jsonb('delivery').$type<{
-    type: 'webhook' | 'email' | 'slack';
+    type: 'webhook' | 'email' | 'slack' | 'whatsapp';
     target: string;
     retryPolicy?: object;
   } | null>(),
