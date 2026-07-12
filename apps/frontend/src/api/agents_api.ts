@@ -83,7 +83,13 @@ export const agentsAPI = {
   },
 
   async chat(id: string, request: AgentChatRequest): Promise<AgentChatResponse> {
-    return edenWithCSRFRetry(() => agents({ agentId: id }).chat.post(request));
+    const r = (await edenWithCSRFRetry(() =>
+      agents({ agentId: id }).chat.post(request)
+    )) as AgentChatResponse & { content?: string };
+    // Backend returns { content, ... }; the UI reads `.response`. Normalize so
+    // the reply isn't rendered as an empty bubble.
+    if (!r.response && typeof r.content === 'string') r.response = r.content;
+    return r;
   },
 
   async resolveApproval(
