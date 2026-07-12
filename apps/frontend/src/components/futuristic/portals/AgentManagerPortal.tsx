@@ -209,6 +209,13 @@ const groupModelsByProvider = (models: ModelOption[]) => {
   return grouped;
 };
 
+const getPersonaDisplayName = (currentAgent: AgentState) => {
+  if (currentAgent.persona?.name) {
+    return currentAgent.persona.name;
+  }
+  return 'No persona';
+};
+
 export const AgentManagerPortal: React.FC<AgentManagerPortalProps> = ({
   className,
   viewport,
@@ -802,14 +809,6 @@ type AttachedTool = {
       return friendlyNames[modelName] || modelName;
     };
 
-    // Get persona display name
-    const getPersonaDisplayName = (currentAgent: AgentState) => {
-      if (currentAgent.persona?.name) {
-        return currentAgent.persona.name;
-      }
-      return 'No persona';
-    };
-
     // Get agent health status
     const getAgentHealth = (currentAgent: AgentState) => {
       if (!currentAgent.isActive)
@@ -841,7 +840,7 @@ type AttachedTool = {
         onClick={() => {
           window.dispatchEvent(
             new CustomEvent('openAgentChat', {
-              detail: { agentId: agent.id, agentName: agent.name },
+              detail: { agentId: agentState.id, agentName: agentState.name },
             })
           );
         }}
