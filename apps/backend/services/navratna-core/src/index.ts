@@ -311,7 +311,7 @@ class NavratnaCoreService extends BaseService {
     reason?: string
   }> {
     const correlationId = `socketio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const WS_AUTH_TIMEOUT_MS = 5000
+    const WS_AUTH_TIMEOUT_MS = 1500
 
     return new Promise((resolve) => {
       let resolved = false
@@ -379,7 +379,15 @@ class NavratnaCoreService extends BaseService {
     complianceFlags?: string[]
     reason?: string
   }> {
-    const defaultUrls = ['http://navratna-gateway:3002', 'http://localhost:3002']
+    // Fly 6PN private networking: the gateway is reachable at
+    // <app>.internal on its internal_port (8080). The old navratna-gateway:3002
+    // / localhost:3002 never resolve on Fly, so socket-token validation always
+    // timed out → "Authentication service timeout" on every socket connect.
+    const defaultUrls = [
+      'http://navratna-gateway.internal:8080',
+      'http://navratna-gateway:3002',
+      'http://localhost:3002',
+    ]
     const urls = process.env.SECURITY_GATEWAY_URL
       ? [process.env.SECURITY_GATEWAY_URL, ...defaultUrls]
       : defaultUrls
