@@ -243,9 +243,6 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                             contextType="knowledge"
                             contextData={{ knowledgeItem: { id: item.id, content: item.content || '', type: item.type, tags: item.tags || [] } }}
                           />
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Edit">
-                            <Edit3 className="w-4 h-4" />
-                          </Button>
                           {renderDeleteExamineActions(item)}
                         </div>
                       }
