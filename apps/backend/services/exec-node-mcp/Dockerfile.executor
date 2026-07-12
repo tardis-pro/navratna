@@ -5,14 +5,22 @@
 # those runtimes, and the node runs the command in THIS image (or the node itself is
 # this image). Everything the OpenClaw workflows shell out to is present here.
 #
-# BUILD (context = repo root; mount the openclaw-infra scripts/workspace at runtime):
+# STATE MODEL (no config repo, no workspace filesystem sync):
+#   - agent config/identity  → Postgres (the persona record; the agentTurn step gets the
+#                              systemPrompt from it automatically — no SOUL.md file to sync)
+#   - durable outputs        → the artifacts table (tagged rows) with the blob in R2,
+#                              written via the artifact API — not a synced /workspace
+#   - DB state (tasks/events)→ a PocketBase/Postgres service the workflows curl
+#   - /workspace here is just EPHEMERAL scratch for intra-run temp files
+# rclone stays only for ported scripts that push to R2 directly; it is not a workspace mount.
+#
+# BUILD (context = repo root):
 #   docker build -f apps/backend/services/exec-node-mcp/Dockerfile.executor -t uaip/openclaw-executor .
 #
 # RUN (as a node, self-registering into the mesh — see the mesh enrollment flow):
 #   docker run -d --restart unless-stopped \
 #     -e NAVRATNA_API_URL=https://<host> -e NAVRATNA_NODE_TOKEN=<token> \
 #     -v /srv/openclaw/scripts:/opt/openclaw/scripts:ro \
-#     -v /srv/openclaw/workspace:/workspace \
 #     -v /srv/openclaw/creds:/opt/openclaw/creds:ro \
 #     uaip/openclaw-executor
 
@@ -43,17 +51,11 @@ COPY --from=uaip/exec-node-mcp:latest /app /app
 # /opt/openclaw/scripts  — the ported .py/.sh bodies (mounted read-only)
 # /opt/openclaw/creds     — provisioned credentials / OAuth tokens (mounted read-only)
 # /workspace              — per-agent state: leads/, reports/, memory/, SOUL.md, … (persistent)
-RUN mkdir -p /opt/openclaw/scripts /opt/openclaw/creds /opt/openclaw/config /workspace
+RUN mkdir -p /opt/openclaw/scripts /opt/openclaw/creds /workspace
 ENV OPENCLAW_SCRIPTS=/opt/openclaw/scripts \
     OPENCLAW_CREDS=/opt/openclaw/creds \
-    OPENCLAW_CONFIG=/opt/openclaw/config \
     WORKSPACE=/workspace \
     NODE_ENV=production
 
-# Boot hydrates the workspace (git config pull + R2 work-product sync), then execs the node.
-COPY apps/backend/services/exec-node-mcp/executor-entrypoint.sh /usr/local/bin/executor-entrypoint.sh
-RUN chmod +x /usr/local/bin/executor-entrypoint.sh
-
 WORKDIR /app/apps/backend/services/exec-node-mcp
-ENTRYPOINT ["/usr/local/bin/executor-entrypoint.sh"]
 CMD ["node", "dist/index.js"]
