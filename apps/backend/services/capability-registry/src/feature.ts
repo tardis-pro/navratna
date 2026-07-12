@@ -7,6 +7,7 @@ import { registerWorkspaceRoutes } from './routes/workspace_routes.js'
 import { registerFederationRoutes } from './routes/federation_routes.js'
 import { registerCanvaRoutes } from './routes/canva_routes.js'
 import { FederationRegistryService } from './services/federation_registry_service.js'
+import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
 
 export const capabilityFeature: Feature = {
   name: 'capability-registry',
@@ -14,6 +15,12 @@ export const capabilityFeature: Feature = {
   async initialize(deps) {
     const federation = FederationRegistryService.getInstance()
     await federation.initialize({ eventBusService: deps?.eventBusService })
+
+    // Start the tool-execution coordinator. It subscribes to tool.execute.request and
+    // runs the real tool via UnifiedToolRegistry, but was never started — so every
+    // bus-based tool execution (the step executor, scheduled workflows) silently
+    // no-op'd. Without this, un-mocking the step executor has nothing to answer it.
+    await ToolExecutionCoordinator.getInstance().initialize()
   },
 
   routes(app) {

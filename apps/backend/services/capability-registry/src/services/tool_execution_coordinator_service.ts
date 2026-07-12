@@ -147,7 +147,15 @@ export class ToolExecutionCoordinator {
         'tool.execute.request',
         async (message) => {
           const event = this.toToolExecutionEvent(message.data);
-          if (event) await this.handleToolExecutionRequest(event);
+          if (event) {
+            // Preserve the RPC envelope correlationId so the response can also be
+            // routed back through the shared rpc.replies channel to a
+            // publishAndWaitForResponse() caller (e.g. the step executor).
+            if (!event.correlationId && message.correlationId) {
+              event.correlationId = message.correlationId;
+            }
+            await this.handleToolExecutionRequest(event);
+          }
         }
       );
 
@@ -299,6 +307,16 @@ export class ToolExecutionCoordinator {
       // Publish response event
       await this.eventBus.publish(`tool.response.${requestId}`, response);
 
+      // If this was invoked as an RPC (publishAndWaitForResponse), reply on the
+      // shared rpc.replies channel so the caller's promise resolves.
+      if (event.correlationId) {
+        await this.eventBus.publish(
+          'rpc.replies',
+          { data: response },
+          { correlationId: event.correlationId }
+        );
+      }
+
       // Publish completion event
       await this.eventBus.publish('tool.execution.completed', {
         requestId,
@@ -424,6 +442,15 @@ export class ToolExecutionCoordinator {
 
     // Publish error response
     await this.eventBus.publish(`tool.response.${requestId}`, errorResponse);
+
+    // Reject the RPC caller's promise (publishAndWaitForResponse) on the shared channel.
+    if (event.correlationId) {
+      await this.eventBus.publish(
+        'rpc.replies',
+        { error: { message: errorResponse.error || 'Tool execution failed', code: 'TOOL_EXECUTION_FAILED' } },
+        { correlationId: event.correlationId }
+      );
+    }
 
     // Publish failure event
     await this.eventBus.publish('tool.execution.failed', {
