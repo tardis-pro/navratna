@@ -14,6 +14,7 @@ import { llmFeature } from '../../llm-service/src/feature.js'
 import { deploymentFeature } from './deployment/feature.js'
 import { oieFeature } from '../../oie/src/feature.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
+import { registerCompositionRoutes } from './composition/composition_routes.js'
 import { WorkflowStateHandler } from './composition/workflow_state_handler.js'
 
 const DEGRADED_P95_THRESHOLD_MS = 1000
@@ -61,6 +62,38 @@ class NavratnaCoreService extends BaseService {
       pingInterval: 25000,
       pingTimeout: 60000,
     })
+
+    // @socket.io/bun-engine never assigns `request` to its engine socket, but Socket.IO
+    // builds the handshake from `conn.request` (socket.io/dist/socket.js: `headers:
+    // this.request?.headers || {}`). The result was an empty handshake — no cookie, no
+    // X-User-ID from the edge, no query — so every socket was rejected as unauthenticated
+    // even with a valid session. The engine does hand us the Bun Request on `connection`,
+    // so adapt it to the Node-ish shape Socket.IO expects. Registered BEFORE io.bind()
+    // because listeners fire in registration order and Socket.IO reads `request` in its
+    // own connection handler.
+    this.bunEngine.on('connection', (socket: unknown, req: Request) => {
+      const conn = socket as { request?: unknown }
+      if (!req || conn.request) return
+
+      const headers: Record<string, string> = {}
+      req.headers.forEach((value, key) => {
+        headers[key] = value
+      })
+
+      const url = new URL(req.url)
+      const query: Record<string, string> = {}
+      url.searchParams.forEach((value, key) => {
+        query[key] = value
+      })
+
+      conn.request = {
+        headers,
+        _query: query,
+        url: `${url.pathname}${url.search}`,
+        connection: { encrypted: url.protocol === 'https:' },
+      }
+    })
+
     this.io.bind(this.bunEngine)
   }
 
@@ -77,6 +110,10 @@ class NavratnaCoreService extends BaseService {
 
     this.factory.mountRoutes(this.app)
     this.app.use(registerKnowledgeIngestRoutes())
+    // Composition routes are declared in app.ts, but that file only builds the Eden type
+    // contract — it is never served. Without mounting them here /api/v1/compositions was
+    // in the client's typed API yet answered NOT_FOUND at runtime.
+    this.app.use(registerCompositionRoutes())
 
     this.app.all('/socket.io/*', ({ request, server }: { request: Request; server: unknown }) => {
       if (!server) {
@@ -237,6 +274,23 @@ class NavratnaCoreService extends BaseService {
             cookieToken
 
           if (!token) {
+            // Rejecting with no explanation made this failure impossible to diagnose from
+            // logs. Record which identity sources were present — presence only, never values.
+            logger.warn('Socket.IO auth: no token on handshake', {
+              socketId: socket.id,
+              headerNames: Object.keys(socket.handshake.headers),
+              hasUserIdHeader: Boolean(userId),
+              edgeTrusted,
+              hasEdgeHeader: Boolean(edgeHeader),
+              edgeSecretConfigured: Boolean(edgeSecret),
+              hasAuthToken: Boolean(authToken),
+              hasAuthorizationHeader: Boolean(socket.handshake.headers?.authorization),
+              hasQueryToken: Boolean(queryToken),
+              hasCookieHeader: Boolean(cookieHeader),
+              cookieNames: cookieHeader
+                ? cookieHeader.split(';').map((c) => c.split('=')[0].trim())
+                : [],
+            })
             return next(new Error('Authentication required'))
           }
 

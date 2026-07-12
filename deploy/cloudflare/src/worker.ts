@@ -86,6 +86,7 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/artifacts', target: 'core' },
   { prefix: '/api/v1/info', target: 'core' },
   { prefix: '/api/v1/onboard', target: 'core' },
+  { prefix: '/api/v1/compositions', target: 'core' }, // routes are plural; singular kept for compat
   { prefix: '/api/v1/composition', target: 'core' },
   { prefix: '/api/v1/user/llm', target: 'core' }, // before /llm
   { prefix: '/api/v1/questionforge', target: 'core' },
