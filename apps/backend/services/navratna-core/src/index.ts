@@ -3,6 +3,7 @@ import { FeatureFactory } from '@uaip/shared-services/feature-factory'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as BunEngine } from '@socket.io/bun-engine'
 import { logger, isRecord } from '@uaip/utils'
+import { JWTValidator } from '@uaip/middleware'
 import type { EventBusMessage } from '@uaip/types'
 import { requestTimingPlugin, requestTimingBuffer } from './request_timing.js'
 
@@ -239,16 +240,26 @@ class NavratnaCoreService extends BaseService {
             return next(new Error('Authentication required'))
           }
 
-          const authResponse = await this.validateSocketIOToken(token)
-          if (!authResponse.valid) {
-            return next(new Error(`Authentication failed: ${authResponse.reason}`))
+          // Verify the JWT locally. Core shares the JWT secret, so there is no
+          // need to round-trip to the gateway to validate a socket token — the
+          // event-bus responder is absent and the internal gateway address was
+          // unreachable, which made every socket connect time out. Local verify
+          // is the same trust model the CF Worker uses for HTTP.
+          let claims: { userId?: string } | null = null
+          try {
+            claims = (await JWTValidator.verify(token)) as { userId?: string } | null
+          } catch {
+            claims = null
+          }
+          if (!claims || typeof claims.userId !== 'string') {
+            return next(new Error('Authentication failed: invalid or expired token'))
           }
 
           socket.data.user = {
-            userId: authResponse.userId,
-            sessionId: authResponse.sessionId,
-            securityLevel: authResponse.securityLevel || 3,
-            complianceFlags: authResponse.complianceFlags || [],
+            userId: claims.userId,
+            sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            securityLevel: 3,
+            complianceFlags: [],
           }
           next()
         } catch (error) {
