@@ -50,6 +50,19 @@ const CLEARED_AUTH_STATE: AuthState = {
   error: null,
 };
 
+/**
+ * A session only counts as authenticated when the API returns a real user object.
+ * Truth-testing the response is not enough: any non-null body (an HTML error page,
+ * a string, an empty array) would pass and grant the authenticated shell to an
+ * anonymous visitor. Require the identifying fields we actually rely on.
+ */
+function isAuthenticatedUser(value: unknown): value is { id: string; email: string } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+
+  const { id, email } = value as { id?: unknown; email?: unknown };
+  return typeof id === 'string' && id.length > 0 && typeof email === 'string' && email.length > 0;
+}
+
 function parseUser(userData: { id?: string; email?: string; name?: string; role?: string }): User {
   return {
     id: userData.id ?? '',
@@ -246,7 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
-      if (userData) {
+      if (isAuthenticatedUser(userData)) {
         setState({ user: parseUser(userData), isAuthenticated: true, isLoading: false, error: null });
       } else {
         setState(CLEARED_AUTH_STATE);
@@ -362,7 +375,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const userData = await uaipAPI.client.auth.getCurrentUser();
 
-      if (userData) {
+      if (isAuthenticatedUser(userData)) {
         setState((prev) => ({ ...prev, user: parseUser(userData), error: null }));
       } else {
         logger.warn('User refresh failed, clearing auth');

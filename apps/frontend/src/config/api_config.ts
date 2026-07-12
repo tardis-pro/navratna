@@ -17,6 +17,27 @@ const isProduction = import.meta.env.PROD;
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 /**
+ * The origin every API/Socket.IO call is made against.
+ *
+ * In dev this is empty so requests stay same-origin and the Vite proxy forwards
+ * them to the backend. In production the API is a different origin, so an empty
+ * base URL is a build misconfiguration — falling back to same-origin makes the
+ * SPA host answer /api/v1 with index.html (200 + HTML), which every caller then
+ * mistakes for a successful response. Fail loudly instead.
+ */
+export const resolveApiOrigin = (): string => {
+  if (API_BASE_URL) return API_BASE_URL;
+
+  if (isProduction) {
+    throw new Error(
+      'VITE_API_BASE_URL was not set at build time. Refusing to fall back to same-origin.'
+    );
+  }
+
+  return typeof window !== 'undefined' ? window.location.origin : '';
+};
+
+/**
  * API Gateway Configuration
  */
 export const API_GATEWAY_CONFIG = {
@@ -300,12 +321,7 @@ export const buildAPIURL = (route: string) => {
  * Socket.IO client should connect to HTTP URL, not WebSocket URL
  */
 export const getWebSocketURL = () => {
-  const baseURL = getEffectiveAPIBaseURL();
-  // Socket.IO client expects HTTP/HTTPS URL, not WS/WSS
-  // In dev with Vite proxy, VITE_API_BASE_URL is empty — connect to current origin
-  // so Vite can proxy /socket.io/ → localhost:3001
-  if (!baseURL && typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  return baseURL;
+  // Socket.IO client expects an HTTP/HTTPS URL, not WS/WSS.
+  // In dev this is the current origin so Vite can proxy /socket.io/ → localhost:3001.
+  return resolveApiOrigin();
 };
