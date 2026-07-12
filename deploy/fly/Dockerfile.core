@@ -37,7 +37,7 @@ COPY apps/backend/services/oie/tsconfig.json                 ./apps/backend/serv
 
 RUN pnpm install --frozen-lockfile --shamefully-hoist
 
-RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service
+RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service --skip-nx-cache
 
 RUN find apps/shared apps/packages -type d -name src -prune -exec sh -c \
       'find "$1" -type f \( -name "*.js" -o -name "*.js.map" -o -name "*.d.ts" -o -name "*.d.ts.map" \) -delete' _ {} \;
@@ -49,7 +49,7 @@ COPY apps/backend/services/artifact-service/src/             ./apps/backend/serv
 COPY apps/backend/services/llm-service/src/                  ./apps/backend/services/llm-service/src/
 COPY apps/backend/services/oie/src/                          ./apps/backend/services/oie/src/
 
-RUN pnpm nx run-many -t build --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/oie,@uaip/navratna-core
+RUN pnpm nx run-many -t build --projects=@uaip/agent-intelligence,@uaip/discussion-orchestration,@uaip/artifact-service,@uaip/llm-service-api,@uaip/oie,@uaip/navratna-core --skip-nx-cache
 
 RUN CORE_DIST=apps/backend/services/navratna-core/dist && \
     mkdir -p "$CORE_DIST/artifact-service/src" "$CORE_DIST/llm-service/src" && \
