@@ -135,10 +135,12 @@ export const llmFeature: Feature = {
         // and did not carry an explicit systemPrompt.
         if (!systemPrompt && agentId) {
           const svc = await getPersonaService(bus)
-          let persona = await svc.getPersona(agentId)
+          // agentId may be a persona id OR a name (OpenClaw workflows reference agents by
+          // name, e.g. "growth"). getPersona queries by id and THROWS on a non-UUID, so
+          // only call it for a real UUID; otherwise resolve by exact name.
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(agentId)
+          let persona = isUuid ? await svc.getPersona(agentId) : null
           if (!persona) {
-            // agentId may be a persona NAME, not an id — OpenClaw workflows reference
-            // agents by name (e.g. "growth"). Fall back to an exact name match.
             const found = await svc.searchPersonas({ query: agentId }, 5)
             persona = found.personas.find((p) => p.name === agentId) ?? null
           }

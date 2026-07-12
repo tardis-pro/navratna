@@ -180,16 +180,20 @@ export class WorkflowExecutorService {
       }
 
       if (step.type === 'agentTurn') {
-        // Persona + LLM reasoning step. The agent-reason execution path is not yet wired
-        // (executeAgentAction is still simulated), so record it as skipped rather than
-        // fabricate output. This is the next foundation piece.
-        logger.warn('agentTurn step skipped — persona/LLM execution not yet wired', { stepId });
-        return {
-          stepId,
-          type: step.type,
-          status: 'skipped',
-          error: 'agentTurn execution not yet wired (persona + LLM)',
-        };
+        // Persona + LLM reasoning step. Dispatch to the llm-service responder over the bus
+        // (it resolves the persona's systemPrompt by id-or-name and calls the LLM), then
+        // block on the reply — same RPC shape as the tool path.
+        if (!step.prompt) throw new Error(`agentTurn step "${stepId}" has no prompt`);
+        const requestId = randomUUID();
+        const output = await this.eventBus.publishAndWaitForResponse<{
+          content?: string;
+          model?: string;
+        }>(
+          'llm.step.generate.request',
+          { requestId, agentId: step.agentId, prompt: step.prompt, model: step.model },
+          120000
+        );
+        return { stepId, type: step.type, status: 'completed', output };
       }
 
       return { stepId, type: step.type, status: 'failed', error: `unknown step type: ${step.type}` };
