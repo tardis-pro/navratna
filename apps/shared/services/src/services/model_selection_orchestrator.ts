@@ -51,8 +51,8 @@ type ModelSelectionContext = {
 
 export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> = {
   [LLMTaskType.SUMMARIZATION]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.3, maxTokens: 1000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -60,8 +60,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.VISION]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.2, maxTokens: 2000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -69,8 +69,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.TOOL_CALLING]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.1, maxTokens: 4000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -78,8 +78,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.SPEECH_TO_TEXT]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -87,8 +87,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.TEXT_TO_SPEECH]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: {},
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -96,8 +96,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CODE_GENERATION]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.2, maxTokens: 8000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -105,8 +105,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.REASONING]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.3, maxTokens: 4000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -114,8 +114,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CREATIVE_WRITING]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.7, maxTokens: 4000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -123,8 +123,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.TRANSLATION]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.2, maxTokens: 2000 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -132,8 +132,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.EMBEDDINGS]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: {},
     source: 'system',
     reasoning: 'LM Studio local model - system default',
@@ -141,8 +141,8 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CLASSIFICATION]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'gpt-4o-mini',
     settings: { temperature: 0.1, maxTokens: 500 },
     source: 'system',
     reasoning: 'LM Studio local model - system default',
