@@ -348,6 +348,42 @@ export class QdrantService {
     await this.initialize();
   }
 
+  /** Create a Qdrant collection sized to the configured embedding dimension. */
+  private async createCollection(workingUrl: string, collectionName: string): Promise<void> {
+    const createResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
+      method: 'PUT',
+      headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        vectors: {
+          size: this.embeddingDimensions, // Dynamic embedding size
+          distance: 'Cosine',
+        },
+        optimizers_config: {
+          default_segment_number: 2,
+        },
+        replication_factor: 1,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!createResponse.ok) {
+      throw new Error(`Failed to create Qdrant collection: ${createResponse.statusText}`);
+    }
+  }
+
+  /** Extract the single unnamed vector's `size` from a GET /collections/{name} body. */
+  private extractVectorSize(info: unknown): number | undefined {
+    if (!isPlainRecord(info)) return undefined;
+    const result = info['result'];
+    if (!isPlainRecord(result)) return undefined;
+    const params = isPlainRecord(result['config']) && isPlainRecord(result['config']['params'])
+      ? result['config']['params']
+      : undefined;
+    const vectors = params && isPlainRecord(params['vectors']) ? params['vectors'] : undefined;
+    const size = vectors ? vectors['size'] : undefined;
+    return typeof size === 'number' ? size : undefined;
+  }
+
   private async ensureCollectionForType(collectionType: MemoryCollectionType): Promise<void> {
     try {
       // Ensure we have a working connection first
@@ -362,28 +398,42 @@ export class QdrantService {
 
       if (checkResponse.status === 404) {
         // Create collection with dynamic embedding dimensions
-        const createResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
-          method: 'PUT',
-          headers: this.qdrantHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            vectors: {
-              size: this.embeddingDimensions, // Dynamic embedding size
-              distance: 'Cosine',
-            },
-            optimizers_config: {
-              default_segment_number: 2,
-            },
-            replication_factor: 1,
-          }),
+        await this.createCollection(workingUrl, collectionName);
+        return;
+      }
+
+      if (!checkResponse.ok) {
+        throw new Error(`Unexpected response status: ${checkResponse.status}`);
+      }
+
+      // Collection exists — verify its vector dimension matches the configured one.
+      // A dimension change (e.g. TEI 768 -> CF bge-large 1024) requires recreation:
+      // Qdrant rejects vectors whose size differs from the collection's. The
+      // knowledge vector store holds no durable data (embeddings are re-derivable),
+      // so dropping and recreating on mismatch is safe and self-healing.
+      const info: unknown = await checkResponse.json();
+      const existingSize = this.extractVectorSize(info);
+      if (existingSize !== undefined && existingSize !== this.embeddingDimensions) {
+        logger.warn('Qdrant collection dimension mismatch — dropping and recreating', {
+          collectionName,
+          existingSize,
+          configuredSize: this.embeddingDimensions,
+        });
+        const deleteResponse = await fetch(`${workingUrl}/collections/${collectionName}`, {
+          method: 'DELETE',
+          headers: this.qdrantHeaders(),
           signal: AbortSignal.timeout(5000),
         });
-
-        if (!createResponse.ok) {
-          throw new Error(`Failed to create Qdrant collection: ${createResponse.statusText}`);
+        if (!deleteResponse.ok && deleteResponse.status !== 404) {
+          throw new Error(
+            `Failed to drop collection for recreation: ${deleteResponse.statusText}`
+          );
         }
-      } else if (checkResponse.ok) {
-      } else {
-        throw new Error(`Unexpected response status: ${checkResponse.status}`);
+        await this.createCollection(workingUrl, collectionName);
+        logger.info('Qdrant collection recreated at configured dimension', {
+          collectionName,
+          configuredSize: this.embeddingDimensions,
+        });
       }
     } catch (error) {
       logger.error('Qdrant collection setup error', {
@@ -494,6 +544,7 @@ export class QdrantService {
 
       const response = await fetch(`${workingUrl}/collections/${collectionName}`, {
         method: 'DELETE',
+        headers: this.qdrantHeaders(),
         signal: AbortSignal.timeout(5000),
       });
 

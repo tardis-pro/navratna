@@ -23,6 +23,7 @@ import { useKnowledge } from '@/contexts/KnowledgeContext';
 import type { KnowledgeItem } from '@uaip/types';
 import KnowledgeGraphVisualization from './KnowledgeGraphVisualization';
 import { AtomicKnowledgeViewer } from './AtomicKnowledgeViewer';
+import { ChatKnowledgeUploader } from '@/components/ChatKnowledgeUploader';
 import { DiscussionTrigger } from '@/components/DiscussionTrigger';
 import { logger } from '@/utils/browser_logger';
 
@@ -200,10 +201,11 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
           }}
           className="h-full flex flex-col"
         >
-          <TabsList className="grid w-full grid-cols-3 bg-black/20 mx-4 mt-4">
+          <TabsList className="grid w-full grid-cols-4 bg-black/20 mx-4 mt-4">
             <TabsTrigger value="browse">List</TabsTrigger>
             <TabsTrigger value="graph">Graph</TabsTrigger>
             <TabsTrigger value="atomic">Examine</TabsTrigger>
+            <TabsTrigger value="import">Import</TabsTrigger>
           </TabsList>
 
           {/* List Tab */}
@@ -336,6 +338,16 @@ export const KnowledgePortal: React.FC<KnowledgePortalProps> = ({ className }) =
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* Import Tab */}
+          <TabsContent value="import" className="flex-1 overflow-auto p-4">
+            <ChatKnowledgeUploader
+              onUploadComplete={() => {
+                refreshStats();
+                fetchAllItems();
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>

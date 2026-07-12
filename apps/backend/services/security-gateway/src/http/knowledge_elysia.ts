@@ -821,10 +821,13 @@ export function registerKnowledgeRoutes() {
           return { jobId, status: 'processing', message: 'Chat import started' };
         },
         {
-          body: t.Object({
-            file: t.File(),
-            options: t.Optional(t.String()),
-          }),
+          // Accept the raw parsed multipart form. Elysia parses multipart/form-data
+          // by request content-type (not by schema), so `body.file` is the actual
+          // uploaded File and `body.options` the JSON string. A strict `t.File()`
+          // schema rejected the Bun-parsed file at validation (`found:{file:{}}`),
+          // 500-ing every upload; the handler below validates the file and parses
+          // options itself, mirroring the `t.Any()` pattern used by `POST /`.
+          body: t.Any(),
           response: {
             200: t.Object({ jobId: t.String(), status: t.String(), message: t.String() }),
             400: KnowledgeErrorSchema,

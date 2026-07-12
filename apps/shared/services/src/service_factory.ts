@@ -101,11 +101,19 @@ export class ServiceFactory {
           error: error instanceof Error ? error.message : String(error),
         });
       }
-      // Initialize Qdrant with default dimensions (will be updated by SmartEmbeddingService)
+      // Seed Qdrant with the CONFIGURED embedding dimension (same source the
+      // SmartEmbeddingService uses: EMBEDDINGS_DIM, default 1536). ensureCollection()
+      // drops+recreates any existing collection whose vector size differs, so a
+      // stale collection (e.g. an old 768-dim one) is self-healed to the configured
+      // dimension (e.g. 1024 for the CF bge-large-en-v1.5 worker) on service init.
+      const configuredEmbeddingDim = parseInt(
+        process.env.EMBEDDINGS_DIM ?? process.env.QDRANT_VECTOR_DIM ?? '1536',
+        10
+      );
       const qdrantService = new QdrantService(
         config.database.qdrant.url,
         config.database.qdrant.collectionName,
-        768 // Default TEI embedding dimensions
+        configuredEmbeddingDim
       );
       await qdrantService.ensureCollection();
       this.serviceInstances.set('qdrant', qdrantService);
