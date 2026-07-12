@@ -1,0 +1,43 @@
+# Hybrid Execution Mesh — docker-mcp node-agent service.
+# Merge into the EC2 host's docker-compose (or run standalone). The node-agent
+# needs the HOST Docker socket (to spawn hardened MCP containers) and the same
+# Redis the platform uses.
+#
+#   docker compose -f apps/backend/services/exec-node-mcp/compose.exec-node-mcp.yml up -d
+#
+# NOTE: mounting /var/run/docker.sock grants root-equivalent host access. Run this
+# node-agent as a trusted, dedicated host process; do NOT co-locate it with the
+# auth gateway (that separation is the whole point — spec §1).
+
+services:
+  exec-node-mcp:
+    build:
+      context: ../../../../          # repo root
+      dockerfile: apps/backend/services/exec-node-mcp/Dockerfile
+    image: uaip/exec-node-mcp:latest
+    container_name: exec-node-mcp
+    restart: unless-stopped
+    environment:
+      # Redis / BullMQ bus (read by @uaip/infra) — point at the platform Redis.
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-uaip_redis_password}
+      # Node-agent tuning (see src/config.ts).
+      EXEC_NODE_ID: ${EXEC_NODE_ID:-mcp-ec2-1}
+      EXEC_NODE_CAPABILITIES: ${EXEC_NODE_CAPABILITIES:-mcp-}
+      EXEC_NODE_MAX_CONCURRENT: ${EXEC_NODE_MAX_CONCURRENT:-16}
+      EXEC_NODE_MAX_CONTAINERS: ${EXEC_NODE_MAX_CONTAINERS:-24}
+      EXEC_NODE_HEARTBEAT_MS: ${EXEC_NODE_HEARTBEAT_MS:-5000}
+      EXEC_NODE_RUNNER_IMAGE: ${EXEC_NODE_RUNNER_IMAGE:-node:20-slim}
+      EXEC_NODE_WARM_IDLE_MS: ${EXEC_NODE_WARM_IDLE_MS:-60000}
+      EXEC_NODE_DEFAULT_TTL_SEC: ${EXEC_NODE_DEFAULT_TTL_SEC:-900}
+    volumes:
+      # Host Docker socket — the node-agent spawns MCP containers on the host daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Attach to the same network as the platform Redis.
+    networks:
+      - uaip
+
+networks:
+  uaip:
+    external: true

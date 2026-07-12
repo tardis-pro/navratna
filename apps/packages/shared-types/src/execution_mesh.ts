@@ -53,6 +53,16 @@ export interface ExecutionSandboxPolicy {
   network?: string; // 'none' by default; egress allow-list otherwise
   readonlyRoot?: boolean;
   ttlSec?: number;
+  /** Hard `--pids-limit` cap for the container (fork-bomb protection). */
+  pidsLimit?: number;
+  /**
+   * For stdio MCP servers with no prebuilt `image`: the command the docker-mcp
+   * node runs INSIDE a generic MCP runner image (spec §5). Non-secret args/env
+   * only — real credentials arrive per-call via `ExecutionMeshContext.scopedToken`.
+   */
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
 }
 
 /** The request the scheduler dispatches to a node (or runs on the native node). */
@@ -113,3 +123,27 @@ export type ExecutionMeshErrorCode =
   | 'NO_NODE_AVAILABLE'
   | 'DEADLINE_EXCEEDED'
   | 'NODE_ERROR';
+
+// ---------------------------------------------------------------------------
+// Bus subjects — the control-plane <-> data-plane wire contract (spec §4).
+// Kept here so the scheduler (capability-registry) and every node-agent
+// (exec-node-mcp, future worker/codespace) share ONE definition, no drift.
+// ---------------------------------------------------------------------------
+
+/** A node announces itself to the control plane. */
+export const EXEC_NODE_REGISTER = 'exec.node.register';
+
+/** A node's periodic liveness heartbeat. */
+export const EXEC_NODE_HEARTBEAT = 'exec.node.heartbeat';
+
+/** Per-runtime request queue the scheduler enqueues to for remote nodes. */
+export const execRequestSubject = (runtime: ExecutionRuntime): string =>
+  `exec.request.${runtime}`;
+
+/** Correlated result topic a node publishes to (observability / RPC reply). */
+export const execResultSubject = (correlationId: string): string =>
+  `exec.result.${correlationId}`;
+
+/** Streaming partials for long-running tools (build logs, agent tokens). */
+export const execStreamSubject = (correlationId: string): string =>
+  `exec.stream.${correlationId}`;

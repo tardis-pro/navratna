@@ -19,7 +19,8 @@ import { ToolRegistry } from './tool_registry.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
 import { config } from '../config/config.js';
 import { ExecutionScheduler } from './execution_mesh/scheduler.js';
-import type { ExecutionRequestEnvelope, ToolRuntimeDescriptor } from '@uaip/types';
+import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
+import type { ExecutionRequestEnvelope } from '@uaip/types';
 import { randomUUID } from 'node:crypto';
 
 import { z } from 'zod';
@@ -490,11 +491,11 @@ export class ToolExecutor {
     // Register the native node (idempotent) wrapping the legacy executor.
     scheduler.ensureNativeNode((tid, params) => this.baseExecutor.execute(tid, params));
 
-    // Phase 1b STUB: descriptor.runtime / .transport should be sourced from the
-    // tool's registry definition to route stdio MCP to docker-mcp and http MCP to
-    // worker. For Phase 1a no descriptor is threaded, so everything resolves to
-    // `native` and stays in-process.
-    const descriptor: ToolRuntimeDescriptor = {};
+    // Phase 1b: source a real descriptor from the tool's registry / MCP config.
+    // stdio MCP tools now route to `docker-mcp`; the scheduler still falls back to
+    // native when no docker-mcp node is registered, so behaviour is preserved until
+    // the node-agent is deployed on EC2. Unknown/native tools resolve to `native`.
+    const descriptor = await resolveToolDescriptor(toolId);
     const runtime = scheduler.resolveRuntime(descriptor);
 
     const envelope: ExecutionRequestEnvelope = {
@@ -502,8 +503,11 @@ export class ToolExecutor {
       toolId,
       params: parameters,
       // Phase 2+ STUB: scoped, short-lived per-call token minting (spec §4, §7).
-      ctx: { userId: 'system' },
+      // Plumbed end-to-end now (node injects ctx.scopedToken into the container
+      // env); real minting via the JWKS/ENCRYPTION_KEY machinery lands later.
+      ctx: { userId: 'system', scopedToken: 'system' },
       runtime,
+      sandbox: descriptor.sandbox,
       deadlineMs: timeout,
       idempotencyKey: `${toolId}_${Date.now()}`,
     };

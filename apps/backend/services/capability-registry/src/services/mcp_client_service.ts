@@ -1220,6 +1220,31 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
+  /**
+   * Execution Mesh (spec 11) — expose an MCP server's transport + launch spec so
+   * the scheduler can source a ToolRuntimeDescriptor and route stdio servers to a
+   * docker-mcp node. Reuses loadServerConfig (DB-backed). Returns null when the
+   * server is unknown / repo uninitialised, so the caller falls back to native.
+   * Secrets (httpHeaders, secret env refs) are intentionally NOT returned.
+   */
+  async getMeshServerConfig(serverName: string): Promise<{
+    transportType: 'stdio' | 'http' | 'streamable-http';
+    command?: string;
+    args: string[];
+    env?: Record<string, string>;
+    httpUrl?: string;
+  } | null> {
+    const cfg = (await this.loadServerConfig(serverName)) ?? null;
+    if (!cfg) return null;
+    return {
+      transportType: cfg.transportType || 'stdio',
+      command: cfg.command,
+      args: cfg.args || [],
+      env: cfg.env,
+      httpUrl: cfg.httpUrl,
+    };
+  }
+
   // Configuration Management
   private async loadServerConfig(serverName: string): Promise<MCPServerConfig | null> {
     try {

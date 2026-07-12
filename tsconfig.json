@@ -41,6 +41,9 @@
       "path": "./apps/backend/services/questionforge"
     },
     {
+      "path": "./apps/backend/services/exec-node-mcp"
+    },
+    {
       "path": "./apps/backend/services/llm-service"
     },
     {

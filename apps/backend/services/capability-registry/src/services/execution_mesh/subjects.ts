@@ -1,23 +1,12 @@
 // Execution Mesh — bus subject constants.
 // Control plane <-> data plane messaging topics over the existing EventBus.
-// See docs/specs/11-HYBRID-EXECUTION-MESH.md §4.
+// Single source of truth now lives in @uaip/types so node-agents share it
+// verbatim (spec §4). This file re-exports for existing local imports.
 
-import type { ExecutionRuntime } from '@uaip/types';
-
-/** A node announces itself to the control plane. */
-export const EXEC_NODE_REGISTER = 'exec.node.register';
-
-/** A node's periodic liveness heartbeat. */
-export const EXEC_NODE_HEARTBEAT = 'exec.node.heartbeat';
-
-/** Per-runtime request queue the scheduler enqueues to for remote nodes. */
-export const execRequestSubject = (runtime: ExecutionRuntime): string =>
-  `exec.request.${runtime}`;
-
-/** Correlated result topic a node publishes to (RPC reply). */
-export const execResultSubject = (correlationId: string): string =>
-  `exec.result.${correlationId}`;
-
-/** Streaming partials for long-running tools (build logs, agent tokens). */
-export const execStreamSubject = (correlationId: string): string =>
-  `exec.stream.${correlationId}`;
+export {
+  EXEC_NODE_REGISTER,
+  EXEC_NODE_HEARTBEAT,
+  execRequestSubject,
+  execResultSubject,
+  execStreamSubject,
+} from '@uaip/types';
