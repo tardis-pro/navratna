@@ -6,6 +6,7 @@ import { registerToolRoutes } from './routes/tool_routes.js'
 import { registerWorkspaceRoutes } from './routes/workspace_routes.js'
 import { registerFederationRoutes } from './routes/federation_routes.js'
 import { registerCanvaRoutes } from './routes/canva_routes.js'
+import { registerMeshNodeRoutes } from './routes/mesh_node_routes.js'
 import { FederationRegistryService } from './services/federation_registry_service.js'
 import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
 
@@ -31,6 +32,7 @@ export const capabilityFeature: Feature = {
     app.use(registerWorkspaceRoutes())
     app.use(registerFederationRoutes())
     app.use(registerCanvaRoutes())
+    app.use(registerMeshNodeRoutes())
     return app
   },
 }

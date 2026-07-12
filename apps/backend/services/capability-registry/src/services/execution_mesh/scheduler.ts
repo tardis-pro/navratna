@@ -130,7 +130,12 @@ export class ExecutionScheduler {
         return await this.runNative(envelope, startedAt, NATIVE_NODE_ID);
       }
 
-      const node = this.registry.pickNode(runtime, envelope.toolId, this.affinityOf(envelope));
+      const node = this.registry.pickNode(
+        runtime,
+        envelope.toolId,
+        this.affinityOf(envelope),
+        envelope.requires
+      );
       if (!node) {
         logger.warn('No healthy node for runtime; falling back to native', {
           runtime,

@@ -6,10 +6,24 @@
 import { EventBusService } from '@uaip/infra';
 import { logger } from '@uaip/utils';
 import { loadConfig } from './config.js';
+import { enrollNode } from './enroll.js';
 import { NodeAgent } from './node_agent.js';
 
 async function main(): Promise<void> {
   const cfg = loadConfig();
+
+  // BYO-node quick enrollment: if a NAVRATNA_NODE_TOKEN is present, exchange it
+  // over HTTPS for our identity + node token before joining the bus. On failure
+  // we bail loudly (a mis-enrolled node should not silently run unregistered).
+  const enrollment = await enrollNode(cfg, logger);
+  if (enrollment) {
+    cfg.nodeId = enrollment.nodeId;
+    cfg.tenant = enrollment.tenant ?? cfg.tenant;
+    cfg.nodeToken = enrollment.nodeToken;
+    cfg.runtimes = enrollment.runtimes;
+    cfg.tier = enrollment.tier;
+    cfg.heartbeatIntervalMs = enrollment.heartbeatIntervalMs;
+  }
 
   const bus = EventBusService.getInstance({ serviceName: 'exec-node-mcp' }, logger);
   await bus.connect();

@@ -24,6 +24,7 @@ import {
 import type { ExecNodeConfig } from './config.js';
 import { ContainerPool, ResourceExhaustedError } from './container_pool.js';
 import { isDockerAvailable, type ContainerSpec } from './docker_runner.js';
+import { sendHttpHeartbeat } from './enroll.js';
 
 // The shared reply queue used by EventBusService.publishAndWaitForResponse — the
 // scheduler waits on this queue keyed by the request's correlationId. See
@@ -103,7 +104,22 @@ export class NodeAgent {
     });
   }
 
+  /** True when the node was enrolled over HTTP (BYO docker/EC2 quick step). */
+  private get enrolled(): boolean {
+    return Boolean(this.cfg.apiUrl && this.cfg.nodeToken);
+  }
+
   private async register(): Promise<void> {
+    // Enrolled nodes were already registered by the control plane during the HTTP
+    // enroll exchange (with owner + org affinity stamped), so we must NOT re-emit
+    // an unstamped bus registration that would clobber that identity.
+    if (this.enrolled) {
+      this.log.info('Node registered via HTTP enrollment; skipping bus register', {
+        nodeId: this.cfg.nodeId,
+      });
+      return;
+    }
+
     const reg: ExecutionNodeRegistration = {
       id: this.cfg.nodeId,
       runtime: 'docker-mcp',
@@ -127,6 +143,12 @@ export class NodeAgent {
     // Re-probe Docker so a recovered daemon flips the node back to ready.
     if (!this.dockerReady) this.dockerReady = await isDockerAvailable();
     const health: ExecutionNodeHealth = this.dockerReady ? 'ready' : 'degraded';
+    // Enrolled nodes heartbeat over HTTP (authenticated by the node token) and
+    // stay off the raw bus for control messages; legacy nodes use the bus.
+    if (this.enrolled) {
+      await sendHttpHeartbeat(this.cfg.apiUrl!, this.cfg.nodeId, this.cfg.nodeToken!, health);
+      return;
+    }
     const hb: ExecutionNodeHeartbeat = { id: this.cfg.nodeId, health };
     await this.bus.publish(EXEC_NODE_HEARTBEAT, hb);
   }
@@ -240,9 +262,13 @@ export class NodeAgent {
     this.stopped = true;
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     // Announce we're draining, then tear down containers.
-    await this.bus
-      .publish(EXEC_NODE_HEARTBEAT, { id: this.cfg.nodeId, health: 'draining' })
-      .catch(() => {});
+    if (this.enrolled) {
+      await sendHttpHeartbeat(this.cfg.apiUrl!, this.cfg.nodeId, this.cfg.nodeToken!, 'draining');
+    } else {
+      await this.bus
+        .publish(EXEC_NODE_HEARTBEAT, { id: this.cfg.nodeId, health: 'draining' })
+        .catch(() => {});
+    }
     this.pool.shutdown();
     this.log.info('exec-node-mcp stopped', { nodeId: this.cfg.nodeId, inFlight: this.inFlight });
   }

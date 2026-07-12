@@ -12,6 +12,13 @@ export type ExecutionRuntime = 'worker' | 'docker-mcp' | 'codespace' | 'native';
 /** Health state of a registered execution node. */
 export type ExecutionNodeHealth = 'ready' | 'degraded' | 'draining' | 'down';
 
+/**
+ * Coarse capacity tier a node self-declares. `light` = constrained/edge-ish
+ * (few deps, low RAM); `heavy` = full host with runtimes/binaries installed.
+ * Advisory — real routing uses `runtimes`/`capabilities`, not tier alone.
+ */
+export type NodeTier = 'light' | 'heavy';
+
 /** MCP transport, used to INFER a runtime when a tool declares no explicit one. */
 export type ToolTransport = 'stdio' | 'http' | 'streamable-http';
 
@@ -42,6 +49,22 @@ export interface ExecutionNode {
    * drains these. See spec §3.1 / Phase 2.
    */
   alwaysOn?: boolean;
+  /**
+   * The Navratna user id that enrolled this node (BYO docker/EC2 nodes). Absent on
+   * platform-owned nodes (native, worker-cf). Used to scope the nodes list to the
+   * owner and to keep a user's work on their own machines.
+   */
+  owner?: string;
+  /**
+   * Runtimes / binaries the node self-detected at boot (e.g. `python3`, `bash`,
+   * `sqlite3`, `node`, `docker`). This is what a step's `requires` is matched
+   * against so a step never lands on a node missing its dependencies.
+   */
+  runtimes?: string[];
+  /** Self-declared coarse tier (light/heavy). Advisory. */
+  tier?: NodeTier;
+  /** Free-form labels the node advertises (e.g. { gpu: 'true', zone: 'home' }). */
+  labels?: Record<string, string>;
 }
 
 /** Per-call execution context. `scopedToken` is minted per-call by the control plane. */
@@ -87,6 +110,13 @@ export interface ExecutionRequestEnvelope {
   sandbox?: ExecutionSandboxPolicy;
   deadlineMs: number;
   idempotencyKey: string;
+  /**
+   * Runtimes/binaries the step declares it needs (e.g. `['python3','sqlite3']`).
+   * The scheduler only picks a node whose advertised `runtimes` ⊇ `requires`, so
+   * a python step never lands on a bash-only light node. Empty/undefined => no
+   * runtime constraint (legacy behaviour preserved).
+   */
+  requires?: string[];
 }
 
 export interface ExecutionResultMetrics {
@@ -121,6 +151,42 @@ export interface ExecutionNodeRegistration {
   capabilities: string[];
   capacity: ExecutionNodeCapacity;
   affinity?: ExecutionNodeAffinity;
+  /** Self-detected runtimes/binaries the node can execute (see ExecutionNode). */
+  runtimes?: string[];
+  /** Self-declared coarse tier. */
+  tier?: NodeTier;
+  /** Free-form advertised labels. */
+  labels?: Record<string, string>;
+  /** Owning Navratna user id (set by the control plane on token enrollment). */
+  owner?: string;
+}
+
+// ---------------------------------------------------------------------------
+// BYO-node quick enrollment (docker/EC2) — HTTP control-plane contract.
+// A user mints a short-lived enrollment token, boots a node with it, and the
+// node exchanges it for a registration + a longer-lived node token used to
+// heartbeat. Keeps external nodes off the raw bus for control messages.
+// ---------------------------------------------------------------------------
+
+/** Body a booting node POSTs to `/api/v1/mesh/nodes/enroll` (Bearer = enroll token). */
+export interface ExecutionNodeEnrollRequest {
+  runtime: ExecutionRuntime;
+  capabilities: string[];
+  capacity: ExecutionNodeCapacity;
+  runtimes?: string[];
+  tier?: NodeTier;
+  labels?: Record<string, string>;
+}
+
+/** Response the control plane returns to a successfully enrolled node. */
+export interface ExecutionNodeEnrollResponse {
+  nodeId: string;
+  /** Tenant/org the node is scoped to (mirrors the enroll token's org claim). */
+  tenant?: string;
+  /** Longer-lived, node-scoped token the node uses to authenticate heartbeats. */
+  nodeToken: string;
+  /** Cadence (ms) the control plane wants heartbeats at. */
+  heartbeatIntervalMs: number;
 }
 
 /** Payload of an `exec.node.heartbeat` bus message. */

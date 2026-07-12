@@ -43,6 +43,19 @@ export interface ExecNodeConfig {
   /** Optional affinity advertised to the scheduler. */
   region?: string;
   tenant?: string;
+  /**
+   * BYO-node quick enrollment (docker/EC2). When `apiUrl` + `enrollToken` are set,
+   * the node exchanges the enroll token over HTTPS for a registration + a node
+   * token (see enroll.ts) instead of self-registering over the bus.
+   */
+  apiUrl?: string;
+  enrollToken?: string;
+  /** Populated by enrollment; used to authenticate HTTP heartbeats. */
+  nodeToken?: string;
+  /** Self-declared coarse tier advertised on enrollment. */
+  tier?: 'light' | 'heavy';
+  /** Runtimes/binaries self-detected at boot (populated by enrollment). */
+  runtimes?: string[];
 }
 
 export function loadConfig(): ExecNodeConfig {
@@ -59,5 +72,8 @@ export function loadConfig(): ExecNodeConfig {
     defaultTtlSec: intEnv('EXEC_NODE_DEFAULT_TTL_SEC', 900),
     region: process.env.EXEC_NODE_REGION || undefined,
     tenant: process.env.EXEC_NODE_TENANT || undefined,
+    apiUrl: (process.env.NAVRATNA_API_URL || '').replace(/\/$/, '') || undefined,
+    enrollToken: process.env.NAVRATNA_NODE_TOKEN || undefined,
+    tier: process.env.EXEC_NODE_TIER === 'heavy' ? 'heavy' : process.env.EXEC_NODE_TIER === 'light' ? 'light' : undefined,
   };
 }

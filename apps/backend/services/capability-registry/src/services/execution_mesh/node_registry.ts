@@ -101,7 +101,8 @@ export class ExecutionNodeRegistry {
   pickNode(
     runtime: ExecutionRuntime,
     capability?: string,
-    affinity?: ExecutionNodeAffinity
+    affinity?: ExecutionNodeAffinity,
+    requires?: string[]
   ): ExecutionNode | null {
     const candidates: ExecutionNode[] = [];
 
@@ -110,6 +111,10 @@ export class ExecutionNodeRegistry {
       if (node.health !== 'ready' && node.health !== 'degraded') continue;
       if (capability && !this.matchesCapability(node, capability)) continue;
       if (affinity && !this.matchesAffinity(node, affinity)) continue;
+      // Dependency gate: a step's declared runtimes/binaries must all be present
+      // on the node, else it would fail for lack of deps (python step on a
+      // bash-only node). No requires => no constraint.
+      if (requires?.length && !this.matchesRequires(node, requires)) continue;
       const load = this.inFlight.get(node.id) ?? 0;
       if (load >= node.capacity.maxConcurrent) continue;
       candidates.push(node);
@@ -164,6 +169,17 @@ export class ExecutionNodeRegistry {
     );
   }
 
+  /**
+   * True when the node advertises EVERY runtime/binary the step requires. A node
+   * satisfies a requirement via its `runtimes` list, its `capabilities` list, or
+   * a `['*']` wildcard (platform nodes claim all).
+   */
+  private matchesRequires(node: ExecutionNode, requires: string[]): boolean {
+    if (node.capabilities.includes('*')) return true;
+    const advertised = new Set([...(node.runtimes ?? []), ...node.capabilities]);
+    return requires.every((req) => advertised.has(req));
+  }
+
   private matchesAffinity(node: ExecutionNode, affinity: ExecutionNodeAffinity): boolean {
     if (!node.affinity) return false;
     if (affinity.tenant && node.affinity.tenant !== affinity.tenant) return false;
@@ -187,6 +203,10 @@ export class ExecutionNodeRegistry {
       affinity: reg.affinity,
       health: 'ready',
       lastHeartbeat: Date.now(),
+      owner: reg.owner,
+      runtimes: reg.runtimes,
+      tier: reg.tier,
+      labels: reg.labels,
     };
   }
 
