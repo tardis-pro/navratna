@@ -385,18 +385,64 @@ export class StepExecutorService extends EventEmitter {
     return delayWithAbort(ms, signal, 'Step execution was cancelled');
   }
 
-  // Add missing methods
+  /**
+   * Dispatch a real agent-reasoning turn over the event bus to the llm-service
+   * (navratna-core), which resolves the persona's systemPrompt and calls the LLM.
+   * Blocks on the RPC reply. This is what makes an `agent-action` step actually
+   * reason via a persona + LLM instead of returning a fabricated string.
+   *
+   * llm-service lives in a feature package that DEPENDS ON shared-services, so it
+   * cannot be imported here (backward dependency). We go over the bus, mirroring
+   * runToolViaCoordinator. The responder lives in
+   * apps/backend/services/llm-service/src/feature.ts ('llm.step.generate.request').
+   */
+  private async runAgentViaLLM(
+    request: { agentId?: string; prompt: string; systemPrompt?: string; model?: string },
+    timeoutMs: number
+  ): Promise<{ content: string; model?: string }> {
+    const eventBus = EventBusService.getInstance();
+    const requestId = randomUUID();
+    const response = await eventBus.publishAndWaitForResponse<{
+      content?: string;
+      model?: string;
+      error?: string;
+    }>('llm.step.generate.request', { requestId, ...request }, timeoutMs);
+
+    if (!response || typeof response.content !== 'string') {
+      throw new Error(response?.error || 'Agent action returned no content from the LLM');
+    }
+    return { content: response.content, model: response.model };
+  }
+
   public async executeAgentAction(
     step: ExecutionStep,
     input: Record<string, unknown>,
-    signal: AbortSignal
+    _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    await this.delay(Math.random() * 2000 + 1000, signal);
+    const params = step.parameters ?? {};
+    const prompt =
+      (typeof params.prompt === 'string' && params.prompt ? params.prompt : undefined) ??
+      (typeof input.prompt === 'string' && input.prompt ? input.prompt : undefined) ??
+      (typeof step.action === 'string' && step.action ? step.action : undefined);
+
+    if (!prompt) {
+      throw new Error(`Agent-action step "${step.name}" has no prompt to send to the LLM`);
+    }
+
+    const agentId = (step.agentId as string) || undefined;
+    const model = typeof params.model === 'string' ? params.model : undefined;
+    const systemPrompt = typeof params.systemPrompt === 'string' ? params.systemPrompt : undefined;
+
+    const result = await this.runAgentViaLLM(
+      { agentId, prompt, systemPrompt, model },
+      step.timeout ?? 60000
+    );
 
     return {
-      agentId: step.agentId || 'unknown',
-      action: step.action || 'unknown',
-      actionResult: `Agent action ${step.action} executed`,
+      agentId: agentId || 'unknown',
+      action: step.action || 'agent-action',
+      actionResult: result.content,
+      model: result.model,
       executedAt: new Date().toISOString(),
     };
   }
