@@ -22,6 +22,20 @@ const DEFAULT_MCP_SANDBOX: Omit<ExecutionSandboxPolicy, 'command' | 'args' | 'en
   pidsLimit: 256,
 };
 
+/**
+ * Pure-JS native tools the Phase 2 worker tier re-implements (Workers-compatible)
+ * and can run at the edge. `file-reader` is deliberately EXCLUDED — a Worker has
+ * no filesystem, so it stays native (spec §3.1). `web-search` runs on the worker
+ * via `fetch`. `oauth-*` tools stay native (need standing gateway credentials).
+ */
+const WORKER_JS_TOOLS: ReadonlySet<string> = new Set([
+  'math-calculator',
+  'text-analysis',
+  'time-utility',
+  'id-generator',
+  'web-search',
+]);
+
 /** Parse `mcp-<server>-<tool>` -> serverName (or null if not an MCP tool id). */
 function mcpServerNameOf(toolId: string): string | null {
   if (!toolId.startsWith('mcp-')) return null;
@@ -36,8 +50,14 @@ function mcpServerNameOf(toolId: string): string | null {
  */
 export async function resolveToolDescriptor(toolId: string): Promise<ToolRuntimeDescriptor> {
   try {
+    // Pure-JS tools the worker tier can run at the edge. When a worker-cf node is
+    // registered (EXEC_WORKER_URL set) these dispatch to it; otherwise the
+    // scheduler falls back to native — behaviour preserved. file-reader is absent
+    // here on purpose (no Worker filesystem) and resolves to native below.
+    if (WORKER_JS_TOOLS.has(toolId)) return { runtime: 'worker' };
+
     const serverName = mcpServerNameOf(toolId);
-    if (!serverName) return {}; // native tools (math, text, oauth-*, unknown)
+    if (!serverName) return {}; // native tools (file-reader, oauth-*, unknown)
 
     // Reuse the MCP client's DB-backed config (KNOWLEDGE reuse, no duplication).
     const { MCPClientService } = await import('../mcp_client_service.js');
@@ -45,9 +65,15 @@ export async function resolveToolDescriptor(toolId: string): Promise<ToolRuntime
     if (!mcpConfig) return {}; // unknown server -> native fallback
 
     if (mcpConfig.transportType === 'http' || mcpConfig.transportType === 'streamable-http') {
-      // Phase 2 target: the light worker tier proxies http MCP. No worker node is
-      // registered yet, so the scheduler falls back to native — behaviour preserved.
-      return { runtime: 'worker', transport: mcpConfig.transportType };
+      // Phase 2: the light worker tier proxies http/streamable-http MCP over fetch.
+      // Carry the MCP server endpoint so the exec-worker knows where to proxy the
+      // JSON-RPC tools/call. When no worker-cf node is registered the scheduler
+      // falls back to native (which routes via mcp_client_service) — preserved.
+      return {
+        runtime: 'worker',
+        transport: mcpConfig.transportType,
+        sandbox: mcpConfig.httpUrl ? { httpUrl: mcpConfig.httpUrl, network: 'egress' } : undefined,
+      };
     }
 
     // stdio -> the docker-mcp tier. Carry a hardened launch spec for the node.

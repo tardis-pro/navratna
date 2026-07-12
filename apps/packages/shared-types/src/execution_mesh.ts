@@ -36,6 +36,12 @@ export interface ExecutionNode {
   affinity?: ExecutionNodeAffinity;
   health: ExecutionNodeHealth;
   lastHeartbeat: number; // epoch ms
+  /**
+   * Statically-registered, always-available node with NO heartbeat loop (e.g. the
+   * Cloudflare exec-worker, dispatched by HTTP fetch). The staleness sweep never
+   * drains these. See spec §3.1 / Phase 2.
+   */
+  alwaysOn?: boolean;
 }
 
 /** Per-call execution context. `scopedToken` is minted per-call by the control plane. */
@@ -63,6 +69,12 @@ export interface ExecutionSandboxPolicy {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
+  /**
+   * For `http`/`streamable-http` MCP tools routed to the worker tier: the MCP
+   * server endpoint the exec-worker proxies the JSON-RPC `tools/call` to (spec
+   * §3.1). Non-secret; auth headers are never carried here.
+   */
+  httpUrl?: string;
 }
 
 /** The request the scheduler dispatches to a node (or runs on the native node). */

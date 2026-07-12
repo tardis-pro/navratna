@@ -143,8 +143,9 @@ export class ExecutionNodeRegistry {
     const now = Date.now();
     const timeout = this.missedHeartbeats * this.sweepIntervalMs;
     for (const node of this.nodes.values()) {
-      // The native node has no heartbeat loop; never drain it.
-      if (node.runtime === 'native') continue;
+      // The native node and any statically-registered always-on node (e.g. the
+      // Cloudflare exec-worker) have no heartbeat loop; never drain them.
+      if (node.runtime === 'native' || node.alwaysOn) continue;
       if (node.health === 'down') continue;
       if (now - node.lastHeartbeat > timeout) {
         node.health = 'down';

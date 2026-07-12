@@ -25,6 +25,10 @@ export interface CapabilityRegistrySpecificConfig {
     enabled: boolean;
     maxConcurrentPerRuntime: number;
     heartbeatTimeoutMs: number;
+    // Phase 2 — Cloudflare exec-worker (light tier). When workerUrl is empty no
+    // worker-cf node is registered and worker-runtime tools fall back to native.
+    workerUrl: string;
+    workerSecret: string;
   };
 }
 
@@ -47,6 +51,9 @@ const serviceSpecificConfig: CapabilityRegistrySpecificConfig = {
     enabled: process.env.FEATURE_EXEC_MESH === 'true',
     maxConcurrentPerRuntime: parseInt(process.env.EXEC_MESH_MAX_CONCURRENT || '100'),
     heartbeatTimeoutMs: parseInt(process.env.EXEC_MESH_HEARTBEAT_INTERVAL_MS || '10000'),
+    // Empty by default → no worker-cf node registered → native fallback (unchanged).
+    workerUrl: process.env.EXEC_WORKER_URL || '',
+    workerSecret: process.env.EXEC_WORKER_SECRET || '',
   },
 };
 

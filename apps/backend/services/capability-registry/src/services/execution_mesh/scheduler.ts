@@ -36,6 +36,7 @@ export type NativeExecutor = (
 ) => Promise<unknown>;
 
 const NATIVE_NODE_ID = 'native-inproc';
+const WORKER_NODE_ID = 'worker-cf';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -50,6 +51,8 @@ export class ExecutionScheduler {
   private inFlightPerRuntime = new Map<ExecutionRuntime, number>();
   private startPromise: Promise<void> | null = null;
   private readonly maxConcurrentPerRuntime: number;
+  private readonly workerUrl: string;
+  private readonly workerSecret: string;
 
   private constructor(eventBus?: EventBusService) {
     this.eventBus = eventBus || EventBusService.getInstance();
@@ -57,6 +60,8 @@ export class ExecutionScheduler {
       sweepIntervalMs: config.execMesh.heartbeatTimeoutMs,
     });
     this.maxConcurrentPerRuntime = config.execMesh.maxConcurrentPerRuntime;
+    this.workerUrl = config.execMesh.workerUrl.replace(/\/$/, '');
+    this.workerSecret = config.execMesh.workerSecret;
   }
 
   static getInstance(): ExecutionScheduler {
@@ -135,6 +140,12 @@ export class ExecutionScheduler {
         return await this.runNative(envelope, startedAt, NATIVE_NODE_ID);
       }
 
+      // Worker tier is dispatched by HTTP fetch (request-scoped edge Worker holds
+      // no bus subscription); every other remote runtime goes over the bus.
+      if (runtime === 'worker') {
+        return await this.dispatchWorker(node.id, envelope, startedAt);
+      }
+
       return await this.dispatchRemote(node.id, runtime, envelope, startedAt);
     } finally {
       this.releaseRuntimeSlot(runtime);
@@ -172,6 +183,59 @@ export class ExecutionScheduler {
       return this.fail(envelope, error, nodeId, startedAt);
     } finally {
       this.registry.release(nodeId);
+    }
+  }
+
+  /**
+   * Dispatch a worker-runtime request to the always-on Cloudflare exec-worker by
+   * HTTP fetch (`POST {workerUrl}/exec` with the `X-Edge-Auth` shared secret) —
+   * the reverse of the edge gateway's trust pattern. On ANY transport failure
+   * (network error, non-2xx, timeout) it falls back to the native executor so a
+   * call never hard-fails while the worker is unreachable. A well-formed
+   * `{ ok:false }` tool error from the worker is returned as-is (not a fallback).
+   */
+  private async dispatchWorker(
+    nodeId: string,
+    envelope: ExecutionRequestEnvelope,
+    startedAt: number
+  ): Promise<ExecutionResultEnvelope> {
+    this.registry.acquire(nodeId);
+    try {
+      const raw = await this.fetchWorker(envelope);
+      return this.normalizeRemoteResult(raw, envelope, nodeId, startedAt);
+    } catch (error) {
+      logger.warn('Worker dispatch failed; falling back to native', {
+        toolId: envelope.toolId,
+        correlationId: envelope.correlationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return await this.runNative(envelope, startedAt, NATIVE_NODE_ID);
+    } finally {
+      this.registry.release(nodeId);
+    }
+  }
+
+  /** POST the envelope to the exec-worker; throws on network error or non-2xx. */
+  private async fetchWorker(envelope: ExecutionRequestEnvelope): Promise<unknown> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), envelope.deadlineMs);
+    timer.unref?.();
+    try {
+      const resp = await fetch(`${this.workerUrl}/exec`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Edge-Auth': this.workerSecret,
+        },
+        body: JSON.stringify(envelope),
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        throw new ExecutionMeshError('NODE_ERROR', `exec-worker HTTP ${resp.status}`);
+      }
+      return await resp.json();
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -268,8 +332,35 @@ export class ExecutionScheduler {
 
   private async ensureStarted(): Promise<void> {
     if (!this.startPromise) {
-      this.startPromise = this.registry.start();
+      this.startPromise = this.registry.start().then(() => this.registerWorkerNode());
     }
     await this.startPromise;
+  }
+
+  /**
+   * Statically register the always-on Cloudflare exec-worker as a `worker`-runtime
+   * node (spec §3.1). No heartbeat: it is dispatched by HTTP fetch and never
+   * drained (ExecutionNode.alwaysOn). Skipped entirely when EXEC_WORKER_URL is
+   * unset, so worker-runtime tools then fall back to native — behaviour preserved.
+   */
+  private registerWorkerNode(): void {
+    if (!this.workerUrl) return;
+    this.registry.registerNode({
+      id: WORKER_NODE_ID,
+      runtime: 'worker',
+      capabilities: ['*'], // pure-JS tools + http/streamable-http MCP proxy
+      capacity: {
+        maxConcurrent: this.maxConcurrentPerRuntime,
+        cpu: 1,
+        memMb: 128,
+      },
+      health: 'ready',
+      lastHeartbeat: Date.now(),
+      alwaysOn: true,
+    });
+    logger.info('Registered static Cloudflare exec-worker node', {
+      nodeId: WORKER_NODE_ID,
+      workerUrl: this.workerUrl,
+    });
   }
 }
