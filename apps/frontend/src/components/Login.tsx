@@ -129,7 +129,10 @@ export const Login: React.FC = () => {
       setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
-  const demoCredentials = {
+  // Local-development seed accounts only. Guarded by import.meta.env.DEV, which Vite
+  // replaces with `false` in a production build so the minifier drops the literals —
+  // these passwords must never reach a shipped bundle.
+  const demoCredentials = !import.meta.env.DEV ? {} : {
     'System Accounts': {
       color: 'red',
       accounts: [
@@ -257,7 +260,8 @@ export const Login: React.FC = () => {
             </p>
           </div>
 
-          {/* Demo Credentials */}
+          {/* Demo Credentials — development only; never rendered in a production build */}
+          {import.meta.env.DEV && (
           <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/60 dark:border-slate-700/60 shadow-xl">
             <div className="flex items-center space-x-2 mb-4">
               <Lightbulb className="w-4 h-4 text-blue-500" />
@@ -343,6 +347,7 @@ export const Login: React.FC = () => {
               </p>
             </div>
           </div>
+          )}
 
           {/* Login Form */}
           <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-2xl p-8 border border-slate-200/60 dark:border-slate-700/60 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/20">
