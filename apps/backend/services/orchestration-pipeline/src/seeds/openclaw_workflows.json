@@ -1,0 +1,498 @@
+[
+  {
+    "name": "amy-mit-evening-report",
+    "description": "Amy MIT Evening Report (6PM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 18 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "comms",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "bash",
+        "id": "generate_report",
+        "command": "python3 /home/pronit/workspace/lobster-scripts/amy-format-report.py",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "send_whatsapp",
+        "command": "bash -c 'openclaw message send --channel whatsapp --target \"+91XXXXXXXXXX\" --message \"$(cat /tmp/amy-report.txt)\"'",
+        "requires": [
+          "bash"
+        ]
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "rishi-linkedin-post",
+    "description": "Rishi LinkedIn Post (10AM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 10 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "content",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "content",
+        "prompt": "Rishi LinkedIn. Read SOUL.md + COMPANY.md + content-log.json + anti-ai-writing SKILL.md. Read yesterday Karna report. Pick next pillar (rotation). Research + draft + publish: scripts/linkedin_post.py. Update content-log.json. One post.",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "karna-morning-hunt",
+    "description": "Karna Morning Hunt (10AM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 10 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "growth",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "growth",
+        "prompt": "Morning hunt. Read SOUL.md + TOOLS.md. Gov tenders + EU. Find 3-5 leads \u2192 leads/$(date +%Y-%m-%d).md. Upload R2: scripts/r2_upload.py. Update scrape-log.json.",
+        "model": "zai/glm-5"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "karna-afternoon-hunt",
+    "description": "Karna Afternoon Hunt (2PM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 14 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "growth",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "growth",
+        "prompt": "Afternoon hunt. HN jobs + LinkedIn groups + funding signals. Leads \u2192 leads/$(date +%Y-%m-%d).md, jobs \u2192 jobs/$(date +%Y-%m-%d).md. Upload R2. Update scrape-log.",
+        "model": "zai/glm-5"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "karna-evening-hunt",
+    "description": "Karna Evening Hunt (6PM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 18 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "growth",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "growth",
+        "prompt": "Evening hunt. Read SOUL.md + memory/. HN + Reddit + competitors. Leads \u2192 leads/$(date +%Y-%m-%d).md, report \u2192 reports/$(date +%Y-%m-%d).md. Then upload to R2: run `source /home/pronit/workspace/devops-workspace/.env` first, then `python3 scripts/r2_upload.py`. Upload: leads-latest.md, leads/DATE.md, report-latest.md, reports/DATE.md. Update scrape-log.",
+        "model": "zai/glm-5"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "karna-gist-digest",
+    "description": "Karna Gist Digest",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 10,12,14,16,18,20,22 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "main",
+    "model": null,
+    "steps": [
+      {
+        "type": "bash",
+        "id": "run_digest",
+        "command": "python3 /home/pronit/workspace/growth-workspace/scripts/karna_email.py",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "notify",
+        "command": "bash /home/pronit/workspace/lobster-scripts/karna-notify.sh",
+        "requires": [
+          "bash"
+        ]
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "nidra-slot-1",
+    "description": "Nidra Slot 1 (11PM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 23 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "nidra",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "nidra",
+        "prompt": "Nidra Slot 1. Read SOUL.md + dream-seeds.md + visited-links.json. Lens: (dayOfYear + 0) % 4. Research \u2192 reports/$(date +%Y-%m-%d)-slot1.md. Update visited-links.json. To update taste-profile: use exec with bash append (echo or printf >> memory/taste-profile.md), NOT the edit tool. Primary sources only.",
+        "model": "zai/glm-5"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "nidra-slot-2",
+    "description": "Nidra Slot 2 (2AM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 2 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "nidra",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "nidra",
+        "prompt": "Nidra Slot 2. Read SOUL.md + dream-seeds.md + visited-links.json. Lens: (dayOfYear + 1) % 4. Research \u2192 reports/$(date +%Y-%m-%d)-slot2.md. Update visited-links.json. Primary sources only.",
+        "model": "zai/glm-5"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "nidra-slot-3",
+    "description": "Nidra Slot 3 (5AM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 5 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "nidra",
+    "model": "zai/glm-5",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "nidra",
+        "prompt": "Nidra Slot 3. Read SOUL.md + dream-seeds.md + visited-links.json. Lens: (dayOfYear + 2) % 4. Research \u2192 reports/$(date +%Y-%m-%d)-slot3.md. Update visited-links.json. To update taste-profile: use exec with bash append (echo or printf >> memory/taste-profile.md), NOT the edit tool. Primary sources only.",
+        "model": "zai/glm-5"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "nidra-morning-digest",
+    "description": "Nidra Morning Digest (7:30AM)",
+    "trigger": {
+      "kind": "cron",
+      "expr": "30 7 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "nidra",
+    "model": "google-gemini-cli/gemini-2.5-pro",
+    "steps": [
+      {
+        "type": "bash",
+        "id": "compile_digest",
+        "command": "python3 /home/pronit/workspace/lobster-scripts/nidra-compile-digest.py",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "upload_r2_latest",
+        "command": "bash /home/pronit/workspace/lobster-scripts/r2-upload-wrapper.sh /home/pronit/workspace/nidra-workspace dreams-latest.md /home/pronit/workspace/nidra-workspace/digests/$(date +%Y-%m-%d).md",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "upload_r2_dated",
+        "command": "bash /home/pronit/workspace/lobster-scripts/r2-upload-wrapper.sh /home/pronit/workspace/nidra-workspace digests/$(date +%Y-%m-%d).md /home/pronit/workspace/nidra-workspace/digests/$(date +%Y-%m-%d).md",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "update_gist",
+        "command": "python3 /home/pronit/workspace/scripts/gist_update.py --file nidra.md --content-file /home/pronit/workspace/nidra-workspace/digests/$(date +%Y-%m-%d).md",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "send_whatsapp",
+        "command": "bash -c 'openclaw message send --channel whatsapp --target \"+91XXXXXXXXXX\" --message \"$(cat /tmp/nidra-whatsapp.txt)\"'",
+        "requires": [
+          "bash"
+        ]
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "browsertest-on-demand",
+    "description": "browsertest-on-demand",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 3 1 1 0",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "browser-test",
+    "model": "google-antigravity/gemini-3-flash",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "browser-test",
+        "prompt": "You are the QA Engineer. You've been triggered \u2014 one or more tasks may be in 'deploying' status needing browser verification.\n\nRead credentials:\n```bash\nsource /home/pronit/workspace/devops-workspace/.env\n```\n\n## Step 1 \u2014 Find ALL tasks to test\n\n```bash\ncurl -s \"$PB_URL/api/collections/tasks/records?filter=(status='deploying')&sort=-updated&perPage=30\" \\\n  -H \"Authorization: Bearer $PB_TOKEN_BROWSERTEST\"\n```\n\nGet ALL 'deploying' tasks. For each task, extract:\n- task `id`\n- `deploy_url` (the URL to test \u2014 skip if empty/null)\n- `title` (for your report)\n- `description` (acceptance criteria)\n\nIf no deploying tasks found \u2192 exit silently (nothing to do).\nIf a task has no `deploy_url` \u2192 skip it, add a task_note: \"SKIPPED: no deploy_url recorded. DevOps must deploy and update deploy_url before QA can proceed.\"\n\n## Step 2 \u2014 Run browser test for EACH task (with deploy_url)\n\nYour workspace: /home/pronit/workspace/browser-test-workspace/\nRead your SOP.md first.\n\nFor EACH task with a deploy_url, run Puppeteer/Playwright:\n1. HTTP 200 check\n2. Page loads without console errors\n3. Key elements visible (infer from title/description)\n4. Take screenshots as evidence \u2014 save to browser-test-workspace/evidence/\n\n## Step 3 \u2014 Update PocketBase for EACH task\n\n**If PASS:**\n```bash\ncurl -s -X PATCH \"$PB_URL/api/collections/tasks/records/TASK_ID\" \\\n  -H \"Authorization: Bearer $PB_TOKEN_BROWSERTEST\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"browser_test_passed\":true,\"status\":\"done\",\"completed_at\":\"NOW_ISO\"}'\n```\n\n**If FAIL:**\n```bash\ncurl -s -X PATCH \"$PB_URL/api/collections/tasks/records/TASK_ID\" \\\n  -H \"Authorization: Bearer $PB_TOKEN_BROWSERTEST\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"status\":\"blocked\",\"blocked_reason\":\"Browser test FAILED: [describe what failed]\"}'\n```\n\n## Step 4 \u2014 Add a task note with your QA report for EACH task\n\n```bash\ncurl -s -X POST \"$PB_URL/api/collections/task_notes/records\" \\\n  -H \"Authorization: Bearer $PB_TOKEN_BROWSERTEST\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"task_id\":\"TASK_ID\",\"author\":\"browsertest\",\"note\":\"## QA Report\\n\\nVerdict: PASS/FAIL\\n\\nChecks:\\n- [list]\\n\\nEvidence: [screenshot paths]\"}'\n```\n\nProcess ALL deploying tasks before finishing. Evidence-based verdicts only. Do not stop after the first task.",
+        "model": "google-antigravity/gemini-3-flash"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "mirror-daily-digest",
+    "description": "Mirror Daily Digest",
+    "trigger": {
+      "kind": "cron",
+      "expr": "30 6 * * *",
+      "tz": "Asia/Kolkata"
+    },
+    "agentId": "mirror",
+    "model": "google-gemini-cli/gemini-2.5-flash",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "mirror",
+        "prompt": "Mirror digest. Run: scripts/rss_ingest.py \u2192 scripts/process_feeds.py \u2192 scripts/graph_store.py --action store --input /tmp/events.json \u2192 scripts/graph_store.py --action heat \u2192 scripts/generate_digest.py \u2192 scripts/gist_update.py. Format: digests/$(date +%Y-%m-%d).md. Top 25 clusters only. Graph store is SQLite (no Neo4j needed).",
+        "model": "google-gemini-cli/gemini-2.5-flash"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "pm-event-trigger",
+    "description": "pm-event-trigger",
+    "trigger": {
+      "kind": "every",
+      "expr": "3600000"
+    },
+    "agentId": "main",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "main",
+        "prompt": "You are Bhagwan (PM). PocketBase event woke you. Follow these steps exactly:\n\n**STEP 1: Query design_ready tasks**\n```bash\nsource /home/pronit/workspace/devops-workspace/.env\ncurl -s \"$PB_URL/api/collections/tasks/records?filter=(status='design_ready')&sort=created&perPage=100\" -H \"Authorization: Bearer $PB_TOKEN_BHAGWAN\"\n```\n\nIf empty \u2192 reply HEARTBEAT_OK\nIf tasks found \u2192 continue.\n\n**STEP 2: Pick the first task (by created date, oldest first)**\n\n**STEP 3: Get project details**\n\n**STEP 4: Move task to in_progress + create branch**\n\n**STEP 5: Spawn the agent** (pixel/backend-coder/devops/test-writer)\n\n**STEP 6: Add task_note with spawn confirmation**\n\nDo ONE task per cron fire. Reply: \"Dispatched: [TASK_ID] [TITLE] \u2192 [AGENT]\"",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "browser-test-trigger",
+    "description": "browser-test-trigger",
+    "trigger": {
+      "kind": "every",
+      "expr": "3600000"
+    },
+    "agentId": "browser-test",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "browser-test",
+        "prompt": "PB hook triggered: a task moved to deploying. Check PocketBase for deploying tasks, run browser test, update browser_test_passed.",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "tardis-evolve",
+    "description": "tardis-evolve",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 10 * * 3",
+      "tz": "Asia/Calcutta"
+    },
+    "agentId": "tardis",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "tardis",
+        "prompt": "Run capability evolver: cd skills/capability-evolver && node index.js run --review. Analyze your runtime history, identify failures/inefficiencies, and apply improvements. Strategy: innovate. Report what changed.",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "bhagwan-evolve",
+    "description": "bhagwan-evolve",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 10 * * 3",
+      "tz": "Asia/Calcutta"
+    },
+    "agentId": "main",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "main",
+        "prompt": "Run capability evolver for BHAGWAN (PM agent). Target workspace: /home/pronit/workspace/pm-workspace. cd /home/pronit/workspace/pm-workspace/skills/capability-evolver && node index.js run --review. Analyze Bhagwan's runtime history and memory files in pm-workspace (NOT tardis-space). Strategy: harden. Report what changed.",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "amy-evolve",
+    "description": "amy-evolve",
+    "trigger": {
+      "kind": "cron",
+      "expr": "0 10 * * 3",
+      "tz": "Asia/Calcutta"
+    },
+    "agentId": "comms",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "comms",
+        "prompt": "Run capability evolver: cd skills/capability-evolver && node index.js run --review. Analyze your runtime history, identify failures/inefficiencies, and apply improvements. Strategy: balanced. Report what changed.",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "profile-engine",
+    "description": "profile-engine",
+    "trigger": {
+      "kind": "cron",
+      "expr": "30 9 * * 3",
+      "tz": "Asia/Calcutta"
+    },
+    "agentId": "main",
+    "model": "anthropic/claude-sonnet-4-6",
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "main",
+        "prompt": "Run the Developer Profile Engine: python3 /home/pronit/workspace/scripts/developer-profile-engine.py. Report the results.",
+        "model": "anthropic/claude-sonnet-4-6"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "otp-delivery",
+    "description": "OTP Delivery (30s)",
+    "trigger": {
+      "kind": "every",
+      "expr": "30000"
+    },
+    "agentId": "main",
+    "model": null,
+    "steps": [
+      {
+        "type": "agentTurn",
+        "id": "run",
+        "agentId": "main",
+        "prompt": "OTP Delivery (30s)"
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "bhagwan-heartbeat-deterministic",
+    "description": "Bhagwan Heartbeat (5m) \u2014 Deterministic",
+    "trigger": {
+      "kind": "every",
+      "expr": "300000"
+    },
+    "agentId": "main",
+    "model": null,
+    "steps": [
+      {
+        "type": "bash",
+        "id": "check_and_dispatch",
+        "command": "#!/bin/bash\n      source /home/pronit/workspace/devops-workspace/.env\n      export PB_URL=\"${PB_URL:-http://localhost:8091}\"\n\n      # Check for actionable tasks\n      RESULT=$(curl -s \\\n        \"$PB_URL/api/collections/tasks/records?filter=(status='design_ready'%7C%7Cstatus='review_qa')&perPage=1\" \\\n        -H \"Authorization: Bearer $PB_TOKEN_BHAGWAN\" 2>/dev/null)\n\n      COUNT=$(echo \"$RESULT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('totalItems',0))\" 2>/dev/null || echo \"0\")\n\n      if [ \"$COUNT\" -gt 0 ]; then\n        echo \"TASKS_FOUND: $COUNT \u2014 waking Bhagwan dispatch\"\n        # Fire the pm-event-trigger cron (LLM dispatch for actual work)\n        openclaw cron run 7552968f-a460-49e5-bfb4-a5caeab0ef08 --timeout 120000 2>/dev/null || true\n      else\n        echo \"IDLE\"\n      fi",
+        "requires": [
+          "bash"
+        ]
+      }
+    ],
+    "enabled": false
+  },
+  {
+    "name": "todo-enforcer-deterministic",
+    "description": "Todo Enforcer (30m) \u2014 Deterministic",
+    "trigger": {
+      "kind": "every",
+      "expr": "1800000"
+    },
+    "agentId": "main",
+    "model": null,
+    "steps": [
+      {
+        "type": "bash",
+        "id": "reset_stuck_tasks",
+        "command": "#!/bin/bash\n      DB=\"/home/pronit/workspace/opsdb/pb_data/data.db\"\n\n      # Find in_progress tasks older than 2 hours\n      STUCK=$(sqlite3 \"$DB\" \\\n        \"SELECT id || '|' || title FROM tasks \\\n         WHERE status='in_progress' \\\n         AND started_at != '' \\\n         AND started_at IS NOT NULL \\\n         AND datetime(started_at) < datetime('now', '-2 hours');\" 2>/dev/null)\n\n      if [ -z \"$STUCK\" ]; then\n        echo \"OK: 0 stuck tasks\"\n        exit 0\n      fi\n\n      COUNT=0\n      while IFS='|' read -r TASK_ID TASK_TITLE; do\n        [ -z \"$TASK_ID\" ] && continue\n        sqlite3 \"$DB\" \\\n          \"UPDATE tasks SET status='design_ready', blocked_reason='Auto-reset: agent timed out after 2h', started_at='' WHERE id='$TASK_ID';\" 2>/dev/null\n        echo \"RESET: $TASK_ID ($TASK_TITLE)\"\n        COUNT=$((COUNT + 1))\n      done <<< \"$STUCK\"\n\n      echo \"RESET $COUNT stuck tasks \u2014 Bhagwan will re-dispatch on next heartbeat\"",
+        "requires": [
+          "bash"
+        ]
+      },
+      {
+        "type": "bash",
+        "id": "report_if_changed",
+        "command": "# Only announce if previous step reset something\n      if echo \"$reset_stuck_tasks_stdout\" | grep -q \"^RESET:\"; then\n        COUNT=$(echo \"$reset_stuck_tasks_stdout\" | grep -c \"^RESET:\" || echo \"0\")\n        echo \"\u26a0\ufe0f Todo Enforcer reset $COUNT stuck task(s). Check pipeline.\"\n      fi",
+        "requires": [
+          "bash"
+        ]
+      }
+    ],
+    "enabled": false
+  }
+]
