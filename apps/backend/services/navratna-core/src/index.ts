@@ -47,7 +47,10 @@ class NavratnaCoreService extends BaseService {
     this.registerEntities([])
 
     this.io = new SocketIOServer({
-      cors: { origin: false },
+      // Reflect the request origin + allow credentials. origin:false rejected
+      // the cross-origin WebSocket upgrade (frontend and API are on different
+      // subdomains); the CF Worker already gates who can reach /socket.io.
+      cors: { origin: true, credentials: true, methods: ['GET', 'POST'] },
       serveClient: false,
       path: '/socket.io/',
     })

@@ -317,7 +317,12 @@ export default {
     try {
       const response = await fetch(proxyReq);
       if (isWebSocket) {
-        // Return the upgraded response directly (webSocket field preserved).
+        // Canonical CF WebSocket passthrough: hand back the upstream socket
+        // with a 101 so the client connects straight through to the backend.
+        const ws = (response as unknown as { webSocket?: WebSocket }).webSocket;
+        if (ws) {
+          return new Response(null, { status: 101, webSocket: ws });
+        }
         return response;
       }
       const outHeaders = new Headers(response.headers);
