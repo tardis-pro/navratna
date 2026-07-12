@@ -1,36 +1,38 @@
-# openclaw-executor — the runtime image a shell/bash workflow step executes in.
+# exec-node-executor — the runtime image a shell/bash workflow step executes in.
 #
-# This is the answer to "does the runner have the dependencies": a step declares
-# `requires: [python3, sqlite3, ...]`, the scheduler routes it to a node advertising
-# those runtimes, and the node runs the command in THIS image (or the node itself is
-# this image). Everything the OpenClaw workflows shell out to is present here.
+# Generic Navratna execution node: it provides the RUNTIMES a step may declare via
+# `requires: [python3, sqlite3, ...]`. The scheduler routes a step to a node advertising
+# those runtimes and runs the command here. Nothing tenant- or workflow-specific is baked
+# in — whatever ecosystem's workflows run on Navratna (OpenClaw is just one, imported as
+# workflow-definitions + personas) shell out to these same runtimes.
 #
 # STATE MODEL (no config repo, no workspace filesystem sync):
-#   - agent config/identity  → Postgres (the persona record; the agentTurn step gets the
-#                              systemPrompt from it automatically — no SOUL.md file to sync)
+#   - agent config/identity  → Postgres (the persona record; the agentTurn step reads its
+#                              systemPrompt from there — no config file to sync)
 #   - durable outputs        → the artifacts table (tagged rows) with the blob in R2,
 #                              written via the artifact API — not a synced /workspace
 #   - DB state (tasks/events)→ a PocketBase/Postgres service the workflows curl
 #   - /workspace here is just EPHEMERAL scratch for intra-run temp files
-# rclone stays only for ported scripts that push to R2 directly; it is not a workspace mount.
 #
 # BUILD (context = repo root):
-#   docker build -f apps/backend/services/exec-node-mcp/Dockerfile.executor -t uaip/openclaw-executor .
+#   docker build -f apps/backend/services/exec-node-mcp/Dockerfile.executor -t uaip/exec-node-executor .
 #
-# RUN (as a node, self-registering into the mesh — see the mesh enrollment flow):
+# RUN (as a node, self-registering into the mesh — see the mesh enrollment flow).
+# Mount whatever per-deployment scripts/credentials a step needs; the paths are generic:
 #   docker run -d --restart unless-stopped \
 #     -e NAVRATNA_API_URL=https://<host> -e NAVRATNA_NODE_TOKEN=<token> \
-#     -v /srv/openclaw/scripts:/opt/openclaw/scripts:ro \
-#     -v /srv/openclaw/creds:/opt/openclaw/creds:ro \
-#     uaip/openclaw-executor
+#     -v /srv/steps/scripts:/opt/steps/scripts:ro \
+#     -v /srv/steps/creds:/opt/steps/creds:ro \
+#     uaip/exec-node-executor
 
 FROM node:22-slim AS runtime
 
-# ── Runtime prerequisites the OpenClaw workflows shell out to ──────────────────
-# python3+pip  → *.py scripts (nidra-compile-digest, amy-format-report, r2 upload, …)
-# sqlite3      → todo-enforcer (opsdb/pb_data/data.db), bhagwan-heartbeat
-# curl/jq      → PocketBase checks, R2 uploads, webhooks
-# git          → gist publishing, repo ops
+# ── Runtime prerequisites a shell/bash step may shell out to ───────────────────
+# python3+pip  → *.py scripts
+# sqlite3      → local sqlite ops
+# curl/jq      → HTTP calls, JSON wrangling, webhooks
+# git          → repo ops
+# rclone       → object-storage push for scripts that use it directly
 # ca-certs     → TLS to external APIs
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -38,8 +40,7 @@ RUN apt-get update \
       sqlite3 curl jq git ca-certificates openssh-client rclone \
  && rm -rf /var/lib/apt/lists/*
 
-# Common Python deps the scripts import (requests for HTTP, feedparser for RSS ingest,
-# boto3 for R2/S3). Pin loosely; extend as scripts are ported.
+# Common Python deps steps import (HTTP, RSS, object storage). Extend as needed.
 RUN pip3 install --no-cache-dir --break-system-packages \
       requests feedparser boto3 python-dateutil
 
@@ -47,13 +48,13 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 WORKDIR /app
 COPY --from=uaip/exec-node-mcp:latest /app /app
 
-# ── Layout the workflows expect ───────────────────────────────────────────────
-# /opt/openclaw/scripts  — the ported .py/.sh bodies (mounted read-only)
-# /opt/openclaw/creds     — provisioned credentials / OAuth tokens (mounted read-only)
-# /workspace              — per-agent state: leads/, reports/, memory/, SOUL.md, … (persistent)
-RUN mkdir -p /opt/openclaw/scripts /opt/openclaw/creds /workspace
-ENV OPENCLAW_SCRIPTS=/opt/openclaw/scripts \
-    OPENCLAW_CREDS=/opt/openclaw/creds \
+# ── Generic mount points ──────────────────────────────────────────────────────
+# /opt/steps/scripts — per-deployment script bodies a step invokes (mounted read-only)
+# /opt/steps/creds    — per-deployment credentials a step needs      (mounted read-only)
+# /workspace          — EPHEMERAL scratch for intra-run temp files
+RUN mkdir -p /opt/steps/scripts /opt/steps/creds /workspace
+ENV STEP_SCRIPTS=/opt/steps/scripts \
+    STEP_CREDS=/opt/steps/creds \
     WORKSPACE=/workspace \
     NODE_ENV=production
 
