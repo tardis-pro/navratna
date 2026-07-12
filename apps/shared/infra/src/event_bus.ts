@@ -129,7 +129,23 @@ export class EventBusService {
     process.on('SIGTERM', () => this.gracefulShutdown('SIGTERM'));
   }
 
+  /**
+   * The event type is used verbatim as the BullMQ queue name, and BullMQ rejects ':'
+   * (it is the delimiter in its own Redis keys). A bad name therefore throws from deep
+   * inside the Queue/Worker constructor, which previously surfaced as an opaque
+   * unhandledRejection that aborted websocket mounting and silently disabled chat.
+   * Reject it up front, naming the offending channel.
+   */
+  private assertValidEventType(eventType: string): void {
+    if (eventType.includes(':')) {
+      throw new Error(
+        `Invalid event type "${eventType}": event types become BullMQ queue names and cannot contain ':'. Use dots (e.g. "${eventType.replace(/:/g, '.')}").`
+      );
+    }
+  }
+
   public getOrCreateQueue(eventType: string): Queue {
+    this.assertValidEventType(eventType);
     if (!this.queues.has(eventType)) {
       const queue = new Queue(eventType, {
         connection: getBullMQConnection(),
@@ -251,6 +267,7 @@ export class EventBusService {
     eventType: string,
     options?: EventBusSubscriptionOptions
   ): Promise<void> {
+    this.assertValidEventType(eventType);
     if (this.workers.has(eventType)) return;
 
     const worker = new Worker<EventBusWrappedEvent>(
