@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope, Workflow } from 'lucide-react';
+import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope, Workflow, ArrowLeft } from 'lucide-react';
 import { WorkflowBlockRenderer } from '@/components/WorkflowBlockRenderer';
 import type { BlockDisplayType, FieldProjection, ActionProjection } from '@uaip/types';
 import type {
@@ -411,6 +411,23 @@ export function TelescopeSurface({
 
   const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
   const [fogActive, setFogActive] = useState(true);
+  // A rich portal, when opened, takes over the surface in a focused view instead
+  // of ballooning inline in the ambient grid. null = the constellation is showing.
+  const [focusedPortalId, setFocusedPortalId] = useState<string | null>(null);
+
+  const focusedBlock = useMemo(
+    () => blocks.find((b) => b.id === focusedPortalId) ?? null,
+    [blocks, focusedPortalId]
+  );
+
+  useEffect(() => {
+    if (!focusedPortalId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFocusedPortalId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [focusedPortalId]);
 
   // Scroll a freshly-materialized block into view and focus it, so an
   // intent selection visibly "opens" the capability rather than silently
@@ -536,9 +553,13 @@ export function TelescopeSurface({
                 >
                   <CrystallizationEffect isLoading={!crystallizedIds.has(block.id)} duration={400}>
                     {block.type === 'portal' ? (
-                      <MaterializableBlock block={block}>
-                        {renderPortalContent(block.id)}
-                      </MaterializableBlock>
+                      // Portals are full apps — show a compact ambient card here;
+                      // opening it takes over the surface in the focused view.
+                      <TelescopeBlock
+                        block={block}
+                        onClick={(id) => setFocusedPortalId(id)}
+                        isTopRanked={index === 0 && block.relevanceScore > 0.8}
+                      />
                     ) : block.type === 'workflow' ? (
                       <MaterializableBlock block={block}>
                         <WorkflowBlockRenderer
@@ -565,8 +586,52 @@ export function TelescopeSurface({
         </BreathCycle>
       </div>
 
+      {/* Focused portal view — a rich portal takes over the surface, with a way back. */}
+      <AnimatePresence>
+        {focusedBlock && (
+          <motion.div
+            key="focused-portal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex flex-col bg-background/85 backdrop-blur-md p-3 md:p-6 lg:p-8"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setFocusedPortalId(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-[1400px] mx-auto flex-1 min-h-0 flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
+                <button
+                  onClick={() => setFocusedPortalId(null)}
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1 -ml-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  aria-label="Back to constellation"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <span className="text-base font-semibold text-foreground tracking-tight truncate">
+                  {(typeof focusedBlock.metadata?.title === 'string' ? focusedBlock.metadata.title : null) ??
+                    BLOCK_TYPE_LABELS[focusedBlock.type]}
+                </span>
+                <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">Esc to close</span>
+              </div>
+              <div className="flex-1 min-h-0 overflow-auto">{renderPortalContent(focusedBlock.id)}</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {visibleBlocks.length === 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
