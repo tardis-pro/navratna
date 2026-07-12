@@ -4,6 +4,7 @@ import {
   DiscussionMessage,
   DiscussionSearchFilters,
   CreateDiscussionRequest,
+  CreateDiscussionRequestSchema,
   UpdateDiscussionRequest,
   DiscussionAnalytics,
   DiscussionSummary,
@@ -177,6 +178,17 @@ export class DiscussionService {
         actionItems: [],
       };
 
+      // `settings` and `turn_strategy` are NOT NULL with no database default, and callers
+      // routinely omit them (the UI's "start discussion" does). Nothing parses the request
+      // through CreateDiscussionRequestSchema, so the defaults it already declares never
+      // applied and the insert died on a not-null violation, surfacing to the user as an
+      // opaque "Query execution failed". Take the defaults from that schema so there is one
+      // source of truth.
+      const settings =
+        request.settings ?? CreateDiscussionRequestSchema.shape.settings.parse(undefined);
+      const turnStrategy =
+        request.turnStrategy ?? CreateDiscussionRequestSchema.shape.turnStrategy.parse(undefined);
+
       // Create discussion in database
       const discussionData = {
         title: normalizedTitle,
@@ -184,8 +196,8 @@ export class DiscussionService {
         description: request.description,
         documentId: request.documentId,
         operationId: request.operationId,
-        settings: request.settings,
-        turnStrategy: request.turnStrategy,
+        settings,
+        turnStrategy,
         status: DiscussionStatus.DRAFT,
         visibility: request.visibility,
         createdBy: request.createdBy,
