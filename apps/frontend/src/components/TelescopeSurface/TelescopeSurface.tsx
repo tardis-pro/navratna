@@ -258,7 +258,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
 
   // Von Restorff effect for top ranked block
   const borderStyle = isTopRanked
-    ? { borderColor: 'oklch(72% 0.14 85)', boxShadow: '0 1px 3px oklch(0% 0 0 / 0.08), 0 1px 2px oklch(0% 0 0 / 0.06)' }
+    ? { borderColor: 'var(--color-accent)', boxShadow: '0 1px 3px oklch(0% 0 0 / 0.08), 0 1px 2px oklch(0% 0 0 / 0.06)' }
     : { borderColor: typeColors.border };
 
   const scaleBase = isTopRanked ? 1.02 : 1;
@@ -353,13 +353,13 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
       <div className="flex flex-col gap-1.5 mt-2">
         <div className="flex justify-between items-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           <span>Relevance</span>
-          <span style={{ color: isTopRanked ? 'oklch(60% 0.14 85)' : typeColors.accent }}>{relevancePercent}%</span>
+          <span style={{ color: isTopRanked ? 'var(--color-accent)' : typeColors.accent }}>{relevancePercent}%</span>
         </div>
         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden border border-border/30">
           <motion.div
             className="h-full rounded-full"
             style={{
-              backgroundColor: isTopRanked ? 'oklch(60% 0.14 85)' : typeColors.accent,
+              backgroundColor: isTopRanked ? 'var(--color-accent)' : typeColors.accent,
             }}
             initial={{ width: 0 }}
             animate={{ width: `${relevancePercent}%` }}
