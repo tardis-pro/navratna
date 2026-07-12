@@ -57,11 +57,26 @@ function getBullMQConnection(): ConnectionOptions {
   return connection;
 }
 
-export class EventBusService {
-  private static instance: EventBusService | null = null;
-  private static defaultConfig: EventBusConfig | null = null;
-  private static defaultLogger: winston.Logger | null = null;
+// Singleton state lives on globalThis, NOT in module statics. Bun resolves src/ and dist/
+// as separate module copies (tsconfig paths vs package.json exports), so a module-level
+// static would give each copy its own null instance — a consumer that imports a different
+// copy than the entry point then throws "requires config" and never sees the initialized
+// bus. Same fix the drizzle plane clients use.
+interface EventBusSingletonState {
+  instance: EventBusService | null;
+  defaultConfig: EventBusConfig | null;
+  defaultLogger: winston.Logger | null;
+}
+const EVENT_BUS_GLOBAL_KEY = '__uaip_event_bus_singleton__' as const;
+function eventBusState(): EventBusSingletonState {
+  const g = globalThis as Record<string, unknown>;
+  if (!g[EVENT_BUS_GLOBAL_KEY]) {
+    g[EVENT_BUS_GLOBAL_KEY] = { instance: null, defaultConfig: null, defaultLogger: null };
+  }
+  return g[EVENT_BUS_GLOBAL_KEY] as EventBusSingletonState;
+}
 
+export class EventBusService {
   private redis: Redis;
   private queues: Map<string, Queue> = new Map();
   private workers: Map<string, Worker> = new Map();
@@ -106,22 +121,23 @@ export class EventBusService {
     instanceConfig?: EventBusConfig,
     instanceLogger?: winston.Logger
   ): EventBusService {
-    if (!EventBusService.instance) {
+    const state = eventBusState();
+    if (!state.instance) {
       let resolvedConfig = instanceConfig;
       let resolvedLogger = instanceLogger;
       if (!resolvedConfig || !resolvedLogger) {
-        if (!EventBusService.defaultConfig || !EventBusService.defaultLogger) {
+        if (!state.defaultConfig || !state.defaultLogger) {
           throw new Error('EventBusService requires config and logger for initial creation');
         }
-        resolvedConfig = EventBusService.defaultConfig;
-        resolvedLogger = EventBusService.defaultLogger;
+        resolvedConfig = state.defaultConfig;
+        resolvedLogger = state.defaultLogger;
       } else {
-        EventBusService.defaultConfig = resolvedConfig;
-        EventBusService.defaultLogger = resolvedLogger;
+        state.defaultConfig = resolvedConfig;
+        state.defaultLogger = resolvedLogger;
       }
-      EventBusService.instance = new EventBusService(resolvedConfig, resolvedLogger);
+      state.instance = new EventBusService(resolvedConfig, resolvedLogger);
     }
-    return EventBusService.instance;
+    return state.instance;
   }
 
   private setupProcessHandlers(): void {
@@ -176,7 +192,10 @@ export class EventBusService {
       context?: EventBusPublishContext;
     }
   ): Promise<void> {
-    const messageId = Date.now().toString();
+    // Must not be a purely-numeric string: it is used as the BullMQ job id, and BullMQ
+    // rejects integer-like custom ids ("Custom Ids cannot be integers"), which silently
+    // dropped every published event. Prefix it.
+    const messageId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const timestamp = new Date();
     const correlationId =
       options?.correlationId || `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

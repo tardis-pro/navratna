@@ -11,7 +11,7 @@ import {
 import { SecurityLevel, ToolExecutionStatus, ToolCategory } from '@uaip/types';
 import { RedisCacheService } from '../redis_cache_service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge_graph_service';
-import { getControlPool } from '../database/drizzle/clients/index';
+import { getControlPool, getControlDb, eq, controlSchema } from '../database/drizzle/clients/index';
 
 type ToolUsageData = {
   toolId: string;
@@ -67,11 +67,15 @@ export class ToolService extends BaseDomainService {
   }
 
   public async findToolByName(name: string): Promise<Record<string, unknown> | null> {
-    const pool = getControlPool();
-    const result = await pool.query(`SELECT * FROM tool_definitions WHERE name = $1 LIMIT 1`, [
-      name,
-    ]);
-    return result.rows[0] ?? null;
+    // Query via Drizzle (not a raw SELECT *) so the row comes back camelCase-mapped, the
+    // same shape as findToolById. A raw row exposes is_enabled/return_type etc. in snake
+    // case, so callers reading `.isEnabled` saw undefined and treated the tool as disabled.
+    const rows = await getControlDb()
+      .select()
+      .from(controlSchema.toolDefinitions)
+      .where(eq(controlSchema.toolDefinitions.name, name))
+      .limit(1);
+    return (rows[0] as Record<string, unknown> | undefined) ?? null;
   }
 
   public async findToolById(id: string): Promise<Record<string, unknown> | null> {

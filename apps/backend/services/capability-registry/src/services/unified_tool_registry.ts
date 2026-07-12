@@ -492,7 +492,13 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
 
     try {
-      const baseTool = await this.toolService.findToolById(toolId);
+      // Resolve by UUID id, or by name. Callers (workflow steps, the coordinator) reference
+      // native tools by a stable name like "shell-exec"; the DB id is a generated UUID, and
+      // findToolById would throw on a non-UUID value.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toolId);
+      const baseTool = isUuid
+        ? await this.toolService.findToolById(toolId)
+        : await this.toolService.findToolByName(toolId);
       if (!baseTool) {
         throw new NotFoundError(`Tool ${toolId} not found`);
       }
@@ -857,7 +863,10 @@ export class UnifiedToolRegistry {
       // registered exec node handles a remote runtime, capability-matched on the step's
       // `requires`. This is what makes non-vendor tools (shell/http/mcp) actually run
       // instead of dead-ending at "No executor found".
-      return await this.executeViaMesh(tool.id, parameters, context);
+      //
+      // Pass the tool NAME, not the UUID id: BaseToolExecutor (and mcp-*/oauth- routing)
+      // dispatches on the semantic key, while the DB primary key is a generated UUID.
+      return await this.executeViaMesh(tool.name || tool.id, parameters, context);
     } catch (error) {
       logger.error('Standard execution failed', { error, toolId: tool.id, operation });
       throw error;
