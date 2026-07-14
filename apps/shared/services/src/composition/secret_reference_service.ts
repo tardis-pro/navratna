@@ -94,8 +94,7 @@ export class SecretReferenceService {
 
     if (flaggedPaths.length > 0) {
       logger.warn('Raw secrets detected in workflow definition', {
-        flaggedPaths,
-        patterns,
+        flaggedCount: flaggedPaths.length,
       });
     }
 
