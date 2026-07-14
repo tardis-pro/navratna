@@ -91,6 +91,18 @@ export function createEventsRoutes(registry: SessionRegistry) {
               logger.warn('exec-node-coding: SSE backpressure limit — closing stream', {
                 sessionId: params.id,
               });
+              const unsub = unsubscribe;
+              unsubscribe = null;
+              if (unsub) unsub();
+              session.buildBackpressureEvent();
+              controller.enqueue(toSseFrame({
+                id: `${params.id}-${session.lastEventSeq}`,
+                seq: session.lastEventSeq,
+                sessionId: params.id,
+                timestamp: Date.now(),
+                type: 'backpressure',
+                payload: { droppedAfterSeq: session.lastEventSeq - 1 },
+              }));
               cleanup();
               controller.close();
               return;

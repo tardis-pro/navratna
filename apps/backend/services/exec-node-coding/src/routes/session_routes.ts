@@ -544,7 +544,10 @@ async function initializePiSession(
   ghCred?: GitHubCredential,
 ): Promise<void> {
   try {
+    session.emitProvision('queued');
+
     if (ghCred) {
+      session.emitProvision('cloning', ghCred.repositoryFullName);
       await secureGitClone({
         credential: ghCred,
         workspacePath: loaderOptions.cwd,
@@ -552,6 +555,8 @@ async function initializePiSession(
         repositoryId: session.repositoryId,
       });
     }
+
+    session.emitProvision('installing');
 
     if (isResume && fs.existsSync(manifestPath)) {
       let rawManifest: unknown;
@@ -578,6 +583,7 @@ async function initializePiSession(
 
       session.attachPiSession(pair.session);
       session.emitSessionRecovered(session.sessionFile, wasInterrupted);
+      session.emitProvision('ready');
       session.transition('READY');
     } else {
       const pair = await piLoader(loaderOptions);
@@ -586,6 +592,7 @@ async function initializePiSession(
 
       session.attachPiSession(pair.session);
       session.emitSessionCreated(session.sessionFile);
+      session.emitProvision('ready');
       session.transition('READY');
     }
 

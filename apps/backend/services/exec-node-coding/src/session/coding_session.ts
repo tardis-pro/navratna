@@ -14,6 +14,8 @@ import type {
 import type { AgentSessionEventListener } from '@mariozechner/pi-coding-agent';
 import { ReplayBuffer } from '../sse/replay_buffer.js';
 import type { PiAgentSession } from './pi_loader.js';
+import { extractKnownTestEvent, extractToolReceipt } from './receipt_extractor.js';
+import type { ExtractedTestEvent } from './receipt_extractor.js';
 
 type SseSubscriber = (event: CodingSessionEvent) => void;
 
@@ -34,6 +36,8 @@ const INTERRUPTED_STATES: Set<CodingSessionState> = new Set([
 ]);
 
 type CompletedKeyEntry = { acceptedAt: number };
+type ProvisionStage = 'queued' | 'booting' | 'cloning' | 'installing' | 'ready';
+type Clock = () => number;
 
 function redactSecrets(value: unknown, secrets: readonly string[], seen = new Set<unknown>()): unknown {
   if (secrets.length === 0) return value;
@@ -82,6 +86,9 @@ export class CodingSession {
   private readonly _replayBuffer: ReplayBuffer;
   private readonly _subscribers: Set<SseSubscriber> = new Set();
   private readonly _credentialSecrets: string[];
+  private readonly _clock: Clock;
+  private _turnStartedAt: number | null = null;
+  private _timeToFirstTokenMs: number | undefined;
   private _piSession: PiAgentSession | null = null;
   private _piUnsubscribe: (() => void) | null = null;
 
@@ -98,6 +105,7 @@ export class CodingSession {
     replayBufferSize: number;
     completedKeyTtlMs?: number;
     credentialSecrets?: readonly string[];
+    clock?: Clock;
   }) {
     this.id = options.id;
     this.workspaceId = options.workspaceId;
@@ -109,8 +117,9 @@ export class CodingSession {
     this._sessionFile = options.sessionFile;
     this._manifestPath = options.manifestPath;
     this._eventTailPath = options.eventTailPath;
-    this._createdAt = Date.now();
-    this._updatedAt = Date.now();
+    this._clock = options.clock ?? (() => Date.now());
+    this._createdAt = this._clock();
+    this._updatedAt = this._clock();
     this._replayBuffer = new ReplayBuffer(options.replayBufferSize);
     this._completedKeyTtlMs = options.completedKeyTtlMs ?? 600_000;
     this._lastEventSeq = 0;
@@ -127,7 +136,7 @@ export class CodingSession {
       throw new Error('newToken must not be empty');
     }
     const expiryMs = Date.parse(expiresAt);
-    if (!Number.isFinite(expiryMs) || expiryMs <= Date.now()) {
+    if (!Number.isFinite(expiryMs) || expiryMs <= this._clock()) {
       throw new Error('GitHub credential expiry must be in the future');
     }
     this._credentialSecrets.push(newToken);
@@ -219,7 +228,7 @@ export class CodingSession {
     }
     const from = this._state;
     this._state = to;
-    this._updatedAt = Date.now();
+    this._updatedAt = this._clock();
     this._emitStateChanged(from, to);
   }
 
@@ -227,7 +236,7 @@ export class CodingSession {
     if (this._activeIdempotencyKey === idempotencyKey) return 'pending';
     const entry = this._completedKeys.get(idempotencyKey);
     if (entry) {
-      if (Date.now() - entry.acceptedAt < this._completedKeyTtlMs) return 'completed';
+      if (this._clock() - entry.acceptedAt < this._completedKeyTtlMs) return 'completed';
       this._completedKeys.delete(idempotencyKey);
     }
     return 'new';
@@ -262,12 +271,12 @@ export class CodingSession {
   }
 
   _markKeyCompleted(key: string): void {
-    this._completedKeys.set(key, { acceptedAt: Date.now() });
+    this._completedKeys.set(key, { acceptedAt: this._clock() });
     this._evictExpiredKeys();
   }
 
   private _evictExpiredKeys(): void {
-    const now = Date.now();
+    const now = this._clock();
     for (const [k, v] of this._completedKeys) {
       if (now - v.acceptedAt >= this._completedKeyTtlMs) this._completedKeys.delete(k);
     }
@@ -344,7 +353,7 @@ export class CodingSession {
   emitSessionRecovered(sessionFile: string, interruptedTurn: boolean): void {
     const seq = ++this._lastEventSeq;
     const event: CodingSessionEvent = {
-      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: Date.now(),
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
       type: 'session_recovered', payload: { sessionFile, interruptedTurn },
     };
     this._fanOut(event, seq);
@@ -353,10 +362,56 @@ export class CodingSession {
   emitSessionCreated(sessionFile: string): void {
     const seq = ++this._lastEventSeq;
     const event: CodingSessionEvent = {
-      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: Date.now(),
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
       type: 'session_created', payload: { sessionFile },
     };
     this._fanOut(event, seq);
+  }
+
+  emitProvision(stage: ProvisionStage, detail?: string): void {
+    const seq = ++this._lastEventSeq;
+    const base = { id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock() };
+    const payload = { stage, detail };
+    const event = this._buildProvisionEvent(stage, base, payload);
+    this._fanOut(event, seq);
+  }
+
+  private _buildProvisionEvent(
+    stage: ProvisionStage,
+    base: { id: string; seq: number; sessionId: string; timestamp: number },
+    payload: { stage: ProvisionStage; detail?: string },
+  ): CodingSessionEvent {
+    switch (stage) {
+      case 'queued': return { ...base, type: 'provision_queued', payload };
+      case 'booting': return { ...base, type: 'provision_booting', payload };
+      case 'cloning': return { ...base, type: 'provision_cloning', payload };
+      case 'installing': return { ...base, type: 'provision_installing', payload };
+      case 'ready': return { ...base, type: 'provision_ready', payload };
+    }
+  }
+
+  emitProvisionLifecycle(stages: ProvisionStage[]): void {
+    for (const stage of stages) this.emitProvision(stage);
+  }
+
+  emitBackpressureTerminalEvent(droppedAfterSeq: number): void {
+    const seq = ++this._lastEventSeq;
+    const event: CodingSessionEvent = {
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
+      type: 'backpressure', payload: { droppedAfterSeq },
+    };
+    this._fanOut(event, seq);
+  }
+
+  buildBackpressureEvent(): CodingSessionEvent {
+    const droppedAfterSeq = this._lastEventSeq;
+    const seq = ++this._lastEventSeq;
+    const event: CodingSessionEvent = {
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
+      type: 'backpressure', payload: { droppedAfterSeq },
+    };
+    this._fanOut(event, seq);
+    return event;
   }
 
   subscribe(fn: SseSubscriber): () => void {
@@ -392,13 +447,20 @@ export class CodingSession {
   private _handlePiEvent(raw: Record<string, unknown>): void {
     const safeEvent = redactSecrets(raw, this._credentialSecrets);
     if (safeEvent === null || typeof safeEvent !== 'object' || Array.isArray(safeEvent)) {
-      throw new Error('pi emitted a non-object event');
+      logger.warn('exec-node-coding: ignoring non-object pi event', { sessionId: this.id });
+      return;
     }
     const redacted = Object.fromEntries(Object.entries(safeEvent));
-    const type = typeof redacted['type'] === 'string' ? redacted['type'] : 'message_update';
+    const type = typeof redacted['type'] === 'string' ? redacted['type'] : 'unknown';
+    const now = this._clock();
 
     if (type === 'agent_start') {
       if (this._state === 'PROMPTING') this.transition('STREAMING');
+    } else if (type === 'turn_start') {
+      this._turnStartedAt = now;
+      this._timeToFirstTokenMs = undefined;
+    } else if (type === 'message_update') {
+      this._captureFirstToken(redacted, now);
     } else if (type === 'agent_end') {
       if (this._state === 'STREAMING' || this._state === 'ABORTING') {
         const key = this._activeIdempotencyKey;
@@ -408,15 +470,32 @@ export class CodingSession {
       }
     }
 
+    const knownTestEvent = extractKnownTestEvent(redacted);
+    if (knownTestEvent !== null) {
+      this._emitExtractedTestEvent(knownTestEvent);
+      return;
+    }
+
     const seq = ++this._lastEventSeq;
-    const event = this._buildEvent(type, redacted, seq);
+    const event = this._buildEvent(type, redacted, seq, now);
     this._fanOut(event, seq);
+
+    if (type === 'tool_execution_end') {
+      const extraction = extractToolReceipt(redacted);
+      if (extraction?.receipt) this._emitReceipt(extraction.receipt);
+      for (const testEvent of extraction?.testEvents ?? []) this._emitExtractedTestEvent(testEvent);
+    }
+
+    if (type === 'agent_end') {
+      this._turnStartedAt = null;
+      this._timeToFirstTokenMs = undefined;
+    }
   }
 
-  private _buildEvent(type: string, raw: Record<string, unknown>, seq: number): CodingSessionEvent {
+  private _buildEvent(type: string, raw: Record<string, unknown>, seq: number, now: number): CodingSessionEvent {
     const id = `${this.id}-${seq}`;
     const sessionId = this.id;
-    const timestamp = Date.now();
+    const timestamp = now;
 
     switch (type) {
       case 'agent_start':
@@ -435,20 +514,60 @@ export class CodingSession {
         return { id, seq, sessionId, timestamp, type: 'tool_execution_end', payload: raw };
       case 'turn_end':
         return { id, seq, sessionId, timestamp, type: 'turn_end', payload: raw };
-      case 'agent_end':
-        return { id, seq, sessionId, timestamp, type: 'agent_end', payload: { event: raw, turnDurationMs: 0 } };
+      case 'agent_end': {
+        const turnDurationMs = this._turnStartedAt === null ? 0 : Math.max(0, now - this._turnStartedAt);
+        return {
+          id, seq, sessionId, timestamp, type: 'agent_end',
+          payload: { event: raw, turnDurationMs, timeToFirstTokenMs: this._timeToFirstTokenMs },
+        };
+      }
       default:
+        logger.warn('exec-node-coding: unknown pi event type', { sessionId, upstreamType: type });
         return {
           id, seq, sessionId, timestamp, type: 'error',
-          payload: { code: 'UNKNOWN_EVENT', message: `Unknown pi event type: ${type}`, recoverable: true },
+          payload: { code: 'UNKNOWN_EVENT', message: 'Unsupported upstream event was ignored', recoverable: true },
         };
     }
+  }
+
+  private _captureFirstToken(raw: Record<string, unknown>, now: number): void {
+    if (this._turnStartedAt === null || this._timeToFirstTokenMs !== undefined) return;
+    const nested = raw['assistantMessageEvent'];
+    const nestedDelta = nested !== null && typeof nested === 'object' && !Array.isArray(nested)
+      ? (nested as Record<string, unknown>)['delta']
+      : undefined;
+    const delta = raw['delta'] ?? raw['contentDelta'] ?? nestedDelta;
+    if (typeof delta === 'string' && delta.trim().length > 0) {
+      this._timeToFirstTokenMs = Math.max(0, now - this._turnStartedAt);
+    }
+  }
+
+  private _emitReceipt(receipt: Extract<CodingSessionEvent, { type: 'receipt' }>['payload']): void {
+    const seq = ++this._lastEventSeq;
+    this._fanOut({
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
+      type: 'receipt', payload: receipt,
+    }, seq);
+  }
+
+  private _emitExtractedTestEvent(extracted: ExtractedTestEvent): void {
+    const seq = ++this._lastEventSeq;
+    const base = { id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock() };
+    let event: CodingSessionEvent;
+    if (extracted.type === 'test_run_start') {
+      event = { ...base, type: 'test_run_start', payload: extracted.payload };
+    } else if (extracted.type === 'test_case_result') {
+      event = { ...base, type: 'test_case_result', payload: extracted.payload };
+    } else {
+      event = { ...base, type: 'test_run_end', payload: extracted.payload };
+    }
+    this._fanOut(event, seq);
   }
 
   private _emitStateChanged(from: CodingSessionState, to: CodingSessionState): void {
     const seq = ++this._lastEventSeq;
     const event: CodingSessionEvent = {
-      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: Date.now(),
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
       type: 'state_changed', payload: { from, to },
     };
     this._fanOut(event, seq);
@@ -457,7 +576,7 @@ export class CodingSession {
   private _emitSessionAborted(idempotencyKey: string | undefined): void {
     const seq = ++this._lastEventSeq;
     const event: CodingSessionEvent = {
-      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: Date.now(),
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
       type: 'session_aborted', payload: { idempotencyKey },
     };
     this._fanOut(event, seq);
@@ -466,7 +585,7 @@ export class CodingSession {
   private _emitSessionClosed(reason: string | undefined): void {
     const seq = ++this._lastEventSeq;
     const event: CodingSessionEvent = {
-      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: Date.now(),
+      id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),
       type: 'session_closed', payload: { reason },
     };
     this._fanOut(event, seq);
