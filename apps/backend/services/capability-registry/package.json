@@ -45,6 +45,7 @@
     "pg": "catalog:backend",
     "prom-client": "catalog:backend",
     "elysia": "catalog:backend",
+    "jose": "^5.10.0",
     "zod": "catalog:"
   },
   "devDependencies": {
