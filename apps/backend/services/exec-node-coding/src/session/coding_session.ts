@@ -7,6 +7,7 @@ import {
   CodingSessionStateSchema,
 } from '@uaip/types';
 import type {
+  CodingReceipt,
   CodingSessionEvent,
   CodingSessionManifest,
   CodingSessionState,
@@ -542,7 +543,7 @@ export class CodingSession {
     }
   }
 
-  private _emitReceipt(receipt: Extract<CodingSessionEvent, { type: 'receipt' }>['payload']): void {
+  private _emitReceipt(receipt: CodingReceipt): void {
     const seq = ++this._lastEventSeq;
     this._fanOut({
       id: `${this.id}-${seq}`, seq, sessionId: this.id, timestamp: this._clock(),

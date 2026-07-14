@@ -14,7 +14,7 @@ app = 'navratna-coding'
 primary_region = 'sin'
 
 [build]
-  dockerfile = 'apps/backend/services/exec-node-coding/Dockerfile'
+  dockerfile = '../../apps/backend/services/exec-node-coding/Dockerfile'
   ignorefile = '.dockerignore'
 
 [[vm]]

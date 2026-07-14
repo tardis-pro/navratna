@@ -1,13 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { CodingReceipt, CodingSessionEvent } from '@uaip/types';
+import type { CodingReceipt } from '@uaip/types';
 
-type TestRunStartEvent = Extract<CodingSessionEvent, { type: 'test_run_start' }>;
-type TestCaseResultEvent = Extract<CodingSessionEvent, { type: 'test_case_result' }>;
-type TestRunEndEvent = Extract<CodingSessionEvent, { type: 'test_run_end' }>;
 export type ExtractedTestEvent =
-  | { type: 'test_run_start'; payload: TestRunStartEvent['payload'] }
-  | { type: 'test_case_result'; payload: TestCaseResultEvent['payload'] }
-  | { type: 'test_run_end'; payload: TestRunEndEvent['payload'] };
+  | { type: 'test_run_start'; payload: { runner: string; fileCount?: number } }
+  | { type: 'test_case_result'; payload: { name: string; file: string; status: 'pass' | 'fail' | 'skip'; durationMs: number; error?: string } }
+  | { type: 'test_run_end'; payload: { passed: number; failed: number; skipped: number; durationMs: number; success: boolean } };
 
 export type ReceiptExtraction = {
   receipt: CodingReceipt | null;
