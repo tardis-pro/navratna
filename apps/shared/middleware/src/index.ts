@@ -14,6 +14,7 @@ export {
   attachNginxAuth,
   requireNginxAuth,
   withNginxAuth,
+  getNginxUser,
   validateJWTConfiguration,
   validateJWTSetup,
   diagnoseJWTSignatureError,

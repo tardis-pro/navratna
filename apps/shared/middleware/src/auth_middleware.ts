@@ -221,6 +221,41 @@ export function requireNginxAuth<T extends Elysia>(app: T) {
 
 export const withNginxAuth = (app: AnyElysia) => requireNginxAuth(attachNginxAuth(app));
 
+/**
+ * Runtime helper for route handlers behind withNginxAuth.
+ * Elysia's type system cannot infer the derived `user` field through plugin/group
+ * boundaries, so handlers must read it through this helper which performs a
+ * runtime guard. Because requireNginxAuth always returns 401 before the handler
+ * is invoked, the guard should never throw in production.
+ */
+export function getNginxUser(ctx: unknown): UserContext {
+  if (typeof ctx !== 'object' || ctx === null || !('user' in ctx)) {
+    throw new Error('getNginxUser: user not found in context — withNginxAuth guard did not run');
+  }
+  const user = ctx.user;
+  if (
+    typeof user !== 'object' ||
+    user === null ||
+    !('id' in user) ||
+    typeof user.id !== 'string' ||
+    !('email' in user) ||
+    typeof user.email !== 'string' ||
+    !('role' in user) ||
+    typeof user.role !== 'string' ||
+    !('organizationId' in user) ||
+    typeof user.organizationId !== 'string'
+  ) {
+    throw new Error('getNginxUser: invalid user context — withNginxAuth guard did not run');
+  }
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    organizationId: user.organizationId,
+    sessionId: 'sessionId' in user && typeof user.sessionId === 'string' ? user.sessionId : undefined,
+  };
+}
+
 // Utility function to validate JWT secret at runtime
 export const validateJWTConfiguration = (): { isValid: boolean; warnings: string[] } => {
   const warnings: string[] = [];

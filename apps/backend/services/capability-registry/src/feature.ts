@@ -7,11 +7,101 @@ import { registerWorkspaceRoutes } from './routes/workspace_routes.js'
 import { registerFederationRoutes } from './routes/federation_routes.js'
 import { registerCanvaRoutes } from './routes/canva_routes.js'
 import { registerMeshNodeRoutes } from './routes/mesh_node_routes.js'
+import { registerGitHubAppInstallationRoutes } from './routes/github_app_installation_routes.js'
 import { FederationRegistryService } from './services/federation_registry_service.js'
 import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
 import { UnifiedToolRegistry } from './services/unified_tool_registry.js'
+import { CodingSessionStore } from './services/execution_mesh/coding_session_store.js'
+import { CodingNodeClient } from './services/execution_mesh/coding_node_client.js'
+import { CodingSessionCoordinator } from './services/execution_mesh/coding_session_coordinator.js'
+import { FlyMachineDriver } from './services/execution_mesh/fly_machine_driver.js'
+import { GitHubAppTokenBroker } from './services/execution_mesh/github_app_token_broker.js'
+import type { BrokerRedisClient } from './services/execution_mesh/github_app_token_broker.js'
+import { GitHubAppInstallationRepository } from './services/execution_mesh/github_app_installation_repository.js'
+import { probeKeyPair, importSigningKey } from './services/execution_mesh/coding_node_jwt.js'
+import { createProductionAuditSink } from './services/execution_mesh/coding_session_audit_sink.js'
+import type { RedisClient } from './services/execution_mesh/coding_session_store.js'
+import { getRedisClient } from '@uaip/infra'
+import { getControlDb } from '@uaip/shared-services'
 import { ToolCategory, SecurityLevel } from '@uaip/types'
 import { logger } from '@uaip/utils'
+
+let codingCoordinator: CodingSessionCoordinator | null = null
+let githubTokenBroker: GitHubAppTokenBroker | null = null
+let githubInstallationRepository: GitHubAppInstallationRepository | null = null
+
+function requiredEnv(name: string): string {
+  const value = process.env[name]?.trim()
+  if (!value) throw new Error(`Missing required coding-tier environment variable: ${name}`)
+  return value
+}
+
+async function buildCodingCoordinator(): Promise<CodingSessionCoordinator> {
+  const privatePem = requiredEnv('CODING_NODE_JWT_PRIVATE_KEY_PEM')
+  const publicPem = requiredEnv('CODING_NODE_JWT_PUBLIC_KEY_PEM')
+  const appId = requiredEnv('GITHUB_APP_ID')
+  const appPrivateKeyPem = requiredEnv('GITHUB_APP_PRIVATE_KEY_PEM')
+  const encryptionKeyHex = requiredEnv('GITHUB_IAT_ENCRYPTION_KEY')
+
+  if (encryptionKeyHex.length !== 64) {
+    throw new Error('GITHUB_IAT_ENCRYPTION_KEY must be exactly 64 hex characters (32-byte AES-256 key)')
+  }
+
+  await probeKeyPair(privatePem, publicPem)
+  await importSigningKey(privatePem)
+
+  const redisClient = await getRedisClient()
+  if (!redisClient) throw new Error('Coding tier requires a healthy Redis connection')
+
+  const redis: RedisClient = {
+    get: (key) => redisClient.get(key),
+    set: (key, value, expiryMode, seconds) => redisClient.set(key, value, expiryMode, seconds),
+    del: (...keys) => redisClient.del(...keys),
+    eval: (script, keyCount, ...args) => redisClient.eval(script, keyCount, ...args),
+  }
+
+  const brokerRedis: BrokerRedisClient = {
+    get: (key) => redisClient.get(key),
+    setEx: (key, value, seconds) => redisClient.set(key, value, 'EX', seconds),
+    setNxPx: (key, value, milliseconds) => redisClient.set(key, value, 'PX', milliseconds, 'NX'),
+    del: (...keys) => redisClient.del(...keys),
+    eval: (script, keyCount, ...args) => redisClient.eval(script, keyCount, ...args),
+  }
+  const broker = new GitHubAppTokenBroker({
+    redis: brokerRedis,
+    appId,
+    privateKeyPem: appPrivateKeyPem,
+    encryptionKeyHex,
+  })
+
+  const controlDb = getControlDb()
+  const installationRepo = new GitHubAppInstallationRepository(controlDb)
+  githubTokenBroker = broker
+  githubInstallationRepository = installationRepo
+
+  const fallbackRegions = (process.env.FLY_CODING_FALLBACK_REGIONS ?? '')
+    .split(',')
+    .map((region) => region.trim())
+    .filter(Boolean)
+  const store = new CodingSessionStore({ redis })
+  const fly = new FlyMachineDriver({
+    apiToken: requiredEnv('FLY_API_TOKEN'),
+    appName: requiredEnv('FLY_CODING_APP'),
+    image: requiredEnv('FLY_CODING_IMAGE'),
+    primaryRegion: requiredEnv('FLY_CODING_PRIMARY_REGION'),
+    fallbackRegions,
+  })
+  const auditSink = await createProductionAuditSink()
+  return new CodingSessionCoordinator({
+    store,
+    nodeClient: new CodingNodeClient(),
+    fly,
+    codingNodePublicKeyPem: publicPem,
+    auditSink,
+    broker,
+    installationRepo,
+  })
+}
 
 /**
  * Native execution primitives the mesh runs in-process (or dispatches to an exec node):
@@ -104,6 +194,7 @@ export const capabilityFeature: Feature = {
     const registry = new UnifiedToolRegistry(deps?.eventBusService)
     await registry.initialize()
     await registerNativeTools(registry)
+    codingCoordinator = await buildCodingCoordinator()
   },
 
   routes(app) {
@@ -111,7 +202,10 @@ export const capabilityFeature: Feature = {
     app.use(registerMCPRoutes())
     app.use(registerHealthRoutes())
     app.use(registerToolRoutes())
-    app.use(registerWorkspaceRoutes())
+    if (!codingCoordinator) throw new Error('Coding session coordinator was not initialized')
+    if (!githubTokenBroker || !githubInstallationRepository) throw new Error('GitHub App binding services were not initialized')
+    app.use(registerWorkspaceRoutes(undefined, codingCoordinator))
+    app.use(registerGitHubAppInstallationRoutes(githubInstallationRepository, githubTokenBroker))
     app.use(registerFederationRoutes())
     app.use(registerCanvaRoutes())
     app.use(registerMeshNodeRoutes())
