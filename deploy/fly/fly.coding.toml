@@ -1,0 +1,31 @@
+# fly.coding.toml — exec-node-coding sandbox image/app template
+#
+# SECURITY CONSTRAINTS (enforced here and in fly_machine_driver.ts):
+#   - NO [http_service] or [[services]] — no public ports or routing
+#   - Memory 2048 MB, swap 0 MB — no swap ever
+#   - auto_stop suspend, min_machines_running 0 — machines are driver-owned
+#   - Dynamic Machine creation is done entirely through the Machines API driver;
+#     this toml is used only as an app template and for `fly deploy --build-only`
+#
+# Dynamic Machines are created per-session by FlyMachineDriver with:
+#   guest.memory_mb=2048, swap_size_mb=0, restart.policy=no, no services
+
+app = 'navratna-coding'
+primary_region = 'sin'
+
+[build]
+  dockerfile = 'apps/backend/services/exec-node-coding/Dockerfile'
+  ignorefile = '.dockerignore'
+
+[[vm]]
+  memory = '2048mb'
+  cpus = 2
+  cpu_kind = 'performance'
+  swap_size_mb = 0
+
+[env]
+  NODE_ENV = 'production'
+  HOST = '::'
+  PORT = '3009'
+  WORKSPACE_ROOT = '/workspace'
+  SESSION_DIR = '/workspace/.navratna/sessions'
