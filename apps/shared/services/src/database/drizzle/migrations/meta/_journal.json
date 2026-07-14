@@ -50,6 +50,13 @@
       "when": 1783783286355,
       "tag": "0006_keen_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1752537600000,
+      "tag": "0007_github_app_installations",
+      "breakpoints": true
     }
   ]
 }
