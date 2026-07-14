@@ -18,7 +18,7 @@ primary_region = 'sin'
   ignorefile = '.dockerignore'
 
 [[vm]]
-  memory = '2048mb'
+  memory = '4096mb'
   cpus = 2
   cpu_kind = 'performance'
   swap_size_mb = 0
