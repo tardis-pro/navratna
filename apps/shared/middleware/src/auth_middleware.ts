@@ -166,10 +166,20 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
     // forwarded identity headers on requests that carry a matching X-Edge-Auth
     // header — i.e. requests that actually passed through the Cloudflare Worker.
     // This prevents a client from reaching the public Fly app directly and
-    // forging X-User-* headers to impersonate any user. Unset secret = trust
-    // headers (local dev / pre-rollout), preserving existing behavior.
+    // forging X-User-* headers to impersonate any user.
     const edgeSecret = process.env.EDGE_AUTH_SECRET;
-    if (edgeSecret && headers['x-edge-auth'] !== edgeSecret) {
+    if (!edgeSecret) {
+      // Fail closed in production: with no shared secret we cannot distinguish a
+      // request that passed through the trusted edge from one that hit the public
+      // app directly, so we must NOT trust X-User-* headers. In dev/test we keep
+      // trusting them so local flows work without the edge.
+      if (process.env.NODE_ENV === 'production') {
+        logger.error(
+          'attachNginxAuth: EDGE_AUTH_SECRET is not set in production — refusing forwarded identity headers (fail-closed)'
+        );
+        return { user: null };
+      }
+    } else if (headers['x-edge-auth'] !== edgeSecret) {
       return { user: null };
     }
 

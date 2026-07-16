@@ -67,6 +67,7 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/webhooks', target: 'gateway' },
   { prefix: '/api/v1/capabilities', target: 'gateway' },
   { prefix: '/api/v1/workspaces', target: 'gateway' },
+  { prefix: '/api/v1/mesh', target: 'gateway' }, // exec-mesh node enroll/heartbeat/tokens
   { prefix: '/api/v1/canva', target: 'gateway' },
   { prefix: '/api/v1/tools', target: 'gateway' },
   { prefix: '/api/v1/mcp', target: 'gateway' },
