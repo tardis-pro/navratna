@@ -28,7 +28,8 @@ interface Env {
   GATEWAY_URL: string; // https://navratna-gateway.fly.dev
   FRONTEND_URL: string; // https://navratna.tardis.digital
   CORS_ORIGINS: string; // comma-separated allowed origins
-  JWT_SECRET: string; // HS256 secret (wrangler secret)
+  JWT_SECRET: string; // HS256 secret (wrangler secret) — legacy token verification
+  JWKS_URL?: string; // override for the RS256 JWKS endpoint (default: GATEWAY_URL/.well-known/jwks.json)
   EDGE_AUTH_SECRET?: string; // shared secret proving a request came through this Worker
   STORAGE?: R2Bucket;
 }
@@ -143,16 +144,34 @@ interface JwtClaims {
   userId?: string;
   email?: string;
   role?: string;
+  orgId?: string;
+  scp?: string[] | string;
   iss?: string;
   aud?: string | string[];
   exp?: number;
 }
 
 /**
- * Verify an HS256 JWT the same way @uaip/middleware JWTValidator does.
- * Returns the claims on success, or null on any failure.
+ * Standard claim checks shared by both algorithms: issuer, audience, expiry, and
+ * the required identity fields. Matches @uaip/middleware verify options.
  */
-async function verifyJwt(token: string, secret: string): Promise<JwtClaims | null> {
+function claimsValid(claims: JwtClaims): boolean {
+  if (claims.iss !== JWT_ISSUER) return false;
+  const aud = claims.aud;
+  const audOk = Array.isArray(aud) ? aud.includes(JWT_AUDIENCE) : aud === JWT_AUDIENCE;
+  if (!audOk) return false;
+  if (typeof claims.exp === 'number' && Date.now() >= claims.exp * 1000) return false;
+  return (
+    typeof claims.userId === 'string' &&
+    typeof claims.email === 'string' &&
+    typeof claims.role === 'string'
+  );
+}
+
+/**
+ * Verify an HS256 JWT (legacy path, kept through the RS256 rollout window).
+ */
+async function verifyJwtHs256(token: string, secret: string): Promise<JwtClaims | null> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -174,25 +193,98 @@ async function verifyJwt(token: string, secret: string): Promise<JwtClaims | nul
     if (!valid) return null;
 
     const claims = JSON.parse(b64urlToString(payloadB64)) as JwtClaims;
-
-    // issuer / audience checks (match jsonwebtoken verify options)
-    if (claims.iss !== JWT_ISSUER) return null;
-    const aud = claims.aud;
-    const audOk = Array.isArray(aud) ? aud.includes(JWT_AUDIENCE) : aud === JWT_AUDIENCE;
-    if (!audOk) return null;
-
-    // expiry
-    if (typeof claims.exp === 'number' && Date.now() >= claims.exp * 1000) return null;
-
-    // required payload fields
-    if (typeof claims.userId !== 'string' || typeof claims.email !== 'string' || typeof claims.role !== 'string') {
-      return null;
-    }
-
-    return claims;
+    return claimsValid(claims) ? claims : null;
   } catch {
     return null;
   }
+}
+
+// --- RS256 verification via the gateway's published JWKS (cached in-isolate) ---
+
+interface JwksCache {
+  keys: Map<string, CryptoKey>;
+  fetchedAt: number;
+}
+let jwksCache: JwksCache | null = null;
+const JWKS_TTL_MS = 3_600_000; // 1h
+
+function jwksUrl(env: Env): string {
+  return env.JWKS_URL ?? `${env.GATEWAY_URL}/.well-known/jwks.json`;
+}
+
+async function loadJwks(env: Env, force: boolean): Promise<Map<string, CryptoKey>> {
+  const now = Date.now();
+  if (!force && jwksCache && now - jwksCache.fetchedAt < JWKS_TTL_MS) {
+    return jwksCache.keys;
+  }
+  const res = await fetch(jwksUrl(env));
+  if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`);
+  const body = (await res.json()) as { keys?: Array<Record<string, unknown>> };
+  const keys = new Map<string, CryptoKey>();
+  for (const jwk of body.keys ?? []) {
+    if (jwk['kty'] !== 'RSA' || typeof jwk['kid'] !== 'string') continue;
+    const key = await crypto.subtle.importKey(
+      'jwk',
+      jwk as unknown as JsonWebKey,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    keys.set(jwk['kid'], key);
+  }
+  jwksCache = { keys, fetchedAt: now };
+  return keys;
+}
+
+/**
+ * Verify an RS256 JWT against the gateway's JWKS. On a kid miss (key rotation)
+ * the cache is force-refreshed once before giving up.
+ */
+async function verifyJwtRs256(token: string, env: Env): Promise<JwtClaims | null> {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [headerB64, payloadB64, sigB64] = parts;
+
+    const header = JSON.parse(b64urlToString(headerB64)) as { alg?: string; kid?: string };
+    if (header.alg !== 'RS256' || typeof header.kid !== 'string') return null;
+
+    let keys = await loadJwks(env, false);
+    let key = keys.get(header.kid);
+    if (!key) {
+      keys = await loadJwks(env, true);
+      key = keys.get(header.kid);
+    }
+    if (!key) return null;
+
+    const data = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+    const valid = await crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, key, b64urlToUint8(sigB64), data);
+    if (!valid) return null;
+
+    const claims = JSON.parse(b64urlToString(payloadB64)) as JwtClaims;
+    return claimsValid(claims) ? claims : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verify a token by the algorithm declared in its header — RS256 (new) or HS256
+ * (legacy). Reading alg first prevents algorithm-confusion; an unknown alg is
+ * rejected.
+ */
+async function verifyJwt(token: string, env: Env): Promise<JwtClaims | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  let alg: string | undefined;
+  try {
+    alg = (JSON.parse(b64urlToString(parts[0])) as { alg?: string }).alg;
+  } catch {
+    return null;
+  }
+  if (alg === 'RS256') return verifyJwtRs256(token, env);
+  if (alg === 'HS256') return verifyJwtHs256(token, env.JWT_SECRET);
+  return null;
 }
 
 function extractToken(request: Request): string | null {
@@ -283,6 +375,8 @@ export default {
     headers.delete('X-User-ID');
     headers.delete('X-User-Email');
     headers.delete('X-User-Role');
+    headers.delete('X-User-Org'); // tenant — only the edge may set it
+    headers.delete('X-User-Scopes');
     headers.delete('X-Edge-Auth'); // never allow a client to supply this
     headers.delete('Host');
 
@@ -304,11 +398,21 @@ export default {
     if (!isPublicPath(pathname)) {
       const token = extractToken(request);
       if (token) {
-        const claims = await verifyJwt(token, env.JWT_SECRET);
+        const claims = await verifyJwt(token, env);
         if (claims && typeof claims.userId === 'string' && UUID_REGEX.test(claims.userId)) {
           headers.set('X-User-ID', claims.userId);
           headers.set('X-User-Email', claims.email ?? '');
           headers.set('X-User-Role', claims.role ?? 'user');
+          // Tenant + scopes for the backend (attachNginxAuth reads X-User-Org).
+          if (typeof claims.orgId === 'string' && UUID_REGEX.test(claims.orgId)) {
+            headers.set('X-User-Org', claims.orgId);
+          }
+          const scopes = Array.isArray(claims.scp)
+            ? claims.scp.join(' ')
+            : typeof claims.scp === 'string'
+              ? claims.scp
+              : '';
+          if (scopes) headers.set('X-User-Scopes', scopes);
         }
       }
     }

@@ -186,6 +186,7 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
     const userId = headers['x-user-id'];
     const email = headers['x-user-email'];
     const role = headers['x-user-role'];
+    const org = headers['x-user-org'];
 
     logger.debug('attachNginxAuth: checking headers', {
       hasUserId: !!userId,
@@ -205,8 +206,10 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
         id: userId,
         email: email || '',
         role: role || 'user',
-        // TODO(tenant): nginx does not forward orgId yet; default to admin org
-        organizationId: ADMIN_ORG_ID,
+        // Tenant comes from the edge-forwarded X-User-Org (derived from the
+        // token's orgId claim). Fall back to the admin org only when the edge did
+        // not forward one (legacy tokens / pre-rollout).
+        organizationId: org && UUID_REGEX.test(org) ? org : ADMIN_ORG_ID,
       },
     };
   });
@@ -432,7 +435,10 @@ type ValidateJWTTokenResult = {
 
 export const validateJWTToken = async (token: string): Promise<ValidateJWTTokenResult> => {
   try {
-    const decoded = await JWTValidator.verify(token);
+    // verifyAny dispatches by the token's alg header (RS256 or HS256) with
+    // downgrade protection, so both new RS256 tokens and any still-valid legacy
+    // HS256 tokens are accepted during the migration window.
+    const decoded = await JWTValidator.verifyAny(token);
 
     if (!decoded.userId || !decoded.email || !decoded.role) {
       return { valid: false, reason: 'Invalid token payload - missing required fields' };

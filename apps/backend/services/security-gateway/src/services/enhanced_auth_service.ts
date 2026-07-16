@@ -812,7 +812,7 @@ export class EnhancedAuthService {
       agentCapabilities: Array.isArray(session.agentCapabilities) ? session.agentCapabilities.map(String) : [],
     };
 
-    const tokens = generateAuthTokens(payload);
+    const tokens = await generateAuthTokens(payload);
 
     return tokens;
   }

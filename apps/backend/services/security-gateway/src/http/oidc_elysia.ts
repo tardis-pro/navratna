@@ -31,6 +31,8 @@ export function registerOIDCRoutes() {
           'userId',
           'email',
           'role',
+          'orgId',
+          'scp',
           'sessionId',
           'iss',
           'aud',
