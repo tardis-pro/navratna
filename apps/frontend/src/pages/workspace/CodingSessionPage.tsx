@@ -214,9 +214,10 @@ export default function CodingSessionPage() {
     setIsThinking(true);
 
     try {
-      await edenRequest(`/api/v1/workspaces/${workspaceId}/sessions/${sessionId}/messages`, {
+      await edenRequest(`/api/v1/workspaces/${workspaceId}/sessions/${sessionId}/prompt`, {
         method: 'POST',
-        body: { projectId, content },
+        headers: { 'X-Idempotency-Key': crypto.randomUUID() },
+        body: { message: content },
       });
     } catch (error) {
       setIsThinking(false);
