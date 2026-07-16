@@ -57,6 +57,7 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/security', target: 'gateway' },
   { prefix: '/api/v1/approvals', target: 'gateway' },
   { prefix: '/api/v1/users', target: 'gateway' },
+  { prefix: '/api/v1/organizations', target: 'gateway' }, // tenant provisioning (admin)
   { prefix: '/api/v1/audit', target: 'gateway' },
   { prefix: '/api/v1/contacts', target: 'gateway' },
   { prefix: '/api/v1/projects', target: 'gateway' },

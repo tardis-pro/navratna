@@ -73,6 +73,32 @@ export const organizations = pgTable(
   ]
 );
 
+/**
+ * Organization membership ledger. `users.organizationId` remains the user's
+ * ACTIVE org (what RLS keys off); this table records every org a user belongs to
+ * with their role, so provisioning can add/remove members and support multi-org
+ * membership later without changing the RLS model.
+ */
+export const orgMembers = pgTable(
+  'org_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 50 }).notNull().default('member'), // owner | admin | member
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('uq_org_members_org_user').on(t.organizationId, t.userId),
+    index('idx_org_members_user').on(t.userId),
+  ]
+);
+
 export type OrganizationRow = typeof organizations.$inferSelect;
 export type NewOrganizationRow = typeof organizations.$inferInsert;
 
@@ -1201,8 +1227,6 @@ export type NewErasureLedgerRow = typeof erasureLedger.$inferInsert;
 //
 // Uniqueness invariant: at most one *active* binding per (userId, projectId,
 // repositoryId) triple — prevents cross-user/cross-project ambiguity.
-
-const REPO_FULL_NAME_RE = /^[a-zA-Z0-9_.-]{1,100}\/[a-zA-Z0-9_.-]{1,100}$/;
 
 export const githubAppInstallations = pgTable(
   'github_app_installations',

@@ -62,7 +62,11 @@ describe('withTenant', () => {
 
     const noOrgFn = vi.fn().mockResolvedValue('fallback');
 
-    const plugin = createTenantMiddlewarePlugin(() => mockDb);
+    // Injected runner should NOT be called when there is no org.
+    const runInTenant = vi.fn(async (_tenantId: string, fn: () => Promise<unknown>) => fn());
+    const plugin = createTenantMiddlewarePlugin(
+      runInTenant as unknown as Parameters<typeof createTenantMiddlewarePlugin>[0]
+    );
     type DeriveFn = (ctx: { user?: { organizationId?: string } | null }) => {
       setTenantContext: <T>(fn: () => Promise<T>) => Promise<T>;
     };
@@ -81,7 +85,7 @@ describe('withTenant', () => {
 
     expect(result).toBe('fallback');
     expect(noOrgFn).toHaveBeenCalledOnce();
-    expect(mockDb.transaction).not.toHaveBeenCalled();
+    expect(runInTenant).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('tenant'),
       expect.objectContaining({ hasUser: false })

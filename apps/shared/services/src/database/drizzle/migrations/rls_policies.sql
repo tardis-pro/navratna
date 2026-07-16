@@ -1,4 +1,4 @@
--- Migration: RLS tenant isolation policies for all 8 intelligence-plane tables
+-- Migration: RLS tenant isolation policies for all 9 intelligence-plane tables
 -- Run AFTER enable_rls.sql and AFTER all organization_id columns are uuid type.
 --
 -- Policy predicate: organization_id = current_setting('app.tenant_id', true)::uuid
@@ -66,6 +66,25 @@ CREATE POLICY tenant_isolation_update ON discussions
   WITH CHECK  (organization_id = current_setting('app.tenant_id', true)::uuid);
 
 CREATE POLICY tenant_isolation_delete ON discussions
+  FOR DELETE
+  USING (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+-- ─── discussion_messages ──────────────────────────────────────────────────
+
+CREATE POLICY tenant_isolation_select ON discussion_messages
+  FOR SELECT
+  USING (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_insert ON discussion_messages
+  FOR INSERT
+  WITH CHECK (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_update ON discussion_messages
+  FOR UPDATE
+  USING       (organization_id = current_setting('app.tenant_id', true)::uuid)
+  WITH CHECK  (organization_id = current_setting('app.tenant_id', true)::uuid);
+
+CREATE POLICY tenant_isolation_delete ON discussion_messages
   FOR DELETE
   USING (organization_id = current_setting('app.tenant_id', true)::uuid);
 
