@@ -123,9 +123,6 @@ function isStringRecord(v: unknown): v is Record<string, string> {
   return Object.values(v).every((val: unknown) => typeof val === 'string');
 }
 
-function isEntityWithName(v: unknown): v is { name?: string } {
-  return typeof v === 'object' && v !== null;
-}
 
 interface JSONRPCNotification {
   jsonrpc: '2.0';

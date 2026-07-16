@@ -92,6 +92,7 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/user/llm', target: 'core' }, // before /llm
   { prefix: '/api/v1/questionforge', target: 'core' },
   { prefix: '/api/v1/llm', target: 'core' },
+  { prefix: '/s', target: 'core' }, // short-link resolver (/s/:shortCode → 302)
   { prefix: '/socket.io', target: 'core' },
 
   // --- knowledge parent (gateway) — AFTER constellations + ingest ---
@@ -102,7 +103,13 @@ const ROUTE_TABLE: RouteRule[] = [
  * Routes that must never have auth enforced / injected upstream needs.
  * OAuth initiate + provider callbacks run pre-authentication.
  */
-const PUBLIC_PREFIXES = ['/api/v1/auth', '/api/v1/oauth', '/.well-known/'];
+const PUBLIC_PREFIXES = [
+  '/api/v1/auth',
+  '/api/v1/oauth',
+  '/.well-known/',
+  '/api/v1/artifacts/public', // read-only shared-artifact view (no auth)
+  '/s/', // short-link resolver / redirect
+];
 
 function resolveTarget(pathname: string): Target | null {
   // Table is ordered specific-first, so the first prefix match wins.

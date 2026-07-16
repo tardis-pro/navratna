@@ -16,6 +16,7 @@ import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
 import QuestionForgeLanding from './pages/questionforge/QuestionForgeLanding';
 import QuestionForgeResults from './pages/questionforge/QuestionForgeResults';
+import SharedArtifactPage from './pages/shared/SharedArtifactPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +33,20 @@ const queryClient = new QueryClient({
 });
 
 function DesktopApp() {
+  // Public share view — must render OUTSIDE ProtectedRoute so a peer following a
+  // /shared/:shortCode link sees the read-only artifact without a login wall.
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/shared/')) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/shared/:shortCode" element={<SharedArtifactPage />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <UserPreferencesProvider>
       <AuthProvider>

@@ -88,8 +88,9 @@ export const securityFeature: Feature = {
     app.use(registerDashboardRoutes())
     app.use(registerOIDCRoutes())
     app.use(registerLLMAgentProviderRoutes())
-    // github_webhook_routes.ts and jira_webhook_routes.ts intentionally not mounted
-    // until HMAC-SHA256 webhook signature verification is implemented (LOW-3 security gap)
+    // GitHub webhooks are now mounted by orchestration-pipeline (HMAC-SHA256
+    // verified, gated on GITHUB_WEBHOOK_SECRET). jira_webhook_routes.ts remains
+    // unmounted until its signature verification is implemented.
     return app
   },
 

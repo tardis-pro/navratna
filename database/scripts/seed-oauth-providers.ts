@@ -80,7 +80,17 @@ const SEEDS: ProviderSeed[] = [
     authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
-    scopes: ['openid', 'email', 'profile'],
+    // openid/email/profile for login; gmail.readonly + gmail.send for Gmail agent
+    // ops. These are Google "restricted" scopes — existing users must re-consent
+    // after this change. (For a wider audience, prefer incremental auth over
+    // requesting Gmail up front at login.)
+    scopes: [
+      'openid',
+      'email',
+      'profile',
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+    ],
   },
 ];
 
