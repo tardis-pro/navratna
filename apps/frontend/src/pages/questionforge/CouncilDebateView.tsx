@@ -17,6 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { getSeverityColor } from '@/lib/status_tokens';
 import type { CouncilDebateResult, AgentAnalysis } from '@/api/questionforge_api';
 
 interface CouncilDebateViewProps {
@@ -58,10 +59,10 @@ const AGENT_ICON_BG: Record<string, string> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  low: 'bg-green-500',
-  medium: 'bg-yellow-500',
-  high: 'bg-orange-500',
-  critical: 'bg-red-500',
+  low: getSeverityColor('low', 'solid'),
+  medium: getSeverityColor('medium', 'solid'),
+  high: getSeverityColor('high', 'solid'),
+  critical: getSeverityColor('critical', 'solid'),
 };
 
 const _SEVERITY_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> =

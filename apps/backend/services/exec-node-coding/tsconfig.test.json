@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../../packages/shared-utils/tsconfig.json" },
+    { "path": "../../../packages/shared-types/tsconfig.json" }
+  ]
+}

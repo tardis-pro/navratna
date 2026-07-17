@@ -2,7 +2,7 @@ import { edenFetch, treaty } from '@elysiajs/eden'
 import type { Elysia } from 'elysia'
 import type { NavratnaCoreApp, NavratnaGatewayApp, QuestionForgeApp } from '@uaip/contracts/eden'
 import { csrfService } from '@/services/c_s_r_f_service'
-import { API_BASE_URL } from '@/config/api_config'
+import { resolveApiOrigin } from '@/config/api_config'
 
 export class EdenClientError extends Error {
   public statusCode?: number
@@ -18,7 +18,7 @@ export class EdenClientError extends Error {
   }
 }
 
-const baseUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+const baseUrl = resolveApiOrigin()
 
 const CREDENTIALS: RequestCredentials = 'include';
 
@@ -242,6 +242,18 @@ export function unwrapEden<T>(result: EdenResponse<T>): T {
   }
 
   const data: unknown = result.data
+
+  // A JSON endpoint answering with an HTML document means the request never reached
+  // the API — typically a static host serving its SPA fallback. That body is not data:
+  // callers that only truth-test the result would read it as a successful response.
+  if (typeof data === 'string' && data.trimStart().startsWith('<')) {
+    throw new EdenClientError(
+      'Expected JSON from the API but received an HTML document. The API base URL is likely misconfigured.',
+      502,
+      'NON_JSON_RESPONSE',
+    )
+  }
+
   if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
     const dataAny: any = data; // oxlint-disable-line @typescript-eslint/no-explicit-any -- data.data is unknown; T is the expected runtime shape
     const unwrapped: T = dataAny.data

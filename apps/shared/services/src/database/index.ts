@@ -6,6 +6,8 @@ export {
   getControlDb,
   getIntelligencePool,
   getControlPool,
+  runInTenantTransaction,
+  hasTenantContext,
   CrossPlaneGuard,
   type IntelligenceDB,
   type ControlDB,

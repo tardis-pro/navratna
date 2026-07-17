@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { logger } from '@uaip/utils'
 import { CompositionDefinitionSchema } from '@uaip/types'
 import { EventBusService } from '@uaip/shared-services'
+import { attachNginxAuth, type UserContext } from '@uaip/middleware'
 import { WorkflowCompositionService } from './workflow_composition_service.js'
 
 type WorkflowInstanceStatePayload = {
@@ -22,18 +23,32 @@ type WorkflowInstanceStatePayload = {
 };
 
 // ─── AUTH ───────────────────────────────────────────────────────────────
+//
+// Identity comes from `user`, which attachNginxAuth derives from the edge-
+// injected X-User-* headers ONLY when the request also carries a matching
+// X-Edge-Auth (i.e. it actually passed through the Cloudflare Worker). Reading
+// the raw x-user-role/x-user-id headers directly — as this file used to — trusts
+// anything sent straight to the public Fly host, so `X-User-Role: admin` on a
+// direct request impersonated an admin. Never reintroduce raw-header reads here.
 
-function requireAdmin(headers: Record<string, string | undefined>, request: Request, set: { status?: number | string }): boolean {
-  const role = headers['x-user-role'] || request.headers.get('x-user-role')
-  if (role !== 'admin') {
+function requireAdmin(user: UserContext | null | undefined, set: { status?: number | string }): user is UserContext {
+  if (!user) {
+    set.status = 401
+    return false
+  }
+  if (user.role !== 'admin') {
     set.status = 403
     return false
   }
   return true
 }
 
-function getUserId(headers: Record<string, string | undefined>, request: Request): string {
-  return headers['x-user-id'] || request.headers.get('x-user-id') || 'anonymous'
+function requireAuthed(user: UserContext | null | undefined, set: { status?: number | string }): user is UserContext {
+  if (!user) {
+    set.status = 401
+    return false
+  }
+  return true
 }
 
 // ─── ZOD SCHEMAS ────────────────────────────────────────────────────────
@@ -60,11 +75,11 @@ const historyQuerySchema = z.object({
 // ─── ROUTES ─────────────────────────────────────────────────────────────
 
 export function registerCompositionRoutes() {
-  return new Elysia()
+  return attachNginxAuth(new Elysia())
 
     // ─── CREATE ───────────────────────────────────────────────────────
-    .post('/api/v1/compositions', async ({ body, set, headers, request }) => {
-      if (!requireAdmin(headers, request, set)) {
+    .post('/api/v1/compositions', async ({ body, set, user }) => {
+      if (!requireAdmin(user, set)) {
         return { success: false, error: 'Admin access required' }
       }
 
@@ -75,7 +90,7 @@ export function registerCompositionRoutes() {
       }
 
       try {
-        const userId = getUserId(headers, request)
+        const userId = user.id
         const service = WorkflowCompositionService.getInstance()
         const record = await service.create(parsed.data, userId)
 
@@ -91,7 +106,11 @@ export function registerCompositionRoutes() {
     })
 
     // ─── LIST ─────────────────────────────────────────────────────────
-    .get('/api/v1/compositions', async ({ query, set }) => {
+    .get('/api/v1/compositions', async ({ query, set, user }) => {
+      if (!requireAuthed(user, set)) {
+        return { success: false, error: 'Authentication required' }
+      }
+
       try {
         const rawQuery = query as Record<string, string | undefined>
         const parsed = listQuerySchema.safeParse(rawQuery)
@@ -113,7 +132,11 @@ export function registerCompositionRoutes() {
     })
 
     // ─── GET BY ID ────────────────────────────────────────────────────
-    .get('/api/v1/compositions/:id', async ({ params, set }) => {
+    .get('/api/v1/compositions/:id', async ({ params, set, user }) => {
+      if (!requireAuthed(user, set)) {
+        return { success: false, error: 'Authentication required' }
+      }
+
       try {
         const service = WorkflowCompositionService.getInstance()
         const record = await service.get(params.id)
@@ -131,8 +154,8 @@ export function registerCompositionRoutes() {
     })
 
     // ─── UPDATE ───────────────────────────────────────────────────────
-    .put('/api/v1/compositions/:id', async ({ params, body, set, headers, request }) => {
-      if (!requireAdmin(headers, request, set)) {
+    .put('/api/v1/compositions/:id', async ({ params, body, set, user }) => {
+      if (!requireAdmin(user, set)) {
         return { success: false, error: 'Admin access required' }
       }
 
@@ -143,7 +166,7 @@ export function registerCompositionRoutes() {
       }
 
       try {
-        const userId = getUserId(headers, request)
+        const userId = user.id
         const service = WorkflowCompositionService.getInstance()
         const record = await service.update(params.id, parsed.data, userId)
 
@@ -163,13 +186,13 @@ export function registerCompositionRoutes() {
     })
 
     // ─── ACTIVATE ─────────────────────────────────────────────────────
-    .post('/api/v1/compositions/:id/activate', async ({ params, set, headers, request }) => {
-      if (!requireAdmin(headers, request, set)) {
+    .post('/api/v1/compositions/:id/activate', async ({ params, set, user }) => {
+      if (!requireAdmin(user, set)) {
         return { success: false, error: 'Admin access required' }
       }
 
       try {
-        const userId = getUserId(headers, request)
+        const userId = user.id
         const service = WorkflowCompositionService.getInstance()
         const result = await service.activate(params.id, userId)
 
@@ -192,13 +215,13 @@ export function registerCompositionRoutes() {
     })
 
     // ─── DEACTIVATE ───────────────────────────────────────────────────
-    .post('/api/v1/compositions/:id/deactivate', async ({ params, set, headers, request }) => {
-      if (!requireAdmin(headers, request, set)) {
+    .post('/api/v1/compositions/:id/deactivate', async ({ params, set, user }) => {
+      if (!requireAdmin(user, set)) {
         return { success: false, error: 'Admin access required' }
       }
 
       try {
-        const userId = getUserId(headers, request)
+        const userId = user.id
         const service = WorkflowCompositionService.getInstance()
         await service.deactivate(params.id, userId)
 
@@ -214,7 +237,11 @@ export function registerCompositionRoutes() {
     })
 
     // ─── EXECUTE ──────────────────────────────────────────────────────
-    .post('/api/v1/compositions/:id/execute', async ({ params, body, set, headers, request }) => {
+    .post('/api/v1/compositions/:id/execute', async ({ params, body, set, user }) => {
+      if (!requireAuthed(user, set)) {
+        return { success: false, error: 'Authentication required' }
+      }
+
       const parsed = executeSchema.safeParse(body ?? {})
       if (!parsed.success) {
         set.status = 400
@@ -222,7 +249,7 @@ export function registerCompositionRoutes() {
       }
 
       try {
-        const userId = getUserId(headers, request)
+        const userId = user.id
         const service = WorkflowCompositionService.getInstance()
         const instance = await service.execute(params.id, parsed.data.triggerData, userId)
 
@@ -245,7 +272,11 @@ export function registerCompositionRoutes() {
     })
 
     // ─── EXECUTION HISTORY ────────────────────────────────────────────
-    .get('/api/v1/compositions/:id/history', async ({ params, query, set }) => {
+    .get('/api/v1/compositions/:id/history', async ({ params, query, set, user }) => {
+      if (!requireAuthed(user, set)) {
+        return { success: false, error: 'Authentication required' }
+      }
+
       try {
         const rawQuery = query as Record<string, string | undefined>
         const parsed = historyQuerySchema.safeParse(rawQuery)
@@ -270,13 +301,13 @@ export function registerCompositionRoutes() {
     })
 
     // ─── DELETE ───────────────────────────────────────────────────────
-    .delete('/api/v1/compositions/:id', async ({ params, set, headers, request }) => {
-      if (!requireAdmin(headers, request, set)) {
+    .delete('/api/v1/compositions/:id', async ({ params, set, user }) => {
+      if (!requireAdmin(user, set)) {
         return { success: false, error: 'Admin access required' }
       }
 
       try {
-        const userId = getUserId(headers, request)
+        const userId = user.id
         const service = WorkflowCompositionService.getInstance()
         await service.delete(params.id, userId)
 
@@ -298,10 +329,8 @@ export function registerCompositionRoutes() {
       }
     })
 
-    .get('/api/v1/compositions/:id/instance-state', async ({ params, set, headers, request }) => {
-      const userId = getUserId(headers, request)
-      if (!userId || userId === 'anonymous') {
-        set.status = 403
+    .get('/api/v1/compositions/:id/instance-state', async ({ params, set, user }) => {
+      if (!requireAuthed(user, set)) {
         return { success: false, error: 'Authentication required' }
       }
 
@@ -340,12 +369,11 @@ export function registerCompositionRoutes() {
       }
     })
 
-    .post('/api/v1/compositions/:id/actions', async ({ params, body, set, headers, request }) => {
-      const userId = getUserId(headers, request)
-      if (!userId || userId === 'anonymous') {
-        set.status = 403
+    .post('/api/v1/compositions/:id/actions', async ({ params, body, set, user }) => {
+      if (!requireAuthed(user, set)) {
         return { success: false, error: 'Authentication required' }
       }
+      const userId = user.id
 
       const parsed = _actionPayloadSchema.safeParse(body)
       if (!parsed.success) {

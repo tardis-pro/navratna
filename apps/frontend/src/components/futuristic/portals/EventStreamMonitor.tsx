@@ -9,6 +9,7 @@ import {
   Clock as _Clock,
 } from 'lucide-react';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { getStatusColor as getStatusToken } from '@/lib/status_tokens';
 import {
   PortalContainer,
   PortalLoadingState,
@@ -117,31 +118,14 @@ export const EventStreamMonitor: React.FC<EventStreamMonitorPortalProps> = ({
     }
   };
 
-  const getEventTypeColor = (type: string) => {
-    switch (type) {
-      case 'success':
-        return 'border-l-green-500';
-      case 'warning':
-        return 'border-l-yellow-500';
-      case 'error':
-        return 'border-l-red-500';
-      default:
-        return 'border-l-blue-500';
-    }
-  };
+  // Preserve original semantics: success/warning/error keep their color, every
+  // other type (info + unknown) falls back to the info (blue) bucket.
+  const eventStatusKey = (type: string) =>
+    type === 'success' || type === 'warning' || type === 'error' ? type : 'info';
 
-  const getEventTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'success':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'error':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-    }
-  };
+  const getEventTypeColor = (type: string) => getStatusToken(eventStatusKey(type), 'borderLeft');
+
+  const getEventTypeBadgeColor = (type: string) => getStatusToken(eventStatusKey(type), 'badge');
 
   const eventTypes = ['all', 'info', 'success', 'warning', 'error'];
   const eventCounts: Record<string, number> = {

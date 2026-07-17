@@ -10,6 +10,11 @@ import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
 import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
 import { z } from 'zod';
+import { ExecutionScheduler } from './execution_mesh/scheduler.js';
+import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
+import { BaseToolExecutor } from './base_tool_executor.js';
+import type { ExecutionRequestEnvelope } from '@uaip/types';
+import { randomUUID } from 'node:crypto';
 
 const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
 function isToolCategory(v: unknown): v is ToolCategory { return toolCategoryValues.has(v); }
@@ -460,7 +465,12 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
 
     try {
-      const tool = await this.toolService.findToolById(toolId);
+      // Resolve by UUID id, or by name — callers reference native tools like "shell-exec"
+      // by name, and findToolById throws on a non-UUID value.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toolId);
+      const tool = isUuid
+        ? await this.toolService.findToolById(toolId)
+        : await this.toolService.findToolByName(toolId);
       if (!tool) return null;
 
       return {
@@ -487,7 +497,13 @@ export class UnifiedToolRegistry {
     await this.ensureInitialized();
 
     try {
-      const baseTool = await this.toolService.findToolById(toolId);
+      // Resolve by UUID id, or by name. Callers (workflow steps, the coordinator) reference
+      // native tools by a stable name like "shell-exec"; the DB id is a generated UUID, and
+      // findToolById would throw on a non-UUID value.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toolId);
+      const baseTool = isUuid
+        ? await this.toolService.findToolById(toolId)
+        : await this.toolService.findToolByName(toolId);
       if (!baseTool) {
         throw new NotFoundError(`Tool ${toolId} not found`);
       }
@@ -837,23 +853,68 @@ export class UnifiedToolRegistry {
       // Get tool adapter/executor
       const executor = await this.getToolExecutor(tool);
 
-      if (!executor) {
-        throw new NotFoundError(`No executor found for tool: ${tool.id}`);
+      if (executor) {
+        // Vendor / enterprise tool: use its dedicated adapter.
+        return await executor.execute(operation, parameters, {
+          userId: context.userId,
+          projectId: context.projectId,
+          agentId: context.agentId,
+          securityContext: context.securityContext,
+        });
       }
 
-      // Execute the operation
-      const result = await executor.execute(operation, parameters, {
-        userId: context.userId,
-        projectId: context.projectId,
-        agentId: context.agentId,
-        securityContext: context.securityContext,
-      });
-
-      return result;
+      // No vendor adapter — route through the Execution Mesh scheduler. The native
+      // node wraps BaseToolExecutor (built-ins incl. shell-exec / http-request); a
+      // registered exec node handles a remote runtime, capability-matched on the step's
+      // `requires`. This is what makes non-vendor tools (shell/http/mcp) actually run
+      // instead of dead-ending at "No executor found".
+      //
+      // Pass the tool NAME, not the UUID id: BaseToolExecutor (and mcp-*/oauth- routing)
+      // dispatches on the semantic key, while the DB primary key is a generated UUID.
+      return await this.executeViaMesh(tool.name || tool.id, parameters, context);
     } catch (error) {
       logger.error('Standard execution failed', { error, toolId: tool.id, operation });
       throw error;
     }
+  }
+
+  /** Shared native-executor instance the mesh's native node wraps. */
+  private baseToolExecutor: BaseToolExecutor | null = null;
+
+  private async executeViaMesh(
+    toolId: string,
+    parameters: unknown,
+    context: ExecutionContext
+  ): Promise<unknown> {
+    const scheduler = ExecutionScheduler.getInstance();
+    if (!this.baseToolExecutor) this.baseToolExecutor = new BaseToolExecutor();
+    const base = this.baseToolExecutor;
+    scheduler.ensureNativeNode((tid, params) => base.execute(tid, params));
+
+    const descriptor = await resolveToolDescriptor(toolId);
+    const runtime = scheduler.resolveRuntime(descriptor);
+    const paramsRecord = (parameters ?? {}) as Record<string, unknown>;
+    const requires = Array.isArray(paramsRecord.requires)
+      ? (paramsRecord.requires as unknown[]).filter((r): r is string => typeof r === 'string')
+      : undefined;
+
+    const envelope: ExecutionRequestEnvelope = {
+      correlationId: `corr_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      toolId,
+      params: paramsRecord,
+      ctx: { userId: context.userId ?? 'system', scopedToken: 'system' },
+      runtime,
+      sandbox: descriptor.sandbox,
+      deadlineMs: 120000,
+      idempotencyKey: `${toolId}_${Date.now()}`,
+      ...(requires ? { requires } : {}),
+    };
+
+    const result = await scheduler.schedule(envelope);
+    if (!result.ok) {
+      throw new InternalServerError(result.error || `Execution failed for tool ${toolId}`);
+    }
+    return result.output;
   }
 
   private async recordUsage(

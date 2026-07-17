@@ -8,7 +8,17 @@ import type {
   UseIntentDetectionOptions,
   IntentSearchResult,
 } from './intent_field_types';
+import { getPortalSearchOptions } from '@/components/TelescopeSurface/dynamic_block_registry';
 import { logger } from '@/utils/browser_logger';
+
+const PORTAL_OPTIONS: IntentOption[] = getPortalSearchOptions().map((portal) => ({
+  id: portal.id,
+  type: 'portal',
+  title: portal.title,
+  description: 'Open the ' + portal.title + ' portal',
+  keywords: portal.keywords,
+  icon: '🚪',
+}));
 
 const STATIC_OPTIONS: IntentOption[] = [
   {
@@ -107,6 +117,11 @@ const STATIC_OPTIONS: IntentOption[] = [
     keywords: ['share', 'collaborate', 'team'],
     icon: '⚡',
   },
+];
+
+const SEARCH_OPTIONS: IntentOption[] = [
+  ...STATIC_OPTIONS.filter((opt) => opt.type !== 'portal'),
+  ...PORTAL_OPTIONS,
 ];
 
 const MIN_SEARCH_LENGTH = 2;
@@ -340,7 +355,7 @@ export function useIntentDetection(options: UseIntentDetectionOptions = {}) {
         onIntentDetected(intentResult);
       }
 
-      const scoredOptions = STATIC_OPTIONS.map((opt) => ({
+      const scoredOptions = SEARCH_OPTIONS.map((opt) => ({
         ...opt,
         relevanceScore: fuzzyMatch(query, opt),
       }))

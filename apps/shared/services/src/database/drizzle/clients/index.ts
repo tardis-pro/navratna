@@ -29,7 +29,9 @@
  */
 
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
 import pg from 'pg';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createLogger } from '@uaip/utils';
 import * as intelligenceSchema from '../schemas/intelligence_schema';
 import * as controlSchema from '../schemas/control_schema';
@@ -53,9 +55,11 @@ function makePool(urlEnvVar: string, fallbackEnvVar = 'POSTGRES_URL'): pg.Pool {
       max: parseInt(process.env.DB_MAX_CONNECTIONS || '20'),
       connectionTimeoutMillis: parseInt(process.env.DB_TIMEOUT || '30000'),
       ssl:
-        process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'
-          ? { rejectUnauthorized: false }
-          : undefined,
+        process.env.DB_SSL === 'false'
+          ? undefined
+          : process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production'
+            ? { rejectUnauthorized: false }
+            : undefined,
     });
   }
 
@@ -151,11 +155,59 @@ export async function initializePlanes(): Promise<{
 // Getters — use after initializePlanes()
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tenant transaction routing (Postgres RLS)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// RLS policies read `current_setting('app.tenant_id')`. That GUC is only visible
+// on the exact connection it was set on, so every query in a tenant-scoped
+// request must run on ONE connection inside ONE transaction that set it. We bind
+// that transaction into AsyncLocalStorage and make getIntelligenceDb() return it,
+// so ALL existing repository code runs against the tenant connection with zero
+// changes. Outside a tenant transaction, getIntelligenceDb() returns the pool as
+// before.
+
+interface TenantTxStore {
+  intelligenceTx: IntelligenceDB;
+}
+const tenantTxStore = new AsyncLocalStorage<TenantTxStore>();
+
 export function getIntelligenceDb(): IntelligenceDB {
+  const tx = tenantTxStore.getStore()?.intelligenceTx;
+  if (tx) return tx;
   const state = getPlaneState();
   if (!state.intelligenceDb)
     throw new Error('Intelligence plane not initialized. Call initializePlanes().');
   return state.intelligenceDb;
+}
+
+/**
+ * Run `fn` with the intelligence plane bound to a single transaction that has
+ * `app.tenant_id` set to `tenantId` (via set_config, parameterized — safe from
+ * injection). Every getIntelligenceDb() call inside `fn`, at any await depth,
+ * resolves to this transaction, so RLS sees the tenant. The transaction commits
+ * when `fn` resolves and rolls back if it throws.
+ *
+ * Control-plane queries are unaffected (they carry no RLS today) and continue to
+ * use the control pool.
+ */
+export async function runInTenantTransaction<T>(
+  tenantId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const state = getPlaneState();
+  if (!state.intelligenceDb)
+    throw new Error('Intelligence plane not initialized. Call initializePlanes().');
+
+  return state.intelligenceDb.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`);
+    return tenantTxStore.run({ intelligenceTx: tx as unknown as IntelligenceDB }, fn);
+  });
+}
+
+/** True when the current async context is inside a tenant transaction. */
+export function hasTenantContext(): boolean {
+  return tenantTxStore.getStore()?.intelligenceTx !== undefined;
 }
 
 export function getControlDb(): ControlDB {

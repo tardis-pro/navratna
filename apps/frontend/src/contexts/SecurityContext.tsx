@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { RiskLevel, MFAMethod, OAuthProviderType } from '@uaip/types';
 import { securityAPI } from '@/api/security_api';
+import { API_BASE_URL } from '@/config/api_config';
 
 export interface SecurityPermissions {
   canManageAgents: boolean;
@@ -275,21 +276,11 @@ export const SecurityProvider: React.FC<SecurityProviderProps> = ({ children }) 
   }, []);
 
   const connectOAuth = useCallback(async (provider: OAuthProviderType) => {
-    try {
-      setError(null);
-      // In real implementation: await api.post('/security/oauth/connect', { provider });
-      const newConnection: OAuthConnection = {
-        id: `${provider}-${Date.now()}`,
-        provider,
-        connected: true,
-        lastUsed: new Date(),
-        permissions: ['read', 'write'],
-      };
-      setOauthConnections((prev) => [...prev, newConnection]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect OAuth provider');
-      throw err;
-    }
+    // OAuth is a full-page browser flow: redirect to the backend initiate endpoint, which
+    // 302s to the provider's consent screen. The backend callback sets the session cookies
+    // and returns the browser to the app. (No fetch here, so no credentials option needed.)
+    setError(null);
+    window.location.href = `${API_BASE_URL}/api/v1/oauth/initiate/${provider}`;
   }, []);
 
   const disconnectOAuth = useCallback(async (provider: OAuthProviderType) => {

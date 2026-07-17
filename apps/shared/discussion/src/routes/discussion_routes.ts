@@ -90,7 +90,7 @@ export function registerDiscussionRoutes(
             }))),
             settings: t.Optional(t.Record(t.String(), t.Unknown())),
             turnStrategy: t.Optional(t.Record(t.String(), t.Unknown())),
-          }),
+          }, { additionalProperties: true }),
           response: {
             201: t.Object({ success: t.Literal(true), data: t.Any() }),
             400: t.Object({ success: t.Literal(false), error: t.String() }),

@@ -16,7 +16,7 @@ export function registerPersonaRoutes(personaService: PersonaService) {
               parseInt(limit, 10),
               parseInt(offset, 10)
             )
-            return { success: true, ...result }
+            return { success: true, data: result.personas, total: result.total }
           } catch (error) {
             logger.error('Failed to list personas', { error })
             ctx.set.status = 500
@@ -73,7 +73,7 @@ export function registerPersonaRoutes(personaService: PersonaService) {
               parseInt(limit, 10),
               parseInt(offset, 10)
             )
-            return { success: true, ...result }
+            return { success: true, data: result.personas, total: result.total }
           } catch (error) {
             logger.error('Failed to search personas', { error })
             ctx.set.status = 500

@@ -4,31 +4,40 @@ import { BaseEmbeddingService } from './base_embedding_service.js';
 export class EmbeddingService extends BaseEmbeddingService {
   protected openaiApiKey: string;
   protected embeddingModel: string;
+  protected embeddingsUrl: string;
 
-  constructor(openaiApiKey?: string, embeddingModel: string = 'text-embedding-ada-002') {
+  constructor(openaiApiKey?: string, embeddingModel?: string) {
     super();
-    this.openaiApiKey = openaiApiKey || process.env.OPENAI_API_KEY || '';
-    this.embeddingModel = embeddingModel;
+    // Env-driven config. Defaults preserve today's behavior (OpenAI, ada-002)
+    // when nothing is set; point EMBEDDINGS_URL at the CF embed worker to switch.
+    this.embeddingsUrl = process.env.EMBEDDINGS_URL || 'https://api.openai.com/v1/embeddings';
+    this.openaiApiKey =
+      openaiApiKey || process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY || '';
+    this.embeddingModel =
+      embeddingModel || process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002';
 
     if (!this.openaiApiKey) {
-      console.warn('OPENAI_API_KEY not found in environment variables');
+      console.warn('No embeddings API key found (EMBEDDINGS_API_KEY / OPENAI_API_KEY)');
     }
   }
 
   private async fetchOpenAIEmbeddings(
     input: string | string[]
   ): Promise<{ data: Array<{ embedding: number[] }> }> {
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    const response = await fetch(this.embeddingsUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.openaiApiKey}`,
+        // Also sent so this works against the CF embed worker's X-Embed-Auth
+        // guard. Harmless (ignored) when the endpoint is OpenAI.
+        'X-Embed-Auth': this.openaiApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ input, model: this.embeddingModel }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+      throw new Error(`Embeddings API error: ${response.statusText}`);
     }
 
     const json = await response.json() as { data: Array<{ embedding: number[] }> };

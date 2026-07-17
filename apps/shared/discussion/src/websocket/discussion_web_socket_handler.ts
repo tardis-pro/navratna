@@ -41,7 +41,7 @@ export class DiscussionWebSocketHandler implements IWebSocketHandler {
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
-      db: 2, // Use separate DB for WebSocket sessions
+      db: parseInt(process.env.REDIS_WS_DB || process.env.REDIS_DB || '0'),
     });
 
     // Start heartbeat to keep connections alive

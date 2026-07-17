@@ -7,12 +7,35 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { withOptionalAuth } from '@uaip/middleware';
 import { ProjectStatus } from '@uaip/types';
 
+/**
+ * Winston serializes a bare Error to `{}` (its fields are non-enumerable), so
+ * `logger.error(msg, { error })` logged nothing useful and hid real 500s.
+ */
+function describeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return { message: error.message, name: error.name, stack: error.stack };
+  }
+  return { value: String(error) };
+}
+
 let projectService: ProjectManagementService | null = null;
 
 async function getProjectService(): Promise<ProjectManagementService> {
   if (!projectService) {
     const databaseService = DatabaseService.getInstance();
-    const eventBusService = EventBusService.getInstance();
+
+    // The gateway does not build the event-bus singleton at startup, so a bare
+    // getInstance() throws and every /projects request 500s. Same approach as
+    // approval_elysia: reuse the singleton if another module already created it,
+    // otherwise construct it with config.
+    let eventBusService: EventBusService;
+    try {
+      eventBusService = EventBusService.getInstance();
+    } catch {
+      const { config } = await import('@uaip/config');
+      eventBusService = EventBusService.getInstance({ ...config, serviceName: 'navratna-gateway' }, logger);
+    }
+
     projectService = new ProjectManagementService(databaseService, eventBusService);
     await projectService.initialize();
   }
@@ -81,7 +104,7 @@ export function registerProjectRoutes() {
   
         return { success: true, data: projects };
       } catch (error) {
-        logger.error('Failed to list projects', { error });
+        logger.error('Failed to list projects', { error: describeError(error) });
         set.status = 500;
         return { success: false, error: 'Failed to list projects' };
       }
@@ -104,7 +127,7 @@ export function registerProjectRoutes() {
   
         return { success: true, data: project };
       } catch (error) {
-        logger.error('Failed to get project', { error, projectId: params.projectId });
+        logger.error('Failed to get project', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to get project' };
       }
@@ -139,7 +162,7 @@ export function registerProjectRoutes() {
         set.status = 201;
         return { success: true, data: project };
       } catch (error) {
-        logger.error('Failed to create project', { error });
+        logger.error('Failed to create project', { error: describeError(error) });
         set.status = 500;
         return { success: false, error: 'Failed to create project' };
       }
@@ -168,7 +191,7 @@ export function registerProjectRoutes() {
         });
         return { success: true, data: project };
       } catch (error) {
-        logger.error('Failed to update project', { error, projectId: params.projectId });
+        logger.error('Failed to update project', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to update project' };
       }
@@ -186,7 +209,7 @@ export function registerProjectRoutes() {
         set.status = 204;
         return null;
       } catch (error) {
-        logger.error('Failed to delete project', { error, projectId: params.projectId });
+        logger.error('Failed to delete project', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to delete project' };
       }
@@ -203,7 +226,7 @@ export function registerProjectRoutes() {
         const metrics = await service.getProjectMetrics(params.projectId);
         return { success: true, data: metrics };
       } catch (error) {
-        logger.error('Failed to get project metrics', { error, projectId: params.projectId });
+        logger.error('Failed to get project metrics', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to get project metrics' };
       }
@@ -220,7 +243,7 @@ export function registerProjectRoutes() {
         const metrics = await service.getProjectMetrics(params.projectId);
         return { success: true, data: metrics };
       } catch (error) {
-        logger.error('Failed to get project analytics', { error, projectId: params.projectId });
+        logger.error('Failed to get project analytics', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to get project analytics' };
       }

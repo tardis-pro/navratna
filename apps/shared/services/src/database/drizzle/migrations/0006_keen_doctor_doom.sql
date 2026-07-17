@@ -1,0 +1,1 @@
+ALTER TABLE "user_llm_providers" ALTER COLUMN "provider_id" SET DATA TYPE text USING "provider_id"::text;

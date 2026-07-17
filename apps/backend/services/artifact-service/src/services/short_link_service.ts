@@ -320,6 +320,14 @@ export class ShortLinkService {
     throw new InternalServerError('Failed to generate unique short code');
   }
 
+  /**
+   * Public click/view recorder for surfaces that resolve a link without going
+   * through resolveShortLink (e.g. the public shared-artifact renderer).
+   */
+  async recordShareView(linkId: string, clickData: ClickData): Promise<void> {
+    await this.recordClick(linkId, clickData);
+  }
+
   private async recordClick(linkId: string, clickData: ClickData): Promise<void> {
     try {
       const [link] = await this.db

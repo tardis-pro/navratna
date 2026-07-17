@@ -1,0 +1,31 @@
+name = "navratna-exec-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# =============================================================================
+# Execution Mesh — the "light" tier (spec docs/specs/11-HYBRID-EXECUTION-MESH.md
+# §3.1). Runs pure-JS tools and proxies http/streamable-http MCP over fetch.
+# The capability-registry scheduler dispatches here by HTTP fetch and trusts the
+# reply; this worker trusts inbound requests bearing X-Edge-Auth === the secret.
+#
+# EXEC_WORKER_SECRET is a wrangler SECRET (never a plaintext var). Set it with:
+#   npx wrangler secret put EXEC_WORKER_SECRET
+#   npx wrangler secret put EXEC_WORKER_SECRET --env production
+# =============================================================================
+
+[env.production]
+name = "navratna-exec-worker"
+routes = [{ pattern = "exec.navratna.tardis.digital", custom_domain = true }]
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+# =============================================================================
+# Development (local wrangler dev)
+# =============================================================================
+[env.development.vars]
+ENVIRONMENT = "development"

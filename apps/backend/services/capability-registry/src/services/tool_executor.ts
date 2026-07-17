@@ -17,6 +17,11 @@ import { DatabaseService } from '@uaip/infra/database';
 import { logger, InternalServerError, NotFoundError } from '@uaip/utils';
 import { ToolRegistry } from './tool_registry.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
+import { config } from '../config/config.js';
+import { ExecutionScheduler } from './execution_mesh/scheduler.js';
+import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
+import type { ExecutionRequestEnvelope } from '@uaip/types';
+import { randomUUID } from 'node:crypto';
 
 import { z } from 'zod';
 
@@ -454,6 +459,13 @@ export class ToolExecutor {
     parameters: Record<string, unknown>,
     timeout: number
   ): Promise<unknown> {
+    // Hybrid Execution Mesh (spec 11) — only when explicitly enabled. When the
+    // flag is OFF this branch is skipped entirely and the legacy in-process path
+    // below runs byte-for-byte unchanged.
+    if (config.execMesh.enabled) {
+      return this.executeViaMesh(toolId, parameters, timeout);
+    }
+
     // Create a timeout promise
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Tool execution timeout')), timeout);
@@ -463,6 +475,48 @@ export class ToolExecutor {
     const executionPromise = this.baseExecutor.execute(toolId, parameters);
 
     return Promise.race([executionPromise, timeoutPromise]);
+  }
+
+  /**
+   * Route a tool execution through the Execution Mesh scheduler. The native node
+   * wraps this same BaseToolExecutor, so with nothing deployed every call resolves
+   * to `native` and behaves like the legacy path — just via the scheduler.
+   */
+  private async executeViaMesh(
+    toolId: string,
+    parameters: Record<string, unknown>,
+    timeout: number
+  ): Promise<unknown> {
+    const scheduler = ExecutionScheduler.getInstance();
+    // Register the native node (idempotent) wrapping the legacy executor.
+    scheduler.ensureNativeNode((tid, params) => this.baseExecutor.execute(tid, params));
+
+    // Phase 1b: source a real descriptor from the tool's registry / MCP config.
+    // stdio MCP tools now route to `docker-mcp`; the scheduler still falls back to
+    // native when no docker-mcp node is registered, so behaviour is preserved until
+    // the node-agent is deployed on EC2. Unknown/native tools resolve to `native`.
+    const descriptor = await resolveToolDescriptor(toolId);
+    const runtime = scheduler.resolveRuntime(descriptor);
+
+    const envelope: ExecutionRequestEnvelope = {
+      correlationId: `corr_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      toolId,
+      params: parameters,
+      // Phase 2+ STUB: scoped, short-lived per-call token minting (spec §4, §7).
+      // Plumbed end-to-end now (node injects ctx.scopedToken into the container
+      // env); real minting via the JWKS/ENCRYPTION_KEY machinery lands later.
+      ctx: { userId: 'system', scopedToken: 'system' },
+      runtime,
+      sandbox: descriptor.sandbox,
+      deadlineMs: timeout,
+      idempotencyKey: `${toolId}_${Date.now()}`,
+    };
+
+    const result = await scheduler.schedule(envelope);
+    if (!result.ok) {
+      throw new InternalServerError(result.error || 'Execution mesh execution failed');
+    }
+    return result.output;
   }
 
   private async recordUsage(execution: ToolExecution, success: boolean): Promise<void> {

@@ -1,24 +1,8 @@
 import { Elysia, t } from 'elysia';
 import { logger } from '@uaip/utils';
-import { WorkspaceManager, type WorkspaceConfig } from '../services/workspace_manager_service.js';
-import {
-  CodingAgentExecutor,
-  type CreateCodingSessionOptions,
-  type LLMCredential,
-  type CodingAgentEvent,
-} from '../services/coding_agent_executor_service.js';
-
-interface WorkspaceRouteContext {
-  params?: Record<string, unknown>;
-  query?: Record<string, unknown>;
-  body?: unknown;
-  headers?: Record<string, unknown>;
-  request?: {
-    headers?: { get?: (name: string) => string | null };
-    signal?: AbortSignal;
-  };
-  set?: { status?: number | string };
-}
+import { withNginxAuth, getNginxUser } from '@uaip/middleware';
+import { WorkspaceManager } from '../services/workspace_manager_service.js';
+import type { CodingSessionCoordinator } from '../services/execution_mesh/coding_session_coordinator.js';
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -32,351 +16,395 @@ function asRecord(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
 }
 
-function getHeader(headers: unknown, name: string): string | undefined {
-  const h = isRecord(headers) ? headers : undefined;
-  const v = h?.[name] ?? h?.[name.toLowerCase()];
-  return typeof v === 'string' ? v : undefined;
+const WsAny = t.Any();
+const WsErrorSchema = t.Object({
+  success: t.Literal(false),
+  error: t.Object({ code: t.String(), message: t.String() }),
+});
+const WsSuccessSchema = t.Object({ success: t.Boolean() });
+
+function coordinatorErrorMessage(error: { code: string } & Record<string, unknown>): string {
+  return typeof error.message === 'string' ? error.message : error.code;
 }
 
-const WsAny = t.Any()
-const WsErrorSchema = t.Object({ success: t.Literal(false), error: t.Object({ code: t.String(), message: t.String() }) })
-const WsSuccessSchema = t.Object({ success: t.Boolean() })
+function closeStreamController(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  sessionId: string,
+): void {
+  try {
+    controller.close();
+  } catch (error) {
+    logger.debug('workspace-routes: SSE controller already closed', {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 export function registerWorkspaceRoutes(
   workspaceManager?: WorkspaceManager,
-  codingAgentExecutor?: CodingAgentExecutor
-){
+  coordinator?: CodingSessionCoordinator,
+) {
   const wm = workspaceManager ?? WorkspaceManager.getInstance();
-  const executor = codingAgentExecutor ?? CodingAgentExecutor.getInstance(wm);
 
   logger.info('Registering workspace routes');
 
-  return new Elysia().group('/api/v1/workspaces', (g) =>
-    g
-      .post('/', async ({ body, set }) => {
-        const b = asRecord(body);
-        const cfg: WorkspaceConfig = {
-          workspaceId: asString(b.workspaceId) || `ws_${Date.now()}`,
-          projectId: asString(b.projectId) || 'unknown',
-          userId: asString(b.userId) || 'unknown',
-          githubRepo: asString(b.githubRepo) || '',
-          githubCloneUrl: asString(b.githubCloneUrl) || '',
-          githubToken: asString(b.githubToken) || '',
-          branchName: asString(b.branchName),
-        };
+  const app = new Elysia({ prefix: '/api/v1/workspaces' });
 
-        if (!cfg.githubRepo || !cfg.githubCloneUrl || !cfg.githubToken) {
-          set.status = 400;
-          return {
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'githubRepo, githubCloneUrl, githubToken are required',
-            },
-          };
-        }
-
-        const info = await wm.provisionWorkspace(cfg);
-        return { success: true, data: info };
-      }, {
-        body: t.Object({
-          workspaceId: t.Optional(t.String()),
-          projectId: t.Optional(t.String()),
-          userId: t.Optional(t.String()),
-          githubRepo: t.String(),
-          githubCloneUrl: t.String(),
-          githubToken: t.String(),
-          branchName: t.Optional(t.String()),
-        }),
-        response: { 200: t.Object({ success: t.Literal(true), data: WsAny }), 400: WsErrorSchema },
-      })
-      .get('/', async () => ({ success: true, data: wm.listWorkspaces() }))
-      .get('/:id', async ({ params, set }) => {
-        const id = asString(params?.id) || '';
+  return withNginxAuth(app)
+    .get('/', (ctx) => {
+      const user = getNginxUser(ctx);
+      return { success: true as const, data: wm.listWorkspaces().filter((w) => w.userId === user.id) };
+    })
+    .get(
+      '/:id',
+      async (ctx) => {
+        const user = getNginxUser(ctx);
+        const id = ctx.params.id;
         const info = await wm.getWorkspace(id);
         if (!info) {
-          set.status = 404;
-          return { success: false, error: { code: 'NOT_FOUND', message: 'Workspace not found' } };
+          ctx.set.status = 404;
+          return { success: false as const, error: { code: 'NOT_FOUND', message: 'Workspace not found' } };
         }
-        return { success: true, data: info };
-      }, {
-        response: { 200: t.Object({ success: t.Literal(true), data: WsAny }), 404: WsErrorSchema },
-      })
-      .delete('/:id', async ({ params }) => {
-        const id = asString(params?.id) || '';
+        if (info.userId !== user.id) {
+          ctx.set.status = 403;
+          return { success: false as const, error: { code: 'FORBIDDEN', message: 'Not your workspace' } };
+        }
+        return { success: true as const, data: info };
+      },
+      { response: { 200: t.Object({ success: t.Literal(true), data: WsAny }), 404: WsErrorSchema } },
+    )
+    .delete(
+      '/:id',
+      async (ctx) => {
+        const user = getNginxUser(ctx);
+        const id = ctx.params.id;
+        const info = await wm.getWorkspace(id);
+        if (!info) {
+          ctx.set.status = 404;
+          return { success: false as const, error: { code: 'NOT_FOUND', message: 'Workspace not found' } };
+        }
+        if (info.userId !== user.id) {
+          ctx.set.status = 403;
+          return { success: false as const, error: { code: 'FORBIDDEN', message: 'Not your workspace' } };
+        }
         await wm.destroyWorkspace(id);
-        return { success: true };
-      }, {
-        response: { 200: WsSuccessSchema },
-      })
-      .post('/:id/sessions', async ({ params, body, set }) => {
-        const workspaceId = asString(params?.id) || '';
-        const b = asRecord(body);
+        return { success: true as const };
+      },
+      { response: { 200: WsSuccessSchema } },
+    )
+    .post(
+      '/:id/sessions',
+      async (ctx) => {
+        if (!coordinator) {
+          ctx.set.status = 503;
+          return { success: false as const, error: { code: 'SERVICE_UNAVAILABLE', message: 'Coding session coordinator not configured' } };
+        }
 
-        const sessionId = asString(b.sessionId) || `sess_${Date.now()}`;
-        const userId = asString(b.userId) || 'unknown';
-        const projectId = asString(b.projectId) || 'unknown';
+        const user = getNginxUser(ctx);
+        const workspaceId = ctx.params.id;
+        const b = asRecord(ctx.body);
+        const projectId = asString(b.projectId) || '';
+        const tenantId = user.organizationId;
 
-        const llmCredentialsRaw = Array.isArray(b.llmCredentials) ? b.llmCredentials : [];
-        const llmCredentials: LLMCredential[] = llmCredentialsRaw
+        const llmCredentials = (Array.isArray(b.llmCredentials) ? b.llmCredentials : [])
           .map((x) => asRecord(x))
-          .map((x) => {
-            const type: LLMCredential['type'] = x.type === 'oauth' ? 'oauth' : 'api_key';
-            return {
-              provider: asString(x.provider) || '',
-              type,
-              apiKey: asString(x.apiKey),
-              accessToken: asString(x.accessToken),
-              refreshToken: asString(x.refreshToken),
-            };
-          })
+          .map((x) => ({
+            provider: asString(x.provider) || '',
+            type: (x.type === 'oauth' ? 'oauth' : 'api_key') as 'api_key' | 'oauth',
+            apiKey: asString(x.apiKey),
+            accessToken: asString(x.accessToken),
+            refreshToken: asString(x.refreshToken),
+            expiresAt: typeof x.expiresAt === 'number' ? x.expiresAt : undefined,
+          }))
           .filter((c) => Boolean(c.provider));
 
-        if (!workspaceId) {
-          set.status = 400;
-          return {
-            success: false,
-            error: { code: 'VALIDATION_ERROR', message: 'workspaceId is required' },
-          };
+        if (!workspaceId || !projectId) {
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'workspaceId and projectId are required' } };
         }
 
-        const opts: CreateCodingSessionOptions = {
-          sessionId,
-          workspaceId,
-          projectId,
-          userId,
-          llmCredentials,
-          systemPromptAdditions: asString(b.systemPromptAdditions),
-          continuePreviousSession: b.continuePreviousSession === true,
-        };
+        const repositoryId = asString(b.repositoryId) || '';
+        if (!repositoryId || !/^[1-9]\d*$/.test(repositoryId)) {
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'repositoryId is required and must be a positive canonical decimal integer' } };
+        }
 
-        const result = await executor.createSession(opts);
-        return { success: true, data: result };
-      }, {
+        const bindingId = asString(b.bindingId) || '';
+        if (!bindingId) {
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'bindingId (GitHub App installation binding UUID) is required' } };
+        }
+
+        if ('githubToken' in b && b.githubToken !== undefined) {
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'githubToken is not accepted; use bindingId instead' } };
+        }
+
+        const result = await coordinator.createSession({
+          workspaceId, projectId, userId: user.id, tenantId, repositoryId, bindingId, llmCredentials,
+          systemPromptAdditions: asString(b.systemPromptAdditions),
+        });
+
+        if (!result.ok) {
+          const { code } = result.error;
+          if (code === 'REDIS_UNAVAILABLE') { ctx.set.status = 503; return { success: false as const, error: { code, message: 'Session store unavailable' } }; }
+          if (code === 'PROVISION_FAILED') { ctx.set.status = 503; return { success: false as const, error: { code, message: result.error.message } }; }
+          if (code === 'BINDING_NOT_FOUND' || code === 'BINDING_INACTIVE') { ctx.set.status = 404; return { success: false as const, error: { code, message: result.error.message } }; }
+          if (code === 'GITHUB_TOKEN_FAILED') { ctx.set.status = 502; return { success: false as const, error: { code, message: result.error.message } }; }
+          ctx.set.status = 502;
+          return { success: false as const, error: { code, message: coordinatorErrorMessage(result.error) } };
+        }
+
+        return { success: true as const, data: result.value };
+      },
+      {
         body: t.Object({
-          sessionId: t.Optional(t.String()),
-          userId: t.Optional(t.String()),
-          projectId: t.Optional(t.String()),
+          projectId: t.String({ minLength: 1 }),
+          repositoryId: t.String({ minLength: 1, pattern: '^[1-9]\\d*$' }),
+          bindingId: t.String({ minLength: 1, format: 'uuid' }),
           llmCredentials: t.Optional(t.Array(t.Any())),
           systemPromptAdditions: t.Optional(t.String()),
-          continuePreviousSession: t.Optional(t.Boolean()),
         }),
         response: {
-          200: t.Object({ success: t.Literal(true), data: t.Object({ sessionId: t.String(), ready: t.Boolean() }) }),
+          200: t.Object({ success: t.Literal(true), data: WsAny }),
           400: WsErrorSchema,
+          503: WsErrorSchema,
         },
-      })
-      .post('/:id/sessions/:sessionId/prompt', async (ctx: WorkspaceRouteContext) => {
-        const workspaceId = asString(ctx.params?.id) || '';
-        const sessionId = asString(ctx.params?.sessionId) || '';
+      },
+    )
+    .post(
+      '/:id/sessions/:sessionId/prompt',
+      async (ctx) => {
+        if (!coordinator) {
+          ctx.set.status = 503;
+          return { success: false as const, error: { code: 'SERVICE_UNAVAILABLE', message: 'Coding session coordinator not configured' } };
+        }
+
+        const user = getNginxUser(ctx);
+        const workspaceId = ctx.params.id;
+        const sessionId = ctx.params.sessionId;
         const b = asRecord(ctx.body);
         const message = asString(b.message) || asString(b.prompt) || '';
+        const idempotencyKey = ctx.headers['x-idempotency-key'] || asString(b.idempotencyKey) || '';
 
         if (!workspaceId || !sessionId || !message) {
-          if (ctx.set) {
-            ctx.set.status = 400;
-          }
-          return {
-            success: false,
-            error: {
-              code: 'VALIDATION_ERROR',
-              message: 'workspaceId, sessionId, message are required',
-            },
-          };
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'workspaceId, sessionId, message are required' } };
+        }
+        if (!idempotencyKey) {
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'X-Idempotency-Key header or idempotencyKey body field is required' } };
         }
 
-        const accept =
-          getHeader(ctx.headers, 'accept') || ctx.request?.headers?.get?.('accept') || '';
-        const wantsSse =
-          accept.includes('text/event-stream') || String(ctx.query?.stream || '') === 'true';
+        const result = await coordinator.submitPrompt({
+          workspaceId,
+          sessionId,
+          userId: user.id,
+          tenantId: user.organizationId,
+          message,
+          idempotencyKey,
+        });
 
-        if (!wantsSse) {
-          await executor.prompt(sessionId, message);
-          return { success: true };
+        if (!result.ok) {
+          const { code } = result.error;
+          if (code === 'REDIS_UNAVAILABLE') { ctx.set.status = 503; return { success: false as const, error: { code, message: 'Session store unavailable' } }; }
+          ctx.set.status = 502;
+          return { success: false as const, error: { code, message: coordinatorErrorMessage(result.error) } };
         }
 
+        const outcome = result.value;
+        if (outcome.outcome === 'not_found') { ctx.set.status = 404; return { success: false as const, error: { code: 'NOT_FOUND', message: 'Session not found' } }; }
+        if (outcome.outcome === 'owner_mismatch') { ctx.set.status = 403; return { success: false as const, error: { code: 'FORBIDDEN', message: 'Not your session' } }; }
+        if (outcome.outcome === 'pending_duplicate') { ctx.set.status = 409; return { success: false as const, error: { code: 'DUPLICATE_PENDING', message: 'Prompt with this idempotency key is already in progress' } }; }
+        if (outcome.outcome === 'busy') { ctx.set.status = 409; return { success: false as const, error: { code: 'SESSION_BUSY', message: `Session is ${outcome.state}` } }; }
+        if (outcome.outcome === 'completed_duplicate') { return { success: true as const, data: { outcome: 'completed_duplicate', sessionId } }; }
+
+        ctx.set.status = 202;
+        return { success: true as const, data: { outcome: 'accepted', sessionId } };
+      },
+      {
+        body: t.Object({
+          message: t.Optional(t.String()),
+          prompt: t.Optional(t.String()),
+          idempotencyKey: t.Optional(t.String()),
+        }),
+      },
+    )
+    .get(
+      '/:id/sessions/:sessionId/events',
+      (ctx) => {
+        if (!coordinator) {
+          ctx.set.status = 503;
+          return new Response(JSON.stringify({ success: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'Coordinator not configured' } }), { status: 503 });
+        }
+
+        const user = getNginxUser(ctx);
+        const workspaceId = ctx.params.id;
+        const sessionId = ctx.params.sessionId;
+        const lastEventId = ctx.headers['last-event-id'] ?? undefined;
         const encoder = new TextEncoder();
-        let closed = false;
-        let timeout: ReturnType<typeof setTimeout> | undefined;
+        const abortCtrl = new AbortController();
 
         const stream = new ReadableStream<Uint8Array>({
           start(controller) {
-            const write = (data: string) => controller.enqueue(encoder.encode(data));
-
-            const handler = (event: CodingAgentEvent) => {
-              if (closed) return;
-              write(`event: ${event.type}\n`);
-              write(`data: ${JSON.stringify(event)}\n\n`);
-
-              if (event.type === 'agent_end' || event.type === 'error') {
-                cleanup();
-                controller.close();
-              }
-            };
-
-            const cleanup = () => {
-              if (closed) return;
-              closed = true;
-              executor.off(`session:${sessionId}:event`, handler);
-              if (timeout) clearTimeout(timeout);
-            };
-
-            executor.on(`session:${sessionId}:event`, handler);
-            write('event: ready\n');
-            write(`data: ${JSON.stringify({ sessionId })}\n\n`);
-
-            executor
-              .prompt(sessionId, message)
-              .catch((error: unknown) => {
-                write('event: error\n');
-                write(
-                  `data: ${JSON.stringify({
+            void coordinator.streamEvents({
+              workspaceId, sessionId, userId: user.id, lastEventId,
+              tenantId: user.organizationId,
+              signal: abortCtrl.signal,
+              onEvent: (raw) => {
+                if ((controller.desiredSize ?? 1) <= 0) {
+                  abortCtrl.abort();
+                  throw new Error('SSE downstream backpressure limit reached');
+                }
+                controller.enqueue(encoder.encode(raw));
+              },
+              onEnd: () => closeStreamController(controller, sessionId),
+              onError: (errStr) => {
+                logger.warn('workspace-routes: SSE stream error', { sessionId, errStr });
+                try {
+                  controller.enqueue(encoder.encode(`event: stream_error\ndata: ${JSON.stringify({ error: errStr })}\n\n`));
+                } catch (error) {
+                  logger.debug('workspace-routes: could not emit SSE stream error', {
                     sessionId,
                     error: error instanceof Error ? error.message : String(error),
-                  })}\n\n`
-                );
-                cleanup();
-                controller.close();
-              })
-              .finally(() => {
-                timeout = setTimeout(() => {
-                  if (closed) return;
-                  write('event: timeout\n');
-                  write(`data: ${JSON.stringify({ sessionId })}\n\n`);
-                  cleanup();
-                  controller.close();
-                }, 60_000);
+                  });
+                }
+                abortCtrl.abort();
+                closeStreamController(controller, sessionId);
+              },
+            }).catch((error: unknown) => {
+              logger.error('workspace-routes: SSE proxy failed', {
+                sessionId,
+                error: error instanceof Error ? error.message : String(error),
               });
-
-            const signal: AbortSignal | undefined = ctx.request?.signal;
-            signal?.addEventListener?.('abort', () => {
-              cleanup();
-              try {
-                controller.close();
-              } catch {}
+              abortCtrl.abort();
+              closeStreamController(controller, sessionId);
             });
-          },
-        });
 
-        return new Response(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive',
-          },
-        });
-      })
-      .post('/:id/sessions/:sessionId/abort', async ({ params }) => {
-        const sessionId = asString(params?.sessionId) || '';
-        await executor.abort(sessionId);
-        return { success: true };
-      }, {
-        response: { 200: WsSuccessSchema },
-      })
-      .delete('/:id/sessions/:sessionId', async ({ params }) => {
-        const sessionId = asString(params?.sessionId) || '';
-        await executor.closeSession(sessionId);
-        return { success: true };
-      }, {
-        response: { 200: WsSuccessSchema },
-      })
-      // Persistent SSE stream: GET /:id/sessions/:sessionId/events
-      // CodingSessionPage connects here via EventSource and receives all agent events
-      .get('/:id/sessions/:sessionId/events', (ctx: WorkspaceRouteContext) => {
-        const sessionId = asString(ctx.params?.sessionId) || '';
-        if (!sessionId) {
-          if (ctx.set) {
-            ctx.set.status = 400;
-          }
-          return {
-            success: false,
-            error: { code: 'VALIDATION_ERROR', message: 'sessionId required' },
-          };
-        }
+            ctx.request.signal?.addEventListener('abort', () => {
+              abortCtrl.abort();
+              closeStreamController(controller, sessionId);
+            }, { once: true });
 
-        const encoder = new TextEncoder();
-        let closed = false;
-
-        const stream = new ReadableStream<Uint8Array>({
-          start(controller) {
-            const write = (data: string) => controller.enqueue(encoder.encode(data));
-
-            const handler = (event: CodingAgentEvent) => {
-              if (closed) return;
-              write(`event: ${event.type}\n`);
-              write(`data: ${JSON.stringify(event)}\n\n`);
-              if (event.type === 'agent_end' || event.type === 'error') {
-                cleanup();
-                try {
-                  controller.close();
-                } catch {}
-              }
-            };
-
-            const cleanup = () => {
-              if (closed) return;
-              closed = true;
-              executor.off(`session:${sessionId}:event`, handler);
-            };
-
-            executor.on(`session:${sessionId}:event`, handler);
-            // Send a heartbeat every 25s to keep the connection alive
             const heartbeat = setInterval(() => {
-              if (closed) {
+              if ((controller.desiredSize ?? 1) <= 0) {
                 clearInterval(heartbeat);
+                abortCtrl.abort();
                 return;
               }
               try {
-                write(': heartbeat\n\n');
-              } catch {
-                cleanup();
+                controller.enqueue(encoder.encode(': heartbeat\n\n'));
+              } catch (error) {
+                logger.debug('workspace-routes: heartbeat enqueue failed', {
+                  sessionId,
+                  error: error instanceof Error ? error.message : String(error),
+                });
                 clearInterval(heartbeat);
+                abortCtrl.abort();
               }
             }, 25_000);
 
-            write('event: connected\n');
-            write(
-              `data: ${JSON.stringify({ sessionId, active: executor.isSessionActive(sessionId) })}\n\n`
-            );
-
-            const signal: AbortSignal | undefined = ctx.request?.signal;
-            signal?.addEventListener?.('abort', () => {
-              cleanup();
-              clearInterval(heartbeat);
-              try {
-                controller.close();
-              } catch {}
-            });
+            abortCtrl.signal.addEventListener('abort', () => { clearInterval(heartbeat); }, { once: true });
           },
+          cancel() { abortCtrl.abort(); },
         });
 
         return new Response(stream, {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive',
+            'Connection': 'keep-alive',
             'X-Accel-Buffering': 'no',
           },
         });
-      })
-      .get('/:id/exec', async ({ params, query, body, set }) => {
-        const workspaceId = asString(params?.id) || '';
-        const cmd = asString(asRecord(body).command) || asString(query?.command) || '';
+      },
+    )
+    .post(
+      '/:id/sessions/:sessionId/abort',
+      async (ctx) => {
+        if (!coordinator) {
+          ctx.set.status = 503;
+          return { success: false as const, error: { code: 'SERVICE_UNAVAILABLE', message: 'Coordinator not configured' } };
+        }
+
+        const user = getNginxUser(ctx);
+        const workspaceId = ctx.params.id;
+        const sessionId = ctx.params.sessionId;
+        const result = await coordinator.abortSession({
+          sessionId,
+          workspaceId,
+          userId: user.id,
+          tenantId: user.organizationId,
+        });
+        if (!result.ok) {
+          const { code } = result.error;
+          if (code === 'NOT_FOUND') { ctx.set.status = 404; return { success: false as const, error: { code, message: 'Session not found' } }; }
+          if (code === 'OWNER_MISMATCH') { ctx.set.status = 403; return { success: false as const, error: { code: 'FORBIDDEN', message: 'Not your session' } }; }
+          if (code === 'REDIS_UNAVAILABLE') { ctx.set.status = 503; return { success: false as const, error: { code, message: 'Session store unavailable' } }; }
+          ctx.set.status = 502;
+          return { success: false as const, error: { code, message: coordinatorErrorMessage(result.error) } };
+        }
+        return { success: true as const };
+      },
+      { response: { 200: WsSuccessSchema } },
+    )
+    .delete(
+      '/:id/sessions/:sessionId',
+      async (ctx) => {
+        if (!coordinator) {
+          ctx.set.status = 503;
+          return { success: false as const, error: { code: 'SERVICE_UNAVAILABLE', message: 'Coordinator not configured' } };
+        }
+
+        const user = getNginxUser(ctx);
+        const workspaceId = ctx.params.id;
+        const sessionId = ctx.params.sessionId;
+        const result = await coordinator.closeSession({
+          sessionId,
+          workspaceId,
+          userId: user.id,
+          tenantId: user.organizationId,
+        });
+        if (!result.ok) {
+          const { code } = result.error;
+          if (code === 'OWNER_MISMATCH') { ctx.set.status = 403; return { success: false as const, error: { code: 'FORBIDDEN', message: 'Not your session' } }; }
+          if (code === 'REDIS_UNAVAILABLE') { ctx.set.status = 503; return { success: false as const, error: { code, message: 'Session store unavailable' } }; }
+          ctx.set.status = 502;
+          return { success: false as const, error: { code, message: coordinatorErrorMessage(result.error) } };
+        }
+        return { success: true as const };
+      },
+      { response: { 200: WsSuccessSchema } },
+    )
+    .get(
+      '/:id/exec',
+      async (ctx) => {
+        const user = getNginxUser(ctx);
+        const workspaceId = ctx.params.id;
+        const cmd = asString(ctx.query.command) || '';
         if (!workspaceId || !cmd) {
-          set.status = 400;
-          return {
-            success: false,
-            error: { code: 'VALIDATION_ERROR', message: 'command is required' },
-          };
+          ctx.set.status = 400;
+          return { success: false as const, error: { code: 'VALIDATION_ERROR', message: 'command is required' } };
+        }
+        const info = await wm.getWorkspace(workspaceId);
+        if (!info) {
+          ctx.set.status = 404;
+          return { success: false as const, error: { code: 'NOT_FOUND', message: 'Workspace not found' } };
+        }
+        if (info.userId !== user.id) {
+          ctx.set.status = 403;
+          return { success: false as const, error: { code: 'FORBIDDEN', message: 'Not your workspace' } };
         }
         const result = await wm.execInWorkspace(workspaceId, cmd);
-        return { success: result.exitCode === 0, data: result };
-      }, {
+        return { success: result.exitCode === 0 as const, data: result };
+      },
+      {
         query: t.Object({ command: t.Optional(t.String()) }),
         response: {
           200: t.Object({ success: t.Boolean(), data: t.Object({ stdout: t.String(), stderr: t.String(), exitCode: t.Number() }) }),
           400: WsErrorSchema,
         },
-      })
-  );
+      },
+    );
 }

@@ -124,6 +124,10 @@ jobs:
         run: pnpm build:frontend
         env:
           NODE_ENV: production
+          # Must be present at BUILD time — the bundle bakes in the API base URL.
+          # Without it the app falls back to window.location.origin (the Pages
+          # domain, which has no API) and every request/Socket.IO connection 404s.
+          VITE_API_BASE_URL: https://api.navratna.tardis.digital
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

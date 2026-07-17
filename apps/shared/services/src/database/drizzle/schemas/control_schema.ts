@@ -73,6 +73,32 @@ export const organizations = pgTable(
   ]
 );
 
+/**
+ * Organization membership ledger. `users.organizationId` remains the user's
+ * ACTIVE org (what RLS keys off); this table records every org a user belongs to
+ * with their role, so provisioning can add/remove members and support multi-org
+ * membership later without changing the RLS model.
+ */
+export const orgMembers = pgTable(
+  'org_members',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 50 }).notNull().default('member'), // owner | admin | member
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('uq_org_members_org_user').on(t.organizationId, t.userId),
+    index('idx_org_members_user').on(t.userId),
+  ]
+);
+
 export type OrganizationRow = typeof organizations.$inferSelect;
 export type NewOrganizationRow = typeof organizations.$inferInsert;
 
@@ -358,8 +384,8 @@ export const userLLMProviders = pgTable('user_llm_providers', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  // cross-plane ref: intelligence.llmProviders.id — no DB FK
-  providerId: uuid('provider_id').notNull(),
+  // cross-plane ref: intelligence.llmProviders.id OR a provider type tag ('anthropic'/'ollama'/...) — no DB FK, stored as text
+  providerId: text('provider_id').notNull(),
   apiKeyEncrypted: text('api_key_encrypted'),
   isDefault: boolean('is_default').notNull().default(false),
   configuration: jsonb('configuration').$type<Record<string, unknown>>(),
@@ -749,7 +775,7 @@ export const workflowDefinitions = pgTable('workflow_definitions', {
     .$type<Array<{ type: 'agentTurn' | 'bash' | 'httpCall'; [key: string]: unknown }>>()
     .notNull(),
   delivery: jsonb('delivery').$type<{
-    type: 'webhook' | 'email' | 'slack';
+    type: 'webhook' | 'email' | 'slack' | 'whatsapp';
     target: string;
     retryPolicy?: object;
   } | null>(),
@@ -1187,3 +1213,57 @@ export type ErasureOutboxRow = typeof erasureOutbox.$inferSelect;
 export type NewErasureOutboxRow = typeof erasureOutbox.$inferInsert;
 export type ErasureLedgerRow = typeof erasureLedger.$inferSelect;
 export type NewErasureLedgerRow = typeof erasureLedger.$inferInsert;
+
+// ─── GITHUB APP INSTALLATIONS ───────────────────────────────────────────────
+//
+// One row per (user, project, repository) binding to a GitHub App installation.
+// installationId and repositoryId are stored as decimal strings because GitHub
+// uses 64-bit integers that exceed the safe JavaScript integer range in some
+// future repos; we never coerce to JS number until we have verified safety.
+//
+// Cross-plane note: userId is a UUID reference to the intelligence-plane users
+// table; no DB-level FK to avoid cross-plane DDL coupling. Integrity enforced
+// at application layer.
+//
+// Uniqueness invariant: at most one *active* binding per (userId, projectId,
+// repositoryId) triple — prevents cross-user/cross-project ambiguity.
+
+export const githubAppInstallations = pgTable(
+  'github_app_installations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** GitHub App installation ID stored as decimal string (no length limit). */
+    installationId: text('installation_id').notNull(),
+    /** GitHub account/org login for the installation (e.g. "acme-corp"). */
+    accountLogin: varchar('account_login', { length: 255 }).notNull(),
+    /** UUID of the Navratna user who authorised this binding. No cross-plane FK. */
+    userId: uuid('user_id').notNull(),
+    /** Navratna tenant/organisation ID string (mirrors organisations.id or slug). */
+    tenantId: varchar('tenant_id', { length: 255 }).notNull(),
+    /** Navratna project ID string. */
+    projectId: varchar('project_id', { length: 255 }).notNull(),
+    /** GitHub repository numeric ID stored as canonical decimal string (no leading zeros). */
+    repositoryId: text('repository_id').notNull(),
+    /** GitHub repository full name in "owner/repo" format. Validated at insert. */
+    repositoryFullName: varchar('repository_full_name', { length: 512 }).notNull(),
+    /** When false the binding must not be used to mint tokens. */
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    // Enforce at most one active binding per (user, project, repository).
+    uniqueIndex('uq_gh_app_install_active_user_proj_repo')
+      .on(t.userId, t.projectId, t.repositoryId)
+      .where(sql`${t.active} = TRUE`),
+    // Fast lookup by binding ID (PK already indexed; this index is on composite).
+    index('idx_gh_app_install_user_proj').on(t.userId, t.projectId),
+    // Lookup by repositoryId (used by broker before minting).
+    index('idx_gh_app_install_repo').on(t.repositoryId),
+    // Lookup by installationId (used for revocation / admin queries).
+    index('idx_gh_app_install_installation_id').on(t.installationId),
+  ]
+);
+
+export type GitHubAppInstallationRow = typeof githubAppInstallations.$inferSelect;
+export type NewGitHubAppInstallationRow = typeof githubAppInstallations.$inferInsert;

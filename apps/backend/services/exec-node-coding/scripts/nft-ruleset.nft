@@ -1,0 +1,24 @@
+#!/usr/sbin/nft -f
+flush ruleset
+
+table inet exec_node_sandbox {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        iifname "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+        ip6 saddr fdaa::/8 tcp dport { 3009, 15444 } accept
+    }
+
+    chain output {
+        type filter hook output priority filter; policy drop;
+
+        oifname "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+        meta skuid 1002 udp dport 53 accept
+        meta skuid 1002 tcp dport 53 accept
+        meta skuid 1002 tcp dport 443 accept
+    }
+}

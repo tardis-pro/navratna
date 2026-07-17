@@ -104,22 +104,6 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     visibility: 'faded',
     metadata: { title: 'Discussion Controls' },
   },
-  'user-chat': {
-    id: 'user-chat',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.8,
-    visibility: 'visible',
-    metadata: { title: 'User Chat' },
-  },
-  'consolidated-user-chat': {
-    id: 'consolidated-user-chat',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.8,
-    visibility: 'visible',
-    metadata: { title: 'Consolidated Chat' },
-  },
   knowledge: {
     id: 'knowledge',
     type: 'portal',
@@ -208,22 +192,6 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     visibility: 'faded',
     metadata: { title: 'Security' },
   },
-  'provider-settings': {
-    id: 'provider-settings',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.6,
-    visibility: 'faded',
-    metadata: { title: 'Provider Settings' },
-  },
-  'tool-management': {
-    id: 'tool-management',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.6,
-    visibility: 'faded',
-    metadata: { title: 'Tool Management' },
-  },
   'unified-tool': {
     id: 'unified-tool',
     type: 'portal',
@@ -231,14 +199,6 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     relevanceScore: 0.6,
     visibility: 'faded',
     metadata: { title: 'Unified Tools' },
-  },
-  'general-settings': {
-    id: 'general-settings',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.6,
-    visibility: 'faded',
-    metadata: { title: 'General Settings' },
   },
   'capability-registry': {
     id: 'capability-registry',
@@ -255,14 +215,6 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     relevanceScore: 0.6,
     visibility: 'faded',
     metadata: { title: 'Knowledge Graph' },
-  },
-  'tools-panel': {
-    id: 'tools-panel',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.6,
-    visibility: 'faded',
-    metadata: { title: 'Tools Panel' },
   },
   'atomic-knowledge': {
     id: 'atomic-knowledge',
@@ -296,14 +248,6 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     visibility: 'hidden',
     metadata: { title: 'Project Setup' },
   },
-  'system-config': {
-    id: 'system-config',
-    type: 'portal',
-    expression: 'calm',
-    relevanceScore: 0.4,
-    visibility: 'hidden',
-    metadata: { title: 'System Config' },
-  },
   'mini-browser': {
     id: 'mini-browser',
     type: 'portal',
@@ -313,6 +257,82 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     metadata: { title: 'Mini Browser' },
   },
 };
+
+// ---------------------------------------------------------------------------
+// Portal search options (consumed by IntentField)
+// ---------------------------------------------------------------------------
+
+export interface PortalSearchOption {
+  id: string;
+  title: string;
+  keywords: string[];
+}
+
+const PORTAL_KEYWORDS: Record<string, string[]> = {
+  chat: ['chat', 'talk', 'message', 'ask', 'converse'],
+  'agent-manager': ['agent', 'agents', 'manage', 'bot', 'assistant', 'roster'],
+  dashboard: ['dashboard', 'home', 'overview', 'summary', 'status'],
+  discussion: ['discussion', 'debate', 'thread', 'multi-agent'],
+  'discussion-log': ['discussion', 'log', 'history', 'transcript'],
+  'discussion-controls': ['discussion', 'controls', 'turn', 'moderation'],
+  knowledge: ['knowledge', 'docs', 'documents', 'notes', 'memory'],
+  artifacts: ['artifacts', 'files', 'outputs', 'generated', 'code'],
+  'project-management': ['project', 'projects', 'tasks', 'planning', 'kanban'],
+  'intelligence-panel': ['intelligence', 'insights', 'analysis', 'metrics'],
+  'insights-panel': ['insights', 'analytics', 'trends', 'signals'],
+  'operations-monitor': ['operations', 'ops', 'monitor', 'health', 'runtime'],
+  'event-stream': ['events', 'stream', 'activity', 'feed', 'logs'],
+  'security-gateway': ['security', 'gateway', 'auth', 'access', 'policy'],
+  'workflow-studio': ['workflow', 'studio', 'automation', 'pipeline', 'compose'],
+  settings: [
+    'settings',
+    'config',
+    'configuration',
+    'preferences',
+    'options',
+    'general',
+    'provider',
+    'providers',
+    'llm',
+    'model',
+    'models',
+    'api key',
+    'apikey',
+    'openai',
+    'anthropic',
+    'ollama',
+    'system',
+    'system config',
+    'advanced',
+  ],
+  security: ['security', 'auth', 'permissions', 'access', 'mfa'],
+  'unified-tool': [
+    'tools',
+    'tool',
+    'unified',
+    'integrations',
+    'capabilities',
+    'management',
+    'mcp',
+  ],
+  'capability-registry': ['capability', 'capabilities', 'registry', 'skills'],
+  'knowledge-graph': ['knowledge', 'graph', 'relationships', 'nodes', 'links'],
+  'atomic-knowledge': ['knowledge', 'viewer', 'atomic', 'item', 'reader'],
+  'mind-map': ['mind map', 'mindmap', 'map', 'brainstorm', 'visual'],
+  'multi-chat': ['multi', 'chat', 'parallel', 'group'],
+  'project-onboarding': ['onboarding', 'setup', 'project', 'wizard', 'getting started'],
+  'mini-browser': ['browser', 'web', 'preview', 'url'],
+};
+
+export function getPortalSearchOptions(): PortalSearchOption[] {
+  return Object.values(BASE_SURFACE_BLOCK_CATALOG).map((spec) => {
+    const title = (spec.metadata?.title as string | undefined) ?? spec.id;
+    const derived = title.toLowerCase().split(/\s+/).filter(Boolean);
+    const extra = PORTAL_KEYWORDS[spec.id] ?? [];
+    const keywords = Array.from(new Set([...derived, ...extra, spec.id]));
+    return { id: spec.id, title, keywords };
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Defaults

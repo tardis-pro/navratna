@@ -1,0 +1,53 @@
+{
+  "name": "@uaip/exec-node-mcp",
+  "version": "1.0.0",
+  "description": "Hybrid Execution Mesh — docker-mcp node-agent (data plane). Runs MCP servers in hardened Docker containers on an EC2 host. See docs/specs/11-HYBRID-EXECUTION-MESH.md.",
+  "main": "dist/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "start": "node dist/index.js",
+    "dev": "bun --hot src/index.ts",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@uaip/config": "workspace:*",
+    "@uaip/infra": "workspace:*",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "rimraf": "catalog:",
+    "tsc-alias": "catalog:backend",
+    "typescript": "catalog:"
+  },
+  "keywords": [
+    "uaip",
+    "execution-mesh",
+    "mcp",
+    "docker",
+    "node-agent"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "execution-mesh",
+      "data-plane"
+    ]
+  }
+}

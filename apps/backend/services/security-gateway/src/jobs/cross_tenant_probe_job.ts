@@ -5,6 +5,8 @@ import { config } from '@uaip/config';
 import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { QdrantService, ToolGraphDatabase } from '@uaip/shared-services';
 import { AuditService } from '../services/audit_service.js';
+import { getRedisTLSOptions } from '@uaip/infra';
+import type { RedisOptions } from 'ioredis';
 
 type RedisConnectionOptions = {
   host: string;
@@ -12,6 +14,7 @@ type RedisConnectionOptions = {
   password?: string;
   maxRetriesPerRequest: null;
   enableReadyCheck: boolean;
+  tls?: RedisOptions['tls'];
 };
 
 type PgClientLike = {
@@ -75,6 +78,7 @@ function defaultRedisConnection(): RedisConnectionOptions {
     password: config.redis?.password ?? undefined,
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
+    ...getRedisTLSOptions(config.redis?.host),
   };
 }
 

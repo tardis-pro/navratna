@@ -8,11 +8,6 @@ type AgentSession = {
   subscribe?: (cb: (event: unknown) => void) => (() => void) | void;
 };
 
-type AgentEvent = {
-  type?: string;
-  [key: string]: unknown;
-};
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -101,14 +96,12 @@ export class CodingAgentExecutor extends EventEmitter {
       try {
         const moduleName = '@mariozechner/pi-coding-agent';
         piModule = await import(moduleName);
-      } catch {
-        logger.warn('pi-coding-agent not installed, running in mock mode');
-        this.activeSessions.set(sessionId, {
-          session: this.createMockSession(sessionId),
-          workspaceId,
-          userId: options.userId,
-        });
-        return { sessionId, ready: true };
+      } catch (importErr) {
+        logger.error('pi-coding-agent not installed; session cannot be created via CodingAgentExecutor', { sessionId });
+        throw new Error(
+          `pi-coding-agent module unavailable: ${importErr instanceof Error ? importErr.message : String(importErr)}`,
+          { cause: importErr },
+        );
       }
 
       type PiAgentModule = {

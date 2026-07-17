@@ -17,6 +17,7 @@ export interface WorkspaceConfig {
 
 export interface WorkspaceInfo {
   workspaceId: string;
+  userId: string;
   containerId: string;
   status: 'initializing' | 'ready' | 'busy' | 'stopped' | 'error';
   workspacePath: string;
@@ -114,6 +115,7 @@ export class WorkspaceManager extends EventEmitter {
 
       const info: WorkspaceInfo = {
         workspaceId,
+        userId: config.userId,
         containerId: containerId.trim(),
         status: 'ready',
         workspacePath,

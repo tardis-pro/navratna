@@ -115,7 +115,6 @@ export * from './dev-loop';
 export * from './solution-design';
 export * from './healing';
 export * from './drift-detection';
-export * from './openclaw';
 export * from './integrations';
 export * from './cognitive_portrait';
 export * from './deployment';
@@ -123,3 +122,6 @@ export * from './onboarding';
 export * from './workflow_composition';
 export * from './design_tokens';
 export * from './erasure';
+// Hybrid Execution Mesh types - NEW (spec 11)
+export * from './execution_mesh.js';
+export * from './coding_session.js';

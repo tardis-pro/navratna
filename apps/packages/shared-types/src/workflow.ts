@@ -2,7 +2,7 @@ export type TriggerKind = 'cron' | 'every' | 'webhook' | 'event'
 
 export type StepType = 'agentTurn' | 'bash' | 'httpCall'
 
-export type DeliveryType = 'webhook' | 'email' | 'slack'
+export type DeliveryType = 'webhook' | 'email' | 'slack' | 'whatsapp'
 
 export interface RepeatableJob {
   key: string

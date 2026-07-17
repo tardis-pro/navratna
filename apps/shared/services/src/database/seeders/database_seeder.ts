@@ -12,9 +12,7 @@ import { PersonaSeed } from './persona_seed';
 import { AgentSeed } from './agent_seed';
 import { ToolDefinitionSeed } from './tool_definition_seed';
 import { ProjectSeed } from './project_seed';
-import { LLMProviderSeed } from './llm_provider_seed';
 import { CapabilitySeed } from './capability_seed';
-import { WorkflowDefinitionSeed } from './workflow_definition_seed';
 
 export class DatabaseSeeder {
   private controlDb = getControlDb();
@@ -40,7 +38,6 @@ export class DatabaseSeeder {
       agents: false,
       toolDefinitions: false,
       projects: false,
-      workflowDefinitions: false,
     };
 
     try {
@@ -120,13 +117,6 @@ export class DatabaseSeeder {
       console.error('   ❌ Project seeding failed:', error);
     }
 
-    try {
-      await this.seedWorkflowDefinitions();
-      results.workflowDefinitions = true;
-    } catch (error) {
-      console.error('   ❌ Workflow definition seeding failed:', error);
-    }
-
     const successCount = Object.values(results).filter(Boolean).length;
     const totalCount = Object.keys(results).length;
     if (successCount === totalCount) {
@@ -144,8 +134,14 @@ export class DatabaseSeeder {
   }
 
   private async seedLLMProviders(): Promise<void> {
-    const llmProviderSeed = new LLMProviderSeed();
-    await llmProviderSeed.seed();
+    // System LLM providers are intentionally NOT seeded. The former seed inserted
+    // dummy/broken providers (OpenAI/Anthropic without keys, localhost Ollama/LM
+    // Studio unreachable in prod) that surfaced as non-functional providers in the
+    // UI. Providers are now managed exclusively via the admin UI and per-user BYOK.
+    // See llm_provider_seed.ts (retained but no longer invoked).
+    console.warn(
+      'ℹ️ Skipping system LLM provider seeding (disabled — managed via admin UI / BYOK)'
+    );
   }
 
   private async seedCapabilities(): Promise<void> {
@@ -205,8 +201,4 @@ export class DatabaseSeeder {
     await projectSeed.seed();
   }
 
-  private async seedWorkflowDefinitions(): Promise<void> {
-    const workflowSeed = new WorkflowDefinitionSeed();
-    await workflowSeed.seed();
-  }
 }

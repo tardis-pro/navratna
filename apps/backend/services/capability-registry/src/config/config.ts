@@ -19,11 +19,23 @@ export interface CapabilityRegistrySpecificConfig {
     enableApprovalWorkflow: boolean;
     defaultCostLimit: number;
   };
+  // Hybrid Execution Mesh (spec 11). OFF by default; when off the legacy
+  // in-process executor path is unchanged.
+  execMesh: {
+    enabled: boolean;
+    maxConcurrentPerRuntime: number;
+    heartbeatTimeoutMs: number;
+    // Phase 2 — Cloudflare exec-worker (light tier). When workerUrl is empty no
+    // worker-cf node is registered and worker-runtime tools fall back to native.
+    workerUrl: string;
+    workerSecret: string;
+  };
 }
 
 // Combined configuration interface
 export interface CapabilityRegistryConfig extends Config {
   tools: CapabilityRegistrySpecificConfig['tools'];
+  execMesh: CapabilityRegistrySpecificConfig['execMesh'];
 }
 
 // Service-specific configuration values
@@ -33,6 +45,15 @@ const serviceSpecificConfig: CapabilityRegistrySpecificConfig = {
     maxConcurrentExecutions: parseInt(process.env.MAX_CONCURRENT_EXECUTIONS || '10'),
     enableApprovalWorkflow: process.env.ENABLE_APPROVAL_WORKFLOW === 'true',
     defaultCostLimit: parseFloat(process.env.DEFAULT_COST_LIMIT || '100.0'),
+  },
+  execMesh: {
+    // Feature flag — default OFF. Only 'true' enables the mesh routing path.
+    enabled: process.env.FEATURE_EXEC_MESH === 'true',
+    maxConcurrentPerRuntime: parseInt(process.env.EXEC_MESH_MAX_CONCURRENT || '100'),
+    heartbeatTimeoutMs: parseInt(process.env.EXEC_MESH_HEARTBEAT_INTERVAL_MS || '10000'),
+    // Empty by default → no worker-cf node registered → native fallback (unchanged).
+    workerUrl: process.env.EXEC_WORKER_URL || '',
+    workerSecret: process.env.EXEC_WORKER_SECRET || '',
   },
 };
 

@@ -276,7 +276,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   const wsFallbackTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
-  const WS_FALLBACK_TIMEOUT_MS = 30_000;
+  const WS_FALLBACK_TIMEOUT_MS = 6_000;
 
   // Conversation Intelligence for portal mode
   const _portalConversationIntelligence = useConversationIntelligence({

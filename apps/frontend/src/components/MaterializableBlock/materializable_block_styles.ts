@@ -3,33 +3,38 @@ import type { Microexpression } from '@uaip/types';
 import { MICROEXPRESSION_COLORS } from '@uaip/types';
 import type { BlockVisibility, MaterializableBlockType } from './materializable_block_types';
 
+// Restrained, theme-neutral elevation shadow shared by all cards so hierarchy
+// stays consistent instead of each card emitting its own neon glow.
+const CARD_ELEVATION = '0 1px 3px oklch(0% 0 0 / 0.08), 0 1px 2px oklch(0% 0 0 / 0.06)';
+
 export const EXPRESSION_STYLES: Record<Microexpression, CSSProperties> = {
   calm: {
     borderColor: MICROEXPRESSION_COLORS.calm.border,
+    boxShadow: CARD_ELEVATION,
   },
   attentive: {
     borderColor: MICROEXPRESSION_COLORS.attentive.border,
-    boxShadow: `0 0 0 2px ${MICROEXPRESSION_COLORS.attentive.glow}`,
+    boxShadow: CARD_ELEVATION,
   },
   working: {
     borderColor: MICROEXPRESSION_COLORS.working.border,
-    boxShadow: `0 0 8px ${MICROEXPRESSION_COLORS.working.glow}`,
+    boxShadow: CARD_ELEVATION,
   },
   alarmed: {
     borderColor: MICROEXPRESSION_COLORS.alarmed.border,
-    boxShadow: `0 0 20px ${MICROEXPRESSION_COLORS.alarmed.glow}, 0 0 40px ${MICROEXPRESSION_COLORS.alarmed.glow}`,
+    boxShadow: `0 0 0 1px ${MICROEXPRESSION_COLORS.alarmed.border}, ${CARD_ELEVATION}`,
   },
   confused: {
     borderColor: MICROEXPRESSION_COLORS.confused.border,
+    boxShadow: CARD_ELEVATION,
   },
   satisfied: {
     borderColor: MICROEXPRESSION_COLORS.satisfied.border,
-    boxShadow: `0 0 10px ${MICROEXPRESSION_COLORS.satisfied.glow}`,
+    boxShadow: CARD_ELEVATION,
   },
   strained: {
     borderColor: MICROEXPRESSION_COLORS.strained.border,
-    boxShadow: `0 0 4px ${MICROEXPRESSION_COLORS.strained.glow}`,
-    filter: 'brightness(0.85)',
+    boxShadow: CARD_ELEVATION,
   },
 };
 
@@ -40,9 +45,9 @@ export const VISIBILITY_STYLES: Record<BlockVisibility, CSSProperties> = {
     transform: 'scale(1)',
   },
   faded: {
-    opacity: 0.65,
+    opacity: 0.9,
     pointerEvents: 'auto',
-    transform: 'scale(0.98)',
+    transform: 'scale(1)',
   },
   hidden: {
     opacity: 0,
@@ -55,35 +60,38 @@ export const BLOCK_TYPE_COLORS: Record<
   MaterializableBlockType,
   { bg: string; border: string; accent: string }
 > = {
+  // Card surface + border follow the light/dark theme tokens so cards adapt to
+  // the OS theme. Only `accent` carries the per-type identity (used for a small
+  // dot, icon tint, header strip, and progress bar) — kept restrained.
   agent: {
-    bg: 'oklch(15% 0.04 248 / 0.85)',
-    border: 'oklch(55% 0.22 248 / 0.5)',
-    accent: 'oklch(65% 0.25 248)',
+    bg: 'var(--color-card)',
+    border: 'var(--color-border)',
+    accent: 'oklch(58% 0.17 248)',
   },
   portal: {
-    bg: 'oklch(15% 0.04 290 / 0.85)',
-    border: 'oklch(65% 0.24 290 / 0.5)',
-    accent: 'oklch(70% 0.26 290)',
+    bg: 'var(--color-card)',
+    border: 'var(--color-border)',
+    accent: 'oklch(56% 0.19 290)',
   },
   artifact: {
-    bg: 'oklch(15% 0.04 145 / 0.85)',
-    border: 'oklch(60% 0.2 145 / 0.5)',
-    accent: 'oklch(68% 0.22 145)',
+    bg: 'var(--color-card)',
+    border: 'var(--color-border)',
+    accent: 'oklch(55% 0.15 145)',
   },
   discussion: {
-    bg: 'oklch(15% 0.04 50 / 0.85)',
-    border: 'oklch(68% 0.2 50 / 0.5)',
-    accent: 'oklch(75% 0.22 50)',
+    bg: 'var(--color-card)',
+    border: 'var(--color-border)',
+    accent: 'oklch(60% 0.16 50)',
   },
   task: {
-    bg: 'oklch(15% 0.04 75 / 0.85)',
-    border: 'oklch(70% 0.2 75 / 0.5)',
-    accent: 'oklch(78% 0.22 75)',
+    bg: 'var(--color-card)',
+    border: 'var(--color-border)',
+    accent: 'oklch(62% 0.15 75)',
   },
   workflow: {
-    bg: 'oklch(15% 0.04 200 / 0.85)',
-    border: 'oklch(62% 0.22 200 / 0.5)',
-    accent: 'oklch(70% 0.24 200)',
+    bg: 'var(--color-card)',
+    border: 'var(--color-border)',
+    accent: 'oklch(56% 0.14 200)',
   },
 };
 
@@ -120,7 +128,6 @@ export const CONTAINER_STYLES: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
-  backdropFilter: 'blur(16px) saturate(200%)',
   willChange: 'transform, opacity',
 };
 

@@ -3,6 +3,7 @@ import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactTy
 import { logger, isRecord } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import { withRequiredAuth } from '@uaip/middleware';
+import { ShortLinkService } from '../services/short_link_service.js';
 
 import { Elysia, t } from 'elysia';
 
@@ -61,10 +62,84 @@ function buildArtifactGenerationRequest(body: unknown): ArtifactGenerationReques
 const ArtifactSchema = t.Any()
 const ArtifactErrorSchema = t.Object({ success: t.Literal(false), error: t.Object({ code: t.String(), message: t.String() }) })
 
+/**
+ * Read-only projection of an artifact safe to expose on a public share link.
+ * Deliberately omits ownership/tenant and internal generation metadata
+ * (organizationId, generatedBy, approvedBy, conversationId, sourceMessages,
+ * validationResult, projectId, …) — only the human-facing content is shared.
+ */
+function toPublicArtifact(artifact: Record<string, unknown>) {
+  return {
+    id: artifact.id,
+    type: artifact.type,
+    title: artifact.title,
+    description: artifact.description ?? null,
+    content: artifact.content,
+    language: artifact.language ?? null,
+    framework: artifact.framework ?? null,
+    tags: Array.isArray(artifact.tags) ? artifact.tags : [],
+    version: artifact.version ?? null,
+    createdAt: artifact.createdAt ?? null,
+  };
+}
+
 export function registerArtifactRoutes(
   artifactService: ArtifactService
 ){
-  return new Elysia().group(
+  return new Elysia()
+    // Public, read-only view of an artifact that was explicitly shared. Keyed by
+    // the share short code (not the artifact id), so only artifacts with an
+    // active 'artifact' short link are reachable — never arbitrary ids. No auth:
+    // this is what a peer opens from a shared link. Registered outside the
+    // withRequiredAuth group below.
+    .get(
+      '/api/v1/artifacts/public/:shortCode',
+      async ({ params, set, headers }) => {
+        try {
+          const links = new ShortLinkService();
+          const link = await links.getShortLink(params.shortCode);
+          if (!link || link.type !== 'artifact' || !link.artifactId) {
+            set.status = 404;
+            return { success: false, error: { code: 'NOT_FOUND', message: 'Shared artifact not found' } };
+          }
+          if (link.expiresAt && new Date() > link.expiresAt) {
+            set.status = 410;
+            return { success: false, error: { code: 'GONE', message: 'This share link has expired' } };
+          }
+
+          const artifactRepo = DatabaseService.getInstance().getArtifactRepository();
+          const artifact = await artifactRepo.findById(link.artifactId);
+          if (!artifact) {
+            set.status = 404;
+            return { success: false, error: { code: 'NOT_FOUND', message: 'Shared artifact not found' } };
+          }
+
+          // Best-effort click analytics; never fail the read on a tracking error.
+          links
+            .recordShareView(link.id, {
+              userAgent: headers['user-agent'],
+              ip: headers['x-forwarded-for'] || undefined,
+              referer: headers['referer'],
+            })
+            .catch((error: unknown) => logger.warn('Failed to record shared-artifact view', { error }));
+
+          return { success: true, data: toPublicArtifact(artifact as unknown as Record<string, unknown>) };
+        } catch (error) {
+          logger.error('Failed to load shared artifact', { error, shortCode: params.shortCode });
+          set.status = 500;
+          return { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to load shared artifact' } };
+        }
+      },
+      {
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Any() }),
+          404: ArtifactErrorSchema,
+          410: ArtifactErrorSchema,
+          500: ArtifactErrorSchema,
+        },
+      }
+    )
+    .group(
     '/api/v1/artifacts',
     (g) => withRequiredAuth(g)
       // List all artifacts
@@ -76,7 +151,6 @@ export function registerArtifactRoutes(
             const artifactRepo = databaseService.getArtifactRepository();
     
             const type = query.type;
-            const projectId = query.projectId;
             const limit = Math.min(query.limit ? parseInt(query.limit) : 50, 200);
             const offset = query.offset ? parseInt(query.offset) : 0;
     

@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import Redis from 'ioredis';
 import { EventBusService } from '@uaip/infra/event_bus';
+import { getRedisTLSOptions } from '@uaip/infra';
 import { createLogger, InternalServerError } from '@uaip/utils';
 import { validateJWTToken } from '@uaip/middleware';
 import { BaileysClient, type WAConnectionState } from './baileys_client.js';
@@ -110,14 +111,16 @@ export class WhatsAppHandler {
     this.eventBus = eventBus;
 
     // Self-managed Redis connection — same pattern as RedisSessionManager
+    const waHost = process.env.REDIS_HOST || 'localhost';
     this.redis = new Redis({
-      host: process.env.REDIS_HOST || 'localhost',
+      host: waHost,
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD,
-      db: parseInt(process.env.REDIS_WA_DB || '3', 10), // DB 3 reserved for WhatsApp session
+      db: parseInt(process.env.REDIS_WA_DB || process.env.REDIS_DB || '0', 10),
       maxRetriesPerRequest: 3,
       lazyConnect: true,
       commandTimeout: 5000,
+      ...getRedisTLSOptions(waHost),
     });
 
     this.redis.on('error', (err) => logger.error('WhatsApp Redis error', { err }));

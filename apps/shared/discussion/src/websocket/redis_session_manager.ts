@@ -1,5 +1,6 @@
 import Redis from 'ioredis';
 import { logger } from '@uaip/utils';
+import { getRedisTLSOptions } from '@uaip/infra';
 import type { WebSocketConnection, WebSocketSession, RateLimitData } from '@uaip/types';
 
 type RateLimitEntry = { count: number; resetTime: number };
@@ -45,14 +46,16 @@ export class RedisSessionManager {
   private readonly RATE_LIMIT_TTL = 60; // 1 minute
 
   constructor(redisConfig?: { host?: string; port?: number; password?: string; db?: number }) {
+    const sessionHost = redisConfig?.host || process.env.REDIS_HOST || 'localhost';
     this.redis = new Redis({
-      host: redisConfig?.host || process.env.REDIS_HOST || 'localhost',
+      host: sessionHost,
       port: redisConfig?.port || parseInt(process.env.REDIS_PORT || '6379'),
       password: redisConfig?.password || process.env.REDIS_PASSWORD,
-      db: redisConfig?.db || parseInt(process.env.REDIS_DB || '2'), // Use DB 2 for WebSocket sessions
+      db: redisConfig?.db || parseInt(process.env.REDIS_WS_DB || process.env.REDIS_DB || '0'),
       maxRetriesPerRequest: 3,
       lazyConnect: true,
       commandTimeout: 5000,
+      ...getRedisTLSOptions(sessionHost),
     });
 
     this.redis.on('connect', () => {

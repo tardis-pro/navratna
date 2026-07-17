@@ -40,6 +40,13 @@ export class SmartEmbeddingService extends EmbeddingService {
   private teiService: TEIEmbeddingService;
   private config: EmbeddingServiceConfig;
   private healthStatus: SmartEmbeddingStatus;
+  // Reported dimension for the OpenAI-compatible / configured embeddings path.
+  // Default 1536 preserves OpenAI ada-002 behavior; set EMBEDDINGS_DIM=1024 for
+  // the CF bge-large-en-v1.5 worker so the Qdrant collection is sized to match.
+  private readonly configuredDimensions: number = parseInt(
+    process.env.EMBEDDINGS_DIM ?? '1536',
+    10
+  );
   private lastHealthCheck: Date = new Date(0);
   private performanceMetrics = {
     avgLatency: 0,
@@ -49,10 +56,11 @@ export class SmartEmbeddingService extends EmbeddingService {
   };
 
   constructor(config: Partial<EmbeddingServiceConfig> = {}) {
-    // Initialize base EmbeddingService with OpenAI config
+    // Initialize base EmbeddingService with env-driven embeddings config.
+    // EMBEDDINGS_API_KEY doubles as the CF worker's X-Embed-Auth secret.
     super(
-      config.openaiApiKey || process.env.OPENAI_API_KEY,
-      config.embeddingModel || 'text-embedding-ada-002'
+      config.openaiApiKey || process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY,
+      config.embeddingModel || process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002'
     );
 
     // Default configuration
@@ -64,9 +72,9 @@ export class SmartEmbeddingService extends EmbeddingService {
         reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
         embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
       },
-      openaiApiKey: process.env.OPENAI_API_KEY,
+      openaiApiKey: process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY,
       healthCheckInterval: 30000, // 30 seconds
-      embeddingModel: 'text-embedding-ada-002',
+      embeddingModel: process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002',
       ...config,
     };
 
@@ -85,7 +93,10 @@ export class SmartEmbeddingService extends EmbeddingService {
       },
       openaiAvailable: !!this.config.openaiApiKey,
       lastHealthCheck: new Date(0),
-      embeddingDimensions: 768, // Default TEI dimension (all-mpnet-base-v2)
+      // Seed with the configured dimension so the synchronous read in
+      // service_factory (before the async health check runs) sizes the Qdrant
+      // collection correctly. The TEI-ready path corrects this to 768 on health check.
+      embeddingDimensions: this.configuredDimensions,
       performanceMetrics: {
         avgLatency: 0,
         successRate: 1.0,
@@ -278,7 +289,9 @@ export class SmartEmbeddingService extends EmbeddingService {
         this.healthStatus.embeddingDimensions = 768; // TEI CPU model dimension
       } else if (this.healthStatus.openaiAvailable) {
         this.healthStatus.activeService = 'openai';
-        this.healthStatus.embeddingDimensions = 1536; // OpenAI dimension
+        // Configurable via EMBEDDINGS_DIM (default 1536 = OpenAI ada-002;
+        // 1024 for the CF bge-large-en-v1.5 worker).
+        this.healthStatus.embeddingDimensions = this.configuredDimensions;
       } else {
         this.healthStatus.activeService = 'tei'; // Default, even if unhealthy
         this.healthStatus.embeddingDimensions = 768; // Default TEI dimension

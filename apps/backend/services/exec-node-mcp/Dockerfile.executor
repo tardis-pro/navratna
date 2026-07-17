@@ -1,0 +1,62 @@
+# exec-node-executor — the runtime image a shell/bash workflow step executes in.
+#
+# Generic Navratna execution node: it provides the RUNTIMES a step may declare via
+# `requires: [python3, sqlite3, ...]`. The scheduler routes a step to a node advertising
+# those runtimes and runs the command here. Nothing tenant- or workflow-specific is baked
+# in — whatever ecosystem's workflows run on Navratna (OpenClaw is just one, imported as
+# workflow-definitions + personas) shell out to these same runtimes.
+#
+# STATE MODEL (no config repo, no workspace filesystem sync):
+#   - agent config/identity  → Postgres (the persona record; the agentTurn step reads its
+#                              systemPrompt from there — no config file to sync)
+#   - durable outputs        → the artifacts table (tagged rows) with the blob in R2,
+#                              written via the artifact API — not a synced /workspace
+#   - DB state (tasks/events)→ a PocketBase/Postgres service the workflows curl
+#   - /workspace here is just EPHEMERAL scratch for intra-run temp files
+#
+# BUILD (context = repo root):
+#   docker build -f apps/backend/services/exec-node-mcp/Dockerfile.executor -t uaip/exec-node-executor .
+#
+# RUN (as a node, self-registering into the mesh — see the mesh enrollment flow).
+# Mount whatever per-deployment scripts/credentials a step needs; the paths are generic:
+#   docker run -d --restart unless-stopped \
+#     -e NAVRATNA_API_URL=https://<host> -e NAVRATNA_NODE_TOKEN=<token> \
+#     -v /srv/steps/scripts:/opt/steps/scripts:ro \
+#     -v /srv/steps/creds:/opt/steps/creds:ro \
+#     uaip/exec-node-executor
+
+FROM node:22-slim AS runtime
+
+# ── Runtime prerequisites a shell/bash step may shell out to ───────────────────
+# python3+pip  → *.py scripts
+# sqlite3      → local sqlite ops
+# curl/jq      → HTTP calls, JSON wrangling, webhooks
+# git          → repo ops
+# rclone       → object-storage push for scripts that use it directly
+# ca-certs     → TLS to external APIs
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3 python3-pip python3-venv \
+      sqlite3 curl jq git ca-certificates openssh-client rclone \
+ && rm -rf /var/lib/apt/lists/*
+
+# Common Python deps steps import (HTTP, RSS, object storage). Extend as needed.
+RUN pip3 install --no-cache-dir --break-system-packages \
+      requests feedparser boto3 python-dateutil
+
+# ── Node-agent (the mesh data-plane that receives and runs steps) ─────────────
+WORKDIR /app
+COPY --from=uaip/exec-node-mcp:latest /app /app
+
+# ── Generic mount points ──────────────────────────────────────────────────────
+# /opt/steps/scripts — per-deployment script bodies a step invokes (mounted read-only)
+# /opt/steps/creds    — per-deployment credentials a step needs      (mounted read-only)
+# /workspace          — EPHEMERAL scratch for intra-run temp files
+RUN mkdir -p /opt/steps/scripts /opt/steps/creds /workspace
+ENV STEP_SCRIPTS=/opt/steps/scripts \
+    STEP_CREDS=/opt/steps/creds \
+    WORKSPACE=/workspace \
+    NODE_ENV=production
+
+WORKDIR /app/apps/backend/services/exec-node-mcp
+CMD ["node", "dist/index.js"]

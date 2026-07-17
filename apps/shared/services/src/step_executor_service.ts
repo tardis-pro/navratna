@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { randomUUID } from 'crypto';
 import {
   ExecutionStep,
   StepStatus,
@@ -213,47 +214,87 @@ export class StepExecutorService extends EventEmitter {
     return input;
   }
 
+  /**
+   * Dispatch a real tool execution over the event bus to the ToolExecutionCoordinator
+   * (capability-registry), which runs it via UnifiedToolRegistry (MCP / shell sandbox /
+   * OAuth adapters). Blocks on the RPC reply. This is what makes a workflow step actually
+   * DO something instead of returning a fabricated success string.
+   */
+  private async runToolViaCoordinator(
+    toolId: string,
+    parameters: Record<string, unknown>,
+    agentId: string,
+    timeoutMs: number
+  ): Promise<unknown> {
+    const eventBus = EventBusService.getInstance();
+    const requestId = randomUUID();
+    const response = await eventBus.publishAndWaitForResponse<{
+      status?: string;
+      result?: unknown;
+      error?: string;
+    }>(
+      'tool.execute.request',
+      { requestId, toolId, agentId, parameters, securityContext: { userId: agentId, agentId } },
+      timeoutMs
+    );
+
+    if (response && response.status === 'ERROR') {
+      throw new Error(response.error || `Tool ${toolId} execution failed`);
+    }
+    return response?.result ?? response;
+  }
+
   private async executeToolStep(
     step: ExecutionStep,
     input: Record<string, unknown>,
-    signal: AbortSignal
+    _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
     const startTime = Date.now();
-
-    // Simulate tool execution
-    await this.delay(Math.random() * 2000 + 1000, signal); // 1-3 seconds
-
-    const result = {
-      toolResult: `Tool ${step.name} executed successfully`,
-      toolOutput: input,
-      executedAt: new Date().toISOString(),
-    };
-
-    // Audit logging for tool execution
-    try {
-      const eventBus = EventBusService.getInstance();
-      await eventBus.publish(
-        'tool.executed',
-        {
-          toolId: step.toolId || step.id,
-          toolName: step.name,
-          executionTime: Date.now() - startTime,
-          success: true,
-          parameters: input,
-          stepId: step.id,
-        },
-        {
-          correlationId: step.metadata?.correlationId,
-        }
-      );
-    } catch (auditError) {
-      logger.warn('Failed to publish tool execution audit event', {
-        toolName: step.name,
-        error: auditError instanceof Error ? auditError.message : 'Unknown error',
-      });
+    const toolId = step.toolId || (step.metadata?.toolId as string | undefined);
+    if (!toolId) {
+      throw new Error(`Tool step "${step.name}" has no toolId to execute`);
     }
 
-    return result;
+    const agentId = (step.agentId as string) || 'system';
+    const parameters = { ...input, ...(step.parameters ?? {}) };
+    let result: unknown;
+    let success = true;
+    try {
+      result = await this.runToolViaCoordinator(toolId, parameters, agentId, step.timeout ?? 60000);
+    } catch (error) {
+      success = false;
+      throw error;
+    } finally {
+      // Audit logging for tool execution
+      try {
+        const eventBus = EventBusService.getInstance();
+        await eventBus.publish(
+          'tool.executed',
+          {
+            toolId,
+            toolName: step.name,
+            executionTime: Date.now() - startTime,
+            success,
+            parameters,
+            stepId: step.id,
+          },
+          {
+            correlationId: step.metadata?.correlationId,
+          }
+        );
+      } catch (auditError) {
+        logger.warn('Failed to publish tool execution audit event', {
+          toolName: step.name,
+          error: auditError instanceof Error ? auditError.message : 'Unknown error',
+        });
+      }
+    }
+
+    return {
+      toolId,
+      toolResult: result,
+      executedAt: new Date().toISOString(),
+    };
   }
 
   private async executeArtifactStep(
@@ -344,18 +385,64 @@ export class StepExecutorService extends EventEmitter {
     return delayWithAbort(ms, signal, 'Step execution was cancelled');
   }
 
-  // Add missing methods
+  /**
+   * Dispatch a real agent-reasoning turn over the event bus to the llm-service
+   * (navratna-core), which resolves the persona's systemPrompt and calls the LLM.
+   * Blocks on the RPC reply. This is what makes an `agent-action` step actually
+   * reason via a persona + LLM instead of returning a fabricated string.
+   *
+   * llm-service lives in a feature package that DEPENDS ON shared-services, so it
+   * cannot be imported here (backward dependency). We go over the bus, mirroring
+   * runToolViaCoordinator. The responder lives in
+   * apps/backend/services/llm-service/src/feature.ts ('llm.step.generate.request').
+   */
+  private async runAgentViaLLM(
+    request: { agentId?: string; prompt: string; systemPrompt?: string; model?: string },
+    timeoutMs: number
+  ): Promise<{ content: string; model?: string }> {
+    const eventBus = EventBusService.getInstance();
+    const requestId = randomUUID();
+    const response = await eventBus.publishAndWaitForResponse<{
+      content?: string;
+      model?: string;
+      error?: string;
+    }>('llm.step.generate.request', { requestId, ...request }, timeoutMs);
+
+    if (!response || typeof response.content !== 'string') {
+      throw new Error(response?.error || 'Agent action returned no content from the LLM');
+    }
+    return { content: response.content, model: response.model };
+  }
+
   public async executeAgentAction(
     step: ExecutionStep,
     input: Record<string, unknown>,
-    signal: AbortSignal
+    _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    await this.delay(Math.random() * 2000 + 1000, signal);
+    const params = step.parameters ?? {};
+    const prompt =
+      (typeof params.prompt === 'string' && params.prompt ? params.prompt : undefined) ??
+      (typeof input.prompt === 'string' && input.prompt ? input.prompt : undefined) ??
+      (typeof step.action === 'string' && step.action ? step.action : undefined);
+
+    if (!prompt) {
+      throw new Error(`Agent-action step "${step.name}" has no prompt to send to the LLM`);
+    }
+
+    const agentId = (step.agentId as string) || undefined;
+    const model = typeof params.model === 'string' ? params.model : undefined;
+    const systemPrompt = typeof params.systemPrompt === 'string' ? params.systemPrompt : undefined;
+
+    const result = await this.runAgentViaLLM(
+      { agentId, prompt, systemPrompt, model },
+      step.timeout ?? 60000
+    );
 
     return {
-      agentId: step.agentId || 'unknown',
-      action: step.action || 'unknown',
-      actionResult: `Agent action ${step.action} executed`,
+      agentId: agentId || 'unknown',
+      action: step.action || 'agent-action',
+      actionResult: result.content,
+      model: result.model,
       executedAt: new Date().toISOString(),
     };
   }
@@ -363,14 +450,25 @@ export class StepExecutorService extends EventEmitter {
   public async executeTool(
     step: ExecutionStep,
     input: Record<string, unknown>,
-    signal: AbortSignal
+    _signal: AbortSignal
   ): Promise<Record<string, unknown>> {
-    await this.delay(Math.random() * 1500 + 500, signal);
+    const toolId = step.toolId || (step.metadata?.toolId as string | undefined);
+    if (!toolId) {
+      throw new Error(`Tool-execution step "${step.name}" has no toolId to execute`);
+    }
+
+    const agentId = (step.agentId as string) || 'system';
+    const parameters = { ...input, ...(step.parameters ?? {}) };
+    const result = await this.runToolViaCoordinator(
+      toolId,
+      parameters,
+      agentId,
+      step.timeout ?? 60000
+    );
 
     return {
-      toolId: step.toolId || 'unknown',
-      toolResult: `Tool ${step.toolId} executed successfully`,
-      toolOutput: input,
+      toolId,
+      toolResult: result,
       executedAt: new Date().toISOString(),
     };
   }

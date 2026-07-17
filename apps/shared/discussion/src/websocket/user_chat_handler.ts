@@ -582,7 +582,10 @@ export class UserChatHandler {
       });
     });
 
-    this.eventBusService.subscribe('approval:required', async (event) => {
+    // Dot-separated: BullMQ rejects a ':' in a queue name, and the event type is used
+    // verbatim as the queue name. A colon here threw inside mountWebSocket and took the
+    // whole chat handler down with it.
+    this.eventBusService.subscribe('approval.required', async (event) => {
       const isRecord = (v: unknown): v is Record<string, unknown> =>
         typeof v === 'object' && v !== null && !Array.isArray(v);
       const approvalData = isRecord(event.data) ? event.data : {};

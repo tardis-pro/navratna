@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TurnStrategy, ParticipantRole, DiscussionVisibility } from '@uaip/types';
 import type { FrontendMessage as Message } from '@uaip/types';
 import { cn } from '@/lib/utils';
+import { getAgentColorIndex } from '@/lib/status_tokens';
 import uaipAPI from '@/utils/uaip_api';
 import { DiscussionHistory } from './DiscussionHistory';
 import { ApprovalRequest } from './ApprovalRequest';
@@ -398,9 +399,8 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
 
   const getAgentColor = (sender: string) => {
     const colors = ['blue', 'emerald', 'purple', 'orange', 'pink', 'indigo'];
-    const agentNames = Object.values(agents).map((a) => a.name);
-    const index = agentNames.indexOf(sender);
-    return colors[index >= 0 ? index % colors.length : 0];
+    // Deterministic by sender id hash (stable regardless of agent join order).
+    return colors[getAgentColorIndex(sender, colors.length)];
   };
 
   const getAgentColorClasses = (color: string) => {

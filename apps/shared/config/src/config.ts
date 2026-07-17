@@ -33,6 +33,7 @@ export interface DatabaseConfig {
   qdrant: {
     url: string;
     collectionName: string;
+    apiKey?: string;
   };
 }
 
@@ -414,6 +415,7 @@ const defaultConfig: Config = {
           return isDocker ? 'http://qdrant:6333' : 'http://localhost:6333';
         })(),
       collectionName: process.env.QDRANT_COLLECTION_NAME || 'knowledge_embeddings',
+      apiKey: process.env.QDRANT_API_KEY,
     },
   },
   redis: {

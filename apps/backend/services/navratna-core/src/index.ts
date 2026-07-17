@@ -3,6 +3,7 @@ import { FeatureFactory } from '@uaip/shared-services/feature-factory'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as BunEngine } from '@socket.io/bun-engine'
 import { logger, isRecord } from '@uaip/utils'
+import { JWTValidator } from '@uaip/middleware'
 import type { EventBusMessage } from '@uaip/types'
 import { requestTimingPlugin, requestTimingBuffer } from './request_timing.js'
 
@@ -13,6 +14,7 @@ import { llmFeature } from '../../llm-service/src/feature.js'
 import { deploymentFeature } from './deployment/feature.js'
 import { oieFeature } from '../../oie/src/feature.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
+import { registerCompositionRoutes } from './composition/composition_routes.js'
 import { WorkflowStateHandler } from './composition/workflow_state_handler.js'
 
 const DEGRADED_P95_THRESHOLD_MS = 1000
@@ -47,7 +49,10 @@ class NavratnaCoreService extends BaseService {
     this.registerEntities([])
 
     this.io = new SocketIOServer({
-      cors: { origin: false },
+      // Reflect the request origin + allow credentials. origin:false rejected
+      // the cross-origin WebSocket upgrade (frontend and API are on different
+      // subdomains); the CF Worker already gates who can reach /socket.io.
+      cors: { origin: true, credentials: true, methods: ['GET', 'POST'] },
       serveClient: false,
       path: '/socket.io/',
     })
@@ -57,6 +62,38 @@ class NavratnaCoreService extends BaseService {
       pingInterval: 25000,
       pingTimeout: 60000,
     })
+
+    // @socket.io/bun-engine never assigns `request` to its engine socket, but Socket.IO
+    // builds the handshake from `conn.request` (socket.io/dist/socket.js: `headers:
+    // this.request?.headers || {}`). The result was an empty handshake — no cookie, no
+    // X-User-ID from the edge, no query — so every socket was rejected as unauthenticated
+    // even with a valid session. The engine does hand us the Bun Request on `connection`,
+    // so adapt it to the Node-ish shape Socket.IO expects. Registered BEFORE io.bind()
+    // because listeners fire in registration order and Socket.IO reads `request` in its
+    // own connection handler.
+    this.bunEngine.on('connection', (socket: unknown, req: Request) => {
+      const conn = socket as { request?: unknown }
+      if (!req || conn.request) return
+
+      const headers: Record<string, string> = {}
+      req.headers.forEach((value, key) => {
+        headers[key] = value
+      })
+
+      const url = new URL(req.url)
+      const query: Record<string, string> = {}
+      url.searchParams.forEach((value, key) => {
+        query[key] = value
+      })
+
+      conn.request = {
+        headers,
+        _query: query,
+        url: `${url.pathname}${url.search}`,
+        connection: { encrypted: url.protocol === 'https:' },
+      }
+    })
+
     this.io.bind(this.bunEngine)
   }
 
@@ -73,6 +110,10 @@ class NavratnaCoreService extends BaseService {
 
     this.factory.mountRoutes(this.app)
     this.app.use(registerKnowledgeIngestRoutes())
+    // Composition routes are declared in app.ts, but that file only builds the Eden type
+    // contract — it is never served. Without mounting them here /api/v1/compositions was
+    // in the client's typed API yet answered NOT_FOUND at runtime.
+    this.app.use(registerCompositionRoutes())
 
     this.app.all('/socket.io/*', ({ request, server }: { request: Request; server: unknown }) => {
       if (!server) {
@@ -168,30 +209,19 @@ class NavratnaCoreService extends BaseService {
 
   public async start(): Promise<void> {
     try {
-      await this.initializeDatabase()
-      await this.initializeEventBus()
-
       this.setupBaseMiddleware()
       this.setupBaseRoutes()
+
+      this.setupGracefulShutdown()
+
+      await this.initializeDatabase()
+      await this.initializeEventBus()
 
       await this.initialize()
       await this.setupRoutes()
 
       this.setup404Handler()
       this.setupErrorHandler()
-
-      const bunHandler = this.bunEngine.handler()
-      this.server = this.app.listen({
-        port: this.config.port,
-        idleTimeout: 30,
-        websocket: 'websocket' in bunHandler ? bunHandler.websocket : undefined,
-      })
-
-      logger.info(
-        `navratna-core (Elysia + Socket.IO Bun engine) started on port ${this.config.port}`
-      )
-
-      this.setupGracefulShutdown()
 
       this.io.use(async (socket: Socket, next: (err?: Error) => void) => {
         try {
@@ -202,7 +232,15 @@ class NavratnaCoreService extends BaseService {
           const rawRole = socket.handshake.headers['x-user-role']
           const userRole = Array.isArray(rawRole) ? rawRole[0] : rawRole
 
-          if (userId) {
+          // Edge-trust gate: only honor the forwarded x-user-id header when the
+          // request carries a valid X-Edge-Auth (i.e. came through the Worker).
+          // Otherwise fall through to real token validation below.
+          const edgeSecret = process.env.EDGE_AUTH_SECRET
+          const rawEdge = socket.handshake.headers['x-edge-auth']
+          const edgeHeader = Array.isArray(rawEdge) ? rawEdge[0] : rawEdge
+          const edgeTrusted = !edgeSecret || edgeHeader === edgeSecret
+
+          if (userId && edgeTrusted) {
             const UUID_REGEX =
               /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             if (!UUID_REGEX.test(userId)) {
@@ -236,19 +274,46 @@ class NavratnaCoreService extends BaseService {
             cookieToken
 
           if (!token) {
+            // Rejecting with no explanation made this failure impossible to diagnose from
+            // logs. Record which identity sources were present — presence only, never values.
+            logger.warn('Socket.IO auth: no token on handshake', {
+              socketId: socket.id,
+              headerNames: Object.keys(socket.handshake.headers),
+              hasUserIdHeader: Boolean(userId),
+              edgeTrusted,
+              hasEdgeHeader: Boolean(edgeHeader),
+              edgeSecretConfigured: Boolean(edgeSecret),
+              hasAuthToken: Boolean(authToken),
+              hasAuthorizationHeader: Boolean(socket.handshake.headers?.authorization),
+              hasQueryToken: Boolean(queryToken),
+              hasCookieHeader: Boolean(cookieHeader),
+              cookieNames: cookieHeader
+                ? cookieHeader.split(';').map((c) => c.split('=')[0].trim())
+                : [],
+            })
             return next(new Error('Authentication required'))
           }
 
-          const authResponse = await this.validateSocketIOToken(token)
-          if (!authResponse.valid) {
-            return next(new Error(`Authentication failed: ${authResponse.reason}`))
+          // Verify the JWT locally. Core shares the JWT secret, so there is no
+          // need to round-trip to the gateway to validate a socket token — the
+          // event-bus responder is absent and the internal gateway address was
+          // unreachable, which made every socket connect time out. Local verify
+          // is the same trust model the CF Worker uses for HTTP.
+          let claims: { userId?: string } | null = null
+          try {
+            claims = (await JWTValidator.verify(token)) as { userId?: string } | null
+          } catch {
+            claims = null
+          }
+          if (!claims || typeof claims.userId !== 'string') {
+            return next(new Error('Authentication failed: invalid or expired token'))
           }
 
           socket.data.user = {
-            userId: authResponse.userId,
-            sessionId: authResponse.sessionId,
-            securityLevel: authResponse.securityLevel || 3,
-            complianceFlags: authResponse.complianceFlags || [],
+            userId: claims.userId,
+            sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            securityLevel: 3,
+            complianceFlags: [],
           }
           next()
         } catch (error) {
@@ -264,7 +329,16 @@ class NavratnaCoreService extends BaseService {
 
       await this.setupEventSubscriptions()
 
-      logger.info('navratna-core WebSocket handlers initialized')
+      const bunHandler = this.bunEngine.handler()
+      this.server = this.app.listen({
+        port: this.config.port,
+        idleTimeout: 30,
+        websocket: 'websocket' in bunHandler ? bunHandler.websocket : undefined,
+      })
+
+      logger.info(
+        `navratna-core (Elysia + Socket.IO Bun engine) listening on port ${this.config.port}`
+      )
     } catch (error) {
       logger.error('navratna-core: Failed to start:', error)
       process.exit(1)
@@ -302,7 +376,7 @@ class NavratnaCoreService extends BaseService {
     reason?: string
   }> {
     const correlationId = `socketio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const WS_AUTH_TIMEOUT_MS = 5000
+    const WS_AUTH_TIMEOUT_MS = 1500
 
     return new Promise((resolve) => {
       let resolved = false
@@ -370,7 +444,15 @@ class NavratnaCoreService extends BaseService {
     complianceFlags?: string[]
     reason?: string
   }> {
-    const defaultUrls = ['http://navratna-gateway:3002', 'http://localhost:3002']
+    // Fly 6PN private networking: the gateway is reachable at
+    // <app>.internal on its internal_port (8080). The old navratna-gateway:3002
+    // / localhost:3002 never resolve on Fly, so socket-token validation always
+    // timed out → "Authentication service timeout" on every socket connect.
+    const defaultUrls = [
+      'http://navratna-gateway.internal:8080',
+      'http://navratna-gateway:3002',
+      'http://localhost:3002',
+    ]
     const urls = process.env.SECURITY_GATEWAY_URL
       ? [process.env.SECURITY_GATEWAY_URL, ...defaultUrls]
       : defaultUrls
@@ -412,8 +494,35 @@ class NavratnaCoreService extends BaseService {
   }
 }
 
+const bootSink = process.env.BOOT_SINK_URL
+const bootCrumb = (phase: string, extra?: string): void => {
+  if (!bootSink) return
+  void fetch(bootSink, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ svc: 'core', phase, extra, t: Date.now() }),
+  }).catch(() => {})
+}
+
+process.on('exit', (code) => bootCrumb('process.exit', `code=${code}`))
+process.on('beforeExit', (code) => bootCrumb('beforeExit', `code=${code}`))
+process.on('SIGTERM', () => bootCrumb('SIGTERM'))
+process.on('uncaughtException', (e) => bootCrumb('uncaughtException', String(e?.stack ?? e)))
+process.on('unhandledRejection', (e) => bootCrumb('unhandledRejection', String(e)))
+
+bootCrumb('module-loaded')
+
 const service = new NavratnaCoreService()
-service.start().catch((error) => {
-  logger.error('Failed to start navratna-core', { error })
-  process.exit(1)
-})
+service
+  .start()
+  .then(() => bootCrumb('start-resolved'))
+  .catch((error) => {
+    bootCrumb('start-rejected', String(error?.stack ?? error))
+    logger.error('Failed to start navratna-core', { error })
+    process.exit(1)
+  })
+
+// Cloudflare Containers (Firecracker) drains the Bun event loop to exit(0)
+// after start() resolves, despite Bun.serve being active. This ref'd timer
+// pins the loop so the process stays alive to serve requests.
+setInterval(() => {}, 1 << 30)

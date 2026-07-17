@@ -1,19 +1,27 @@
 import { WorkingMemory, WorkingMemoryUpdate, Interaction, EmotionalState } from '@uaip/types';
 import Redis from 'ioredis';
 import { logger } from '@uaip/utils';
+import { getRedisTLSOptions } from '@uaip/infra';
 
 export class WorkingMemoryManager {
   private redisUrl: string;
   private readonly redisClient: Redis;
   private readonly workingMemoryTtlSeconds = 24 * 60 * 60;
 
-  constructor(redisUrl: string = 'redis://:uaip_redis_password@redis:6379') {
+  constructor(redisUrl: string = process.env.REDIS_URL || 'redis://:uaip_redis_password@redis:6379') {
     this.redisUrl = redisUrl;
+    let tlsHost: string | undefined;
+    try {
+      tlsHost = new URL(redisUrl).hostname;
+    } catch {
+      tlsHost = undefined;
+    }
     this.redisClient = new Redis(this.redisUrl, {
       lazyConnect: true,
       maxRetriesPerRequest: 3,
       commandTimeout: 5000,
       connectTimeout: 10000,
+      ...getRedisTLSOptions(tlsHost),
     });
     this.setupRedisListeners();
   }

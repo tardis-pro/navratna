@@ -7,11 +7,14 @@ import { registerApprovalRoutes } from './routes/approval_routes.js'
 import { registerProjectRoutes } from './routes/project_routes.js'
 import { registerTaskRoutes } from './routes/task_routes.js'
 import { registerWorkflowRoutes } from './routes/workflow_routes.js'
+import { registerGitHubWebhookRoutes } from './routes/github_webhook_routes.js'
 import { RDLOApprovalService } from './services/rdlo_approval_service.js'
 import { WorkflowEngineService } from './services/workflow_engine_service.js'
+import { WorkflowExecutorService } from './services/workflow_executor_service.js'
 
 let taskController: TaskController
 let workflowEngineService: WorkflowEngineService
+let workflowExecutorService: WorkflowExecutorService
 let rdloApprovalService: RDLOApprovalService
 
 export const orchestrationFeature: Feature = {
@@ -22,8 +25,12 @@ export const orchestrationFeature: Feature = {
     const eventBusService = deps.eventBusService ?? EventBusService.getInstance()
     taskController = new TaskController(taskService)
     workflowEngineService = new WorkflowEngineService(eventBusService)
+    workflowExecutorService = new WorkflowExecutorService(eventBusService)
     rdloApprovalService = new RDLOApprovalService(eventBusService)
 
+    // Consume the scheduled workflow triggers the engine registers — without this the
+    // cron jobs fire into a queue nobody reads.
+    await workflowExecutorService.initialize()
     await workflowEngineService.loadAll()
     await rdloApprovalService.initialize()
     logger.info('orchestration-pipeline feature initialized')
@@ -34,6 +41,15 @@ export const orchestrationFeature: Feature = {
     app.use(registerProjectRoutes())
     app.use(registerTaskRoutes(taskController))
     app.use(registerWorkflowRoutes(workflowEngineService))
+    // GitHub webhook receiver (push/PR/check_run → CI monitor). HMAC-SHA256
+    // signature verification is enforced per-request; only mount it when the
+    // shared secret is configured so an unconfigured deploy doesn't expose a
+    // route that fails on every request.
+    if (process.env.GITHUB_WEBHOOK_SECRET) {
+      app.use(registerGitHubWebhookRoutes())
+    } else {
+      logger.warn('orchestration-pipeline: GITHUB_WEBHOOK_SECRET not set — GitHub webhook route not mounted')
+    }
     return app
   },
 }

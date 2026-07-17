@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import type { Plugin } from 'vite';
@@ -22,13 +23,24 @@ function backendLeakGuard(): Plugin {
   };
 }
 
-export default defineConfig(({ mode: _mode }) => {
-  const API_TARGET = process.env.VITE_API_TARGET;
-  const CORE = process.env.VITE_CORE_URL || 'http://localhost:3001';
-  const GATEWAY = process.env.VITE_GATEWAY_URL || 'http://localhost:3002';
+export default defineConfig(({ mode }) => {
+  const env = { ...process.env, ...loadEnv(mode, path.resolve(__dirname), '') };
+  const API_TARGET = env.VITE_API_TARGET;
+  const CORE = env.VITE_CORE_URL || 'http://localhost:3001';
+  const GATEWAY = env.VITE_GATEWAY_URL || 'http://localhost:3002';
 
   const toCore = { target: API_TARGET || CORE, changeOrigin: true, secure: false };
   const toGateway = { target: API_TARGET || GATEWAY, changeOrigin: true, secure: false };
+
+  // The API is on a different origin in production. If the base URL is missing the
+  // client silently falls back to same-origin, where the SPA host answers every
+  // /api/v1 call with index.html — a 200 full of HTML that looks like success.
+  if (mode === 'production' && !env.VITE_API_BASE_URL) {
+    throw new Error(
+      'VITE_API_BASE_URL is required for production builds (e.g. https://api.navratna.tardis.digital). ' +
+        'Set it in apps/frontend/.env.production or the build environment.'
+    );
+  }
 
   return {
     server: {

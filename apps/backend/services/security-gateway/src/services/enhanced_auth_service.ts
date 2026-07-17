@@ -31,6 +31,15 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+// Guards the agent_oauth_connections lookup: agent_id is a UUID column, but
+// external provider user ids (Google sub, GitHub id) are numeric — feeding them
+// in throws Postgres "invalid input syntax for type uuid" and crashes callback.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(v: unknown): v is string {
+  return typeof v === 'string' && UUID_REGEX.test(v);
+}
+
 function isOAuthProviderType(v: unknown): v is OAuthProviderType {
   return typeof v === 'string' && (Object.values(OAuthProviderType) as string[]).includes(v);
 }
@@ -208,9 +217,10 @@ export class EnhancedAuthService {
       }
 
       if (!user) {
-        // Check if there's an OAuth connection for this provider
-        // Guard: both userInfo.id and provider.id must be present
-        if (userInfo.id && provider.id) {
+        // Only look up an agent OAuth connection when userInfo.id is a real UUID.
+        // External provider ids (Google sub, GitHub id) are numeric and would
+        // crash the UUID-typed agent_id query; those fall through to provisioning.
+        if (isUuid(userInfo.id) && provider.id) {
           const oauthConnection = await this.oauthDomainService.findAgentOAuthConnection(
             userInfo.id,
             provider.id
@@ -683,72 +693,32 @@ export class EnhancedAuthService {
     provider: OAuthProviderParam,
     oauthState: OAuthStateParam
   ): Promise<EnhancedUser> {
-    const user: EnhancedUser = {
-      id: crypto.randomUUID(),
-      email: userInfo.email || `${userInfo.id}@${provider.type}.oauth`,
-      name: userInfo.name || userInfo.login || 'OAuth User',
-      role: oauthState.userType === UserType.AGENT ? 'agent' : 'user',
-      userType: oauthState.userType || UserType.HUMAN,
-      securityClearance: SecurityLevel.MEDIUM,
-      isActive: true,
-      failedLoginAttempts: 0,
-      oauthProviders: [
-        {
-          providerId: provider.id ?? crypto.randomUUID(),
-          providerType: provider.type ?? OAuthProviderType.GITHUB,
-          providerUserId: userInfo.id ?? '',
-          email: userInfo.email,
-          displayName: userInfo.name || userInfo.login,
-          avatarUrl: userInfo.avatar_url,
-          isVerified: true,
-          isPrimary: true,
-          linkedAt: new Date(),
-          capabilities: oauthState.agentCapabilities,
-        },
-      ],
-      agentConfig:
-        oauthState.userType === UserType.AGENT
-          ? {
-              capabilities: oauthState.agentCapabilities || [],
-              maxConcurrentSessions: 5,
-              allowedProviders: provider.type ? [provider.type] : [],
-              securityLevel: SecurityLevel.MEDIUM,
-              monitoring: {
-                logLevel: 'standard',
-                alertOnNewProvider: true,
-                alertOnUnusualActivity: true,
-              },
-            }
-          : undefined,
-      mfaEnabled: false,
-      mfaMethods: [],
-      securityPreferences: {
-        requireMFAForSensitiveOperations: true,
-        sessionTimeout: 3600,
-        allowMultipleSessions: true,
-        trustedDevices: [],
-        securityNotifications: {
-          newDevice: true,
-          suspiciousActivity: true,
-          passwordChange: true,
-          mfaChange: true,
-          oauthProviderChange: true,
-          agentActivityAlerts: true,
-        },
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // OAuth-only signup: provision a brand-new account for a first-time OAuth login.
+    const isAgent = oauthState.userType === UserType.AGENT;
+    const email = userInfo.email || `${userInfo.id}@${provider.type ?? 'oauth'}.oauth`;
 
-    await this.userService.createUser({
-      email: user.email || `${userInfo.id}@${provider.type}.oauth`,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      department: user.department,
+    // Derive first/last name from the provider's display name (e.g. "Jane Doe").
+    const displayName = userInfo.name || userInfo.login || '';
+    const [firstName, ...rest] = displayName.trim().split(/\s+/).filter(Boolean);
+    const lastName = rest.join(' ') || undefined;
+
+    // Persist through the shared UserService and return the DB-created row so the
+    // caller's session/JWT/refresh-token are bound to the real (existing) user id.
+    const created = await this.userService.createUser({
+      email,
+      firstName: firstName || undefined,
+      lastName,
+      role: isAgent ? 'agent' : 'user',
       isOAuthUser: true,
     });
-    return user;
+
+    logger.info('Provisioned new user from OAuth login', {
+      userId: created.id,
+      email,
+      provider: provider.type,
+    });
+
+    return toEnhancedUser(created);
   }
 
   private async updateUserOAuthConnection(
@@ -852,7 +822,7 @@ export class EnhancedAuthService {
       agentCapabilities: Array.isArray(session.agentCapabilities) ? session.agentCapabilities.map(String) : [],
     };
 
-    const tokens = generateAuthTokens(payload);
+    const tokens = await generateAuthTokens(payload);
 
     return tokens;
   }

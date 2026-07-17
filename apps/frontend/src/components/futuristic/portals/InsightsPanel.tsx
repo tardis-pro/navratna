@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
+import { getSeverityColor as getSeverityToken } from '@/lib/status_tokens';
 import {
   PortalContainer,
   PortalLoadingState,
@@ -55,31 +56,9 @@ export const InsightsPanel: React.FC<InsightsPanelPortalProps> = ({ className, v
     ...Array.from(new Set<string>(insights.data.map((insight) => insight.status))),
   ];
 
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case 'critical':
-        return 'text-red-600';
-      case 'high':
-        return 'text-orange-600';
-      case 'medium':
-        return 'text-yellow-600';
-      default:
-        return 'text-green-600';
-    }
-  };
+  const getImpactColor = (impact: string) => getSeverityToken(impact, 'text');
 
-  const getImpactBadgeColor = (impact: string) => {
-    switch (impact) {
-      case 'critical':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default:
-        return 'bg-green-100 text-green-800 border-green-200';
-    }
-  };
+  const getImpactBadgeColor = (impact: string) => getSeverityToken(impact, 'badge');
 
   const getTypeIcon = (type: string) => {
     switch (type) {

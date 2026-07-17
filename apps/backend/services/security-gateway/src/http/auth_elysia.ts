@@ -53,6 +53,34 @@ const getAuthCookieOptions = () => ({
 const getUserAgent = (request: Request, headers?: Record<string, string | undefined>) =>
   headers?.['user-agent'] ?? request.headers.get('user-agent') ?? undefined;
 
+// Minimal structural type for an Elysia cookie jar entry — avoids importing Elysia's
+// internal Cookie type. Method params are bivariant, so the real cookie jar is assignable.
+type CookieSetter = { set: (options: Record<string, unknown>) => void };
+
+/**
+ * Set the access_token + refresh_token httpOnly cookies on the response.
+ * Single source of truth for auth cookie behavior — reused by password login and OAuth callback.
+ */
+export function setAuthCookies(
+  cookie: Record<string, CookieSetter>,
+  tokens: { accessToken: string; refreshToken: string }
+): void {
+  const cookieOptions = getAuthCookieOptions();
+  const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
+  const refreshTokenMaxAge = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
+
+  cookie['access_token'].set({
+    value: tokens.accessToken,
+    ...cookieOptions,
+    ...(accessTokenMaxAge ? { maxAge: accessTokenMaxAge } : {}),
+  });
+  cookie['refresh_token'].set({
+    value: tokens.refreshToken,
+    ...cookieOptions,
+    ...(refreshTokenMaxAge ? { maxAge: refreshTokenMaxAge } : {}),
+  });
+}
+
 async function getServices() {
   return {
     userService: UserService.getInstance(),
@@ -241,7 +269,7 @@ export function registerAuthRoutes() {
   
         // Success
         await userService.resetLoginAttempts(user.id);
-        const tokens = generateAuthTokens({
+        const tokens = await generateAuthTokens({
           userId: user.id,
           email: user.email,
           role: user.role,
@@ -254,21 +282,8 @@ export function registerAuthRoutes() {
           new Date(Date.now() + (rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000))
         );
   
-        const cookieOptions = getAuthCookieOptions();
-        const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
-        const refreshTokenMaxAge = parseExpiryToSeconds(config.jwt.refreshTokenExpiry);
-  
-        cookie['access_token'].set({
-          value: tokens.accessToken,
-          ...cookieOptions,
-          ...(accessTokenMaxAge ? { maxAge: accessTokenMaxAge } : {}),
-        });
-        cookie['refresh_token'].set({
-          value: tokens.refreshToken,
-          ...cookieOptions,
-          ...(refreshTokenMaxAge ? { maxAge: refreshTokenMaxAge } : {}),
-        });
-  
+        setAuthCookies(cookie, tokens);
+
         await auditService.logSecurityEvent({
           eventType: AuditEventType.LOGIN_SUCCESS,
           userId: user.id,
@@ -350,7 +365,7 @@ export function registerAuthRoutes() {
           return { error: 'Account Inactive', message: 'User account is no longer active' };
         }
   
-        const tokens = generateAuthTokens({
+        const tokens = await generateAuthTokens({
           userId: tokenData.user.id,
           email: tokenData.user.email,
           role: tokenData.user.role,
@@ -707,13 +722,14 @@ export function registerAuthRoutes() {
         }
   
         const token = authHeader.substring(7);
-        const decoded = await JWTValidator.verify(token);
-  
+        const decoded = await JWTValidator.verifyAny(token);
+
         // Set user info headers for nginx to forward to upstream services
         set.headers['X-User-ID'] = decoded.userId;
         set.headers['X-User-Email'] = decoded.email;
         set.headers['X-User-Role'] = decoded.role;
-  
+        if (decoded.orgId) set.headers['X-User-Org'] = decoded.orgId;
+
         return { valid: true };
       } catch (error) {
         logger.debug('Token validation failed', {

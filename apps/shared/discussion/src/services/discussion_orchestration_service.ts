@@ -887,7 +887,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
       summary,
     };
 
-    await this.eventBusService.publish('huddle:resolved', resolutionPayload);
+    // Dot-separated: the event type becomes a BullMQ queue name, which cannot contain ':'.
+    // The WebSocket message type below is a separate wire format and keeps its own name.
+    await this.eventBusService.publish('huddle.resolved', resolutionPayload);
 
     if (this.webSocketHandler) {
       this.webSocketHandler.broadcastToDiscussion(parentDiscussionId, {

@@ -162,9 +162,31 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
  */
 export function attachNginxAuth<T extends Elysia>(app: T) {
   return app.derive(({ headers }) => {
+    // Edge-trust gate: when EDGE_AUTH_SECRET is configured, only trust the
+    // forwarded identity headers on requests that carry a matching X-Edge-Auth
+    // header — i.e. requests that actually passed through the Cloudflare Worker.
+    // This prevents a client from reaching the public Fly app directly and
+    // forging X-User-* headers to impersonate any user.
+    const edgeSecret = process.env.EDGE_AUTH_SECRET;
+    if (!edgeSecret) {
+      // Fail closed in production: with no shared secret we cannot distinguish a
+      // request that passed through the trusted edge from one that hit the public
+      // app directly, so we must NOT trust X-User-* headers. In dev/test we keep
+      // trusting them so local flows work without the edge.
+      if (process.env.NODE_ENV === 'production') {
+        logger.error(
+          'attachNginxAuth: EDGE_AUTH_SECRET is not set in production — refusing forwarded identity headers (fail-closed)'
+        );
+        return { user: null };
+      }
+    } else if (headers['x-edge-auth'] !== edgeSecret) {
+      return { user: null };
+    }
+
     const userId = headers['x-user-id'];
     const email = headers['x-user-email'];
     const role = headers['x-user-role'];
+    const org = headers['x-user-org'];
 
     logger.debug('attachNginxAuth: checking headers', {
       hasUserId: !!userId,
@@ -184,8 +206,10 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
         id: userId,
         email: email || '',
         role: role || 'user',
-        // TODO(tenant): nginx does not forward orgId yet; default to admin org
-        organizationId: ADMIN_ORG_ID,
+        // Tenant comes from the edge-forwarded X-User-Org (derived from the
+        // token's orgId claim). Fall back to the admin org only when the edge did
+        // not forward one (legacy tokens / pre-rollout).
+        organizationId: org && UUID_REGEX.test(org) ? org : ADMIN_ORG_ID,
       },
     };
   });
@@ -209,6 +233,41 @@ export function requireNginxAuth<T extends Elysia>(app: T) {
 }
 
 export const withNginxAuth = (app: AnyElysia) => requireNginxAuth(attachNginxAuth(app));
+
+/**
+ * Runtime helper for route handlers behind withNginxAuth.
+ * Elysia's type system cannot infer the derived `user` field through plugin/group
+ * boundaries, so handlers must read it through this helper which performs a
+ * runtime guard. Because requireNginxAuth always returns 401 before the handler
+ * is invoked, the guard should never throw in production.
+ */
+export function getNginxUser(ctx: unknown): UserContext {
+  if (typeof ctx !== 'object' || ctx === null || !('user' in ctx)) {
+    throw new Error('getNginxUser: user not found in context — withNginxAuth guard did not run');
+  }
+  const user = ctx.user;
+  if (
+    typeof user !== 'object' ||
+    user === null ||
+    !('id' in user) ||
+    typeof user.id !== 'string' ||
+    !('email' in user) ||
+    typeof user.email !== 'string' ||
+    !('role' in user) ||
+    typeof user.role !== 'string' ||
+    !('organizationId' in user) ||
+    typeof user.organizationId !== 'string'
+  ) {
+    throw new Error('getNginxUser: invalid user context — withNginxAuth guard did not run');
+  }
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    organizationId: user.organizationId,
+    sessionId: 'sessionId' in user && typeof user.sessionId === 'string' ? user.sessionId : undefined,
+  };
+}
 
 // Utility function to validate JWT secret at runtime
 export const validateJWTConfiguration = (): { isValid: boolean; warnings: string[] } => {
@@ -376,7 +435,10 @@ type ValidateJWTTokenResult = {
 
 export const validateJWTToken = async (token: string): Promise<ValidateJWTTokenResult> => {
   try {
-    const decoded = await JWTValidator.verify(token);
+    // verifyAny dispatches by the token's alg header (RS256 or HS256) with
+    // downgrade protection, so both new RS256 tokens and any still-valid legacy
+    // HS256 tokens are accepted during the migration window.
+    const decoded = await JWTValidator.verifyAny(token);
 
     if (!decoded.userId || !decoded.email || !decoded.role) {
       return { valid: false, reason: 'Invalid token payload - missing required fields' };

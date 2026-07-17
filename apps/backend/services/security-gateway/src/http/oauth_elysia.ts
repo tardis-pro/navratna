@@ -6,8 +6,28 @@ import { OAuthProviderService } from '../services/oauth_provider_service.js';
 import { EnhancedAuthService } from '../services/enhanced_auth_service.js';
 import { AuditService } from '../services/audit_service.js';
 import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
+import { UserService } from '@uaip/shared-services';
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
+import { setAuthCookies } from './auth_elysia.js';
+
+/**
+ * Public production callback URL registered in the GitHub/Google OAuth consoles.
+ * The SAME value must be used for the authorize step and the token exchange, so it is
+ * centralized here. Override via OAUTH_CALLBACK_URL if the API host ever changes.
+ */
+function getOAuthCallbackUrl(): string {
+  return process.env.OAUTH_CALLBACK_URL || 'https://api.navratna.tardis.digital/api/v1/oauth/callback';
+}
+
+/** Frontend app URL the browser is returned to after a successful OAuth callback. */
+function getFrontendBaseUrl(): string {
+  return (
+    process.env.FRONTEND_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    'https://navratna.tardis.digital'
+  );
+}
 
 let oauthProviderServiceSingleton: OAuthProviderService | null = null;
 let enhancedAuthServiceSingleton: EnhancedAuthService | null = null;
@@ -177,7 +197,120 @@ export function registerOAuthRoutes() {
         return { success: false, error: errorMsg || 'OAuth callback failed' };
       }
     })
-  
+
+    // GET /initiate/:provider — browser entry point for OAuth-only signup/login.
+    // Resolves the provider by type ('github' | 'google'), builds the authorization
+    // URL, and 302-redirects the browser to the provider's consent screen.
+    .get('/initiate/:provider', async ({ params, set, request, headers }) => {
+      const providerKey = String(params.provider || '').toLowerCase();
+      const frontend = getFrontendBaseUrl();
+      try {
+        const { oauthProviderService, auditService } = getServices();
+        const available = await oauthProviderService.getAvailableProviders(UserType.HUMAN);
+        const provider = available.find(
+          (p) => p.type === providerKey || p.name?.toLowerCase() === providerKey
+        );
+        if (!provider || !provider.id) {
+          set.status = 302;
+          set.headers['Location'] = `${frontend}/?oauth_error=${encodeURIComponent('provider_not_available')}`;
+          return '';
+        }
+        const { url } = await oauthProviderService.generateAuthorizationUrl(
+          provider.id,
+          getOAuthCallbackUrl(),
+          UserType.HUMAN
+        );
+        await auditService.logEvent({
+          eventType: AuditEventType.OAUTH_AUTHORIZE_INITIATED,
+          details: {
+            providerId: provider.id,
+            providerType: provider.type,
+            ipAddress: request.headers.get('x-forwarded-for') || '',
+            userAgent: headers['user-agent'],
+          },
+        });
+        set.status = 302;
+        set.headers['Location'] = url;
+        return '';
+      } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
+        logger.error('OAuth initiate failed', { provider: providerKey, error: errorMsg });
+        set.status = 302;
+        set.headers['Location'] = `${frontend}/?oauth_error=${encodeURIComponent(errorMsg || 'initiate_failed')}`;
+        return '';
+      }
+    })
+
+    // GET /callback — provider redirect target. Exchanges the code, provisions or links
+    // the user, sets the SAME httpOnly auth cookies as password login, then redirects
+    // the browser back to the frontend app (now authenticated).
+    .get('/callback', async ({ query, set, cookie, request, headers }) => {
+      const frontend = getFrontendBaseUrl();
+      const q = (query ?? {}) as Record<string, string | undefined>;
+      const code = q.code;
+      const state = q.state;
+      if (!code || !state) {
+        set.status = 302;
+        set.headers['Location'] = `${frontend}/?oauth_error=${encodeURIComponent('missing_code_or_state')}`;
+        return '';
+      }
+      try {
+        const { enhancedAuthService, auditService } = getServices();
+        const ipAddress = request.headers.get('x-forwarded-for') || '';
+        const userAgent = headers['user-agent'];
+        const authResult = await enhancedAuthService.authenticateWithOAuth(
+          code,
+          state,
+          getOAuthCallbackUrl(),
+          ipAddress,
+          userAgent
+        );
+
+        const userId = authResult.user.id;
+        if (!userId) {
+          throw new Error('Authenticated user is missing an id');
+        }
+
+        // Persist the refresh token so the /auth/refresh rotation works (mirrors login).
+        await UserService.getInstance().createRefreshToken(
+          userId,
+          authResult.tokens.refreshToken,
+          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        );
+
+        // Establish the exact same httpOnly session cookies as password login.
+        setAuthCookies(cookie, {
+          accessToken: authResult.tokens.accessToken,
+          refreshToken: authResult.tokens.refreshToken,
+        });
+
+        await auditService.logEvent({
+          eventType: AuditEventType.OAUTH_CALLBACK_SUCCESS,
+          userId,
+          details: { userType: authResult.user.userType, sessionId: authResult.session.id },
+        });
+
+        set.status = 302;
+        set.headers['Location'] = frontend;
+        return '';
+      } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error);
+        const { auditService } = getServices();
+        await auditService.logEvent({
+          eventType: AuditEventType.OAUTH_CALLBACK_FAILED,
+          details: {
+            error: errorMsg,
+            ipAddress: request.headers.get('x-forwarded-for') || '',
+            userAgent: headers['user-agent'],
+          },
+        });
+        logger.error('OAuth callback (GET) failed', { error: errorMsg });
+        set.status = 302;
+        set.headers['Location'] = `${frontend}/?oauth_error=${encodeURIComponent(errorMsg || 'oauth_callback_failed')}`;
+        return '';
+      }
+    })
+
     // POST /agent/authenticate
     .post('/agent/authenticate', async ({ set, body, request, headers }) => {
       try {

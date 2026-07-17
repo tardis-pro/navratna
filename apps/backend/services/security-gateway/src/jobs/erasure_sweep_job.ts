@@ -5,6 +5,7 @@ import { UserErasureService } from '@uaip/shared-services';
 import { getControlDb } from '@uaip/shared-services/drizzle/clients';
 import { erasureOutbox } from '@uaip/shared-services/drizzle/control';
 import { eq, and, lt, sql } from '@uaip/shared-services/drizzle/clients';
+import { getRedisTLSOptions } from '@uaip/infra';
 
 const ERASURE_SWEEP_QUEUE = 'erasure-sweep';
 const ERASURE_SWEEP_JOB = 'erasure:sweep:24h';
@@ -20,6 +21,7 @@ function getRedisOptions() {
     password: config.redis?.password ?? undefined,
     maxRetriesPerRequest: null as null,
     enableReadyCheck: false,
+    ...getRedisTLSOptions(config.redis?.host),
   };
 }
 

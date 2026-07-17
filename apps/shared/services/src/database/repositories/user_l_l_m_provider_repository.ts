@@ -1,10 +1,64 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { getControlDb } from '../drizzle/clients/index';
 import { userLLMProviders } from '../drizzle/schemas/control_schema';
-import { logger } from '@uaip/utils';
+import { logger, encryptApiKey, decryptApiKey, isEncryptedApiKey } from '@uaip/utils';
 
 type UserLLMProviderRow = typeof userLLMProviders.$inferSelect;
 type NewUserLLMProvider = typeof userLLMProviders.$inferInsert;
+
+// Reuses the same key + AES-256-GCM helpers as the intelligence-plane
+// LLMProviderRepository so a single secret encrypts both provider tables.
+function getEncryptionKey(): string | null {
+  return process.env.LLM_PROVIDER_ENCRYPTION_KEY ?? null;
+}
+
+// Encrypt the apiKeyEncrypted field on write. Idempotent: already-encrypted or
+// empty values pass through untouched. Returns data ready for insert/update.
+function prepareProviderWrite(data: NewUserLLMProvider): NewUserLLMProvider {
+  const { apiKeyEncrypted } = data;
+  if (!apiKeyEncrypted || isEncryptedApiKey(apiKeyEncrypted)) return data;
+
+  const key = getEncryptionKey();
+  if (!key) {
+    logger.warn('LLM_PROVIDER_ENCRYPTION_KEY not set — API key will not be encrypted at rest', {
+      service: 'UserLLMProviderRepository',
+    });
+    return data;
+  }
+
+  return { ...data, apiKeyEncrypted: encryptApiKey(apiKeyEncrypted, key) };
+}
+
+// Decrypt the apiKeyEncrypted field on read. Tolerant of legacy plaintext rows
+// (not in iv:authTag:ciphertext format) — they are returned as-is.
+function decryptProviderRow(row: UserLLMProviderRow): UserLLMProviderRow {
+  const { apiKeyEncrypted } = row;
+  if (!apiKeyEncrypted || !isEncryptedApiKey(apiKeyEncrypted)) return row;
+
+  const key = getEncryptionKey();
+  if (!key) {
+    logger.warn('LLM_PROVIDER_ENCRYPTION_KEY not set — cannot decrypt stored API key', {
+      service: 'UserLLMProviderRepository',
+      providerId: row.id,
+    });
+    return row;
+  }
+
+  try {
+    return { ...row, apiKeyEncrypted: decryptApiKey(apiKeyEncrypted, key) };
+  } catch (error: unknown) {
+    logger.error('Failed to decrypt API key for user provider', {
+      service: 'UserLLMProviderRepository',
+      providerId: row.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return row;
+  }
+}
+
+function decryptProviderRows(rows: UserLLMProviderRow[]): UserLLMProviderRow[] {
+  return rows.map(decryptProviderRow);
+}
 
 export class UserLLMProviderRepository {
   private get db() {
@@ -44,7 +98,7 @@ export class UserLLMProviderRepository {
         .from(userLLMProviders)
         .where(eq(userLLMProviders.id, id))
         .limit(1);
-      return row ?? null;
+      return row ? decryptProviderRow(row) : null;
     } catch (error: unknown) {
       logger.error('UserLLMProviderRepository.findById failed', {
         id,
@@ -60,7 +114,8 @@ export class UserLLMProviderRepository {
         .select()
         .from(userLLMProviders)
         .where(eq(userLLMProviders.userId, userId))
-        .orderBy(desc(userLLMProviders.isDefault), desc(userLLMProviders.createdAt));
+        .orderBy(desc(userLLMProviders.isDefault), desc(userLLMProviders.createdAt))
+        .then(decryptProviderRows);
     } catch (error: unknown) {
       logger.error('UserLLMProviderRepository.findByUserId failed', {
         userId,
@@ -76,7 +131,8 @@ export class UserLLMProviderRepository {
         .select()
         .from(userLLMProviders)
         .where(eq(userLLMProviders.userId, userId))
-        .orderBy(desc(userLLMProviders.isDefault), desc(userLLMProviders.createdAt));
+        .orderBy(desc(userLLMProviders.isDefault), desc(userLLMProviders.createdAt))
+        .then(decryptProviderRows);
     } catch (error: unknown) {
       logger.error('UserLLMProviderRepository.findActiveByUserId failed', {
         userId,
@@ -99,7 +155,7 @@ export class UserLLMProviderRepository {
         return null;
       }
 
-      return row;
+      return decryptProviderRow(row);
     } catch (error: unknown) {
       logger.error('UserLLMProviderRepository.findDefaultForUser failed', {
         userId,
@@ -134,8 +190,11 @@ export class UserLLMProviderRepository {
 
   async create(data: NewUserLLMProvider): Promise<UserLLMProviderRow> {
     try {
-      const [row] = await this.db.insert(userLLMProviders).values(data).returning();
-      return row;
+      const [row] = await this.db
+        .insert(userLLMProviders)
+        .values(prepareProviderWrite(data))
+        .returning();
+      return decryptProviderRow(row);
     } catch (error: unknown) {
       logger.error('UserLLMProviderRepository.create failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -149,12 +208,13 @@ export class UserLLMProviderRepository {
     data: Partial<NewUserLLMProvider>
   ): Promise<UserLLMProviderRow | null> {
     try {
+      const prepared = prepareProviderWrite(data as NewUserLLMProvider) as Partial<NewUserLLMProvider>;
       const [row] = await this.db
         .update(userLLMProviders)
-        .set(data)
+        .set(prepared)
         .where(eq(userLLMProviders.id, id))
         .returning();
-      return row ?? null;
+      return row ? decryptProviderRow(row) : null;
     } catch (error: unknown) {
       logger.error('UserLLMProviderRepository.update failed', {
         id,

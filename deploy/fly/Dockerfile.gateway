@@ -1,0 +1,66 @@
+FROM oven/bun:1 AS base
+
+RUN apt-get update && apt-get install -y curl libatomic1 && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://get.pnpm.io/install.sh | PNPM_VERSION=10.12.1 PNPM_HOME=/usr/local/bin ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
+
+WORKDIR /app
+
+COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+COPY tsconfig.json ./
+COPY tsconfig.base.json ./
+COPY nx.json ./
+
+COPY apps/packages/ ./apps/packages/
+COPY apps/shared/   ./apps/shared/
+
+COPY apps/backend/package.json  ./apps/backend/
+COPY apps/backend/tsconfig.json ./apps/backend/
+COPY apps/backend/services/navratna-gateway/package.json     ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/navratna-gateway/tsconfig.json    ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/navratna-gateway/tsconfig.build.json ./apps/backend/services/navratna-gateway/
+COPY apps/backend/services/security-gateway/package.json     ./apps/backend/services/security-gateway/
+COPY apps/backend/services/security-gateway/tsconfig.json    ./apps/backend/services/security-gateway/
+COPY apps/backend/services/security-gateway/tsconfig.build.json ./apps/backend/services/security-gateway/
+COPY apps/backend/services/orchestration-pipeline/package.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/orchestration-pipeline/tsconfig.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/orchestration-pipeline/tsconfig.build.json ./apps/backend/services/orchestration-pipeline/
+COPY apps/backend/services/capability-registry/package.json  ./apps/backend/services/capability-registry/
+COPY apps/backend/services/capability-registry/tsconfig.json ./apps/backend/services/capability-registry/
+COPY apps/backend/services/capability-registry/tsconfig.build.json ./apps/backend/services/capability-registry/
+COPY apps/backend/services/oie/package.json                  ./apps/backend/services/oie/
+COPY apps/backend/services/oie/tsconfig.json                 ./apps/backend/services/oie/
+
+RUN pnpm install --frozen-lockfile --shamefully-hoist
+
+RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service --skip-nx-cache
+
+RUN find apps/shared apps/packages -type d -name src -prune -exec sh -c \
+      'find "$1" -type f \( -name "*.js" -o -name "*.js.map" -o -name "*.d.ts" -o -name "*.d.ts.map" \) -delete' _ {} \;
+
+COPY apps/backend/services/navratna-gateway/src/             ./apps/backend/services/navratna-gateway/src/
+COPY apps/backend/services/security-gateway/src/             ./apps/backend/services/security-gateway/src/
+COPY apps/backend/services/orchestration-pipeline/src/       ./apps/backend/services/orchestration-pipeline/src/
+COPY apps/backend/services/capability-registry/src/          ./apps/backend/services/capability-registry/src/
+COPY apps/backend/services/oie/src/                          ./apps/backend/services/oie/src/
+
+RUN pnpm nx run-many -t build --projects=@uaip/security-gateway,@uaip/orchestration-pipeline,@uaip/capability-registry,@uaip/oie,@uaip/navratna-gateway --skip-nx-cache
+
+RUN GW_DIST=apps/backend/services/navratna-gateway/dist && \
+    mkdir -p "$GW_DIST/security-gateway/src" "$GW_DIST/orchestration-pipeline/src" "$GW_DIST/capability-registry/src" && \
+    cp -r apps/backend/services/security-gateway/dist/*       "$GW_DIST/security-gateway/src/" && \
+    cp -r apps/backend/services/orchestration-pipeline/dist/* "$GW_DIST/orchestration-pipeline/src/" && \
+    cp -r apps/backend/services/capability-registry/dist/*    "$GW_DIST/capability-registry/src/"
+
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --no-create-home uaip && \
+    chown -R uaip:nodejs /app
+
+USER uaip
+
+ENV NODE_ENV=production
+ENV NAVRATNA_GATEWAY_PORT=8080
+EXPOSE 8080
+
+CMD ["bun", "apps/backend/services/navratna-gateway/dist/navratna-gateway/src/index.js"]

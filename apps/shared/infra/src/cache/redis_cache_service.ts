@@ -6,6 +6,7 @@
 import IORedis from 'ioredis';
 import { config } from '@uaip/config';
 import { createLogger } from '@uaip/utils';
+import { getRedisTLSOptions } from '../redis_tls.js';
 
 const logger = createLogger({
   serviceName: 'redis-cache-service',
@@ -63,6 +64,7 @@ export class RedisCacheService {
         port: redisConfig.port,
         password: redisConfig.password,
         db: redisConfig.db,
+        ...getRedisTLSOptions(redisConfig.host),
         retryStrategy: (times: number) => {
           const delay = Math.min(times * redisConfig.retryDelayOnFailover, 2000);
           logger.info(`Redis retry attempt ${times}, delay: ${delay}ms`);

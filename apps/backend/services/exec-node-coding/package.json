@@ -1,0 +1,59 @@
+{
+  "name": "@uaip/exec-node-coding",
+  "version": "1.0.0",
+  "description": "Hybrid Execution Mesh — pi-coding-agent HTTP+SSE node server. Persisted sessions under /workspace/.navratna/sessions. See docs/specs/11-HYBRID-EXECUTION-MESH.md.",
+  "main": "dist/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@uaip/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "start": "node dist/index.js",
+    "dev": "bun --hot src/index.ts",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
+    "format": "oxfmt --write src",
+    "format:check": "oxfmt --check src"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^0.55.3",
+    "@uaip/types": "workspace:*",
+    "@uaip/utils": "workspace:*",
+    "elysia": "catalog:backend",
+    "jose": "^5.10.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:backend",
+    "@vitest/coverage-v8": "catalog:backend",
+    "rimraf": "catalog:",
+    "tsc-alias": "catalog:backend",
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
+  },
+  "keywords": [
+    "uaip",
+    "execution-mesh",
+    "coding-agent",
+    "sse",
+    "pi"
+  ],
+  "author": "UAIP Team",
+  "license": "MIT",
+  "nx": {
+    "tags": [
+      "execution-mesh",
+      "coding-tier"
+    ]
+  }
+}

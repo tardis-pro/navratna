@@ -468,21 +468,34 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     }, 100); // 100ms debounce
   }, []); // Empty dependency array to prevent infinite loops
 
+  // Reload providers AND models after a provider mutation so the UI never shows
+  // a stale (previous-provider) model list. Invalidates the backend Redis model
+  // cache first so a newly added/updated/removed provider's models are re-fetched.
+  const reloadAfterProviderMutation = useCallback(async () => {
+    loadingRefs.current.providersLoaded = false;
+    loadingRefs.current.modelsLoaded = false;
+    try {
+      await llmAPI.invalidateCache('all');
+    } catch (error) {
+      logger.warn('Failed to invalidate LLM cache after provider mutation:', error);
+    }
+    await Promise.allSettled([loadProviders(), loadModels()]);
+  }, [loadProviders, loadModels]);
+
   // Create a new provider
   const createProvider = useCallback(
     async (providerData: ModelProvider) => {
       try {
         await uaipAPI.llm.createProvider(providerData);
-        // Reset loading state to allow fresh reload
-        loadingRefs.current.providersLoaded = false;
-        await loadProviders();
+        // Refresh both providers and models so the model list follows the change
+        await reloadAfterProviderMutation();
         return true;
       } catch (error) {
         logger.error('Failed to create provider:', error);
         throw error;
       }
     },
-    [loadProviders]
+    [reloadAfterProviderMutation]
   );
 
   // Update provider configuration
@@ -490,16 +503,15 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     async (providerId: string, config: ModelProvider) => {
       try {
         await uaipAPI.llm.updateProviderConfig(providerId, config);
-        // Reset loading state to allow fresh reload
-        loadingRefs.current.providersLoaded = false;
-        await loadProviders();
+        // Refresh both providers and models so the model list follows the change
+        await reloadAfterProviderMutation();
         return true;
       } catch (error) {
         logger.error('Failed to update provider:', error);
         throw error;
       }
     },
-    [loadProviders]
+    [reloadAfterProviderMutation]
   );
 
   // Test provider connectivity
@@ -518,16 +530,15 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     async (providerId: string) => {
       try {
         await uaipAPI.llm.deleteProvider(providerId);
-        // Reset loading state to allow fresh reload
-        loadingRefs.current.providersLoaded = false;
-        await loadProviders();
+        // Refresh both providers and models so the model list follows the change
+        await reloadAfterProviderMutation();
         return true;
       } catch (error) {
         logger.error('Failed to delete provider:', error);
         throw error;
       }
     },
-    [loadProviders]
+    [reloadAfterProviderMutation]
   );
 
   // Get models for a specific provider

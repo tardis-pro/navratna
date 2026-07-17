@@ -44,6 +44,10 @@ export class BaseToolExecutor {
         return this.executeFileReader(parameters);
       case 'web-search':
         return this.executeWebSearch(parameters);
+      case 'shell-exec':
+        return this.executeShellCommand(parameters);
+      case 'http-request':
+        return this.executeHttpRequest(parameters);
       // Dynamic tool discovery - MCP and OAuth tools
       default:
         if (toolId.startsWith('mcp-')) {
@@ -53,6 +57,120 @@ export class BaseToolExecutor {
           return this.executeOAuthTool(toolId, parameters);
         }
         throw new InternalServerError(`Unknown tool: ${toolId}`);
+    }
+  }
+
+  /**
+   * Shell command execution. Runs on whichever runner the mesh scheduler picked — the
+   * in-process native node here, or (when the toolId is dispatched remotely) a registered
+   * exec node. Because a step can land on a runner that lacks its dependencies, we PREFLIGHT
+   * first: verify each required binary (`command -v`), env var, and file exists, and fail with
+   * a precise MISSING_DEPENDENCY error instead of a cryptic non-zero exit. `requires` is the
+   * same list the scheduler capability-matches against a node's advertised runtimes.
+   */
+  private async executeShellCommand(parameters: unknown): Promise<unknown> {
+    const params = asRecord(parameters);
+    const command = asString(params.command);
+    if (!command) {
+      throw new ValidationError('shell-exec requires a "command" string parameter');
+    }
+
+    const { exec } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execAsync = promisify(exec);
+
+    const requires = Array.isArray(params.requires) ? (params.requires as unknown[]).filter((r): r is string => typeof r === 'string') : [];
+    const requiredEnv = Array.isArray(params.requiredEnv) ? (params.requiredEnv as unknown[]).filter((r): r is string => typeof r === 'string') : [];
+
+    // Preflight: binaries
+    for (const bin of requires) {
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- small fixed preflight set
+        await execAsync(`command -v ${bin}`);
+      } catch {
+        return {
+          ok: false,
+          code: 'MISSING_DEPENDENCY',
+          error: `Required binary not available on this runner: ${bin}`,
+          missing: bin,
+        };
+      }
+    }
+    // Preflight: env vars
+    const missingEnv = requiredEnv.filter((name) => !process.env[name]);
+    if (missingEnv.length > 0) {
+      return {
+        ok: false,
+        code: 'MISSING_DEPENDENCY',
+        error: `Required environment variable(s) not set on this runner: ${missingEnv.join(', ')}`,
+        missing: missingEnv,
+      };
+    }
+
+    const timeoutMs = typeof params.timeoutMs === 'number' ? params.timeoutMs : 60000;
+    const stdin = asString(params.stdin);
+    try {
+      // Prior step output is exposed as $WF_STDIN (exec's `input` option is a no-op for
+      // exec), so a chained bash step can consume it: `echo "$WF_STDIN" >> file`.
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: timeoutMs,
+        maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, ...(stdin ? { WF_STDIN: stdin } : {}) },
+      });
+      return { ok: true, stdout, stderr, exitCode: 0 };
+    } catch (error) {
+      const e = error as { stdout?: string; stderr?: string; code?: number; killed?: boolean; message?: string };
+      return {
+        ok: false,
+        code: e.killed ? 'TIMEOUT' : 'NONZERO_EXIT',
+        exitCode: typeof e.code === 'number' ? e.code : 1,
+        stdout: e.stdout ?? '',
+        stderr: e.stderr ?? e.message ?? 'shell command failed',
+        error: e.stderr || e.message || 'shell command failed',
+      };
+    }
+  }
+
+  /** Generic HTTP request. Used by httpCall workflow steps and webhook/Slack delivery. */
+  private async executeHttpRequest(parameters: unknown): Promise<unknown> {
+    const params = asRecord(parameters);
+    const url = asString(params.url);
+    if (!url) {
+      throw new ValidationError('http-request requires a "url" string parameter');
+    }
+    const method = (asString(params.method) ?? 'GET').toUpperCase();
+    const headers = isRecord(params.headers) ? (params.headers as Record<string, string>) : {};
+    const hasBody = params.body !== undefined && method !== 'GET' && method !== 'HEAD';
+    const body = hasBody
+      ? typeof params.body === 'string'
+        ? params.body
+        : JSON.stringify(params.body)
+      : undefined;
+    if (hasBody && typeof params.body !== 'string' && !headers['Content-Type'] && !headers['content-type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const timeoutMs = typeof params.timeoutMs === 'number' ? params.timeoutMs : 30000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { method, headers, body, signal: controller.signal });
+      const text = await res.text();
+      let parsed: unknown = text;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        /* leave as text */
+      }
+      return { ok: res.ok, status: res.status, body: parsed };
+    } catch (error) {
+      return {
+        ok: false,
+        code: 'HTTP_ERROR',
+        error: error instanceof Error ? error.message : 'http request failed',
+      };
+    } finally {
+      clearTimeout(timer);
     }
   }
 

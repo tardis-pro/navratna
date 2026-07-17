@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
-import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope, Workflow } from 'lucide-react';
+import { Bot, Layers, FileCode, MessageSquare, ListTodo, Telescope, Workflow, ArrowLeft } from 'lucide-react';
 import { WorkflowBlockRenderer } from '@/components/WorkflowBlockRenderer';
 import type { BlockDisplayType, FieldProjection, ActionProjection } from '@uaip/types';
 import type {
@@ -30,10 +30,14 @@ import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpressi
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MAX_VISIBLE_BLOCKS = 4;
-const AUTO_REFRESH_INTERVAL_MS = 30_000;
+const DEFAULT_MAX_VISIBLE_BLOCKS = 10;
 const RELEVANCE_HIDDEN_THRESHOLD = 0.2;
 const RELEVANCE_FADED_THRESHOLD = 0.5;
+
+/** A block explicitly surfaced via intent is pinned — it bypasses the attention budget. */
+function isPinned(block: MaterializableBlockData): boolean {
+  return block.metadata?.pinned === true;
+}
 
 const BLOCK_TYPE_ICONS: Record<MaterializableBlockType, React.ReactNode> = {
   agent: <Bot className="w-4 h-4" />,
@@ -81,6 +85,10 @@ export interface UseTelescopeSurfaceReturn {
   addBlock: (data: MaterializableBlockData) => void;
   removeBlock: (id: string) => void;
   updateRelevance: (id: string, score: number) => void;
+  /** Pin a block so it is always visible regardless of the attention budget. */
+  pinBlock: (id: string) => void;
+  /** Merge in newly-materialized blocks (dedupe by id, preserving existing state). */
+  mergeBlocks: (incoming: MaterializableBlockData[]) => void;
   visibleCount: number;
   isAtCapacity: boolean;
 }
@@ -130,6 +138,33 @@ export function useTelescopeSurface(
     [applyRules]
   );
 
+  const pinBlock = useCallback(
+    (id: string) => {
+      setBlocks((prev) =>
+        applyRules(
+          prev.map((b) =>
+            b.id === id ? { ...b, metadata: { ...b.metadata, pinned: true } } : b
+          )
+        )
+      );
+    },
+    [applyRules]
+  );
+
+  const mergeBlocks = useCallback(
+    (incoming: MaterializableBlockData[]) => {
+      setBlocks((prev) => {
+        const existingIds = new Set(prev.map((b) => b.id));
+        const additions = incoming.filter((b) => !existingIds.has(b.id));
+        // No new blocks → return prev unchanged to avoid needless re-renders
+        // (important: this runs on a 30s refresh interval).
+        if (additions.length === 0) return prev;
+        return applyRules([...prev, ...additions]);
+      });
+    },
+    [applyRules]
+  );
+
   const visibleCount = useMemo(
     () => blocks.filter((b) => b.visibility !== 'hidden').length,
     [blocks]
@@ -137,17 +172,34 @@ export function useTelescopeSurface(
 
   const isAtCapacity = visibleCount >= maxVisibleBlocks;
 
-  return { blocks, addBlock, removeBlock, updateRelevance, visibleCount, isAtCapacity };
+  return {
+    blocks,
+    addBlock,
+    removeBlock,
+    updateRelevance,
+    pinBlock,
+    mergeBlocks,
+    visibleCount,
+    isAtCapacity,
+  };
 }
 
 function applyVisibilityRules(
   sorted: MaterializableBlockData[],
   maxVisible: number
 ): MaterializableBlockData[] {
-  return sorted.map((block, index) => ({
-    ...block,
-    visibility: deriveVisibility(block.relevanceScore, index, maxVisible),
-  }));
+  // Pinned blocks (intent-materialized) are always visible and do NOT consume
+  // the attention budget. Only non-pinned blocks are counted against maxVisible,
+  // preserving the ambient "most relevant float up" behaviour for everything else.
+  let budgetIndex = 0;
+  return sorted.map((block) => {
+    if (isPinned(block)) {
+      return { ...block, visibility: 'visible' as BlockVisibility };
+    }
+    const visibility = deriveVisibility(block.relevanceScore, budgetIndex, maxVisible);
+    budgetIndex += 1;
+    return { ...block, visibility };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -155,116 +207,11 @@ function applyVisibilityRules(
 // ---------------------------------------------------------------------------
 
 const CosmicBackground = () => {
-  // Generate random stars
-  const stars = useMemo(() => {
-    return Array.from({ length: 100 }).map((_, i) => ({
-      id: i,
-      cx: `${Math.random() * 100}%`,
-      cy: `${Math.random() * 100}%`,
-      r: Math.random() * 1.5 + 0.5,
-      opacity: Math.random() * 0.5 + 0.1,
-      animationDuration: `${Math.random() * 3 + 2}s`,
-      animationDelay: `${Math.random() * 2}s`,
-    }));
-  }, []);
-
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Nebula Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[var(--color-llama1)] opacity-[0.03] blur-[120px] animate-pulse-glow" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[var(--color-llama2)] opacity-[0.03] blur-[100px] animate-pulse-glow" style={{ animationDelay: '2s' }} />
-      
-      {/* Starfield SVG */}
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        {stars.map((star) => (
-          <circle
-            key={star.id}
-            cx={star.cx}
-            cy={star.cy}
-            r={star.r}
-            fill="currentColor"
-            className="text-white animate-pulse-glow"
-            style={{
-              opacity: star.opacity,
-              animationDuration: star.animationDuration,
-              animationDelay: star.animationDelay,
-            }}
-          />
-        ))}
-      </svg>
-
-      {/* Scanline overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.1)_51%)] bg-[length:100%_4px] opacity-20 pointer-events-none" />
-      
-      {/* Sweeping scan line */}
-      <motion.div 
-        className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--color-llama1)] to-transparent opacity-30"
-        animate={{ y: ['0vh', '100vh'] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-      />
+      {/* Single subtle ambient glow — calm, content-first backdrop */}
+      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[var(--color-llama1)] opacity-[0.03] blur-[120px]" />
     </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// ConstellationLines
-// ---------------------------------------------------------------------------
-
-interface BlockCenter {
-  id: string;
-  x: number;
-  y: number;
-  relevanceScore: number;
-}
-
-interface ConstellationLinesProps {
-  centers: BlockCenter[];
-  containerRef: React.RefObject<HTMLDivElement>;
-}
-
-const ConstellationLines = ({ centers, containerRef }: ConstellationLinesProps) => {
-  if (centers.length < 2 || !containerRef.current) return null;
-
-  const containerRect = containerRef.current.getBoundingClientRect();
-
-  return (
-    <svg
-      className="absolute inset-0 w-full h-full pointer-events-none z-0"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="constellation-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="oklch(65% 0.12 250)" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="oklch(65% 0.12 290)" stopOpacity="0.1" />
-        </linearGradient>
-      </defs>
-
-      {centers.map((a, i) => {
-        const b = centers[i + 1];
-        if (!b) return null;
-        const x1 = a.x - containerRect.left;
-        const y1 = a.y - containerRect.top;
-        const x2 = b.x - containerRect.left;
-        const y2 = b.y - containerRect.top;
-        const strength = Math.sqrt(a.relevanceScore * b.relevanceScore);
-
-        return (
-          <motion.line
-            key={`line-${a.id}-${b.id}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="url(#constellation-grad)"
-            strokeWidth={strength * 1.5}
-            strokeDasharray="5 4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: strength * 0.5 }}
-            transition={{ duration: 1.2, delay: i * 0.15 }}
-          />
-        );
-      })}
-    </svg>
   );
 };
 
@@ -288,7 +235,7 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
   const relevanceOpacity = useTransform(
     springRelevance,
     [0, RELEVANCE_FADED_THRESHOLD, 1],
-    [0.3, 0.65, 1]
+    [0.9, 0.95, 1]
   );
 
   useEffect(() => {
@@ -310,16 +257,14 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
   );
 
   // Von Restorff effect for top ranked block
-  const borderStyle = isTopRanked 
-    ? { borderColor: 'oklch(85% 0.15 85)', boxShadow: '0 0 15px oklch(85% 0.15 85 / 0.3), inset 0 0 20px oklch(85% 0.15 85 / 0.1)' }
+  const borderStyle = isTopRanked
+    ? { borderColor: 'var(--color-accent)', boxShadow: '0 1px 3px oklch(0% 0 0 / 0.08), 0 1px 2px oklch(0% 0 0 / 0.06)' }
     : { borderColor: typeColors.border };
 
   const scaleBase = isTopRanked ? 1.02 : 1;
 
   return (
     <motion.div
-      layout
-      layoutId={block.id}
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{
         scale: scaleBase,
@@ -345,8 +290,8 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
       aria-label={`${BLOCK_TYPE_LABELS[block.type]} block: ${block.metadata?.title ?? block.id} — ${relevancePercent}% relevant`}
       className={cn(
         "relative flex flex-col gap-3 rounded-2xl border-2 p-5 cursor-pointer overflow-hidden",
-        "backdrop-blur-xl min-h-[8rem]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+        "min-h-[8rem]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       )}
     >
       {/* Type-based gradient header strip */}
@@ -382,10 +327,9 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-1.5 bg-background/40 px-2 py-1 rounded-full border border-border/50">
             <span
-              className="w-2 h-2 rounded-full animate-pulse"
+              className="w-2 h-2 rounded-full"
               style={{
                 backgroundColor: expressionColor,
-                boxShadow: `0 0 8px ${expressionColor}`,
               }}
               title={`${block.expression} state`}
             />
@@ -409,14 +353,13 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
       <div className="flex flex-col gap-1.5 mt-2">
         <div className="flex justify-between items-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           <span>Relevance</span>
-          <span style={{ color: isTopRanked ? 'oklch(85% 0.15 85)' : typeColors.accent }}>{relevancePercent}%</span>
+          <span style={{ color: isTopRanked ? 'var(--color-accent)' : typeColors.accent }}>{relevancePercent}%</span>
         </div>
-        <div className="h-1.5 w-full bg-background/50 rounded-full overflow-hidden border border-border/30">
-          <motion.div 
+        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden border border-border/30">
+          <motion.div
             className="h-full rounded-full"
-            style={{ 
-              backgroundColor: isTopRanked ? 'oklch(85% 0.15 85)' : typeColors.accent,
-              boxShadow: `0 0 10px ${isTopRanked ? 'oklch(85% 0.15 85)' : typeColors.accent}`
+            style={{
+              backgroundColor: isTopRanked ? 'var(--color-accent)' : typeColors.accent,
             }}
             initial={{ width: 0 }}
             animate={{ width: `${relevancePercent}%` }}
@@ -438,6 +381,11 @@ export interface TelescopeSurfaceProps {
   onIntentSelect?: (option: IntentOption) => void;
   maxVisibleBlocks?: number;
   className?: string;
+  /**
+   * Request that a materialized block be scrolled into view and focused.
+   * `nonce` retriggers the effect when the same block is selected again.
+   */
+  focusTarget?: { id: string; nonce: number };
 }
 
 export function TelescopeSurface({
@@ -446,11 +394,9 @@ export function TelescopeSurface({
   onIntentSelect,
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
+  focusTarget,
 }: TelescopeSurfaceProps) {
-  const arrangeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [_arrangeKey, setArrangeKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [blockCenters, setBlockCenters] = useState<BlockCenter[]>([]);
 
   const processedBlocks = useMemo(() => {
     const sorted = sortByRelevance(blocks);
@@ -463,47 +409,42 @@ export function TelescopeSurface({
     [processedBlocks]
   );
 
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const measure = () => {
-      const centers: BlockCenter[] = [];
-      visibleBlocks.forEach((block) => {
-        const el = container.querySelector<HTMLElement>(`[data-block-id="${block.id}"]`);
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        centers.push({
-          id: block.id,
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-          relevanceScore: block.relevanceScore,
-        });
-      });
-      setBlockCenters(centers);
-    };
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(container);
-    measure();
-
-    return () => observer.disconnect();
-  }, [visibleBlocks]);
-
-  useEffect(() => {
-    arrangeTimerRef.current = setInterval(() => {
-      setArrangeKey((k) => k + 1);
-    }, AUTO_REFRESH_INTERVAL_MS);
-
-    return () => {
-      if (arrangeTimerRef.current) {
-        clearInterval(arrangeTimerRef.current);
-      }
-    };
-  }, []);
-
   const [crystallizedIds, setCrystallizedIds] = useState<Set<string>>(new Set());
   const [fogActive, setFogActive] = useState(true);
+  // A rich portal, when opened, takes over the surface in a focused view instead
+  // of ballooning inline in the ambient grid. null = the constellation is showing.
+  const [focusedPortalId, setFocusedPortalId] = useState<string | null>(null);
+
+  const focusedBlock = useMemo(
+    () => blocks.find((b) => b.id === focusedPortalId) ?? null,
+    [blocks, focusedPortalId]
+  );
+
+  useEffect(() => {
+    if (!focusedPortalId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFocusedPortalId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [focusedPortalId]);
+
+  // Scroll a freshly-materialized block into view and focus it, so an
+  // intent selection visibly "opens" the capability rather than silently
+  // re-ranking. Deferred to the next frame so the block has mounted.
+  useEffect(() => {
+    if (!focusTarget) return;
+    const raf = requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(
+        `[data-block-id="${CSS.escape(focusTarget.id)}"]`
+      );
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget?.id, focusTarget?.nonce]);
 
   useEffect(() => {
     const unclaimed = visibleBlocks.filter((b) => !crystallizedIds.has(b.id));
@@ -573,7 +514,6 @@ export function TelescopeSurface({
       aria-label="Telescope Surface — ambient block view"
     >
       <CosmicBackground />
-      <ConstellationLines centers={blockCenters} containerRef={containerRef} />
 
       <AttentionBudget
         activeCount={visibleBlocks.length}
@@ -601,18 +541,25 @@ export function TelescopeSurface({
         <BreathCycle systemLoad={systemLoad} isActive={true}>
           <div className="grid gap-6 auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <AnimatePresence mode="popLayout">
-              {visibleBlocks.map((block, index) => (
+              {visibleBlocks.map((block, index) => {
+                return (
                 <motion.div
                   key={block.id}
                   data-block-id={block.id}
+                  tabIndex={-1}
                   exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.95 }}
                   transition={{ duration: 0.4 }}
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 rounded-2xl"
                 >
                   <CrystallizationEffect isLoading={!crystallizedIds.has(block.id)} duration={400}>
                     {block.type === 'portal' ? (
-                      <MaterializableBlock block={block}>
-                        {renderPortalContent(block.id)}
-                      </MaterializableBlock>
+                      // Portals are full apps — show a compact ambient card here;
+                      // opening it takes over the surface in the focused view.
+                      <TelescopeBlock
+                        block={block}
+                        onClick={(id) => setFocusedPortalId(id)}
+                        isTopRanked={index === 0 && block.relevanceScore > 0.8}
+                      />
                     ) : block.type === 'workflow' ? (
                       <MaterializableBlock block={block}>
                         <WorkflowBlockRenderer
@@ -632,14 +579,59 @@ export function TelescopeSurface({
                     )}
                   </CrystallizationEffect>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </div>
         </BreathCycle>
       </div>
 
+      {/* Focused portal view — a rich portal takes over the surface, with a way back. */}
+      <AnimatePresence>
+        {focusedBlock && (
+          <motion.div
+            key="focused-portal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex flex-col bg-background/85 backdrop-blur-md p-3 md:p-6 lg:p-8"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setFocusedPortalId(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-[1400px] mx-auto flex-1 min-h-0 flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
+                <button
+                  onClick={() => setFocusedPortalId(null)}
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1 -ml-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  aria-label="Back to constellation"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <span className="text-base font-semibold text-foreground tracking-tight truncate">
+                  {(typeof focusedBlock.metadata?.title === 'string' ? focusedBlock.metadata.title : null) ??
+                    BLOCK_TYPE_LABELS[focusedBlock.type]}
+                </span>
+                <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">Esc to close</span>
+              </div>
+              <div className="flex-1 min-h-0 overflow-auto">{renderPortalContent(focusedBlock.id)}</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {visibleBlocks.length === 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10"
