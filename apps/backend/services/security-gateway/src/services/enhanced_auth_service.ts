@@ -31,6 +31,15 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+// Guards the agent_oauth_connections lookup: agent_id is a UUID column, but
+// external provider user ids (Google sub, GitHub id) are numeric — feeding them
+// in throws Postgres "invalid input syntax for type uuid" and crashes callback.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(v: unknown): v is string {
+  return typeof v === 'string' && UUID_REGEX.test(v);
+}
+
 function isOAuthProviderType(v: unknown): v is OAuthProviderType {
   return typeof v === 'string' && (Object.values(OAuthProviderType) as string[]).includes(v);
 }
@@ -208,9 +217,10 @@ export class EnhancedAuthService {
       }
 
       if (!user) {
-        // Check if there's an OAuth connection for this provider
-        // Guard: both userInfo.id and provider.id must be present
-        if (userInfo.id && provider.id) {
+        // Only look up an agent OAuth connection when userInfo.id is a real UUID.
+        // External provider ids (Google sub, GitHub id) are numeric and would
+        // crash the UUID-typed agent_id query; those fall through to provisioning.
+        if (isUuid(userInfo.id) && provider.id) {
           const oauthConnection = await this.oauthDomainService.findAgentOAuthConnection(
             userInfo.id,
             provider.id
@@ -812,7 +822,7 @@ export class EnhancedAuthService {
       agentCapabilities: Array.isArray(session.agentCapabilities) ? session.agentCapabilities.map(String) : [],
     };
 
-    const tokens = generateAuthTokens(payload);
+    const tokens = await generateAuthTokens(payload);
 
     return tokens;
   }

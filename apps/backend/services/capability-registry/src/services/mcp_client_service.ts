@@ -15,9 +15,57 @@ import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcp_sec
 import { McpRepository } from '../database/index.js';
 
 import { promisify } from 'util';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/**
+ * Stdio MCP servers are launched by spawning `command` with the gateway's full
+ * environment. That makes `command` a remote-code-execution surface: even an
+ * authenticated admin must only be able to start a known package launcher, never
+ * an arbitrary host binary or absolute path. Only these launchers are permitted;
+ * the actual server package is passed via `args` (which spawn treats as literal
+ * argv, not shell input).
+ */
+const ALLOWED_STDIO_LAUNCHERS: ReadonlySet<string> = new Set([
+  'npx',
+  'bunx',
+  'node',
+  'bun',
+  'deno',
+  'python',
+  'python3',
+  'uv',
+  'uvx',
+  'docker',
+]);
+
+/**
+ * Rejects any stdio launch command that is not an allowlisted launcher. Guards
+ * against path traversal / absolute paths (`/bin/sh`, `../evil`), shell
+ * metacharacters (defense-in-depth even though spawn runs without a shell), and
+ * unknown binaries. Throws ExternalServiceError (surfaced as 4xx) on violation.
+ */
+function assertSafeStdioCommand(command: string | undefined): asserts command is string {
+  const value = (command ?? '').trim();
+  if (!value) {
+    throw new ExternalServiceError('stdio MCP server requires a command');
+  }
+  if (/[/\\]/.test(value) || value.includes('..')) {
+    throw new ExternalServiceError(
+      `MCP command must be a bare launcher name, not a path: '${command}'`
+    );
+  }
+  if (/[;&|`$(){}<>*?!\s'"]/.test(value)) {
+    throw new ExternalServiceError(`MCP command contains disallowed characters: '${command}'`);
+  }
+  if (!ALLOWED_STDIO_LAUNCHERS.has(value)) {
+    throw new ExternalServiceError(
+      `MCP command '${command}' is not an allowed launcher. Allowed: ${[...ALLOWED_STDIO_LAUNCHERS].join(', ')}`
+    );
+  }
+}
 
 const toolCategoryValues = new Set<unknown>(Object.values(ToolCategory));
 function isToolCategory(v: unknown): v is ToolCategory { return toolCategoryValues.has(v); }
@@ -75,9 +123,6 @@ function isStringRecord(v: unknown): v is Record<string, string> {
   return Object.values(v).every((val: unknown) => typeof val === 'string');
 }
 
-function isEntityWithName(v: unknown): v is { name?: string } {
-  return typeof v === 'object' && v !== null;
-}
 
 interface JSONRPCNotification {
   jsonrpc: '2.0';
@@ -293,6 +338,10 @@ export class MCPClientService extends EventEmitter {
     const isHttp = config.transportType === 'http' || config.transportType === 'streamable-http';
 
     if (!isHttp) {
+      // Fail closed on an unsafe launcher before doing anything else — this guards
+      // both freshly-installed configs and any pre-existing/seeded config that
+      // predates the allowlist.
+      assertSafeStdioCommand(config.command);
       // Validate command exists before attempting to start
       const commandValidation = await this.validateCommand(config.command!);
       if (!commandValidation.isValid) {
@@ -1151,9 +1200,11 @@ export class MCPClientService extends EventEmitter {
     fallbackConfig?: MCPServerConfig;
   }> {
     try {
-      // Try to find the command using 'which' (Unix) or 'where' (Windows)
+      // Try to find the command using 'which' (Unix) or 'where' (Windows).
+      // Pass the command as an argv element (execFile, no shell) so it can never
+      // be interpreted as shell syntax.
       const whichCommand = process.platform === 'win32' ? 'where' : 'which';
-      await execAsync(`${whichCommand} ${command}`);
+      await execFileAsync(whichCommand, [command]);
       return { isValid: true };
     } catch {
       // Command not found, provide helpful suggestions and fallbacks
@@ -1213,7 +1264,7 @@ export class MCPClientService extends EventEmitter {
   private async isCommandAvailable(command: string): Promise<boolean> {
     try {
       const whichCommand = process.platform === 'win32' ? 'where' : 'which';
-      await execAsync(`${whichCommand} ${command}`);
+      await execFileAsync(whichCommand, [command]);
       return true;
     } catch {
       return false;
@@ -1302,6 +1353,18 @@ export class MCPClientService extends EventEmitter {
   }
 
   async installServer(serverName: string, config: MCPServerConfig): Promise<void> {
+    const isHttp = config.transportType === 'http' || config.transportType === 'streamable-http';
+    if (!isHttp) {
+      // Reject an unsafe launcher before persisting it, so a bad config never
+      // reaches the DB or a spawn. HTTP transports carry no command.
+      assertSafeStdioCommand(config.command);
+    }
+    // Audit trail for a privileged, RCE-adjacent operation.
+    logger.info('MCP server install requested', {
+      serverName,
+      transportType: config.transportType ?? 'stdio',
+      command: isHttp ? undefined : config.command,
+    });
     await this.updateServerConfig(serverName, config);
     await this.startServer(serverName);
     logger.info(`Installed and started MCP server: ${serverName}`);

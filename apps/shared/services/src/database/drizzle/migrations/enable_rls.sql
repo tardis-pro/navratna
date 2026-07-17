@@ -6,8 +6,9 @@
 --   RLS is enforced at the role level; a superuser or role with BYPASSRLS
 --   bypasses all policies regardless.
 --
--- Tables: agents, personas, discussions, artifacts, knowledge_items,
---         llm_providers, llm_models, short_links (intelligence plane, PC-A)
+-- Tables: agents, personas, discussions, discussion_messages, artifacts,
+--         knowledge_items, llm_providers, llm_models, short_links
+--         (intelligence plane, PC-A)
 
 ALTER TABLE agents          ENABLE  ROW LEVEL SECURITY;
 ALTER TABLE agents          FORCE   ROW LEVEL SECURITY;
@@ -17,6 +18,9 @@ ALTER TABLE personas        FORCE   ROW LEVEL SECURITY;
 
 ALTER TABLE discussions     ENABLE  ROW LEVEL SECURITY;
 ALTER TABLE discussions     FORCE   ROW LEVEL SECURITY;
+
+ALTER TABLE discussion_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE discussion_messages FORCE  ROW LEVEL SECURITY;
 
 ALTER TABLE artifacts       ENABLE  ROW LEVEL SECURITY;
 ALTER TABLE artifacts       FORCE   ROW LEVEL SECURITY;

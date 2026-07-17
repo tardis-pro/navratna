@@ -166,16 +166,27 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
     // forwarded identity headers on requests that carry a matching X-Edge-Auth
     // header — i.e. requests that actually passed through the Cloudflare Worker.
     // This prevents a client from reaching the public Fly app directly and
-    // forging X-User-* headers to impersonate any user. Unset secret = trust
-    // headers (local dev / pre-rollout), preserving existing behavior.
+    // forging X-User-* headers to impersonate any user.
     const edgeSecret = process.env.EDGE_AUTH_SECRET;
-    if (edgeSecret && headers['x-edge-auth'] !== edgeSecret) {
+    if (!edgeSecret) {
+      // Fail closed in production: with no shared secret we cannot distinguish a
+      // request that passed through the trusted edge from one that hit the public
+      // app directly, so we must NOT trust X-User-* headers. In dev/test we keep
+      // trusting them so local flows work without the edge.
+      if (process.env.NODE_ENV === 'production') {
+        logger.error(
+          'attachNginxAuth: EDGE_AUTH_SECRET is not set in production — refusing forwarded identity headers (fail-closed)'
+        );
+        return { user: null };
+      }
+    } else if (headers['x-edge-auth'] !== edgeSecret) {
       return { user: null };
     }
 
     const userId = headers['x-user-id'];
     const email = headers['x-user-email'];
     const role = headers['x-user-role'];
+    const org = headers['x-user-org'];
 
     logger.debug('attachNginxAuth: checking headers', {
       hasUserId: !!userId,
@@ -195,8 +206,10 @@ export function attachNginxAuth<T extends Elysia>(app: T) {
         id: userId,
         email: email || '',
         role: role || 'user',
-        // TODO(tenant): nginx does not forward orgId yet; default to admin org
-        organizationId: ADMIN_ORG_ID,
+        // Tenant comes from the edge-forwarded X-User-Org (derived from the
+        // token's orgId claim). Fall back to the admin org only when the edge did
+        // not forward one (legacy tokens / pre-rollout).
+        organizationId: org && UUID_REGEX.test(org) ? org : ADMIN_ORG_ID,
       },
     };
   });
@@ -422,7 +435,10 @@ type ValidateJWTTokenResult = {
 
 export const validateJWTToken = async (token: string): Promise<ValidateJWTTokenResult> => {
   try {
-    const decoded = await JWTValidator.verify(token);
+    // verifyAny dispatches by the token's alg header (RS256 or HS256) with
+    // downgrade protection, so both new RS256 tokens and any still-valid legacy
+    // HS256 tokens are accepted during the migration window.
+    const decoded = await JWTValidator.verifyAny(token);
 
     if (!decoded.userId || !decoded.email || !decoded.role) {
       return { valid: false, reason: 'Invalid token payload - missing required fields' };

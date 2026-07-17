@@ -30,6 +30,28 @@ let codingCoordinator: CodingSessionCoordinator | null = null
 let githubTokenBroker: GitHubAppTokenBroker | null = null
 let githubInstallationRepository: GitHubAppInstallationRepository | null = null
 
+/**
+ * Env vars the coding tier hard-requires. When any is missing the coding tier is
+ * disabled (its routes are skipped) rather than crashing the whole gateway — the
+ * capability/MCP/tool/mesh routes must still mount on an unprovisioned deploy.
+ */
+const CODING_TIER_ENV = [
+  'CODING_NODE_JWT_PRIVATE_KEY_PEM',
+  'CODING_NODE_JWT_PUBLIC_KEY_PEM',
+  'GITHUB_APP_ID',
+  'GITHUB_APP_PRIVATE_KEY_PEM',
+  'GITHUB_IAT_ENCRYPTION_KEY',
+  'FLY_API_TOKEN',
+  'FLY_CODING_APP',
+  'FLY_CODING_IMAGE',
+  'FLY_CODING_PRIMARY_REGION',
+] as const
+
+function codingTierEnvStatus(): { enabled: boolean; missing: string[] } {
+  const missing = CODING_TIER_ENV.filter((name) => !process.env[name]?.trim())
+  return { enabled: missing.length === 0, missing }
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim()
   if (!value) throw new Error(`Missing required coding-tier environment variable: ${name}`)
@@ -194,7 +216,19 @@ export const capabilityFeature: Feature = {
     const registry = new UnifiedToolRegistry(deps?.eventBusService)
     await registry.initialize()
     await registerNativeTools(registry)
-    codingCoordinator = await buildCodingCoordinator()
+
+    // The coding tier is optional infrastructure. On a deploy without GitHub App /
+    // Fly / signing-key secrets, skip it and let the rest of capability-registry
+    // serve — do NOT throw and take the gateway down. Fail-closed happens
+    // per-request (the coding routes simply are not mounted), not at boot.
+    const coding = codingTierEnvStatus()
+    if (coding.enabled) {
+      codingCoordinator = await buildCodingCoordinator()
+    } else {
+      logger.warn('Coding tier disabled — missing environment; capability-registry will serve without coding routes', {
+        missing: coding.missing,
+      })
+    }
   },
 
   routes(app) {
@@ -202,10 +236,12 @@ export const capabilityFeature: Feature = {
     app.use(registerMCPRoutes())
     app.use(registerHealthRoutes())
     app.use(registerToolRoutes())
-    if (!codingCoordinator) throw new Error('Coding session coordinator was not initialized')
-    if (!githubTokenBroker || !githubInstallationRepository) throw new Error('GitHub App binding services were not initialized')
-    app.use(registerWorkspaceRoutes(undefined, codingCoordinator))
-    app.use(registerGitHubAppInstallationRoutes(githubInstallationRepository, githubTokenBroker))
+    if (codingCoordinator && githubTokenBroker && githubInstallationRepository) {
+      app.use(registerWorkspaceRoutes(undefined, codingCoordinator))
+      app.use(registerGitHubAppInstallationRoutes(githubInstallationRepository, githubTokenBroker))
+    } else {
+      logger.warn('Coding tier routes not mounted (coordinator unavailable) — /api/v1/workspaces and GitHub App installation endpoints are disabled')
+    }
     app.use(registerFederationRoutes())
     app.use(registerCanvaRoutes())
     app.use(registerMeshNodeRoutes())

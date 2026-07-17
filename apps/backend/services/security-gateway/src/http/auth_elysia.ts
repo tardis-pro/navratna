@@ -269,7 +269,7 @@ export function registerAuthRoutes() {
   
         // Success
         await userService.resetLoginAttempts(user.id);
-        const tokens = generateAuthTokens({
+        const tokens = await generateAuthTokens({
           userId: user.id,
           email: user.email,
           role: user.role,
@@ -365,7 +365,7 @@ export function registerAuthRoutes() {
           return { error: 'Account Inactive', message: 'User account is no longer active' };
         }
   
-        const tokens = generateAuthTokens({
+        const tokens = await generateAuthTokens({
           userId: tokenData.user.id,
           email: tokenData.user.email,
           role: tokenData.user.role,
@@ -722,13 +722,14 @@ export function registerAuthRoutes() {
         }
   
         const token = authHeader.substring(7);
-        const decoded = await JWTValidator.verify(token);
-  
+        const decoded = await JWTValidator.verifyAny(token);
+
         // Set user info headers for nginx to forward to upstream services
         set.headers['X-User-ID'] = decoded.userId;
         set.headers['X-User-Email'] = decoded.email;
         set.headers['X-User-Role'] = decoded.role;
-  
+        if (decoded.orgId) set.headers['X-User-Org'] = decoded.orgId;
+
         return { valid: true };
       } catch (error) {
         logger.debug('Token validation failed', {

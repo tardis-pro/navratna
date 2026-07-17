@@ -13,9 +13,17 @@ type DbWithTransaction = {
   transaction: <T>(fn: (tx: DbTransactionCtx) => Promise<T>) => Promise<T>;
 };
 
-type ControlDbProvider = () => DbWithTransaction;
-
 type ContextWithUser = { user?: { organizationId?: string } | null };
+
+/**
+ * Injected tenant-transaction runner. In production this is
+ * `runInTenantTransaction` from @uaip/shared-services, which opens a single
+ * intelligence-plane transaction, sets `app.tenant_id`, and binds it into
+ * AsyncLocalStorage so every getIntelligenceDb() call inside `fn` uses that
+ * connection (so RLS sees the tenant). It is injected rather than imported to
+ * avoid a build cycle (@uaip/middleware must not import @uaip/shared-services).
+ */
+export type TenantRunner = <T>(tenantId: string, fn: TenantFn<T>) => Promise<T>;
 
 async function executeTenantSet(tx: DbTransactionCtx, tenantId: string): Promise<void> {
   const { sql } = await import('drizzle-orm');
@@ -23,12 +31,11 @@ async function executeTenantSet(tx: DbTransactionCtx, tenantId: string): Promise
 }
 
 /**
- * Wrap a function in a tenant-scoped transaction that sets `app.tenant_id`
- * (consumed by Postgres RLS policies) for the duration of the callback.
- *
- * The control DB is injected (dependency inversion) so that `@uaip/middleware`
- * never imports `@uaip/shared-services` — that edge would create a build cycle
- * since shared-services already depends on middleware.
+ * Low-level helper: run `fn` inside a transaction on the given db with
+ * `app.tenant_id` set. Correct only when `fn`'s queries run on `db`'s
+ * transaction connection — prefer the AsyncLocalStorage-based
+ * `runInTenantTransaction` (shared-services) for request handlers, which routes
+ * getIntelligenceDb() automatically.
  */
 export async function withTenant<T>(
   db: DbWithTransaction,
@@ -41,7 +48,7 @@ export async function withTenant<T>(
   });
 }
 
-export function createTenantMiddlewarePlugin(getControlDb: ControlDbProvider): Elysia {
+export function createTenantMiddlewarePlugin(runInTenant: TenantRunner): Elysia {
   return new Elysia({ name: 'tenant-middleware' }).derive(
     // @ts-expect-error -- Elysia middleware injects user but TS cannot infer through derive generics
     (context: ContextWithUser) => {
@@ -51,7 +58,7 @@ export function createTenantMiddlewarePlugin(getControlDb: ControlDbProvider): E
           logger.warn(TENANT_CONTEXT_MISSING, { hasUser: !!context.user });
           return fn();
         }
-        return withTenant(getControlDb(), tenantId, fn);
+        return runInTenant(tenantId, fn);
       };
       return { setTenantContext };
     }

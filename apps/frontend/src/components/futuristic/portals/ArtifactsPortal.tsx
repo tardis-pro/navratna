@@ -11,8 +11,12 @@ import {
   Archive,
   Star,
   MoreHorizontal,
+  Share2,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createArtifactShareLink } from '@/api/artifact_share';
+import { logger } from '@/utils/browser_logger';
 import {
   PortalContainer,
   PortalHeader,
@@ -67,9 +71,26 @@ const formatFileSize = (bytes: number): string => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 };
 
+type ShareState = 'idle' | 'sharing' | 'copied' | 'error';
+
 const ArtifactCard: React.FC<{ artifact: Artifact }> = ({ artifact }) => {
   const TypeIcon = TYPE_ICONS[artifact.type] ?? Package;
   const typeColor = TYPE_COLORS[artifact.type] ?? 'text-slate-400';
+  const [shareState, setShareState] = useState<ShareState>('idle');
+
+  const handleShare = async () => {
+    setShareState('sharing');
+    try {
+      const { shareUrl } = await createArtifactShareLink(artifact.id, { title: artifact.name });
+      await navigator.clipboard.writeText(shareUrl);
+      setShareState('copied');
+      setTimeout(() => setShareState('idle'), 2000);
+    } catch (error) {
+      logger.error('Failed to share artifact', error);
+      setShareState('error');
+      setTimeout(() => setShareState('idle'), 2000);
+    }
+  };
 
   return (
     <div className="group cursor-pointer">
@@ -122,6 +143,18 @@ const ArtifactCard: React.FC<{ artifact: Artifact }> = ({ artifact }) => {
                 aria-label={`View ${artifact.name}`}
               >
                 View
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={shareState === 'sharing'}
+                className={cn(
+                  'p-1 rounded',
+                  shareState === 'copied' ? 'text-green-400' : 'text-slate-400 hover:text-white',
+                )}
+                aria-label={shareState === 'copied' ? 'Share link copied' : `Share ${artifact.name}`}
+                title={shareState === 'copied' ? 'Link copied!' : 'Copy public share link'}
+              >
+                {shareState === 'copied' ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
               </button>
               <button
                 className="text-slate-400 hover:text-white p-1 rounded"

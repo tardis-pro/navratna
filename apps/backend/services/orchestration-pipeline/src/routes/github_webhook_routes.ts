@@ -53,6 +53,16 @@ const webhookBodySchema = z.object({
 
 export function registerGitHubWebhookRoutes() {
   return new Elysia()
+    // Deliver the GitHub webhook body as the raw text GitHub signed. The HMAC in
+    // validateGitHubWebhook is computed over the exact bytes; letting Elysia parse
+    // JSON and re-serializing it (key order / whitespace) would make every
+    // legitimate webhook fail signature verification. This instance holds only the
+    // webhook route, so overriding the parser here is safe.
+    .onParse(({ request }, contentType) => {
+      if (contentType.startsWith('application/json')) {
+        return request.text()
+      }
+    })
     .post('/api/v1/webhooks/github', async (ctx) => {
     const rawBody = typeof ctx.body === 'string' ? ctx.body : JSON.stringify(ctx.body)
     const signatureHeader = ctx.request.headers.get('x-hub-signature-256')
@@ -67,7 +77,15 @@ export function registerGitHubWebhookRoutes() {
       return { success: false, error: validation.error }
     }
 
-    const parsed = webhookBodySchema.safeParse(ctx.body)
+    let payload: unknown
+    try {
+      payload = typeof ctx.body === 'string' ? JSON.parse(ctx.body) : ctx.body
+    } catch {
+      ctx.set.status = 400
+      return { success: false, error: 'Malformed JSON body' }
+    }
+
+    const parsed = webhookBodySchema.safeParse(payload)
     if (!parsed.success) {
       ctx.set.status = 400
       return { success: false, error: 'Invalid webhook payload' }

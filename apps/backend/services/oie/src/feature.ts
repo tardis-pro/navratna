@@ -48,10 +48,6 @@ export const oieFeature: Feature = {
 
     triage = new TriageEngine();
     autoJira = new AutoJiraService();
-    analyst = new AnalystAgent();
-    verifier = new VerifierService();
-    fixProposer = new FixProposerAgent();
-    learner = new LearnerService();
 
     reconciliation = new ReconciliationLoop();
     for (const adapter of registry.getObservabilityAdapters()) {
@@ -62,14 +58,31 @@ export const oieFeature: Feature = {
     await collector.start();
     await triage.start();
     await autoJira.start();
-    await analyst.start();
-    await verifier.start();
-    await fixProposer.start();
-    await learner.start();
     await reconciliation.start();
+
+    // Autonomy tier (Analyst → FixProposer → Verifier → Learner) is stubbed
+    // (returns confidence 0.0 / no-ops) and stays OFF by default. Two reasons:
+    // (1) it produces no real output, so surfacing it would erode trust; (2) the
+    // Analyst worker subscribes to the SAME queue as AutoJira
+    // (oie.incidents.triaged) — BullMQ load-balances across workers on one queue,
+    // so starting it would steal ~half of triaged incidents away from AutoJira.
+    // Leaving it off makes AutoJira the sole consumer. Gate exists only for
+    // future dev of the real cognition.
+    if (process.env.FEATURE_OIE_AUTONOMY === 'true') {
+      analyst = new AnalystAgent();
+      verifier = new VerifierService();
+      fixProposer = new FixProposerAgent();
+      learner = new LearnerService();
+      await analyst.start();
+      await verifier.start();
+      await fixProposer.start();
+      await learner.start();
+      logger.warn('oie: FEATURE_OIE_AUTONOMY enabled — stubbed analyst/verifier/fixProposer/learner started (shares oie.incidents.triaged with AutoJira)');
+    }
 
     logger.info('oie feature initialized', {
       projectId: PROJECT_ID,
+      autonomyTier: process.env.FEATURE_OIE_AUTONOMY === 'true',
       adapters: registry.getAll().map((a) => a.id),
     });
   },

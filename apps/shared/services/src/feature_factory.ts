@@ -69,7 +69,21 @@ export class FeatureFactory {
   }
 
   mountRoutes<TApp extends Elysia>(app: TApp): TApp {
-    return this.features.reduce((a, f) => f.routes?.(a) ?? a, app)
+    // Isolate each feature's route mount. initialize() already degrades gracefully
+    // on failure; without this guard a single feature throwing inside routes()
+    // (e.g. an optional sub-tier that failed to initialize) would abort mounting
+    // for every subsequent feature and take the whole service's HTTP surface down.
+    return this.features.reduce((a, f) => {
+      if (!f.routes) return a
+      try {
+        return f.routes(a) ?? a
+      } catch (error) {
+        logger.error(`FeatureFactory: feature "${f.name}" route mount failed — its routes are unavailable, other features continue`, {
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return a
+      }
+    }, app)
   }
 
   async subscribeEvents(bus: EventBusService): Promise<void> {

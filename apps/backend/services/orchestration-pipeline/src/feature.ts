@@ -7,6 +7,7 @@ import { registerApprovalRoutes } from './routes/approval_routes.js'
 import { registerProjectRoutes } from './routes/project_routes.js'
 import { registerTaskRoutes } from './routes/task_routes.js'
 import { registerWorkflowRoutes } from './routes/workflow_routes.js'
+import { registerGitHubWebhookRoutes } from './routes/github_webhook_routes.js'
 import { RDLOApprovalService } from './services/rdlo_approval_service.js'
 import { WorkflowEngineService } from './services/workflow_engine_service.js'
 import { WorkflowExecutorService } from './services/workflow_executor_service.js'
@@ -40,6 +41,15 @@ export const orchestrationFeature: Feature = {
     app.use(registerProjectRoutes())
     app.use(registerTaskRoutes(taskController))
     app.use(registerWorkflowRoutes(workflowEngineService))
+    // GitHub webhook receiver (push/PR/check_run → CI monitor). HMAC-SHA256
+    // signature verification is enforced per-request; only mount it when the
+    // shared secret is configured so an unconfigured deploy doesn't expose a
+    // route that fails on every request.
+    if (process.env.GITHUB_WEBHOOK_SECRET) {
+      app.use(registerGitHubWebhookRoutes())
+    } else {
+      logger.warn('orchestration-pipeline: GITHUB_WEBHOOK_SECRET not set — GitHub webhook route not mounted')
+    }
     return app
   },
 }
