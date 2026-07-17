@@ -451,6 +451,14 @@ export class AgentIntelligenceService {
         createdBy = this.validateIDParam(createdBy, 'createdBy');
       }
 
+      let organizationId: string | null =
+        (typeof agentData.organizationId === 'string' ? agentData.organizationId : null) ||
+        (typeof agentData.organization_id === 'string' ? agentData.organization_id : null);
+
+      if (organizationId) {
+        organizationId = this.validateIDParam(organizationId, 'organizationId');
+      }
+
       const createPayload = {
         name: typeof agentData.name === 'string' ? agentData.name : '',
         description: typeof agentData.description === 'string' ? agentData.description : undefined,
@@ -463,6 +471,7 @@ export class AgentIntelligenceService {
         intelligenceConfig: isRecord(intelligenceConfig) ? intelligenceConfig : {},
         securityContext: isRecord(securityContext) ? securityContext : {},
         createdBy: createdBy || 'system',
+        organizationId: organizationId || undefined,
       };
 
       const savedAgent = await this.databaseService.agents.createAgent(createPayload);

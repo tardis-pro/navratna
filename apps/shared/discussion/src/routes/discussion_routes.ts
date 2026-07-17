@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth, t } from '@uaip/middleware'
+import { withNginxAuth, getNginxUser, t } from '@uaip/middleware'
 import { DiscussionStatus, TurnStrategy } from '@uaip/types'
 import { DiscussionService } from '@uaip/shared-services/discussion'
 import {
@@ -63,11 +63,11 @@ export function registerDiscussionRoutes(
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
-            const userId: string = ctx.user.id
+            const { id: userId, organizationId } = getNginxUser(ctx)
             const discussion = await discussionService.createDiscussion({
               ...body,
               createdBy: userId,
+              organizationId,
             })
             ctx.set.status = 201
             return { success: true, data: discussion }

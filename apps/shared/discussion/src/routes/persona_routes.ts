@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia'
-import { withNginxAuth, t } from '@uaip/middleware'
+import { withNginxAuth, getNginxUser, t } from '@uaip/middleware'
 import { PersonaService } from '@uaip/shared-services/persona'
 import { logger, isRecord } from '@uaip/utils'
 
@@ -33,11 +33,11 @@ export function registerPersonaRoutes(personaService: PersonaService) {
         .post('/', async (ctx) => {
           try {
             const body = isRecord(ctx.body) ? ctx.body : {}
-            // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
-            const userId: string = ctx.user.id
+            const { id: userId, organizationId } = getNginxUser(ctx)
             const persona = await personaService.createPersona({
               ...body,
               createdBy: userId,
+              organizationId,
             })
             ctx.set.status = 201
             return { success: true, data: persona }

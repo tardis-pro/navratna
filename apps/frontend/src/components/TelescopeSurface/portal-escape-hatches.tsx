@@ -132,6 +132,9 @@ const MiniBrowserPortal = lazy(() =>
     default: m.MiniBrowserPortal,
   }))
 );
+const WhatsAppPanel = lazy(() =>
+  import('../WhatsAppPanel').then((m) => ({ default: m.WhatsAppPanel }))
+);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType<any>>> = {
   chat: ChatPortal,
@@ -158,6 +161,7 @@ export const PORTAL_COMPONENTS: Record<string, React.LazyExoticComponent<React.C
   security: SecurityPortal,
   'security-gateway': SecurityGateway,
   'mini-browser': MiniBrowserPortal,
+  whatsapp: WhatsAppPanel,
 };
 
 export function renderPortalContent(portalId: string): ReactNode | null {

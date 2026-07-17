@@ -9,6 +9,8 @@ import { registerCanvaRoutes } from './routes/canva_routes.js'
 import { registerMeshNodeRoutes } from './routes/mesh_node_routes.js'
 import { registerGitHubAppInstallationRoutes } from './routes/github_app_installation_routes.js'
 import { FederationRegistryService } from './services/federation_registry_service.js'
+import { OAuthCapabilityDiscovery } from './services/oauth_capability_discovery.js'
+import { MCPClientService } from './services/mcp_client_service.js'
 import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
 import { UnifiedToolRegistry } from './services/unified_tool_registry.js'
 import { CodingSessionStore } from './services/execution_mesh/coding_session_store.js'
@@ -216,6 +218,26 @@ export const capabilityFeature: Feature = {
     const registry = new UnifiedToolRegistry(deps?.eventBusService)
     await registry.initialize()
     await registerNativeTools(registry)
+
+    if (deps?.eventBusService) {
+      try {
+        await OAuthCapabilityDiscovery.getInstance().initialize(deps.eventBusService)
+      } catch (error) {
+        logger.warn('OAuthCapabilityDiscovery init failed — provider capabilities will not be assimilated', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    } else {
+      logger.warn('eventBusService not provided — OAuthCapabilityDiscovery will not subscribe to oauth.provider.connected')
+    }
+
+    try {
+      await MCPClientService.getInstance().initialize(deps?.eventBusService)
+    } catch (error) {
+      logger.warn('MCPClientService init failed — MCP servers with autoStart will not boot', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
 
     // The coding tier is optional infrastructure. On a deploy without GitHub App /
     // Fly / signing-key secrets, skip it and let the rest of capability-registry

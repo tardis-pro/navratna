@@ -271,6 +271,54 @@ function parseChatFile(
   return items.filter((i) => i.content.length > 10);
 }
 
+/** Extract and chunk text from PDF, DOCX, TXT, MD, CSV, and other documents. */
+async function parseDocumentFile(
+  fileName: string,
+  file: File
+): Promise<Array<{ content: string; title: string; tags: string[] }>> {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  const tags = ['document-import', ext || 'unknown'];
+  const items: Array<{ content: string; title: string; tags: string[] }> = [];
+
+  let fullText = '';
+  try {
+    if (ext === 'pdf') {
+      const pdfParse = (await import('pdf-parse')).default;
+      const data = await pdfParse(Buffer.from(await file.arrayBuffer()));
+      fullText = data.text;
+    } else if (ext === 'docx') {
+      const mammoth = await import('mammoth');
+      const { value } = await mammoth.extractRawText({
+        buffer: Buffer.from(await file.arrayBuffer()),
+      });
+      fullText = value;
+    } else {
+      fullText = await file.text();
+    }
+  } catch (err) {
+    fullText = await file.text();
+  }
+
+  if (ext === 'csv') {
+    const rows = fullText.split(/\r?\n/).filter((row) => row.trim() !== '');
+    for (let i = 0; i < rows.length; i++) {
+      items.push({ content: rows[i].trim(), title: `${fileName}#${i + 1}`, tags });
+    }
+    return items;
+  }
+
+  const CHUNK = 4000;
+  for (let i = 0, n = 0; i < fullText.length; i += CHUNK, n++) {
+    items.push({
+      content: fullText.slice(i, i + CHUNK),
+      title: `${fileName}#${n}`,
+      tags,
+    });
+  }
+
+  return items.filter((i) => i.content.trim().length > 0);
+}
+
 async function getServices(): Promise<{
   userKnowledgeService: UserKnowledgeService | null;
   initializationError: string | null;
@@ -720,6 +768,74 @@ export function registerKnowledgeRoutes() {
         },
       })
       
+      .post(
+        '/import',
+        async (ctx) => {
+          const user = getAuthUser(ctx);
+          const { set, body } = ctx;
+          const userId = user.id;
+          const { userKnowledgeService, initializationError } = await getServices();
+          if (initializationError) {
+            set.status = 503;
+            return { error: 'Knowledge service not available', details: initializationError };
+          }
+
+          const rawBody = isChatImportBody(body) ? body : undefined;
+          const file: File | undefined = rawBody?.file;
+          if (!file || typeof file.text !== 'function') {
+            set.status = 400;
+            return { error: 'A file field is required in the multipart body' };
+          }
+
+          try {
+            const parsed = await parseDocumentFile(file.name, file);
+            const knowledgeRequests: KnowledgeIngestRequest[] = parsed.map((item) => ({
+              content: item.content,
+              type: KnowledgeType.FACTUAL,
+              tags: item.tags,
+              source: {
+                type: SourceType.FILE_SYSTEM,
+                identifier: item.title,
+                metadata: {
+                  fileName: file.name,
+                  importedAt: new Date().toISOString(),
+                },
+              },
+              confidence: 0.7,
+            }));
+
+            let imported = 0;
+            if (knowledgeRequests.length > 0) {
+              const result = await userKnowledgeService!.addKnowledge(userId, knowledgeRequests);
+              imported = result.processedCount ?? knowledgeRequests.length;
+            }
+
+            return { imported, updated: 0, errors: [] };
+          } catch (err) {
+            return {
+              imported: 0,
+              updated: 0,
+              errors: [err instanceof Error ? err.message : String(err)],
+            };
+          }
+        },
+        {
+          // Accept the raw parsed multipart form. Elysia parses multipart/form-data
+          // by request content-type (not by schema), and a strict t.File() schema rejects
+          // the Bun-parsed File at validation, so we validate the file inside the handler.
+          body: t.Any(),
+          response: {
+            200: t.Object({
+              imported: t.Number(),
+              updated: t.Number(),
+              errors: t.Optional(t.Array(t.String())),
+            }),
+            400: KnowledgeErrorSchema,
+            503: KnowledgeErrorSchema,
+          },
+        }
+      )
+
       .post(
         '/chat-import',
         async (ctx) => {

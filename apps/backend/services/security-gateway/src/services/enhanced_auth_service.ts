@@ -1,6 +1,6 @@
 import { logger, NotFoundError, ValidationError } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
-import { UserService, OAuthService, MFAService, SessionService } from '@uaip/shared-services';
+import { UserService, OAuthService, MFAService, SessionService, EventBusService } from '@uaip/shared-services';
 import { JWTValidator as _JWTValidator, generateAuthTokens } from '@uaip/middleware';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
@@ -38,6 +38,19 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 function isUuid(v: unknown): v is string {
   return typeof v === 'string' && UUID_REGEX.test(v);
+}
+
+function extractOAuthScopes(tokens: unknown, provider: unknown): string[] {
+  if (isRecord(tokens) && typeof tokens.scope === 'string' && tokens.scope.trim()) {
+    return tokens.scope.split(/[\s,]+/).filter(Boolean);
+  }
+  if (isRecord(tokens) && Array.isArray(tokens.scopes)) {
+    return tokens.scopes.map(String);
+  }
+  if (isRecord(provider) && Array.isArray(provider.scopes)) {
+    return provider.scopes.map(String);
+  }
+  return [];
 }
 
 function isOAuthProviderType(v: unknown): v is OAuthProviderType {
@@ -190,6 +203,31 @@ export class EnhancedAuthService {
     this.sessionService = SessionService.getInstance();
   }
 
+  private async publishProviderConnected(
+    providerType: string,
+    userId: string | undefined,
+    scopes: string[]
+  ): Promise<void> {
+    if (!userId) {
+      return;
+    }
+    try {
+      await EventBusService.getInstance().publish('oauth.provider.connected', {
+        provider: providerType,
+        userId,
+        scopes,
+        connectedAt: new Date().toISOString(),
+      });
+      logger.info('Published oauth.provider.connected', { provider: providerType, userId });
+    } catch (error) {
+      logger.warn('Failed to publish oauth.provider.connected — capability assimilation skipped', {
+        provider: providerType,
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   /**
    * Authenticate user with OAuth provider
    */
@@ -283,6 +321,9 @@ export class EnhancedAuthService {
         provider: provider.type,
         mfaRequired: requiresMFA,
       });
+
+      const grantedScopes = extractOAuthScopes(tokens, provider);
+      await this.publishProviderConnected(String(provider.type), user.id, grantedScopes);
 
       return {
         user,
@@ -436,6 +477,9 @@ export class EnhancedAuthService {
             provider: provider.type,
           },
         });
+
+        const grantedScopes = extractOAuthScopes(tokens, provider);
+        await this.publishProviderConnected(String(provider.type), user.id, grantedScopes);
 
         return { success: true };
       }

@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { withNginxAuth, getNginxUser } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import { getIntelligenceDb, eq, ilike, and, sql, count, asc } from '@uaip/shared-services/drizzle/clients'
 import { agents } from '@uaip/shared-services/drizzle/intelligence'
@@ -126,11 +126,11 @@ export function registerAgentCrudRoutes(
       .post('/', async (ctx) => {
         try {
           const body = isRecord(ctx.body) ? ctx.body : {}
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-          const userId = ctx.user.id
+          const { id: userId, organizationId } = getNginxUser(ctx)
           const agent = await agentIntelligenceService.createAgent({
             ...body,
             createdBy: userId,
+            organizationId,
           })
           ctx.set.status = 201
           return { success: true, data: agent }

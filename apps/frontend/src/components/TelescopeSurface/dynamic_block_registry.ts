@@ -256,6 +256,14 @@ const BASE_SURFACE_BLOCK_CATALOG: Record<string, BaseBlockSpec> = {
     visibility: 'hidden',
     metadata: { title: 'Mini Browser' },
   },
+  whatsapp: {
+    id: 'whatsapp',
+    type: 'portal',
+    expression: 'calm',
+    relevanceScore: 0.6,
+    visibility: 'faded',
+    metadata: { title: 'WhatsApp' },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -322,6 +330,7 @@ const PORTAL_KEYWORDS: Record<string, string[]> = {
   'multi-chat': ['multi', 'chat', 'parallel', 'group'],
   'project-onboarding': ['onboarding', 'setup', 'project', 'wizard', 'getting started'],
   'mini-browser': ['browser', 'web', 'preview', 'url'],
+  whatsapp: ['whatsapp', 'whats app', 'qr', 'phone', 'mobile', 'messaging', 'wa', 'link device'],
 };
 
 export function getPortalSearchOptions(): PortalSearchOption[] {
