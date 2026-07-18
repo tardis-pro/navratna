@@ -4,7 +4,7 @@ import { SmartEmbeddingService } from './smart_embedding_service';
 import { KnowledgeRepository, KnowledgeRow } from '../database/repositories/knowledge_repository';
 
 // Type for any service that can generate embeddings and calculate similarity
-type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;
+export type EmbeddingProvider = EmbeddingService | SmartEmbeddingService;
 
 // Convert KnowledgeRow (DB type) to KnowledgeItem (domain type)
 function toKnowledgeItem(row: KnowledgeRow): KnowledgeItem {

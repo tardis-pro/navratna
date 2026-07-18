@@ -4,13 +4,19 @@ import { z } from 'zod';
 import {
   servicesHealthCheck,
   getUserKnowledgeService,
+  serviceFactory,
+  chunkDocument,
+  UnifiedModelSelectionFacade,
   type UserKnowledgeService,
 } from '@uaip/shared-services';
+import { LLMService } from '@uaip/llm-service';
+import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { getAuthUser } from './context_helpers.js';
 import {
   KnowledgeType,
   SourceType,
+  LLMTaskType,
   type KnowledgeItem,
   type KnowledgeSearchRequest,
   type KnowledgeIngestRequest,
@@ -258,13 +264,8 @@ function parseChatFile(
         tags: ['chat-import'],
       });
   } else {
-    const CHUNK = 4000;
-    for (let i = 0, n = 0; i < content.length; i += CHUNK, n++) {
-      items.push({
-        content: content.slice(i, i + CHUNK),
-        title: `${fileName} — chunk ${n}`,
-        tags: ['chat-import'],
-      });
+    for (const chunk of chunkDocument(content, `${fileName} — chunk`, ['chat-import'])) {
+      items.push(chunk);
     }
   }
 
@@ -279,6 +280,15 @@ async function parseDocumentFile(
   const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
   const tags = ['document-import', ext || 'unknown'];
   const items: Array<{ content: string; title: string; tags: string[] }> = [];
+
+  const imageExts = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+  if (imageExts.includes(ext) || file.type.startsWith('image/')) {
+    const extracted = await extractTextFromImage(file);
+    for (const chunk of chunkDocument(extracted, fileName, ['image-import', ext || 'image'])) {
+      items.push(chunk);
+    }
+    return items.filter((i) => i.content.trim().length > 0);
+  }
 
   let fullText = '';
   try {
@@ -307,16 +317,115 @@ async function parseDocumentFile(
     return items;
   }
 
-  const CHUNK = 4000;
-  for (let i = 0, n = 0; i < fullText.length; i += CHUNK, n++) {
-    items.push({
-      content: fullText.slice(i, i + CHUNK),
-      title: `${fileName}#${n}`,
-      tags,
-    });
+  for (const chunk of chunkDocument(fullText, fileName, tags)) {
+    items.push(chunk);
   }
 
   return items.filter((i) => i.content.trim().length > 0);
+}
+
+async function extractTextFromImage(file: File): Promise<string> {
+  const base64 = Buffer.from(await file.arrayBuffer()).toString('base64');
+  const mimeType = file.type || 'image/png';
+  const selection = await new UnifiedModelSelectionFacade().selectForSystem(LLMTaskType.VISION);
+  const llm = LLMService.getInstance();
+  const response = await llm.generateResponse(
+    {
+      prompt:
+        'Extract all text from this image verbatim. If there is no text, describe the image in detail. Return only the extracted text or description.',
+      maxTokens: 2000,
+      temperature: 0.2,
+      model: selection.model.model,
+      images: [{ base64, mimeType }],
+    },
+    selection.model.provider
+  );
+  if (response.error || !response.content?.trim()) {
+    throw new Error(response.error || 'Vision model returned no text');
+  }
+  return response.content.trim();
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<\/(p|div|section|article|h[1-6]|li|br|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// Firecrawl lane: renders JS-heavy SPAs to clean markdown. Used when FIRECRAWL_API_URL is set.
+async function scrapeWithFirecrawl(
+  url: string,
+  apiBase: string
+): Promise<{ text: string; title: string } | null> {
+  try {
+    const resp = await fetch(`${apiBase.replace(/\/$/, '')}/v1/scrape`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, formats: ['markdown'], onlyMainContent: true }),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!resp.ok) {
+      logger.warn('Firecrawl scrape failed, falling back to baseline', { url, status: resp.status });
+      return null;
+    }
+    const json = (await resp.json()) as {
+      success?: boolean;
+      data?: { markdown?: string; metadata?: { title?: string } };
+    };
+    const markdown = json?.data?.markdown?.trim();
+    if (!json?.success || !markdown) return null;
+    return { text: markdown, title: json.data?.metadata?.title?.trim() || new URL(url).hostname };
+  } catch (error) {
+    logger.warn('Firecrawl scrape errored, falling back to baseline', {
+      url,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+// URL lane: Firecrawl (JS-heavy SPAs) when FIRECRAWL_API_URL is set, else baseline fetch (static/SSR).
+async function parseUrlSource(
+  url: string
+): Promise<Array<{ content: string; title: string; tags: string[] }>> {
+  const tags = ['url-import', new URL(url).hostname];
+
+  const firecrawlBase = process.env.FIRECRAWL_API_URL;
+  if (firecrawlBase) {
+    const scraped = await scrapeWithFirecrawl(url, firecrawlBase);
+    if (scraped) {
+      return chunkDocument(scraped.text, scraped.title, tags).filter(
+        (i) => i.content.trim().length > 20
+      );
+    }
+  }
+
+  const resp = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NavratnaBot/1.0)' },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!resp.ok) throw new Error(`Fetch failed: ${resp.status} ${resp.statusText}`);
+
+  const contentType = resp.headers.get('content-type') ?? '';
+  const raw = await resp.text();
+  const text = contentType.includes('html') ? htmlToText(raw) : raw;
+
+  const titleMatch = raw.match(/<title[^>]*>([^<]*)<\/title>/i);
+  const title = titleMatch?.[1]?.trim() || new URL(url).hostname;
+
+  return chunkDocument(text, title, tags).filter((i) => i.content.trim().length > 20);
 }
 
 async function getServices(): Promise<{
@@ -837,6 +946,78 @@ export function registerKnowledgeRoutes() {
       )
 
       .post(
+        '/import-url',
+        async (ctx) => {
+          const user = getAuthUser(ctx);
+          const { set, body } = ctx;
+          const userId = user.id;
+          const { userKnowledgeService, initializationError } = await getServices();
+          if (initializationError) {
+            set.status = 503;
+            return { error: 'Knowledge service not available', details: initializationError };
+          }
+
+          const url = isRecord(body) && typeof body.url === 'string' ? body.url.trim() : '';
+          let parsedUrl: URL;
+          try {
+            parsedUrl = new URL(url);
+          } catch {
+            set.status = 400;
+            return { error: 'A valid absolute url is required in the JSON body' };
+          }
+          if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+            set.status = 400;
+            return { error: 'Only http and https urls are supported' };
+          }
+
+          try {
+            const parsed = await parseUrlSource(parsedUrl.toString());
+            const knowledgeRequests: KnowledgeIngestRequest[] = parsed.map((item) => ({
+              content: item.content,
+              type: KnowledgeType.FACTUAL,
+              tags: item.tags,
+              source: {
+                type: SourceType.EXTERNAL_API,
+                identifier: item.title,
+                url: parsedUrl.toString(),
+                metadata: {
+                  url: parsedUrl.toString(),
+                  importedAt: new Date().toISOString(),
+                },
+              },
+              confidence: 0.7,
+            }));
+
+            let imported = 0;
+            if (knowledgeRequests.length > 0) {
+              const result = await userKnowledgeService!.addKnowledge(userId, knowledgeRequests);
+              imported = result.processedCount ?? knowledgeRequests.length;
+            }
+
+            return { imported, updated: 0, errors: [] };
+          } catch (err) {
+            return {
+              imported: 0,
+              updated: 0,
+              errors: [err instanceof Error ? err.message : String(err)],
+            };
+          }
+        },
+        {
+          body: t.Object({ url: t.String() }),
+          response: {
+            200: t.Object({
+              imported: t.Number(),
+              updated: t.Number(),
+              errors: t.Optional(t.Array(t.String())),
+            }),
+            400: KnowledgeErrorSchema,
+            503: KnowledgeErrorSchema,
+          },
+        }
+      )
+
+      .post(
         '/chat-import',
         async (ctx) => {
           const user = getAuthUser(ctx);
@@ -1061,6 +1242,46 @@ export function registerKnowledgeRoutes() {
         success: true,
         data: result,
         message: `Found ${result.totalCount} knowledge items`,
+      };
+    }, {
+      response: {
+        200: KnowledgeSuccessDataSchema,
+        400: KnowledgeErrorSchema,
+        401: t.Object({ error: t.String() }),
+        503: KnowledgeErrorSchema,
+      },
+    })
+
+    .get('/rag', async ({ set, query, user }) => {
+      if (!user) {
+        set.status = 401;
+        return { error: 'User not authenticated' };
+      }
+      const q = query.q;
+      if (!q) {
+        set.status = 400;
+        return { error: 'Query parameter "q" is required' };
+      }
+      let enhancedRAGService;
+      try {
+        enhancedRAGService = await serviceFactory.getEnhancedRAGService();
+      } catch (error) {
+        set.status = 503;
+        return {
+          error: 'Enhanced RAG service not available',
+          details: error instanceof Error ? error.message : String(error),
+        };
+      }
+      const results = await enhancedRAGService.semanticSearch(q, {
+        topK: Number(query.limit ?? 10),
+        minScore: query.minScore ? Number(query.minScore) : 0,
+        useReranking: String(query.rerank ?? 'true') === 'true',
+        tenantId: user.id,
+      });
+      return {
+        success: true,
+        data: results,
+        message: `Semantic search returned ${results.length} results`,
       };
     }, {
       response: {

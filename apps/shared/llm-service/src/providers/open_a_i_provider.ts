@@ -1,6 +1,13 @@
 import { BaseProvider } from './base_provider.js';
 import { LLMRequest, LLMResponse, ProviderModelInfo } from '../interfaces';
+import { LLMImageInput } from '@uaip/types';
 import { logger } from '@uaip/utils';
+
+type VisionContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail: 'auto' | 'low' | 'high' } };
+
+type VisionMessage = { role: string; content: string | VisionContentPart[] };
 
 export class OpenAIProvider extends BaseProvider {
 
@@ -62,10 +69,29 @@ export class OpenAIProvider extends BaseProvider {
     }
   }
 
+  private buildVisionMessages(
+    systemPrompt: string | undefined,
+    prompt: string,
+    images: LLMImageInput[]
+  ): VisionMessage[] {
+    const messages: VisionMessage[] = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    const parts: VisionContentPart[] = images.map((img) => ({
+      type: 'image_url',
+      image_url: { url: `data:${img.mimeType};base64,${img.base64}`, detail: 'high' },
+    }));
+    parts.push({ type: 'text', text: prompt });
+    messages.push({ role: 'user', content: parts });
+    return messages;
+  }
+
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const url = this.getChatCompletionsUrl();
-      const messages = this.buildChatMessages(request.systemPrompt, request.prompt);
+      const messages =
+        request.images && request.images.length > 0
+          ? this.buildVisionMessages(request.systemPrompt, request.prompt, request.images)
+          : this.buildChatMessages(request.systemPrompt, request.prompt);
       const requestedModel = request.model || this.config.defaultModel || 'gpt-3.5-turbo';
       const model = await this.resolveModel(requestedModel);
       const body = {
