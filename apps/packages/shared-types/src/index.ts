@@ -125,3 +125,5 @@ export * from './erasure';
 // Hybrid Execution Mesh types - NEW (spec 11)
 export * from './execution_mesh.js';
 export * from './coding_session.js';
+// Thread types — home surface canonical chat/thread model (Navratna redesign)
+export * from './thread';

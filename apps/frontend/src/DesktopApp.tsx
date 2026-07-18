@@ -11,6 +11,7 @@ import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import TelescopeSurfacePage from './pages/TelescopeSurfacePage';
+import { HomeSurface } from './components/home/HomeSurface';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
@@ -78,11 +79,15 @@ function DesktopApp() {
                                 />
                                 <Route
                                   path="/"
+                                  element={<HomeSurface />}
+                                />
+                                <Route
+                                  path="/explore"
                                   element={<TelescopeSurfacePage />}
                                 />
                                 <Route
                                   path="*"
-                                  element={<TelescopeSurfacePage />}
+                                  element={<HomeSurface />}
                                 />
                               </Routes>
                             </BrowserRouter>

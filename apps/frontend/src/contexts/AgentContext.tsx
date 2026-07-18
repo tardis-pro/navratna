@@ -32,6 +32,7 @@ import {
 } from '@uaip/types';
 import uaipAPI from '@/utils/uaip_api';
 import { llmAPI } from '@/api/llm_api';
+import { normalizeApiList } from '@/api/envelope';
 import { PERSONA_CATEGORIES } from '@uaip/types';
 import { logger } from '@/utils/browser_logger';
 
@@ -1120,7 +1121,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const agentsLoadedRef = useRef(false);
 
   useEffect(() => {
-    const loadAgents = async () => {
+    const loadAgents = async (isRetry = false) => {
       try {
         // Check if we already loaded agents using ref to prevent infinite loops
         if (agentsLoadedRef.current) {
@@ -1129,16 +1130,22 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
         const response = await uaipAPI.agents.list();
 
-        // Handle response format: {agents: Array(7), total: 7, filters: {...}}
-        let agentList = [];
-        if (Array.isArray(response.agents)) {
-          agentList = response.agents;
-        } else if (response.success && response.data && Array.isArray(response.data.agents)) {
-          agentList = response.data.agents;
-        } else if (Array.isArray(response)) {
-          // Fallback for direct array response
-          agentList = response;
-        } else {
+        // One canonical normalizer handles every envelope shape the
+        // backend can send: bare array, {data: T[]}, {items}, {agents},
+        // {data: {agents}}, nested {data:{<key>:T[]}}, etc. See
+        // api/envelope.ts. Replaces the previous 3-branch parse +
+        // silent-empty `else` that masked shape mismatches as "no agents".
+        const agentList = normalizeApiList(response);
+
+        // Defensive re-fetch: a cold first paint can land before auth is
+        // fully wired (the surrounding setTimeout(100ms) races with token
+        // hydration). If we got an empty list on the first attempt, retry
+        // once after a short delay before concluding "no agents".
+        if (agentList.length === 0 && !isRetry) {
+          logger.warn('[AgentContext] Empty agent list on first attempt; retrying after 500ms');
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          await loadAgents(true);
+          return;
         }
 
         if (agentList.length > 0) {
@@ -1177,7 +1184,9 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Small delay to ensure auth is set up, then load agents
-    const timeoutId = setTimeout(loadAgents, 100);
+    const timeoutId = setTimeout(() => {
+      void loadAgents();
+    }, 100);
     return () => clearTimeout(timeoutId);
   }, [addAgent, addAgents]);
 

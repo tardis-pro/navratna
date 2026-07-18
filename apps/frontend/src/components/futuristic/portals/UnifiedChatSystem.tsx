@@ -5,63 +5,50 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { uaipAPI } from '../../../utils/uaip_api';
 import { DiscussionTrigger } from '../../DiscussionTrigger';
 import { useEnhancedWebSocket } from '../../../hooks/use_enhanced_web_socket';
+import { useStreamingChat } from '../../../hooks/use_streaming_chat';
 import { discussionsAPI } from '../../../api/discussions_api';
-import { SmartInputField } from '../../chat/SmartInputField';
+import {
+  ChatComposer,
+  type ChatComposerSubmitPayload,
+} from '../../chat/ChatComposer';
 import { PromptSuggestions } from '../../chat/PromptSuggestions';
 import { ConversationTopicDisplay } from '../../chat/ConversationTopicDisplay';
 import { useConversationIntelligence } from '../../../hooks/use_conversation_intelligence';
 import {
   MessageSquare,
-  Bot,
-  User,
-  X,
-  Minimize2,
+  Users,
+  Activity,
   Brain,
   Zap,
   Sparkles,
-  Users,
-  Activity,
-  CheckCircle2,
-  AlertCircle,
   LayoutGrid,
   Maximize,
+  AlertCircle,
 } from 'lucide-react';
 import {
   Discussion,
   CreateDiscussionRequest,
   DiscussionMessage,
   MessageType,
+  ThreadState,
   TurnStrategy,
+  StreamChunk,
 } from '@uaip/types';
-import { useToast, useKnowledgeUpload } from '../../../hooks';
-import { UploadDropZone } from '../../UploadDropZone';
+import type { ChatMessage } from '../../chat/chat.types';
+import { ThreadContainer } from '../../chat/ThreadContainer';
+import { FloatingThreadContainer } from '../../chat/FloatingThreadContainer';
+import { AgentSwitcher } from '../../chat/AgentSwitcher';
+import { CompanionPane } from '../../chat/CompanionPane';
+import { ContextChipBar, type ContextChip } from '../../chat/ContextChipBar';
+import { ProjectCompanion } from '../../chat/ProjectCompanion';
+import { DocCompanion } from '../../chat/DocCompanion';
+import { useToast } from '../../../hooks';
 import { knowledgeAPI } from '../../../api/knowledge_api';
 import { logger } from '@/utils/browser_logger';
+import { useWhatsApp } from '../../../hooks/use_whats_app';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
-}
-
-interface ChatMessage {
-  id: string;
-  content: string;
-  sender: 'user' | 'agent' | 'system';
-  senderName: string;
-  timestamp: string;
-  agentId?: string;
-  messageType?: MessageType;
-  confidence?: number;
-  memoryEnhanced?: boolean;
-  knowledgeUsed?: number;
-  toolsExecuted?: Array<{
-    toolId: string;
-    toolName: string;
-    success: boolean;
-    result?: unknown;
-    error?: string;
-    timestamp: string;
-  }>;
-  metadata?: Record<string, unknown>;
 }
 
 function toToolsExecuted(v: unknown): ChatMessage['toolsExecuted'] {
@@ -189,7 +176,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   mode = 'hybrid',
   defaultAgentId,
 }) => {
-  const { agents } = useAgents();
+  const { agents, refreshAgents } = useAgents();
   const { isAuthenticated, user } = useAuth();
   const {
     isConnected: isWebSocketConnected,
@@ -199,101 +186,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   } = useEnhancedWebSocket();
 
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDroppedFiles = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) return;
-
-      let successCount = 0;
-      const errorMessages: string[] = [];
-
-      for (const file of files) {
-        try {
-          const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-          if (['.pdf', '.docx', '.doc'].includes(extension)) {
-            const res = await knowledgeAPI.import(file);
-            if (res.errors && res.errors.length > 0) {
-              errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
-            } else {
-              successCount += res.imported || 1;
-            }
-          } else if (['.json', '.txt', '.md', '.csv'].includes(extension)) {
-            if (['.txt', '.md', '.csv'].includes(extension)) {
-              const res = await knowledgeAPI.import(file);
-              if (res.errors && res.errors.length > 0) {
-                errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
-              } else {
-                successCount += res.imported || 1;
-              }
-            } else {
-              let isChat = true;
-              try {
-                const text = await file.slice(0, 1000).text();
-                const hasChatKeys = text.includes('"messages"') || text.includes('"sender"') || text.includes('"role"') || text.includes('"content"');
-                if (!hasChatKeys) {
-                  isChat = false;
-                }
-              } catch {
-              }
-
-              if (isChat) {
-                const res = await knowledgeAPI.importChatFile(file);
-                if (res.status === 'failed') {
-                  errorMessages.push(`${file.name}: Chat ingestion failed`);
-                } else {
-                  successCount += 1;
-                }
-              } else {
-                const res = await knowledgeAPI.import(file);
-                if (res.errors && res.errors.length > 0) {
-                  errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
-                } else {
-                  successCount += res.imported || 1;
-                }
-              }
-            }
-          } else if (file.type.startsWith('image/')) {
-            const res = await knowledgeAPI.import(file);
-            if (res.errors && res.errors.length > 0) {
-              errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
-            } else {
-              successCount += res.imported || 1;
-            }
-          } else {
-            const res = await knowledgeAPI.import(file);
-            if (res.errors && res.errors.length > 0) {
-              errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
-            } else {
-              successCount += res.imported || 1;
-            }
-          }
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          errorMessages.push(`Failed to ingest ${file.name}: ${errMsg}`);
-        }
-      }
-
-      if (successCount > 0) {
-        toast({
-          title: 'Import Successful',
-          description: `Imported ${successCount} item${successCount > 1 ? 's' : ''} to knowledge base.`,
-        });
-      }
-      if (errorMessages.length > 0) {
-        toast({
-          title: 'Import Failures',
-          description: errorMessages.join('\n'),
-          variant: 'destructive',
-        });
-      }
-    },
-    [toast]
-  );
-
-  const { dragActive, handleDrag, handleDrop, handleFileSelect } = useKnowledgeUpload({
-    onFiles: handleDroppedFiles,
-  });
+  const { state: waState } = useWhatsApp();
 
   // State management
   const [chatWindows, setChatWindows] = useState<ChatWindow[]>([]);
@@ -302,6 +195,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     mode === 'portal' ? 'portal' : 'floating'
   );
   const [selectedAgentId, setSelectedAgentId] = useState<string>(defaultAgentId || '');
+  const [pendingAgentId, setPendingAgentId] = useState<string | null>(null);
   const [portalMessages, setPortalMessages] = useState<ChatMessage[]>([]);
   const [conversationHistory, setConversationHistory] = useState<
     Array<{ content: string; sender: string; timestamp: string }>
@@ -346,6 +240,95 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }>({});
   const [typingIndicators, setTypingIndicators] = useState<{ [windowId: string]: boolean }>({});
 
+  // Companion pane state — only used by portal mode. Holds the id of the
+  // message the user last asked to expand; the live ChatMessage is read from
+  // `portalMessages` on render so updates stream through.
+  const [companionMessageId, setCompanionMessageId] = useState<string | null>(null);
+
+  // Context companion state — activated when user clicks a context chip
+  // (project/task/doc). Overrides the message companion while active.
+  const [activeContextChip, setActiveContextChip] = useState<ContextChip | null>(null);
+
+  // Portal-mode streaming state. `streamingMessageId` points at the placeholder
+  // ChatMessage inside `portalMessages` whose `content` is being updated in
+  // real-time by `useStreamingChat`'s onChunk callback. The bubble for this id
+  // receives `isStreaming={true}` which forces code blocks to render as plain
+  // <pre> until the stream ends (MarkdownRenderer override).
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+
+  // Stable streaming handlers. The hook's onChunk/onComplete/onError are
+  // memoized with empty deps so the underlying socket effect never re-runs;
+  // the actual work is dispatched via streamingHandlersRef.current which is
+  // rewritten per stream when a new placeholder message is created.
+  interface StreamingHandlers {
+    placeholderId: string | null;
+    append: (delta: string) => void;
+    finalize: (finalContent: string, interrupted: boolean) => void;
+    fail: (error: string) => void;
+  }
+  const streamingHandlersRef = useRef<StreamingHandlers>({
+    placeholderId: null,
+    append: () => {},
+    finalize: () => {},
+    fail: () => {},
+  });
+
+  const handleStreamingChunk = useCallback((chunk: StreamChunk) => {
+    const delta = chunk?.content ?? '';
+    streamingHandlersRef.current.append(delta);
+  }, []);
+
+  const handleStreamingComplete = useCallback((finalContent: string) => {
+    streamingHandlersRef.current.finalize(finalContent, false);
+  }, []);
+
+  const handleStreamingError = useCallback((error: string) => {
+    streamingHandlersRef.current.fail(error);
+  }, []);
+
+  const {
+    isStreaming: _isAgentStreaming,
+    startStream: startAgentStream,
+    cancelStream: cancelAgentStream,
+  } = useStreamingChat({
+    baseUrl: '',
+    token: '',
+    onChunk: handleStreamingChunk,
+    onComplete: handleStreamingComplete,
+    onError: handleStreamingError,
+  });
+
+  const lastExpandedIdRef = useRef<string | null>(null);
+
+  const expandMessage = useCallback((message: ChatMessage) => {
+    lastExpandedIdRef.current = message.id;
+    setCompanionMessageId(message.id);
+  }, []);
+
+  const closeCompanion = useCallback(() => {
+    setCompanionMessageId(null);
+    setActiveContextChip(null);
+    const composerHost = document.querySelector<HTMLElement>('[data-companion-composer]');
+    const focusable = composerHost?.querySelector<HTMLElement>(
+      'textarea, [contenteditable="true"], input:not([type="hidden"])'
+    );
+    focusable?.focus();
+  }, []);
+
+  const handleContextChipClick = useCallback((chip: ContextChip) => {
+    setActiveContextChip((prev) => (prev?.id === chip.id ? null : chip));
+    setCompanionMessageId(null);
+  }, []);
+
+  const handleContextChipRemove = useCallback((chipId: string) => {
+    setActiveContextChip((prev) => (prev?.id === chipId ? null : prev));
+  }, []);
+
+  const toggleCompanion = useCallback(() => {
+    const lastId = lastExpandedIdRef.current;
+    setCompanionMessageId((current) => (current ? null : lastId));
+  }, []);
+
   // Track processed message IDs to prevent duplicates
   const processedMessageIds = useRef<Set<string>>(new Set());
 
@@ -356,9 +339,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     void openChatWindowImpl(agentId, agentName);
   }
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const agentList = Object.values(agents);
-  const selectedAgent = agentList.find((agent) => agent.id === selectedAgentId);
+  const agentList = Object.values(agents);  const selectedAgent = agentList.find((agent) => agent.id === selectedAgentId);
 
   // Enhanced AI Sidekick Refs
   const windowRefs = useRef<{ [windowId: string]: HTMLDivElement | null }>({});
@@ -409,6 +390,32 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       connect();
     }
   }, [isAuthenticated, isWebSocketConnected, connect]);
+
+  // Global keyboard shortcuts for the companion pane.
+  //   Cmd/Ctrl+\ — toggle open/closed for the last-expanded message
+  //   Esc        — close and refocus the composer
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (companionMessageId) {
+          event.preventDefault();
+          closeCompanion();
+        }
+        return;
+      }
+      if (event.key === '\\' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        toggleCompanion();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [companionMessageId, closeCompanion, toggleCompanion]);
+
+  const companionMessage = useMemo<ChatMessage | null>(() => {
+    if (!companionMessageId) return null;
+    return portalMessages.find((m) => m.id === companionMessageId) ?? null;
+  }, [companionMessageId, portalMessages]);
 
   // Listen for WebSocket agent responses
   useEffect(() => {
@@ -533,16 +540,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
     }
   }, [lastEvent, viewMode, selectedAgentId]);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      const scrollContainer = messagesEndRef.current.parentElement;
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
-    }
-  }, [portalMessages]);
 
   // Define openChatWindowWithSession function for resuming specific discussions
   const openChatWindowWithSession = useCallback(
@@ -947,6 +944,35 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     [chatWindows, isWebSocketConnected, sendWebSocketMessage]
   );
 
+  // Aborts an in-flight portal agent stream. Wired to the abort button on
+  // the streaming MessageBubble. Idempotent — safe to call when nothing is
+  // streaming (the hook is a no-op in that case).
+  const abortPortalStream = useCallback(() => {
+    if (!streamingMessageId) return;
+    cancelAgentStream();
+    const interruptedId = streamingMessageId;
+    setPortalMessages((prev) =>
+      prev.map((m) =>
+        m.id === interruptedId
+          ? { ...m, content: m.content ? `${m.content}\n\n_— stopped by user —_` : '_— stopped by user —_' }
+          : m
+      )
+    );
+    setStreamingMessageId(null);
+    streamingHandlersRef.current = {
+      placeholderId: null,
+      append: () => {},
+      finalize: () => {},
+      fail: () => {},
+    };
+    setTypingIndicators((prev) => ({ ...prev, portal: false }));
+    setLoadingStates((prev) => {
+      const copy = { ...prev };
+      delete copy.portal;
+      return copy;
+    });
+  }, [streamingMessageId, cancelAgentStream]);
+
   const sendPortalMessageWithText = useCallback(
     async (messageText: string, intent?: unknown) => {
       if (!messageText?.trim() || !selectedAgentId) return;
@@ -1068,6 +1094,94 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       };
 
       try {
+        // Streaming-first path. We insert a placeholder agent message up-front
+        // (empty content, sender 'agent') so the bubble can render with
+        // isStreaming=true and start receiving tokens immediately. If the
+        // backend rejects the /api/v1/llm/stream POST (no LLM-stream support
+        // configured, network error, etc.) we tear the placeholder down and
+        // fall through to the legacy WS / REST batch path so the user always
+        // gets a response.
+        const streamingPlaceholderId = `msg-${Date.now()}-streaming`;
+        const placeholder: ChatMessage = {
+          id: streamingPlaceholderId,
+          content: '',
+          sender: 'agent',
+          senderName: selectedAgent?.name || 'Assistant',
+          timestamp: new Date().toISOString(),
+          messageType: MessageType.MESSAGE,
+        };
+        setPortalMessages((prev) => [...prev, placeholder]);
+        setStreamingMessageId(streamingPlaceholderId);
+
+        // Wire handlers to update this placeholder in place as chunks arrive.
+        streamingHandlersRef.current = {
+          placeholderId: streamingPlaceholderId,
+          append: (delta: string) => {
+            if (!delta) return;
+            setPortalMessages((prev) =>
+              prev.map((m) => (m.id === streamingPlaceholderId ? { ...m, content: m.content + delta } : m))
+            );
+          },
+          finalize: (finalContent: string, _interrupted: boolean) => {
+            setPortalMessages((prev) =>
+              prev.map((m) =>
+                m.id === streamingPlaceholderId
+                  ? {
+                      ...m,
+                      content: finalContent || m.content,
+                    }
+                  : m
+              )
+            );
+            setConversationHistory((prev) => [
+              ...prev,
+              { content: finalContent, sender: 'agent', timestamp: new Date().toISOString() },
+            ]);
+            setStreamingMessageId(null);
+            streamingHandlersRef.current = {
+              placeholderId: null,
+              append: () => {},
+              finalize: () => {},
+              fail: () => {},
+            };
+            clearPortalLoadingState();
+          },
+          fail: (error: string) => {
+            logger.error('Streaming chat error:', error);
+            // Tear down the placeholder so the legacy fallback path can run
+            // cleanly below.
+            setPortalMessages((prev) => prev.filter((m) => m.id !== streamingPlaceholderId));
+            setStreamingMessageId(null);
+            streamingHandlersRef.current = {
+              placeholderId: null,
+              append: () => {},
+              finalize: () => {},
+              fail: () => {},
+            };
+          },
+        };
+
+        try {
+          await startAgentStream({
+            prompt: trimmedMessage,
+            agentId: selectedAgentId,
+            conversationId: conversationIds['portal'],
+          });
+          return;
+        } catch (streamError) {
+          logger.warn('Streaming unavailable, falling back to batch path:', streamError);
+          // Remove the placeholder and reset handlers so the fallback path's
+          // appendPortalAgentMessage can append a fresh agent message.
+          setPortalMessages((prev) => prev.filter((m) => m.id !== streamingPlaceholderId));
+          setStreamingMessageId(null);
+          streamingHandlersRef.current = {
+            placeholderId: null,
+            append: () => {},
+            finalize: () => {},
+            fail: () => {},
+          };
+        }
+
         if (isWebSocketConnected) {
           sendWebSocketMessage('agent_chat', {
             agentId: selectedAgentId,
@@ -1114,6 +1228,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           return newStates;
         });
         setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
+        setStreamingMessageId(null);
+        streamingHandlersRef.current = {
+          placeholderId: null,
+          append: () => {},
+          finalize: () => {},
+          fail: () => {},
+        };
 
         const errorMessage: ChatMessage = {
           id: `msg-${Date.now()}-error`,
@@ -1126,7 +1247,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         setPortalMessages((prev) => [...prev, errorMessage]);
       }
     },
-    [selectedAgentId, conversationHistory, isWebSocketConnected, sendWebSocketMessage]
+    [
+      selectedAgentId,
+      conversationHistory,
+      conversationIds,
+      isWebSocketConnected,
+      sendWebSocketMessage,
+      startAgentStream,
+      selectedAgent?.name,
+    ]
   );
 
   // Listen for agent chat open events
@@ -1168,7 +1297,29 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     }
   }, [agentList, selectedAgentId, viewMode]);
 
-  // Clear portal conversation when agent changes
+  const handleAgentChange = useCallback(
+    (nextAgentId: string) => {
+      if (nextAgentId === selectedAgentId) return;
+      if (viewMode === 'portal' && portalMessages.length > 0) {
+        setPendingAgentId(nextAgentId);
+        return;
+      }
+      setSelectedAgentId(nextAgentId);
+    },
+    [selectedAgentId, viewMode, portalMessages.length]
+  );
+
+  const confirmAgentSwitch = useCallback(() => {
+    if (!pendingAgentId) return;
+    setSelectedAgentId(pendingAgentId);
+    setPendingAgentId(null);
+  }, [pendingAgentId]);
+
+  const cancelAgentSwitch = useCallback(() => {
+    setPendingAgentId(null);
+  }, []);
+
+  // Clear portal conversation when selectedAgentId actually changes (after confirm)
   useEffect(() => {
     if (viewMode === 'portal' && selectedAgentId) {
       setPortalMessages([]);
@@ -1776,75 +1927,18 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  // Typing indicator component
-  const TypingIndicator: React.FC<{ windowId: string }> = ({ windowId }) => {
-    const isTyping = typingIndicators[windowId] || false;
-    const loadingState = loadingStates[windowId];
-
-    if (!isTyping && !loadingState?.isLoading) return null;
-
-    const handleCancel = () => {
-      // Clear loading states
-      if (loadingTimeouts.current[windowId]) {
-        clearInterval(loadingTimeouts.current[windowId]);
-        delete loadingTimeouts.current[windowId];
-      }
-      setLoadingStates((prev) => {
-        const newStates = { ...prev };
-        delete newStates[windowId];
-        return newStates;
-      });
-      setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
-    };
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 10 }}
-        className="flex items-center gap-2 p-3 bg-slate-700/50 rounded-lg border border-slate-600/30 mb-2"
-      >
-        <div className="flex gap-1">
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="w-2 h-2 bg-cyan-400 rounded-full"
-              animate={{
-                y: [0, -8, 0],
-                opacity: [0.4, 1, 0.4],
-              }}
-              transition={{
-                duration: 1.2,
-                repeat: Infinity,
-                delay: i * 0.2,
-                ease: 'easeInOut',
-              }}
-            />
-          ))}
-        </div>
-        <span className="text-xs text-slate-400 flex-1">
-          {loadingState?.loadingText || 'Agent is typing...'}
-        </span>
-        {loadingState?.progress && loadingState.progress > 0 && (
-          <div className="flex-1 bg-slate-600 rounded-full h-1 ml-2">
-            <motion.div
-              className="bg-cyan-400 h-1 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${loadingState.progress}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        )}
-        <button
-          onClick={handleCancel}
-          className="ml-2 p-1 hover:bg-slate-600/50 rounded text-slate-400 hover:text-white transition-colors"
-          title="Cancel"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      </motion.div>
-    );
-  };
+  const cancelTyping = useCallback((windowId: string) => {
+    if (loadingTimeouts.current[windowId]) {
+      clearInterval(loadingTimeouts.current[windowId]);
+      delete loadingTimeouts.current[windowId];
+    }
+    setLoadingStates((prev) => {
+      const newStates = { ...prev };
+      delete newStates[windowId];
+      return newStates;
+    });
+    setTypingIndicators((prev) => ({ ...prev, [windowId]: false }));
+  }, []);
 
   // Render floating windows with ultimate AI sidekick features
   const renderFloatingWindows = () => (
@@ -1857,298 +1951,99 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           const isDrag = isDragging[window.id];
           const isResize = isResizing[window.id];
 
+          const composerThreadState: ThreadState = !isWebSocketConnected
+            ? ThreadState.OFFLINE
+            : waState !== 'connected'
+              ? ThreadState.WA_DISCONNECTED
+              : window.hasLoadedHistory && window.error
+                ? ThreadState.ERROR
+                : isLoading
+                  ? ThreadState.LOADING
+                  : ThreadState.ACTIVE;
+
+          const composer = (
+            <div
+              data-companion-composer
+              className="p-4 border-t border-border/40 bg-gradient-to-r from-muted/50 to-muted/70 relative"
+            >
+              <ChatComposer
+                agentId={window.agentId}
+                conversationId={window.sessionId}
+                placeholder="Type a message..."
+                disabled={isLoading || !isWebSocketConnected}
+                disabledReason={
+                  !isWebSocketConnected
+                    ? 'Reconnecting to live agent…'
+                    : waState !== 'connected'
+                      ? 'WhatsApp not connected — message will be queued'
+                      : undefined
+                }
+                threadState={composerThreadState}
+                onRetry={() => {
+                  setChatWindows((prev) =>
+                    prev.map((w) =>
+                      w.id === window.id ? { ...w, error: null } : w
+                    )
+                  );
+                }}
+                onSubmit={(payload: ChatComposerSubmitPayload) => {
+                  sendFloatingMessageWithText(window.id, payload.text, payload.intent);
+                }}
+              />
+
+              {window.error && composerThreadState !== ThreadState.ERROR && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 p-2 bg-red-500/20 border border-red-500/30 rounded-md text-red-400 text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-3 h-3" />
+                    {window.error}
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          );
+
           return (
-            <motion.div
+            <FloatingThreadContainer
               key={window.id}
-              ref={(el) => {
+              chrome={{
+                agentName: window.agentName,
+                isLoading: Boolean(isLoading),
+                isMinimized: window.isMinimized,
+                isFocused: focusedWindow === window.id,
+                isDragging: Boolean(isDrag),
+                isResizing: Boolean(isResize),
+                position,
+                size,
+              }}
+              messages={window.messages}
+              composer={composer}
+              streamId={`messages-${window.id}`}
+              typing={{
+                isTyping: typingIndicators[window.id] || false,
+                loadingText: loadingStates[window.id]?.loadingText,
+                progress: loadingStates[window.id]?.progress,
+              }}
+              onCancelTyping={() => cancelTyping(window.id)}
+              agentName={window.agentName}
+              suggestions={[
+                `What can ${window.agentName} help me with?`,
+                'Summarize my latest discussion',
+                'Brainstorm three ideas with me',
+              ]}
+              onSelectSuggestion={(text) => sendFloatingMessageWithText(window.id, text)}
+              containerRef={(el) => {
                 windowRefs.current[window.id] = el;
               }}
-              className={`fixed bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-slate-800/95 
-                         backdrop-blur-xl rounded-xl border border-slate-600/30 text-white pointer-events-auto 
-                         flex flex-col shadow-2xl shadow-black/50 overflow-hidden
-                         ${focusedWindow === window.id ? 'ring-2 ring-cyan-500/50 z-10' : 'z-0'}
-                         ${isDrag ? 'cursor-grabbing scale-105' : 'cursor-default'}
-                         ${isResize ? 'select-none' : ''}`}
-              style={{
-                left: position.x,
-                top: position.y,
-                width: size.width,
-                height: window.isMinimized ? 'auto' : size.height,
-                zIndex: focusedWindow === window.id ? 60 : 50,
-              }}
-              initial={{
-                opacity: 0,
-                scale: 0.8,
-                y: 100,
-                rotateX: -15,
-              }}
-              animate={{
-                opacity: 1,
-                scale: isDrag ? 1.05 : isResize ? 1.02 : 1,
-                y: 0,
-                rotateX: 0,
-              }}
-              exit={{
-                opacity: 0,
-                scale: 0.8,
-                y: 100,
-                rotateX: 15,
-              }}
-              transition={{
-                type: 'spring',
-                stiffness: 300,
-                damping: 30,
-              }}
-              whileHover={{
-                scale: isDrag || isResize ? undefined : 1.01,
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              }}
-              onClick={() => setFocusedWindow(window.id)}
-            >
-              {/* Animated background gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-purple-500/5 opacity-50" />
-
-              {/* Chat Header */}
-              <div
-                className="relative flex items-center justify-between p-4 bg-gradient-to-r from-slate-700/50 to-slate-800/50 border-b border-slate-600/30 cursor-grab active:cursor-grabbing"
-                onMouseDown={(e) => handleMouseDown(e, window.id, 'drag')}
-              >
-                <div className="flex items-center gap-3">
-                  <motion.div
-                    className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center"
-                    animate={{
-                      boxShadow: isLoading
-                        ? [
-                            '0 0 10px rgba(6, 182, 212, 0.5)',
-                            '0 0 20px rgba(6, 182, 212, 0.8)',
-                            '0 0 10px rgba(6, 182, 212, 0.5)',
-                          ]
-                        : '0 0 10px rgba(6, 182, 212, 0.3)',
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: isLoading ? Infinity : 0,
-                    }}
-                  >
-                    <Bot className="w-4 h-4 text-white" />
-                  </motion.div>
-                  <div>
-                    <h3 className="font-semibold text-white text-sm">{window.agentName}</h3>
-                    <div className="flex items-center gap-2 text-xs">
-                      <div
-                        className={`w-1.5 h-1.5 rounded-full ${window.isLoading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}
-                      />
-                      <span className="text-slate-400">
-                        {window.isLoading ? 'Processing...' : 'Online'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      minimizeChatWindow(window.id);
-                    }}
-                    className="p-1.5 hover:bg-slate-600/50 rounded-md transition-colors group"
-                    title="Minimize"
-                  >
-                    <Minimize2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeChatWindow(window.id);
-                    }}
-                    className="p-1.5 hover:bg-red-500/20 rounded-md transition-colors group"
-                    title="Close"
-                  >
-                    <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
-                  </button>
-                </div>
-              </div>
-
-              {!window.isMinimized && (
-                <>
-                  {/* Messages Area */}
-                  <div
-                    id={`messages-${window.id}`}
-                    className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0"
-                    style={{
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent',
-                    }}
-                  >
-                    <AnimatePresence>
-                      {window.messages.length === 0 ? (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-center text-slate-400 text-sm py-8"
-                        >
-                          <motion.div
-                            className="w-12 h-12 mx-auto mb-3 bg-slate-700/50 rounded-full flex items-center justify-center"
-                            animate={{
-                              rotate: [0, 10, -10, 0],
-                              scale: [1, 1.1, 1],
-                            }}
-                            transition={{
-                              duration: 4,
-                              repeat: Infinity,
-                              ease: 'easeInOut',
-                            }}
-                          >
-                            <MessageSquare className="w-6 h-6 text-slate-500" />
-                          </motion.div>
-                          <p>Start a conversation...</p>
-                        </motion.div>
-                      ) : (
-                        window.messages.map((msg, idx) => (
-                          <motion.div
-                            key={msg.id}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{
-                              delay: idx * 0.03,
-                              type: 'spring',
-                              stiffness: 400,
-                              damping: 25,
-                            }}
-                            className={`flex items-start gap-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            {msg.sender !== 'user' && (
-                              <motion.div
-                                className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                                whileHover={{ scale: 1.1, rotate: 5 }}
-                              >
-                                <Bot className="w-3 h-3 text-white" />
-                              </motion.div>
-                            )}
-
-                            <motion.div
-                              className={`max-w-[75%] p-3 rounded-xl text-sm leading-relaxed ${
-                                msg.sender === 'user'
-                                  ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white'
-                                  : 'bg-slate-700/80 text-slate-100 border border-slate-600/50'
-                              }`}
-                              whileHover={{
-                                scale: 1.02,
-                                boxShadow:
-                                  msg.sender === 'user'
-                                    ? '0 8px 25px rgba(6, 182, 212, 0.3)'
-                                    : '0 8px 25px rgba(0, 0, 0, 0.3)',
-                              }}
-                            >
-                              <p>{msg.content}</p>
-
-                              {/* Message metadata for agent responses */}
-                              {msg.sender !== 'user' &&
-                                (msg.confidence ||
-                                  msg.memoryEnhanced ||
-                                  msg.knowledgeUsed ||
-                                  msg.toolsExecuted?.length) && (
-                                  <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-600/30 text-xs">
-                                    {msg.confidence && (
-                                      <div className="flex items-center gap-1 text-emerald-400">
-                                        <CheckCircle2 className="w-3 h-3" />
-                                        <span>{Math.round(msg.confidence * 100)}%</span>
-                                      </div>
-                                    )}
-                                    {msg.memoryEnhanced && (
-                                      <div className="flex items-center gap-1 text-purple-400">
-                                        <Brain className="w-3 h-3" />
-                                        <span>Memory</span>
-                                      </div>
-                                    )}
-                                    {msg.knowledgeUsed && msg.knowledgeUsed > 0 && (
-                                      <div className="flex items-center gap-1 text-yellow-400">
-                                        <Sparkles className="w-3 h-3" />
-                                        <span>{msg.knowledgeUsed} KB</span>
-                                      </div>
-                                    )}
-                                    {msg.toolsExecuted && msg.toolsExecuted.length > 0 && (
-                                      <div className="flex items-center gap-1 text-cyan-400">
-                                        <Zap className="w-3 h-3" />
-                                        <span>{msg.toolsExecuted.length} tools</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                            </motion.div>
-
-                            {msg.sender === 'user' && (
-                              <motion.div
-                                className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                                whileHover={{ scale: 1.1, rotate: -5 }}
-                              >
-                                <User className="w-3 h-3 text-white" />
-                              </motion.div>
-                            )}
-                          </motion.div>
-                        ))
-                      )}
-                    </AnimatePresence>
-
-                    {/* Typing Indicator */}
-                    <TypingIndicator windowId={window.id} />
-                  </div>
-
-                  {/* Input Area */}
-                  <div
-                    className="p-4 border-t border-slate-600/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50 relative"
-                    onDragEnter={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDragOver={handleDrag}
-                    onDrop={handleDrop}
-                  >
-                    {dragActive && (
-                      <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-2 rounded-lg">
-                        <UploadDropZone
-                          dragActive={dragActive}
-                          handleDrag={handleDrag}
-                          handleDrop={handleDrop}
-                          handleFileSelect={handleFileSelect}
-                          fileInputRef={fileInputRef}
-                          acceptedTypes={['.pdf', '.docx', '.doc', '.json', '.txt', '.md', '.csv', '.png', '.jpg', '.jpeg', '.webp', '.gif']}
-                        />
-                      </div>
-                    )}
-                    <SmartInputField
-                      agentId={window.agentId}
-                      conversationId={window.sessionId}
-                      placeholder="Type a message..."
-                      onSubmit={(text, intent) => {
-                        sendFloatingMessageWithText(window.id, text, intent);
-                      }}
-                      disabled={isLoading}
-                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                    />
-
-                    {window.error && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-2 p-2 bg-red-500/20 border border-red-500/30 rounded-md text-red-400 text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-3 h-3" />
-                          {window.error}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-
-                  {/* Resize Handle */}
-                  <div
-                    className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-50 hover:opacity-100 transition-opacity"
-                    onMouseDown={(e) => handleMouseDown(e, window.id, 'resize')}
-                  >
-                    <div className="absolute bottom-1 right-1 w-2 h-2 border-r-2 border-b-2 border-slate-400" />
-                  </div>
-                </>
-              )}
-            </motion.div>
+              onFocus={() => setFocusedWindow(window.id)}
+              onMinimize={() => minimizeChatWindow(window.id)}
+              onClose={() => closeChatWindow(window.id)}
+              onDragHandleMouseDown={(e) => handleMouseDown(e, window.id, 'drag')}
+              onResizeHandleMouseDown={(e) => handleMouseDown(e, window.id, 'resize')}
+            />
           );
         })}
       </AnimatePresence>
@@ -2162,7 +2057,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden bg-gradient-to-br from-slate-900/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl p-6 border border-cyan-500/20"
+        className="relative overflow-hidden bg-gradient-to-br from-background/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl p-6 border border-cyan-500/20"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
         <div className="relative flex items-center justify-between">
@@ -2196,7 +2091,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 />
               </div>
               <div className="flex items-center gap-3">
-                <p className="text-slate-300">
+                <p className="text-muted-foreground">
                   {selectedAgent
                     ? `Chatting with ${selectedAgent.name}`
                     : 'Select an agent to start chatting'}
@@ -2246,7 +2141,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             )}
             <button
               onClick={() => setViewMode(viewMode === 'floating' ? 'portal' : 'floating')}
-              className="px-4 py-2 text-sm bg-slate-700/50 text-slate-300 rounded-xl border border-slate-600/30 hover:bg-slate-600/50 transition-colors flex items-center gap-2 hover:scale-105 active:scale-95"
+              className="px-4 py-2 text-sm bg-muted/50 text-muted-foreground rounded-xl border border-border/40 hover:bg-muted/70 transition-colors flex items-center gap-2 hover:scale-105 active:scale-95"
             >
               {viewMode === 'floating' ? (
                 <LayoutGrid className="w-4 h-4" />
@@ -2261,35 +2156,77 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         {/* Agent Selector */}
         {agentList.length > 0 && (
           <div className="mt-6">
-            <select
+            <AgentSwitcher
+              agents={agents}
               value={selectedAgentId}
-              onChange={(e) => setSelectedAgentId(e.target.value)}
-              className="w-full bg-slate-800/50 border border-slate-600/30 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-all duration-300 hover:scale-[1.01] focus:scale-[1.02]"
-              style={{
-                background:
-                  'linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.3))',
+              onChange={handleAgentChange}
+              onCreateAgent={() => {
+                window.dispatchEvent(new CustomEvent('navigate-to-agent-manager'));
               }}
-            >
-              <option value="">Select an agent...</option>
-              {agentList.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name} ({agent.role})
-                </option>
-              ))}
-            </select>
+              onRetry={() => {
+                void refreshAgents();
+              }}
+            />
+            {pendingAgentId &&
+              (() => {
+                const pendingAgent = agentList.find((a) => a.id === pendingAgentId);
+                if (!pendingAgent) return null;
+                return (
+                  <div
+                    role="alertdialog"
+                    aria-labelledby="agent-switch-confirm-title"
+                    aria-describedby="agent-switch-confirm-desc"
+                    className="mt-3 flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+                  >
+                    <p
+                      id="agent-switch-confirm-title"
+                      className="font-medium text-amber-200"
+                    >
+                      Switch to {pendingAgent.name}?
+                    </p>
+                    <p
+                      id="agent-switch-confirm-desc"
+                      className="text-xs text-amber-200/80"
+                    >
+                      Your current conversation with{' '}
+                      <span className="font-semibold">
+                        {selectedAgent?.name ?? 'this agent'}
+                      </span>{' '}
+                      will be cleared from this portal view. Floating chat windows
+                      for {selectedAgent?.name ?? 'this agent'} stay open.
+                    </p>
+                    <div className="mt-1 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelAgentSwitch}
+                        className="rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs text-amber-100 transition-colors hover:bg-amber-500/10"
+                      >
+                        Keep conversation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmAgentSwitch}
+                        className="rounded-lg bg-amber-500/90 px-3 py-1.5 text-xs font-medium text-amber-950 transition-colors hover:bg-amber-400"
+                      >
+                        Switch &amp; clear
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
           </div>
         )}
 
         {/* Agent Capabilities Display */}
         {selectedAgent && (
           <motion.div
-            className="mt-4 p-4 bg-slate-800/30 border border-slate-700/30 rounded-xl"
+            className="mt-4 p-4 bg-muted/30 border border-border/30 rounded-xl"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.3 }}
           >
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-slate-300">Agent Capabilities</h4>
+              <h4 className="text-sm font-semibold text-foreground">Agent Capabilities</h4>
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
                 <span className="text-sm text-emerald-400">Enhanced</span>
@@ -2307,7 +2244,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 </motion.span>
               ))}
               {selectedAgent.capabilities && selectedAgent.capabilities.length > 6 && (
-                <span className="text-xs px-3 py-1 bg-slate-600/50 text-slate-400 rounded-lg border border-slate-500/30">
+                <span className="text-xs px-3 py-1 bg-muted/60 text-muted-foreground rounded-lg border border-border/40">
                   +{selectedAgent.capabilities.length - 6} more
                 </span>
               )}
@@ -2316,15 +2253,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-yellow-400" />
-                <span className="text-slate-400">Knowledge</span>
+                <span className="text-muted-foreground">Knowledge</span>
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-purple-400" />
-                <span className="text-slate-400">Tools</span>
+                <span className="text-muted-foreground">Tools</span>
               </div>
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4 text-cyan-400" />
-                <span className="text-slate-400">Memory</span>
+                <span className="text-muted-foreground">Memory</span>
               </div>
             </div>
           </motion.div>
@@ -2335,230 +2272,125 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-900/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl border border-cyan-500/20"
+        className="flex-1 relative overflow-hidden bg-gradient-to-br from-background/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl border border-cyan-500/20"
         style={{ minHeight: 0 }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
-        <div className="relative flex flex-col h-full">
-          <div
-            className="flex-1 overflow-y-auto p-6 space-y-4"
-            style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent',
-              minHeight: 0,
-              maxHeight: '100%',
+        <div className="relative h-full">
+          <ThreadContainer
+            messages={portalMessages}
+            mode="portal"
+            typing={{
+              isTyping: typingIndicators['portal'] || false,
+              loadingText: loadingStates['portal']?.loadingText,
+              progress: loadingStates['portal']?.progress,
             }}
-          >
-            <AnimatePresence>
-              {portalMessages.length === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center justify-center h-32"
-                >
-                  <div className="text-center">
-                    <motion.div
-                      className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center"
-                      animate={{
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.05, 1],
-                      }}
-                      transition={{
-                        duration: 4,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                      }}
-                    >
-                      <Bot className="w-8 h-8 text-slate-400" />
-                    </motion.div>
-                    <p className="text-slate-400 text-lg">
-                      {selectedAgent
-                        ? `Start a conversation with ${selectedAgent.name}`
-                        : 'Select an agent to begin chatting'}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              {portalMessages.map((message, index) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{
-                    delay: index * 0.05,
-                    type: 'spring',
-                    stiffness: 200,
-                  }}
-                  className={`flex gap-4 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {message.sender !== 'user' && (
-                    <motion.div
-                      className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0"
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                    >
-                      <Bot className="w-5 h-5 text-white" />
-                    </motion.div>
-                  )}
-
-                  <div className={`max-w-[80%] ${message.sender === 'user' ? 'order-1' : ''}`}>
-                    <motion.div
-                      className={`relative overflow-hidden rounded-2xl ${
-                        message.sender === 'user'
-                          ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white ml-auto'
-                          : 'bg-slate-800/50 text-white border border-slate-600/30'
-                      }`}
-                      whileHover={{ scale: 1.01, y: -1 }}
-                      transition={{ type: 'spring', stiffness: 300 }}
-                    >
-                      <div className="p-4">
-                        <p className="text-sm leading-relaxed">{message.content}</p>
-
-                        {/* Agent message metadata */}
-                        {message.sender !== 'user' && (
-                          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-600/30 text-xs text-slate-400">
-                            {message.confidence && (
-                              <div className="flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                <span>{Math.round(message.confidence * 100)}%</span>
-                              </div>
-                            )}
-                            {message.memoryEnhanced && (
-                              <div className="flex items-center gap-1">
-                                <Brain className="w-3 h-3 text-purple-400" />
-                                <span>Memory</span>
-                              </div>
-                            )}
-                            {message.knowledgeUsed && message.knowledgeUsed > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Sparkles className="w-3 h-3 text-yellow-400" />
-                                <span>{message.knowledgeUsed} KB</span>
-                              </div>
-                            )}
-                            {message.toolsExecuted && message.toolsExecuted.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Zap className="w-3 h-3 text-cyan-400" />
-                                <span>{message.toolsExecuted.length} tools</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Tool Execution Results */}
-                        {message.sender !== 'user' &&
-                          message.toolsExecuted &&
-                          message.toolsExecuted.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-slate-600/30">
-                              <div className="text-xs text-slate-400 mb-2">Tools Executed:</div>
-                              <div className="space-y-2">
-                                {message.toolsExecuted.map((tool) => (
-                                  <motion.div
-                                    key={`${tool.toolId}-${tool.timestamp}`}
-                                    className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
-                                      tool.success
-                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                    }`}
-                                    whileHover={{ scale: 1.02 }}
-                                  >
-                                    <Zap className="w-3 h-3" />
-                                    <span className="font-medium">{tool.toolName}</span>
-                                    {tool.success ? (
-                                      <CheckCircle2 className="w-3 h-3" />
-                                    ) : (
-                                      <AlertCircle className="w-3 h-3" />
-                                    )}
-                                  </motion.div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                      </div>
-                    </motion.div>
-
-                    <div className="text-xs text-slate-500 mt-2 px-4">
-                      {new Date(message.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-
-                  {message.sender === 'user' && (
-                    <motion.div
-                      className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center flex-shrink-0"
-                      whileHover={{ scale: 1.1, rotate: -5 }}
-                    >
-                      <User className="w-5 h-5 text-white" />
-                    </motion.div>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {/* Typing Indicator for Portal Mode */}
-            <TypingIndicator windowId="portal" />
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Message Input */}
-          <motion.div
-            className="p-6 border-t border-cyan-500/20 bg-gradient-to-r from-slate-800/60 to-blue-900/30 backdrop-blur-sm relative"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            {dragActive && (
-              <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-2 rounded-xl">
-                <UploadDropZone
-                  dragActive={dragActive}
-                  handleDrag={handleDrag}
-                  handleDrop={handleDrop}
-                  handleFileSelect={handleFileSelect}
-                  fileInputRef={fileInputRef}
-                  acceptedTypes={['.pdf', '.docx', '.doc', '.json', '.txt', '.md', '.csv', '.png', '.jpg', '.jpeg', '.webp', '.gif']}
+            onCancelTyping={() => cancelTyping('portal')}
+            streamingMessageId={streamingMessageId}
+            onAbortStream={abortPortalStream}
+            agentName={selectedAgent?.name}
+            suggestions={
+              selectedAgent
+                ? [
+                    `What can ${selectedAgent.name} help me with?`,
+                    'Summarize my latest discussion',
+                    'Brainstorm three ideas with me',
+                  ]
+                : []
+            }
+            onSelectSuggestion={(text) => sendPortalMessageWithText(text)}
+            onExpandMessage={expandMessage}
+            companion={
+              activeContextChip ? (
+                activeContextChip.type === 'project' ? (
+                  <ProjectCompanion
+                    projectId={activeContextChip.resourceId || activeContextChip.id}
+                    projectName={activeContextChip.label}
+                    onClose={closeCompanion}
+                  />
+                ) : (
+                  <DocCompanion
+                    docId={activeContextChip.resourceId || activeContextChip.id}
+                    docTitle={activeContextChip.label}
+                    content=""
+                    onClose={closeCompanion}
+                  />
+                )
+              ) : companionMessage ? (
+                <CompanionPane
+                  message={companionMessage}
+                  onClose={closeCompanion}
                 />
-              </div>
-            )}
-            {/* Prompt Suggestions */}
-            <div className="mb-4">
-              <PromptSuggestions
-                agentId={selectedAgentId}
-                conversationContext={{
-                  currentTopic:
-                    conversationTopics['portal'] ||
-                    (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat'),
-                  recentMessages: portalMessages.slice(-5).map((msg) => ({
-                    content: msg.content,
-                    role: msg.sender === 'user' ? 'user' : 'assistant',
-                    timestamp: new Date(msg.timestamp),
-                  })),
-                }}
-                onSelectPrompt={(prompt) => {
-                  // Auto-submit the selected prompt
-                  sendPortalMessageWithText(prompt);
-                }}
-                className="mb-2"
-              />
-            </div>
+              ) : null
+            }
+            companionOpen={activeContextChip !== null || (companionMessageId !== null && companionMessage !== null)}
+            composer={
+              <motion.div
+                data-companion-composer
+                className="p-6 border-t border-cyan-500/20 bg-gradient-to-r from-muted/60 to-blue-900/30 backdrop-blur-sm relative"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <div className="mb-4">
+                  <PromptSuggestions
+                    agentId={selectedAgentId}
+                    conversationContext={{
+                      currentTopic:
+                        conversationTopics['portal'] ||
+                        (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat'),
+                      recentMessages: portalMessages.slice(-5).map((msg) => ({
+                        content: msg.content,
+                        role: msg.sender === 'user' ? 'user' : 'assistant',
+                        timestamp: new Date(msg.timestamp),
+                      })),
+                    }}
+                    onSelectPrompt={(prompt) => {
+                      sendPortalMessageWithText(prompt);
+                    }}
+                    className="mb-2"
+                  />
+                </div>
 
-            <div className="flex gap-4 items-end">
-              <SmartInputField
-                agentId={selectedAgentId}
-                conversationId={conversationIds['portal']}
-                placeholder={
-                  selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent first...'
-                }
-                onSubmit={(text, intent) => {
-                  // Use a custom sendMessage function that handles the smart input properly
-                  sendPortalMessageWithText(text, intent);
-                }}
-                className="w-full bg-slate-800/50 border border-slate-600/30 rounded-xl px-4 py-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-400/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.01] focus:scale-[1.02]"
-              />
-            </div>
-          </motion.div>
+                <ChatComposer
+                  agentId={selectedAgentId}
+                  conversationId={conversationIds['portal']}
+                  placeholder={
+                    selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent first...'
+                  }
+                  disabled={
+                    !isWebSocketConnected ||
+                    (typingIndicators['portal'] ?? false) ||
+                    (loadingStates['portal']?.isLoading ?? false)
+                  }
+                  disabledReason={
+                    !isWebSocketConnected
+                      ? 'Reconnecting to live agent…'
+                      : waState !== 'connected'
+                        ? 'WhatsApp not connected — message will be queued'
+                        : undefined
+                  }
+                  threadState={
+                    !isWebSocketConnected
+                      ? ThreadState.OFFLINE
+                      : waState !== 'connected'
+                        ? ThreadState.WA_DISCONNECTED
+                        : (loadingStates['portal']?.isLoading ?? false)
+                          ? ThreadState.LOADING
+                          : ThreadState.ACTIVE
+                  }
+                  onChipClick={(chip) => handleContextChipClick({
+                    id: chip.id,
+                    type: chip.type,
+                    label: chip.label,
+                  })}
+                  onSubmit={(payload: ChatComposerSubmitPayload) => {
+                    sendPortalMessageWithText(payload.text, payload.intent);
+                  }}
+                />
+              </motion.div>
+            }
+          />
         </div>
       </motion.div>
     </div>
