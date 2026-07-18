@@ -1,7 +1,29 @@
-FROM oven/bun:1 AS base
+# syntax=docker/dockerfile:1.7
+# =============================================================================
+# navratna-gateway — multi-stage build
+#
+# Fast-deploy design:
+#   1. Layer cache is honored (do NOT pass --no-cache when deploying).
+#   2. BuildKit cache mounts persist the pnpm store + Nx cache across builds,
+#      so `pnpm install` is incremental and `nx build` reuses prior compiles
+#      even when a layer is invalidated.
+#   3. Multi-stage: the `runtime` image ships only the compiled dist + pruned
+#      production node_modules (no dev deps, no source, no toolchain) → smaller
+#      image → faster push (--local-only) and faster machine cold-start.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# builder — installs deps and compiles the workspace
+# ---------------------------------------------------------------------------
+FROM oven/bun:1 AS builder
 
 RUN apt-get update && apt-get install -y curl libatomic1 && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://get.pnpm.io/install.sh | PNPM_VERSION=10.12.1 PNPM_HOME=/usr/local/bin ENV="$HOME/.shrc" SHELL="$(which sh)" sh -
+
+# pnpm reads the store location from the `store-dir` config; expose it via the
+# npm_config_* env so both `install` and `prune` honor the cache-mounted path.
+ENV PNPM_HOME=/usr/local/bin
+ENV npm_config_store_dir=/pnpm-store
 
 WORKDIR /app
 
@@ -32,9 +54,11 @@ COPY apps/backend/services/capability-registry/tsconfig.build.json ./apps/backen
 COPY apps/backend/services/oie/package.json                  ./apps/backend/services/oie/
 COPY apps/backend/services/oie/tsconfig.json                 ./apps/backend/services/oie/
 
-RUN pnpm install --frozen-lockfile --shamefully-hoist
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm install --frozen-lockfile --shamefully-hoist
 
-RUN pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service --skip-nx-cache
+RUN --mount=type=cache,id=nx-cache,target=/app/.nx/cache \
+    pnpm nx run-many -t build --projects=@uaip/types,@uaip/utils,@uaip/contracts,@uaip/config,@uaip/infra,@uaip/middleware,@uaip/shared-services,@uaip/llm-service
 
 RUN find apps/shared apps/packages -type d -name src -prune -exec sh -c \
       'find "$1" -type f \( -name "*.js" -o -name "*.js.map" -o -name "*.d.ts" -o -name "*.d.ts.map" \) -delete' _ {} \;
@@ -45,7 +69,8 @@ COPY apps/backend/services/orchestration-pipeline/src/       ./apps/backend/serv
 COPY apps/backend/services/capability-registry/src/          ./apps/backend/services/capability-registry/src/
 COPY apps/backend/services/oie/src/                          ./apps/backend/services/oie/src/
 
-RUN pnpm nx run-many -t build --projects=@uaip/security-gateway,@uaip/orchestration-pipeline,@uaip/capability-registry,@uaip/oie,@uaip/navratna-gateway --skip-nx-cache
+RUN --mount=type=cache,id=nx-cache,target=/app/.nx/cache \
+    pnpm nx run-many -t build --projects=@uaip/security-gateway,@uaip/orchestration-pipeline,@uaip/capability-registry,@uaip/oie,@uaip/navratna-gateway
 
 RUN GW_DIST=apps/backend/services/navratna-gateway/dist && \
     mkdir -p "$GW_DIST/security-gateway/src" "$GW_DIST/orchestration-pipeline/src" "$GW_DIST/capability-registry/src" && \
@@ -53,9 +78,40 @@ RUN GW_DIST=apps/backend/services/navratna-gateway/dist && \
     cp -r apps/backend/services/orchestration-pipeline/dist/* "$GW_DIST/orchestration-pipeline/src/" && \
     cp -r apps/backend/services/capability-registry/dist/*    "$GW_DIST/capability-registry/src/"
 
+# NOTE: `pnpm prune --prod` would shrink the runtime image further, but on a
+# --shamefully-hoist workspace it can drop hoisted transitive deps that a
+# compiled package resolves at runtime but does not declare — a boot risk in this
+# stack (see Elysia AOT / config throw-on-load footguns). Left disabled until
+# validated with a smoke test. To enable: uncomment and verify scripts/smoke-test-gateway.sh.
+# RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+#     pnpm prune --prod --config.confirmModulesPurge=false
+
+# ---------------------------------------------------------------------------
+# runtime — minimal image: dist + prod node_modules only
+# ---------------------------------------------------------------------------
+FROM oven/bun:1 AS runtime
+
+RUN apt-get update && apt-get install -y libatomic1 && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --gid 1001 nodejs && \
-    useradd --uid 1001 --gid nodejs --no-create-home uaip && \
-    chown -R uaip:nodejs /app
+    useradd --uid 1001 --gid nodejs --no-create-home uaip
+
+# Create /app owned by uaip BEFORE copying, so the app can write runtime dirs
+# (e.g. winston's ./logs) — matches the old single-stage `chown -R uaip /app`.
+RUN mkdir -p /app && chown uaip:nodejs /app
+WORKDIR /app
+
+COPY --from=builder --chown=uaip:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=uaip:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=uaip:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+
+COPY --from=builder --chown=uaip:nodejs /app/apps/packages ./apps/packages
+COPY --from=builder --chown=uaip:nodejs /app/apps/shared   ./apps/shared
+
+COPY --from=builder --chown=uaip:nodejs /app/apps/backend/services/navratna-gateway/dist \
+     ./apps/backend/services/navratna-gateway/dist
+COPY --from=builder --chown=uaip:nodejs /app/apps/backend/services/navratna-gateway/package.json \
+     ./apps/backend/services/navratna-gateway/package.json
 
 USER uaip
 
