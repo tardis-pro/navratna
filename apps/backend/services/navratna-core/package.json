@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@socket.io/bun-engine": "^0.0.2",
+    "@socket.io/redis-adapter": "^8.3.0",
     "@uaip/agent-intelligence-core": "workspace:*",
     "@uaip/config": "workspace:*",
     "@uaip/discussion-core": "workspace:*",
@@ -41,6 +42,7 @@
     "@uaip/utils": "workspace:*",
     "dotenv": "catalog:backend",
     "elysia": "catalog:backend",
+    "ioredis": "catalog:backend",
     "socket.io": "catalog:backend",
     "zod": "catalog:"
   },

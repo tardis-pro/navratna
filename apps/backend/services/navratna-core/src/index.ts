@@ -4,6 +4,10 @@ import { LLMService } from '@uaip/llm-service'
 import { LLMTaskType } from '@uaip/types'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as BunEngine } from '@socket.io/bun-engine'
+import { createAdapter } from '@socket.io/redis-adapter'
+import Redis from 'ioredis'
+import { getRedisTLSOptions } from '@uaip/infra'
+import { config } from '@uaip/config'
 import { logger, isRecord } from '@uaip/utils'
 import { JWTValidator } from '@uaip/middleware'
 import type { EventBusMessage } from '@uaip/types'
@@ -36,6 +40,8 @@ class NavratnaCoreService extends BaseService {
 
   private io: SocketIOServer
   private bunEngine: BunEngine
+  private socketPubClient?: Redis
+  private socketSubClient?: Redis
   private authResponseHandlers = new Map<string, (response: Record<string, unknown>) => void>()
   private authSubscriptionInitialized = false
 
@@ -96,7 +102,51 @@ class NavratnaCoreService extends BaseService {
       }
     })
 
+    // Without a shared adapter, each Fly machine keeps Socket.IO sessions in-process,
+    // so a polling request carrying a `sid` routed to a different machine fails with
+    // 400 "Session ID unknown". Best-effort: Redis is non-fatal at core boot.
+    this.setupSocketIORedisAdapter()
+
     this.io.bind(this.bunEngine)
+  }
+
+  private setupSocketIORedisAdapter(): void {
+    try {
+      const host = config.redis?.host || process.env.REDIS_HOST || 'localhost'
+      const port = config.redis?.port || parseInt(process.env.REDIS_PORT || '6379', 10)
+      const password = config.redis?.password || process.env.REDIS_PASSWORD
+
+      const redisOptions = {
+        host,
+        port,
+        password,
+        db: config.redis?.db ?? parseInt(process.env.REDIS_DB || '0', 10),
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: true,
+        commandTimeout: 5000,
+        ...getRedisTLSOptions(host),
+      }
+
+      this.socketPubClient = new Redis(redisOptions)
+      // Subscriber connections cannot issue normal commands, so duplicate() onto a
+      // dedicated socket is mandatory, not optional.
+      this.socketSubClient = this.socketPubClient.duplicate()
+
+      const logAdapterError = (role: string) => (err: Error) =>
+        logger.warn(`Socket.IO Redis adapter ${role} client error`, { error: err.message })
+      this.socketPubClient.on('error', logAdapterError('pub'))
+      this.socketSubClient.on('error', logAdapterError('sub'))
+
+      this.io.adapter(createAdapter(this.socketPubClient, this.socketSubClient))
+      logger.info('Socket.IO Redis adapter registered — cross-machine session fan-out enabled', {
+        host,
+        port,
+      })
+    } catch (err) {
+      logger.warn('Socket.IO Redis adapter not registered — falling back to in-memory (single-machine) adapter', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
 
   protected async initialize(): Promise<void> {
@@ -232,6 +282,13 @@ class NavratnaCoreService extends BaseService {
       this.io.close()
     } catch (err) {
       logger.error('navratna-core: Socket.IO close error', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+    try {
+      await Promise.all([this.socketPubClient?.quit(), this.socketSubClient?.quit()])
+    } catch (err) {
+      logger.warn('navratna-core: Socket.IO Redis adapter client close error', {
         error: err instanceof Error ? err.message : String(err),
       })
     }
