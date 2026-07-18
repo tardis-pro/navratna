@@ -23,7 +23,7 @@ import { DiscussionRepository } from './database/repositories/discussion_reposit
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { PersonaService } from './persona_service';
-import { logger, NotFoundError, ValidationError, InternalServerError } from '@uaip/utils';
+import { logger, NotFoundError, ValidationError, InternalServerError, isRecord } from '@uaip/utils';
 
 type ParticipantRoleValue = DiscussionParticipantType['role'];
 const VALID_PARTICIPANT_ROLES = ['participant', 'moderator', 'observer', 'facilitator'] as const;
@@ -188,6 +188,8 @@ export class DiscussionService {
         request.settings ?? CreateDiscussionRequestSchema.shape.settings.parse(undefined);
       const turnStrategy =
         request.turnStrategy ?? CreateDiscussionRequestSchema.shape.turnStrategy.parse(undefined);
+      const visibility =
+        request.visibility ?? CreateDiscussionRequestSchema.shape.visibility.parse(undefined);
 
       // Create discussion in database
       const discussionData = {
@@ -199,7 +201,7 @@ export class DiscussionService {
         settings,
         turnStrategy,
         status: DiscussionStatus.DRAFT,
-        visibility: request.visibility,
+        visibility,
         createdBy: request.createdBy,
         organizationId: request.organizationId,
         teamId: request.teamId,
@@ -800,31 +802,36 @@ export class DiscussionService {
         confidence = sentimentAnalysis.confidence;
       }
 
-      // Create message
+      const participantMeta = isRecord(participant.metadata) ? participant.metadata : {}
+      const agentId = typeof participant.agentId === 'string' ? participant.agentId : undefined
+      const agentName =
+        typeof participantMeta.displayName === 'string' ? participantMeta.displayName : agentId
+
+      // Only columns that exist on discussion_messages; sentiment/tokens/mentions/tags
+      // are not columns — fold the derived analytics into the metadata jsonb instead.
       const message = await this.databaseService.create<DiscussionMessage>('discussion_messages', {
         discussionId,
         participantId,
+        agentId,
         content,
         messageType,
-        sentiment,
         confidence,
-        tokens: this.estimateTokenCount(content),
-        processingTime: 0, // Will be updated by processing service
         attachments: [],
-        mentions: this.extractMentions(content, discussion.participants || []),
-        tags: this.extractTags(content),
-        reactions: [],
-        editHistory: [],
         isEdited: false,
         isDeleted: false,
+        metadata: {
+          agentName,
+          sentiment,
+          tokens: this.estimateTokenCount(content),
+          mentions: this.extractMentions(content, discussion.participants || []),
+          tags: this.extractTags(content),
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
-      // Update participant message count
       await this.databaseService.update('discussion_participants', participantId, {
         messageCount: (typeof participant.messageCount === 'number' ? participant.messageCount : 0) + 1,
-        lastMessageAt: new Date(),
       });
 
       // Update discussion state

@@ -281,17 +281,23 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           response: { 200: ProviderResponseSchema },
         })
 
-        .get('/models', async ({ headers }) => {
+        .get('/models', async ({ headers, set }) => {
           const { userId, error: authError } = requireUserId(headers);
           if (authError) return authError;
           logger.info('Getting available models for user', { userId });
-          const models = await userLLMService.getAvailableModels(userId);
-          const healthResults = await userLLMService.testUserProvider(userId);
-          logger.debug('Health check results', { userId, healthResults });
-          return {
-            success: true,
-            data: models,
-          };
+          try {
+            const models = await userLLMService.getAvailableModels(userId);
+            // testUserProvider does live provider network calls; a failing/unreachable
+            // provider must not turn model listing into a 500. Fire-and-forget.
+            void userLLMService
+              .testUserProvider(userId)
+              .catch((error) => logger.warn('User provider health check failed', { userId, error }));
+            return { success: true, data: models };
+          } catch (error) {
+            logger.error('Failed to get available models', { userId, error });
+            set.status = 500;
+            return { success: false, error: 'Failed to get available models' };
+          }
         }, {
           response: { 200: ProviderResponseSchema },
         })

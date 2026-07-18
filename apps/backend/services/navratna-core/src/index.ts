@@ -415,8 +415,6 @@ class NavratnaCoreService extends BaseService {
 
       this.factory.mountWebSocket(this.io)
 
-      await this.setupEventSubscriptions()
-
       const bunHandler = this.bunEngine.handler()
       this.server = this.app.listen({
         port: this.config.port,

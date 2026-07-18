@@ -40,6 +40,17 @@ function isUuid(v: unknown): v is string {
   return typeof v === 'string' && UUID_REGEX.test(v);
 }
 
+// Single source of truth for the account email an OAuth login maps to. Must stay
+// identical to the email persisted in createUserFromOAuth, so lookup == insert.
+function oauthEffectiveEmail(
+  userInfo: { email?: string; id?: string },
+  provider: { type?: string }
+): string | undefined {
+  if (userInfo.email) return userInfo.email;
+  if (userInfo.id) return `${userInfo.id}@${provider.type ?? 'oauth'}.oauth`;
+  return undefined;
+}
+
 function extractOAuthScopes(tokens: unknown, provider: unknown): string[] {
   if (isRecord(tokens) && typeof tokens.scope === 'string' && tokens.scope.trim()) {
     return tokens.scope.split(/[\s,]+/).filter(Boolean);
@@ -244,11 +255,15 @@ export class EnhancedAuthService {
         await this.oauthProviderService.handleCallback(code, state, redirectUri);
 
       // Find or create user
-      // Try to find user by email first, then by OAuth connection
+      // Try to find user by email first, then by OAuth connection.
+      // Providers without a public email (e.g. GitHub) are persisted under the
+      // synthesized `${id}@${provider}.oauth` address, so the re-login lookup MUST
+      // use that same effective email — not the raw (null) userInfo.email — or every
+      // re-login re-attempts createUser and dies on the email unique constraint.
       let user: EnhancedUser | null = null;
-      // Guard: only search by email if email is present
-      if (userInfo.email) {
-        const foundByEmail = await this.userService.findUserByEmail(userInfo.email);
+      const effectiveEmail = oauthEffectiveEmail(userInfo, provider);
+      if (effectiveEmail) {
+        const foundByEmail = await this.userService.findUserByEmail(effectiveEmail);
         if (foundByEmail) {
           user = toEnhancedUser(foundByEmail);
         }
@@ -739,7 +754,7 @@ export class EnhancedAuthService {
   ): Promise<EnhancedUser> {
     // OAuth-only signup: provision a brand-new account for a first-time OAuth login.
     const isAgent = oauthState.userType === UserType.AGENT;
-    const email = userInfo.email || `${userInfo.id}@${provider.type ?? 'oauth'}.oauth`;
+    const email = oauthEffectiveEmail(userInfo, provider) ?? `${userInfo.id}@${provider.type ?? 'oauth'}.oauth`;
 
     // Derive first/last name from the provider's display name (e.g. "Jane Doe").
     const displayName = userInfo.name || userInfo.login || '';

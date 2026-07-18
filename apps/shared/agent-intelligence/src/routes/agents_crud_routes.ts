@@ -165,6 +165,128 @@ export function registerAgentCrudRoutes(
         },
       })
     
+      // Static `/mcp-tools` MUST be registered before the `/:agentId` wildcard,
+      // otherwise Elysia matches it as agentId="mcp-tools" and the agent lookup
+      // fails with a non-UUID id → 500.
+      .get('/mcp-tools', async () => {
+        const db = getIntelligenceDb()
+        const rows = await db
+          .select({ assigned: agents.assignedMCPTools })
+          .from(agents)
+        const seen = new Map<string, { toolId: string; toolName: string; serverName: string }>()
+        for (const row of rows) {
+          for (const tool of row.assigned ?? []) {
+            if (tool?.toolId && !seen.has(tool.toolId)) {
+              seen.set(tool.toolId, { toolId: tool.toolId, toolName: tool.toolName, serverName: tool.serverName })
+            }
+          }
+        }
+        return { success: true, tools: Array.from(seen.values()) }
+      })
+
+      .get('/:agentId/mcp-tools', async (ctx) => {
+        try {
+          const db = getIntelligenceDb()
+          const [row] = await db
+            .select({ assigned: agents.assignedMCPTools, settings: agents.mcpToolSettings })
+            .from(agents)
+            .where(eq(agents.id, ctx.params.agentId))
+            .limit(1)
+          if (!row) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+          return { success: true, assignedMCPTools: row.assigned ?? [], mcpToolSettings: row.settings ?? {} }
+        } catch (error) {
+          logger.error('Failed to get agent MCP tools', { error, agentId: ctx.params.agentId })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to get agent MCP tools' }
+        }
+      })
+
+      .post('/:agentId/mcp-tools', async (ctx) => {
+        try {
+          const db = getIntelligenceDb()
+          const [row] = await db
+            .select({ assigned: agents.assignedMCPTools })
+            .from(agents)
+            .where(eq(agents.id, ctx.params.agentId))
+            .limit(1)
+          if (!row) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+          const body = isRecord(ctx.body) ? ctx.body : {}
+          const toolsToAssign = Array.isArray(body.toolsToAssign) ? body.toolsToAssign : []
+          const current = row.assigned ?? []
+          const byId = new Map(current.map((tool) => [tool.toolId, tool]))
+          for (const raw of toolsToAssign) {
+            if (!isRecord(raw) || typeof raw.toolId !== 'string') continue
+            byId.set(raw.toolId, {
+              toolId: raw.toolId,
+              toolName: typeof raw.toolName === 'string' ? raw.toolName : raw.toolId,
+              serverName: typeof raw.serverName === 'string' ? raw.serverName : '',
+              enabled: raw.enabled !== false,
+            })
+          }
+          const assignedMCPTools = Array.from(byId.values())
+          await db.update(agents).set({ assignedMCPTools }).where(eq(agents.id, ctx.params.agentId))
+          return { success: true, assignedMCPTools }
+        } catch (error) {
+          logger.error('Failed to assign agent MCP tools', { error, agentId: ctx.params.agentId })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to assign agent MCP tools' }
+        }
+      })
+
+      .put('/:agentId/mcp-tools/:toolId', async (ctx) => {
+        try {
+          const db = getIntelligenceDb()
+          const [row] = await db
+            .select({ assigned: agents.assignedMCPTools })
+            .from(agents)
+            .where(eq(agents.id, ctx.params.agentId))
+            .limit(1)
+          if (!row) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+          const body = isRecord(ctx.body) ? ctx.body : {}
+          const enabled = body.enabled !== false
+          const assignedMCPTools = (row.assigned ?? []).map((tool) =>
+            tool.toolId === ctx.params.toolId ? { ...tool, enabled } : tool
+          )
+          await db.update(agents).set({ assignedMCPTools }).where(eq(agents.id, ctx.params.agentId))
+          return { success: true, assignedMCPTools }
+        } catch (error) {
+          logger.error('Failed to update agent MCP tool', { error, agentId: ctx.params.agentId })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to update agent MCP tool' }
+        }
+      })
+
+      .delete('/:agentId/mcp-tools/:toolId', async (ctx) => {
+        try {
+          const db = getIntelligenceDb()
+          const [row] = await db
+            .select({ assigned: agents.assignedMCPTools })
+            .from(agents)
+            .where(eq(agents.id, ctx.params.agentId))
+            .limit(1)
+          if (!row) {
+            ctx.set.status = 404
+            return { success: false, error: 'Agent not found' }
+          }
+          const assignedMCPTools = (row.assigned ?? []).filter((tool) => tool.toolId !== ctx.params.toolId)
+          await db.update(agents).set({ assignedMCPTools }).where(eq(agents.id, ctx.params.agentId))
+          return { success: true, assignedMCPTools }
+        } catch (error) {
+          logger.error('Failed to remove agent MCP tool', { error, agentId: ctx.params.agentId })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to remove agent MCP tool' }
+        }
+      })
+
       .get('/:agentId', async (ctx) => {
         try {
           const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)

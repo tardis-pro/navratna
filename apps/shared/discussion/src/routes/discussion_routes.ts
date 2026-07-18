@@ -46,7 +46,7 @@ export function registerDiscussionRoutes(
               parseInt(limit, 10),
               parseInt(offset, 10)
             )
-            return { success: true, ...result }
+            return { success: true, data: result.discussions, total: result.total }
           } catch (error) {
             logger.error('Failed to list discussions', { error })
             ctx.set.status = 500
@@ -105,7 +105,7 @@ export function registerDiscussionRoutes(
               parseInt(limit, 10),
               parseInt(offset, 10)
             )
-            return { success: true, ...result }
+            return { success: true, data: result.discussions, total: result.total }
           } catch (error) {
             logger.error('Failed to search discussions', { error })
             ctx.set.status = 500

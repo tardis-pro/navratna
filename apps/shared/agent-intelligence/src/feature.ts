@@ -7,8 +7,12 @@ import {
   ServiceFactory,
   UnifiedModelSelectionFacade,
 } from '@uaip/shared-services'
+import type { EventBusService } from '@uaip/shared-services/event-bus'
 import { UserLLMService } from '@uaip/llm-service'
 import { logger } from '@uaip/utils'
+import type { EventBusMessage } from '@uaip/types'
+
+import { handleAgentDiscussionTrigger } from './events/discussion_agent_turn_handler.js'
 
 import { registerAgentCapabilityRoutes } from './routes/agent_capability_routes.js'
 import { registerAgentChatRoutes } from './routes/agent_chat_routes.js'
@@ -25,6 +29,7 @@ let userLLMService: UserLLMService
 let securityService: SecurityService
 let semanticMemoryManager: Awaited<ReturnType<ServiceFactory['getSemanticMemoryManager']>>
 let memoryConsolidationScheduler: MemoryConsolidationScheduler
+let databaseServiceRef: DatabaseService
 
 export const agentIntelligenceFeature: Feature = {
   name: 'agent-intelligence',
@@ -32,6 +37,7 @@ export const agentIntelligenceFeature: Feature = {
   async initialize(deps: ServiceDeps): Promise<void> {
     const databaseService = DatabaseService.getInstance()
     await databaseService.initialize()
+    databaseServiceRef = databaseService
     agentIntelligenceService = new AgentIntelligenceService(databaseService, deps.eventBusService)
     await agentIntelligenceService.initialize()
     capabilityDiscoveryService = new CapabilityDiscoveryService(databaseService)
@@ -62,6 +68,18 @@ export const agentIntelligenceFeature: Feature = {
     app.use(registerCognitivePortraitRoutes())
     app.use(registerConstellationRoutes())
     return app
+  },
+
+  async events(bus: EventBusService): Promise<void> {
+    await bus.subscribe('agent.discussion.trigger', async (event: EventBusMessage) => {
+      await handleAgentDiscussionTrigger(event, {
+        agentIntelligenceService,
+        userLLMService,
+        databaseService: databaseServiceRef,
+        publish: (topic, payload) => bus.publish(topic, payload),
+      })
+    })
+    logger.info('agent-intelligence event subscriptions configured (agent.discussion.trigger)')
   },
 
   async shutdown(): Promise<void> {

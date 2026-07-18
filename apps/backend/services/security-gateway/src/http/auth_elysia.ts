@@ -315,7 +315,10 @@ export function registerAuthRoutes() {
       }
     }, {
       body: t.Object({
-        email: t.String({ format: 'email' }),
+        // format:'email' is unregistered in TypeBox's FormatRegistry in the prod Bun
+        // build, so its AOT-compiled check rejects every body (even valid emails) →
+        // 500 on all logins. Email is validated by the zod loginSchema in-handler.
+        email: t.String({ minLength: 3 }),
         password: t.String({ minLength: 6 }),
         rememberMe: t.Optional(t.Boolean({ default: false })),
       }),

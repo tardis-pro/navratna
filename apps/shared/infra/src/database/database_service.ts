@@ -1,6 +1,27 @@
 import { logger } from '@uaip/utils';
 import { PgService, pgService } from './pg_service.js';
 
+// DB columns are snake_case; callers pass camelCase entity keys. Without this,
+// INSERT/UPDATE/WHERE emit `"documentId"`/`"turnStrategy"` etc. and Postgres
+// throws `column "..." does not exist`.
+const camelToSnake = (key: string): string =>
+  key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/-/g, '_').toLowerCase();
+
+const snakeToCamel = (key: string): string =>
+  key.replace(/_([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
+
+// Row keys come back snake_case from `SELECT *`/`RETURNING *`; every domain
+// consumer reads camelCase (createdBy, userId, agentId, isActive). Convert
+// top-level keys only — never recurse into JSONB values (e.g. metadata).
+function rowToCamel<T>(row: T): T {
+  if (row === null || typeof row !== 'object' || Array.isArray(row)) return row;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+    out[snakeToCamel(key)] = value;
+  }
+  return out as T;
+}
+
 export class DatabaseError extends Error {
   public readonly code?: string;
   public readonly details?: Record<string, unknown>;
@@ -163,15 +184,15 @@ export class DatabaseService {
     const values = Object.values(data);
     if (keys.length === 0) {
       const rows = await this.executeQuery<T>(`INSERT INTO "${table}" DEFAULT VALUES RETURNING *`);
-      return rows[0];
+      return rowToCamel(rows[0]);
     }
-    const cols = keys.map((k) => `"${k}"`).join(', ');
+    const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(', ');
     const placeholders = keys.map((_k, i) => `$${i + 1}`).join(', ');
     const rows = await this.executeQuery<T>(
       `INSERT INTO "${table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
       values
     );
-    return rows[0];
+    return rowToCamel(rows[0]);
   }
 
   async findById<T = Record<string, unknown>>(
@@ -181,7 +202,7 @@ export class DatabaseService {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
     const rows = await this.executeQuery<T>(`SELECT * FROM "${table}" WHERE id = $1 LIMIT 1`, [id]);
-    return rows[0] ?? null;
+    return rows[0] ? rowToCamel(rows[0]) : null;
   }
 
   async update<T = Record<string, unknown>>(
@@ -191,21 +212,30 @@ export class DatabaseService {
   ): Promise<T | null> {
     await this.ensureInitialized();
     const table = this.resolveTableName(tableOrEntity);
-    const keys = Object.keys(data);
-    if (keys.length === 0) return this.findById<T>(table, id);
-    const setClauses = keys.map((k, i) => `"${k}" = $${i + 2}`).join(', ');
-    const vals: unknown[] = [id, ...Object.values(data)];
+    // updated_at is always set to NOW() below; drop any caller-supplied updatedAt/
+    // updated_at so it doesn't collide into a duplicate SET column (Postgres rejects
+    // `SET "updated_at" = $2, updated_at = NOW()`).
+    const keys = Object.keys(data).filter((k) => camelToSnake(k) !== 'updated_at');
+    if (keys.length === 0) {
+      const rows = await this.executeQuery<T>(
+        `UPDATE "${table}" SET updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [id]
+      );
+      return rows[0] ? rowToCamel(rows[0]) : null;
+    }
+    const setClauses = keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 2}`).join(', ');
+    const vals: unknown[] = [id, ...keys.map((k) => data[k])];
     const rows = await this.executeQuery<T>(
       `UPDATE "${table}" SET ${setClauses}, updated_at = NOW() WHERE id = $1 RETURNING *`,
       vals
     );
-    return rows[0] ?? null;
+    return rows[0] ? rowToCamel(rows[0]) : null;
   }
 
   private buildConditionClause(conditions: Record<string, unknown>): { clause: string; values: unknown[] } {
     const keys = Object.keys(conditions);
     if (keys.length === 0) return { clause: '', values: [] };
-    const clause = ' WHERE ' + keys.map((k, i) => `"${k}" = $${i + 1}`).join(' AND ');
+    const clause = ' WHERE ' + keys.map((k, i) => `"${camelToSnake(k)}" = $${i + 1}`).join(' AND ');
     return { clause, values: Object.values(conditions) };
   }
 
@@ -219,11 +249,12 @@ export class DatabaseService {
     const { clause, values } = this.buildConditionClause(conditions);
     let query = `SELECT * FROM "${table}"${clause}`;
     if (options.order) {
-      query += ' ORDER BY ' + Object.entries(options.order).map(([col, dir]) => `"${col}" ${dir}`).join(', ');
+      query += ' ORDER BY ' + Object.entries(options.order).map(([col, dir]) => `"${camelToSnake(col)}" ${dir}`).join(', ');
     }
     if (options.take) query += ` LIMIT ${options.take}`;
     if (options.skip) query += ` OFFSET ${options.skip}`;
-    return this.executeQuery<T>(query, values);
+    const rows = await this.executeQuery<T>(query, values);
+    return rows.map((row) => rowToCamel(row));
   }
 
   async count(tableOrEntity: unknown, conditions: Record<string, unknown> = {}): Promise<number> {

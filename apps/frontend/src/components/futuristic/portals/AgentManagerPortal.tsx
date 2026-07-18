@@ -366,8 +366,24 @@ type AttachedTool = {
   } = useInfiniteQuery({
     queryKey: ['agents', 'portal', AGENTS_PAGE_SIZE],
     initialPageParam: 1,
-    queryFn: ({ pageParam }) =>
-      edenRequest<AgentsListPage>(`/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`, { method: 'GET' }),
+    queryFn: async ({ pageParam }) => {
+      // unwrapEden strips the {success,data,pagination} envelope to the bare data array, dropping pagination
+      const agents = await edenRequest<AgentState[]>(
+        `/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`,
+        { method: 'GET' }
+      );
+      const list = Array.isArray(agents) ? agents : [];
+      const page: AgentsListPage = {
+        data: list,
+        pagination: {
+          page: pageParam,
+          limit: AGENTS_PAGE_SIZE,
+          total: list.length,
+          hasMore: list.length === AGENTS_PAGE_SIZE,
+        },
+      };
+      return page;
+    },
     getNextPageParam: (lastPage) =>
       lastPage?.pagination?.hasMore ? lastPage.pagination.page + 1 : undefined,
     staleTime: STALE_TIMES.DEFAULT,
