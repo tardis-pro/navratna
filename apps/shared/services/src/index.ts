@@ -324,9 +324,17 @@ export {
   getUserKnowledgeService,
   getContextOrchestrationService,
   getAgentMemoryService,
+  getEnhancedRAGService,
   initializeServices,
   servicesHealthCheck,
   resetServices,
 } from './service_factory'
 
 export { FeatureFactory, type Feature, type ServiceDeps } from './feature_factory.js';
+
+export {
+  KnowledgeSummaryEnrichmentJob,
+  getKnowledgeSummaryEnrichmentJob,
+  type SummaryEnrichmentPayload,
+  type SummarizeFn,
+} from './jobs/knowledge_summary_enrichment_job';

@@ -11,6 +11,14 @@ export { KnowledgeRepository } from '../database/repositories/knowledge_reposito
 export { EmbeddingService } from './embedding_service';
 export { TEIEmbeddingService } from './tei_embedding_service';
 export { SmartEmbeddingService } from './smart_embedding_service';
+export {
+  resolveEmbeddingProvider,
+  resolveRerankingProvider,
+  resolveEmbeddingAndRerankingProviders,
+  type ResolvedEmbeddingProvider,
+  type ResolvedRerankingProvider,
+  type ResolvedProviderConfig,
+} from './embedding_provider_resolver';
 export { EnhancedRAGService } from './enhanced_rag_service';
 export { ContentClassifier } from './content_classifier_service';
 export { RelationshipDetector } from './relationship_detector_service';
@@ -25,6 +33,8 @@ export { ReconciliationService } from './reconciliation_service';
 export { QdrantHealthService } from './qdrant_health_service';
 
 // Chat ingestion services
+export { splitText, chunkDocument } from './text_splitter';
+export type { TextSplitterOptions, Chunk } from './text_splitter';
 export { ChatParserService } from './chat_parser_service';
 export { ChatKnowledgeExtractorService } from './chat_knowledge_extractor_service';
 export { BatchProcessorService } from './batch_processor_service';

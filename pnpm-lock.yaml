@@ -2086,6 +2086,9 @@ importers:
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
+      bullmq:
+        specifier: catalog:backend
+        version: 5.71.1
       compression:
         specifier: catalog:backend
         version: 1.8.1

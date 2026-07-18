@@ -1,5 +1,7 @@
-import { BaseService } from '@uaip/shared-services'
+import { BaseService, getKnowledgeSummaryEnrichmentJob, UnifiedModelSelectionFacade } from '@uaip/shared-services'
 import { FeatureFactory } from '@uaip/shared-services/feature-factory'
+import { LLMService } from '@uaip/llm-service'
+import { LLMTaskType } from '@uaip/types'
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as BunEngine } from '@socket.io/bun-engine'
 import { logger, isRecord } from '@uaip/utils'
@@ -102,7 +104,36 @@ class NavratnaCoreService extends BaseService {
       eventBusService: this.eventBusService,
     })
     await this.initializeAuthSubscription()
+    this.startSummaryEnrichmentWorker()
     logger.info('navratna-core services initialized')
+  }
+
+  private startSummaryEnrichmentWorker(): void {
+    try {
+      const facade = new UnifiedModelSelectionFacade()
+      const llm = LLMService.getInstance()
+      getKnowledgeSummaryEnrichmentJob().startWorker(async (content: string) => {
+        const selection = await facade.selectForSystem(LLMTaskType.SUMMARIZATION)
+        const response = await llm.generateResponse(
+          {
+            prompt: `Summarize the following text in 2-4 sentences. Return only the summary, no preamble.\n\n${content}`,
+            systemPrompt: 'You are a precise summarizer.',
+            maxTokens: 300,
+            temperature: 0.3,
+            model: selection.model.model,
+          },
+          selection.model.provider,
+        )
+        if (response.error || !response.content?.trim()) {
+          throw new Error(response.error || 'LLM returned empty summary')
+        }
+        return response.content
+      })
+    } catch (err) {
+      logger.warn('Failed to start summary enrichment worker', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
 
   protected async setupRoutes(): Promise<void> {

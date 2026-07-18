@@ -36,6 +36,7 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "bcryptjs": "^3.0.3",
+    "bullmq": "catalog:backend",
     "compression": "catalog:backend",
     "elysia": "catalog:backend",
     "helmet": "catalog:backend",

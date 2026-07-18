@@ -33,6 +33,7 @@ import {
 } from './chat_knowledge_extractor_service';
 import { BatchProcessorService, FileData, ProcessingOptions } from './batch_processor_service';
 import { KnowledgeIngestionPort } from './knowledge_ingestion_port';
+import { getKnowledgeSummaryEnrichmentJob } from '../jobs/knowledge_summary_enrichment_job';
 import { QAGeneratorService, GeneratedQA, QAGenerationOptions } from './qa_generator_service';
 import {
   WorkflowExtractorService,
@@ -65,6 +66,26 @@ type ExtractedKnowledgeBundle = {
   qaPairs: QAPair[];
   decisionPoints: DecisionPoint[];
 };
+
+const SUMMARY_MIN_CONTENT_LENGTH = 400;
+const SUMMARY_MAX_LENGTH = 320;
+
+// Inline + extractive by design: keeps /import sync-fast for hundreds of chunks.
+// LLM-abstractive summarization must stay a separate async enrichment pass, not here.
+function extractiveSummary(content: string): string | undefined {
+  const text = content.trim().replace(/\s+/g, ' ');
+  if (text.length < SUMMARY_MIN_CONTENT_LENGTH) return undefined;
+
+  const sentences = text.match(/[^.!?]+[.!?]+/g) ?? [text];
+  let summary = '';
+  for (const sentence of sentences) {
+    if (summary.length + sentence.length > SUMMARY_MAX_LENGTH) break;
+    summary += sentence;
+  }
+  summary = summary.trim();
+  if (!summary) summary = text.slice(0, SUMMARY_MAX_LENGTH).trim();
+  return summary.length < text.length ? summary : undefined;
+}
 
 export class KnowledgeGraphService implements KnowledgeIngestionPort {
   private readonly conceptExtractor: ConceptExtractorService;
@@ -224,6 +245,7 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
           tags: [...(item.tags || []), ...classification.tags],
           confidence: item.confidence || classification.confidence,
           type: item.type || classification.type,
+          summary: extractiveSummary(item.content),
           userId: item.scope?.userId,
           agentId: item.scope?.agentId,
         });
@@ -268,6 +290,17 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
         }
 
         results.push(knowledgeItem);
+
+        if (item.content.length >= SUMMARY_MIN_CONTENT_LENGTH) {
+          getKnowledgeSummaryEnrichmentJob()
+            .enqueue({ itemId: knowledgeItem.id, content: item.content })
+            .catch((err) =>
+              logger.warn('Failed to enqueue summary enrichment', {
+                itemId: knowledgeItem.id,
+                error: err instanceof Error ? err.message : String(err),
+              })
+            );
+        }
       } catch (error) {
         console.error(`Failed to ingest item: ${item.content.substring(0, 100)}...`, error);
         errors.push(`Ingestion failed: ${error instanceof Error ? error.message : String(error)}`);
