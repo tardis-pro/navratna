@@ -1,6 +1,7 @@
 import { EmbeddingService } from './embedding_service';
 import { TEIEmbeddingService, TEIHealthStatus } from './tei_embedding_service';
 import { ContextRequest } from '@uaip/types';
+import type { ResolvedEmbeddingProvider, ResolvedRerankingProvider } from './embedding_provider_resolver';
 
 export interface EmbeddingServiceConfig {
   preferTEI: boolean;
@@ -13,6 +14,8 @@ export interface EmbeddingServiceConfig {
   openaiApiKey?: string;
   healthCheckInterval: number;
   embeddingModel?: string;
+  resolvedEmbeddingProvider?: ResolvedEmbeddingProvider;
+  resolvedRerankingProvider?: ResolvedRerankingProvider;
 }
 
 export interface SmartEmbeddingStatus {
@@ -60,7 +63,7 @@ export class SmartEmbeddingService extends EmbeddingService {
     // EMBEDDINGS_API_KEY doubles as the CF worker's X-Embed-Auth secret.
     super(
       config.openaiApiKey || process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY,
-      config.embeddingModel || process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002'
+      config.embeddingModel || config.resolvedEmbeddingProvider?.model || process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002'
     );
 
     // Default configuration
@@ -68,13 +71,13 @@ export class SmartEmbeddingService extends EmbeddingService {
       preferTEI: true,
       fallbackToOpenAI: true,
       teiUrls: {
-        embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-        reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
+        embedding: config.resolvedEmbeddingProvider?.baseUrl || process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
+        reranker: config.resolvedRerankingProvider?.baseUrl || process.env.TEI_RERANKER_URL || 'http://localhost:8083',
         embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
       },
-      openaiApiKey: process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY,
-      healthCheckInterval: 30000, // 30 seconds
-      embeddingModel: process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002',
+      openaiApiKey: config.resolvedEmbeddingProvider?.apiKey || process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY,
+      healthCheckInterval: 30000,
+      embeddingModel: config.resolvedEmbeddingProvider?.model || process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002',
       ...config,
     };
 

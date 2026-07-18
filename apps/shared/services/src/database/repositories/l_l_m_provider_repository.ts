@@ -3,7 +3,7 @@ import { getIntelligenceDb } from '../drizzle/clients/index';
 import { llmProviders, llmModels } from '../drizzle/schemas/intelligence_schema';
 import { logger, encryptApiKey, decryptApiKey, isEncryptedApiKey } from '@uaip/utils';
 
-type LLMProviderRow = typeof llmProviders.$inferSelect;
+export type LLMProviderRow = typeof llmProviders.$inferSelect;
 type NewLLMProvider = typeof llmProviders.$inferInsert;
 type LLMModelRow = typeof llmModels.$inferSelect;
 type NewLLMModel = typeof llmModels.$inferInsert;

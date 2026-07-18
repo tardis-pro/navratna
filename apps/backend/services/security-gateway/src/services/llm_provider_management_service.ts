@@ -3,6 +3,7 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import {
   LLMProviderType,
   LLMProviderStatus,
+  LLMProviderUsageType,
   CreateLLMProviderRequest,
   UpdateLLMProviderRequest,
   LLMProviderResponse,
@@ -72,6 +73,23 @@ export class LLMProviderManagementService {
       return providers.map((provider) => this.mapToResponse(provider, this.computeStats(provider)));
     } catch (error) {
       logger.error('Error getting active LLM providers', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get active LLM providers filtered by usage type (e.g. chat, embedding, reranking)
+   */
+  async getProvidersByUsageType(usageType: LLMProviderUsageType): Promise<LLMProviderResponse[]> {
+    try {
+      await this.ensureInitialized();
+      const providers = await this.llmProviderRepository.findMany({ isActive: true });
+      return providers
+        .filter((provider) => provider.usageType === usageType)
+        .sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+        .map((provider) => this.mapToResponse(provider, this.computeStats(provider)));
+    } catch (error) {
+      logger.error('Error getting LLM providers by usage type', { usageType, error });
       throw error;
     }
   }

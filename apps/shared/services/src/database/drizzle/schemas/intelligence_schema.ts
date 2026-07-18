@@ -28,6 +28,7 @@ import {
   uniqueIndex,
   customType,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 const numericDecimal = customType<{ data: number; driverData: string }>({
   dataType(params: { precision?: number; scale?: number }) {
     const { precision, scale } = params;
@@ -76,6 +77,7 @@ import {
   KnowledgeType,
   MessageType,
 } from '@uaip/types';
+import type { LLMProviderUsageType } from '@uaip/types';
 import { base, llmPreferenceCommonColumns } from './schema_base';
 import { ADMIN_ORG_ID } from '../constants';
 
@@ -584,6 +586,10 @@ export const llmProviders = pgTable(
       .$type<LLMProviderType>()
       .notNull()
       .default(LLMProviderType.CUSTOM),
+    usageType: text('usage_type')
+      .$type<LLMProviderUsageType>()
+      .notNull()
+      .default(sql<LLMProviderUsageType>`'chat'`),
     baseUrl: varchar('base_url', { length: 500 }).notNull(),
     apiKeyEncrypted: text('api_key_encrypted'),
     defaultModel: varchar('default_model', { length: 255 }),

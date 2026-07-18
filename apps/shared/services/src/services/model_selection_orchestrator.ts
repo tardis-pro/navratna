@@ -133,11 +133,20 @@ export const UNIFIED_SYSTEM_DEFAULTS: Record<LLMTaskType, ModelSelectionResult> 
   },
   [LLMTaskType.EMBEDDINGS]: {
     provider: LLMProviderType.OPENAI,
-    model: 'gpt-4o-mini',
+    model: 'text-embedding-3-small',
     settings: {},
     source: 'system',
-    reasoning: 'LM Studio local model - system default',
+    reasoning: 'OpenAI embedding model - system default',
     confidence: 0.9,
+    selectionStrategy: 'SystemDefaultStrategy',
+  },
+  [LLMTaskType.RERANKING]: {
+    provider: LLMProviderType.OPENAI,
+    model: 'text-embedding-3-small',
+    settings: {},
+    source: 'system',
+    reasoning: 'OpenAI cross-encoder reranker proxy - system default',
+    confidence: 0.85,
     selectionStrategy: 'SystemDefaultStrategy',
   },
   [LLMTaskType.CLASSIFICATION]: {

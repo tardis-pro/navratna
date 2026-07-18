@@ -51,16 +51,18 @@ export class KnowledgeBootstrapService {
       useSimplifiedSync: true,
     }
   ) {
-    // Initialize smart embedding service with TEI preference
-    this.smartEmbeddingService = new SmartEmbeddingService({
-      preferTEI: true,
-      fallbackToOpenAI: false, // Only use TEI
-      teiUrls: {
-        embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-        reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
-        embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
-      },
-    });
+    this.smartEmbeddingService =
+      embeddingService instanceof SmartEmbeddingService
+        ? embeddingService
+        : new SmartEmbeddingService({
+            preferTEI: true,
+            fallbackToOpenAI: false,
+            teiUrls: {
+              embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
+              reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
+              embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
+            },
+          });
 
     // Initialize services
     // TODO: Add user persona sync later

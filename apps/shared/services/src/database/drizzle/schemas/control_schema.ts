@@ -45,6 +45,7 @@ import type {
   MCPServerStats,
   AuthenticationMethod,
   OAuthProviderType,
+  LLMProviderUsageType,
 } from '@uaip/types';
 import {
   SecurityLevel,
@@ -387,6 +388,7 @@ export const userLLMProviders = pgTable('user_llm_providers', {
   // cross-plane ref: intelligence.llmProviders.id OR a provider type tag ('anthropic'/'ollama'/...) — no DB FK, stored as text
   providerId: text('provider_id').notNull(),
   apiKeyEncrypted: text('api_key_encrypted'),
+  usageType: text('usage_type').$type<LLMProviderUsageType>(),
   isDefault: boolean('is_default').notNull().default(false),
   configuration: jsonb('configuration').$type<Record<string, unknown>>(),
 });

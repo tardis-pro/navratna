@@ -354,6 +354,7 @@ import { KnowledgeRepository } from './database/repositories/knowledge_repositor
 import { QdrantService } from './qdrant_service';
 import { ToolGraphDatabase } from './database/tool_graph_database';
 import { SmartEmbeddingService } from './knowledge-graph/smart_embedding_service';
+import { resolveEmbeddingAndRerankingProviders } from './knowledge-graph/embedding_provider_resolver';
 
 // Database error handling
 export class DatabaseError extends Error {
@@ -484,7 +485,11 @@ export class DatabaseService {
 
   public async getSmartEmbeddingService(): Promise<SmartEmbeddingService> {
     if (!this._smartEmbeddingService) {
-      this._smartEmbeddingService = new SmartEmbeddingService();
+      const resolvedProviders = await resolveEmbeddingAndRerankingProviders();
+      this._smartEmbeddingService = new SmartEmbeddingService({
+        resolvedEmbeddingProvider: resolvedProviders.embedding,
+        resolvedRerankingProvider: resolvedProviders.reranking,
+      });
     }
     return this._smartEmbeddingService;
   }

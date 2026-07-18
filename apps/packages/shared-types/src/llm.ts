@@ -10,6 +10,12 @@ export enum LLMProviderStatus {
   TESTING = 'testing',
 }
 
+export enum LLMProviderUsageType {
+  CHAT = 'chat',
+  EMBEDDING = 'embedding',
+  RERANKING = 'reranking',
+}
+
 export enum LLMProviderType {
   OLLAMA = 'ollama',
   OPENAI = 'openai',
@@ -47,6 +53,7 @@ export const LLMModelSchema = z.object({
         'function-calling',
         'image-generation',
         'embeddings',
+        'reranking',
       ])
     )
     .optional(),
@@ -281,6 +288,7 @@ export enum ModelCapability {
   FUNCTION_CALLING = 'function-calling',
   IMAGE_GENERATION = 'image-generation',
   EMBEDDINGS = 'embeddings',
+  RERANKING = 'reranking',
 }
 
 export const ModelCapabilityDetectionSchema = z.object({
@@ -351,6 +359,7 @@ export enum LLMTaskType {
   CREATIVE_WRITING = 'creative_writing',
   TRANSLATION = 'translation',
   EMBEDDINGS = 'embeddings',
+  RERANKING = 'reranking',
   CLASSIFICATION = 'classification',
 }
 
@@ -530,6 +539,11 @@ export interface ModelRoutingConfig {
 // ============================================================================
 
 // Core LLM request/response interfaces
+export interface LLMImageInput {
+  base64: string;
+  mimeType: string;
+}
+
 export interface LLMRequest {
   prompt: string;
   systemPrompt?: string;
@@ -539,6 +553,7 @@ export interface LLMRequest {
   stream?: boolean;
   userId?: string;
   agentId?: string;
+  images?: LLMImageInput[];
 }
 
 export interface LLMResponse {

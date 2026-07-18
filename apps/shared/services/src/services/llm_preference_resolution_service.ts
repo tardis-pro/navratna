@@ -113,12 +113,20 @@ const SYSTEM_DEFAULTS: Record<LLMTaskType, ResolvedLLMPreference> = {
     confidence: 0.8,
   },
   [LLMTaskType.EMBEDDINGS]: {
-    provider: LLMProviderType.LLMSTUDIO,
-    model: 'arch-agent-7b-i1',
+    provider: LLMProviderType.OPENAI,
+    model: 'text-embedding-3-small',
     settings: {},
     source: 'system',
-    reasoning: 'LM Studio local model - system default',
+    reasoning: 'OpenAI embedding model - system default',
     confidence: 0.9,
+  },
+  [LLMTaskType.RERANKING]: {
+    provider: LLMProviderType.OPENAI,
+    model: 'text-embedding-3-small',
+    settings: {},
+    source: 'system',
+    reasoning: 'OpenAI cross-encoder reranker proxy - system default',
+    confidence: 0.85,
   },
   [LLMTaskType.CLASSIFICATION]: {
     provider: LLMProviderType.LLMSTUDIO,

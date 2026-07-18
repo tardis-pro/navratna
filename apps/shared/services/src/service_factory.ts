@@ -11,6 +11,9 @@ import { KnowledgeRepository } from './database/repositories/knowledge_repositor
 import { EmbeddingService } from './knowledge-graph/embedding_service';
 import { TEIEmbeddingService } from './knowledge-graph/tei_embedding_service';
 import { SmartEmbeddingService } from './knowledge-graph/smart_embedding_service';
+import {
+  resolveEmbeddingAndRerankingProviders,
+} from './knowledge-graph/embedding_provider_resolver';
 import { EnhancedRAGService } from './knowledge-graph/enhanced_rag_service';
 import { ContentClassifier } from './knowledge-graph/content_classifier_service';
 import { RelationshipDetector } from './knowledge-graph/relationship_detector_service';
@@ -205,7 +208,11 @@ export class ServiceFactory {
 
   async getSmartEmbeddingService(): Promise<SmartEmbeddingService> {
     return this.getOrCreateService('smart-embedding-service', async () => {
-      const smartEmbedding = new SmartEmbeddingService();
+      const resolvedProviders = await resolveEmbeddingAndRerankingProviders();
+      const smartEmbedding = new SmartEmbeddingService({
+        resolvedEmbeddingProvider: resolvedProviders.embedding,
+        resolvedRerankingProvider: resolvedProviders.reranking,
+      });
 
       // Synchronize Qdrant dimensions with the active embedding service
       try {
@@ -547,6 +554,7 @@ export const getKnowledgeGraphService = () => serviceFactory.getKnowledgeGraphSe
 export const getUserKnowledgeService = () => serviceFactory.getUserKnowledgeService();
 export const getContextOrchestrationService = () => serviceFactory.getContextOrchestrationService();
 export const getAgentMemoryService = () => serviceFactory.getAgentMemoryService();
+export const getEnhancedRAGService = () => serviceFactory.getEnhancedRAGService();
 
 // API-friendly initialization functions (merged from ServiceInitializer)
 export const initializeServices = () => serviceFactory.initialize();
