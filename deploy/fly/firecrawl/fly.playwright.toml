@@ -1,0 +1,19 @@
+app = 'navratna-fc-playwright'
+primary_region = 'sin'
+
+[build]
+  image = 'ghcr.io/firecrawl/playwright-service:latest'
+
+[env]
+  PORT = '3000'
+
+[[services]]
+  internal_port = 3000
+  protocol = 'tcp'
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = 'performance-1x'
+  memory = '2048mb'

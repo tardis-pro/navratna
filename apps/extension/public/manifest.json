@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Navratna Copilot",
+  "version": "0.1.0",
+  "description": "Interactive AI copilot: chat about any page, fill forms with AI, and augment on-screen content.",
+  "permissions": ["cookies", "activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": [
+    "https://api.navratna.tardis.digital/*",
+    "https://navratna.tardis.digital/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Navratna Copilot"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": { "default": "Alt+Shift+A" },
+      "description": "Toggle the Navratna Copilot panel"
+    }
+  }
+}

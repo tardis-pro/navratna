@@ -1,0 +1,31 @@
+app = 'navratna-fc-api'
+primary_region = 'sin'
+
+[build]
+  image = 'ghcr.io/firecrawl/firecrawl:latest'
+
+[experimental]
+  # Run the single-process API server (flyio mode) instead of the full
+  # harness.js docker-compose stack. Single-URL /v1/scrape runs synchronously
+  # in-process (skipNuq), so no nuq-postgres / rabbitmq is needed — only Redis.
+  cmd = ['node', 'dist/src/index.js']
+
+[env]
+  PORT = '3002'
+  HOST = '0.0.0.0'
+  FLY_PROCESS_GROUP = 'app'
+  PLAYWRIGHT_MICROSERVICE_URL = 'http://navratna-fc-playwright.internal:3000/scrape'
+  USE_DB_AUTHENTICATION = 'false'
+  MAX_RAM = '0.95'
+  MAX_CPU = '0.95'
+
+[http_service]
+  internal_port = 3002
+  force_https = false
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = 'performance-1x'
+  memory = '2048mb'

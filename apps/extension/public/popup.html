@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { width: 240px; margin: 0; font-family: system-ui, sans-serif; background: #0f121c; color: #e8ecf4; padding: 16px; }
+      .row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg, #5eead4, #818cf8); }
+      h1 { font-size: 14px; margin: 0; font-weight: 600; }
+      p { font-size: 12px; opacity: 0.7; margin: 0 0 12px; }
+      button { width: 100%; background: linear-gradient(135deg, #5eead4, #6366f1); border: none; border-radius: 8px; padding: 9px; color: #0b0e16; font-weight: 600; cursor: pointer; }
+      .status { font-size: 12px; margin-top: 10px; opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <div class="row"><span class="dot"></span><h1>Navratna Copilot</h1></div>
+    <p>Toggle the panel on the current page (or press Alt+Shift+A).</p>
+    <button id="toggle">Open Copilot Panel</button>
+    <div class="status" id="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>
