@@ -27,6 +27,22 @@ import type {
 } from '@uaip/contracts/api';
 import { logger } from '@/utils/browser_logger';
 
+export interface RAGSearchOptions {
+  limit?: number;
+  minScore?: number;
+  rerank?: boolean;
+}
+
+export interface RAGSearchResult {
+  id: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  score: number;
+  rerankScore?: number;
+  originalScore: number;
+  rank: number;
+}
+
 export type {
   KnowledgeItem,
   KnowledgeUploadRequest,
@@ -283,6 +299,14 @@ export const knowledgeAPI = {
     });
   },
 
+  async importUrl(url: string): Promise<{ imported: number; updated: number; errors?: string[] }> {
+    return edenRequest('/api/v1/knowledge/import-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+  },
+
   async reindex(): Promise<{ indexed: number; duration: number }> {
     return edenWithCSRFRetry(() => knowledge.reindex.post({}));
   },
@@ -412,5 +436,15 @@ export const knowledgeAPI = {
     const query: Record<string, string> = {};
     if (participant) query['participant'] = participant;
     return edenWithCSRFRetry(() => knowledge['learning-insights'].get({ query }));
+  },
+
+  async ragSearch(q: string, options?: RAGSearchOptions): Promise<RAGSearchResult[]> {
+    const params = new URLSearchParams({ q });
+    if (options?.limit !== undefined) params.append('limit', options.limit.toString());
+    if (options?.minScore !== undefined) params.append('minScore', options.minScore.toString());
+    if (options?.rerank !== undefined) params.append('rerank', options.rerank.toString());
+    return edenRequest<RAGSearchResult[]>(`/api/v1/knowledge/rag?${params.toString()}`, {
+      method: 'GET',
+    });
   },
 };

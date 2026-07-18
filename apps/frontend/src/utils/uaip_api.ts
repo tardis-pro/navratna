@@ -66,7 +66,9 @@ import type {
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
-import { DiscussionStatus, MessageType, LLMProviderType } from '@uaip/types';
+import { DiscussionStatus, MessageType, LLMProviderType, TurnStrategy } from '@uaip/types';
+export { TurnStrategy };
+export type { DiscussionEvent } from '@uaip/types';
 
 // Import frontend-specific types
 import type {

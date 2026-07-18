@@ -33,6 +33,9 @@ import {
   MessageType,
   TurnStrategy,
 } from '@uaip/types';
+import { useToast, useKnowledgeUpload } from '../../../hooks';
+import { UploadDropZone } from '../../UploadDropZone';
+import { knowledgeAPI } from '../../../api/knowledge_api';
 import { logger } from '@/utils/browser_logger';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -194,6 +197,103 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     lastEvent,
     connect,
   } = useEnhancedWebSocket();
+
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDroppedFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+
+      let successCount = 0;
+      const errorMessages: string[] = [];
+
+      for (const file of files) {
+        try {
+          const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+          if (['.pdf', '.docx', '.doc'].includes(extension)) {
+            const res = await knowledgeAPI.import(file);
+            if (res.errors && res.errors.length > 0) {
+              errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
+            } else {
+              successCount += res.imported || 1;
+            }
+          } else if (['.json', '.txt', '.md', '.csv'].includes(extension)) {
+            if (['.txt', '.md', '.csv'].includes(extension)) {
+              const res = await knowledgeAPI.import(file);
+              if (res.errors && res.errors.length > 0) {
+                errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
+              } else {
+                successCount += res.imported || 1;
+              }
+            } else {
+              let isChat = true;
+              try {
+                const text = await file.slice(0, 1000).text();
+                const hasChatKeys = text.includes('"messages"') || text.includes('"sender"') || text.includes('"role"') || text.includes('"content"');
+                if (!hasChatKeys) {
+                  isChat = false;
+                }
+              } catch {
+              }
+
+              if (isChat) {
+                const res = await knowledgeAPI.importChatFile(file);
+                if (res.status === 'failed') {
+                  errorMessages.push(`${file.name}: Chat ingestion failed`);
+                } else {
+                  successCount += 1;
+                }
+              } else {
+                const res = await knowledgeAPI.import(file);
+                if (res.errors && res.errors.length > 0) {
+                  errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
+                } else {
+                  successCount += res.imported || 1;
+                }
+              }
+            }
+          } else if (file.type.startsWith('image/')) {
+            const res = await knowledgeAPI.import(file);
+            if (res.errors && res.errors.length > 0) {
+              errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
+            } else {
+              successCount += res.imported || 1;
+            }
+          } else {
+            const res = await knowledgeAPI.import(file);
+            if (res.errors && res.errors.length > 0) {
+              errorMessages.push(`${file.name}: ${res.errors.join(', ')}`);
+            } else {
+              successCount += res.imported || 1;
+            }
+          }
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          errorMessages.push(`Failed to ingest ${file.name}: ${errMsg}`);
+        }
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: 'Import Successful',
+          description: `Imported ${successCount} item${successCount > 1 ? 's' : ''} to knowledge base.`,
+        });
+      }
+      if (errorMessages.length > 0) {
+        toast({
+          title: 'Import Failures',
+          description: errorMessages.join('\n'),
+          variant: 'destructive',
+        });
+      }
+    },
+    [toast]
+  );
+
+  const { dragActive, handleDrag, handleDrop, handleFileSelect } = useKnowledgeUpload({
+    onFiles: handleDroppedFiles,
+  });
 
   // State management
   const [chatWindows, setChatWindows] = useState<ChatWindow[]>([]);
@@ -852,6 +952,38 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       if (!messageText?.trim() || !selectedAgentId) return;
 
       const trimmedMessage = messageText.trim();
+
+      if (/^https?:\/\/\S+$/i.test(trimmedMessage)) {
+        setPortalMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            content: trimmedMessage,
+            sender: 'user',
+            senderName: 'You',
+            timestamp: new Date().toISOString(),
+            messageType: MessageType.MESSAGE,
+          },
+        ]);
+        try {
+          const res = await knowledgeAPI.importUrl(trimmedMessage);
+          const ok = !res.errors || res.errors.length === 0;
+          toast({
+            title: ok ? 'URL imported' : 'URL import failed',
+            description: ok
+              ? `Imported ${res.imported || 1} item${(res.imported || 1) > 1 ? 's' : ''} from ${trimmedMessage} to knowledge base.`
+              : res.errors!.join('\n'),
+            variant: ok ? undefined : 'destructive',
+          });
+        } catch (err) {
+          toast({
+            title: 'URL import failed',
+            description: err instanceof Error ? err.message : String(err),
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
 
       const userMessage: ChatMessage = {
         id: `msg-${Date.now()}`,
@@ -1963,7 +2095,25 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   </div>
 
                   {/* Input Area */}
-                  <div className="p-4 border-t border-slate-600/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50">
+                  <div
+                    className="p-4 border-t border-slate-600/30 bg-gradient-to-r from-slate-800/50 to-slate-700/50 relative"
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                  >
+                    {dragActive && (
+                      <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-2 rounded-lg">
+                        <UploadDropZone
+                          dragActive={dragActive}
+                          handleDrag={handleDrag}
+                          handleDrop={handleDrop}
+                          handleFileSelect={handleFileSelect}
+                          fileInputRef={fileInputRef}
+                          acceptedTypes={['.pdf', '.docx', '.doc', '.json', '.txt', '.md', '.csv', '.png', '.jpg', '.jpeg', '.webp', '.gif']}
+                        />
+                      </div>
+                    )}
                     <SmartInputField
                       agentId={window.agentId}
                       conversationId={window.sessionId}
@@ -2351,11 +2501,27 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
           {/* Message Input */}
           <motion.div
-            className="p-6 border-t border-cyan-500/20 bg-gradient-to-r from-slate-800/60 to-blue-900/30 backdrop-blur-sm"
+            className="p-6 border-t border-cyan-500/20 bg-gradient-to-r from-slate-800/60 to-blue-900/30 backdrop-blur-sm relative"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
           >
+            {dragActive && (
+              <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-2 rounded-xl">
+                <UploadDropZone
+                  dragActive={dragActive}
+                  handleDrag={handleDrag}
+                  handleDrop={handleDrop}
+                  handleFileSelect={handleFileSelect}
+                  fileInputRef={fileInputRef}
+                  acceptedTypes={['.pdf', '.docx', '.doc', '.json', '.txt', '.md', '.csv', '.png', '.jpg', '.jpeg', '.webp', '.gif']}
+                />
+              </div>
+            )}
             {/* Prompt Suggestions */}
             <div className="mb-4">
               <PromptSuggestions
