@@ -113,300 +113,12 @@ const tabs: TabConfig[] = [
   },
 ];
 
-export const AgentEditModal: React.FC<AgentEditModalProps> = ({
-  agentId,
-  isOpen,
-  onClose,
-  onSave,
-}) => {
-  const { refetchAgents, modelState, agents } = useAgents();
-  const [activeTab, setActiveTab] = useState('basic');
-  const [previewMode, setPreviewMode] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<CreateAgentRequest>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [llmPreferences, setLlmPreferences] = useState<AgentLLMPreference[]>([]);
+interface ToolsTabProps {
+  agentId: string;
+  isOpen: boolean;
+}
 
-  const agent = agents?.[agentId];
-
-  useEffect(() => {
-    if (agent && isOpen) {
-      setFormData({
-        name: agent.name,
-        role: agent.role,
-        personaId: agent.personaId,
-        intelligenceConfig: agent.intelligenceConfig || {},
-        securityContext: agent.securityContext || {},
-        capabilities: agent.capabilities || [],
-        tags: agent.tags || [],
-        metadata: agent.metadata || {},
-        preferences: agent.preferences || {},
-        configuration: agent.configuration || {},
-        toolPermissions: agent.toolPermissions || {},
-        toolPreferences: agent.toolPreferences || {},
-        modelId: agent.modelId,
-        apiType: agent.apiType,
-        temperature: agent.temperature,
-        maxTokens: agent.maxTokens,
-        systemPrompt: agent.systemPrompt,
-        skills: agent.skills || [],
-      });
-    }
-  }, [agent, isOpen]);
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name?.trim()) {
-      newErrors.name = 'Agent name is required';
-    }
-
-    if (!formData.role) {
-      newErrors.role = 'Agent role is required';
-    }
-
-    if (
-      formData.temperature !== undefined &&
-      (formData.temperature < 0 || formData.temperature > 2)
-    ) {
-      newErrors.temperature = 'Temperature must be between 0 and 2';
-    }
-
-    if (formData.maxTokens !== undefined && (formData.maxTokens < 1 || formData.maxTokens > 4000)) {
-      newErrors.maxTokens = 'Max tokens must be between 1 and 4000';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validateForm()) return;
-
-    setSaving(true);
-    try {
-      // Update agent data
-      const response = await uaipAPI.agents.update(agentId, formData);
-      if (response.success) {
-        // If we have LLM preferences, save them separately
-        if (llmPreferences.length > 0) {
-          try {
-            // Note: This would need a backend API endpoint for agent LLM preferences
-            // For now, we'll just log them
-            // TODO: Implement API call to save agent LLM preferences
-            // await uaipAPI.agents.updateLLMPreferences(agentId, llmPreferences);
-          } catch (prefError) {
-            logger.warn('Failed to save LLM preferences:', prefError);
-            // Don't fail the entire save if preferences fail
-          }
-        }
-
-        onSave?.(agentId, response.data);
-        refetchAgents();
-        onClose();
-      } else {
-        setErrors({ general: response.error || 'Failed to update agent' });
-      }
-    } catch {
-      setErrors({ general: 'Failed to update agent. Please try again.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateFormData = (field: string, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const renderBasicTab = () => (
-    <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Agent Name *
-        </label>
-        <input
-          type="text"
-          value={formData.name || ''}
-          onChange={(e) => updateFormData('name', e.target.value)}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-            errors.name
-              ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-          } text-gray-900 dark:text-white`}
-          placeholder="Enter agent name..."
-        />
-        {errors.name && (
-          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {errors.name}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Role *
-        </label>
-        <select
-          value={formData.role || ''}
-          onChange={(e) => updateFormData('role', e.target.value)}
-          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-            errors.role
-              ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-          } text-gray-900 dark:text-white`}
-        >
-          <option value="">Select a role...</option>
-          <option value="ASSISTANT">Assistant</option>
-          <option value="ANALYST">Analyst</option>
-          <option value="SPECIALIST">Specialist</option>
-          <option value="COORDINATOR">Coordinator</option>
-          <option value="RESEARCHER">Researcher</option>
-        </select>
-        {errors.role && (
-          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {errors.role}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Capabilities
-        </label>
-        <input
-          type="text"
-          value={formData.capabilities?.join(', ') || ''}
-          onChange={(e) =>
-            updateFormData(
-              'capabilities',
-              e.target.value
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-            )
-          }
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          placeholder="Enter capabilities separated by commas..."
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Tags
-        </label>
-        <input
-          type="text"
-          value={formData.tags?.join(', ') || ''}
-          onChange={(e) =>
-            updateFormData(
-              'tags',
-              e.target.value
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-            )
-          }
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          placeholder="Enter tags separated by commas..."
-        />
-      </div>
-    </div>
-  );
-
-  const renderAdvancedTab = () => (
-    <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          System Prompt
-        </label>
-        <textarea
-          value={formData.systemPrompt || ''}
-          onChange={(e) => updateFormData('systemPrompt', e.target.value)}
-          rows={6}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          placeholder="Enter system prompt for the agent..."
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Temperature
-          </label>
-          <input
-            type="number"
-            min="0"
-            max="2"
-            step="0.1"
-            value={formData.temperature || 0.7}
-            onChange={(e) => updateFormData('temperature', parseFloat(e.target.value))}
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-              errors.temperature
-                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-            } text-gray-900 dark:text-white`}
-          />
-          {errors.temperature && <p className="mt-1 text-sm text-red-600">{errors.temperature}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Max Tokens
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="4000"
-            value={formData.maxTokens || 1000}
-            onChange={(e) => updateFormData('maxTokens', parseInt(e.target.value))}
-            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-              errors.maxTokens
-                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-            } text-gray-900 dark:text-white`}
-          />
-          {errors.maxTokens && <p className="mt-1 text-sm text-red-600">{errors.maxTokens}</p>}
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Model ID
-        </label>
-        <input
-          type="text"
-          value={formData.modelId || ''}
-          onChange={(e) => updateFormData('modelId', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          placeholder="Enter model ID..."
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          API Type
-        </label>
-        <select
-          value={formData.apiType || ''}
-          onChange={(e) => updateFormData('apiType', e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        >
-          <option value="">Select API type...</option>
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Anthropic</option>
-          <option value="ollama">Ollama</option>
-          <option value="llmstudio">LLM Studio</option>
-        </select>
-      </div>
-    </div>
-  );
-
-  const renderToolsTab = () => {
+const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
     const [mcpTools, setMcpTools] = useState<unknown[]>([]);
     const [loadingTools, setLoadingTools] = useState(true);
     const [assignedTools, setAssignedTools] = useState<unknown[]>([]);
@@ -723,264 +435,15 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         )}
       </div>
     );
-  };
+};
 
-  const renderLLMPreferencesTab = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">LLM Preferences</h4>
-        <button
-          onClick={() => {
-            const newPreference: AgentLLMPreference = {
-              taskType: 'reasoning',
-              preferredProvider: 'anthropic',
-              preferredModel: 'claude-3-5-sonnet-20241022',
-              isActive: true,
-              priority: 50,
-            };
-            setLlmPreferences((prev) => [...prev, newPreference]);
-          }}
-          className="flex items-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Preference
-        </button>
-      </div>
 
-      <div className="space-y-4">
-        {llmPreferences.length === 0 ? (
-          <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-            <Cpu className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-500 dark:text-gray-400">No LLM preferences configured</p>
-            <p className="text-sm text-gray-400 mt-2">
-              Add preferences to optimize model selection for different task types.
-            </p>
-          </div>
-        ) : (
-          llmPreferences.map((preference, index) => (
-            <div
-              key={`${preference.taskType}-${preference.preferredProvider}-${preference.priority}`}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Task Type
-                  </label>
-                  <select
-                    value={preference.taskType}
-                    onChange={(e) => {
-                      const updated = [...llmPreferences];
-                      updated[index] = { ...updated[index], taskType: e.target.value };
-                      setLlmPreferences(updated);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    {LLM_TASK_TYPES.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+interface SkillsTabProps {
+  skills: AgentSkill[];
+  updateSkills: (updated: AgentSkill[]) => void;
+}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Provider
-                  </label>
-                  <select
-                    value={preference.preferredProvider}
-                    onChange={(e) => {
-                      const updated = [...llmPreferences];
-                      updated[index] = { ...updated[index], preferredProvider: e.target.value };
-                      setLlmPreferences(updated);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    {LLM_PROVIDER_TYPES.map((provider) => (
-                      <option key={provider.value} value={provider.value}>
-                        {provider.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Model
-                  </label>
-                  <select
-                    value={preference.preferredModel}
-                    onChange={(e) => {
-                      const updated = [...llmPreferences];
-                      updated[index] = { ...updated[index], preferredModel: e.target.value };
-                      setLlmPreferences(updated);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    {modelState?.models
-                      ?.filter(
-                        (m) =>
-                          m.apiType === preference.preferredProvider ||
-                          (preference.preferredProvider === 'anthropic' &&
-                            m.name?.toLowerCase().includes('claude')) ||
-                          (preference.preferredProvider === 'openai' &&
-                            m.name?.toLowerCase().includes('gpt'))
-                      )
-                      .map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                        </option>
-                      )) || []}
-                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    <option value="gpt-4o-mini">GPT-4O Mini</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Priority (1-100)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={preference.priority}
-                    onChange={(e) => {
-                      const updated = [...llmPreferences];
-                      updated[index] = { ...updated[index], priority: parseInt(e.target.value) };
-                      setLlmPreferences(updated);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div className="flex items-center">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={preference.isActive}
-                      onChange={(e) => {
-                        const updated = [...llmPreferences];
-                        updated[index] = { ...updated[index], isActive: e.target.checked };
-                        setLlmPreferences(updated);
-                      }}
-                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={() => {
-                      const updated = llmPreferences.filter((_, i) => i !== index);
-                      setLlmPreferences(updated);
-                    }}
-                    className="text-red-600 hover:text-red-800 p-2"
-                    title="Remove preference"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Advanced Settings */}
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <details className="group">
-                  <summary className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                    Advanced Settings
-                  </summary>
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Temperature
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value={preference.settings?.temperature || 0.7}
-                        onChange={(e) => {
-                          const updated = [...llmPreferences];
-                          updated[index] = {
-                            ...updated[index],
-                            settings: {
-                              ...updated[index].settings,
-                              temperature: parseFloat(e.target.value),
-                            },
-                          };
-                          setLlmPreferences(updated);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Max Tokens
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="8000"
-                        value={preference.settings?.maxTokens || 2000}
-                        onChange={(e) => {
-                          const updated = [...llmPreferences];
-                          updated[index] = {
-                            ...updated[index],
-                            settings: {
-                              ...updated[index].settings,
-                              maxTokens: parseInt(e.target.value),
-                            },
-                          };
-                          setLlmPreferences(updated);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Fallback Model
-                      </label>
-                      <input
-                        type="text"
-                        value={preference.fallbackModel || ''}
-                        onChange={(e) => {
-                          const updated = [...llmPreferences];
-                          updated[index] = { ...updated[index], fallbackModel: e.target.value };
-                          setLlmPreferences(updated);
-                        }}
-                        placeholder="Optional fallback model"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-
-  const renderChatTab = () => (
-    <div className="space-y-6">
-      <div className="text-center py-8">
-        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-        <p className="text-gray-500">Chat configuration coming soon...</p>
-        <p className="text-sm text-gray-400 mt-2">
-          Advanced chat settings and behavior configuration will be available here.
-        </p>
-      </div>
-    </div>
-  );
-
-  const renderSkillsTab = () => {
-    const skills: AgentSkill[] = formData.skills || [];
+const SkillsTab: React.FC<SkillsTabProps> = ({ skills, updateSkills }) => {
     const [showAddForm, setShowAddForm] = useState(false);
     const [editIndex, setEditIndex] = useState<number | null>(null);
     const [newSkill, setNewSkill] = useState<Partial<AgentSkill>>({
@@ -991,7 +454,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       enabled: true,
     });
 
-    const updateSkills = (updated: AgentSkill[]) => updateFormData('skills', updated);
+    // updateSkills provided via props
 
     const handleAddSkill = () => {
       if (!newSkill.name?.trim() || !newSkill.description?.trim() || !newSkill.content?.trim())
@@ -1374,7 +837,565 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         )}
       </div>
     );
+};
+
+
+
+export const AgentEditModal: React.FC<AgentEditModalProps> = ({
+  agentId,
+  isOpen,
+  onClose,
+  onSave,
+}) => {
+  const { refetchAgents, modelState, agents } = useAgents();
+  const [activeTab, setActiveTab] = useState('basic');
+  const [previewMode, setPreviewMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState<Partial<CreateAgentRequest>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [llmPreferences, setLlmPreferences] = useState<AgentLLMPreference[]>([]);
+
+  const agent = agents?.[agentId];
+
+  useEffect(() => {
+    if (agent && isOpen) {
+      setFormData({
+        name: agent.name,
+        role: agent.role,
+        personaId: agent.personaId,
+        intelligenceConfig: agent.intelligenceConfig || {},
+        securityContext: agent.securityContext || {},
+        capabilities: agent.capabilities || [],
+        tags: agent.tags || [],
+        metadata: agent.metadata || {},
+        preferences: agent.preferences || {},
+        configuration: agent.configuration || {},
+        toolPermissions: agent.toolPermissions || {},
+        toolPreferences: agent.toolPreferences || {},
+        modelId: agent.modelId,
+        apiType: agent.apiType,
+        temperature: agent.temperature,
+        maxTokens: agent.maxTokens,
+        systemPrompt: agent.systemPrompt,
+        skills: agent.skills || [],
+      });
+    }
+  }, [agent, isOpen]);
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name?.trim()) {
+      newErrors.name = 'Agent name is required';
+    }
+
+    if (!formData.role) {
+      newErrors.role = 'Agent role is required';
+    }
+
+    if (
+      formData.temperature !== undefined &&
+      (formData.temperature < 0 || formData.temperature > 2)
+    ) {
+      newErrors.temperature = 'Temperature must be between 0 and 2';
+    }
+
+    if (formData.maxTokens !== undefined && (formData.maxTokens < 1 || formData.maxTokens > 4000)) {
+      newErrors.maxTokens = 'Max tokens must be between 1 and 4000';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
+
+    setSaving(true);
+    try {
+      // Update agent data
+      const response = await uaipAPI.agents.update(agentId, formData);
+      if (response.success) {
+        // If we have LLM preferences, save them separately
+        if (llmPreferences.length > 0) {
+          try {
+            // Note: This would need a backend API endpoint for agent LLM preferences
+            // For now, we'll just log them
+            // TODO: Implement API call to save agent LLM preferences
+            // await uaipAPI.agents.updateLLMPreferences(agentId, llmPreferences);
+          } catch (prefError) {
+            logger.warn('Failed to save LLM preferences:', prefError);
+            // Don't fail the entire save if preferences fail
+          }
+        }
+
+        onSave?.(agentId, response.data);
+        refetchAgents();
+        onClose();
+      } else {
+        setErrors({ general: response.error || 'Failed to update agent' });
+      }
+    } catch {
+      setErrors({ general: 'Failed to update agent. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateFormData = (field: string, value: unknown) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const renderBasicTab = () => (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Agent Name *
+        </label>
+        <input
+          type="text"
+          value={formData.name || ''}
+          onChange={(e) => updateFormData('name', e.target.value)}
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+            errors.name
+              ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+          } text-gray-900 dark:text-white`}
+          placeholder="Enter agent name..."
+        />
+        {errors.name && (
+          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" />
+            {errors.name}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Role *
+        </label>
+        <select
+          value={formData.role || ''}
+          onChange={(e) => updateFormData('role', e.target.value)}
+          className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+            errors.role
+              ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+          } text-gray-900 dark:text-white`}
+        >
+          <option value="">Select a role...</option>
+          <option value="ASSISTANT">Assistant</option>
+          <option value="ANALYST">Analyst</option>
+          <option value="SPECIALIST">Specialist</option>
+          <option value="COORDINATOR">Coordinator</option>
+          <option value="RESEARCHER">Researcher</option>
+        </select>
+        {errors.role && (
+          <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" />
+            {errors.role}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Capabilities
+        </label>
+        <input
+          type="text"
+          value={formData.capabilities?.join(', ') || ''}
+          onChange={(e) =>
+            updateFormData(
+              'capabilities',
+              e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            )
+          }
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          placeholder="Enter capabilities separated by commas..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Tags
+        </label>
+        <input
+          type="text"
+          value={formData.tags?.join(', ') || ''}
+          onChange={(e) =>
+            updateFormData(
+              'tags',
+              e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            )
+          }
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          placeholder="Enter tags separated by commas..."
+        />
+      </div>
+    </div>
+  );
+
+  const renderAdvancedTab = () => (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          System Prompt
+        </label>
+        <textarea
+          value={formData.systemPrompt || ''}
+          onChange={(e) => updateFormData('systemPrompt', e.target.value)}
+          rows={6}
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          placeholder="Enter system prompt for the agent..."
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Temperature
+          </label>
+          <input
+            type="number"
+            min="0"
+            max="2"
+            step="0.1"
+            value={formData.temperature || 0.7}
+            onChange={(e) => updateFormData('temperature', parseFloat(e.target.value))}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+              errors.temperature
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+            } text-gray-900 dark:text-white`}
+          />
+          {errors.temperature && <p className="mt-1 text-sm text-red-600">{errors.temperature}</p>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Max Tokens
+          </label>
+          <input
+            type="number"
+            min="1"
+            max="4000"
+            value={formData.maxTokens || 1000}
+            onChange={(e) => updateFormData('maxTokens', parseInt(e.target.value))}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+              errors.maxTokens
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+            } text-gray-900 dark:text-white`}
+          />
+          {errors.maxTokens && <p className="mt-1 text-sm text-red-600">{errors.maxTokens}</p>}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Model ID
+        </label>
+        <input
+          type="text"
+          value={formData.modelId || ''}
+          onChange={(e) => updateFormData('modelId', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          placeholder="Enter model ID..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          API Type
+        </label>
+        <select
+          value={formData.apiType || ''}
+          onChange={(e) => updateFormData('apiType', e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="">Select API type...</option>
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="ollama">Ollama</option>
+          <option value="llmstudio">LLM Studio</option>
+        </select>
+      </div>
+    </div>
+  );
+
+  const renderToolsTab = () => <ToolsTab agentId={agentId} isOpen={isOpen} />;
+
+  const renderLLMPreferencesTab = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">LLM Preferences</h4>
+        <button
+          onClick={() => {
+            const newPreference: AgentLLMPreference = {
+              taskType: 'reasoning',
+              preferredProvider: 'anthropic',
+              preferredModel: 'claude-3-5-sonnet-20241022',
+              isActive: true,
+              priority: 50,
+            };
+            setLlmPreferences((prev) => [...prev, newPreference]);
+          }}
+          className="flex items-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add Preference
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {llmPreferences.length === 0 ? (
+          <div className="text-center py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+            <Cpu className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p className="text-gray-500 dark:text-gray-400">No LLM preferences configured</p>
+            <p className="text-sm text-gray-400 mt-2">
+              Add preferences to optimize model selection for different task types.
+            </p>
+          </div>
+        ) : (
+          llmPreferences.map((preference, index) => (
+            <div
+              key={`${preference.taskType}-${preference.preferredProvider}-${preference.priority}`}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Task Type
+                  </label>
+                  <select
+                    value={preference.taskType}
+                    onChange={(e) => {
+                      const updated = [...llmPreferences];
+                      updated[index] = { ...updated[index], taskType: e.target.value };
+                      setLlmPreferences(updated);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {LLM_TASK_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Provider
+                  </label>
+                  <select
+                    value={preference.preferredProvider}
+                    onChange={(e) => {
+                      const updated = [...llmPreferences];
+                      updated[index] = { ...updated[index], preferredProvider: e.target.value };
+                      setLlmPreferences(updated);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {LLM_PROVIDER_TYPES.map((provider) => (
+                      <option key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Model
+                  </label>
+                  <select
+                    value={preference.preferredModel}
+                    onChange={(e) => {
+                      const updated = [...llmPreferences];
+                      updated[index] = { ...updated[index], preferredModel: e.target.value };
+                      setLlmPreferences(updated);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {modelState?.models
+                      ?.filter(
+                        (m) =>
+                          m.apiType === preference.preferredProvider ||
+                          (preference.preferredProvider === 'anthropic' &&
+                            m.name?.toLowerCase().includes('claude')) ||
+                          (preference.preferredProvider === 'openai' &&
+                            m.name?.toLowerCase().includes('gpt'))
+                      )
+                      .map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                        </option>
+                      )) || []}
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                    <option value="gpt-4o-mini">GPT-4O Mini</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Priority (1-100)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={preference.priority}
+                    onChange={(e) => {
+                      const updated = [...llmPreferences];
+                      updated[index] = { ...updated[index], priority: parseInt(e.target.value) };
+                      setLlmPreferences(updated);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={preference.isActive}
+                      onChange={(e) => {
+                        const updated = [...llmPreferences];
+                        updated[index] = { ...updated[index], isActive: e.target.checked };
+                        setLlmPreferences(updated);
+                      }}
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Active</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end">
+                  <button
+                    onClick={() => {
+                      const updated = llmPreferences.filter((_, i) => i !== index);
+                      setLlmPreferences(updated);
+                    }}
+                    className="text-red-600 hover:text-red-800 p-2"
+                    title="Remove preference"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Advanced Settings */}
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                <details className="group">
+                  <summary className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Advanced Settings
+                  </summary>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Temperature
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={preference.settings?.temperature || 0.7}
+                        onChange={(e) => {
+                          const updated = [...llmPreferences];
+                          updated[index] = {
+                            ...updated[index],
+                            settings: {
+                              ...updated[index].settings,
+                              temperature: parseFloat(e.target.value),
+                            },
+                          };
+                          setLlmPreferences(updated);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max Tokens
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="8000"
+                        value={preference.settings?.maxTokens || 2000}
+                        onChange={(e) => {
+                          const updated = [...llmPreferences];
+                          updated[index] = {
+                            ...updated[index],
+                            settings: {
+                              ...updated[index].settings,
+                              maxTokens: parseInt(e.target.value),
+                            },
+                          };
+                          setLlmPreferences(updated);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Fallback Model
+                      </label>
+                      <input
+                        type="text"
+                        value={preference.fallbackModel || ''}
+                        onChange={(e) => {
+                          const updated = [...llmPreferences];
+                          updated[index] = { ...updated[index], fallbackModel: e.target.value };
+                          setLlmPreferences(updated);
+                        }}
+                        placeholder="Optional fallback model"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  const renderChatTab = () => (
+    <div className="space-y-6">
+      <div className="text-center py-8">
+        <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+        <p className="text-gray-500">Chat configuration coming soon...</p>
+        <p className="text-sm text-gray-400 mt-2">
+          Advanced chat settings and behavior configuration will be available here.
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderSkillsTab = () => (
+    <SkillsTab
+      skills={formData.skills || []}
+      updateSkills={(updated) => updateFormData('skills', updated)}
+    />
+  );
 
   const renderPreview = () => (
     <div className="space-y-6">
