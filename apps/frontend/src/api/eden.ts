@@ -1,5 +1,4 @@
-import { edenFetch, treaty } from '@elysiajs/eden'
-import type { Elysia } from 'elysia'
+import { treaty, type Treaty } from '@elysiajs/eden'
 import type { NavratnaCoreApp, NavratnaGatewayApp, QuestionForgeApp } from '@uaip/contracts/eden'
 import { csrfService } from '@/services/c_s_r_f_service'
 import { resolveApiOrigin } from '@/config/api_config'
@@ -21,6 +20,22 @@ export class EdenClientError extends Error {
 const baseUrl = resolveApiOrigin()
 
 const CREDENTIALS: RequestCredentials = 'include';
+
+type RemoveIndexSignature<T> = T extends Record<PropertyKey, unknown>
+  ? {
+      [K in keyof T as string extends K
+        ? never
+        : number extends K
+          ? never
+          : symbol extends K
+            ? never
+            : K]: RemoveIndexSignature<T[K]>
+    }
+  : T
+
+type CoreClient = Treaty.Sign<RemoveIndexSignature<NavratnaCoreApp['~Routes']>>
+type GatewayClient = Treaty.Sign<RemoveIndexSignature<NavratnaGatewayApp['~Routes']>>
+type QuestionForgeClient = Treaty.Sign<RemoveIndexSignature<QuestionForgeApp['~Routes']>>
 
 const edenConfig = {
   fetch: {
@@ -45,26 +60,9 @@ const edenConfig = {
   },
 }
 
-export const coreClient = treaty<NavratnaCoreApp>(baseUrl, edenConfig)
-export const gatewayClient = treaty<NavratnaGatewayApp>(baseUrl, edenConfig)
-export const questionforgeClient = treaty<QuestionForgeApp>(baseUrl, edenConfig)
-
-type EdenFetchClient = (path: string, options?: Record<string, unknown>) => Promise<unknown>
-
-function createFetchClient<T extends Elysia>(url: string): EdenFetchClient {
-  if (typeof edenFetch !== 'function') {
-    throw new Error('Eden fetch is unavailable')
-  }
-
-  const client = edenFetch<T>(url)
-  const clientAny: any = client; // oxlint-disable-line @typescript-eslint/no-explicit-any -- edenFetch typed client wrapped as generic fetch
-  const dynamicClient: EdenFetchClient = clientAny
-  return async (path, options) => await dynamicClient(path, options ?? {})
-}
-
-const coreFetchClient = createFetchClient<NavratnaCoreApp>(baseUrl)
-const gatewayFetchClient = createFetchClient<NavratnaGatewayApp>(baseUrl)
-const questionforgeFetchClient = createFetchClient<QuestionForgeApp>(baseUrl)
+export const coreClient = treaty<NavratnaCoreApp>(baseUrl, edenConfig) as CoreClient
+export const gatewayClient = treaty<NavratnaGatewayApp>(baseUrl, edenConfig) as GatewayClient
+export const questionforgeClient = treaty<QuestionForgeApp>(baseUrl, edenConfig) as QuestionForgeClient
 
 type EdenFetchResult<T> =
   | { data: T | null; error: null }
@@ -122,17 +120,6 @@ function resolveService(path: string): EdenService {
   return 'core'
 }
 
-function getFetchClient(service: EdenService) {
-  switch (service) {
-    case 'gateway':
-      return gatewayFetchClient
-    case 'questionforge':
-      return questionforgeFetchClient
-    default:
-      return coreFetchClient
-  }
-}
-
 function isResponseWrapper<T>(value: unknown): value is EdenFetchResult<T> {
   return typeof value === 'object' && value !== null && 'data' in value && 'error' in value
 }
@@ -184,24 +171,29 @@ async function performBinaryRequest(path: string, config: EdenRequestConfig): Pr
 
 export async function edenRequest<T>(path: string, config: EdenRequestConfig = {}): Promise<T> {
   if (config.responseType === 'blob' || config.responseType === 'text') {
-    const binaryResult: any = await performBinaryRequest(path, config); // oxlint-disable-line @typescript-eslint/no-explicit-any -- T is Blob|string for blob/text responseType
-    return binaryResult
+    return await performBinaryRequest(path, config) as T
   }
 
-  const service = resolveService(path)
-  const request = getFetchClient(service)
   const requestHeaders = await buildHeaders(config.headers)
   const requestBody = config.body instanceof FormData || typeof config.body === 'string'
     ? config.body
     : config.body
 
-  const result = await request(path, {
+  const response = await fetch(`${baseUrl}${path}`, {
     method: config.method,
-    body: requestBody,
+    body: requestBody instanceof FormData || typeof requestBody === 'string'
+      ? requestBody
+      : requestBody === undefined
+        ? undefined
+        : JSON.stringify(requestBody),
     headers: requestHeaders,
     credentials: 'include',
     signal: config.signal,
   })
+
+  dispatchResponseEvents(response)
+
+  const result: unknown = await response.json()
 
   if (isResponseWrapper<T>(result)) {
     if (result.error?.status === 403) {
@@ -216,8 +208,7 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
     return unwrapEden(result)
   }
 
-  const resultAny: any = result; // oxlint-disable-line @typescript-eslint/no-explicit-any -- result is unknown from dynamic fetch client; caller guarantees T
-  return resultAny
+  return result as T
 }
 
 type EdenResponse<T> = { data: T; error: null } | { data: null; error: { status: number; value: unknown } }
@@ -255,9 +246,7 @@ export function unwrapEden<T>(result: EdenResponse<T>): T {
   }
 
   if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
-    const dataAny: any = data; // oxlint-disable-line @typescript-eslint/no-explicit-any -- data.data is unknown; T is the expected runtime shape
-    const unwrapped: T = dataAny.data
-    return unwrapped
+    return data.data as T
   }
 
   return result.data

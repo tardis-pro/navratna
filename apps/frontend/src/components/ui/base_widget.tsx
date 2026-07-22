@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useRef, useCallback, Component, ErrorInfo } from 'react';
 import {
-  _BaseWidget,
-  _WidgetInstance,
+  BaseWidget as _BaseWidget,
+  WidgetInstance as _WidgetInstance,
   WidgetConfig,
   WidgetError,
   WidgetUsage,

@@ -35,6 +35,11 @@ import {
   StreamChunk,
 } from '@uaip/types';
 import type { ChatMessage } from '../../chat/chat.types';
+import type {
+  AgentChatResponseView,
+  ChatWindow,
+  UnifiedChatSystemProps,
+} from './UnifiedChatSystem.types';
 import { ThreadContainer } from '../../chat/ThreadContainer';
 import { FloatingThreadContainer } from '../../chat/FloatingThreadContainer';
 import { AgentSwitcher } from '../../chat/AgentSwitcher';
@@ -53,31 +58,48 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function toToolsExecuted(v: unknown): ChatMessage['toolsExecuted'] {
   if (!Array.isArray(v)) return undefined;
-  const vAny: any = v; // oxlint-disable-line @typescript-eslint/no-explicit-any -- Array<unknown> from API; runtime elements match ChatMessage toolsExecuted shape
-  return vAny;
+  return v.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const toolId = typeof item.toolId === 'string' ? item.toolId : undefined;
+    const toolName = typeof item.toolName === 'string' ? item.toolName : undefined;
+    const success = typeof item.success === 'boolean' ? item.success : undefined;
+    if (!toolId || !toolName || success === undefined) return [];
+    return [
+      {
+        toolId,
+        toolName,
+        success,
+        result: item.result,
+        error: typeof item.error === 'string' ? item.error : undefined,
+        timestamp:
+          typeof item.timestamp === 'string' ? item.timestamp : new Date().toISOString(),
+      },
+    ];
+  });
 }
 
-interface ChatWindow {
-  id: string;
-  agentId: string;
-  agentName: string;
-  discussionId: string;
-  messages: ChatMessage[];
-  isMinimized: boolean;
-  isMaximized?: boolean;
-  isLoading: boolean;
-  error: string | null;
-  hasLoadedHistory: boolean;
-  totalMessages: number;
-  canLoadMore: boolean;
-  mode: 'floating' | 'portal';
-  sessionId?: string;
+function readAgentChatMetadata(response: AgentChatResponseView): Record<string, unknown> {
+  return response.metadata ?? {};
 }
 
-interface UnifiedChatSystemProps {
-  className?: string;
-  mode?: 'floating' | 'portal' | 'hybrid';
-  defaultAgentId?: string;
+function readAgentName(response: AgentChatResponseView, fallback: string): string {
+  const metadata = readAgentChatMetadata(response);
+  return typeof metadata.agentName === 'string' ? metadata.agentName : fallback;
+}
+
+function readConfidence(response: AgentChatResponseView): number | undefined {
+  const metadata = readAgentChatMetadata(response);
+  return typeof metadata.confidence === 'number' ? metadata.confidence : undefined;
+}
+
+function readMemoryEnhanced(response: AgentChatResponseView): boolean | undefined {
+  const metadata = readAgentChatMetadata(response);
+  return typeof metadata.memoryEnhanced === 'boolean' ? metadata.memoryEnhanced : undefined;
+}
+
+function readKnowledgeUsed(response: AgentChatResponseView): number | undefined {
+  const metadata = readAgentChatMetadata(response);
+  return typeof metadata.knowledgeUsed === 'number' ? metadata.knowledgeUsed : undefined;
 }
 
 // Helper function to create a new discussion for agent chat
@@ -353,9 +375,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   const contextualAnalysisRef = useRef<{
     [windowId: string]: { sentiment: number; complexity: number; urgency: number };
   }>({});
-  const loadingTimeouts = useRef<{ [windowId: string]: NodeJS.Timeout }>({});
+  const loadingTimeouts = useRef<{ [windowId: string]: ReturnType<typeof setInterval> }>({});
 
-  const wsFallbackTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const wsFallbackTimeouts = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
 
   const WS_FALLBACK_TIMEOUT_MS = 6_000;
 
@@ -427,8 +449,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       const confidence = typeof wsPayload.confidence === 'number' ? wsPayload.confidence : undefined;
       const memoryEnhanced = typeof wsPayload.memoryEnhanced === 'boolean' ? wsPayload.memoryEnhanced : undefined;
       const knowledgeUsed = typeof wsPayload.knowledgeUsed === 'number' ? wsPayload.knowledgeUsed : undefined;
-      const toolsExecutedAny: any = Array.isArray(wsPayload.toolsExecuted) ? wsPayload.toolsExecuted : undefined; // oxlint-disable-line @typescript-eslint/no-explicit-any -- wsPayload.toolsExecuted is unknown[]; runtime shape matches ChatMessage toolsExecuted
-      const toolsExecuted: ChatMessage['toolsExecuted'] = toolsExecutedAny;
+      const toolsExecuted = toToolsExecuted(wsPayload.toolsExecuted);
       const messageId = typeof wsPayload.messageId === 'string' ? wsPayload.messageId : undefined;
 
       if (agentId && wsFallbackTimeouts.current[agentId]) {
@@ -866,13 +887,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           id: `msg-${Date.now()}-agent`,
           content: restResponse.response,
           sender: 'agent',
-          senderName: restResponse.agentName || window.agentName,
+          senderName: readAgentName(restResponse, window.agentName),
           timestamp: new Date().toISOString(),
           messageType: MessageType.MESSAGE,
-          confidence: restResponse.confidence,
-          memoryEnhanced: restResponse.memoryEnhanced,
-          knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
+          confidence: readConfidence(restResponse),
+          memoryEnhanced: readMemoryEnhanced(restResponse),
+          knowledgeUsed: readKnowledgeUsed(restResponse),
+          toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
           agentId: window.agentId,
         };
 
@@ -1077,13 +1098,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           id: `msg-${Date.now()}-agent`,
           content: restResponse.response,
           sender: 'agent',
-          senderName: restResponse.agentName || selectedAgent?.name || 'Assistant',
+          senderName: readAgentName(restResponse, selectedAgent?.name || 'Assistant'),
           timestamp: new Date().toISOString(),
           messageType: MessageType.MESSAGE,
-          confidence: restResponse.confidence,
-          memoryEnhanced: restResponse.memoryEnhanced,
-          knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
+          confidence: readConfidence(restResponse),
+          memoryEnhanced: readMemoryEnhanced(restResponse),
+          knowledgeUsed: readKnowledgeUsed(restResponse),
+          toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
         };
         setPortalMessages((prev) => [...prev, agentMessage]);
         setConversationHistory((prev) => [
@@ -1528,13 +1549,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           id: `msg-${Date.now()}-agent`,
           content: restResponse.response,
           sender: 'agent',
-          senderName: restResponse.agentName || window.agentName,
+          senderName: readAgentName(restResponse, window.agentName),
           timestamp: new Date().toISOString(),
           messageType: MessageType.MESSAGE,
-          confidence: restResponse.confidence,
-          memoryEnhanced: restResponse.memoryEnhanced,
-          knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
+          confidence: readConfidence(restResponse),
+          memoryEnhanced: readMemoryEnhanced(restResponse),
+          knowledgeUsed: readKnowledgeUsed(restResponse),
+          toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
           agentId: window.agentId,
         };
 
@@ -1663,13 +1684,13 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           id: `msg-${Date.now()}-agent`,
           content: restResponse.response,
           sender: 'agent',
-          senderName: restResponse.agentName || selectedAgent?.name || 'Assistant',
+          senderName: readAgentName(restResponse, selectedAgent?.name || 'Assistant'),
           timestamp: new Date().toISOString(),
           messageType: MessageType.MESSAGE,
-          confidence: restResponse.confidence,
-          memoryEnhanced: restResponse.memoryEnhanced,
-          knowledgeUsed: restResponse.knowledgeUsed,
-          toolsExecuted: toToolsExecuted(restResponse.toolsExecuted),
+          confidence: readConfidence(restResponse),
+          memoryEnhanced: readMemoryEnhanced(restResponse),
+          knowledgeUsed: readKnowledgeUsed(restResponse),
+          toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
         };
 
         setPortalMessages((prev) => [...prev, agentMessage]);

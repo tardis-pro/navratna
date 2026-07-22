@@ -14,8 +14,8 @@ import {
   Bell,
   Settings,
   RefreshCw,
-  _Activity,
-  _Zap,
+  Activity as _Activity,
+  Zap as _Zap,
 } from 'lucide-react';
 import { MarketplaceHome } from './MarketplaceHome';
 import { BattleArena } from './BattleArena';

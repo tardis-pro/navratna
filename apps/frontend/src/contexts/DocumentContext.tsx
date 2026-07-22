@@ -5,7 +5,7 @@ import type {
   FrontendFrontendDocumentContextState,
 } from '@uaip/types';
 import { useKnowledge } from './KnowledgeContext';
-import type { _KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
+import type { KnowledgeItem as _KnowledgeItem, KnowledgeIngestRequest } from '@uaip/types';
 import { logger } from '@/utils/browser_logger';
 
 const initialState: FrontendFrontendDocumentContextState = {

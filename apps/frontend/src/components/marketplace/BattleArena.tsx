@@ -7,17 +7,17 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   Sword,
   Trophy,
-  _Users,
+  Users as _Users,
   Eye,
-  _Clock,
-  _Zap,
+  Clock as _Clock,
+  Zap as _Zap,
   Crown,
   Target,
-  _MessageSquare,
+  MessageSquare as _MessageSquare,
   Share2,
   Heart,
-  _Play,
-  _Pause,
+  Play as _Play,
+  Pause as _Pause,
 } from 'lucide-react';
 import { Battle, BattleType, BattleStatus, BattleParticipantRole } from '@uaip/types';
 

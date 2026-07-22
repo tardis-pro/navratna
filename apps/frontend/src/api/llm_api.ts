@@ -10,8 +10,19 @@ import type {
   LLMGenerateRequest,
   LLMGenerateResponse,
   LLMContextAnalysis,
-  UserLLMProvider,
 } from '@uaip/contracts/api';
+import type {
+  AgentResponseRequest,
+  CreateUserLLMProviderRequest,
+  LLMProviderShape,
+  UpdateApiKeyRequest,
+  UpdateUserLLMProviderRequest,
+  UserLLMGenerateRequest,
+} from '@uaip/types';
+
+export type UserLLMProviderConfig = Omit<LLMProviderShape, 'apiKeyEncrypted'> & {
+  hasApiKey: boolean;
+};
 
 export type {
   LLMModel,
@@ -19,7 +30,11 @@ export type {
   LLMGenerateRequest,
   LLMGenerateResponse,
   LLMContextAnalysis,
-  UserLLMProvider,
+  LLMProviderShape,
+  CreateUserLLMProviderRequest,
+  UpdateUserLLMProviderRequest,
+  UpdateApiKeyRequest,
+  UserLLMGenerateRequest,
 };
 
 const llm = coreClient.api.v1.llm
@@ -62,44 +77,30 @@ export const llmAPI = {
 
   // User-specific LLM providers
   userLLM: {
-    async listProviders(): Promise<UserLLMProvider[]> {
+    async listProviders(): Promise<UserLLMProviderConfig[]> {
       return edenWithCSRFRetry(() => userLlm.providers.get());
     },
 
-    async getProvider(id: string): Promise<UserLLMProvider> {
+    async getProvider(id: string): Promise<UserLLMProviderConfig> {
       return edenWithCSRFRetry(() => userLlm.providers[id].get());
     },
 
-    async createProvider(provider: {
-      name: string;
-      description?: string;
-      type: string;
-      baseUrl?: string;
-      apiKey?: string;
-      defaultModel?: string;
-      modelsList?: string[];
-      configuration?: Record<string, unknown>;
-      priority?: number;
-    }): Promise<UserLLMProvider> {
+    async createProvider(provider: CreateUserLLMProviderRequest): Promise<UserLLMProviderConfig> {
       return edenWithCSRFRetry(() => userLlm.providers.post(provider));
     },
 
     async updateProvider(
       id: string,
-      updates: {
-        name?: string;
-        description?: string;
-        baseUrl?: string;
-        apiKey?: string;
-        defaultModel?: string;
-        modelsList?: string[];
-        configuration?: Record<string, unknown>;
-        priority?: number;
-        status?: string;
-        isActive?: boolean;
-      }
-    ): Promise<UserLLMProvider> {
+      updates: UpdateUserLLMProviderRequest
+    ): Promise<{ success: boolean; message?: string }> {
       return edenWithCSRFRetry(() => userLlm.providers[id].put(updates));
+    },
+
+    async updateProviderApiKey(
+      id: string,
+      request: UpdateApiKeyRequest
+    ): Promise<{ success: boolean; message?: string }> {
+      return edenWithCSRFRetry(() => userLlm.providers[id]['api-key'].put(request));
     },
 
     async deleteProvider(id: string): Promise<void> {
@@ -119,12 +120,13 @@ export const llmAPI = {
     },
 
     async generate(
-      request: Omit<LLMGenerateRequest, 'modelId'> & {
-        providerId?: string;
-        model?: string;
-      }
+      request: UserLLMGenerateRequest
     ): Promise<LLMGenerateResponse> {
       return edenWithCSRFRetry(() => userLlm.generate.post(request));
+    },
+
+    async generateAgentResponse(request: AgentResponseRequest): Promise<LLMGenerateResponse> {
+      return edenWithCSRFRetry(() => userLlm['agent-response'].post(request));
     },
 
     async listModels(): Promise<

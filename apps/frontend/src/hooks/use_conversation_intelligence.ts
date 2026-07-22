@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getWebSocketURL } from '@/config/api_config';
 import {
   ConversationWebSocketEventType,
-  _ConversationIntelligenceEventType,
+  ConversationIntelligenceEventType as _ConversationIntelligenceEventType,
   Intent,
   PromptSuggestion,
   AutocompleteSuggestion,
