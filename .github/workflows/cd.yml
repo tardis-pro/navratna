@@ -1,275 +1,124 @@
 name: CD
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target deployment environment'
+      target:
+        description: 'Deployment target'
         required: true
-        default: 'staging'
+        default: all
         type: choice
         options:
-          - staging
-          - production
+          - all
+          - core
+          - gateway
+          - frontend
+          - edge
 
 concurrency:
-  group: cd-${{ github.ref }}
+  group: cd-production
   cancel-in-progress: false
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_BASE: ghcr.io/${{ github.repository }}
-  NODE_VERSION: '22'
-  PNPM_VERSION: '10'
-  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+permissions: {}
 
-permissions:
-  contents: read
-  packages: write
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.12.1'
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────────
-  # Build & push Docker images for all 4 services
+  # Gate: only deploy after a successful CI run (or explicit manual dispatch).
+  # Resolves the trusted commit SHA and the deployment target so every artifact
+  # is built and released from the exact same commit.
   # ──────────────────────────────────────────────────────────────────────────────
-  build-and-push:
-    name: Build ${{ matrix.service }}
+  prepare:
+    name: Prepare deployment
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - navratna-core
-          - navratna-gateway
-          - basebench-meta
-          - questionforge
-        include:
-          - service: navratna-core
-            port: 3001
-          - service: navratna-gateway
-            port: 3002
-          - service: basebench-meta
-            port: 3009
-          - service: questionforge
-            port: 3010
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      target: ${{ steps.resolve.outputs.target }}
+    steps:
+      - name: Resolve trusted SHA and target
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+              echo "Refusing to deploy: CI run concluded '${{ github.event.workflow_run.conclusion }}' (expected success)." >&2
+              exit 1
+            fi
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "target=all" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "target=${{ github.event.inputs.target }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Fly.io core: build SHA-tagged image, push to the Fly registry, deploy the
+  # exact image, verify public /health, and cut a Sentry release.
+  # Runs in parallel with deploy-gateway (both depend only on prepare).
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy-core:
+    name: Deploy navratna-core (Fly)
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.target == 'all' || needs.prepare.outputs.target == 'core'
+    environment: production
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Log in to Fly registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: registry.fly.io
+          username: x
+          password: ${{ secrets.FLY_API_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_BASE }}/${{ matrix.service }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Build and push image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          file: ./Dockerfile
+          file: deploy/fly/Dockerfile.core
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,scope=${{ matrix.service }},mode=max
-          build-args: |
-            SERVICE_NAME=${{ matrix.service }}
-            SERVICE_PORT=${{ matrix.port }}
+          tags: registry.fly.io/navratna-core:${{ needs.prepare.outputs.sha }}
+          cache-from: type=gha,scope=navratna-core
+          cache-to: type=gha,scope=navratna-core,mode=max
 
-  # ──────────────────────────────────────────────────────────────────────────────
-  # Build & deploy frontend to Cloudflare Pages
-  # ──────────────────────────────────────────────────────────────────────────────
-  deploy-frontend:
-    name: Deploy Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1 (tag 1.6)
         with:
-          version: ${{ env.PNPM_VERSION }}
+          version: 0.4.74
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared packages
-        run: pnpm build:shared
-
-      - name: Build frontend
-        run: pnpm build:frontend
+      - name: Deploy to Fly.io
         env:
-          NODE_ENV: production
-          # Must be present at BUILD time — the bundle bakes in the API base URL.
-          # Without it the app falls back to window.location.origin (the Pages
-          # domain, which has no API) and every request/Socket.IO connection 404s.
-          VITE_API_BASE_URL: https://api.navratna.tardis.digital
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/frontend/dist --project-name=navratna --branch=${{ github.ref_name }}
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # Deploy to staging (on push to main or manual staging dispatch)
-  # ──────────────────────────────────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy ${{ matrix.service }} to Staging
-    runs-on: ubuntu-latest
-    needs: [build-and-push]
-    if: >-
-      github.ref == 'refs/heads/main' ||
-      github.event.inputs.environment == 'staging'
-    environment: staging
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - navratna-core
-          - navratna-gateway
-          - basebench-meta
-          - questionforge
-        include:
-          - service: navratna-core
-            port: 3001
-          - service: navratna-gateway
-            port: 3002
-          - service: basebench-meta
-            port: 3009
-          - service: questionforge
-            port: 3010
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Resolve image tag
-        id: image
-        run: |
-          SHA="${{ github.sha }}"
-          IMAGE="${{ env.IMAGE_BASE }}/${{ matrix.service }}:${SHA:0:7}"
-          echo "tag=${IMAGE}" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy to Fly.io (staging)
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           flyctl deploy \
-            --app tardis-${{ matrix.service }}-staging \
-            --image ${{ steps.image.outputs.tag }} \
+            --app navratna-core \
+            --config deploy/fly/fly.core.toml \
+            --image registry.fly.io/navratna-core:${{ needs.prepare.outputs.sha }} \
             --strategy rolling \
-            --wait-timeout 300 \
-            --no-cache
+            --wait-timeout 5m \
+            --env SERVICE_VERSION=${{ needs.prepare.outputs.sha }} \
+            --yes
 
-      - name: Verify health (staging)
+      - name: Verify health
         run: |
-          URL="https://tardis-${{ matrix.service }}-staging.fly.dev/health"
-          for i in 1 2 3; do
-            echo "Health check attempt ${i}/3: ${URL}"
-            if curl -sf --max-time 15 "${URL}"; then
-              echo ""
-              echo "Health check passed."
-              exit 0
-            fi
-            echo "Attempt ${i} failed, waiting 10s..."
-            sleep 10
-          done
-          echo "Health check failed after 3 attempts."
-          exit 1
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # Deploy to production (on version tags or manual production dispatch)
-  # ──────────────────────────────────────────────────────────────────────────────
-  deploy-production:
-    name: Deploy ${{ matrix.service }} to Production
-    runs-on: ubuntu-latest
-    needs: [build-and-push, deploy-staging]
-    if: >-
-      startsWith(github.ref, 'refs/tags/v') ||
-      github.event.inputs.environment == 'production'
-    environment: production
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - navratna-core
-          - navratna-gateway
-          - basebench-meta
-          - questionforge
-        include:
-          - service: navratna-core
-            port: 3001
-          - service: navratna-gateway
-            port: 3002
-          - service: basebench-meta
-            port: 3009
-          - service: questionforge
-            port: 3010
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Resolve image tag
-        id: image
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAG="${{ github.ref_name }}"
-            # Strip leading 'v' for semver tag
-            IMAGE="${{ env.IMAGE_BASE }}/${{ matrix.service }}:${TAG#v}"
-          else
-            SHA="${{ github.sha }}"
-            IMAGE="${{ env.IMAGE_BASE }}/${{ matrix.service }}:${SHA:0:7}"
-          fi
-          echo "tag=${IMAGE}" >> "$GITHUB_OUTPUT"
-
-      - name: Capture current release for rollback
-        id: rollback
-        run: |
-          CURRENT=$(flyctl status --app tardis-${{ matrix.service }} --json 2>/dev/null | jq -r '.Deployment.ID // empty' || true)
-          echo "release=${CURRENT}" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy to Fly.io (production)
-        run: |
-          flyctl deploy \
-            --app tardis-${{ matrix.service }} \
-            --image ${{ steps.image.outputs.tag }} \
-            --strategy rolling \
-            --wait-timeout 300 \
-            --no-cache
-
-      - name: Verify health (production)
-        id: healthcheck
-        run: |
-          URL="https://tardis-${{ matrix.service }}.fly.dev/health"
+          URL="https://navratna-core.fly.dev/health"
           for i in 1 2 3; do
             echo "Health check attempt ${i}/3: ${URL}"
             if curl -sf --max-time 15 "${URL}"; then
@@ -283,108 +132,231 @@ jobs:
           echo "Health check failed after 3 attempts."
           exit 1
 
-      - name: Rollback on failure
-        if: failure() && steps.healthcheck.outcome == 'failure'
-        run: |
-          echo "Rolling back tardis-${{ matrix.service }} to previous release..."
-          PREVIOUS="${{ steps.rollback.outputs.release }}"
-          if [ -n "${PREVIOUS}" ]; then
-            flyctl releases rollback --app tardis-${{ matrix.service }}
-            echo "Rollback initiated."
-          else
-            echo "No previous release found. Manual intervention required."
-            exit 1
-          fi
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # Post-deploy smoke test — verify all services are healthy
-  # ──────────────────────────────────────────────────────────────────────────────
-  post-deploy-verification:
-    name: Post-Deploy Health Verification
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
-    steps:
-      - name: Determine environment
-        id: env
-        run: |
-          if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
-            echo "suffix=" >> "$GITHUB_OUTPUT"
-            echo "env=production" >> "$GITHUB_OUTPUT"
-          else
-            echo "suffix=-staging" >> "$GITHUB_OUTPUT"
-            echo "env=staging" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Verify all service health endpoints
-        run: |
-          SUFFIX="${{ steps.env.outputs.suffix }}"
-          ENV="${{ steps.env.outputs.env }}"
-          SERVICES=("navratna-core" "navratna-gateway" "basebench-meta" "questionforge")
-          FAILED=0
-
-          echo "Running post-deploy verification for ${ENV}..."
-          echo ""
-
-          for SERVICE in "${SERVICES[@]}"; do
-            URL="https://tardis-${SERVICE}${SUFFIX}.fly.dev/health"
-            echo "Checking ${SERVICE} at ${URL}..."
-            HEALTHY=false
-
-            for i in 1 2 3; do
-              if curl -sf --max-time 15 "${URL}" > /dev/null 2>&1; then
-                echo "  [PASS] ${SERVICE} is healthy"
-                HEALTHY=true
-                break
-              fi
-              echo "  Attempt ${i}/3 failed, retrying in 10s..."
-              sleep 10
-            done
-
-            if [ "${HEALTHY}" = false ]; then
-              echo "  [FAIL] ${SERVICE} is unhealthy after 3 retries"
-              FAILED=$((FAILED + 1))
-            fi
-          done
-
-          echo ""
-          if [ "${FAILED}" -gt 0 ]; then
-            echo "${FAILED} service(s) failed health check."
-            exit 1
-          fi
-          echo "All services healthy in ${ENV}."
-
-  # ──────────────────────────────────────────────────────────────────────────────
-  # Notify on completion
-  # ──────────────────────────────────────────────────────────────────────────────
-  notify:
-    name: Notify Deployment
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production, deploy-frontend, post-deploy-verification]
-    if: always()
-    steps:
-      - name: Determine status
-        id: status
-        run: |
-          if [[ "${{ needs.post-deploy-verification.result }}" == "failure" ]]; then
-            echo "status=failure" >> "$GITHUB_OUTPUT"
-            echo "text=Deployment verification failed" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
-            echo "status=success" >> "$GITHUB_OUTPUT"
-            echo "text=Production deployment complete" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ needs.deploy-staging.result }}" == "success" ]]; then
-            echo "status=success" >> "$GITHUB_OUTPUT"
-            echo "text=Staging deployment complete" >> "$GITHUB_OUTPUT"
-          else
-            echo "status=failure" >> "$GITHUB_OUTPUT"
-            echo "text=Deployment failed" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Notify Slack
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ steps.status.outputs.status }}
-          text: "${{ steps.status.outputs.text }} — ${{ github.repository }}@${{ github.ref_name }} (${{ github.sha }})"
-          channel: '#deployments'
+      - name: Create Sentry release
+        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_CORE_PROJECT }}
+        with:
+          release: ${{ needs.prepare.outputs.sha }}
+          environment: production
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Fly.io gateway: build SHA-tagged image, push to the Fly registry, deploy the
+  # exact image, verify public /health, and cut a Sentry release.
+  # Runs in parallel with deploy-core (both depend only on prepare).
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy-gateway:
+    name: Deploy navratna-gateway (Fly)
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.target == 'all' || needs.prepare.outputs.target == 'gateway'
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to Fly registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: registry.fly.io
+          username: x
+          password: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: deploy/fly/Dockerfile.gateway
+          push: true
+          tags: registry.fly.io/navratna-gateway:${{ needs.prepare.outputs.sha }}
+          cache-from: type=gha,scope=navratna-gateway
+          cache-to: type=gha,scope=navratna-gateway,mode=max
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1 (tag 1.6)
+        with:
+          version: 0.4.74
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy \
+            --app navratna-gateway \
+            --config deploy/fly/fly.gateway.toml \
+            --image registry.fly.io/navratna-gateway:${{ needs.prepare.outputs.sha }} \
+            --strategy rolling \
+            --wait-timeout 5m \
+            --env SERVICE_VERSION=${{ needs.prepare.outputs.sha }} \
+            --yes
+
+      - name: Verify health
+        run: |
+          URL="https://navratna-gateway.fly.dev/health"
+          for i in 1 2 3; do
+            echo "Health check attempt ${i}/3: ${URL}"
+            if curl -sf --max-time 15 "${URL}"; then
+              echo ""
+              echo "Health check passed."
+              exit 0
+            fi
+            echo "Attempt ${i} failed, waiting 15s..."
+            sleep 15
+          done
+          echo "Health check failed after 3 attempts."
+          exit 1
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_GATEWAY_PROJECT }}
+        with:
+          release: ${{ needs.prepare.outputs.sha }}
+          environment: production
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Frontend: build the SPA with hidden source maps, cut a Sentry release with
+  # source-map upload (maps deleted from dist afterwards), then publish to
+  # Cloudflare Pages pinned to the deploy commit.
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend (Cloudflare Pages)
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.target == 'all' || needs.prepare.outputs.target == 'frontend'
+    environment: production
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm build:shared
+
+      - name: Build frontend
+        env:
+          NODE_ENV: production
+          # Baked in at build time — the bundle must point at the production API
+          # origin or every request falls back to the Pages domain and 404s.
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.navratna.tardis.digital' }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_APP_VERSION: ${{ needs.prepare.outputs.sha }}
+        run: pnpm build:frontend
+
+      - name: Create Sentry release & upload source maps
+        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_FRONTEND_PROJECT }}
+        with:
+          release: ${{ needs.prepare.outputs.sha }}
+          environment: production
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
+          sourcemaps: apps/frontend/dist
+
+      - name: Delete source map files
+        run: find apps/frontend/dist -name '*.map' -type f -delete
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          packageManager: pnpm
+          command: pages deploy apps/frontend/dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT || 'navratna' }} --branch=main --commit-hash=${{ needs.prepare.outputs.sha }}
+
+      - name: Verify production domain
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 10 --max-time 20 https://navratna.tardis.digital/ > /dev/null
+          echo "Frontend production domain is reachable."
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Edge: Cloudflare API Worker (deploy/cloudflare) → production environment.
+  # Installs via the pnpm workspace (wrangler resolves from node_modules) so no
+  # ad-hoc npm install runs inside the workspace package.
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy-edge:
+    name: Deploy Edge Worker (Cloudflare)
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.target == 'all' || needs.prepare.outputs.target == 'edge'
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: deploy/cloudflare
+          packageManager: pnpm
+          command: deploy --env production
+
+      - name: Verify production domain
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 10 --max-time 20 https://api.navratna.tardis.digital/health > /dev/null
+          echo "Edge API production domain is reachable."
