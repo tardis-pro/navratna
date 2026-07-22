@@ -46,6 +46,10 @@ describe('Security Gateway Integration', () => {
     it('should initialize successfully with all dependencies', () => {
       expect(securityGatewayService).toBeDefined();
       expect(securityGatewayService).toBeInstanceOf(SecurityGatewayService);
+      expect(mockDatabaseService).toEqual(expect.objectContaining({
+        initialize: expect.any(Function),
+        healthCheck: expect.any(Function),
+      }));
     });
 
     it('should have all required methods', () => {

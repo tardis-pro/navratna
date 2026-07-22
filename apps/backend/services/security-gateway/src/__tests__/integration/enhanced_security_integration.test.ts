@@ -77,6 +77,11 @@ describe('Enhanced Security Integration Tests', () => {
 
   describe('End-to-End Agent GitHub Integration', () => {
     it('should handle complete agent GitHub operation workflow', async () => {
+      expect(mockDatabaseService).toEqual(expect.objectContaining({
+        initialize: expect.any(Function),
+        healthCheck: expect.any(Function),
+      }));
+
       // Setup: Agent with GitHub OAuth connection
       const agentRequest: EnhancedSecurityValidationRequest = {
         operation: {

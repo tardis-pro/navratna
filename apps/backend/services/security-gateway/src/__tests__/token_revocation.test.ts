@@ -146,7 +146,7 @@ describe('JWTValidator.verify() — jti blocklist', () => {
 describe('generateAuthTokens — jti in access token', () => {
   it('access token contains a UUID v4 jti claim', async () => {
     const { generateAuthTokens } = await import('@uaip/middleware');
-    const { accessToken } = generateAuthTokens({
+    const { accessToken } = await generateAuthTokens({
       userId: randomUUID(),
       email: 'gen@test.com',
       role: 'user',

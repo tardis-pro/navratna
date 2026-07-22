@@ -44,6 +44,38 @@ function makeTypedSet(rawSet: Record<string, unknown>): { status: number } {
 
 const nullAgentContext: AgentContext | null = null;
 
+export function recordAgentOperationResult(
+  agentExecution: unknown,
+  operationName: string,
+  status: number,
+  now: number = Date.now()
+): boolean {
+  if (agentExecution === undefined) return false;
+
+  if (!isAgentExecution(agentExecution)) {
+    logger.warn('Invalid agent execution state ignored', {
+      operation: operationName,
+    });
+    return false;
+  }
+
+  const result = {
+    operation: operationName,
+    duration: now - agentExecution.startTime,
+    status,
+  };
+
+  agentExecution.results.push(result);
+
+  logger.debug('Agent operation completed', {
+    operation: operationName,
+    duration: result.duration,
+    status: result.status,
+  });
+
+  return true;
+}
+
 function withAgentGuard(
   ctx: unknown,
   callback: (agentContext: AgentContext, set: { status: number }) => unknown
@@ -166,21 +198,11 @@ export function trackAgentOperation(operationName: string) {
         const agentExecution = ctx.agentExecution;
         const statusRaw = isRecord(ctx.set) ? ctx.set['status'] : undefined;
 
-        if (agentExecution) {
-          const result = {
-            operation: operationName,
-            duration: Date.now() - agentExecution.startTime,
-            status: typeof statusRaw === 'number' ? statusRaw : 200,
-          };
-
-          agentExecution.results.push(result);
-
-          logger.debug('Agent operation completed', {
-            operation: operationName,
-            duration: result.duration,
-            status: result.status,
-          });
-        }
+        recordAgentOperationResult(
+          agentExecution,
+          operationName,
+          typeof statusRaw === 'number' ? statusRaw : 200
+        );
       });
   };
 }

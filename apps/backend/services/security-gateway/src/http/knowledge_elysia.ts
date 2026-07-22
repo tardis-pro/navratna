@@ -116,6 +116,41 @@ const getNumberValue = (value: unknown): number | undefined =>
 const getMetadataValue = (value: unknown): Record<string, unknown> | undefined =>
   isRecord(value) ? value : undefined;
 
+const asString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
+
+const toTagQuery = (query: Record<string, unknown>): TagQuery => ({
+  limit: asString(query.limit),
+});
+
+const toListQuery = (query: Record<string, unknown>): ListQuery => ({
+  limit: asString(query.limit),
+  offset: asString(query.offset),
+  tags: asString(query.tags),
+  types: asString(query.types),
+});
+
+const toSearchQuery = (query: Record<string, unknown>): SearchQuery => ({
+  q: asString(query.q),
+  tags: asString(query.tags),
+  types: asString(query.types),
+  limit: asString(query.limit),
+  confidence: asString(query.confidence),
+  includeRelationships: asString(query.includeRelationships),
+});
+
+const toGraphQuery = (query: Record<string, unknown>): GraphQuery => ({
+  limit: asString(query.limit),
+  types: asString(query.types),
+  tags: asString(query.tags),
+  includeRelationships: asString(query.includeRelationships),
+});
+
+const toRelationshipsQuery = (query: Record<string, unknown>): RelationshipsQuery => ({
+  limit: asString(query.limit),
+  relationshipTypes: asString(query.relationshipTypes),
+});
+
 const normalizeKnowledgeItem = (item: Record<string, unknown>): KnowledgeIngestRequest => {
   const record = isRecord(item) ? item : {};
   const sourceValue = isRecord(record.source) ? record.source : undefined;
@@ -305,7 +340,7 @@ async function parseDocumentFile(
     } else {
       fullText = await file.text();
     }
-  } catch (err) {
+  } catch {
     fullText = await file.text();
   }
 
@@ -584,7 +619,8 @@ export function registerKnowledgeRoutes() {
           return { error: 'Knowledge service not available', details: initializationError };
         }
         const { tag } = tagParamsSchema.parse(params);
-        const limit = Number(query.limit ?? 20);
+        const tagQuery = toTagQuery(query);
+        const limit = Number(tagQuery.limit ?? 20);
         const items = await userKnowledgeService!.getKnowledgeByTags(userId, [tag], limit);
         return {
           success: true,
@@ -650,7 +686,8 @@ export function registerKnowledgeRoutes() {
         const { set, params, query } = ctx;
         const userId = user.id;
         const { itemId } = itemIdParamsSchema.parse(params);
-        const limit = Number(query.limit ?? 10);
+        const tagQuery = toTagQuery(query);
+        const limit = Number(tagQuery.limit ?? 10);
         const { userKnowledgeService, initializationError } = await getServices();
         if (initializationError) {
           set.status = 503;
@@ -683,11 +720,12 @@ export function registerKnowledgeRoutes() {
           set.status = 503;
           return { error: 'Knowledge service not available', details: initializationError };
         }
-        const limit = Number(query.limit ?? 50);
-        const types = parseKnowledgeTypes(query.types);
-        const tags = query.tags ? String(query.tags).split(',') : undefined;
+        const graphQuery = toGraphQuery(query);
+        const limit = Number(graphQuery.limit ?? 50);
+        const types = parseKnowledgeTypes(graphQuery.types);
+        const tags = graphQuery.tags ? graphQuery.tags.split(',') : undefined;
         const includeRelationships =
-          String(query.includeRelationships ?? 'true') === 'true';
+          String(graphQuery.includeRelationships ?? 'true') === 'true';
         const searchRequest: KnowledgeSearchRequest = {
           query: '',
           filters: { types, tags },
@@ -778,7 +816,8 @@ export function registerKnowledgeRoutes() {
           return { error: 'Knowledge service not available', details: initializationError };
         }
         const { itemId } = itemIdParamsSchema.parse(params);
-        const limit = Number(query.limit ?? 20);
+        const relationshipsQuery = toRelationshipsQuery(query);
+        const limit = Number(relationshipsQuery.limit ?? 20);
         if (!itemId) {
           set.status = 400;
           return { error: 'Item ID is required' };
@@ -788,8 +827,8 @@ export function registerKnowledgeRoutes() {
           set.status = 404;
           return { error: 'Knowledge item not found or not accessible' };
         }
-        const relationshipTypes = query.relationshipTypes
-          ? String(query.relationshipTypes).split(',')
+        const relationshipTypes = relationshipsQuery.relationshipTypes
+          ? relationshipsQuery.relationshipTypes.split(',')
           : undefined;
         const related = await userKnowledgeService!.findRelatedKnowledge(
           userId,
@@ -1180,10 +1219,11 @@ export function registerKnowledgeRoutes() {
         set.status = 503;
         return { error: 'Knowledge service not available', details: initializationError };
       }
-      const limit = Number(query.limit ?? 50);
-      const offset = Number(query.offset ?? 0);
-      const tags = query.tags ? String(query.tags).split(',') : undefined;
-      const types = parseKnowledgeTypes(query.types);
+      const listQuery = toListQuery(query);
+      const limit = Number(listQuery.limit ?? 50);
+      const offset = Number(listQuery.offset ?? 0);
+      const tags = listQuery.tags ? listQuery.tags.split(',') : undefined;
+      const types = parseKnowledgeTypes(listQuery.types);
       const searchRequest: KnowledgeSearchRequest = {
         query: '',
         filters: { tags, types },
@@ -1221,16 +1261,17 @@ export function registerKnowledgeRoutes() {
         set.status = 503;
         return { error: 'Knowledge service not available', details: initializationError };
       }
-      const q = query.q;
+      const searchQuery = toSearchQuery(query);
+      const q = searchQuery.q;
       if (!q) {
         set.status = 400;
         return { error: 'Query parameter "q" is required' };
       }
-      const tags = query.tags ? String(query.tags).split(',') : undefined;
-      const types = parseKnowledgeTypes(query.types);
-      const limit = Number(query.limit ?? 20);
-      const confidence = query.confidence ? Number(query.confidence) : undefined;
-      const includeRelationships = String(query.includeRelationships ?? 'false') === 'true';
+      const tags = searchQuery.tags ? searchQuery.tags.split(',') : undefined;
+      const types = parseKnowledgeTypes(searchQuery.types);
+      const limit = Number(searchQuery.limit ?? 20);
+      const confidence = searchQuery.confidence ? Number(searchQuery.confidence) : undefined;
+      const includeRelationships = String(searchQuery.includeRelationships ?? 'false') === 'true';
       const searchRequest: KnowledgeSearchRequest = {
         query: q,
         filters: { tags, types, confidence },
@@ -1293,7 +1334,7 @@ export function registerKnowledgeRoutes() {
     })
   
     .get('/health', async ({ set }) => {
-      const healthStatus = await servicesHealthCheck();
+      const healthStatus: ServicesHealthStatus = await servicesHealthCheck();
       const ok = isRecord(healthStatus) && healthStatus.healthy === true;
       if (!ok) {
         set.status = 503;

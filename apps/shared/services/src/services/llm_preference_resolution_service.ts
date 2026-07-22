@@ -269,8 +269,6 @@ export class LLMPreferenceResolutionService {
     success: boolean,
     quality?: number
   ): Promise<void> {
-    const agentPrefRepo = this.agentLLMPreferenceRepository;
-    const userPrefRepo = this.userLLMPreferenceRepository;
     const agentRepo = this.agentRepository;
 
     // Update agent-specific stats if preference exists

@@ -14,10 +14,6 @@ import {
   PersonaVisibility,
 } from '@uaip/types';
 
-interface MessageWithContent {
-  content?: string;
-}
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
@@ -460,6 +456,7 @@ export class AgentIntelligenceService {
       }
 
       const createPayload = {
+        id: agentId,
         name: typeof agentData.name === 'string' ? agentData.name : '',
         description: typeof agentData.description === 'string' ? agentData.description : undefined,
         role: toAgentRole(role),
@@ -470,6 +467,7 @@ export class AgentIntelligenceService {
         maxTokens: typeof agentData.maxTokens === 'number' ? agentData.maxTokens : undefined,
         intelligenceConfig: isRecord(intelligenceConfig) ? intelligenceConfig : {},
         securityContext: isRecord(securityContext) ? securityContext : {},
+        configuration: isRecord(configuration) ? configuration : {},
         createdBy: createdBy || 'system',
         organizationId: organizationId || undefined,
       };

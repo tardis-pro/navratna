@@ -18,6 +18,22 @@ const TODO_PATTERN = /\/\/\s*(TODO|FIXME|HACK|XXX|WARN)\b[:\s]*(.*)/gi
 const LOC_GROWTH_THRESHOLD = 300
 const DEAD_EXPORT_MIN_SYMBOLS = 5
 
+function createDriftSignal(
+  type: DriftSignalType,
+  file: string,
+  description: string,
+  severity: DriftSignal['severity'],
+  detectedAt: string
+): DriftSignal {
+  return {
+    type,
+    file,
+    description,
+    severity,
+    detectedAt,
+  }
+}
+
 export class DriftDetectionService {
   constructor(private readonly eventBusService: EventBusService) {}
 
@@ -105,13 +121,13 @@ export class DriftDetectionService {
       for (const match of matches) {
         const todoText = `${file.path}:${match[1]}:${match[2]?.trim()}`
         if (!previousTodos.has(todoText)) {
-          signals.push({
-            type: 'new-todo',
-            file: file.path,
-            description: `New ${match[1]}: ${match[2]?.trim() ?? '(no description)'}`,
-            severity: match[1] === 'FIXME' || match[1] === 'HACK' ? 'medium' : 'low',
-            detectedAt: now,
-          })
+          signals.push(createDriftSignal(
+            'new-todo',
+            file.path,
+            `New ${match[1]}: ${match[2]?.trim() ?? '(no description)'}`,
+            match[1] === 'FIXME' || match[1] === 'HACK' ? 'medium' : 'low',
+            now
+          ))
         }
       }
     }
@@ -133,13 +149,13 @@ export class DriftDetectionService {
       const previousSize = previous.fileSizes.get(file.path) ?? 0
 
       if (previousSize > 0 && lineCount - previousSize > LOC_GROWTH_THRESHOLD) {
-        signals.push({
-          type: 'growing-file',
-          file: file.path,
-          description: `File grew by ${lineCount - previousSize} lines (${previousSize} → ${lineCount})`,
-          severity: lineCount - previousSize > 500 ? 'high' : 'medium',
-          detectedAt: now,
-        })
+        signals.push(createDriftSignal(
+          'growing-file',
+          file.path,
+          `File grew by ${lineCount - previousSize} lines (${previousSize} → ${lineCount})`,
+          lineCount - previousSize > 500 ? 'high' : 'medium',
+          now
+        ))
       }
     }
 
@@ -165,13 +181,13 @@ export class DriftDetectionService {
 
     for (const symbol of current.symbols) {
       if (!importedSymbols.has(symbol.name) && symbol.exported) {
-        signals.push({
-          type: 'dead-export',
-          file: symbol.file,
-          description: `Exported symbol "${symbol.name}" has 0 import references`,
-          severity: 'low',
-          detectedAt: now,
-        })
+        signals.push(createDriftSignal(
+          'dead-export',
+          symbol.file,
+          `Exported symbol "${symbol.name}" has 0 import references`,
+          'low',
+          now
+        ))
       }
     }
 

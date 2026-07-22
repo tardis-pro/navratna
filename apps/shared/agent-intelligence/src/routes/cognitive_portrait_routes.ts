@@ -11,8 +11,22 @@ import {
 } from '../services/cognitive_portrait_service.js'
 
 const portraitRequestSchema = z.object({
-  forceRecompute: z.boolean().optional(),
+  forceRecompute: z.boolean().default(false),
 })
+
+function parsePortraitQuery(query: Record<string, unknown> | undefined) {
+  const rawForceRecompute = query?.forceRecompute
+  const forceRecompute =
+    rawForceRecompute === undefined
+      ? false
+      : rawForceRecompute === 'true'
+        ? true
+        : rawForceRecompute === 'false'
+          ? false
+          : rawForceRecompute
+
+  return portraitRequestSchema.safeParse({ forceRecompute })
+}
 
 const calibrateRequestSchema = z.object({
   action: z.enum(['override', 'accept']),
@@ -25,10 +39,15 @@ export function registerCognitivePortraitRoutes() {
     withNginxAuth(group)
       .get('/:userId/cognitive-portrait', async (ctx) => {
         const userId = ctx.params.userId
-        const forceRecompute = ctx.query?.forceRecompute === 'true'
+        const parsedQuery = parsePortraitQuery(ctx.query)
+
+        if (!parsedQuery.success) {
+          ctx.set.status = 400
+          return { success: false, error: 'Invalid cognitive portrait query', details: parsedQuery.error.flatten() }
+        }
 
         try {
-          const request: CognitivePortraitRequest = { userId, forceRecompute }
+          const request: CognitivePortraitRequest = { userId, ...parsedQuery.data }
           const response = await getPortrait(request)
           return { success: true, ...response }
         } catch (error) {

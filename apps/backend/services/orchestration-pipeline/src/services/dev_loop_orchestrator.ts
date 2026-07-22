@@ -172,7 +172,7 @@ export class DevLoopOrchestrator {
       repoUrl: state.config.repoUrl,
     })
 
-    state.repoContext = {
+    const repoContext: RepoContext = {
       id: randomUUID(),
       source: state.config.repoUrl,
       repoMode: 'brownfield',
@@ -187,6 +187,7 @@ export class DevLoopOrchestrator {
         credentials: state.config.boardCredentials,
       },
     }
+    state.repoContext = repoContext
 
     logger.info('Repo ingestion completed', { loopId: state.id, repoUrl: state.config.repoUrl })
   }
@@ -403,8 +404,8 @@ export class DevLoopOrchestrator {
         id: state.id,
         type: 'rdlo-dev-loop',
         agentId: 'system',
-        steps: STAGE_ORDER.map((stage, i) => ({
-          id: `${state.id}-${stage}`,
+        steps: STAGE_ORDER.map((stage, stepIndex) => ({
+          id: `${state.id}-${stepIndex + 1}-${stage}`,
           type: stage,
           description: `RDLO stage: ${stage}`,
           estimatedDuration: 60,

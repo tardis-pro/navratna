@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { withRequiredAuth } from '@uaip/middleware';
 import { UserToolPreferencesService } from '@uaip/shared-services';
 
-import { getAuthUser, getErrorMessage } from './context_helpers.js';
+import { getAuthUser } from './context_helpers.js';
 
 const service = new UserToolPreferencesService();
 async function getService(): Promise<UserToolPreferencesService> {

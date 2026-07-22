@@ -1,9 +1,7 @@
-import { randomUUID } from 'node:crypto'
 import { EventBusService } from '@uaip/shared-services'
 import type {
   BoardProvider,
   DecomposedStory,
-  EventBusMessage,
   RepoContext,
   SolutionDesign,
 } from '@uaip/types'

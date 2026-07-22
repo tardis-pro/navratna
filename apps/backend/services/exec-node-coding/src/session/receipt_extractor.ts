@@ -40,6 +40,16 @@ function aliasedValue(record: Record<string, unknown>, first: string, second: st
   return hasFirst ? record[first] : record[second];
 }
 
+function optionalAliasedRecord(
+  record: Record<string, unknown>,
+  first: string,
+  second: string
+): Record<string, unknown> | null {
+  const value = aliasedValue(record, first, second);
+  if (value === null) return {};
+  return isRecord(value) ? value : null;
+}
+
 function toolName(raw: Record<string, unknown>): string | null {
   const direct = boundedString(raw['toolName'], 128);
   const nestedTool = raw['tool'];
@@ -191,8 +201,8 @@ export function extractToolReceipt(raw: unknown): ReceiptExtraction | null {
   if (!isRecord(raw)) return null;
   const name = toolName(raw);
   const inputValue = aliasedValue(raw, 'input', 'args');
-  const resultValue = aliasedValue(raw, 'result', 'output');
-  if (name === null || !isRecord(inputValue) || !isRecord(resultValue)) return null;
+  const resultValue = optionalAliasedRecord(raw, 'result', 'output');
+  if (name === null || !isRecord(inputValue) || resultValue === null) return null;
 
   const normalized = name.toLowerCase().replaceAll('-', '_');
   let receipt: CodingReceipt | null = null;
@@ -202,11 +212,12 @@ export function extractToolReceipt(raw: unknown): ReceiptExtraction | null {
   else if (normalized === 'git_commit') receipt = extractCommit(inputValue, resultValue);
   else if (normalized === 'pr_opened' || normalized === 'pr_open' || normalized === 'github_pr_create') receipt = extractPr(inputValue, resultValue);
 
-  const testPayload = resultValue['testRun'] ?? resultValue['testResult'];
-  const testEvents = normalized === 'test_run' || normalized === 'run_tests'
+  const isTestTool = normalized === 'test_run' || normalized === 'run_tests';
+  const testPayload = raw['testRun'] ?? raw['testResult'] ?? resultValue['testRun'] ?? resultValue['testResult'];
+  const testEvents = isTestTool
     ? extractStructuredTests(testPayload)
     : [];
-  if (receipt === null && testEvents.length === 0) return null;
+  if (receipt === null && testEvents.length === 0 && !isTestTool) return null;
   return { receipt, testEvents };
 }
 

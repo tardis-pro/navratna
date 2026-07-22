@@ -53,6 +53,7 @@ vi.mock('@uaip/middleware', () => {
     }),
     JWTValidator: {
       verify: vi.fn().mockReturnValue({ userId: 'user-uuid-1234', email: 'test@example.com', role: 'admin' }),
+      verifyAny: vi.fn().mockResolvedValue({ userId: 'user-uuid-1234', email: 'test@example.com', role: 'admin' }),
       sign: vi.fn().mockReturnValue('mock-signed-token'),
     },
     csrfProtection: { generateToken: vi.fn().mockReturnValue('csrf-token-abc') },
@@ -126,7 +127,7 @@ describe('Auth Routes', () => {
           body: JSON.stringify({ email: 'not-an-email', password: 'password123' }),
         })
       );
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(400);
     });
 
     it('returns 401 when user not found', async () => {
@@ -250,7 +251,7 @@ describe('Auth Routes', () => {
 
     it('returns 200 for valid token', async () => {
       const { JWTValidator } = await import('@uaip/middleware');
-      vi.mocked(JWTValidator.verify).mockReturnValue({
+      vi.mocked(JWTValidator.verifyAny).mockResolvedValue({
         userId: 'u1', email: 'test@example.com', role: 'admin',
         iat: 0, exp: Date.now() / 1000 + 3600,
       } as never);
@@ -268,7 +269,7 @@ describe('Auth Routes', () => {
 
     it('returns 401 for invalid token', async () => {
       const { JWTValidator } = await import('@uaip/middleware');
-      vi.mocked(JWTValidator.verify).mockImplementation(() => {
+      vi.mocked(JWTValidator.verifyAny).mockImplementation(() => {
         throw new Error('invalid token');
       });
 

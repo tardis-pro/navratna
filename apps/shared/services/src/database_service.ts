@@ -4,7 +4,6 @@ import type { AgentSkill, ExecutionPlan, UserEntity } from '@uaip/types';
 import type {
   ApprovalWorkflow,
   Operation,
-  User,
 } from './database/drizzle/schemas/control_schema';
 import type { Discussion } from './database/drizzle/schemas/intelligence_schema';
 

@@ -19,6 +19,9 @@ function toRecord(v: unknown): Record<string, unknown> {
 }
 
 export class NotionAdapter extends BaseOAuthAdapter {
+  private readonly integrationToken?: string
+  private readonly workspaceId?: string
+
   constructor(adapterConfig: NotionAdapterConfig) {
     const oauthConfig: OAuthConfig = {
       clientId: process.env.NOTION_CLIENT_ID ?? '',
@@ -30,6 +33,8 @@ export class NotionAdapter extends BaseOAuthAdapter {
       apiBaseUrl: NOTION_API_BASE,
     }
     super(oauthConfig)
+    this.integrationToken = adapterConfig.integrationToken
+    this.workspaceId = adapterConfig.workspaceId
   }
 
   protected override async makeApiRequest(
@@ -43,7 +48,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
       if (typeof v === 'string') stringHeaders[k] = v
     }
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${tokens.accessToken}`,
+      'Authorization': `Bearer ${this.resolveAccessToken(tokens)}`,
       'Notion-Version': NOTION_VERSION,
       'Accept': 'application/json',
       ...stringHeaders,
@@ -61,7 +66,20 @@ export class NotionAdapter extends BaseOAuthAdapter {
   }
 
   protected setupOperations(): void {
-    this.operations.set('notion_create_page', {
+    this.operations.set('notion_create_page', this.createPageOperation())
+    this.operations.set('notion_update_page', this.updatePageOperation())
+    this.operations.set('notion_get_page', this.getPageOperation())
+    this.operations.set('notion_query_database', this.queryDatabaseOperation())
+    this.operations.set('notion_search', this.searchOperation())
+    this.operations.set('notion_append_blocks', this.appendBlocksOperation())
+  }
+
+  private resolveAccessToken(tokens: OAuthTokens): string {
+    return tokens.accessToken || this.integrationToken || ''
+  }
+
+  private createPageOperation(): ToolOperation {
+    return {
       id: 'notion_create_page',
       name: 'Create Notion Page',
       description: 'Creates a new page in Notion',
@@ -73,9 +91,11 @@ export class NotionAdapter extends BaseOAuthAdapter {
         const content = typeof p.content === 'string' ? p.content : ''
         return this.createPage(parentId, title, content, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('notion_update_page', {
+  private updatePageOperation(): ToolOperation {
+    return {
       id: 'notion_update_page',
       name: 'Update Notion Page',
       description: 'Updates a page in Notion',
@@ -86,9 +106,11 @@ export class NotionAdapter extends BaseOAuthAdapter {
         const properties = toRecord(p.properties)
         return this.updatePage(pageId, properties, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('notion_get_page', {
+  private getPageOperation(): ToolOperation {
+    return {
       id: 'notion_get_page',
       name: 'Get Notion Page',
       description: 'Retrieves a page from Notion',
@@ -98,9 +120,11 @@ export class NotionAdapter extends BaseOAuthAdapter {
         const pageId = typeof p.pageId === 'string' ? p.pageId : ''
         return this.getPage(pageId, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('notion_query_database', {
+  private queryDatabaseOperation(): ToolOperation {
+    return {
       id: 'notion_query_database',
       name: 'Query Notion Database',
       description: 'Queries a Notion database',
@@ -111,9 +135,11 @@ export class NotionAdapter extends BaseOAuthAdapter {
         const filter = p.filter !== undefined ? toRecord(p.filter) : undefined
         return this.queryDatabase(databaseId, filter, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('notion_search', {
+  private searchOperation(): ToolOperation {
+    return {
       id: 'notion_search',
       name: 'Search Notion',
       description: 'Searches across Notion workspace',
@@ -123,9 +149,11 @@ export class NotionAdapter extends BaseOAuthAdapter {
         const query = typeof p.query === 'string' ? p.query : ''
         return this.search(query, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('notion_append_blocks', {
+  private appendBlocksOperation(): ToolOperation {
+    return {
       id: 'notion_append_blocks',
       name: 'Append Blocks',
       description: 'Appends blocks to a Notion page',
@@ -136,7 +164,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
         const blocks = Array.isArray(p.blocks) ? p.blocks.filter((b): b is NotionBlockContent => isRecord(b) && typeof b['type'] === 'string' && typeof b['content'] === 'string') : []
         return this.appendBlocks(pageId, blocks, tokens)
       },
-    })
+    }
   }
 
   // ─── API operations ────────────────────────────────────────────────────
@@ -204,7 +232,7 @@ export class NotionAdapter extends BaseOAuthAdapter {
     databaseId: string,
     filter: Record<string, unknown> | undefined,
     tokens: OAuthTokens
-  ): Promise<{ results: NotionPage[] }> {
+  ): Promise<{ database: NotionDatabase; results: NotionPage[] }> {
     const body: Record<string, unknown> = {}
     if (filter) {
       body.filter = filter
@@ -223,17 +251,24 @@ export class NotionAdapter extends BaseOAuthAdapter {
     const responseData = toRecord(await response.json())
     const results = Array.isArray(responseData.results) ? responseData.results : []
     return {
+      database: this.mapToNotionDatabase(responseData, databaseId),
       results: results.map((item) => this.mapToNotionPage(toRecord(item))),
     }
   }
 
   private async search(query: string, tokens: OAuthTokens): Promise<{ results: NotionPage[] }> {
+    const body: Record<string, unknown> = { query }
+    if (this.workspaceId) {
+      body.filter = { property: 'object', value: 'page' }
+      body.workspaceId = this.workspaceId
+    }
+
     const response = await this.makeApiRequest(
       `${NOTION_API_BASE}/search`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify(body),
       },
       tokens
     )
@@ -351,6 +386,29 @@ export class NotionAdapter extends BaseOAuthAdapter {
       lastEditedAt: typeof data.last_edited_time === 'string' ? data.last_edited_time : '',
       createdAt: typeof data.created_time === 'string' ? data.created_time : '',
       archived: typeof data.archived === 'boolean' ? data.archived : false,
+    }
+  }
+
+  private mapToNotionDatabase(data: Record<string, unknown>, fallbackId: string): NotionDatabase {
+    const titleArr = Array.isArray(data.title) ? data.title : []
+    const firstTitle = toRecord(titleArr[0])
+    const properties = toRecord(data.properties)
+    const mappedProperties: NotionDatabase['properties'] = {}
+
+    for (const [name, rawProperty] of Object.entries(properties)) {
+      const property = toRecord(rawProperty)
+      mappedProperties[name] = {
+        id: typeof property.id === 'string' ? property.id : name,
+        name,
+        type: typeof property.type === 'string' ? property.type : 'unknown',
+      }
+    }
+
+    return {
+      id: typeof data.id === 'string' ? data.id : fallbackId,
+      title: typeof firstTitle.plain_text === 'string' ? firstTitle.plain_text : 'Untitled database',
+      url: typeof data.url === 'string' ? data.url : '',
+      properties: mappedProperties,
     }
   }
 }

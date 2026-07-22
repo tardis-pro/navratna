@@ -8,7 +8,6 @@ import type {
   StoryStatus,
 } from '@uaip/types'
 import { logger, ExternalServiceError } from '@uaip/utils'
-import { randomUUID } from 'node:crypto'
 
 interface JiraAdapterConfig {
   baseUrl: string

@@ -6,11 +6,11 @@ import {
   ArtifactRequest,
   ArtifactResponse,
   ContextRequest,
-  Message,
   AvailableTool,
 } from './interfaces.js';
 import type { LLMToolCall } from '@uaip/types';
 import { getContextManager, ContextManager } from './context-manager/context_manager.js';
+import { normalizeAgentContextMessages } from './context-manager/context_message_normalizer.js';
 import { BaseProvider } from './providers/base_provider.js';
 import { OllamaProvider } from './providers/ollama_provider.js';
 import { LLMStudioProvider } from './providers/l_l_m_studio_provider.js';
@@ -803,9 +803,9 @@ export class LLMService {
     const systemPrompt = this.buildAgentSystemPrompt(request);
     const systemPromptTokens = this.contextManager.estimateTokens(systemPrompt);
 
+    const contextMessages = normalizeAgentContextMessages(messages);
     const window = this.contextManager.createRollingWindow(
-      // @ts-expect-error -- ChatMessage.timestamp is string but Message.timestamp is Date; schema alignment needed
-      messages,
+      contextMessages,
       systemPromptTokens,
       tools.length,
       contextDocs

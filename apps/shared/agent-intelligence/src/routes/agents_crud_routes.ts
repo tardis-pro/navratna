@@ -79,11 +79,15 @@ export function registerAgentCrudRoutes(
     
           const total = Number(countRow?.total ?? 0)
     
+          const exactNameRank = search
+            ? sql<number>`CASE WHEN lower(${agents.name}) = lower(${search}) THEN 0 ELSE 1 END`
+            : sql<number>`1`
+
           const rows = await db
             .select()
             .from(agents)
             .where(whereClause)
-            .orderBy(asc(agents.createdAt))
+            .orderBy(exactNameRank, asc(agents.createdAt))
             .limit(limit)
             .offset((page - 1) * limit)
     

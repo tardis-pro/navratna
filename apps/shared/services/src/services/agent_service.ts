@@ -5,7 +5,7 @@ import { CapabilityRepository } from '../database/repositories/capability_reposi
 import { AgentLLMPreferenceRepository } from '../database/repositories/agent_l_l_m_preference_repository';
 import { AgentStatus, AgentRole, SecurityLevel } from '@uaip/types';
 import { EventBusService } from '../event_bus_service';
-import type { Agent, NewAgent } from '../database/drizzle/schemas/intelligence_schema';
+import type { Agent } from '../database/drizzle/schemas/intelligence_schema';
 import type { CapabilityRow } from '../database/repositories/capability_repository';
 
 interface Capability {

@@ -364,15 +364,9 @@ describe('CodingSession — Wave C unknown event handling', () => {
     const events: CodingSessionEvent[] = [];
     session.subscribe((e) => events.push(e));
 
-    let capturedListener: AgentSessionEventListener | undefined;
-    session.attachPiSession(makeFakePiSession({
-      subscribe: vi.fn().mockImplementation((l: AgentSessionEventListener) => {
-        capturedListener = l;
-        return () => {};
-      }),
-    }));
+    const captured = captureListener(session);
 
-    capturedListener?.(asAgentEvent({ type: 'some_new_pi_event_type', data: 'stuff' }));
+    captured.listener?.(asAgentEvent({ type: 'some_new_pi_event_type', data: 'stuff' }));
 
     expect(session.state).toBe('READY');
     const errorEvent = events.find((e) => e.type === 'error') as Extract<CodingSessionEvent, { type: 'error' }> | undefined;

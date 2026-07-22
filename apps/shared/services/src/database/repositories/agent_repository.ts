@@ -1,4 +1,4 @@
-import { eq, desc, and, inArray, ilike, or } from 'drizzle-orm';
+import { eq, desc, and, ilike, or } from 'drizzle-orm';
 import { getIntelligenceDb } from '../drizzle/clients/index';
 import {
   agents,

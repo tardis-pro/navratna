@@ -508,8 +508,7 @@ export class ToolController {
     try {
       const id = extractParamId(params);
       const validatedRelationship = AddRelationshipSchema.parse(body);
-
-      await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, {
+      const relationship: ToolRelationship = {
         sourceToolId: id,
         targetToolId: validatedRelationship.toToolId,
         relationshipType: validatedRelationship.type,
@@ -517,7 +516,9 @@ export class ToolController {
         strength: validatedRelationship.strength,
         reason: validatedRelationship.reason ?? '',
         metadata: validatedRelationship.metadata,
-      });
+      };
+
+      await this.toolRegistry.addToolRelationship(id, validatedRelationship.toToolId, relationship);
 
       set.status = 201;
       return {

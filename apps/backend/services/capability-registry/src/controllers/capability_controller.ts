@@ -93,7 +93,7 @@ export class CapabilityController {
       searchQuery
     );
 
-    const capabilities = await this.capabilityDiscoveryService.searchCapabilities(searchQuery);
+    const capabilities: Capability[] = await this.capabilityDiscoveryService.searchCapabilities(searchQuery);
 
     return {
       success: true,
@@ -181,7 +181,7 @@ export class CapabilityController {
       { query: qParam, type, limit }
     );
 
-    const capabilities = await this.capabilityDiscoveryService.searchCapabilities({
+    const capabilities: Capability[] = await this.capabilityDiscoveryService.searchCapabilities({
       query: typeof qParam === 'string' && qParam.length > 0 ? qParam : '*',
       type: isCapabilityType(type) ? type : undefined,
       limit: toQueryInt(limit, 50),

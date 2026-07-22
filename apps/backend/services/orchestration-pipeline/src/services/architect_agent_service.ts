@@ -3,7 +3,6 @@ import { EventBusService } from '@uaip/shared-services'
 import type {
   ComplexityResult,
   DecomposedStory,
-  EventBusMessage,
   RepoContext,
   SolutionDesign,
   SolutionDesignFileChange,

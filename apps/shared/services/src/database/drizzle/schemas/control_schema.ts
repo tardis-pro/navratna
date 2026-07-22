@@ -1230,8 +1230,6 @@ export type NewErasureLedgerRow = typeof erasureLedger.$inferInsert;
 // Uniqueness invariant: at most one *active* binding per (userId, projectId,
 // repositoryId) triple — prevents cross-user/cross-project ambiguity.
 
-const REPO_FULL_NAME_RE = /^[a-zA-Z0-9_.-]{1,100}\/[a-zA-Z0-9_.-]{1,100}$/;
-
 export const githubAppInstallations = pgTable(
   'github_app_installations',
   {
