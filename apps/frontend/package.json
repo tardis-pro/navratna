@@ -50,6 +50,7 @@
     "@radix-ui/react-toggle-group": "catalog:frontend",
     "@radix-ui/react-tooltip": "catalog:frontend",
     "@sentry/react": "catalog:frontend",
+    "@sentry/vite-plugin": "^5.4.0",
     "@shikijs/rehype": "^4.3.1",
     "@tailwindcss/postcss": "^4.1.10",
     "@tanstack/ai": "^0.8.1",

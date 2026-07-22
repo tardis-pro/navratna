@@ -1,4 +1,11 @@
 // Browser-compatible logger to replace Winston for frontend use
+import { captureFrontendException } from './sentry';
+
+const hasReactComponentStack = (value: unknown): boolean =>
+  typeof value === 'object' &&
+  value !== null &&
+  'componentStack' in value &&
+  typeof value.componentStack === 'string';
 
 export interface Logger {
   info(message: string, ...args: unknown[]): void;
@@ -24,6 +31,14 @@ class BrowserLogger implements Logger {
 
   error(message: string, ...args: unknown[]): void {
     console.error(`[ERROR] ${message}`, ...args);
+    if (args.some(hasReactComponentStack)) return;
+
+    const error = args.find((arg): arg is Error => arg instanceof Error) ?? new Error(message);
+    captureFrontendException(
+      error,
+      { source: 'browser_logger' },
+      { message, args: args.map((arg) => (arg instanceof Error ? arg.message : arg)) },
+    );
   }
 
   debug(message: string, ...args: unknown[]): void {

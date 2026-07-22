@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import path from 'path';
 import type { Plugin } from 'vite';
 
@@ -80,7 +81,23 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       exclude: ['elysia', ...BACKEND_PACKAGES],
     },
-    plugins: [backendLeakGuard(), react()].filter(Boolean),
+    plugins: [
+      backendLeakGuard(),
+      react(),
+      sentryVitePlugin({
+        authToken: env.SENTRY_AUTH_TOKEN,
+        org: 'geospoc',
+        project: 'javascript-react',
+        disable: mode !== 'production' || !env.SENTRY_AUTH_TOKEN,
+        release: {
+          name: env.VITE_APP_VERSION || '1.0.0',
+        },
+        sourcemaps: {
+          assets: './dist/assets/**',
+          filesToDeleteAfterUpload: './dist/**/*.map',
+        },
+      }),
+    ].filter(Boolean),
     build: {
       // Hidden source maps: emitted for Sentry upload in CD, never referenced
       // from the bundles — so they are not served publicly by Cloudflare Pages.

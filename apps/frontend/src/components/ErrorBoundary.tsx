@@ -1,6 +1,7 @@
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { logger } from '@/utils/browser_logger';
+import { captureFrontendException } from '@/utils/sentry';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -25,6 +26,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error('ErrorBoundary caught an error:', error, errorInfo);
+    captureFrontendException(
+      error,
+      { source: 'react_error_boundary' },
+      { componentStack: errorInfo.componentStack },
+    );
     this.props.onError?.(error, errorInfo);
   }
 
