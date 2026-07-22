@@ -9,7 +9,7 @@ import { AuditEventType, SecurityLevel } from '@uaip/types';
 import { SecurityGatewayService } from '../services/security_gateway_service.js';
 import { ApprovalWorkflowService } from '../services/approval_workflow_service.js';
 
-import { getAuthUser, getErrorMessage } from './context_helpers.js';
+import { getAuthUser } from './context_helpers.js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;

@@ -4,12 +4,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  _DialogTrigger,
+  DialogTrigger as _DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, _AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage as _AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -26,13 +26,13 @@ import {
   UserPlus,
   Zap,
   Clock,
-  _TrendingUp,
+  TrendingUp as _TrendingUp,
   AlertCircle,
   CheckCircle,
   Circle,
   Search,
-  _Filter,
-  _Star,
+  Filter as _Filter,
+  Star as _Star,
   Activity,
 } from 'lucide-react';
 import { logger } from '@/utils/browser_logger';

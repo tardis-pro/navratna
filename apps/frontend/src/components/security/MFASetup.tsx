@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { _Tabs, _TabsContent, _TabsList, _TabsTrigger } from '@/components/ui/tabs';
+import { Tabs as _Tabs, TabsContent as _TabsContent, TabsList as _TabsList, TabsTrigger as _TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use_toast';
 import {
@@ -17,16 +17,16 @@ import {
   Shield,
   ShieldCheck,
   ShieldOff,
-  _QrCode,
+  QrCode as _QrCode,
   Copy,
   Check,
   X,
   Loader2,
   AlertTriangle,
   Info,
-  _RefreshCw,
+  RefreshCw as _RefreshCw,
   Download,
-  _FileText,
+  FileText as _FileText,
 } from 'lucide-react';
 import QRCode from 'qrcode.react';
 import { MFAMethod, MFASetupData } from '@uaip/types';

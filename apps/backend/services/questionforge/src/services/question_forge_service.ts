@@ -301,9 +301,10 @@ export class QuestionForgeService {
     const agentAnalyses = debateResult.round1Analyses ?? [];
 
     for (const analysis of agentAnalyses) {
+      const typedAnalysis: CouncilAgentAnalysis = analysis;
       const agentQuestions = analysis.questions ?? [];
-      const stakeholderId = analysis.agentId;
-      const stakeholderName = analysis.agentRole ?? stakeholderId;
+      const stakeholderId = typedAnalysis.agentId;
+      const stakeholderName = typedAnalysis.agentRole ?? stakeholderId;
 
       for (const rawQ of agentQuestions) {
         const q: Record<string, unknown> = isRecord(rawQ) ? rawQ : { text: String(rawQ) };

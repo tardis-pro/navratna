@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { _Textarea } from '@/components/ui/textarea';
+import { Textarea as _Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { GlobalAutocomplete } from '@/components/ui/GlobalAutocomplete';
 import { useDiscussion } from '@/contexts/DiscussionContext';
@@ -42,11 +42,11 @@ import {
   Activity,
   Network,
   Zap,
-  _Eye,
-  _EyeOff,
-  _Filter,
+  Eye as _Eye,
+  EyeOff as _EyeOff,
+  Filter as _Filter,
   Search,
-  _Download,
+  Download as _Download,
   Pause,
   RotateCcw,
   Settings,
@@ -55,9 +55,9 @@ import {
   Presentation,
   Target,
   Sparkles,
-  _TrendingUp,
-  _Cpu,
-  _Plus,
+  TrendingUp as _TrendingUp,
+  Cpu as _Cpu,
+  Plus as _Plus,
   RefreshCw,
   Grid,
   List,

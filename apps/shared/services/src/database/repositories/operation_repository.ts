@@ -1,4 +1,4 @@
-import { eq, and, desc, inArray, count } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import { getControlDb } from '../drizzle/clients/index';
 import {
   operations,

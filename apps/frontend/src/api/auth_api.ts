@@ -41,11 +41,7 @@ function toLoginUser(value: unknown): LoginResponse['user'] {
 export const authAPI = {
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await edenWithCSRFRetry(() => auth.login.post(credentials))
-
-    return {
-      token: '',
-      user: toLoginUser(response),
-    };
+    return { user: toLoginUser(response) }
   },
 
   async logout(): Promise<void> {

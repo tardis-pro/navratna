@@ -68,6 +68,11 @@ describe('SecurityGatewayService', () => {
 
   describe('validateSecurity', () => {
     it('should validate low-risk operation successfully', async () => {
+      expect(mockDatabaseService).toEqual(expect.objectContaining({
+        initialize: expect.any(Function),
+        healthCheck: expect.any(Function),
+      }));
+
       const request = createSecurityValidationRequest({
         operation: {
           type: 'read',

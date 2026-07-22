@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Agent, CreateAgentRequest, AgentSkill } from '@uaip/types';
+import type { AgentSkill, AgentUpdate } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip_api';
 import { edenRequest } from '../api/eden';
-import { _llmAPI } from '../api/llm_api';
+import { llmAPI as _llmAPI } from '../api/llm_api';
 import { useAgents } from '../contexts/AgentContext';
+import type {
+  AgentEditFormData,
+  AgentEditModalProps,
+  AgentLLMPreference,
+  AssignedMCPTool,
+  AssignedMCPToolsResponse,
+  AvailableMCPTool,
+  MCPToolSettings,
+  MCPToolsResponse,
+  SkillsTabProps,
+  TabConfig,
+  ToolsTabProps,
+} from './AgentEditModal.types';
 import {
   X,
   Save,
@@ -15,8 +28,8 @@ import {
   Zap,
   MessageSquare,
   Bot,
-  _Palette,
-  _Brain,
+  Palette as _Palette,
+  Brain as _Brain,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -35,20 +48,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 const AGENT_SKILL_SOURCES = new Set<string>(['inline', 'filesystem', 'registry']);
 function isAgentSkillSource(v: string): v is AgentSkill['source'] {
   return AGENT_SKILL_SOURCES.has(v);
-}
-
-interface AgentEditModalProps {
-  agentId: string;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave?: (agentId: string, updates: Partial<Agent>) => void;
-}
-
-interface TabConfig {
-  id: string;
-  label: string;
-  icon: React.ComponentType<unknown>;
-  gradient: string;
 }
 
 // LLM Task Types for preferences
@@ -73,20 +72,95 @@ const LLM_PROVIDER_TYPES = [
   { value: 'custom', label: 'Custom' },
 ];
 
-interface AgentLLMPreference {
-  id?: string;
-  taskType: string;
-  preferredProvider: string;
-  preferredModel: string;
-  fallbackModel?: string;
-  settings?: {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    systemPrompt?: string;
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function readOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function readOptionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
+}
+
+function readOptionalRecord(value: unknown): Record<string, unknown> | undefined {
+  return isRecord(value) ? Object.fromEntries(Object.entries(value)) : undefined;
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : undefined;
+}
+
+function readMCPToolSettings(value: unknown): MCPToolSettings {
+  if (!isRecord(value)) return {};
+  return {
+    allowedServers: readStringArray(value.allowedServers),
+    blockedServers: readStringArray(value.blockedServers),
+    maxToolsPerServer: readOptionalNumber(value.maxToolsPerServer),
+    autoDiscoveryEnabled: readOptionalBoolean(value.autoDiscoveryEnabled),
   };
-  isActive: boolean;
-  priority: number;
+}
+
+function readAvailableMCPTool(value: unknown): AvailableMCPTool | null {
+  if (!isRecord(value)) return null;
+  const id = readOptionalString(value.id);
+  const name = readOptionalString(value.name);
+  const serverName = readOptionalString(value.serverName);
+  if (!id || !name || !serverName) return null;
+  return {
+    id,
+    name,
+    serverName,
+    description: readOptionalString(value.description),
+    parameters: readOptionalRecord(value.parameters),
+  };
+}
+
+function readAssignedMCPTool(value: unknown): AssignedMCPTool | null {
+  if (!isRecord(value)) return null;
+  const toolId = readOptionalString(value.toolId);
+  const toolName = readOptionalString(value.toolName);
+  const serverName = readOptionalString(value.serverName);
+  const enabled = readOptionalBoolean(value.enabled);
+  if (!toolId || !toolName || !serverName || enabled === undefined) return null;
+  return {
+    toolId,
+    toolName,
+    serverName,
+    enabled,
+    priority: readOptionalNumber(value.priority),
+    parameters: readOptionalRecord(value.parameters),
+  };
+}
+
+function toAgentUpdatePayload(formData: AgentEditFormData): AgentUpdate {
+  return {
+    name: formData.name,
+    description: formData.description,
+    role: formData.role,
+    personaId: formData.personaId,
+    persona: formData.persona,
+    intelligenceConfig: formData.intelligenceConfig,
+    configuration: formData.configuration,
+    securityContext: formData.securityContext,
+    isActive: formData.isActive,
+    status: formData.status,
+    metadata: {
+      ...formData.metadata,
+      tags: formData.tags ?? [],
+      preferences: formData.preferences ?? {},
+    },
+    skills: formData.skills,
+    modelId: formData.modelId,
+    apiType: formData.apiType,
+    userLLMProviderId: formData.userLLMProviderId,
+    temperature: formData.temperature,
+    maxTokens: formData.maxTokens,
+    systemPrompt: formData.systemPrompt,
+    assignedMCPTools: formData.assignedMCPTools,
+    mcpToolSettings: formData.mcpToolSettings,
+  };
 }
 
 const tabs: TabConfig[] = [
@@ -113,16 +187,11 @@ const tabs: TabConfig[] = [
   },
 ];
 
-interface ToolsTabProps {
-  agentId: string;
-  isOpen: boolean;
-}
-
 const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
-    const [mcpTools, setMcpTools] = useState<unknown[]>([]);
+    const [mcpTools, setMcpTools] = useState<AvailableMCPTool[]>([]);
     const [loadingTools, setLoadingTools] = useState(true);
-    const [assignedTools, setAssignedTools] = useState<unknown[]>([]);
-    const [toolSettings, setToolSettings] = useState<unknown>({});
+    const [assignedTools, setAssignedTools] = useState<AssignedMCPTool[]>([]);
+    const [toolSettings, setToolSettings] = useState<MCPToolSettings>({});
     const [showAddTool, setShowAddTool] = useState(false);
 
     // Load MCP tools and agent's assigned tools
@@ -132,19 +201,21 @@ const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
           setLoadingTools(true);
 
           // Get available MCP tools
-          const availableData = await edenRequest<{ tools?: unknown[] }>(
+          const availableData = await edenRequest<MCPToolsResponse>(
             '/api/v1/agents/mcp-tools',
             { method: 'GET' }
           );
-          setMcpTools(availableData?.tools || []);
+          setMcpTools((availableData?.tools || []).map(readAvailableMCPTool).filter(Boolean));
 
           // Get agent's assigned tools
-          const assignedData = await edenRequest<{
-            assignedMCPTools?: unknown[];
-            mcpToolSettings?: unknown;
-          }>(`/api/v1/agents/${agentId}/mcp-tools`, { method: 'GET' });
-          setAssignedTools(assignedData?.assignedMCPTools || []);
-          setToolSettings(assignedData?.mcpToolSettings || {});
+          const assignedData = await edenRequest<AssignedMCPToolsResponse>(
+            `/api/v1/agents/${agentId}/mcp-tools`,
+            { method: 'GET' }
+          );
+          setAssignedTools(
+            (assignedData?.assignedMCPTools || []).map(readAssignedMCPTool).filter(Boolean)
+          );
+          setToolSettings(readMCPToolSettings(assignedData?.mcpToolSettings));
         } catch (error) {
           logger.error('Error loading MCP tools:', error);
         } finally {
@@ -157,27 +228,29 @@ const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
       }
     }, []);
 
-    const handleAssignTool = async (tool: unknown) => {
+    const handleAssignTool = async (tool: AvailableMCPTool) => {
       try {
-        const data = await edenRequest<{ assignedMCPTools?: unknown[] }>(
+        const data = await edenRequest<AssignedMCPToolsResponse>(
           `/api/v1/agents/${agentId}/mcp-tools`,
           {
             method: 'POST',
             body: {
               toolsToAssign: [
                 {
-                  toolId: isRecord(tool) ? tool.id : undefined,
-                  toolName: isRecord(tool) ? tool.name : undefined,
-                  serverName: isRecord(tool) ? tool.serverName : undefined,
+                  toolId: tool.id,
+                  toolName: tool.name,
+                  serverName: tool.serverName,
                   enabled: true,
                   priority: 1,
-                  parameters: isRecord(tool) && tool.parameters ? tool.parameters : {},
+                  parameters: tool.parameters ?? {},
                 },
               ],
             },
           }
         );
-        setAssignedTools(data?.assignedMCPTools || []);
+        setAssignedTools(
+          (data?.assignedMCPTools || []).map(readAssignedMCPTool).filter(Boolean)
+        );
         setShowAddTool(false);
       } catch (error) {
         logger.error('Error assigning tool:', error);
@@ -187,9 +260,7 @@ const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
     const handleRemoveTool = async (toolId: string) => {
       try {
         await edenRequest(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { method: 'DELETE' });
-        setAssignedTools((prev) =>
-          prev.filter((t) => isRecord(t) && t['toolId'] !== toolId)
-        );
+        setAssignedTools((prev) => prev.filter((t) => t.toolId !== toolId));
       } catch (error) {
         logger.error('Error removing tool:', error);
       }
@@ -200,7 +271,7 @@ const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
         await edenRequest(`/api/v1/agents/${agentId}/mcp-tools/${toolId}`, { method: 'PUT', body: { enabled } });
         setAssignedTools((prev) =>
           prev.map((t) =>
-            isRecord(t) && t['toolId'] === toolId ? { ...t, enabled } : t
+            t.toolId === toolId ? { ...t, enabled } : t
           )
         );
       } catch (error) {
@@ -208,13 +279,13 @@ const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
       }
     };
 
-    const handleUpdateSettings = async (newSettings: unknown) => {
+    const handleUpdateSettings = async (newSettings: MCPToolSettings) => {
       try {
-        const data = await edenRequest<{ mcpToolSettings?: unknown }>(
+        const data = await edenRequest<AssignedMCPToolsResponse>(
           `/api/v1/agents/${agentId}/mcp-settings`,
           { method: 'PUT', body: newSettings }
         );
-        setToolSettings(data?.mcpToolSettings || {});
+        setToolSettings(readMCPToolSettings(data?.mcpToolSettings));
       } catch (error) {
         logger.error('Error updating settings:', error);
       }
@@ -437,11 +508,6 @@ const ToolsTab: React.FC<ToolsTabProps> = ({ agentId, isOpen }) => {
     );
 };
 
-
-interface SkillsTabProps {
-  skills: AgentSkill[];
-  updateSkills: (updated: AgentSkill[]) => void;
-}
 
 const SkillsTab: React.FC<SkillsTabProps> = ({ skills, updateSkills }) => {
     const [showAddForm, setShowAddForm] = useState(false);
@@ -847,11 +913,11 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { refetchAgents, modelState, agents } = useAgents();
+  const { refreshAgents, modelState, agents } = useAgents();
   const [activeTab, setActiveTab] = useState('basic');
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<CreateAgentRequest>>({});
+  const [formData, setFormData] = useState<AgentEditFormData>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [llmPreferences, setLlmPreferences] = useState<AgentLLMPreference[]>([]);
 
@@ -866,12 +932,12 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         intelligenceConfig: agent.intelligenceConfig || {},
         securityContext: agent.securityContext || {},
         capabilities: agent.capabilities || [],
-        tags: agent.tags || [],
+        tags: readStringArray(agent.metadata?.tags) || [],
         metadata: agent.metadata || {},
-        preferences: agent.preferences || {},
+        preferences: readOptionalRecord(agent.metadata?.preferences) || {},
         configuration: agent.configuration || {},
-        toolPermissions: agent.toolPermissions || {},
-        toolPreferences: agent.toolPreferences || {},
+        toolPermissions: agent.toolPermissions,
+        toolPreferences: agent.toolPreferences,
         modelId: agent.modelId,
         apiType: agent.apiType,
         temperature: agent.temperature,
@@ -914,27 +980,21 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     setSaving(true);
     try {
       // Update agent data
-      const response = await uaipAPI.agents.update(agentId, formData);
-      if (response.success) {
-        // If we have LLM preferences, save them separately
-        if (llmPreferences.length > 0) {
-          try {
-            // Note: This would need a backend API endpoint for agent LLM preferences
-            // For now, we'll just log them
-            // TODO: Implement API call to save agent LLM preferences
-            // await uaipAPI.agents.updateLLMPreferences(agentId, llmPreferences);
-          } catch (prefError) {
-            logger.warn('Failed to save LLM preferences:', prefError);
-            // Don't fail the entire save if preferences fail
-          }
-        }
+      const updatedAgent = await uaipAPI.agents.update(agentId, toAgentUpdatePayload(formData));
 
-        onSave?.(agentId, response.data);
-        refetchAgents();
-        onClose();
-      } else {
-        setErrors({ general: response.error || 'Failed to update agent' });
+      // If we have LLM preferences, save them separately when the backend endpoint exists.
+      if (llmPreferences.length > 0) {
+        try {
+          // TODO: Implement API call to save agent LLM preferences
+          // await uaipAPI.agents.updateLLMPreferences(agentId, llmPreferences);
+        } catch (prefError) {
+          logger.warn('Failed to save LLM preferences:', prefError);
+        }
       }
+
+      onSave?.(agentId, updatedAgent);
+      await refreshAgents();
+      onClose();
     } catch {
       setErrors({ general: 'Failed to update agent. Please try again.' });
     } finally {

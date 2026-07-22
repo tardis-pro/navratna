@@ -266,6 +266,7 @@ describe('agent routes e2e', () => {
     expect(crudDeps.createAgent).toHaveBeenCalledWith({
       name: 'Created Agent',
       createdBy: VALID_USER_ID,
+      organizationId: '00000000-0000-0000-0000-000000000001',
     })
     await expect(readJson(response)).resolves.toMatchObject({ success: true })
   })

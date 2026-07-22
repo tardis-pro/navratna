@@ -11,11 +11,23 @@
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
   "references": [
-    { "path": "../../../packages/shared-types/tsconfig.json" },
-    { "path": "../../../packages/shared-utils/tsconfig.json" },
-    { "path": "../../../shared/services/tsconfig.json" },
-    { "path": "../../../shared/middleware/tsconfig.json" },
-    { "path": "../../../shared/config/tsconfig.json" },
-    { "path": "../../../shared/infra/tsconfig.json" }
+    {
+      "path": "../../../packages/shared-utils/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/shared-types/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/services/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/middleware/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/infra/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/config/tsconfig.build.json"
+    }
   ]
 }

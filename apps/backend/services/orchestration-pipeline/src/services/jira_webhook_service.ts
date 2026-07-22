@@ -11,7 +11,7 @@ import type {
   WebhookValidationResult,
 } from '@uaip/types'
 
-const JIRA_EVENT_TOPIC_MAP: Record<string, string> = {
+const JIRA_EVENT_TOPIC_MAP: Record<JiraWebhookEventType, string> = {
   issue_updated: 'jira.issue.updated',
   issue_created: 'jira.issue.created',
   issue_deleted: 'jira.issue.deleted',
@@ -54,7 +54,7 @@ export async function routeJiraWebhookEvent(
   payload: JiraWebhookPayload,
   deliveryId: string
 ): Promise<void> {
-  const eventType = payload.webhookEvent
+  const eventType: JiraWebhookEventType = payload.webhookEvent
   const topic = JIRA_EVENT_TOPIC_MAP[eventType]
 
   if (!topic) {

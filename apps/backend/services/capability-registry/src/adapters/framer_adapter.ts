@@ -64,7 +64,14 @@ export class FramerAdapter extends BaseOAuthAdapter {
   }
 
   protected setupOperations(): void {
-    this.operations.set('framer_create_project', {
+    this.operations.set('framer_create_project', this.createProjectOperation())
+    this.operations.set('framer_generate_component', this.generateComponentOperation())
+    this.operations.set('framer_publish', this.publishProjectOperation())
+    this.operations.set('framer_get_preview_url', this.getPreviewUrlOperation())
+  }
+
+  private createProjectOperation(): ToolOperation {
+    return {
       id: 'framer_create_project',
       name: 'Create Framer Project',
       description: 'Creates a new Framer project',
@@ -75,9 +82,11 @@ export class FramerAdapter extends BaseOAuthAdapter {
         const description = typeof p.description === 'string' ? p.description : ''
         return this.createProject(name, description, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('framer_generate_component', {
+  private generateComponentOperation(): ToolOperation {
+    return {
       id: 'framer_generate_component',
       name: 'Generate Framer Component',
       description: 'Generates a component from description and style tokens',
@@ -90,9 +99,11 @@ export class FramerAdapter extends BaseOAuthAdapter {
         const styleTokens = isFramerStyleTokens(p.styleTokens) ? p.styleTokens : undefined
         return this.generateComponent(projectId, name, description, styleTokens, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('framer_publish', {
+  private publishProjectOperation(): ToolOperation {
+    return {
       id: 'framer_publish',
       name: 'Publish Framer Project',
       description: 'Publishes a Framer project',
@@ -102,9 +113,11 @@ export class FramerAdapter extends BaseOAuthAdapter {
         const projectId = typeof p.projectId === 'string' ? p.projectId : ''
         return this.publishProject(projectId, tokens)
       },
-    })
+    }
+  }
 
-    this.operations.set('framer_get_preview_url', {
+  private getPreviewUrlOperation(): ToolOperation {
+    return {
       id: 'framer_get_preview_url',
       name: 'Get Preview URL',
       description: 'Gets the preview URL for a Framer project',
@@ -114,7 +127,7 @@ export class FramerAdapter extends BaseOAuthAdapter {
         const projectId = typeof p.projectId === 'string' ? p.projectId : ''
         return this.getProject(projectId, tokens)
       },
-    })
+    }
   }
 
   // ─── Project operations ────────────────────────────────────────────────

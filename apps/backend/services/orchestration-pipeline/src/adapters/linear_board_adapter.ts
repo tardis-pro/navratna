@@ -10,10 +10,9 @@ import type {
   LinearIssueState,
   LinearPriority,
   LinearWebhookPayload,
-  LINEAR_PRIORITY_THRESHOLDS,
 } from '@uaip/types'
+import { LINEAR_PRIORITY_THRESHOLDS } from '@uaip/types'
 import { logger, ExternalServiceError, NotFoundError } from '@uaip/utils'
-import { randomUUID } from 'node:crypto'
 
 interface GraphQLResponse<T> {
   data?: T
@@ -40,7 +39,7 @@ interface LinearIssueNode {
   url: string
   createdAt: string
   updatedAt: string
-  state: { id: string; name: string; type: string }
+  state: LinearIssueState
   assignee: { id: string; name: string; email: string } | null
   labels: { nodes: Array<{ id: string; name: string; color: string }> }
   project: { id: string } | null
@@ -302,15 +301,7 @@ export class LinearBoardAdapter implements BoardProvider {
   }
 
   mapPriorityFromComplexity(complexityScore: number): LinearPriority {
-    type Threshold = { complexityScore: number; linearPriority: LinearPriority };
-    const thresholds: Threshold[] = [
-      { complexityScore: 0.9, linearPriority: 1 },
-      { complexityScore: 0.7, linearPriority: 2 },
-      { complexityScore: 0.4, linearPriority: 3 },
-      { complexityScore: 0.0, linearPriority: 4 },
-    ]
-
-    for (const threshold of thresholds) {
+    for (const threshold of LINEAR_PRIORITY_THRESHOLDS) {
       if (complexityScore >= threshold.complexityScore) {
         return threshold.linearPriority
       }
@@ -320,7 +311,7 @@ export class LinearBoardAdapter implements BoardProvider {
 
   // ─── Private helpers ───────────────────────────────────────────────────
 
-  private mapLinearStateToStatus(state: { type: string }): StoryStatus {
+  private mapLinearStateToStatus(state: LinearIssueState): StoryStatus {
     switch (state.type) {
       case 'completed': return 'done'
       case 'started': return 'in-progress'

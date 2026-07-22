@@ -391,7 +391,7 @@ export class LLMProviderManagementService {
       hasApiKey: Boolean(provider.apiKeyEncrypted),
       defaultModel: provider.defaultModel ?? undefined,
       configuration: provider.configuration,
-      status: provider.status,
+      status: provider.status ?? LLMProviderStatus.INACTIVE,
       isActive: provider.isActive,
       priority: provider.priority,
       stats,
@@ -402,10 +402,10 @@ export class LLMProviderManagementService {
 
   private getTestEndpoint(provider: LLMProvider): string {
     switch (provider.type) {
-      case 'ollama':
+      case LLMProviderType.OLLAMA:
         return `${provider.baseUrl}/api/generate`;
-      case 'openai':
-      case 'llmstudio':
+      case LLMProviderType.OPENAI:
+      case LLMProviderType.LLMSTUDIO:
         return `${provider.baseUrl}/v1/chat/completions`;
       default:
         return `${provider.baseUrl}/v1/chat/completions`;

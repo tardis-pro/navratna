@@ -281,6 +281,7 @@ export type UINode = {
   kind: string;
   variant: string;
   bindings?: Record<string, BindingValue>;
+  fieldMeta?: FieldProjection[];
   slots?: UINode[];
   layoutHint?: LayoutHint;
   constraints?: string[];
@@ -294,6 +295,7 @@ const _UINodeBase = z.object({
   kind: z.string(),
   variant: z.string(),
   bindings: z.record(BindingValueSchema).optional(),
+  fieldMeta: z.array(FieldProjectionSchema).optional(),
   slots: z.array(z.unknown()).optional(),
   layoutHint: LayoutHintSchema.optional(),
   constraints: z.array(z.string()).optional(),
@@ -545,6 +547,7 @@ export function adaptV1BlockToUINode(block: WorkflowBlockProjection): UINode {
     kind: block.display,
     variant: 'default',
     bindings,
+    fieldMeta: fieldMeta.length > 0 ? fieldMeta : undefined,
     slots: actionSlots.length > 0 ? actionSlots : undefined,
     constraints: [],
     fallback: { kind: 'status-badge', variant: 'default', bindings: { label: { kind: 'literal', value: 'Loading…' } } },

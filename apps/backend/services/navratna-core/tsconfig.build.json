@@ -10,16 +10,41 @@
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*", "../**/__tests__/**/*", "../**/*.test.ts"],
   "references": [
-    { "path": "../llm-service" },
-    { "path": "../artifact-service" },
-    { "path": "../../../shared/discussion" },
-    { "path": "../../../shared/agent-intelligence" },
-    { "path": "../../../packages/shared-utils" },
-    { "path": "../../../packages/shared-types" },
-    { "path": "../../../shared/services" },
-    { "path": "../../../shared/middleware" },
-    { "path": "../../../shared/llm-service" },
-    { "path": "../../../shared/infra" },
-    { "path": "../../../shared/config" }
+    {
+      "path": "../llm-service/tsconfig.build.json"
+    },
+    {
+      "path": "../artifact-service/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/shared-utils/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/shared-types/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/services/tsconfig.build.json"
+    },
+    {
+      "path": "../oie"
+    },
+    {
+      "path": "../../../shared/middleware/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/llm-service/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/infra/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/discussion/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/config/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/agent-intelligence/tsconfig.build.json"
+    }
   ]
 }

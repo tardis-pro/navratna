@@ -585,6 +585,11 @@ export function registerProviderRoutes() {
           try {
             const { id } = providerIdParamsSchema.parse(params);
             const repo = UserService.getInstance().getUserLLMProviderRepository();
+            const provider = await repo.findById(id);
+            if (!provider || provider.userId !== user.id) {
+              set.status = 404;
+              return { success: false, error: 'LLM provider not found' };
+            }
             const stats = await repo.getProviderStats(id);
             if (!stats) {
               set.status = 404;
@@ -595,9 +600,10 @@ export function registerProviderRoutes() {
               data: { ...stats, errorRate: '0.00%' },
             };
           } catch (error) {
-            logger.error('Error getting user LLM provider statistics', { error });
+            const message = getErrorMessage(error);
+            logger.error('Error getting user LLM provider statistics', { error: message });
             set.status = 500;
-            return { success: false, error: 'Failed to get provider statistics' };
+            return { success: false, error: 'Failed to get provider statistics', message };
           }
         })
       );

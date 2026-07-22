@@ -1,5 +1,6 @@
 import { BaseDomainService } from './base_domain_service';
 import { OAuthProviderType, UserType, AgentCapability } from '@uaip/types';
+import type { OAuthProviderConfig } from '@uaip/types';
 import { getControlDb } from '../database/drizzle/clients/index';
 import {
   oauthProviders,
@@ -34,6 +35,7 @@ export class OAuthService extends BaseDomainService {
     tokenUrl: string;
     userInfoUrl?: string;
     revokeUrl?: string;
+    agentConfig?: OAuthProviderConfig['agentConfig'];
     isEnabled?: boolean;
   }): Promise<OAuthProvider> {
     const db = getControlDb();
@@ -49,7 +51,11 @@ export class OAuthService extends BaseDomainService {
         userInfoUrl: data.userInfoUrl ?? null,
         scopes: data.scope,
         isEnabled: data.isEnabled ?? true,
-        configuration: { redirectUri: data.redirectUri, revokeUrl: data.revokeUrl },
+        configuration: {
+          redirectUri: data.redirectUri,
+          revokeUrl: data.revokeUrl,
+          agentConfig: data.agentConfig,
+        },
       })
       .returning();
     return result;

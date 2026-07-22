@@ -123,6 +123,10 @@ describe('EnhancedSecurityGatewayService', () => {
     it('should initialize successfully with all dependencies', () => {
       expect(enhancedSecurityGatewayService).toBeDefined();
       expect(enhancedSecurityGatewayService).toBeInstanceOf(EnhancedSecurityGatewayService);
+      expect(mockDatabaseService).toEqual(expect.objectContaining({
+        initialize: expect.any(Function),
+        healthCheck: expect.any(Function),
+      }));
     });
 
     it('should load agent security policies on initialization', () => {

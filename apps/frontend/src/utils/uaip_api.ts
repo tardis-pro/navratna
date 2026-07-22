@@ -10,49 +10,52 @@
 export * from '@/api';
 import { api, coreClient, gatewayClient, unwrapEden, edenWithCSRFRetry, edenRequest } from '@/api';
 import {
-  _API_CONFIG,
+  API_CONFIG as _API_CONFIG,
   getEffectiveAPIBaseURL,
   getEnvironmentConfig,
-  _buildAPIURL,
+  buildAPIURL as _buildAPIURL,
   API_ROUTES,
 } from '@/config/api_config';
 
 // Import shared types - using regular imports for enums and type imports for interfaces
 import type {
+  Agent,
+  AgentCreate,
+  AgentUpdate,
   // Persona types
   Persona,
-  _PersonaTrait,
-  _ExpertiseDomain,
-  _ConversationalStyle,
-  _CreatePersonaRequest,
-  _UpdatePersonaRequest,
-  _PersonaSearchFilters,
-  _PersonaRecommendation,
+  PersonaTrait as _PersonaTrait,
+  ExpertiseDomain as _ExpertiseDomain,
+  ConversationalStyle as _ConversationalStyle,
+  CreatePersonaRequest as _CreatePersonaRequest,
+  UpdatePersonaRequest as _UpdatePersonaRequest,
+  PersonaSearchFilters as _PersonaSearchFilters,
+  PersonaRecommendation as _PersonaRecommendation,
 
   // Discussion types
   Discussion,
   DiscussionParticipant,
   DiscussionMessage,
-  _DiscussionSettings,
-  _DiscussionState,
-  _TurnStrategy,
-  _TurnStrategyConfig,
+  DiscussionSettings as _DiscussionSettings,
+  DiscussionState as _DiscussionState,
+  TurnStrategy as _TurnStrategy,
+  TurnStrategyConfig as _TurnStrategyConfig,
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionSearchFilters,
 
   // WebSocket types
-  _WebSocketConfig,
-  _WebSocketEvent,
+  WebSocketConfig as _WebSocketConfig,
+  WebSocketEvent as _WebSocketEvent,
   TurnInfo,
-  _DiscussionWebSocketEvent,
+  DiscussionWebSocketEvent as _DiscussionWebSocketEvent,
 
   // System types
-  _HealthStatus,
-  _SystemMetrics,
+  HealthStatus as _HealthStatus,
+  SystemMetrics as _SystemMetrics,
 
   // LLM types
-  _LLMGenerationRequest,
+  LLMGenerationRequest as _LLMGenerationRequest,
   LLMModel,
   PersonaTemplate,
 
@@ -62,18 +65,20 @@ import type {
   KnowledgeSearchResponse,
   KnowledgeIngestRequest,
   KnowledgeIngestResponse,
-  _KnowledgeRelationship,
+  KnowledgeRelationship as _KnowledgeRelationship,
+  AgentResponseRequest,
+  ToolExecutionError,
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
-import { DiscussionStatus, MessageType, LLMProviderType, TurnStrategy } from '@uaip/types';
+import { DiscussionStatus, MessageType, LLMProviderType, TurnStrategy, KnowledgeType, SourceType } from '@uaip/types';
 export { TurnStrategy };
 export type { DiscussionEvent } from '@uaip/types';
 
 // Import frontend-specific types
 import type {
   MessageSearchOptions,
-  _PersonaDisplay,
+  PersonaDisplay,
   PersonaSearchResponse,
   DiscussionSearchResponse,
   DiscussionParticipantCreate,
@@ -81,6 +86,91 @@ import type {
   ModelProvider,
 } from '@/types/frontend_extensions';
 import { logger } from '@/utils/browser_logger';
+
+type PersonaCreateInput = Parameters<typeof api.personas.create>[0];
+type PersonaUpdateInput = Parameters<typeof api.personas.update>[1];
+type ToolListInput = Parameters<typeof api.tools.list>[0];
+type ToolCreateInput = Parameters<typeof api.tools.create>[0];
+type ToolExecutionInput = Parameters<typeof api.tools.execute>[1];
+type UserLLMCreateInput = Parameters<typeof api.llm.userLLM.createProvider>[0];
+type KnowledgeUpdateInput = Parameters<typeof api.knowledge.update>[1];
+export type ToolExecutionFacadeResult = {
+  success: boolean;
+  data?: unknown;
+  executionId: string;
+  executionTime: number;
+  cost: number;
+  error?: ToolExecutionError;
+  metadata?: Record<string, unknown>;
+};
+
+function toToolExecutionError(message: string): ToolExecutionError {
+  return {
+    type: 'execution',
+    message,
+    recoverable: true,
+  };
+}
+
+function toOptionalRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return Object.fromEntries(Object.entries(value));
+  }
+  return undefined;
+}
+
+function toPersonaDisplay(persona: Persona): PersonaDisplay {
+  return {
+    id: persona.id,
+    name: persona.name,
+    role: persona.role,
+    description: persona.description,
+    tags: persona.tags ?? [],
+    expertise: persona.expertise?.map((domain) => domain.name) ?? [],
+    status: String(persona.status ?? 'draft'),
+    category: persona.expertise?.[0]?.category ?? 'General',
+    background: persona.background,
+  };
+}
+
+const LLM_PROVIDER_TYPES = new Set<string>(Object.values(LLMProviderType));
+
+function toLLMProviderType(value: string): LLMProviderType {
+  return LLM_PROVIDER_TYPES.has(value) ? (value as LLMProviderType) : LLMProviderType.CUSTOM;
+}
+
+function toKnowledgeUploadType(
+  type: KnowledgeIngestRequest['type']
+): 'document' | 'concept' | 'entity' | 'relation' {
+  switch (String(type ?? '').toLowerCase()) {
+    case 'concept':
+      return 'concept';
+    case 'entity':
+      return 'entity';
+    case 'relation':
+      return 'relation';
+    default:
+      return 'document';
+  }
+}
+
+function getKnowledgeItem(result: import('@/api').KnowledgeSearchResult): KnowledgeItem {
+  return {
+    id: result.item.id,
+    content: result.item.content,
+    type: KnowledgeType.SEMANTIC,
+    sourceType: SourceType.USER_INPUT,
+    sourceIdentifier: result.item.title || result.item.id,
+    sourceUrl: undefined,
+    tags: result.item.tags ?? [],
+    confidence: result.score,
+    metadata: result.item.metadata ?? {},
+    createdAt: new Date(result.item.createdAt),
+    updatedAt: new Date(result.item.updatedAt),
+    createdBy: result.item.createdBy,
+    accessLevel: 'private',
+  };
+}
 
 // Environment configuration
 const envConfig = getEnvironmentConfig();
@@ -118,7 +208,7 @@ export const uaipAPI = {
     return {
       ...api,
 
-      getAuthToken: () => null,
+      getAuthToken: (): string | null => null,
       setAuthToken: (_token: string | null) => {},
       clearAuth: () => {},
       isAuthenticated: () => false,
@@ -173,7 +263,7 @@ export const uaipAPI = {
         const response = await client.personas.search(searchRequest);
 
         // Handle the response data properly - it should be an array of personas
-        const personas = Array.isArray(response) ? response : [];
+        const personas = Array.isArray(response) ? response.map(toPersonaDisplay) : [];
 
         return {
           personas: personas,
@@ -193,7 +283,7 @@ export const uaipAPI = {
         const response = await client.personas.getForDisplay({ isActive: true });
 
         // Handle the response data properly - it should be an array of personas
-        const personas = Array.isArray(response) ? response : [];
+        const personas = Array.isArray(response) ? response.map(toPersonaDisplay) : [];
 
         return {
           personas: personas,
@@ -205,34 +295,29 @@ export const uaipAPI = {
         throw error;
       }
     },
-    async create(personaData: Partial<Persona>): Promise<Persona> {
+    async create(personaData: PersonaCreateInput): Promise<Persona> {
       const client = getAPIClient();
-      const response = await client.personas.create(personaData);
-      return response.data;
+      return await client.personas.create(personaData);
     },
 
     async getTemplates(): Promise<PersonaTemplate[]> {
       const client = getAPIClient();
-      const response = await client.personas.getTemplates();
-      return response.data;
+      return await client.personas.getTemplates();
     },
 
     async get(id: string): Promise<Persona> {
       const client = getAPIClient();
-      const response = await client.personas.get(id);
-      return response.data;
+      return await client.personas.get(id);
     },
 
-    async update(id: string, updates: Partial<Persona>): Promise<Persona> {
+    async update(id: string, updates: PersonaUpdateInput): Promise<Persona> {
       const client = getAPIClient();
-      const response = await client.personas.update(id, updates);
-      return response.data;
+      return await client.personas.update(id, updates);
     },
 
     async delete(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.personas.delete(id);
-      return response.data;
+      await client.personas.delete(id);
     },
   },
 
@@ -282,13 +367,7 @@ export const uaipAPI = {
 
     async get(id: string): Promise<Discussion> {
       const client = getAPIClient();
-      const response = await client.discussions.get(id);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to fetch discussion');
-      }
-
-      return response.data!;
+      return await client.discussions.get(id);
     },
 
     async create(discussion: CreateDiscussionRequest): Promise<Discussion> {
@@ -301,13 +380,7 @@ export const uaipAPI = {
 
     async update(id: string, updates: UpdateDiscussionRequest): Promise<Discussion> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, updates);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to update discussion');
-      }
-
-      return response.data!;
+      return await client.discussions.update(id, updates);
     },
 
     async start(id: string, startedBy?: string): Promise<void> {
@@ -318,20 +391,12 @@ export const uaipAPI = {
 
     async pause(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, { status: DiscussionStatus.PAUSED });
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to pause discussion');
-      }
+      await client.discussions.pause(id, 'Discussion paused by user');
     },
 
     async resume(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.update(id, { status: DiscussionStatus.ACTIVE });
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to resume discussion');
-      }
+      await client.discussions.resume(id);
     },
 
     async end(id: string): Promise<void> {
@@ -345,25 +410,12 @@ export const uaipAPI = {
       participant: DiscussionParticipantCreate
     ): Promise<DiscussionParticipant> {
       const client = getAPIClient();
-      const response = await client.discussions.addParticipant(id, {
-        agentId: participant.agentId,
-        role: participant.role || 'participant',
-      });
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to add participant');
-      }
-
-      return response.data!;
+      return await client.discussions.addParticipant(id, participant.agentId);
     },
 
     async removeParticipant(id: string, participantId: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.removeParticipant(id, participantId);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to remove participant');
-      }
+      await client.discussions.removeParticipant(id, participantId);
     },
 
     async getMessages(id: string, options?: MessageSearchOptions): Promise<DiscussionMessage[]> {
@@ -378,30 +430,15 @@ export const uaipAPI = {
 
     async sendMessage(id: string, message: DiscussionMessageCreate): Promise<DiscussionMessage> {
       const client = getAPIClient();
-      // Find the participant ID for this discussion - for now use a placeholder
-      const response = await client.discussions.sendMessage(id, 'current-participant', {
+      return await client.discussions.sendMessage(id, {
         content: message.content,
-        messageType: message.messageType || MessageType.MESSAGE,
         metadata: message.metadata,
       });
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to send message');
-      }
-
-      return response.data!;
     },
 
     async advanceTurn(id: string): Promise<void> {
       const client = getAPIClient();
-      const response = await client.discussions.advanceTurn(id, {
-        force: false,
-        reason: 'Turn advanced by user',
-      });
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to advance turn');
-      }
+      await client.discussions.advanceTurn(id);
     },
 
     async getCurrentTurn(_id: string): Promise<TurnInfo> {
@@ -423,17 +460,16 @@ export const uaipAPI = {
   // ============================================================================
 
   agents: {
-    async list(): Promise<unknown[]> {
+    async list(): Promise<Agent[]> {
       try {
-        const agents = await api.agents.list();
-        return agents || [];
+        return await api.agents.list();
       } catch (error) {
         logger.error('Failed to fetch agents:', error);
         throw error;
       }
     },
 
-    async get(id: string): Promise<unknown> {
+    async get(id: string): Promise<Agent> {
       try {
         const agent = await api.agents.get(id);
         return agent;
@@ -443,7 +479,7 @@ export const uaipAPI = {
       }
     },
 
-    async create(agentData: unknown): Promise<unknown> {
+    async create(agentData: AgentCreate): Promise<Agent> {
       try {
         const agent = await api.agents.create(agentData);
         return agent;
@@ -453,7 +489,7 @@ export const uaipAPI = {
       }
     },
 
-    async update(id: string, updates: unknown): Promise<unknown> {
+    async update(id: string, updates: AgentUpdate): Promise<Agent> {
       try {
         const agent = await api.agents.update(id, updates);
         return agent;
@@ -480,25 +516,14 @@ export const uaipAPI = {
           sender: string;
           timestamp: string;
         }>;
+        conversationId?: string;
         context?: unknown;
       }
-    ): Promise<{
-      response: string;
-      agentName: string;
-      confidence: number;
-      model: string;
-      tokensUsed: number;
-      memoryEnhanced: boolean;
-      knowledgeUsed: number;
-      persona?: unknown;
-      conversationContext: unknown;
-      timestamp: string;
-      toolsExecuted?: Array<unknown>;
-    }> {
+    ): Promise<Awaited<ReturnType<typeof api.agents.chat>>> {
       try {
         return await api.agents.chat(agentId, {
           message: request.message,
-          conversationHistory: request.conversationHistory || [],
+          conversationId: request.conversationId,
           context: request.context || {},
         });
       } catch (error) {
@@ -507,14 +532,12 @@ export const uaipAPI = {
         if (error instanceof Error) {
           if (error.name === 'AbortError') {
             throw new Error(
-              'Agent response timed out after 30 seconds. The LLM service may be busy.',
-              { cause: error }
+              'Agent response timed out after 30 seconds. The LLM service may be busy.'
             );
           }
           if (error.message.includes('fetch')) {
             throw new Error(
-              'Failed to connect to agent service. Please check if the backend is running.',
-              { cause: error }
+              'Failed to connect to agent service. Please check if the backend is running.'
             );
           }
         }
@@ -548,7 +571,7 @@ export const uaipAPI = {
   // ============================================================================
 
   tools: {
-    async list(criteria?: unknown): Promise<unknown[]> {
+    async list(criteria?: ToolListInput): Promise<unknown[]> {
       try {
         // Use the proper tools API method
         const tools = await api.tools.list(criteria);
@@ -562,56 +585,44 @@ export const uaipAPI = {
     async get(id: string): Promise<unknown> {
       try {
         const client = getAPIClient();
-        const response = await client.tools.get(id);
-
-        if (!response.success) {
-          throw new Error(response.error?.message || 'Failed to fetch tool');
-        }
-
-        return response.data!;
+        return await client.tools.get(id);
       } catch (error) {
         logger.error('Failed to get tool:', error);
         throw error;
       }
     },
 
-    async create(toolData: unknown): Promise<unknown> {
+    async create(toolData: ToolCreateInput): Promise<unknown> {
       try {
         const client = getAPIClient();
-        const response = await client.tools.register(toolData);
-
-        if (!response.success) {
-          throw new Error(response.error?.message || 'Failed to create tool');
-        }
-
-        return response.data!;
+        return await client.tools.create(toolData);
       } catch (error) {
         logger.error('Failed to create tool:', error);
         throw error;
       }
     },
 
-    async execute(toolId: string, params: unknown): Promise<unknown> {
+    async execute(toolId: string, params: ToolExecutionInput): Promise<ToolExecutionFacadeResult> {
       try {
         const client = getAPIClient();
         const response = await client.tools.execute(toolId, params);
 
-        if (!response.success) {
-          throw new Error(response.error?.message || 'Failed to execute tool');
-        }
-
         return {
-          success: true,
-          data: response.data,
-          executionId: `exec_${Date.now()}`,
-          executionTime: Math.random() * 1000,
-          cost: Math.random() * 10,
+          success: response.status === 'completed',
+          data: response.output,
+          executionId: response.id,
+          executionTime: response.duration ?? 0,
+          cost: 0,
+          error: response.error ? toToolExecutionError(response.error) : undefined,
+          metadata: toOptionalRecord(response.metadata),
         };
       } catch (error) {
         logger.error('Failed to execute tool:', error);
         return {
           success: false,
-          error: { message: error instanceof Error ? error.message : 'Tool execution failed' },
+          error: toToolExecutionError(
+            error instanceof Error ? error.message : 'Tool execution failed'
+          ),
           executionId: `exec_${Date.now()}`,
           executionTime: 0,
           cost: 0,
@@ -623,13 +634,7 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const response = await client.tools.getCategories();
-
-        if (!response.success) {
-          logger.warn('Categories API not available, returning mock categories');
-          return ['System', 'External', 'Analysis', 'Communication', 'Development'];
-        }
-
-        return response.data!;
+        return response.map((category) => String(category));
       } catch (error) {
         logger.warn('Failed to get tool categories, returning mock categories:', error);
         return ['System', 'External', 'Analysis', 'Communication', 'Development'];
@@ -645,21 +650,16 @@ export const uaipAPI = {
     async getModels(): Promise<Array<LLMModel>> {
       try {
         // First try to get models from user's providers
-        const rawUserModelsResponse = await api.llm.userLLM.listModels();
-        // Backend returns { userId, providers: [...], totalProviders, activeProviders }
-        // not a plain array — extract the providers array defensively
-        const userModels: unknown[] = Array.isArray(rawUserModelsResponse)
-          ? rawUserModelsResponse
-          : ((rawUserModelsResponse as Record<string, unknown>)?.providers as unknown[]) ?? [];
+        const userModels = await api.llm.userLLM.listModels();
 
         // Transform the response to match expected interface
-        const transformedUserModels = userModels.map((model: unknown) => ({
+        const transformedUserModels = userModels.map((model) => ({
           id: model.id || 'unknown',
           name: model.name || 'Unknown Model',
           description: model.description,
           source: model.source || 'unknown',
           apiEndpoint: model.apiEndpoint || '',
-          apiType: model.apiType || 'custom',
+          apiType: toLLMProviderType(model.apiType),
           provider: model.provider || 'unknown',
           isAvailable: model.isAvailable || false,
         }));
@@ -675,15 +675,15 @@ export const uaipAPI = {
       // Fallback to system models if user has no providers
       try {
         const systemModels = await api.llm.listModels();
-        return systemModels.map((model: unknown) => ({
+        return systemModels.map((model) => ({
           id: model.id || 'unknown',
           name: model.name || 'Unknown Model',
           description: model.description,
           source: model.source || 'unknown',
           apiEndpoint: model.apiEndpoint || '',
-          apiType: model.apiType || 'custom',
+          apiType: model.apiType ?? LLMProviderType.CUSTOM,
           provider: model.provider || 'unknown',
-          isAvailable: model.isActive || false,
+          isAvailable: model.isAvailable || false,
         }));
       } catch (error) {
         logger.error('Failed to get system models:', error);
@@ -691,52 +691,30 @@ export const uaipAPI = {
       }
     },
 
-    async getProviders(): Promise<
-      Array<{
-        id: string;
-        name: string;
-        description?: string;
-        type: string;
-        baseUrl: string;
-        defaultModel?: string;
-        status: string;
-        isActive: boolean;
-        priority: number;
-        totalTokensUsed: number;
-        totalRequests: number;
-        totalErrors: number;
-        lastUsedAt?: string;
-        healthCheckResult?: unknown;
-        hasApiKey: boolean;
-        createdAt: string;
-        updatedAt: string;
-      }>
-    > {
+    async getProviders(): Promise<ModelProvider[]> {
       const providers = await api.llm.userLLM.listProviders();
 
       // Transform the response to match expected interface
-      return providers.map((provider: unknown) => ({
+      return providers.map((provider) => ({
         id: provider.id || 'unknown',
         name: provider.name || 'Unknown Provider',
         description: provider.description,
         type: provider.type || 'custom',
         baseUrl: provider.baseUrl || '',
         defaultModel: provider.defaultModel,
-        status: provider.status || 'inactive',
+        status: provider.isActive ? 'active' : 'inactive',
         isActive: provider.isActive || false,
-        priority: provider.priority || 0,
-        totalTokensUsed: provider.totalTokensUsed || 0,
-        totalRequests: provider.totalRequests || 0,
-        totalErrors: provider.totalErrors || 0,
-        lastUsedAt: provider.lastUsedAt,
-        healthCheckResult: provider.healthCheckResult,
+        priority: 0,
+        totalTokensUsed: 0,
+        totalRequests: 0,
+        totalErrors: 0,
         hasApiKey: provider.hasApiKey || false,
-        createdAt: provider.createdAt || new Date().toISOString(),
-        updatedAt: provider.updatedAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }));
     },
 
-    async createProvider(providerData: ModelProvider): Promise<unknown> {
+    async createProvider(providerData: UserLLMCreateInput): Promise<unknown> {
       try {
         const provider = await api.llm.userLLM.createProvider(providerData);
         return provider;
@@ -754,7 +732,7 @@ export const uaipAPI = {
         baseUrl?: string;
         defaultModel?: string;
         priority?: number;
-        configuration?: unknown;
+        configuration?: Record<string, unknown>;
       }
     ): Promise<void> {
       const client = getAPIClient();
@@ -763,7 +741,7 @@ export const uaipAPI = {
 
     async updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
       const client = getAPIClient();
-      await client.llm.userLLM.updateProvider(providerId, { apiKey });
+      await client.llm.userLLM.updateProviderApiKey(providerId, { apiKey });
     },
 
     async updateProvider(
@@ -775,12 +753,20 @@ export const uaipAPI = {
         apiKey?: string;
         defaultModel?: string;
         priority?: number;
-        configuration?: unknown;
+        configuration?: Record<string, unknown>;
         isActive?: boolean;
       }
     ): Promise<void> {
       const client = getAPIClient();
-      await client.llm.userLLM.updateProvider(providerId, updates);
+      const { name, description, baseUrl, defaultModel, priority, configuration } = updates;
+      await client.llm.userLLM.updateProvider(providerId, {
+        name,
+        description,
+        baseUrl,
+        defaultModel,
+        priority,
+        configuration,
+      });
     },
 
     async testProvider(providerId: string): Promise<unknown> {
@@ -801,29 +787,12 @@ export const uaipAPI = {
       preferredType?: LLMProviderType;
     }): Promise<unknown> {
       const client = getAPIClient();
-      const response = await client.userLLM.generateResponse(request);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to generate response');
-      }
-
-      return response.data!;
+      return await client.llm.userLLM.generate(request);
     },
 
-    async generateAgentResponse(request: {
-      agent: unknown;
-      messages: unknown[];
-      context?: unknown;
-      tools?: unknown[];
-    }): Promise<unknown> {
+    async generateAgentResponse(request: AgentResponseRequest): Promise<unknown> {
       const client = getAPIClient();
-      const response = await client.userLLM.generateAgentResponse(request);
-
-      if (!response.success) {
-        throw new Error(response.error?.message || 'Failed to generate agent response');
-      }
-
-      return response.data!;
+      return await client.llm.userLLM.generateAgentResponse(request);
     },
 
     // Legacy methods for backward compatibility
@@ -851,7 +820,7 @@ export const uaipAPI = {
       try {
         // Convert user providers to provider stats format
         const providers = await this.getProviders();
-        return providers.map((provider) => ({
+        return providers.map((provider: { name: string; type: string; isActive: boolean; status: string }) => ({
           name: provider.name,
           type: provider.type,
           available: provider.isActive && provider.status === 'active',
@@ -930,10 +899,7 @@ export const uaipAPI = {
     async getPending(): Promise<unknown[]> {
       try {
         const response = await api.approvals.getPending();
-        // Handle the response format: {pendingApprovals: Array, count: number, summary: {...}}
-        if (response && typeof response === 'object' && Array.isArray(response.pendingApprovals)) {
-          return response.pendingApprovals;
-        } else if (Array.isArray(response)) {
+        if (Array.isArray(response)) {
           return response;
         } else {
           logger.warn('getPending() returned unexpected format:', response);
@@ -956,26 +922,24 @@ export const uaipAPI = {
         const uploadResults = await Promise.all(
           items.map((item) =>
             client.knowledge.upload({
-              title: item.title,
+              title: item.source.identifier || item.content.slice(0, 80) || 'Untitled',
               content: item.content,
-              type: item.type,
-              category: item.category,
+              type: toKnowledgeUploadType(item.type),
+              category: item.source.type,
               tags: item.tags,
-              metadata: item.metadata,
+              metadata: item.source.metadata,
             })
           )
         );
 
         return {
           items: uploadResults,
-          successCount: uploadResults.length,
-          failureCount: 0,
+          processedCount: uploadResults.length,
           errors: [],
+          success: true,
         };
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to upload knowledge', {
-          cause: error,
-        });
+        throw new Error(error instanceof Error ? error.message : 'Failed to upload knowledge');
       }
     },
 
@@ -1000,7 +964,7 @@ export const uaipAPI = {
         }
 
         // Transform search results to expected format
-        const items = searchResults.map((result: unknown) => result.item || result);
+        const items = searchResults.map(getKnowledgeItem);
         return {
           items,
           totalCount: items.length,
@@ -1026,14 +990,12 @@ export const uaipAPI = {
       }
     },
 
-    async updateKnowledge(itemId: string, updates: Partial<KnowledgeItem>): Promise<KnowledgeItem> {
+    async updateKnowledge(itemId: string, updates: KnowledgeUpdateInput): Promise<KnowledgeItem> {
       try {
         const client = getAPIClient();
         return await client.knowledge.update(itemId, updates);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to update knowledge', {
-          cause: error,
-        });
+        throw new Error(error instanceof Error ? error.message : 'Failed to update knowledge');
       }
     },
 
@@ -1042,9 +1004,7 @@ export const uaipAPI = {
         const client = getAPIClient();
         await client.knowledge.delete(itemId);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to delete knowledge', {
-          cause: error,
-        });
+        throw new Error(error instanceof Error ? error.message : 'Failed to delete knowledge');
       }
     },
 
@@ -1063,34 +1023,17 @@ export const uaipAPI = {
         const stats = await client.knowledge.getStats();
 
         // Transform API stats to expected format (now including general knowledge!)
-        const totalItems = (stats.totalItems || 0) + (stats.generalKnowledge?.totalItems || 0);
-        const combinedItemsByType = {
-          ...stats.itemsByType,
-          ...stats.generalKnowledge?.itemsByType,
-        };
-
         return {
-          totalItems,
-          itemsByType: combinedItemsByType,
+          totalItems: stats.totalItems || 0,
+          itemsByType: stats.itemsByType || {},
           itemsBySource: stats.itemsByCategory || {},
           recentActivity: [
             {
               date: new Date().toISOString().split('T')[0],
-              uploads: stats.recentActivity?.itemsThisWeek || 0,
+              uploads: stats.recentUploads || 0,
               searches: 0, // API doesn't track searches
             },
           ],
-          // Add general knowledge breakdown for debugging
-          debug: {
-            userKnowledge: {
-              totalItems: stats.totalItems || 0,
-              itemsByType: stats.itemsByType || {},
-            },
-            generalKnowledge: {
-              totalItems: stats.generalKnowledge?.totalItems || 0,
-              itemsByType: stats.generalKnowledge?.itemsByType || {},
-            },
-          },
         };
       } catch (error) {
         logger.warn('Knowledge stats API failed, returning mock data:', error);
@@ -1114,7 +1057,7 @@ export const uaipAPI = {
       try {
         const client = getAPIClient();
         const relatedItems = await client.knowledge.findSimilar(itemId);
-        return relatedItems.map((result: unknown) => result.item || result);
+        return relatedItems.map(getKnowledgeItem);
       } catch (error) {
         logger.warn('Similar items endpoint unavailable, returning empty:', error);
         return [];
@@ -1124,12 +1067,14 @@ export const uaipAPI = {
     async getKnowledgeByTag(tag: string): Promise<KnowledgeItem[]> {
       try {
         const client = getAPIClient();
-        const searchResults = await client.knowledge.search({ query: '', tags: [tag] });
-        return searchResults.map((result: unknown) => result.item || result);
-      } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge by tag', {
-          cause: error,
+        const searchResults = await client.knowledge.search({
+          query: '',
+          filters: { tags: [tag] },
+          timestamp: Date.now(),
         });
+        return searchResults.map(getKnowledgeItem);
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge by tag');
       }
     },
 
@@ -1138,9 +1083,7 @@ export const uaipAPI = {
         const client = getAPIClient();
         return await client.knowledge.get(itemId);
       } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge item', {
-          cause: error,
-        });
+        throw new Error(error instanceof Error ? error.message : 'Failed to get knowledge item');
       }
     },
 
@@ -1224,7 +1167,9 @@ export const uaipAPI = {
         command: string;
         args: string[];
         disabled: boolean;
-        status: 'unknown' | 'running' | 'stopped';
+        status: 'unknown' | 'running' | 'stopped' | 'error' | 'starting';
+        toolCount?: number;
+        uptime?: number;
       }>;
     }> {
       try {
@@ -1277,7 +1222,20 @@ export const uaipAPI = {
       servers: string[];
     }> {
       try {
-        return await api.mcp.getTools();
+        const response = await api.mcp.getTools();
+        return {
+          count: response.count,
+          servers: response.servers,
+          tools: response.tools.map((tool, index) => ({
+            id: `${response.servers[0] ?? 'mcp'}:${tool.name}:${index}`,
+            name: tool.name,
+            description: tool.description,
+            serverName: response.servers[0] ?? 'mcp',
+            command: tool.name,
+            parameters: tool.inputSchema,
+            category: 'mcp',
+          })),
+        };
       } catch (error) {
         logger.error('MCP tools error:', error);
         throw error;

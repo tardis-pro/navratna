@@ -23,10 +23,20 @@
     "src/migrations/**/*"
   ],
   "references": [
-    { "path": "../../packages/shared-utils/tsconfig.json" },
-    { "path": "../../packages/shared-types/tsconfig.json" },
-    { "path": "../middleware/tsconfig.json" },
-    { "path": "../infra/tsconfig.json" },
-    { "path": "../config/tsconfig.json" }
+    {
+      "path": "../../packages/shared-utils/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/shared-types/tsconfig.build.json"
+    },
+    {
+      "path": "../middleware/tsconfig.build.json"
+    },
+    {
+      "path": "../infra/tsconfig.build.json"
+    },
+    {
+      "path": "../config/tsconfig.build.json"
+    }
   ]
 }

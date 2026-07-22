@@ -10,9 +10,12 @@ import React, {
 } from 'react';
 import type {
   FrontendAgentState as AgentState,
-  FrontendAgentContextValue as AgentContextValue,
   FrontendMessage as Message,
   FrontendModelProvider as ModelProvider,
+  Agent,
+  UserLLMProviderType,
+  CreateUserLLMProviderRequest,
+  UpdateUserLLMProviderRequest,
 } from '@uaip/types';
 import { createAgentStateFromShared as createAgentStateFromBackend } from '../types/frontend_extensions';
 import {
@@ -20,133 +23,120 @@ import {
   ToolResult,
   ToolUsageRecord,
   ToolPermissionSet,
-  ToolPreferences,
-  ToolBudget,
   LLMModel,
-  _ProviderConfig,
-  _ProviderTestResult,
-  _HealthStatus,
-  _SystemMetrics,
+  AgentRole,
+  ProviderConfig as _ProviderConfig,
+  ProviderTestResult as _ProviderTestResult,
+  HealthStatus as _HealthStatus,
+  SystemMetrics as _SystemMetrics,
   SecurityLevel,
+  ToolCategory,
   ToolExecutionStatus,
 } from '@uaip/types';
+import type { ToolExecutionRequest } from '@uaip/contracts/api';
 import uaipAPI from '@/utils/uaip_api';
 import { llmAPI } from '@/api/llm_api';
-import { normalizeApiList } from '@/api/envelope';
 import { PERSONA_CATEGORIES } from '@uaip/types';
 import { logger } from '@/utils/browser_logger';
-
-// Agent Intelligence Flow - using backend API
-interface AgentIntelligenceFlow {
-  registerAgent: (config: unknown) => Promise<string>;
-  analyzeContext: (context: unknown) => Promise<unknown>;
-  makeDecision: (options: unknown) => Promise<unknown>;
-  generatePlan: (request: unknown) => Promise<unknown>;
-  discoverCapabilities: () => Promise<unknown>;
-  recognizeIntent: (input: string) => Promise<unknown>;
-  generateResponse: (context: unknown) => Promise<string>;
-  retrieveKnowledge: (query: string) => Promise<unknown>;
-  adaptBehavior: (metrics: unknown) => Promise<unknown>;
-  manageMemory: (context: unknown) => Promise<unknown>;
-  assessSkills: (agentId: string) => Promise<unknown>;
-  optimizePerformance: (agentId: string) => Promise<unknown>;
-  collaborate: (requirements: unknown) => Promise<unknown>;
-  reasonChain: (problem: unknown) => Promise<unknown>;
-  recognizeEmotion: (text: string) => Promise<unknown>;
-  manageGoals: (objectives: unknown) => Promise<unknown>;
-  resolveConflict: (conflict: unknown) => Promise<unknown>;
-  assessQuality: (response: unknown) => Promise<unknown>;
-  managePersona: (persona: unknown) => Promise<string>;
-  searchPersonas: (criteria: unknown) => Promise<unknown>;
-  analyzePersona: (personaId: string) => Promise<unknown>;
-  getPersonaCategories: () => Promise<string[]>;
-  coordinateAgents: (tasks: unknown) => Promise<unknown>;
-  switchContext: (newContext: unknown) => Promise<unknown>;
-}
-
-// Capability Registry Flow
-interface CapabilityRegistryFlow {
-  registerTool: (toolDef: unknown) => Promise<string>;
-  discoverTools: (criteria: unknown) => Promise<unknown>;
-  executeTool: (toolId: string, params: unknown) => Promise<unknown>;
-  validateCapability: (toolId: string) => Promise<unknown>;
-  recommendTools: (context: unknown) => Promise<unknown>;
-  getToolDependencies: (toolId: string) => Promise<unknown>;
-  getToolPerformance: (toolId: string) => Promise<unknown>;
-  getToolCategories: () => Promise<unknown>;
-  versionTool: (toolId: string, version: unknown) => Promise<unknown>;
-  getUsageAnalytics: () => Promise<unknown>;
-  getToolDocumentation: (toolId: string) => Promise<unknown>;
-  assessToolSecurity: (toolId: string) => Promise<unknown>;
-  integrateTool: (integration: unknown) => Promise<unknown>;
-  mapCapabilities: () => Promise<unknown>;
-  monitorTool: (toolId: string) => Promise<unknown>;
-  getToolMarketplace: () => Promise<unknown>;
-  createCustomTool: (spec: unknown) => Promise<string>;
-  backupTool: (toolId: string) => Promise<unknown>;
-  migrateTool: (toolId: string, target: unknown) => Promise<unknown>;
-  auditCapabilities: () => Promise<unknown>;
-}
-
-// Orchestration Pipeline Flow
-interface OrchestrationPipelineFlow {
-  createOperation: (operationDef: unknown) => Promise<string>;
-  executeOperation: (operationId: string) => Promise<unknown>;
-  getOperationStatus: (operationId: string) => Promise<unknown>;
-  cancelOperation: (operationId: string) => Promise<void>;
-  defineWorkflow: (workflowSpec: unknown) => Promise<string>;
-  executeStep: (operationId: string, stepId: string) => Promise<unknown>;
-  manageResources: () => Promise<unknown>;
-  getOperationLogs: (operationId: string) => Promise<unknown>;
-  executeBatch: (operations: unknown[]) => Promise<string>;
-  getOperationTemplates: () => Promise<unknown>;
-  monitorPipeline: () => Promise<unknown>;
-  recoverOperation: (operationId: string) => Promise<unknown>;
-  resolveDependencies: (operationId: string) => Promise<unknown>;
-  scheduleOperation: (schedule: unknown) => Promise<unknown>;
-  optimizePerformance: () => Promise<unknown>;
-}
-
-// Artifact Management Flow
-interface ArtifactManagementFlow {
-  generateArtifact: (request: unknown) => Promise<unknown>;
-  generateCode: (requirements: unknown) => Promise<unknown>;
-  generateDocumentation: (codebase: unknown) => Promise<unknown>;
-  generateTests: (code: unknown) => Promise<unknown>;
-  generatePRD: (requirements: unknown) => Promise<unknown>;
-  getArtifactTemplates: () => Promise<unknown>;
-  validateArtifact: (artifactId: string) => Promise<unknown>;
-  versionArtifact: (artifactId: string) => Promise<unknown>;
-  exportArtifact: (artifactId: string, format: string) => Promise<string>;
-  assessArtifactQuality: (artifactId: string) => Promise<unknown>;
-  searchArtifacts: (query: string) => Promise<unknown>;
-  analyzeArtifactDependencies: (artifactId: string) => Promise<unknown>;
-  collaborateOnArtifact: (artifactId: string) => Promise<unknown>;
-  testArtifactIntegration: (artifactId: string) => Promise<unknown>;
-  getArtifactAnalytics: () => Promise<unknown>;
-}
-
-// Model Provider State - using shared types
-interface ModelSelectionState {
-  providers: ModelProvider[];
-  models: LLMModel[];
-  loadingProviders: boolean;
-  loadingModels: boolean;
-  providersError: string | null;
-  modelsError: string | null;
-}
+import type {
+  AgentContextValue,
+  AgentAction,
+  AgentIntelligenceFlow,
+  ArtifactManagementFlow,
+  CapabilityRegistryFlow,
+  DebounceRefs,
+  DefaultToolProperties,
+  FlowParams,
+  FlowResult,
+  FlowStatus,
+  ModelSelectionState,
+  OrchestrationPipelineFlow,
+} from './AgentContext.types';
 
 const AgentContext = createContext<AgentContextValue | undefined>(undefined);
 
+function toFlowResult(value: unknown): FlowResult {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return Object.fromEntries(Object.entries(value));
+  }
+  return { value };
+}
+
+function readString(params: FlowParams | undefined, key: string): string {
+  const value = params?.[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function readFlowParams(params: FlowParams | undefined, key: string): FlowParams {
+  const value = params?.[key];
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return Object.fromEntries(Object.entries(value));
+  }
+  return {};
+}
+
+function toUserProviderType(type: string): UserLLMProviderType {
+  switch (type) {
+    case 'ollama':
+      return 'ollama';
+    case 'llmstudio':
+      return 'llmstudio';
+    case 'openai':
+      return 'openai';
+    case 'anthropic':
+      return 'anthropic';
+    case 'google':
+      return 'google';
+    default:
+      return 'custom';
+  }
+}
+
+function toCreateProviderRequest(provider: ModelProvider): CreateUserLLMProviderRequest {
+  return {
+    name: provider.name,
+    description: provider.description,
+    type: toUserProviderType(provider.type),
+    baseUrl: provider.baseUrl,
+    defaultModel: provider.defaultModel,
+    priority: provider.priority,
+  };
+}
+
+function toUpdateProviderRequest(provider: ModelProvider): UpdateUserLLMProviderRequest {
+  return {
+    name: provider.name,
+    description: provider.description,
+    baseUrl: provider.baseUrl,
+    defaultModel: provider.defaultModel,
+    priority: provider.priority,
+  };
+}
+
+function createToolExecutionRequest(
+  agentId: string,
+  toolCall: ToolCall
+): ToolExecutionRequest {
+  return {
+    input: toolCall.parameters,
+    context: {
+      operationId: `agent-${agentId}`,
+      stepId: `tool-${toolCall.id}`,
+      actor: {
+        userId: agentId,
+        orgId: 'default-org',
+        roles: [AgentRole.ASSISTANT],
+      },
+      tenant: {
+        orgId: 'default-org',
+      },
+      correlationId: toolCall.id,
+    },
+  };
+}
+
 // Helper function to create default tool properties for new agents
-function createDefaultToolProperties(): {
-  availableTools: string[];
-  toolPermissions: ToolPermissionSet;
-  toolUsageHistory: ToolUsageRecord[];
-  toolPreferences: ToolPreferences;
-  maxConcurrentTools: number;
-  toolBudget?: ToolBudget;
-} {
+function createDefaultToolProperties(): DefaultToolProperties {
   return {
     availableTools: ['math-calculator', 'text-analysis', 'time-utility', 'uuid-generator'], // Default safe tools
     toolPermissions: {
@@ -160,18 +150,22 @@ function createDefaultToolProperties(): {
     toolUsageHistory: [],
     toolPreferences: {
       preferredTools: {
-        computation: ['math-calculator', 'time-utility'],
-        analysis: ['text-analysis'],
-        api: [],
-        'file-system': [],
-        database: [],
-        'web-search': [],
-        'code-execution': [],
-        communication: [],
-        'knowledge-graph': [],
-        deployment: [],
-        monitoring: [],
-        generation: ['uuid-generator'],
+        [ToolCategory.COMPUTATION]: ['math-calculator', 'time-utility'],
+        [ToolCategory.ANALYSIS]: ['text-analysis'],
+        [ToolCategory.API]: [],
+        [ToolCategory.FILE_SYSTEM]: [],
+        [ToolCategory.DATABASE]: [],
+        [ToolCategory.WEB_SEARCH]: [],
+        [ToolCategory.CODE_EXECUTION]: [],
+        [ToolCategory.COMMUNICATION]: [],
+        [ToolCategory.KNOWLEDGE_GRAPH]: [],
+        [ToolCategory.DEPLOYMENT]: [],
+        [ToolCategory.MONITORING]: [],
+        [ToolCategory.GENERATION]: ['uuid-generator'],
+        [ToolCategory.SYSTEM]: [],
+        [ToolCategory.NETWORK]: [],
+        [ToolCategory.DEVELOPMENT]: [],
+        [ToolCategory.MCP]: [],
       },
       fallbackTools: {},
       timeoutPreference: 30000, // 30 seconds
@@ -187,21 +181,6 @@ function createDefaultToolProperties(): {
     },
   };
 }
-
-type AgentAction =
-  | { type: 'ADD_AGENT'; payload: AgentState }
-  | { type: 'ADD_AGENTS'; payload: AgentState[] }
-  | { type: 'REMOVE_AGENT'; payload: string }
-  | { type: 'UPDATE_AGENT'; payload: { id: string; updates: Partial<AgentState> } }
-  | { type: 'ADD_MESSAGE'; payload: { agentId: string; message: Message } }
-  | { type: 'REMOVE_MESSAGE'; payload: { agentId: string; messageId: string } }
-  | {
-      type: 'UPDATE_TOOL_PERMISSIONS';
-      payload: { agentId: string; permissions: Partial<ToolPermissionSet> };
-    }
-  | { type: 'ADD_TOOL_USAGE'; payload: { agentId: string; usage: ToolUsageRecord } }
-  | { type: 'SET_AGENT_MODEL'; payload: { agentId: string; modelId: string; providerId: string } }
-  | { type: 'CLEAR_AGENTS' };
 
 function agentReducer(
   state: Record<string, AgentState>,
@@ -220,7 +199,7 @@ function agentReducer(
 
       // Ensure new agents have tool properties
       const toolProperties = createDefaultToolProperties();
-      const newState = {
+      const newState: Record<string, AgentState> = {
         ...state,
         [action.payload.id]: {
           ...action.payload,
@@ -348,7 +327,7 @@ function agentReducer(
 export function AgentProvider({ children }: { children: React.ReactNode }) {
   const [agents, dispatch] = useReducer(agentReducer, {});
   const [activeFlows, setActiveFlows] = useState<string[]>([]);
-  const [flowResults, setFlowResults] = useState<Map<string, unknown>>(new Map());
+  const [flowResults, setFlowResults] = useState<Map<string, FlowResult>>(new Map());
   const [flowErrors, setFlowErrors] = useState<Map<string, string>>(new Map());
 
   // Model Provider Management State
@@ -370,7 +349,6 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Debounce timer refs
-  type DebounceRefs = { providersTimer: NodeJS.Timeout | null; modelsTimer: NodeJS.Timeout | null };
   const debounceRefs = useRef<DebounceRefs>({
     providersTimer: null,
     modelsTimer: null,
@@ -410,10 +388,9 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       try {
         const providers = await uaipAPI.llm.getProviders();
 
-        const providersAny: any = providers; // oxlint-disable-line @typescript-eslint/no-explicit-any -- getProviders returns compatible shape; FrontendModelProvider is a superset
         setModelState((prev) => ({
           ...prev,
-          providers: providersAny,
+          providers,
           loadingProviders: false,
         }));
         loadingRefs.current.providersLoaded = true;
@@ -487,7 +464,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const createProvider = useCallback(
     async (providerData: ModelProvider) => {
       try {
-        await uaipAPI.llm.createProvider(providerData);
+        await uaipAPI.llm.createProvider(toCreateProviderRequest(providerData));
         // Refresh both providers and models so the model list follows the change
         await reloadAfterProviderMutation();
         return true;
@@ -503,7 +480,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const updateProvider = useCallback(
     async (providerId: string, config: ModelProvider) => {
       try {
-        await uaipAPI.llm.updateProviderConfig(providerId, config);
+        await uaipAPI.llm.updateProviderConfig(providerId, toUpdateProviderRequest(config));
         // Refresh both providers and models so the model list follows the change
         await reloadAfterProviderMutation();
         return true;
@@ -519,7 +496,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   const testProvider = useCallback(async (providerId: string) => {
     try {
       const result = await uaipAPI.llm.testProvider(providerId);
-      return result;
+      return toFlowResult(result);
     } catch (error) {
       logger.error('Failed to test provider:', error);
       throw error;
@@ -632,7 +609,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, [loadProviders, loadModels]);
 
   // Generic flow execution handler
-  const executeFlow = useCallback(async (service: string, flow: string, params?: unknown) => {
+  const executeFlow = useCallback(async (service: string, flow: string, params?: FlowParams) => {
     const flowId = `${service}.${flow}`;
 
     try {
@@ -643,17 +620,17 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         return newMap;
       });
 
-      let result: unknown;
+      let result: FlowResult;
 
       // Route to actual UAIP API calls based on service
       if (service === 'agentIntelligence') {
-        result = await executeAgentIntelligenceFlow(flow, params);
+        result = toFlowResult(await executeAgentIntelligenceFlow(flow, params));
       } else if (service === 'capabilityRegistry') {
-        result = await executeCapabilityRegistryFlow(flow, params);
+        result = toFlowResult(await executeCapabilityRegistryFlow(flow, params));
       } else if (service === 'orchestrationPipeline') {
-        result = await executeOrchestrationPipelineFlow(flow, params);
+        result = toFlowResult(await executeOrchestrationPipelineFlow(flow, params));
       } else if (service === 'artifactManagement') {
-        result = await executeArtifactManagementFlow(flow, params);
+        result = toFlowResult(await executeArtifactManagementFlow(flow, params));
       } else {
         // For other services, throw an error indicating they're not implemented
         throw new Error(
@@ -681,31 +658,42 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Execute Agent Intelligence flows using UAIP API
-  const executeAgentIntelligenceFlow = async (flow: string, params: unknown) => {
+  const executeAgentIntelligenceFlow = async (flow: string, params?: FlowParams) => {
     switch (flow) {
-      case 'registerAgent':
-        return await uaipAPI.agents.create(params);
+      case 'registerAgent': {
+        const agent = await uaipAPI.agents.create({
+          name: readString(params, 'name'),
+          role: AgentRole.ASSISTANT,
+          personaId: readString(params, 'personaId'),
+          createdBy: readString(params, 'createdBy') || 'frontend',
+        });
+        return agent;
+      }
       case 'analyzeContext':
         // This would be a specialized endpoint - not yet implemented
         throw new Error(`Agent intelligence flow '${flow}' is not yet implemented`);
       case 'searchPersonas':
         // Use the new simplified search endpoint
-        return await uaipAPI.personas.search(params.query, params.expertise);
+        return await uaipAPI.personas.search(readString(params, 'query'), readString(params, 'expertise'));
       case 'managePersona':
         // Create persona using simplified data
         return await uaipAPI.personas.create({
-          name: params.name,
-          role: params.role,
-          description: params.description,
-          expertise: params.expertise || [],
-          tags: params.tags || [],
-          background: params.background,
-          systemPrompt: params.systemPrompt,
-          conversationalStyle: params.conversationalStyle,
+          name: readString(params, 'name'),
+          description: readString(params, 'description'),
+          traits: {
+            role: params?.role,
+            expertise: params?.expertise,
+            tags: params?.tags,
+          },
+          preferences: {
+            background: params?.background,
+            systemPrompt: params?.systemPrompt,
+            conversationalStyle: params?.conversationalStyle,
+          },
         });
       case 'analyzePersona':
         // Get persona details for analysis
-        return await uaipAPI.personas.get(params.personaId);
+        return await uaipAPI.personas.get(readString(params, 'personaId'));
       case 'getPersonaCategories':
         return PERSONA_CATEGORIES;
       default:
@@ -714,14 +702,40 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Execute Capability Registry flows using UAIP API
-  const executeCapabilityRegistryFlow = async (flow: string, params: unknown) => {
+  const executeCapabilityRegistryFlow = async (flow: string, params?: FlowParams) => {
     switch (flow) {
       case 'discoverTools':
-        return await uaipAPI.tools.list(params.criteria);
+        return await uaipAPI.tools.list(readFlowParams(params, 'criteria'));
       case 'executeTool':
-        return await uaipAPI.tools.execute(params.toolId, params.params);
+        return await uaipAPI.tools.execute(readString(params, 'toolId'), {
+          input: readFlowParams(params, 'params'),
+          context: {
+            operationId: 'capability-registry-flow',
+            stepId: flow,
+            actor: {
+              userId: 'frontend',
+              orgId: 'default-org',
+              roles: [AgentRole.ASSISTANT],
+            },
+            tenant: {
+              orgId: 'default-org',
+            },
+          },
+        });
       case 'registerTool':
-        return await uaipAPI.tools.create(params);
+        return await uaipAPI.tools.create({
+          name: readString(params, 'name'),
+          description: readString(params, 'description'),
+          version: readString(params, 'version') || '1.0.0',
+          category: readString(params, 'category') || 'system',
+          parameters: readFlowParams(params, 'parameters'),
+          returnType: readFlowParams(params, 'returnType'),
+          securityLevel: 'safe',
+          requiresApproval: Boolean(params?.requiresApproval),
+          author: readString(params, 'author') || 'frontend',
+          tags: [],
+          dependencies: [],
+        });
       case 'getToolCategories':
         return await uaipAPI.tools.getCategories();
       default:
@@ -767,13 +781,25 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   // Agent Intelligence Flows
   const agentIntelligence: AgentIntelligenceFlow = useMemo(
     () => ({
-      registerAgent: (config) => executeFlow('agentIntelligence', 'registerAgent', config),
+      registerAgent: async (config) => {
+        const result = await executeFlow(
+          'agentIntelligence',
+          'registerAgent',
+          Object.fromEntries(Object.entries(config))
+        );
+        return readString(result, 'id');
+      },
       analyzeContext: (context) => executeFlow('agentIntelligence', 'analyzeContext', context),
       makeDecision: (options) => executeFlow('agentIntelligence', 'makeDecision', options),
       generatePlan: (request) => executeFlow('agentIntelligence', 'generatePlan', request),
       discoverCapabilities: () => executeFlow('agentIntelligence', 'discoverCapabilities'),
       recognizeIntent: (input) => executeFlow('agentIntelligence', 'recognizeIntent', { input }),
-      generateResponse: (context) => executeFlow('agentIntelligence', 'generateResponse', context),
+      generateResponse: async (context) => {
+        const result = await executeFlow('agentIntelligence', 'generateResponse', {
+          context,
+        });
+        return readString(result, 'response');
+      },
       retrieveKnowledge: (query) =>
         executeFlow('agentIntelligence', 'retrieveKnowledge', { query }),
       adaptBehavior: (metrics) => executeFlow('agentIntelligence', 'adaptBehavior', metrics),
@@ -787,11 +813,21 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       manageGoals: (objectives) => executeFlow('agentIntelligence', 'manageGoals', objectives),
       resolveConflict: (conflict) => executeFlow('agentIntelligence', 'resolveConflict', conflict),
       assessQuality: (response) => executeFlow('agentIntelligence', 'assessQuality', response),
-      managePersona: (persona) => executeFlow('agentIntelligence', 'managePersona', persona),
+      managePersona: async (persona) => {
+        const result = await executeFlow(
+          'agentIntelligence',
+          'managePersona',
+          Object.fromEntries(Object.entries(persona))
+        );
+        return readString(result, 'id');
+      },
       searchPersonas: (criteria) => executeFlow('agentIntelligence', 'searchPersonas', criteria),
       analyzePersona: (personaId) =>
         executeFlow('agentIntelligence', 'analyzePersona', { personaId }),
-      getPersonaCategories: () => executeFlow('agentIntelligence', 'getPersonaCategories'),
+      getPersonaCategories: async () => {
+        await executeFlow('agentIntelligence', 'getPersonaCategories');
+        return [...PERSONA_CATEGORIES];
+      },
       coordinateAgents: (tasks) => executeFlow('agentIntelligence', 'coordinateAgents', tasks),
       switchContext: (newContext) => executeFlow('agentIntelligence', 'switchContext', newContext),
     }),
@@ -801,8 +837,16 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   // Capability Registry Flows
   const capabilityRegistry: CapabilityRegistryFlow = useMemo(
     () => ({
-      registerTool: (toolDef) => executeFlow('capabilityRegistry', 'registerTool', toolDef),
-      discoverTools: (criteria) => executeFlow('capabilityRegistry', 'discoverTools', criteria),
+      registerTool: async (toolDef) => {
+        const result = await executeFlow(
+          'capabilityRegistry',
+          'registerTool',
+          Object.fromEntries(Object.entries(toolDef))
+        );
+        return readString(result, 'id');
+      },
+      discoverTools: (criteria) =>
+        executeFlow('capabilityRegistry', 'discoverTools', { criteria }),
       executeTool: (toolId, params) =>
         executeFlow('capabilityRegistry', 'executeTool', { toolId, params }),
       validateCapability: (toolId) =>
@@ -825,7 +869,14 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
       mapCapabilities: () => executeFlow('capabilityRegistry', 'mapCapabilities'),
       monitorTool: (toolId) => executeFlow('capabilityRegistry', 'monitorTool', { toolId }),
       getToolMarketplace: () => executeFlow('capabilityRegistry', 'getToolMarketplace'),
-      createCustomTool: (spec) => executeFlow('capabilityRegistry', 'createCustomTool', spec),
+      createCustomTool: async (spec) => {
+        const result = await executeFlow(
+          'capabilityRegistry',
+          'createCustomTool',
+          Object.fromEntries(Object.entries(spec))
+        );
+        return readString(result, 'id');
+      },
       backupTool: (toolId) => executeFlow('capabilityRegistry', 'backupTool', { toolId }),
       migrateTool: (toolId, target) =>
         executeFlow('capabilityRegistry', 'migrateTool', { toolId, target }),
@@ -837,23 +888,32 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
   // Orchestration Pipeline Flows
   const orchestrationPipeline: OrchestrationPipelineFlow = useMemo(
     () => ({
-      createOperation: (operationDef) =>
-        executeFlow('orchestrationPipeline', 'createOperation', operationDef),
+      createOperation: async (operationDef) => {
+        const result = await executeFlow('orchestrationPipeline', 'createOperation', operationDef);
+        return readString(result, 'id');
+      },
       executeOperation: (operationId) =>
         executeFlow('orchestrationPipeline', 'executeOperation', { operationId }),
       getOperationStatus: (operationId) =>
         executeFlow('orchestrationPipeline', 'getOperationStatus', { operationId }),
-      cancelOperation: (operationId) =>
-        executeFlow('orchestrationPipeline', 'cancelOperation', { operationId }),
-      defineWorkflow: (workflowSpec) =>
-        executeFlow('orchestrationPipeline', 'defineWorkflow', workflowSpec),
+      cancelOperation: async (operationId) => {
+        await executeFlow('orchestrationPipeline', 'cancelOperation', { operationId });
+      },
+      defineWorkflow: async (workflowSpec) => {
+        const result = await executeFlow('orchestrationPipeline', 'defineWorkflow', workflowSpec);
+        return readString(result, 'id');
+      },
       executeStep: (operationId, stepId) =>
         executeFlow('orchestrationPipeline', 'executeStep', { operationId, stepId }),
       manageResources: () => executeFlow('orchestrationPipeline', 'manageResources'),
       getOperationLogs: (operationId) =>
         executeFlow('orchestrationPipeline', 'getOperationLogs', { operationId }),
-      executeBatch: (operations) =>
-        executeFlow('orchestrationPipeline', 'executeBatch', { operations }),
+      executeBatch: async (operations) => {
+        const result = await executeFlow('orchestrationPipeline', 'executeBatch', {
+          operations,
+        });
+        return readString(result, 'id');
+      },
       getOperationTemplates: () => executeFlow('orchestrationPipeline', 'getOperationTemplates'),
       monitorPipeline: () => executeFlow('orchestrationPipeline', 'monitorPipeline'),
       recoverOperation: (operationId) =>
@@ -882,8 +942,13 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         executeFlow('artifactManagement', 'validateArtifact', { artifactId }),
       versionArtifact: (artifactId) =>
         executeFlow('artifactManagement', 'versionArtifact', { artifactId }),
-      exportArtifact: (artifactId, format) =>
-        executeFlow('artifactManagement', 'exportArtifact', { artifactId, format }),
+      exportArtifact: async (artifactId, format) => {
+        const result = await executeFlow('artifactManagement', 'exportArtifact', {
+          artifactId,
+          format,
+        });
+        return readString(result, 'url');
+      },
       assessArtifactQuality: (artifactId) =>
         executeFlow('artifactManagement', 'assessArtifactQuality', { artifactId }),
       searchArtifacts: (query) => executeFlow('artifactManagement', 'searchArtifacts', { query }),
@@ -987,11 +1052,11 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           currentToolExecution: undefined, // Will be set by execution engine
         });
 
-        // Execute the tool call using UAIP API
-        const result = await uaipAPI.tools.execute(toolCall.toolId, {
-          ...toolCall.parameters,
-          agentId,
-        });
+        // Execute the tool call using the backend tool execution contract.
+        const result = await uaipAPI.tools.execute(
+          toolCall.toolId,
+          createToolExecutionRequest(agentId, toolCall)
+        );
 
         // Record usage
         const usage: ToolUsageRecord = {
@@ -1000,11 +1065,11 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           startTime: new Date(),
           success: result.success,
           endTime: new Date(),
-          cost: result.cost || 0,
+          cost: result.cost,
           errorCode: result.error?.type,
           status: ToolExecutionStatus.COMPLETED,
-          id: result.executionId || toolCall.id,
-          executionId: result.executionId || toolCall.id,
+          id: result.executionId,
+          executionId: result.executionId,
         };
 
         dispatch({ type: 'ADD_TOOL_USAGE', payload: { agentId, usage } });
@@ -1017,11 +1082,11 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
         return {
           callId: toolCall.id,
-          executionId: result.executionId || toolCall.id,
+          executionId: result.executionId,
           success: result.success,
           result: result.data,
-          executionTime: result.executionTime || 0,
-          cost: result.cost || 0,
+          executionTime: result.executionTime,
+          cost: result.cost,
           error: result.error,
           metadata: result.metadata,
         };
@@ -1080,22 +1145,10 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
     // Reload agents
     try {
-      const response = await uaipAPI.agents.list();
-
-      // Handle response format: {agents: Array(7), total: 7, filters: {...}}
-      let agentList = [];
-      if (Array.isArray(response.agents)) {
-        agentList = response.agents;
-      } else if (response.success && response.data && Array.isArray(response.data.agents)) {
-        agentList = response.data.agents;
-      } else if (Array.isArray(response)) {
-        // Fallback for direct array response
-        agentList = response;
-      } else {
-      }
+      const agentList = await uaipAPI.agents.list();
 
       if (agentList.length > 0) {
-        agentList.forEach((backendAgent, _index) => {
+        agentList.forEach((backendAgent) => {
           try {
             const agentState = createAgentStateFromBackend(backendAgent);
 
@@ -1103,8 +1156,8 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             logger.error('❌ Failed to create/add agent state:', {
               backendAgent: backendAgent,
-              error: error.message,
-              stack: error.stack,
+              error: error instanceof Error ? error.message : 'Agent conversion failed',
+              stack: error instanceof Error ? error.stack : undefined,
             });
           }
         });
@@ -1128,14 +1181,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const response = await uaipAPI.agents.list();
-
-        // One canonical normalizer handles every envelope shape the
-        // backend can send: bare array, {data: T[]}, {items}, {agents},
-        // {data: {agents}}, nested {data:{<key>:T[]}}, etc. See
-        // api/envelope.ts. Replaces the previous 3-branch parse +
-        // silent-empty `else` that masked shape mismatches as "no agents".
-        const agentList = normalizeApiList(response);
+        const agentList = await uaipAPI.agents.list();
 
         // Defensive re-fetch: a cold first paint can land before auth is
         // fully wired (the surrounding setTimeout(100ms) races with token
@@ -1154,22 +1200,25 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
               .map((backendAgent, _index) => {
                 return createAgentStateFromBackend(backendAgent);
               })
-              .filter(Boolean); // Remove unknown null/undefined results
+              .filter(Boolean);
 
             addAgents(agentStates);
           } catch (error) {
-            logger.error('❌ Failed to process agents in bulk:', error.message);
+            logger.error(
+              '❌ Failed to process agents in bulk:',
+              error instanceof Error ? error.message : error
+            );
             // Fallback to individual processing if bulk fails
 
-            agentList.forEach((backendAgent, _index) => {
+            agentList.forEach((backendAgent) => {
               try {
                 const agentState = createAgentStateFromBackend(backendAgent);
                 addAgent(agentState);
               } catch (err) {
                 logger.error('❌ Failed to create/add agent state:', {
                   backendAgent: backendAgent,
-                  error: err.message,
-                  stack: err.stack,
+                  error: err instanceof Error ? err.message : 'Agent conversion failed',
+                  stack: err instanceof Error ? err.stack : undefined,
                 });
               }
             });

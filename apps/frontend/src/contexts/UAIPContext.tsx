@@ -2,18 +2,19 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useAgents } from './AgentContext';
 import { useAuth } from './AuthContext';
 import uaipAPI from '@/utils/uaip_api';
+import { OperationStatus } from '@uaip/types';
 
 // Import shared types
 import type {
   Operation,
-  _OperationStatus,
-  _OperationPriority,
+  OperationStatus as _OperationStatus,
+  OperationPriority as _OperationPriority,
   Capability,
   ApprovalWorkflow,
-  _HealthStatus,
+  HealthStatus as _HealthStatus,
   SystemMetrics as _SharedSystemMetrics,
-  _LLMModel,
-  _DiscussionEvent,
+  LLMModel as _LLMModel,
+  DiscussionEvent as _DiscussionEvent,
 } from '@uaip/types';
 
 // Import UI-specific types
@@ -79,38 +80,35 @@ interface UAIPContextType {
 
 const UAIPContext = createContext<UAIPContextType | undefined>(undefined);
 
+type BackendAgent = import('@uaip/contracts/api').Agent;
+
 // Data transformation utilities
-const transformAgentToEnhanced = (agent: unknown): EnhancedAgentState => ({
+const transformAgentToEnhanced = (agent: BackendAgent): EnhancedAgentState => ({
   id: agent.id,
   name: agent.name || `Agent ${agent.id}`,
-  role: agent.role || 'assistant',
+  role: 'assistant',
   status: agent.isActive ? 'active' : 'idle',
-  currentOperation: agent.currentToolExecution?.id,
-  lastActivity: new Date(agent.lastActivity || Date.now()),
+  lastActivity: new Date(agent.updatedAt || Date.now()),
   metrics: {
-    totalOperations: agent.toolUsageHistory?.length || 0,
-    successRate:
-      agent.toolUsageHistory?.length > 0
-        ? agent.toolUsageHistory.filter((usage: unknown) => usage.success).length /
-          agent.toolUsageHistory.length
-        : 0,
-    averageResponseTime: agent.averageResponseTime ?? 0,
-    uptime: agent.uptime ?? 0,
+    totalOperations: 0,
+    successRate: 0,
+    averageResponseTime: 0,
+    uptime: 0,
   },
   configuration: {
-    modelId: agent.modelId || 'default',
-    apiType: agent.providerId?.includes('ollama') ? 'ollama' : 'llmstudio',
-    temperature: 0.7,
+    modelId: agent.modelId ?? agent.configuration?.model ?? 'default',
+    apiType: 'llmstudio',
+    temperature: agent.configuration?.temperature ?? 0.7,
     maxTokens: 2000,
     systemPrompt: agent.systemPrompt || 'You are a helpful AI assistant.',
   },
-  capabilities: agent.availableTools || [],
+  capabilities: agent.capabilities || [],
   securityLevel: 'medium',
   intelligenceMetrics: {
-    decisionAccuracy: agent.decisionAccuracy ?? 0,
-    contextUnderstanding: agent.contextUnderstanding ?? 0,
-    adaptationRate: agent.adaptationRate ?? 0,
-    learningProgress: agent.learningProgress ?? 0,
+    decisionAccuracy: 0,
+    contextUnderstanding: 0,
+    adaptationRate: 0,
+    learningProgress: 0,
   },
 });
 
@@ -118,10 +116,10 @@ const _transformOperationToUI = (operation: Operation): UIOperation => ({
   ...operation,
   progress:
     operation.status === OperationStatus.RUNNING
-      ? 50
+      ? { percentage: 50 }
       : operation.status === OperationStatus.COMPLETED
-        ? 100
-        : 0,
+        ? { percentage: 100 }
+        : { percentage: 0 },
   startTime: operation.createdAt ? new Date(operation.createdAt) : new Date(),
   endTime: operation.completedAt ? new Date(operation.completedAt) : undefined,
 });
@@ -135,12 +133,7 @@ const transformApprovalToUI = (approval: ApprovalWorkflow): UIApprovalWorkflow =
 });
 
 export function UAIPProvider({ children }: { children: React.ReactNode }) {
-  const {
-    agents: agentContextAgents,
-    _agentIntelligence,
-    _capabilityRegistry,
-    orchestrationPipeline,
-  } = useAgents();
+  const { agents: agentContextAgents } = useAgents();
   const { user } = useAuth();
 
   // Data states
@@ -249,29 +242,8 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
     setCapabilities((prev) => ({ ...prev, isLoading: true }));
     try {
-      const toolsResponse = await uaipAPI.tools.list();
-      // Handle different response formats - could be array or object with tools property
-      const toolsArray = Array.isArray(toolsResponse)
-        ? toolsResponse
-        : toolsResponse?.tools || toolsResponse?.data?.tools || [];
-
-      const uiCapabilities = toolsArray.map((tool: unknown) =>
-        transformCapabilityToUI({
-          id: tool.id,
-          name: tool.name,
-          description: tool.description,
-          category: tool.category,
-          isEnabled: tool.isEnabled,
-          securityLevel: tool.securityLevel,
-          version: tool.version,
-          author: tool.author,
-          tags: tool.tags || [],
-          dependencies: tool.dependencies || [],
-          parameters: tool.parameters,
-          returnType: tool.returnType,
-          examples: tool.examples || [],
-        })
-      );
+      const capabilitiesData = await uaipAPI.client.capabilities.search({});
+      const uiCapabilities = capabilitiesData.map(transformCapabilityToUI);
 
       setCapabilities({
         data: uiCapabilities,
@@ -482,11 +454,10 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
   const executeOperation = useCallback(
     async (operationDef: unknown): Promise<string> => {
-      const operationId = await orchestrationPipeline.createOperation(operationDef);
-      await orchestrationPipeline.executeOperation(operationId);
-      return operationId;
+      const response = await uaipAPI.client.orchestration.executeOperation(operationDef);
+      return response.workflowInstanceId;
     },
-    [orchestrationPipeline]
+    []
   );
 
   const approveExecution = useCallback(
@@ -549,7 +520,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = useCallback((errorId: string) => {
     // Clear error from all data states
-    const clearErrorFromState = (state: unknown) => ({
+    const clearErrorFromState = <T,>(state: DataState<T>): DataState<T> => ({
       ...state,
       error: state.error?.id === errorId ? undefined : state.error,
     });

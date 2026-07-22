@@ -23,9 +23,6 @@
       "path": "./apps/backend/services/capability-registry"
     },
     {
-      "path": "./apps/backend/services/marketplace-service"
-    },
-    {
       "path": "./apps/backend/services/agent-intelligence"
     },
     {
@@ -63,6 +60,18 @@
     },
     {
       "path": "./apps/shared/agent-intelligence"
+    },
+    {
+      "path": "./apps/backend/services/exec-node-coding"
+    },
+    {
+      "path": "./apps/backend/services/navratna-gateway"
+    },
+    {
+      "path": "./apps/backend/services/navratna-core"
+    },
+    {
+      "path": "./apps/shared/discussion"
     }
   ],
   "compilerOptions": {

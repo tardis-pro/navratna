@@ -1,7 +1,7 @@
 // Deprecated: This service is being replaced by direct backend API calls
 
 import { discussionsAPI } from '../api/discussions_api';
-import { _Discussion, CreateDiscussionRequest, TurnStrategy, MessageType } from '@uaip/types';
+import { Discussion as _Discussion, CreateDiscussionRequest, TurnStrategy, MessageType } from '@uaip/types';
 import { getStoredUserId } from '@/utils/auth_storage';
 import { logger } from '@/utils/browser_logger';
 

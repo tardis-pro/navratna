@@ -15,9 +15,9 @@ import uaipAPI from '@/utils/uaip_api';
 // Import shared types
 import {
   DiscussionParticipant,
-  _DiscussionMessage,
-  _Discussion,
-  _DiscussionStatus,
+  DiscussionMessage as _DiscussionMessage,
+  Discussion as _Discussion,
+  DiscussionStatus as _DiscussionStatus,
   TurnStrategy,
   CreateDiscussionRequest,
   MessageType,

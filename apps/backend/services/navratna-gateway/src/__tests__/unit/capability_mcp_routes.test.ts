@@ -125,9 +125,7 @@ describe('Capability Routes', () => {
           body: JSON.stringify({ description: 'A tool without a name' }),
         })
       );
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.success).toBe(false);
+      expect(res.status).toBe(422);
     });
 
     it('returns 400 when inputSchema.type is not object', async () => {

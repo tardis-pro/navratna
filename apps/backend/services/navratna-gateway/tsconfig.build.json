@@ -10,14 +10,32 @@
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/__tests__/**/*"],
   "references": [
-    { "path": "../capability-registry" },
-    { "path": "../orchestration-pipeline" },
-    { "path": "../security-gateway" },
-    { "path": "../../../packages/shared-utils" },
-    { "path": "../../../packages/shared-types" },
-    { "path": "../../../shared/services" },
-    { "path": "../../../shared/middleware" },
-    { "path": "../../../shared/infra" },
-    { "path": "../../../shared/config" }
+    {
+      "path": "../orchestration-pipeline/tsconfig.build.json"
+    },
+    {
+      "path": "../capability-registry/tsconfig.build.json"
+    },
+    {
+      "path": "../security-gateway/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/shared-utils/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/shared-types/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/services/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/middleware/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/infra/tsconfig.build.json"
+    },
+    {
+      "path": "../../../shared/config/tsconfig.build.json"
+    }
   ]
 }

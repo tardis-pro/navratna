@@ -47,3 +47,7 @@ docs/stories/
 .eng-manager/
 tmp/
 .wrangler/
+
+# CodeGraph local indexes
+.codegraph/
+**/.codegraph/

@@ -39,9 +39,9 @@ describe('loadConfig', () => {
     });
   });
 
-  it('accepts any non-empty public PEM string in test environment (NODE_ENV=test)', () => {
+  it('accepts a PEM public key in test environment', () => {
     withEnv({
-      CODING_NODE_JWT_PUBLIC_KEY_PEM: 'test-key',
+      CODING_NODE_JWT_PUBLIC_KEY_PEM: VALID_PUBLIC_PEM,
       PORT: '3009',
       SESSION_DIR: '/sessions',
       REPLAY_BUFFER_SIZE: '200',

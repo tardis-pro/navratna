@@ -2,10 +2,32 @@ import { Server } from 'socket.io';
 import { DebateOrchestratorService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { logger } from '@uaip/utils';
-import { Argument, Vote, ConsensusResult } from '@uaip/types';
+import {
+  ArgumentSchema,
+  VoteSchema,
+  ConsensusResultSchema,
+  type Argument,
+  type Vote,
+  type ConsensusResult,
+} from '@uaip/types';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function parseArgument(value: unknown): Argument | null {
+  const parsed = ArgumentSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseVote(value: unknown): Vote | null {
+  const parsed = VoteSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseConsensus(value: unknown): ConsensusResult | null {
+  const parsed = ConsensusResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 export class DebateHandler {
@@ -34,10 +56,18 @@ export class DebateHandler {
       const raw = event.data;
       if (!isRecord(raw)) return;
       const data = raw;
+      const argument = parseArgument(data['argument']);
+      if (!argument) {
+        logger.warn('Invalid debate argument payload ignored', { data });
+        return;
+      }
       const debateId = typeof data['debateId'] === 'string' ? data['debateId'] : '';
       const debate = this.debateOrchestrator.getDebate(debateId);
       if (debate?.discussionId) {
-        this.broadcastToDiscussion(debate.discussionId, 'debate:argument', data);
+        this.broadcastToDiscussion(debate.discussionId, 'debate:argument', {
+          ...data,
+          argument,
+        });
       }
     });
 
@@ -45,10 +75,18 @@ export class DebateHandler {
       const raw = event.data;
       if (!isRecord(raw)) return;
       const data = raw;
+      const vote = parseVote(data['vote']);
+      if (!vote) {
+        logger.warn('Invalid debate vote payload ignored', { data });
+        return;
+      }
       const debateId = typeof data['debateId'] === 'string' ? data['debateId'] : '';
       const debate = this.debateOrchestrator.getDebate(debateId);
       if (debate?.discussionId) {
-        this.broadcastToDiscussion(debate.discussionId, 'debate:vote', data);
+        this.broadcastToDiscussion(debate.discussionId, 'debate:vote', {
+          ...data,
+          vote,
+        });
       }
     });
 
@@ -57,11 +95,16 @@ export class DebateHandler {
       if (!isRecord(raw)) return;
       const data = raw;
       const debateId = typeof data['debateId'] === 'string' ? data['debateId'] : '';
+      const consensus = parseConsensus(data['consensus']);
+      if (!consensus) {
+        logger.warn('Invalid debate consensus payload ignored', { data });
+        return;
+      }
       const debate = this.debateOrchestrator.getDebate(debateId);
       if (debate?.discussionId) {
         this.broadcastToDiscussion(debate.discussionId, 'debate:concluded', {
           debateId,
-          consensus: data['consensus'],
+          consensus,
           metadata: data['metadata'],
         });
       }

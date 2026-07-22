@@ -10,43 +10,6 @@ import {
 } from '@uaip/types';
 import { SmartEmbeddingService } from './smart_embedding_service';
 
-type QdrantPayload = QdrantPoint['payload'];
-
-const KNOWLEDGE_TYPE_VALUES: readonly string[] = Object.values(KnowledgeType);
-
-function isKnowledgeType(v: string): v is KnowledgeType {
-  return KNOWLEDGE_TYPE_VALUES.includes(v);
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-function isQdrantPayload(p: Record<string, unknown>): p is QdrantPayload {
-  return (
-    typeof p.content === 'string' &&
-    typeof p.knowledgeType === 'string' &&
-    Array.isArray(p.tags) &&
-    typeof p.confidence === 'number' &&
-    typeof p.sourceType === 'string'
-  );
-}
-
-function toQdrantPayload(p: Record<string, unknown>): QdrantPayload {
-  if (isQdrantPayload(p)) return p;
-  const kt = typeof p.knowledgeType === 'string' && isKnowledgeType(p.knowledgeType)
-    ? p.knowledgeType
-    : KnowledgeType.FACTUAL;
-  return {
-    content: typeof p.content === 'string' ? p.content : '',
-    knowledgeType: kt,
-    tags: Array.isArray(p.tags) ? p.tags.filter((t): t is string => typeof t === 'string') : [],
-    confidence: typeof p.confidence === 'number' ? p.confidence : 0,
-    sourceType: typeof p.sourceType === 'string' ? p.sourceType : '',
-    originalMetadata: isRecord(p.originalMetadata) ? p.originalMetadata : {},
-  };
-}
-
 export class KnowledgeClusteringService {
   private readonly minClusterSize = parseInt(process.env.KNOWLEDGE_CLUSTER_MIN_SIZE ?? '3', 10);
   private readonly similarityThreshold = parseFloat(

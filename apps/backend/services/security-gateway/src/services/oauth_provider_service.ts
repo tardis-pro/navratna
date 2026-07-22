@@ -234,6 +234,7 @@ export class OAuthProviderService {
         userInfoUrl: providerConfig.userInfoUrl,
         revokeUrl: getRevokeUrl(providerConfig),
         isEnabled: providerConfig.isEnabled ?? true,
+        agentConfig: providerConfig.agentConfig,
       });
 
       const hydratedProvider = {

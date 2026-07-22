@@ -38,6 +38,25 @@ import {
 
 const CACHE_TTL_MS = 5 * 60 * 1000
 const portraitCache = new Map<string, { portrait: CognitivePortrait; cachedAt: number }>()
+const chatEvidenceByUser = new Map<string, ChatEvidenceEntry[]>()
+
+type ChatEvidenceEntry = {
+  content: string
+  observedAt: string
+}
+
+type DomainSignal = {
+  domain: string
+  terms: string[]
+}
+
+const DOMAIN_SIGNALS: DomainSignal[] = [
+  { domain: 'backend', terms: ['api', 'database', 'postgres', 'redis', 'queue', 'elysia', 'service'] },
+  { domain: 'frontend', terms: ['react', 'component', 'ui', 'tailwind', 'vite', 'browser', 'layout'] },
+  { domain: 'security', terms: ['auth', 'jwt', 'oauth', 'permission', 'csrf', 'token', 'policy'] },
+  { domain: 'data', terms: ['metrics', 'analytics', 'qdrant', 'embedding', 'vector', 'dataset', 'query'] },
+  { domain: 'product', terms: ['stakeholder', 'requirement', 'roadmap', 'user', 'prd', 'workflow', 'decision'] },
+]
 
 function getCachedPortrait(userId: string): CognitivePortrait | null {
   const entry = portraitCache.get(userId)
@@ -51,6 +70,66 @@ function getCachedPortrait(userId: string): CognitivePortrait | null {
 
 function cachePortrait(portrait: CognitivePortrait): void {
   portraitCache.set(portrait.userId, { portrait, cachedAt: Date.now() })
+}
+
+function extractContent(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) return value
+  if (!isRecord(value)) return null
+  const content = value.content ?? value.message ?? value.text ?? value.prompt ?? value.response
+  return typeof content === 'string' && content.trim().length > 0 ? content : null
+}
+
+function recordChatEvidence(userId: string, content: string, observedAt = new Date().toISOString()): void {
+  const existing = chatEvidenceByUser.get(userId) ?? []
+  chatEvidenceByUser.set(userId, [...existing.slice(-199), { content, observedAt }])
+}
+
+export function recordCognitivePortraitChatEvidence(
+  userId: string,
+  messages: unknown[],
+  observedAt = new Date().toISOString()
+): void {
+  for (const message of messages) {
+    const content = extractContent(message)
+    if (content) recordChatEvidence(userId, content, observedAt)
+  }
+  portraitCache.delete(userId)
+}
+
+function levelForEvidenceCount(count: number): ExpertiseLevel {
+  if (count >= 10) return ExpertiseLevel.EXPERT
+  if (count >= 6) return ExpertiseLevel.ADVANCED
+  if (count >= 3) return ExpertiseLevel.INTERMEDIATE
+  return ExpertiseLevel.NOVICE
+}
+
+function aggregateDomainExpertise(evidence: ChatEvidenceEntry[]): DomainExpertiseEntry[] {
+  const byDomain = new Map<string, { count: number; lastDemonstrated: string }>()
+
+  for (const entry of evidence) {
+    const lowerContent = entry.content.toLowerCase()
+    for (const signal of DOMAIN_SIGNALS) {
+      if (!signal.terms.some((term) => lowerContent.includes(term))) continue
+      const current = byDomain.get(signal.domain)
+      byDomain.set(signal.domain, {
+        count: (current?.count ?? 0) + 1,
+        lastDemonstrated:
+          current && current.lastDemonstrated > entry.observedAt
+            ? current.lastDemonstrated
+            : entry.observedAt,
+      })
+    }
+  }
+
+  return Array.from(byDomain.entries())
+    .map(([domain, value]): DomainExpertiseEntry => ({
+      domain,
+      level: levelForEvidenceCount(value.count),
+      confidence: Math.min(0.95, 0.35 + value.count * 0.08),
+      lastDemonstrated: value.lastDemonstrated,
+      evidenceCount: value.count,
+    }))
+    .sort((a, b) => b.evidenceCount - a.evidenceCount)
 }
 
 // ─── Default profile ─────────────────────────────────────────────────────
@@ -123,8 +202,11 @@ function getDefaultPortrait(userId: string): CognitivePortrait {
 
 // ─── Aggregation stubs ───────────────────────────────────────────────────
 
-async function aggregateFromChatHistory(_userId: string): Promise<Partial<UserCognitiveProfile>> {
-  return {}
+async function aggregateFromChatHistory(userId: string): Promise<Partial<UserCognitiveProfile>> {
+  const evidence = chatEvidenceByUser.get(userId) ?? []
+  return {
+    domainExpertise: aggregateDomainExpertise(evidence),
+  }
 }
 
 async function aggregateFromInteractionPatterns(_userId: string): Promise<InteractionPatternSummary> {
@@ -341,6 +423,13 @@ export function initCognitivePortraitEventListeners(): void {
       if (!isRecord(data)) return;
       const userId = typeof data['userId'] === 'string' ? data['userId'] : '';
       if (userId) {
+        const observedAt = typeof data['timestamp'] === 'string' ? data['timestamp'] : new Date().toISOString()
+        if (Array.isArray(data['messages'])) {
+          recordCognitivePortraitChatEvidence(userId, data['messages'], observedAt)
+        } else {
+          const content = extractContent(data)
+          if (content) recordChatEvidence(userId, content, observedAt)
+        }
         portraitCache.delete(userId)
       }
     })

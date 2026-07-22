@@ -1,4 +1,4 @@
-import { ThoughtStep, ThoughtChain, ThoughtType, ThoughtStepSchema, ThoughtTypeSchema } from '@uaip/types';
+import { ThoughtStep, ThoughtChain, ThoughtStepSchema, ThoughtTypeSchema } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { v4 as uuidv4 } from 'uuid';
 

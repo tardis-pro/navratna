@@ -59,7 +59,7 @@ export class WorkflowEngineService {
     const jobId = this.toJobId(id);
     const jobName = this.toJobName(id);
 
-    const repeatableJobs = await queue.getRepeatableJobs();
+    const repeatableJobs: RepeatableJob[] = await queue.getRepeatableJobs();
     const jobsToRemove = repeatableJobs.filter(
       (job) => job.name === jobName || job.id === jobId || job.key.includes(jobId)
     );

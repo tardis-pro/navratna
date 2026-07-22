@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence, _useAnimation } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation as _useAnimation } from 'framer-motion';
 
 // ---------------------------------------------------------------------------
 // Types

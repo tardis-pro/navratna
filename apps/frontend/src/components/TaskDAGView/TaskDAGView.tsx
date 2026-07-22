@@ -1,4 +1,4 @@
-import { useState, useEffect, _useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback as _useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { io, Socket } from 'socket.io-client';

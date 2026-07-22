@@ -4,7 +4,7 @@ import type {
   FrontendAgentContextValue as AgentContextValue,
 } from '@uaip/types';
 import { FrontendDocumentContext } from '@uaip/types';
-import { _LLMService } from '../services/llm';
+import { LLMService as _LLMService } from '../services/llm';
 import { generateAgentResponse } from '../services/llm';
 import { logger } from '@/utils/browser_logger';
 

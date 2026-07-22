@@ -11,12 +11,26 @@
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__/**/*"],
   "references": [
-    { "path": "../../packages/shared-types/tsconfig.json" },
-    { "path": "../../packages/shared-utils/tsconfig.json" },
-    { "path": "../config/tsconfig.json" },
-    { "path": "../infra/tsconfig.json" },
-    { "path": "../middleware/tsconfig.json" },
-    { "path": "../services/tsconfig.json" },
-    { "path": "../llm-service/tsconfig.json" }
+    {
+      "path": "../../packages/shared-utils/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/shared-types/tsconfig.build.json"
+    },
+    {
+      "path": "../services/tsconfig.build.json"
+    },
+    {
+      "path": "../middleware/tsconfig.build.json"
+    },
+    {
+      "path": "../llm-service/tsconfig.build.json"
+    },
+    {
+      "path": "../infra/tsconfig.build.json"
+    },
+    {
+      "path": "../config/tsconfig.build.json"
+    }
   ]
 }

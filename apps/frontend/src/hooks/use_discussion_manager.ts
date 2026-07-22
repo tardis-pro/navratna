@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, _useRef } from 'react';
-import { uaipAPI, _generateUUID, TurnStrategy, DiscussionEvent } from '../utils/uaip_api';
+import { useState, useEffect, useCallback, useRef as _useRef } from 'react';
+import { uaipAPI, generateUUID as _generateUUID, TurnStrategy, DiscussionEvent } from '../utils/uaip_api';
 import type { FrontendAgentState as AgentState, FrontendMessage as Message } from '@uaip/types';
 import { FrontendDocumentContext } from '@uaip/types';
 import { useAuth } from '../contexts/AuthContext';
