@@ -2,6 +2,7 @@
 **/dist
 **/.git
 **/.nx
+**/.codegraph
 **/coverage
 **/*.log
 **/tmp
