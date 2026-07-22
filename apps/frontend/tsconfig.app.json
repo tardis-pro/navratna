@@ -37,13 +37,13 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../packages/contracts"
+      "path": "../packages/shared-utils/tsconfig.build.json"
     },
     {
-      "path": "../packages/shared-utils"
+      "path": "../packages/shared-types/tsconfig.build.json"
     },
     {
-      "path": "../packages/shared-types"
+      "path": "../packages/contracts/tsconfig.build.json"
     }
   ]
 }

@@ -16,7 +16,7 @@ function backendLeakGuard(): Plugin {
         throw new Error(
           `[backend-leak-guard] Runtime import of "${id}" from "${importer ?? 'unknown'}" detected. ` +
             `Backend packages must only be referenced with 'import type'. ` +
-            `This import would bundle backend (Bun/Node) code into the browser build.`,
+            `This import would bundle backend (Bun/Node) code into the browser build.`
         );
       }
     },
@@ -51,30 +51,30 @@ export default defineConfig(({ mode }) => {
         allow: ['..'],
       },
       proxy: {
-        '/api/v1/agents':           toCore,
-        '/api/v1/personas':         toCore,
-        '/api/v1/discussions':      toCore,
-        '/api/v1/artifacts':        toCore,
-        '/api/v1/info':             toCore,
-        '/api/v1/user/llm':         toCore,
+        '/api/v1/agents': toCore,
+        '/api/v1/personas': toCore,
+        '/api/v1/discussions': toCore,
+        '/api/v1/artifacts': toCore,
+        '/api/v1/info': toCore,
+        '/api/v1/user/llm': toCore,
         '/api/v1/llm/my-providers': toGateway,
-        '/api/v1/llm':              toCore,
-        '/api/v1/questionforge':    toCore,
-        '/api/v1/auth':             toGateway,
-        '/api/v1/security':         toGateway,
-        '/api/v1/approvals':        toGateway,
-        '/api/v1/users':            toGateway,
-        '/api/v1/audit':            toGateway,
+        '/api/v1/llm': toCore,
+        '/api/v1/questionforge': toCore,
+        '/api/v1/auth': toGateway,
+        '/api/v1/security': toGateway,
+        '/api/v1/approvals': toGateway,
+        '/api/v1/users': toGateway,
+        '/api/v1/audit': toGateway,
         '/api/v1/knowledge/constellations': toCore,
-        '/api/v1/knowledge':        toGateway,
-        '/api/v1/contacts':         toGateway,
-        '/api/v1/projects':         toGateway,
-        '/api/v1/operations':       toGateway,
-        '/api/v1/capabilities':     toGateway,
-        '/api/v1/tools':            toGateway,
-        '/api/v1/mcp':              toGateway,
-        '/socket.io':               { ...toCore, ws: true },
-        '/health':                  toCore,
+        '/api/v1/knowledge': toGateway,
+        '/api/v1/contacts': toGateway,
+        '/api/v1/projects': toGateway,
+        '/api/v1/operations': toGateway,
+        '/api/v1/capabilities': toGateway,
+        '/api/v1/tools': toGateway,
+        '/api/v1/mcp': toGateway,
+        '/socket.io': { ...toCore, ws: true },
+        '/health': toCore,
       },
     },
     optimizeDeps: {
@@ -82,6 +82,9 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [backendLeakGuard(), react()].filter(Boolean),
     build: {
+      // Hidden source maps: emitted for Sentry upload in CD, never referenced
+      // from the bundles — so they are not served publicly by Cloudflare Pages.
+      sourcemap: 'hidden',
       rolldownOptions: {
         output: {
           manualChunks: (id) => {

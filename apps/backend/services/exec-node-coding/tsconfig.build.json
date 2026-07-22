@@ -14,7 +14,11 @@
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
   "references": [
-    { "path": "../../../packages/shared-utils/tsconfig.json" },
-    { "path": "../../../packages/shared-types/tsconfig.json" }
+    {
+      "path": "../../../packages/shared-utils/tsconfig.build.json"
+    },
+    {
+      "path": "../../../packages/shared-types/tsconfig.build.json"
+    }
   ]
 }

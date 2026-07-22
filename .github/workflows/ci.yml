@@ -2,216 +2,211 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 env:
-  NODE_VERSION: '22'
-  PNPM_VERSION: '10'
+  CI: true
+  NX_DAEMON: false
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.12.1'
 
 jobs:
-  changes:
-    name: Detect Changes
+  actionlint:
+    name: actionlint
     runs-on: ubuntu-latest
-    outputs:
-      frontend: ${{ steps.changes.outputs.frontend }}
-      backend: ${{ steps.changes.outputs.backend }}
-      shared: ${{ steps.changes.outputs.shared }}
+    permissions:
+      contents: read
+      checks: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Detect changes
-        uses: dorny/paths-filter@v3
-        id: changes
+      - name: Run actionlint
+        uses: reviewdog/action-actionlint@50842263c20a7c46bd0065b9e624d3c569db061e # v1.73.0
         with:
-          filters: |
-            frontend:
-              - 'apps/frontend/**'
-              - 'apps/packages/**'
-            backend:
-              - 'apps/backend/**'
-              - 'apps/shared/**'
-              - 'apps/packages/**'
-            shared:
-              - 'apps/shared/**'
-              - 'apps/packages/**'
+          reporter: github-check
+          filter_mode: nofilter
+          fail_level: error
 
-  frontend-ci:
-    name: Frontend CI
+  static:
+    name: Static Analysis
     runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Build
-        run: pnpm build:frontend
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: apps/frontend/dist/
-          retention-days: 7
-
-  backend:
-    name: Backend
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm nx run-many -t lint --projects=tag:backend-service
-
-      - name: Build shared packages
-        run: pnpm build:shared
-
-      - name: Build backend services
-        run: pnpm build:backend
-
-  test:
-    name: Test (affected)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run affected tests
-        run: pnpm nx affected -t test --base=origin/main --head=HEAD
+      - name: Resolve diff range
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            BASE_SHA="$PR_BASE_SHA"
+            HEAD_SHA="$PR_HEAD_SHA"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            BASE_SHA="$EVENT_BEFORE"
+            if [ -z "$BASE_SHA" ] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
+              BASE_SHA="$(git rev-parse HEAD^)"
+            fi
+            HEAD_SHA="$GITHUB_SHA"
+          else
+            BASE_SHA="$(git rev-parse HEAD^)"
+            HEAD_SHA="$GITHUB_SHA"
+          fi
+          {
+            echo "BASE_SHA=$BASE_SHA"
+            echo "HEAD_SHA=$HEAD_SHA"
+          } >> "$GITHUB_ENV"
+          echo "Diff range: $BASE_SHA..$HEAD_SHA"
 
-  docker-build:
-    name: Docker Build Test
+      - name: Lint changed files
+        run: |
+          mapfile -d '' -t files < <(
+            git diff --name-only -z --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" \
+              -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs'
+          )
+          if [ "${#files[@]}" -gt 0 ]; then
+            printf 'Linting %d changed file(s)\n' "${#files[@]}"
+            pnpm exec oxlint "${files[@]}"
+          else
+            echo "No changed JS/TS files to lint."
+          fi
+
+      - name: Format-check changed files
+        run: |
+          mapfile -d '' -t files < <(
+            git diff --name-only -z --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" \
+              -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' \
+                 '*.json' '*.jsonc' '*.yml' '*.yaml' '*.md' '*.css' '*.toml'
+          )
+          if [ "${#files[@]}" -gt 0 ]; then
+            printf 'Format-checking %d changed file(s)\n' "${#files[@]}"
+            pnpm exec oxfmt --check "${files[@]}"
+          else
+            echo "No changed supported files to format-check."
+          fi
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    needs: [changes, backend]
-    if: needs.changes.outputs.backend == 'true'
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all projects
+        run: pnpm build
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prebuild shared packages
+        run: pnpm build:shared
+
+      - name: Run tests
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            pnpm nx affected -t test --base="$PR_BASE_SHA" --head="$PR_HEAD_SHA"
+          else
+            pnpm test
+          fi
+
+  containers:
+    name: Container ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: navratna-core
+            dockerfile: deploy/fly/Dockerfile.core
+          - image: navratna-gateway
+            dockerfile: deploy/fly/Dockerfile.gateway
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - name: Build image (no push)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          file: ./Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
-          tags: uaip-backend:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
+          tags: ${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
