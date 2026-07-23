@@ -280,9 +280,13 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.navratna.tardis.digital' }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           VITE_APP_VERSION: ${{ needs.prepare.outputs.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_FRONTEND_PROJECT: ${{ vars.SENTRY_FRONTEND_PROJECT }}
+          SENTRY_RELEASE: ${{ needs.prepare.outputs.sha }}
         run: pnpm build:frontend
 
-      - name: Create Sentry release & upload source maps
+      - name: Finalize Sentry release
         uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -294,7 +298,6 @@ jobs:
           set_commits: auto
           ignore_missing: true
           ignore_empty: true
-          sourcemaps: apps/frontend/dist
 
       - name: Delete source map files
         run: find apps/frontend/dist -name '*.map' -type f -delete

@@ -29,6 +29,15 @@ export default defineConfig(({ mode }) => {
   const API_TARGET = env.VITE_API_TARGET;
   const CORE = env.VITE_CORE_URL || 'http://localhost:3001';
   const GATEWAY = env.VITE_GATEWAY_URL || 'http://localhost:3002';
+  const releaseName =
+    env.VITE_APP_VERSION ||
+    env.SENTRY_RELEASE ||
+    env.CF_PAGES_COMMIT_SHA ||
+    env.COMMIT_SHA ||
+    env.GITHUB_SHA ||
+    '1.0.0';
+  const sentryOrg = env.SENTRY_ORG || 'geospoc';
+  const sentryProject = env.SENTRY_FRONTEND_PROJECT || env.SENTRY_PROJECT || 'javascript-react';
 
   const toCore = { target: API_TARGET || CORE, changeOrigin: true, secure: false };
   const toGateway = { target: API_TARGET || GATEWAY, changeOrigin: true, secure: false };
@@ -86,11 +95,11 @@ export default defineConfig(({ mode }) => {
       react(),
       sentryVitePlugin({
         authToken: env.SENTRY_AUTH_TOKEN,
-        org: 'geospoc',
-        project: 'javascript-react',
+        org: sentryOrg,
+        project: sentryProject,
         disable: mode !== 'production' || !env.SENTRY_AUTH_TOKEN,
         release: {
-          name: env.VITE_APP_VERSION || '1.0.0',
+          name: releaseName,
         },
         sourcemaps: {
           assets: './dist/assets/**',
@@ -98,6 +107,9 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ].filter(Boolean),
+    define: {
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(releaseName),
+    },
     build: {
       // Hidden source maps: emitted for Sentry upload in CD, never referenced
       // from the bundles — so they are not served publicly by Cloudflare Pages.

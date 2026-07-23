@@ -29,6 +29,24 @@ export type {
 
 const capabilities = gatewayClient.api.v1.capabilities;
 
+type CapabilityCollectionPayload = Capability[] | Record<string, unknown>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toCapabilityList(payload: unknown): Capability[] {
+  if (Array.isArray(payload)) {
+    return payload as Capability[];
+  }
+
+  if (isRecord(payload) && Array.isArray(payload['capabilities'])) {
+    return payload['capabilities'] as Capability[];
+  }
+
+  return [];
+}
+
 export const capabilitiesAPI = {
   async search(request: CapabilitySearchRequest): Promise<Capability[]> {
     const query = {
@@ -36,14 +54,18 @@ export const capabilitiesAPI = {
       type: request.type,
       limit: request.limit !== undefined ? String(request.limit) : undefined,
     };
-    return edenWithCSRFRetry(() => capabilities.search.get({ query }));
+    const response: CapabilityCollectionPayload = await edenWithCSRFRetry(() =>
+      capabilities.search.get({ query })
+    );
+    return toCapabilityList(response);
   },
 
   async list(options?: CapabilityListOptions): Promise<Capability[]> {
     const query: Record<string, unknown> | undefined = options ? { ...options } : undefined;
-    return edenWithCSRFRetry(() =>
+    const response: CapabilityCollectionPayload = await edenWithCSRFRetry(() =>
       capabilities.get({ query })
     );
+    return toCapabilityList(response);
   },
 
   async get(id: string): Promise<Capability> {

@@ -242,7 +242,7 @@ export function UAIPProvider({ children }: { children: React.ReactNode }) {
 
     setCapabilities((prev) => ({ ...prev, isLoading: true }));
     try {
-      const capabilitiesData = await uaipAPI.client.capabilities.search({});
+      const capabilitiesData = await uaipAPI.client.capabilities.list();
       const uiCapabilities = capabilitiesData.map(transformCapabilityToUI);
 
       setCapabilities({

@@ -283,7 +283,7 @@ export function useCapabilities() {
 
   const fetchCapabilities = useCallback(async () => {
     try {
-      const response = await uaipAPI.client.capabilities.search({});
+      const response = await uaipAPI.client.capabilities.list();
       const adaptedCapabilities = response.map(adaptBackendCapabilityToFrontend);
       setCapabilities(adaptedCapabilities);
       return adaptedCapabilities;
