@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { AgentSkill, AgentUpdate } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip_api';
 import { edenRequest } from '../api/eden';
-import { llmAPI as _llmAPI } from '../api/llm_api';
+import { llmAPI } from '../api/llm_api';
 import { useAgents } from '../contexts/AgentContext';
 import type {
   AgentEditFormData,
@@ -62,15 +62,12 @@ const LLM_TASK_TYPES = [
   { value: 'vision', label: 'Vision Analysis' },
 ];
 
-// LLM Provider Types
-const LLM_PROVIDER_TYPES = [
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'google', label: 'Google' },
-  { value: 'ollama', label: 'Ollama' },
-  { value: 'llmstudio', label: 'LLM Studio' },
-  { value: 'custom', label: 'Custom' },
-];
+type UserLLMModelOption = Awaited<ReturnType<typeof llmAPI.userLLM.listModels>>[number];
+
+type LLMProviderOption = {
+  id: string;
+  label: string;
+};
 
 function readOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
@@ -913,13 +910,16 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { refreshAgents, modelState, agents } = useAgents();
+  const { refreshAgents, agents } = useAgents();
   const [activeTab, setActiveTab] = useState('basic');
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<AgentEditFormData>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [llmPreferences, setLlmPreferences] = useState<AgentLLMPreference[]>([]);
+  const [userLLMModels, setUserLLMModels] = useState<UserLLMModelOption[]>([]);
+  const [userLLMModelsLoading, setUserLLMModelsLoading] = useState(false);
+  const [userLLMModelsError, setUserLLMModelsError] = useState<string | null>(null);
 
   const agent = agents?.[agentId];
 
@@ -947,6 +947,67 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
       });
     }
   }, [agent, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadUserLLMModels = async () => {
+      setUserLLMModelsLoading(true);
+      setUserLLMModelsError(null);
+
+      try {
+        const models = await llmAPI.userLLM.listModels();
+        setUserLLMModels(models.filter((model) => model.isAvailable));
+      } catch (error) {
+        logger.error('Failed to load user LLM models:', error);
+        setUserLLMModels([]);
+        setUserLLMModelsError('Unable to load your LLM providers');
+      } finally {
+        setUserLLMModelsLoading(false);
+      }
+    };
+
+    void loadUserLLMModels();
+  }, [isOpen]);
+
+  const userLLMProviderOptions = useMemo<LLMProviderOption[]>(() => {
+    const providers = new Map<string, string>();
+
+    userLLMModels.forEach((model) => {
+      if (!model.providerId) return;
+      providers.set(model.providerId, model.provider || model.providerId);
+    });
+
+    return Array.from(providers, ([id, label]) => ({ id, label }));
+  }, [userLLMModels]);
+
+  const firstUserLLMModel = userLLMModels[0];
+
+  useEffect(() => {
+    if (userLLMModelsLoading || userLLMModels.length === 0) return;
+
+    setLlmPreferences((prev) =>
+      prev.map((preference) => {
+        const providerModels = userLLMModels.filter(
+          (model) => model.providerId === preference.preferredProvider
+        );
+        const hasSelectedUserModel = providerModels.some(
+          (model) => model.id === preference.preferredModel
+        );
+
+        if (hasSelectedUserModel) {
+          return preference;
+        }
+
+        const fallbackModel = providerModels[0] || firstUserLLMModel;
+        return {
+          ...preference,
+          preferredProvider: fallbackModel.providerId,
+          preferredModel: fallbackModel.id,
+        };
+      })
+    );
+  }, [firstUserLLMModel, userLLMModels, userLLMModelsLoading]);
 
   const getValidationErrors = (data: AgentEditFormData): Record<string, string> => {
     const newErrors: Record<string, string> = {};
@@ -1209,21 +1270,36 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
         <h4 className="text-lg font-semibold text-gray-900 dark:text-white">LLM Preferences</h4>
         <button
           onClick={() => {
+            if (!firstUserLLMModel) return;
             const newPreference: AgentLLMPreference = {
               taskType: 'reasoning',
-              preferredProvider: 'anthropic',
-              preferredModel: 'claude-3-5-sonnet-20241022',
+              preferredProvider: firstUserLLMModel.providerId,
+              preferredModel: firstUserLLMModel.id,
               isActive: true,
               priority: 50,
             };
             setLlmPreferences((prev) => [...prev, newPreference]);
           }}
+          disabled={!firstUserLLMModel || userLLMModelsLoading}
           className="flex items-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Preference
         </button>
       </div>
+
+      {userLLMModelsError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+          <AlertCircle className="h-4 w-4" />
+          {userLLMModelsError}
+        </div>
+      )}
+
+      {!userLLMModelsLoading && !userLLMModelsError && userLLMModels.length === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+          Connect a personal LLM provider before adding LLM preferences.
+        </div>
+      )}
 
       <div className="space-y-4">
         {llmPreferences.length === 0 ? (
@@ -1270,13 +1346,21 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                     value={preference.preferredProvider}
                     onChange={(e) => {
                       const updated = [...llmPreferences];
-                      updated[index] = { ...updated[index], preferredProvider: e.target.value };
+                      const providerModels = userLLMModels.filter(
+                        (model) => model.providerId === e.target.value
+                      );
+                      updated[index] = {
+                        ...updated[index],
+                        preferredProvider: e.target.value,
+                        preferredModel: providerModels[0]?.id || '',
+                      };
                       setLlmPreferences(updated);
                     }}
+                    disabled={userLLMModelsLoading || userLLMProviderOptions.length === 0}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                    {LLM_PROVIDER_TYPES.map((provider) => (
-                      <option key={provider.value} value={provider.value}>
+                    {userLLMProviderOptions.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
                         {provider.label}
                       </option>
                     ))}
@@ -1294,24 +1378,16 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                       updated[index] = { ...updated[index], preferredModel: e.target.value };
                       setLlmPreferences(updated);
                     }}
+                    disabled={userLLMModelsLoading || userLLMModels.length === 0}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                    {modelState?.models
-                      ?.filter(
-                        (m) =>
-                          m.apiType === preference.preferredProvider ||
-                          (preference.preferredProvider === 'anthropic' &&
-                            m.name?.toLowerCase().includes('claude')) ||
-                          (preference.preferredProvider === 'openai' &&
-                            m.name?.toLowerCase().includes('gpt'))
-                      )
+                    {userLLMModels
+                      .filter((model) => model.providerId === preference.preferredProvider)
                       .map((model) => (
                         <option key={model.id} value={model.id}>
-                          {model.name}
+                          {model.name} ({model.provider})
                         </option>
-                      )) || []}
-                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    <option value="gpt-4o-mini">GPT-4O Mini</option>
+                      ))}
                   </select>
                 </div>
 
