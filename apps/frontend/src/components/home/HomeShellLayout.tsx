@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import type { Discussion, Thread, ThreadParticipant } from '@uaip/types';
 import { ThreadPresence, ThreadState } from '@uaip/types';
@@ -9,15 +9,16 @@ import { useAgents } from '@/contexts/AgentContext';
 import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ExploreSurfaceProvider } from '@/components/TelescopeSurface/ExploreSurfaceProvider';
-import { cn } from '@/lib/utils';
 import { swift } from '@/lib/motion';
 import { uaipAPI } from '@/utils/uaip_api';
 import { logger } from '@/utils/browser_logger';
+import { ShellHeader } from './ShellHeader';
 import { ThreadDock } from './ThreadDock';
+import { WhisperRail } from './WhisperRail';
 import type {
   AnimatingThreadRect,
   HomeShellContextValue,
-  HomeSuggestion,
+  WhisperSuggestion,
 } from './home_shell_types';
 
 function toIsoString(value: Date | string | undefined): string {
@@ -50,6 +51,7 @@ export function HomeShellLayout() {
   const [discussions, setDiscussions] = useState<Discussion[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [whisperOpen, setWhisperOpen] = useState(false);
+  const [threadDockOpen, setThreadDockOpen] = useState(false);
   const [animatingCard, setAnimatingCard] = useState<AnimatingThreadRect | null>(null);
   const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
 
@@ -78,6 +80,10 @@ export function HomeShellLayout() {
       window.removeEventListener('open-discussion-portal', handleOpenDiscussion);
     };
   }, []);
+
+  useEffect(() => {
+    setThreadDockOpen(false);
+  }, [location.pathname]);
 
   const threads = useMemo<Thread[]>(() => {
     const discussionThreads = discussions.map((discussion) => {
@@ -138,17 +144,42 @@ export function HomeShellLayout() {
     return [...discussionThreads, ...agentThreads];
   }, [agents, discussions]);
 
-  const whisperSuggestions = useMemo<HomeSuggestion[]>(
-    () =>
-      Object.values(agents)
-        .filter((agent) => agent.isActive)
-        .map((agent) => ({
-          title: `Summon ${agent.name}`,
-          description: `Active role: ${agent.role || 'helper'}`,
-          agentId: agent.id,
-        })),
-    [agents]
-  );
+  const whisperSuggestions = useMemo<WhisperSuggestion[]>(() => {
+    if (location.pathname.startsWith('/explore')) {
+      return [
+        {
+          id: '/explore/knowledge',
+          title: 'Open knowledge',
+          description: 'Search, upload, and connect what Navratna knows.',
+        },
+        {
+          id: '/explore/unified-tool',
+          title: 'Inspect tools',
+          description: 'Browse connected capabilities and MCP tools.',
+        },
+        {
+          id: '/explore/agent-manager',
+          title: 'Manage agents',
+          description: 'Tune roles, models, and active collaborators.',
+        },
+      ];
+    }
+
+    return Object.values(agents)
+      .filter((agent) => agent.isActive)
+      .slice(0, 6)
+      .map((agent) => ({
+        id: `agent:${agent.id}`,
+        title: `Summon ${agent.name}`,
+        description: `Continue with ${agent.role || 'this specialist'}.`,
+      }));
+  }, [agents, location.pathname]);
+
+  const whisperContextLabel = location.pathname.startsWith('/explore')
+    ? 'Your capability constellation stays warm while you move through the shell.'
+    : selectedAgentId
+      ? 'The active thread is preserved. Shift context without losing the conversation.'
+      : 'Active agents are ready when you need a second perspective.';
 
   const selectAgent = useCallback(
     (agentId: string) => {
@@ -183,6 +214,7 @@ export function HomeShellLayout() {
       });
       setSelectedAgentId(agentId);
       void navigate(`/thread/${encodeURIComponent(thread.id)}`);
+      setThreadDockOpen(false);
       window.setTimeout(() => setAnimatingCard(null), 350);
     },
     [navigate]
@@ -201,6 +233,18 @@ export function HomeShellLayout() {
     setDiscussionModalOpen(true);
   }, []);
 
+  const handleWhisperSelect = useCallback(
+    (suggestion: WhisperSuggestion) => {
+      if (suggestion.id.startsWith('agent:')) {
+        selectAgent(suggestion.id.slice('agent:'.length));
+      } else {
+        void navigate(suggestion.id);
+      }
+      setWhisperOpen(false);
+    },
+    [navigate, selectAgent]
+  );
+
   const shellContext = useMemo<HomeShellContextValue>(
     () => ({
       selectedAgentId,
@@ -212,116 +256,111 @@ export function HomeShellLayout() {
   );
 
   return (
-    <div
-      className="relative flex h-screen w-screen overflow-hidden bg-background text-foreground"
-      data-testid="home-shell"
-    >
-      <ThreadDock
-        threads={threads}
-        selectedAgentId={selectedAgentId}
-        onNewDiscussion={() => setDiscussionModalOpen(true)}
-        onSelectThread={handleSelectThread}
-      />
-
-      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
-        <ExploreSurfaceProvider>
-          <ErrorBoundary key={location.pathname}>
-            <Outlet context={shellContext} />
-          </ErrorBoundary>
-        </ExploreSurfaceProvider>
-      </main>
-
-      <aside
-        className={cn(
-          'flex shrink-0 flex-col border-l border-border bg-card transition-all duration-300',
-          whisperOpen ? 'w-64' : 'w-12'
-        )}
-        aria-label="Whisper suggestions"
+    <ExploreSurfaceProvider>
+      <div
+        className="relative flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground"
+        data-testid="home-shell"
       >
-        <div className="flex items-center justify-between border-b border-border p-3">
-          {whisperOpen && (
-            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              Whisper
-            </span>
+        <ShellHeader
+          onOpenThreads={() => setThreadDockOpen(true)}
+          onNewDiscussion={openDiscussionComposer}
+          onToggleWhisper={() => setWhisperOpen((open) => !open)}
+          whisperOpen={whisperOpen}
+        />
+
+        <div className="relative flex min-h-0 flex-1 overflow-hidden">
+          <ThreadDock
+            threads={threads}
+            selectedAgentId={selectedAgentId}
+            onSelectThread={handleSelectThread}
+            className="hidden lg:flex"
+          />
+
+          {(threadDockOpen || whisperOpen) && (
+            <button
+              type="button"
+              className="fixed inset-x-0 bottom-0 top-12 z-40 bg-background/70 backdrop-blur-sm lg:hidden"
+              onClick={() => {
+                setThreadDockOpen(false);
+                setWhisperOpen(false);
+              }}
+              aria-label="Close shell panel"
+            />
           )}
-          <button
-            type="button"
-            onClick={() => setWhisperOpen((open) => !open)}
-            className="ml-auto cursor-pointer rounded p-1 hover:bg-muted"
-            aria-label={whisperOpen ? 'Collapse suggestions' : 'Expand suggestions'}
-          >
-            {whisperOpen ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
+
+          {threadDockOpen && (
+            <ThreadDock
+              threads={threads}
+              selectedAgentId={selectedAgentId}
+              onSelectThread={handleSelectThread}
+              onClose={() => setThreadDockOpen(false)}
+              className="fixed bottom-0 left-0 top-12 z-50 w-[min(20rem,88vw)] shadow-2xl lg:hidden"
+            />
+          )}
+
+          <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+            <ErrorBoundary key={location.pathname}>
+              <Outlet context={shellContext} />
+            </ErrorBoundary>
+          </main>
+
+          <WhisperRail
+            suggestions={whisperSuggestions}
+            isOpen={whisperOpen}
+            onToggle={() => setWhisperOpen((open) => !open)}
+            onSelect={handleWhisperSelect}
+            contextLabel={whisperContextLabel}
+            className="hidden lg:flex"
+          />
+
+          {whisperOpen && (
+            <WhisperRail
+              suggestions={whisperSuggestions}
+              isOpen
+              onToggle={() => setWhisperOpen(false)}
+              onSelect={handleWhisperSelect}
+              contextLabel={whisperContextLabel}
+              className="fixed bottom-0 right-0 top-12 z-50 w-[min(20rem,88vw)] lg:hidden"
+            />
+          )}
+
+          {animatingCard && (
+            <motion.div
+              style={{
+                position: 'fixed',
+                left: animatingCard.x,
+                top: animatingCard.y,
+                width: animatingCard.width,
+                height: animatingCard.height,
+                zIndex: 9999,
+              }}
+              animate={{
+                left: 'calc(50vw - 200px)',
+                top: 'calc(50vh - 250px)',
+                width: 400,
+                height: 500,
+                opacity: [1, 0.9, 0],
+              }}
+              transition={swift}
+              className="flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-6 shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <Bot className="h-10 w-10 text-primary" />
+                <div>
+                  <h3 className="text-sm font-semibold">{animatingCard.name}</h3>
+                  <p className="text-xs text-muted-foreground">Connecting to hearth...</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
-        {whisperOpen ? (
-          <div className="flex-1 space-y-3 overflow-y-auto p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Suggestions
-            </p>
-            <div className="space-y-2">
-              {whisperSuggestions.map((suggestion) => (
-                <button
-                  key={suggestion.agentId}
-                  type="button"
-                  onClick={() => selectAgent(suggestion.agentId)}
-                  className="block w-full cursor-pointer space-y-1 rounded-lg border border-border bg-background p-2.5 text-left text-xs transition-all hover:bg-muted/50"
-                >
-                  <span className="block font-medium text-foreground">{suggestion.title}</span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    {suggestion.description}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-1 flex-col items-center space-y-4 pt-4">
-            <Sparkles className="h-4 w-4 animate-pulse text-amber-500" />
-          </div>
-        )}
-      </aside>
-
-      {animatingCard && (
-        <motion.div
-          style={{
-            position: 'fixed',
-            left: animatingCard.x,
-            top: animatingCard.y,
-            width: animatingCard.width,
-            height: animatingCard.height,
-            zIndex: 9999,
-          }}
-          animate={{
-            left: 'calc(50vw - 200px)',
-            top: 'calc(50vh - 250px)',
-            width: 400,
-            height: 500,
-            opacity: [1, 0.9, 0],
-          }}
-          transition={swift}
-          className="flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-6 shadow-lg"
-        >
-          <div className="flex items-center gap-3">
-            <Bot className="h-10 w-10 text-primary" />
-            <div>
-              <h3 className="text-sm font-semibold">{animatingCard.name}</h3>
-              <p className="text-xs text-muted-foreground">Connecting to hearth...</p>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      <DiscussionConfigModal
-        isOpen={discussionModalOpen}
-        onClose={() => setDiscussionModalOpen(false)}
-        onDiscussionStarted={handleDiscussionStarted}
-      />
-    </div>
+        <DiscussionConfigModal
+          isOpen={discussionModalOpen}
+          onClose={() => setDiscussionModalOpen(false)}
+          onDiscussionStarted={handleDiscussionStarted}
+        />
+      </div>
+    </ExploreSurfaceProvider>
   );
 }

@@ -1,10 +1,10 @@
 import type { MouseEvent } from 'react';
 import type { Thread } from '@uaip/types';
 
-export interface HomeSuggestion {
+export interface WhisperSuggestion {
+  id: string;
   title: string;
   description: string;
-  agentId: string;
 }
 
 export interface AnimatingThreadRect {
@@ -25,6 +25,23 @@ export interface HomeShellContextValue {
 export interface ThreadDockProps {
   threads: Thread[];
   selectedAgentId: string | null;
-  onNewDiscussion: () => void;
   onSelectThread: (thread: Thread, event: MouseEvent<HTMLButtonElement>) => void;
+  onClose?: () => void;
+  className?: string;
+}
+
+export interface ShellHeaderProps {
+  onOpenThreads: () => void;
+  onNewDiscussion: () => void;
+  onToggleWhisper: () => void;
+  whisperOpen: boolean;
+}
+
+export interface WhisperRailProps {
+  suggestions: WhisperSuggestion[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onSelect: (suggestion: WhisperSuggestion) => void;
+  contextLabel: string;
+  className?: string;
 }
