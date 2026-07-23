@@ -375,6 +375,11 @@ function TelescopeBlock({ block, onClick, isTopRanked = false }: TelescopeBlockP
 // TelescopeSurface component
 // ---------------------------------------------------------------------------
 
+export interface TelescopeFocusTarget {
+  id: string;
+  nonce: number;
+}
+
 export interface TelescopeSurfaceProps {
   blocks: MaterializableBlockData[];
   onBlockSelect?: (id: string) => void;
@@ -385,7 +390,9 @@ export interface TelescopeSurfaceProps {
    * Request that a materialized block be scrolled into view and focused.
    * `nonce` retriggers the effect when the same block is selected again.
    */
-  focusTarget?: { id: string; nonce: number };
+  focusTarget?: TelescopeFocusTarget;
+  focusedPortalId?: string | null;
+  onFocusedPortalChange?: (blockId: string | null) => void;
 }
 
 export function TelescopeSurface({
@@ -395,6 +402,8 @@ export function TelescopeSurface({
   maxVisibleBlocks = DEFAULT_MAX_VISIBLE_BLOCKS,
   className,
   focusTarget,
+  focusedPortalId,
+  onFocusedPortalChange,
 }: TelescopeSurfaceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -413,21 +422,34 @@ export function TelescopeSurface({
   const [fogActive, setFogActive] = useState(true);
   // A rich portal, when opened, takes over the surface in a focused view instead
   // of ballooning inline in the ambient grid. null = the constellation is showing.
-  const [focusedPortalId, setFocusedPortalId] = useState<string | null>(null);
+  const [internalFocusedPortalId, setInternalFocusedPortalId] = useState<string | null>(null);
+  const activeFocusedPortalId = focusedPortalId === undefined
+    ? internalFocusedPortalId
+    : focusedPortalId;
+
+  const setFocusedPortal = useCallback(
+    (blockId: string | null) => {
+      if (focusedPortalId === undefined) {
+        setInternalFocusedPortalId(blockId);
+      }
+      onFocusedPortalChange?.(blockId);
+    },
+    [focusedPortalId, onFocusedPortalChange]
+  );
 
   const focusedBlock = useMemo(
-    () => blocks.find((b) => b.id === focusedPortalId) ?? null,
-    [blocks, focusedPortalId]
+    () => blocks.find((b) => b.id === activeFocusedPortalId) ?? null,
+    [activeFocusedPortalId, blocks]
   );
 
   useEffect(() => {
-    if (!focusedPortalId) return;
+    if (!activeFocusedPortalId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFocusedPortalId(null);
+      if (e.key === 'Escape') setFocusedPortal(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focusedPortalId]);
+  }, [activeFocusedPortalId, setFocusedPortal]);
 
   // Scroll a freshly-materialized block into view and focus it, so an
   // intent selection visibly "opens" the capability rather than silently
@@ -557,7 +579,7 @@ export function TelescopeSurface({
                       // opening it takes over the surface in the focused view.
                       <TelescopeBlock
                         block={block}
-                        onClick={(id) => setFocusedPortalId(id)}
+                        onClick={setFocusedPortal}
                         isTopRanked={index === 0 && block.relevanceScore > 0.8}
                       />
                     ) : block.type === 'workflow' ? (
@@ -595,11 +617,11 @@ export function TelescopeSurface({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex flex-col bg-background/85 backdrop-blur-md p-3 md:p-6 lg:p-8"
+            className="absolute inset-0 z-50 flex flex-col bg-background/85 p-3 backdrop-blur-md md:p-6 lg:p-8"
             role="dialog"
             aria-modal="true"
             onClick={(e) => {
-              if (e.target === e.currentTarget) setFocusedPortalId(null);
+              if (e.target === e.currentTarget) setFocusedPortal(null);
             }}
           >
             <motion.div
@@ -611,7 +633,7 @@ export function TelescopeSurface({
             >
               <div className="flex items-center gap-3 px-5 py-3 border-b border-border shrink-0">
                 <button
-                  onClick={() => setFocusedPortalId(null)}
+                  onClick={() => setFocusedPortal(null)}
                   className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1 -ml-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   aria-label="Back to constellation"
                 >
