@@ -20,6 +20,7 @@ import {
 import { LLMTaskType, AgentRole, AgentSkill } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { recordLLMRequest } from '@uaip/middleware';
+import { selectUserProviderForModel } from './provider_selection.js';
 
 type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
 
@@ -713,10 +714,12 @@ export class UserLLMService {
         // Use the selected model and provider type to find a matching user provider
         const selectedProvider = await this.resolveProviderForSelection(
           userId,
-          modelSelection.model.provider
+          modelSelection.model.provider,
+          modelSelection.model.model,
+          request.agent.userLLMProviderId
         );
 
-        llmRequest.model = modelSelection.model.model || llmRequest.model;
+        llmRequest.model = request.agent.modelId;
         if (modelSelection.model.settings?.temperature !== undefined) {
           llmRequest.temperature = modelSelection.model.settings.temperature;
         }
@@ -775,7 +778,11 @@ export class UserLLMService {
       urgency: 'medium',
     });
 
-    const provider = await this.resolveProviderForSelection(userId, selection.model.provider);
+    const provider = await this.resolveProviderForSelection(
+      userId,
+      selection.model.provider,
+      selection.model.model
+    );
 
     return { provider, selection };
   }
@@ -877,15 +884,22 @@ export class UserLLMService {
 
   private async resolveProviderForSelection(
     userId: string,
-    providerType: UserLLMProviderType
+    providerType: UserLLMProviderType,
+    model?: string,
+    preferredProviderId?: string
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
     const rawRows = await repository.findActiveByUserId(userId);
     const providers = mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(rawRows));
-    const selectedProvider = providers.find((provider) => provider.type === providerType);
+    const selectedProvider = selectUserProviderForModel(
+      providers,
+      providerType,
+      model,
+      preferredProviderId
+    );
 
     if (!selectedProvider) {
-      logger.error('Selected provider not found', { providerType });
+      logger.error('Selected provider not found', { userId, providerType, model, preferredProviderId });
       throw new Error(`Selected provider not found: ${providerType}`);
     }
 

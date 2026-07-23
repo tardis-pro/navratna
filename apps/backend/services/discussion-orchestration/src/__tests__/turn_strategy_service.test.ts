@@ -61,13 +61,13 @@ function createRoundRobinDiscussion(turnNumber: number) {
   });
 }
 
-function createParticipant(id: string, joinedAt: string) {
+function createParticipant(id: string, joinedAt: string, agentId?: string) {
   return DiscussionParticipantSchema.parse({
     id,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     discussionId: '11111111-1111-4111-8111-111111111111',
-    agentId: `agent-${id}`,
+    agentId: agentId !== undefined ? agentId : `agent-${id}`,
     role: 'participant',
     joinedAt: new Date(joinedAt),
     isActive: true,
@@ -103,6 +103,25 @@ describe('TurnStrategyService', () => {
     expect(second?.id).toBe(participants[1].id);
     expect(third?.id).toBe(participants[2].id);
     expect(fourth?.id).toBe(participants[0].id);
+  });
+
+  it('skips a System participant without an agent binding', async () => {
+    const systemParticipant = createParticipant(
+      '66666666-6666-4666-8666-666666666666',
+      '2026-01-01T00:00:01Z',
+      ''
+    );
+    const agentParticipant = createParticipant(
+      '33333333-3333-4333-8333-333333333333',
+      '2026-01-01T00:00:02Z'
+    );
+
+    const selected = await service.getNextParticipant(
+      createRoundRobinDiscussion(0),
+      [systemParticipant, agentParticipant]
+    );
+
+    expect(selected?.id).toBe(agentParticipant.id);
   });
 
   it('returns a metrics object with usage, averageTurnDuration and successRate', async () => {

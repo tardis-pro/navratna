@@ -122,6 +122,7 @@ export {
 
 // Token generation exports
 export { generateAuthTokens } from './token_generator.js';
+export type { AuthTokens } from './token_generator.js';
 export type { TokenPayload } from '@uaip/types';
 
 // Error logger exports

@@ -43,6 +43,7 @@ import type {
   CreateDiscussionRequest,
   UpdateDiscussionRequest,
   DiscussionSearchFilters,
+  Artifact,
 
   // WebSocket types
   WebSocketConfig as _WebSocketConfig,
@@ -453,6 +454,12 @@ export const uaipAPI = {
         startedAt: new Date(),
         turnTimeout: 300,
       };
+    },
+  },
+
+  artifacts: {
+    async listByDiscussion(discussionId: string, userId: string): Promise<Artifact[]> {
+      return await api.artifacts.listByDiscussion(discussionId, userId);
     },
   },
 

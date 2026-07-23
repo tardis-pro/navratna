@@ -62,6 +62,32 @@ type CompletedDiscussionArtifactData = Record<string, unknown>
 
 const RECONCILE_COMPLETED_DISCUSSION_LIMIT = 25
 
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function buildReconciledArtifactGeneration(
+  discussion: DiscussionRowLike
+): Record<string, unknown> {
+  const discussionMetadata = isRecordValue(discussion.metadata) ? discussion.metadata : {}
+  const artifactConfig = isRecordValue(discussionMetadata.artifactConfig)
+    ? discussionMetadata.artifactConfig
+    : {}
+  const configuredType = artifactConfig.artifactType
+  const suggestedType = isArtifactType(configuredType) ? configuredType : 'documentation'
+
+  return {
+    suggestedType,
+    generateOnCompletion: artifactConfig.generateOnCompletion !== false,
+    autoShare: artifactConfig.autoShare !== false,
+    requiresApproval: artifactConfig.requiresApproval === true,
+    metadata: {
+      reconciled: true,
+      ...(isRecordValue(artifactConfig.metadata) ? artifactConfig.metadata : {}),
+    },
+  }
+}
+
 async function handleDiscussionCompletedArtifact(
   bus: EventBusService,
   data: CompletedDiscussionArtifactData,
@@ -229,10 +255,7 @@ async function reconcileCompletedDiscussionsWithoutArtifacts(bus: EventBusServic
           discussion,
           participants,
           messages,
-          artifactGeneration: {
-            suggestedType: 'documentation',
-            metadata: { reconciled: true },
-          },
+          artifactGeneration: buildReconciledArtifactGeneration(discussion),
         },
         'discussion.completed.reconcile'
       )

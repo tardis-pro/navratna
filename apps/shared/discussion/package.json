@@ -21,7 +21,8 @@
     "build": "tsc -b tsconfig.build.json",
     "clean": "rimraf dist",
     "lint": "oxlint src",
-    "lint:fix": "oxlint --fix src"
+    "lint:fix": "oxlint --fix src",
+    "test": "vitest run"
   },
   "dependencies": {
     "@uaip/config": "workspace:*",

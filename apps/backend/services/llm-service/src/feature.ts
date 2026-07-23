@@ -9,6 +9,7 @@ import { logger, isRecord } from '@uaip/utils'
 import { registerLLMRoutes } from './routes/llm_routes.js'
 import { registerUserLLMRoutes } from './routes/user_llm_routes.js'
 import { AgentGenerationHandler } from './handlers/agent_generation_handler.js'
+import { extractArtifactRequestId } from './event_request_id.js'
 
 let llmService: LLMService
 let userLLMService: UserLLMService
@@ -38,14 +39,6 @@ async function getPersonaService(bus: EventBusService): Promise<PersonaService> 
 }
 
 
-function extractRequestId(event: EventBusMessage): string | undefined {
-  if (typeof event.correlationId === 'string') return event.correlationId
-  if (isRecord(event.metadata) && typeof event.metadata.requestId === 'string') {
-    return event.metadata.requestId
-  }
-  return undefined
-}
-
 export const llmFeature: Feature = {
   name: 'llm-service',
 
@@ -70,7 +63,7 @@ export const llmFeature: Feature = {
 
   async events(bus: EventBusService): Promise<void> {
     await bus.subscribe('llm.generate.request', async (event: EventBusMessage) => {
-      const requestId = extractRequestId(event)
+      const requestId = extractArtifactRequestId(event)
       const rawData: unknown = isRecord(event.data) ? event.data : event
 
       try {

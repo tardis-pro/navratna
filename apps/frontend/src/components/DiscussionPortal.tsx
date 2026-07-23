@@ -28,8 +28,10 @@ import type { FrontendMessage as Message } from '@uaip/types';
 import { cn } from '@/lib/utils';
 import { getAgentColorIndex } from '@/lib/status_tokens';
 import uaipAPI from '@/utils/uaip_api';
+import { createDiscussionArtifactConfig } from '@/utils/discussion_artifact_config';
 import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { DiscussionHistory } from './DiscussionHistory';
+import { ArtifactGenerationPanel } from './ArtifactGeneration/ArtifactGenerationPanel';
 import { ApprovalRequest } from './ApprovalRequest';
 import {
   MessageSquare,
@@ -72,6 +74,34 @@ interface DiscussionPortalProps {
   defaultView?: 'grid' | 'list' | 'settings';
   mode?: 'discussion' | 'monitor' | 'manager';
 }
+
+type DiscussionPurpose =
+  | 'brainstorm'
+  | 'analysis'
+  | 'code-generation'
+  | 'documentation'
+  | 'prd-creation'
+  | 'problem-solving'
+  | 'research'
+  | 'decision-making';
+
+type ArtifactType =
+  | 'document'
+  | 'code'
+  | 'presentation'
+  | 'prd'
+  | 'analysis-report'
+  | 'action-plan'
+  | 'research-summary'
+  | 'decision-matrix';
+
+interface ArtifactTypeDefinition {
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+type AgentColorMap = Record<string, string>;
 
 // Discussion purpose configurations
 const DISCUSSION_PURPOSES: Array<{
@@ -139,10 +169,7 @@ const DISCUSSION_PURPOSES: Array<{
   },
 ];
 
-const ARTIFACT_TYPES: Record<
-  ArtifactType,
-  { label: string; description: string; icon: React.ReactNode }
-> = {
+const ARTIFACT_TYPES: Record<ArtifactType, ArtifactTypeDefinition> = {
   document: {
     label: 'Document',
     description: 'Comprehensive written document',
@@ -202,16 +229,20 @@ const parseMessageContent = (content: string, showThoughts: boolean): string => 
   return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim() || content;
 };
 
+function getInitialDiscussionId(): string {
+  return new URLSearchParams(window.location.search).get('discussionId') ?? '';
+}
+
 export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   className,
   viewport,
-  _defaultView = 'grid',
+  defaultView = 'grid',
   mode = 'discussion',
 }) => {
   // Default viewport if not provided
   const currentViewport = useViewport(viewport);
   // Portal-specific state management
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'settings'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'settings'>(defaultView);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [selectedPurpose, setSelectedPurpose] = useState<DiscussionPurpose>('brainstorm');
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactType>('document');
@@ -222,7 +253,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAgent, setFilterAgent] = useState('all');
   const [availableDiscussions, setAvailableDiscussions] = useState<unknown[]>([]);
-  const [selectedDiscussionId, setSelectedDiscussionId] = useState<string>('');
+  const [selectedDiscussionId, setSelectedDiscussionId] = useState<string>(getInitialDiscussionId);
   const [_loadingDiscussions, setLoadingDiscussions] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -254,14 +285,11 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
     const loadAvailableDiscussions = async () => {
       try {
         setLoadingDiscussions(true);
-        const response = await uaipAPI.discussions.list({
-          limit: 50,
-          status: ['active', 'completed'],
-        });
+        const response = await uaipAPI.discussions.list({ limit: 50 });
         setAvailableDiscussions(Array.isArray(response) ? response : []);
 
         if (discussionId && Array.isArray(response)) {
-          setSelectedDiscussionId(discussionId);
+          setSelectedDiscussionId((selectedId) => selectedId || discussionId);
         }
       } catch (error) {
         logger.error('Failed to load available discussions:', error);
@@ -286,7 +314,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   useEffect(() => {
     const handleOpenDiscussion = (e: Event) => {
       if (!(e instanceof CustomEvent)) return;
-      const { _contextData, preselectedAgents } = e.detail;
+      const { preselectedAgents } = e.detail;
 
       if (preselectedAgents) {
         setSelectedAgents(preselectedAgents);
@@ -310,6 +338,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   const handleStartDiscussion = async () => {
     const topic = generateTopic();
     const createdBy = user?.id;
+    const artifactConfig = createDiscussionArtifactConfig(selectedArtifact);
 
     const discussionData = {
       title: topic,
@@ -339,7 +368,9 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
         purpose: selectedPurpose,
         targetArtifact: selectedArtifact,
         expectedOutcome: `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`,
+        artifactConfig,
       },
+      artifactConfig,
     };
 
     try {
@@ -369,7 +400,8 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
 
   const handleResume = async () => {
     try {
-      await resume();
+      if (!discussionId) return;
+      await resume(discussionId);
     } catch (error) {
       logger.error('Failed to resume discussion:', error);
     }
@@ -405,7 +437,7 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
   };
 
   const getAgentColorClasses = (color: string) => {
-    const colorMap = {
+    const colorMap: AgentColorMap = {
       blue: 'from-blue-500 to-blue-600 text-blue-300 bg-blue-500/20 border-blue-500/30',
       emerald:
         'from-emerald-500 to-emerald-600 text-emerald-300 bg-emerald-500/20 border-emerald-500/30',
@@ -1020,6 +1052,10 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
                   </div>
                 </div>
               </div>
+            )}
+
+            {(selectedDiscussionId || discussionId) && (
+              <ArtifactGenerationPanel conversationId={selectedDiscussionId || discussionId} />
             )}
 
             {pendingApprovals.length > 0 && (

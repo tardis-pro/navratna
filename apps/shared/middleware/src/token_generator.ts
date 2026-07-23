@@ -5,6 +5,11 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import type { TokenPayload } from '@uaip/types';
 
+export type AuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
 /**
  * Scopes granted to a user access token, derived from role. Present so the
  * access token is federation-ready (aud + scp): downstream subdomains/services
@@ -33,10 +38,7 @@ function scopesForRole(role: string): string[] {
  * back into UserContext.organizationId and propagated by the edge as X-User-Org)
  * and `scp` (scopes). iss='uaip', aud='uaip-services' are set by the signer.
  */
-export async function generateAuthTokens(payload: TokenPayload): Promise<{
-  accessToken: string;
-  refreshToken: string;
-}> {
+export async function generateAuthTokens(payload: TokenPayload): Promise<AuthTokens> {
   const jti = randomUUID();
   const claims = {
     userId: payload.userId,

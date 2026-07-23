@@ -34,6 +34,7 @@ import {
   Users,
 } from 'lucide-react';
 import { logger } from '@/utils/browser_logger';
+import { createDiscussionArtifactConfig } from '@/utils/discussion_artifact_config';
 
 export type DiscussionPurpose =
   | 'brainstorm'
@@ -366,6 +367,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
     const topic = generateTopic();
 
     const createdBy = user?.id;
+    const artifactConfig = createDiscussionArtifactConfig(selectedArtifact);
     const discussionData = {
       title: topic.slice(0, 20),
       topic,
@@ -386,7 +388,9 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
         purpose: selectedPurpose,
         targetArtifact: selectedArtifact,
         expectedOutcome: `Generate ${ARTIFACT_TYPES[selectedArtifact].label} through ${selectedPurposeData?.label.toLowerCase()}`,
+        artifactConfig,
       },
+      artifactConfig,
     };
 
     try {

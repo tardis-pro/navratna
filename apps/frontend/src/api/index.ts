@@ -23,6 +23,7 @@ export * from './auth_api';
 export * from './agents_api';
 export * from './tools_api';
 export * from './discussions_api';
+export * from './artifacts_api';
 export * from './projects_api';
 export * from './users_api';
 export * from './security_api';
@@ -45,6 +46,7 @@ import { authAPI } from './auth_api';
 import { agentsAPI } from './agents_api';
 import { toolsAPI } from './tools_api';
 import { discussionsAPI } from './discussions_api';
+import { artifactsAPI } from './artifacts_api';
 import { projectsAPI } from './projects_api';
 import { usersAPI } from './users_api';
 import { securityAPI } from './security_api';
@@ -63,6 +65,7 @@ export const api = {
   agents: agentsAPI,
   tools: toolsAPI,
   discussions: discussionsAPI,
+  artifacts: artifactsAPI,
   projects: projectsAPI,
   users: usersAPI,
   security: securityAPI,

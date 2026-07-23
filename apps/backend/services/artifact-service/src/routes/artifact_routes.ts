@@ -2,7 +2,7 @@ import { ArtifactService } from '../artifact_service.js';
 import type { ArtifactConversationContext, ArtifactGenerationRequest, ArtifactType } from '@uaip/types';
 import { logger, isRecord } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
-import { withRequiredAuth } from '@uaip/middleware';
+import { withNginxAuth } from '@uaip/middleware';
 import { ShortLinkService } from '../services/short_link_service.js';
 import { isArtifactType, supportedArtifactTypes } from '../artifact_types.js';
 
@@ -57,7 +57,8 @@ const ArtifactErrorSchema = t.Object({ success: t.Literal(false), error: t.Objec
  * (organizationId, generatedBy, approvedBy, conversationId, sourceMessages,
  * validationResult, projectId, …) — only the human-facing content is shared.
  */
-function toPublicArtifact(artifact: Record<string, unknown>) {
+function toPublicArtifact(value: unknown) {
+  const artifact = isRecord(value) ? value : {};
   return {
     id: artifact.id,
     type: artifact.type,
@@ -73,7 +74,7 @@ function toPublicArtifact(artifact: Record<string, unknown>) {
 }
 
 export function registerArtifactRoutes(
-  artifactService: ArtifactService
+  artifactService: Pick<ArtifactService, 'generateArtifact' | 'generateAndPersistArtifact' | 'listTemplates' | 'getTemplate' | 'validateArtifact' | 'getServiceHealth'>
 ){
   return new Elysia()
     // Public, read-only view of an artifact that was explicitly shared. Keyed by
@@ -112,7 +113,7 @@ export function registerArtifactRoutes(
             })
             .catch((error: unknown) => logger.warn('Failed to record shared-artifact view', { error }));
 
-          return { success: true, data: toPublicArtifact(artifact as unknown as Record<string, unknown>) };
+          return { success: true, data: toPublicArtifact(artifact) };
         } catch (error) {
           logger.error('Failed to load shared artifact', { error, shortCode: params.shortCode });
           set.status = 500;
@@ -130,7 +131,7 @@ export function registerArtifactRoutes(
     )
     .group(
     '/api/v1/artifacts',
-    (g) => withRequiredAuth(g)
+    (g) => withNginxAuth(g)
       // List all artifacts
       .get(
         '/',
@@ -140,9 +141,30 @@ export function registerArtifactRoutes(
             const artifactRepo = databaseService.getArtifactRepository();
     
             const type = query.type;
+            const discussionId = query.discussionId ?? query.conversationId;
             const limit = Math.min(query.limit ? parseInt(query.limit) : 50, 200);
             const offset = query.offset ? parseInt(query.offset) : 0;
     
+            if (discussionId) {
+              const items = await artifactRepo.findByConversationId(discussionId);
+              let filtered = Array.isArray(items) ? items : [];
+              if (type) {
+                filtered = filtered.filter((item) =>
+                  item.type && item.type.toLowerCase().includes(type.toLowerCase())
+                );
+              }
+              const total = filtered.length;
+              const paginated = filtered.slice(offset, offset + limit);
+
+              return {
+                success: true,
+                data: paginated,
+                total,
+                limit,
+                offset,
+              };
+            }
+
             const [artifacts, total] = await Promise.all([
               artifactRepo.findMany({
                 limit,
@@ -172,6 +194,8 @@ export function registerArtifactRoutes(
           query: t.Object({
             type: t.Optional(t.String()),
             projectId: t.Optional(t.String()),
+            discussionId: t.Optional(t.String()),
+            conversationId: t.Optional(t.String()),
             limit: t.Optional(t.String()),
             offset: t.Optional(t.String()),
           }),

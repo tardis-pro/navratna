@@ -21,8 +21,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isEventBusMessage(event: EventBusWrappedEvent): event is EventBusMessage {
-  return event.timestamp instanceof Date;
+export interface NormalizedEventEnvelope {
+  timestamp: Date;
+  metadata?: Record<string, unknown>;
+}
+
+interface SerializedTimestamp {
+  timestamp: Date | string;
+}
+
+export type SerializedEventBusMessage = Omit<EventBusMessage, 'timestamp'> & SerializedTimestamp;
+export type SerializedEventEnvelope = SerializedEventBusMessage | UAIPEvent;
+
+export function normalizeEventEnvelope(event: SerializedEventEnvelope): NormalizedEventEnvelope {
+  const metadata = 'metadata' in event && isRecord(event.metadata) ? event.metadata : undefined;
+  return {
+    timestamp: event.timestamp instanceof Date ? event.timestamp : new Date(event.timestamp),
+    metadata,
+  };
 }
 
 type RpcResponseShape<T> = { error?: { message?: string; code?: string }; data?: T };
@@ -294,25 +310,17 @@ export class EventBusService {
       async (job: Job<EventBusWrappedEvent>) => {
         const rawMessage: EventBusWrappedEvent = job.data;
 
-        let eventTimestamp: Date;
-        let eventMetadata: Record<string, unknown> | undefined;
-        if (isEventBusMessage(rawMessage)) {
-          eventTimestamp = rawMessage.timestamp;
-          eventMetadata = rawMessage.metadata;
-        } else {
-          eventTimestamp = new Date(rawMessage.timestamp);
-          eventMetadata = undefined;
-        }
+        const envelope = normalizeEventEnvelope(rawMessage);
 
         const eventMessage: EventBusMessage = {
           id: rawMessage.id,
           type: rawMessage.type,
           source: rawMessage.source,
           data: rawMessage.data,
-          timestamp: eventTimestamp,
+          timestamp: envelope.timestamp,
           version: rawMessage.version,
           correlationId: rawMessage.correlationId,
-          metadata: eventMetadata,
+          metadata: envelope.metadata,
         };
 
         const authToken = eventMessage.metadata?.authorization;

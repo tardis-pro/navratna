@@ -8,6 +8,7 @@ import {
   DiscussionEvent,
   DiscussionEventType,
   MessageType,
+  ArtifactGenerationConfigSchema,
 } from '@uaip/types';
 import { logger, InternalServerError, NotFoundError, ValidationError, isRecord } from '@uaip/utils';
 import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
@@ -264,7 +265,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       // Validate participants
-      const activeParticipants = discussion.participants.filter((p) => p.isActive);
+      const activeParticipants = discussion.participants.filter(
+        (participant) => participant.isActive && Boolean(participant.agentId)
+      );
       if (activeParticipants.length < 2) {
         return {
           success: false,
@@ -358,19 +361,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       await this.emitEvents(events);
 
-      // Trigger intelligent agent participation immediately after starting the discussion
-      // Use the full discussion with participants
-      if (fullDiscussion && fullDiscussion.participants && fullDiscussion.participants.length > 0) {
-        await this.triggerIntelligentAgentParticipation(fullDiscussion);
-      } else {
-        logger.warn('Cannot trigger agent participation - discussion missing participants', {
+      if (turnResult.nextParticipant) {
+        await this.triggerAgentParticipationEvent(
           discussionId,
-          hasDiscussion: !!fullDiscussion,
-          hasParticipants: !!fullDiscussion?.participants,
-          participantCount: fullDiscussion?.participants?.length || 0,
-          updateDiscussionHadParticipants: !!updatedDiscussion.participants,
-          originalDiscussionHadParticipants: !!discussion.participants,
-        });
+          turnResult.nextParticipant,
+          true
+        );
       }
 
       logger.info('Discussion started successfully', {
@@ -692,7 +688,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Discussion is not active' };
       }
 
-      const activeParticipants = discussion.participants.filter((p) => p.isActive);
+      const activeParticipants = discussion.participants.filter(
+        (participant) => participant.isActive && Boolean(participant.agentId)
+      );
       const currentParticipantId = discussion.state.currentTurn.participantId;
 
       await this.clearTurnTimer(discussionId);
@@ -765,6 +763,10 @@ export class DiscussionOrchestrationService extends EventEmitter {
       };
 
       await this.emitEvent(turnEvent);
+
+      if (turnResult.nextParticipant) {
+        await this.triggerAgentParticipationEvent(discussionId, turnResult.nextParticipant);
+      }
 
       logger.info('Turn advanced successfully', {
         discussionId,
@@ -2033,8 +2035,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
   /**
    * Check if we recently sent a participation request for this agent
    */
-  private isRecentParticipationRequest(agentId: string, participantId: string): boolean {
-    const key = `${agentId}-${participantId}`;
+  private isRecentParticipationRequest(
+    discussionId: string,
+    agentId: string,
+    participantId: string
+  ): boolean {
+    const key = `${discussionId}:${agentId}:${participantId}`;
     const lastRequestTime = this.recentParticipationRequests.get(key);
     const now = Date.now();
 
@@ -2063,12 +2069,21 @@ export class DiscussionOrchestrationService extends EventEmitter {
   ): Promise<void> {
     try {
       if (!participant.agentId) {
+        logger.error('Cannot trigger participation - participant has no agent identity', {
+          discussionId,
+          participantId: participant.id,
+        });
+        await this.eventBusService.publish('discussion.agent.message.failed', {
+          discussionId,
+          participantId: participant.id,
+          error: 'Participant has no actionable agent identity',
+        });
         return;
       }
 
       // Check if we recently sent a participation request for this agent
       const participantId = participant.id;
-      if (this.isRecentParticipationRequest(participant.agentId, participantId)) {
+      if (this.isRecentParticipationRequest(discussionId, participant.agentId, participantId)) {
         logger.debug('Skipping participation request - recently sent', {
           discussionId,
           agentId: participant.agentId,
@@ -2101,7 +2116,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       });
 
       // Record this participation request to prevent duplicates
-      const requestKey = `${participant.agentId}-${participant.id}`;
+      const requestKey = `${discussionId}:${participant.agentId}:${participant.id}`;
       this.recentParticipationRequests.set(requestKey, Date.now());
 
       if (discussion.turnStrategy.strategy === 'context_aware') {
@@ -2211,7 +2226,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
         requestId,
         params: {
           discussionId,
+          participantId: participant.id,
           agentId: participant.agentId,
+          userId: discussion.createdBy,
           comment: contextComment,
           isInitialParticipation,
         },
@@ -2559,7 +2576,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
       }
 
       const rawConfig = isRecord(discussion.metadata) ? discussion.metadata['artifactConfig'] : undefined;
-      const artifactConfig = isRecord(rawConfig) ? rawConfig : undefined;
+      const parsedArtifactConfig = ArtifactGenerationConfigSchema.safeParse(rawConfig);
+      const artifactConfig = parsedArtifactConfig.success ? parsedArtifactConfig.data : undefined;
 
       // Get recent messages for context
       const recentMessages = await this.getDiscussionMessages(discussionId, { limit: 50 });
@@ -2579,11 +2597,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // Determine artifact type based on discussion content and context
       const artifactType = this.determineArtifactType(discussion, recentMessages);
 
-      const rawArtifactMeta = artifactConfig?.['metadata'];
-      const artifactConfigMetadata: Record<string, unknown> | undefined =
-        typeof rawArtifactMeta === 'object' && rawArtifactMeta !== null && !Array.isArray(rawArtifactMeta)
-          ? Object.fromEntries(Object.entries(rawArtifactMeta))
-          : undefined;
+      const artifactConfigMetadata = artifactConfig?.metadata;
 
       // Emit completion event
       await this.eventBusService.publish('discussion.completed', {
@@ -2615,11 +2629,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
           isActive: p.isActive,
         })),
         artifactGeneration: {
+          artifactType,
           suggestedType: artifactType,
           priority: this.calculateArtifactPriority(discussion, completionReason),
-          autoShare: artifactConfig?.['autoShare'] || true,
-          generateOnCompletion: artifactConfig?.['generateOnCompletion'] !== false,
-          requiresApproval: artifactConfig?.['requiresApproval'] || false,
+          autoShare: artifactConfig?.autoShare ?? true,
+          generateOnCompletion: artifactConfig?.generateOnCompletion ?? true,
+          requiresApproval: artifactConfig?.requiresApproval ?? false,
           metadata: {
             discussionType: discussion.turnStrategy.strategy,
             completionReason,

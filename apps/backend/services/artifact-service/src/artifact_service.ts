@@ -46,6 +46,8 @@ const INVALID_ARTIFACT_PATTERNS = [
   /NotImplementedError/i,
 ] as const;
 
+export const ARTIFACT_LLM_REQUEST_TIMEOUT_MS = 300_000;
+
 export interface LLMGenerationRequest {
   type: 'generate_artifact_content';
   artifactType: string;
@@ -549,7 +551,7 @@ export class ArtifactService implements IArtifactService {
       const timeout = setTimeout(() => {
         this.pendingLLMRequests.delete(requestId);
         reject(new Error('LLM request timeout'));
-      }, 30000); // 30 second timeout
+      }, ARTIFACT_LLM_REQUEST_TIMEOUT_MS);
 
       // Override resolve to clear timeout
       const originalResolve = resolve;

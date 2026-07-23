@@ -206,6 +206,11 @@ describe('Auth Routes', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data.user.id).toBe('u1');
+      expect(mockUserService.createRefreshToken).toHaveBeenCalledWith(
+        'u1',
+        'mock-refresh-token',
+        expect.any(Date),
+      );
     });
   });
 

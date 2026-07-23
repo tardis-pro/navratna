@@ -19,6 +19,7 @@ import {
   JWTValidator,
   signJWT,
 } from '@uaip/middleware';
+import type { AuthTokens } from '@uaip/middleware';
 // Note: All auth utilities now from shared middleware
 import { AuditService } from '../services/audit_service.js';
 import { AuditEventType } from '@uaip/types';
@@ -63,7 +64,7 @@ type CookieSetter = { set: (options: Record<string, unknown>) => void };
  */
 export function setAuthCookies(
   cookie: Record<string, CookieSetter>,
-  tokens: { accessToken: string; refreshToken: string }
+  tokens: AuthTokens
 ): void {
   const cookieOptions = getAuthCookieOptions();
   const accessTokenMaxAge = parseExpiryToSeconds(config.jwt.accessTokenExpiry);
@@ -375,7 +376,6 @@ export function registerAuthRoutes() {
           // TODO(tenant): read organizationId from user row once getRefreshTokenWithUser returns it
           organizationId: (tokenData.user as { organizationId?: string }).organizationId ?? '00000000-0000-0000-0000-000000000001',
         });
-  
         // Revoke old token and issue new one (prevents session fixation)
         await userService.revokeRefreshToken(refreshToken);
         const refreshExpiry = new Date();

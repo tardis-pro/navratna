@@ -16,6 +16,8 @@ import {
   DiscussionEventType,
   MessageSentiment,
   DiscussionState,
+  ArtifactGenerationConfig,
+  ArtifactGenerationConfigSchema,
 } from '@uaip/types';
 import { Persona as _Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/discussion_repository';
@@ -25,15 +27,69 @@ import { EventBusService } from '@uaip/infra/event_bus';
 import { PersonaService } from './persona_service';
 import { logger, NotFoundError, ValidationError, InternalServerError, isRecord } from '@uaip/utils';
 
-type ParticipantRoleValue = DiscussionParticipantType['role'];
+function parseArtifactConfig(value: unknown): Partial<ArtifactGenerationConfig> | undefined {
+  const parsed = ArtifactGenerationConfigSchema.partial().safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function normalizeDiscussionMetadata(
+  requestMetadata: Record<string, unknown> | undefined,
+  topLevelArtifactConfig: Partial<ArtifactGenerationConfig> | undefined
+): Record<string, unknown> {
+  const metadata = requestMetadata || {};
+  const metadataArtifactConfig = parseArtifactConfig(metadata.artifactConfig);
+
+  if (!topLevelArtifactConfig && !metadataArtifactConfig) {
+    return metadata;
+  }
+
+  const baseConfig = metadataArtifactConfig || {};
+  const overrideConfig = topLevelArtifactConfig || {};
+
+  const enabled = overrideConfig.enabled !== undefined
+    ? overrideConfig.enabled
+    : (baseConfig.enabled !== undefined ? baseConfig.enabled : false);
+
+  const generateOnCompletion = overrideConfig.generateOnCompletion !== undefined
+    ? overrideConfig.generateOnCompletion
+    : (baseConfig.generateOnCompletion !== undefined ? baseConfig.generateOnCompletion : true);
+
+  const finalEnabled = (baseConfig.enabled === false || overrideConfig.enabled === false) ? false : enabled;
+  const finalGenerateOnCompletion = (baseConfig.generateOnCompletion === false || overrideConfig.generateOnCompletion === false) ? false : generateOnCompletion;
+
+  const mergedArtifactConfig: ArtifactGenerationConfig = {
+    enabled: finalEnabled,
+    generateOnCompletion: finalGenerateOnCompletion,
+    artifactType: overrideConfig.artifactType ?? baseConfig.artifactType,
+    requiresApproval: overrideConfig.requiresApproval ?? baseConfig.requiresApproval ?? false,
+    autoShare: overrideConfig.autoShare ?? baseConfig.autoShare ?? true,
+    metadata: {
+      ...baseConfig.metadata,
+      ...overrideConfig.metadata,
+    },
+  };
+
+  return {
+    ...metadata,
+    artifactConfig: mergedArtifactConfig,
+  };
+}
 type DiscussionAgentLookup = {
   name?: string;
   personaId?: string;
 };
 
-const VALID_PARTICIPANT_ROLES = ['participant', 'moderator', 'observer', 'facilitator'] as const;
-function toParticipantRole(role: string): ParticipantRoleValue {
-  return VALID_PARTICIPANT_ROLES.find((r) => r === role) ?? 'participant';
+function toParticipantRole(role: string): _ParticipantRole {
+  switch (role) {
+    case _ParticipantRole.MODERATOR:
+      return _ParticipantRole.MODERATOR;
+    case _ParticipantRole.OBSERVER:
+      return _ParticipantRole.OBSERVER;
+    case _ParticipantRole.FACILITATOR:
+      return _ParticipantRole.FACILITATOR;
+    default:
+      return _ParticipantRole.PARTICIPANT;
+  }
 }
 
 export interface DiscussionServiceConfig {
@@ -228,7 +284,7 @@ export class DiscussionService {
           sentimentDistribution: {},
            topicProgression: new Array<{ topic: string; timestamp: Date; confidence: number }>(),
         },
-        metadata: request.metadata,
+        metadata: normalizeDiscussionMetadata(request.metadata, request.artifactConfig),
         createdAt: new Date(),
         updatedAt: new Date(),
       };

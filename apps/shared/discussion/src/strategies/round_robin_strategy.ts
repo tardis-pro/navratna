@@ -42,11 +42,12 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
     _config?: TurnStrategyConfig
   ): Promise<DiscussionParticipant | null> {
     try {
-      // Filter active participants
-      const activeParticipants = participants.filter((p) => p.isActive);
+      const actionableAgentParticipants = participants.filter((participant) =>
+        participant.isActive && Boolean(participant.agentId)
+      );
 
-      if (activeParticipants.length === 0) {
-        logger.warn('No active participants available for round robin', {
+      if (actionableAgentParticipants.length === 0) {
+        logger.warn('No actionable agent participants available for round robin', {
           discussionId: discussion.id,
           totalParticipants: participants.length,
         });
@@ -54,20 +55,20 @@ export class RoundRobinStrategy implements TurnStrategyInterface {
       }
 
       // Sort participants by join order for consistent round robin
-      activeParticipants.sort(
+      actionableAgentParticipants.sort(
         (a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime()
       );
 
       const currentTurnNumber = discussion.state.currentTurn.turnNumber;
-      const nextIndex = currentTurnNumber % activeParticipants.length;
-      const nextParticipant = activeParticipants[nextIndex];
+      const nextIndex = currentTurnNumber % actionableAgentParticipants.length;
+      const nextParticipant = actionableAgentParticipants[nextIndex];
 
       logger.debug('Round robin next participant selected', {
         discussionId: discussion.id,
         currentTurnNumber,
         nextIndex,
         nextParticipantId: nextParticipant.id,
-        totalActiveParticipants: activeParticipants.length,
+        totalActiveParticipants: actionableAgentParticipants.length,
       });
 
       return nextParticipant;

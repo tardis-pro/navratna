@@ -1,6 +1,6 @@
 // Infrastructure services re-export
 // Core infrastructure from @uaip/infra
-export { EventBusService } from './event_bus.js';
+export { EventBusService, normalizeEventEnvelope } from './event_bus.js';
 export type {
   EventBusMessage,
   EventBusHandler,

@@ -117,7 +117,7 @@ export const discussionFeature: Feature = {
         const error = typeof payload.error === 'string' ? payload.error : 'Agent turn generation failed'
         const model = typeof payload.model === 'string' ? payload.model : undefined
 
-        if (!discussionId || !participantId) {
+        if (!discussionId) {
           logger.warn('Skipping malformed agent message failure event', {
             discussionId,
             participantId,
@@ -125,9 +125,26 @@ export const discussionFeature: Feature = {
           return
         }
 
+        const failedDiscussion = participantId
+          ? undefined
+          : await orchestrationService.getDiscussion(discussionId, true)
+        const resolvedParticipantId = participantId || failedDiscussion?.participants.find(
+          (participant) => participant.agentId === agentId
+        )?.id
+
+        if (!resolvedParticipantId) {
+          logger.error('Failed to record agent message failure - participant identity unresolved', {
+            discussionId,
+            agentId,
+            participantId,
+            error,
+          })
+          return
+        }
+
         await orchestrationService.recordAgentMessageFailure({
           discussionId,
-          participantId,
+          participantId: resolvedParticipantId,
           agentId,
           error,
           model,

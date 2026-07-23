@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Eye, FileText } from 'lucide-react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
 import { artifactCollection } from '@/services/artifact/artifact_collection';
+import uaipAPI from '@/utils/uaip_api';
 import type { Artifact } from '@uaip/types';
 import type {
   ArtifactGenerationPanelProps,
@@ -27,15 +29,50 @@ function formatContent(content: string, maxLength = 280): string {
 
 export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = ({
   conversationId,
-  artifacts = [],
+  artifacts,
   onArtifactViewed,
 }) => {
+  const { user } = useAuth();
   const [viewState, setViewState] = useState<ArtifactViewState>({ selectedArtifact: null });
+  const [fetchedArtifacts, setFetchedArtifacts] = useState<Artifact[]>([]);
+  const [isLoading, setIsLoading] = useState(artifacts === undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (artifacts !== undefined || !user?.id) {
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
+    void uaipAPI.artifacts
+      .listByDiscussion(conversationId, user.id)
+      .then((records) => {
+        if (!cancelled) {
+          setFetchedArtifacts(records);
+          setViewState({ selectedArtifact: records[0] ?? null });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Failed to load artifacts');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artifacts, conversationId, user?.id]);
 
   const sortedArtifacts = useMemo(
     () =>
-      artifactCollection.listArtifacts(artifacts),
-    [artifacts]
+      artifactCollection.listArtifacts(artifacts ?? fetchedArtifacts),
+    [artifacts, fetchedArtifacts]
   );
 
   const handleView = (artifact: Artifact) => {
@@ -53,7 +90,15 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
         <CardDescription>Artifacts linked to conversation {conversationId}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {sortedArtifacts.length === 0 ? (
+        {loadError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        ) : isLoading ? (
+          <Alert>
+            <AlertDescription>Loading artifacts…</AlertDescription>
+          </Alert>
+        ) : sortedArtifacts.length === 0 ? (
           <Alert>
             <FileText className="h-4 w-4" />
             <AlertDescription>No artifacts are available for this conversation.</AlertDescription>

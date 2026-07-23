@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { userPersonaAPI } from '../api/user_persona_api';
+import type { UserPersonaData, OnboardingProgress } from '../api/user_persona_api';
 import { logger } from '@/utils/browser_logger';
 
 interface OnboardingState {
@@ -14,10 +15,15 @@ interface OnboardingState {
 interface OnboardingContextType extends OnboardingState {
   startOnboarding: () => void;
   completeWelcome: () => void;
-  completeOnboarding: (personaData: unknown) => Promise<void>;
+  completeOnboarding: (data: CompleteOnboardingData) => Promise<void>;
   skipOnboarding: () => void;
   restartOnboarding: () => void;
   checkOnboardingStatus: () => Promise<void>;
+}
+
+interface CompleteOnboardingData {
+  personaData: UserPersonaData;
+  onboardingProgress: OnboardingProgress;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -42,15 +48,18 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     if (!user) return false;
 
     try {
+      const hasPreferences = localStorage.getItem('user-preferences') !== null;
+      const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
+      if (hasPreferences || hasDesktopCustomizations) {
+        return false;
+      }
+
       const onboardingStatus = await userPersonaAPI.checkOnboardingStatus();
       if (onboardingStatus && !onboardingStatus.isCompleted) {
         return true;
       }
 
-      const hasPreferences = localStorage.getItem('user-preferences') !== null;
-      const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
-
-      return !hasPreferences && !hasDesktopCustomizations;
+      return false;
     } catch {
       const hasPreferences = localStorage.getItem('user-preferences') !== null;
       const hasDesktopCustomizations = localStorage.getItem('desktop_preferences') !== null;
@@ -124,10 +133,10 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     }));
   }, []);
 
-  const completeOnboarding = useCallback(async (personaData: unknown) => {
+  const completeOnboarding = useCallback(async (data: CompleteOnboardingData) => {
     try {
       // Save persona data to backend
-      await userPersonaAPI.completeOnboarding(personaData);
+      await userPersonaAPI.completeOnboarding(data);
 
       // Mark as completed in local state
       setState((prev) => ({

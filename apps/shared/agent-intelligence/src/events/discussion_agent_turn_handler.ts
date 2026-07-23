@@ -5,7 +5,9 @@ import { logger, isRecord } from '@uaip/utils'
 
 type TriggerParams = {
   discussionId: string
+  participantId?: string
   agentId: string
+  userId?: string
   comment: string
   isInitialParticipation: boolean
 }
@@ -15,17 +17,19 @@ function parseTrigger(event: EventBusMessage): TriggerParams | null {
   const outer = isRecord(root) ? root : {}
   const params = isRecord(outer.params) ? outer.params : outer
   const discussionId = typeof params.discussionId === 'string' ? params.discussionId : ''
+  const participantId = typeof params.participantId === 'string' ? params.participantId : undefined
   const agentId = typeof params.agentId === 'string' ? params.agentId : ''
+  const userId = typeof params.userId === 'string' ? params.userId : undefined
   const comment = typeof params.comment === 'string' ? params.comment : ''
   const isInitialParticipation = params.isInitialParticipation === true
   if (!discussionId || !agentId) return null
-  return { discussionId, agentId, comment, isInitialParticipation }
+  return { discussionId, participantId, agentId, userId, comment, isInitialParticipation }
 }
 
 type ParticipantRow = { id: string; discussionId?: string; agentId?: string }
 
 async function resolveParticipantId(
-  databaseService: DatabaseService,
+  databaseService: Pick<DatabaseService, 'findMany'>,
   discussionId: string,
   agentId: string
 ): Promise<string | null> {
@@ -46,8 +50,34 @@ function extractContent(response: unknown): string {
 type AgentTurnDeps = {
   agentIntelligenceService: Pick<AgentIntelligenceService, 'getAgent'>
   userLLMService: Pick<UserLLMService, 'generateAgentResponse'>
-  databaseService: DatabaseService
+  databaseService: Pick<DatabaseService, 'findMany'>
   publish: (topic: string, payload: Record<string, unknown>) => Promise<void>
+}
+
+type AgentMessageFailurePayload = {
+  discussionId: string
+  participantId?: string
+  agentId: string
+  error: string
+  model?: string
+}
+
+async function publishAgentMessageFailure(
+  deps: AgentTurnDeps,
+  payload: AgentMessageFailurePayload
+): Promise<void> {
+  try {
+    await deps.publish('discussion.agent.message.failed', payload)
+  } catch (publicationError) {
+    logger.error('agent.discussion.trigger: failed to publish failure event', {
+      discussionId: payload.discussionId,
+      participantId: payload.participantId,
+      agentId: payload.agentId,
+      generationError: payload.error,
+      publicationError:
+        publicationError instanceof Error ? publicationError.message : 'Unknown publication error',
+    })
+  }
 }
 
 export async function handleAgentDiscussionTrigger(
@@ -60,20 +90,37 @@ export async function handleAgentDiscussionTrigger(
     return
   }
 
-  const { discussionId, agentId, comment, isInitialParticipation } = trigger
+  const {
+    discussionId,
+    participantId: explicitParticipantId,
+    agentId,
+    userId: discussionOwnerId,
+    comment,
+    isInitialParticipation,
+  } = trigger
 
   try {
     const agent = await deps.agentIntelligenceService.getAgent(agentId)
     if (!agent) {
       logger.error('agent.discussion.trigger: agent not found', { discussionId, agentId })
+      await publishAgentMessageFailure(deps, {
+        discussionId,
+        agentId,
+        error: 'Agent not found in database',
+      })
       return
     }
 
-    const participantId = await resolveParticipantId(deps.databaseService, discussionId, agentId)
+    const participantId = explicitParticipantId || await resolveParticipantId(deps.databaseService, discussionId, agentId)
     if (!participantId) {
       logger.error('agent.discussion.trigger: participant not found for agent', {
         discussionId,
         agentId,
+      })
+      await publishAgentMessageFailure(deps, {
+        discussionId,
+        agentId,
+        error: 'Participant identity not found for agent',
       })
       return
     }
@@ -90,11 +137,13 @@ export async function handleAgentDiscussionTrigger(
 
     const request: AgentResponseRequest = {
       agent: {
-        id: agent.id,
+        id: typeof agent.id === 'string' && agent.id ? agent.id : agentId,
         name: agent.name,
         role: String(agent.role),
         modelId: typeof agent.modelId === 'string' ? agent.modelId : undefined,
         apiType: typeof agent.apiType === 'string' ? agent.apiType : undefined,
+        userLLMProviderId:
+          typeof agent.userLLMProviderId === 'string' ? agent.userLLMProviderId : undefined,
         temperature: typeof agent.temperature === 'number' ? agent.temperature : undefined,
         maxTokens: typeof agent.maxTokens === 'number' ? agent.maxTokens : undefined,
         systemPrompt: typeof agent.systemPrompt === 'string' ? agent.systemPrompt : undefined,
@@ -113,7 +162,7 @@ export async function handleAgentDiscussionTrigger(
       messages,
     }
 
-    const userId = typeof agent.createdBy === 'string' ? agent.createdBy : ''
+    const userId = discussionOwnerId || (typeof agent.createdBy === 'string' ? agent.createdBy : '')
     const response = await deps.userLLMService.generateAgentResponse(userId, request)
     if (response.error || response.finishReason === 'error') {
       logger.error('agent.discussion.trigger: LLM failed, suppressing fallback content', {
@@ -122,13 +171,13 @@ export async function handleAgentDiscussionTrigger(
         model: response.model,
         error: response.error,
       })
-      await deps.publish('discussion.agent.message.failed', {
+      await publishAgentMessageFailure(deps, {
         discussionId,
         participantId,
         agentId,
         error: response.error || 'LLM response finished with error',
         model: response.model,
-      }).catch((): undefined => undefined)
+      })
       return
     }
 
@@ -136,6 +185,13 @@ export async function handleAgentDiscussionTrigger(
 
     if (!content) {
       logger.error('agent.discussion.trigger: LLM returned empty content', { discussionId, agentId })
+      await publishAgentMessageFailure(deps, {
+        discussionId,
+        participantId,
+        agentId,
+        error: 'LLM returned empty content',
+        model: response.model,
+      })
       return
     }
 
@@ -155,10 +211,18 @@ export async function handleAgentDiscussionTrigger(
       contentLength: content.length,
     })
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     logger.error('agent.discussion.trigger: failed to generate agent response', {
       discussionId,
       agentId,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      participantId: explicitParticipantId,
+      error: errorMessage,
+    })
+    await publishAgentMessageFailure(deps, {
+      discussionId,
+      participantId: explicitParticipantId,
+      agentId,
+      error: errorMessage,
     })
   }
 }

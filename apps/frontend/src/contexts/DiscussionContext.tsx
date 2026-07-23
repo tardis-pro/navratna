@@ -19,13 +19,16 @@ import {
   Discussion as _Discussion,
   DiscussionStatus as _DiscussionStatus,
   TurnStrategy,
-  CreateDiscussionRequest,
   MessageType,
 } from '@uaip/types';
 
 // Import frontend-specific message type
 import { Message } from '@/types/frontend_extensions';
 import { logger } from '@/utils/browser_logger';
+import {
+  buildDiscussionCreateRequest,
+  type DiscussionStartContext,
+} from '@/utils/discussion_request';
 
 interface DiscussionProviderProps {
   topic?: string;
@@ -74,7 +77,7 @@ interface DiscussionContextType {
   start: (
     topic?: string,
     agentIds?: string[],
-    enhancedContext?: unknown
+    enhancedContext?: DiscussionStartContext
   ) => Promise<DiscussionStartResult | undefined>;
   stop: () => Promise<void>;
   pause: () => Promise<void>;
@@ -239,15 +242,9 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
   }, [isLoading, discussionId]);
 
   const start = useCallback(
-    async (topic?: string, agentIds?: string[], enhancedContext?: unknown) => {
+    async (topic?: string, agentIds?: string[], enhancedContext?: DiscussionStartContext) => {
       if (isActive) {
         logger.warn('Discussion is already active');
-        return undefined;
-      }
-
-      if (!isWebSocketConnected) {
-        logger.warn('Cannot start discussion: WebSocket not connected');
-        setLastError('WebSocket not connected. Please check your connection.');
         return undefined;
       }
 
@@ -260,12 +257,6 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       try {
         setIsLoading(true);
         setLastError(null);
-
-        // Use provided topic or default
-        const rawTopic = topic || 'General Discussion';
-        const discussionTopic = truncateText(rawTopic, MAX_TOPIC_LENGTH);
-        const titleTopic = truncateText(rawTopic, MAX_TITLE_LENGTH - TITLE_PREFIX.length);
-        const discussionTitle = `${TITLE_PREFIX}${titleTopic}`;
 
         // Get available agents
         const availableAgents = Object.values(agents).filter((agent) => agent.isActive);
@@ -290,73 +281,26 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           );
         }
 
-        // STEP 1: Create discussion via agent-intelligence API (existing behavior)
-        let currentDiscussionId = discussionId;
+        const createRequest = buildDiscussionCreateRequest({
+          topic,
+          userId: user.id,
+          selectedAgentIds,
+          maxRounds,
+          context: enhancedContext,
+        });
+        const newDiscussion = await uaipAPI.discussions.create(createRequest);
+        if (!newDiscussion.id) throw new Error('Created discussion did not include an ID');
 
-        if (!currentDiscussionId) {
-          const createRequest: CreateDiscussionRequest = {
-            title: discussionTitle,
-            description: enhancedContext?.purpose
-              ? `${enhancedContext.purpose} discussion to generate ${enhancedContext.targetArtifact}: ${discussionTopic}`
-              : `Automated discussion on ${discussionTopic}`,
-            topic: discussionTopic,
-            createdBy: user.id,
-            initialParticipants: selectedAgentIds.map((agentId) => ({
-              agentId,
-              role: 'participant' as const,
-            })),
-            settings: {
-              maxTurns: maxRounds,
-              maxDuration: 3600, // 1 hour default
-              strategyConfig: {
-                type: 'round_robin' as const,
-                skipInactive: true,
-                maxSkips: 1,
-              },
-              metadata: enhancedContext
-                ? {
-                    discussionPurpose: enhancedContext.purpose,
-                    targetArtifact: enhancedContext.targetArtifact,
-                    contextType: enhancedContext.contextType,
-                    originalContext: enhancedContext.originalContext,
-                    additionalContext: enhancedContext.additionalContext,
-                    expectedOutcome: enhancedContext.expectedOutcome,
-                  }
-                : undefined,
-            },
-            turnStrategy: {
-              strategy: TurnStrategy.ROUND_ROBIN,
-              config: {
-                type: 'round_robin' as const,
-                skipInactive: true,
-                maxSkips: 1,
-              },
-            },
-          };
-
-          const newDiscussion = await uaipAPI.discussions.create(createRequest);
-          currentDiscussionId = newDiscussion.id;
-          setDiscussionId(currentDiscussionId);
+        setDiscussionId(newDiscussion.id);
+        setParticipants(newDiscussion.participants ?? []);
+        if (isWebSocketConnected) {
+          sendWebSocketMessage('join_discussion', { discussionId: newDiscussion.id });
         }
 
-        // STEP 2: Join discussion room via WebSocket
-
-        // Join the discussion room to receive events
-        sendWebSocketMessage('join_discussion', {
-          discussionId: currentDiscussionId,
-        });
-
-        // STEP 3: Start discussion via WebSocket to discussion-orchestration (new behavior)
-
-        // Send WebSocket message to start discussion
-        sendWebSocketMessage('start_discussion', {
-          discussionId: currentDiscussionId,
-          startedBy: user.id,
-        });
-
-        // Note: The discussion will be marked as active when we receive the 'discussion_started' event
-        // This is handled in the useEffect that listens to WebSocket events
-        return { discussionId: currentDiscussionId };
+        await uaipAPI.discussions.start(newDiscussion.id, user.id);
+        setIsActive(true);
+        setIsLoading(false);
+        return { discussionId: newDiscussion.id };
       } catch (error) {
         logger.error('❌ Failed to start discussion:', error);
 
@@ -386,7 +330,6 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
       isWebSocketConnected,
       user?.id,
       agents,
-      discussionId,
       maxRounds,
       sendWebSocketMessage,
     ]
@@ -400,21 +343,10 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     try {
       setIsLoading(true);
 
-      // Stop the discussion via WebSocket
-      if (isWebSocketConnected) {
-        sendWebSocketMessage('stop_discussion', {
-          discussionId: discussionId,
-        });
-      }
-
-      // Leave the discussion room via WebSocket
-      if (isWebSocketConnected) {
-        sendWebSocketMessage('leave_discussion', {
-          discussionId: discussionId,
-        });
-      }
-
       await uaipAPI.discussions.end(discussionId);
+      if (isWebSocketConnected) {
+        sendWebSocketMessage('leave_discussion', { discussionId });
+      }
       setIsActive(false);
       setDiscussionId(null);
       setParticipants([]);

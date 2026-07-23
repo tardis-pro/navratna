@@ -118,8 +118,8 @@ export default function TelescopeSurfacePage() {
   }, [navigate]);
 
   const handleOnboardingComplete = useCallback(() => {
-    void completeOnboarding({});
-  }, [completeOnboarding]);
+    skipOnboarding();
+  }, [skipOnboarding]);
 
   if (showWelcome) {
     return (
