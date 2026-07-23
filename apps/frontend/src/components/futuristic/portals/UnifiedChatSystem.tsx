@@ -307,7 +307,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   const {
     isStreaming: _isAgentStreaming,
-    startStream: startAgentStream,
     cancelStream: cancelAgentStream,
   } = useStreamingChat({
     baseUrl: getWebSocketURL(),
@@ -1112,126 +1111,12 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       };
 
       try {
-        // Streaming-first path. We insert a placeholder agent message up-front
-        // (empty content, sender 'agent') so the bubble can render with
-        // isStreaming=true and start receiving tokens immediately. If the
-        // backend rejects the /api/v1/llm/stream POST (no LLM-stream support
-        // configured, network error, etc.) we tear the placeholder down and
-        // fall through to the legacy WS / REST batch path so the user always
-        // gets a response.
-        const streamingPlaceholderId = `msg-${Date.now()}-streaming`;
-        const placeholder: ChatMessage = {
-          id: streamingPlaceholderId,
-          content: '',
-          sender: 'agent',
-          senderName: selectedAgent?.name || 'Assistant',
-          timestamp: new Date().toISOString(),
-          messageType: MessageType.MESSAGE,
-        };
-        setPortalMessages((prev) => [...prev, placeholder]);
-        setStreamingMessageId(streamingPlaceholderId);
-
-        // Wire handlers to update this placeholder in place as chunks arrive.
-        streamingHandlersRef.current = {
-          placeholderId: streamingPlaceholderId,
-          append: (delta: string) => {
-            if (!delta) return;
-            setPortalMessages((prev) =>
-              prev.map((m) => (m.id === streamingPlaceholderId ? { ...m, content: m.content + delta } : m))
-            );
-          },
-          finalize: (finalContent: string, _interrupted: boolean) => {
-            setPortalMessages((prev) =>
-              prev.map((m) =>
-                m.id === streamingPlaceholderId
-                  ? {
-                      ...m,
-                      content: finalContent || m.content,
-                    }
-                  : m
-              )
-            );
-            setConversationHistory((prev) => [
-              ...prev,
-              { content: finalContent, sender: 'agent', timestamp: new Date().toISOString() },
-            ]);
-            setStreamingMessageId(null);
-            streamingHandlersRef.current = {
-              placeholderId: null,
-              append: () => {},
-              finalize: () => {},
-              fail: () => {},
-            };
-            clearPortalLoadingState();
-          },
-          fail: (error: string) => {
-            logger.error('Streaming chat error:', error);
-            // Tear down the placeholder so the legacy fallback path can run
-            // cleanly below.
-            setPortalMessages((prev) => prev.filter((m) => m.id !== streamingPlaceholderId));
-            setStreamingMessageId(null);
-            streamingHandlersRef.current = {
-              placeholderId: null,
-              append: () => {},
-              finalize: () => {},
-              fail: () => {},
-            };
-          },
-        };
-
-        try {
-          await startAgentStream({
-            prompt: trimmedMessage,
-            agentId: selectedAgentId,
-            conversationId: conversationIds['portal'],
-          });
-          return;
-        } catch (streamError) {
-          logger.warn('Streaming unavailable, falling back to batch path:', streamError);
-          // Remove the placeholder and reset handlers so the fallback path's
-          // appendPortalAgentMessage can append a fresh agent message.
-          setPortalMessages((prev) => prev.filter((m) => m.id !== streamingPlaceholderId));
-          setStreamingMessageId(null);
-          streamingHandlersRef.current = {
-            placeholderId: null,
-            append: () => {},
-            finalize: () => {},
-            fail: () => {},
-          };
-        }
-
-        if (isWebSocketConnected) {
-          sendWebSocketMessage('agent_chat', {
-            agentId: selectedAgentId,
-            message: trimmedMessage,
-            conversationHistory: conversationHistory.slice(-10),
-            context: { intent },
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-          });
-
-          if (wsFallbackTimeouts.current[selectedAgentId]) {
-            clearTimeout(wsFallbackTimeouts.current[selectedAgentId]);
-          }
-          const snapshotHistory = conversationHistory.slice(-10);
-          wsFallbackTimeouts.current[selectedAgentId] = setTimeout(() => {
-            delete wsFallbackTimeouts.current[selectedAgentId];
-            uaipAPI.agents.chat(selectedAgentId, {
-              message: trimmedMessage,
-              conversationHistory: snapshotHistory,
-              context: { intent },
-            }).then(appendPortalAgentMessage).catch(() => {
-              clearPortalLoadingState();
-            });
-          }, WS_FALLBACK_TIMEOUT_MS);
-        } else {
-          const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
-            message: trimmedMessage,
-            conversationHistory: conversationHistory.slice(-10),
-            context: { intent },
-          });
-          appendPortalAgentMessage(restResponse);
-        }
+        const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
+          message: trimmedMessage,
+          conversationHistory: conversationHistory.slice(-10),
+          context: { intent },
+        });
+        appendPortalAgentMessage(restResponse);
       } catch (error) {
         logger.error('Portal chat error:', error);
 
@@ -1268,10 +1153,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     [
       selectedAgentId,
       conversationHistory,
-      conversationIds,
-      isWebSocketConnected,
-      sendWebSocketMessage,
-      startAgentStream,
       selectedAgent?.name,
     ]
   );
