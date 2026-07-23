@@ -12,7 +12,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import TelescopeSurfacePage from './pages/TelescopeSurfacePage';
 import { HomeSurface } from './components/home/HomeSurface';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
 import QuestionForgeLanding from './pages/questionforge/QuestionForgeLanding';

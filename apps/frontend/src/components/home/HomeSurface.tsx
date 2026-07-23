@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useAgents } from '@/contexts/AgentContext';
 import { ThreadDockCard } from './ThreadDockCard';
 import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
