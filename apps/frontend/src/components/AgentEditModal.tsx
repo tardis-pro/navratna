@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { AgentSkill, AgentUpdate } from '@uaip/types';
 import { uaipAPI } from '../utils/uaip_api';
@@ -948,28 +948,35 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     }
   }, [agent, isOpen]);
 
-  const validateForm = (): boolean => {
+  const getValidationErrors = (data: AgentEditFormData): Record<string, string> => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name?.trim()) {
+    if (!data.name?.trim()) {
       newErrors.name = 'Agent name is required';
     }
 
-    if (!formData.role) {
+    if (!data.role) {
       newErrors.role = 'Agent role is required';
     }
 
-    if (
-      formData.temperature !== undefined &&
-      (formData.temperature < 0 || formData.temperature > 2)
-    ) {
+    if (data.temperature !== undefined && (data.temperature < 0 || data.temperature > 2)) {
       newErrors.temperature = 'Temperature must be between 0 and 2';
     }
 
-    if (formData.maxTokens !== undefined && (formData.maxTokens < 1 || formData.maxTokens > 4000)) {
+    if (data.maxTokens !== undefined && (data.maxTokens < 1 || data.maxTokens > 4000)) {
       newErrors.maxTokens = 'Max tokens must be between 1 and 4000';
     }
 
+    return newErrors;
+  };
+
+  const isFormValid = useMemo(
+    () => Object.keys(getValidationErrors(formData)).length === 0,
+    [formData]
+  );
+
+  const validateForm = (): boolean => {
+    const newErrors = getValidationErrors(formData);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -1660,7 +1667,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving || !validateForm()}
+                  disabled={saving || !isFormValid}
                   className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {saving ? (
