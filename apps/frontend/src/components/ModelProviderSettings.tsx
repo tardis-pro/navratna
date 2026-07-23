@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { uaipAPI } from '../utils/uaip_api';
 import { logger } from '@/utils/browser_logger';
+import type { UserLLMProviderType } from '@uaip/types';
 
 interface ModelProvider {
   id: string;
@@ -82,15 +83,31 @@ interface ModelProviderSettingsProps {
     config: {
       name?: string;
       description?: string;
+      type?: string;
       baseUrl?: string;
+      apiKey?: string;
       defaultModel?: string;
       priority?: number;
       configuration?: unknown;
+      isActive?: boolean;
     }
   ) => Promise<boolean>;
   onTestProvider?: (providerId: string) => Promise<unknown>;
   onDeleteProvider?: (providerId: string) => Promise<boolean>;
   onRefresh?: () => Promise<void>;
+}
+
+const USER_LLM_PROVIDER_TYPES = new Set<string>([
+  'ollama',
+  'llmstudio',
+  'openai',
+  'anthropic',
+  'google',
+  'custom',
+]);
+
+function toUserLLMProviderType(value: string): UserLLMProviderType {
+  return USER_LLM_PROVIDER_TYPES.has(value) ? (value as UserLLMProviderType) : 'custom';
 }
 
 export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
@@ -335,7 +352,7 @@ export const ModelProviderSettings: React.FC<ModelProviderSettingsProps> = ({
       const providerData = {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        type: formData.type,
+        type: toUserLLMProviderType(formData.type),
         baseUrl: formData.baseUrl.trim(),
         apiKey: formData.apiKey.trim() || undefined,
         defaultModel: formData.defaultModel.trim() || undefined,

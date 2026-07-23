@@ -101,8 +101,12 @@ export async function handleAgentDiscussionTrigger(
         configuration: isRecord(agent.configuration) ? agent.configuration : undefined,
         persona: isRecord(agent.persona)
           ? {
+              ...agent.persona,
               description:
                 typeof agent.persona.description === 'string' ? agent.persona.description : undefined,
+              capabilities: Array.isArray(agent.persona.capabilities)
+                ? agent.persona.capabilities.filter((item): item is string => typeof item === 'string')
+                : undefined,
             }
           : undefined,
       },

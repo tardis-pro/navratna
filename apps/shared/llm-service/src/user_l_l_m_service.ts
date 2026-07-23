@@ -307,18 +307,42 @@ export class UserLLMService {
       baseUrl?: string;
       defaultModel?: string;
       priority?: number;
+      type?: UserLLMProviderType;
+      isActive?: boolean;
       configuration?: Record<string, unknown>;
     }
   ): Promise<void> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const updateData: Record<string, unknown> = {};
-      if (config.name) updateData.name = config.name;
-      if (config.description) updateData.description = config.description;
-      if (config.baseUrl) updateData.baseUrl = config.baseUrl;
-      if (config.defaultModel) updateData.defaultModel = config.defaultModel;
-      if (config.configuration) updateData.configuration = config.configuration;
-      await repository.update(providerId, updateData);
+      const existing = await repository.findById(providerId);
+      if (!existing || existing.userId !== userId) {
+        throw new Error('Provider not found or access denied');
+      }
+
+      const existingProvider = isUserLLMProviderDbRow(existing)
+        ? mapDbRowToUserLLMProvider(existing)
+        : null;
+      if (!existingProvider) {
+        throw new Error('Invalid provider record');
+      }
+
+      const mergedConfiguration: Record<string, unknown> = {
+        ...(existingProvider.configuration ?? {}),
+        ...(config.configuration ?? {}),
+      };
+
+      if (config.name !== undefined) mergedConfiguration.name = config.name;
+      if (config.description !== undefined) mergedConfiguration.description = config.description;
+      if (config.baseUrl !== undefined) mergedConfiguration.baseUrl = config.baseUrl;
+      if (config.defaultModel !== undefined) mergedConfiguration.defaultModel = config.defaultModel;
+      if (config.priority !== undefined) mergedConfiguration.priority = config.priority;
+      if (config.type !== undefined) mergedConfiguration.type = config.type;
+      if (config.isActive !== undefined) mergedConfiguration.isActive = config.isActive;
+
+      await repository.update(providerId, {
+        providerId: config.type ?? existing.providerId,
+        configuration: mergedConfiguration,
+      });
 
       // Clear cache for this user
       this.clearUserCache(userId);
@@ -345,6 +369,10 @@ export class UserLLMService {
   ): Promise<void> {
     try {
       const repository = await this.getUserLLMProviderRepository();
+      const existing = await repository.findById(providerId);
+      if (!existing || existing.userId !== userId) {
+        throw new Error('Provider not found or access denied');
+      }
       await repository.update(providerId, { apiKeyEncrypted: apiKey });
 
       // Clear cache for this user
@@ -371,6 +399,24 @@ export class UserLLMService {
       logger.info('Deleted user LLM provider', { userId, providerId });
     } catch (error) {
       logger.error('Error deleting user LLM provider', { userId, providerId, error });
+      throw error;
+    }
+  }
+
+  async setDefaultProvider(userId: string, providerId: string): Promise<void> {
+    try {
+      const repository = await this.getUserLLMProviderRepository();
+      const existing = await repository.findById(providerId);
+      if (!existing || existing.userId !== userId) {
+        throw new Error('Provider not found or access denied');
+      }
+
+      await repository.setDefault(userId, providerId);
+      this.clearUserCache(userId);
+
+      logger.info('Set default user LLM provider', { userId, providerId });
+    } catch (error) {
+      logger.error('Error setting default user LLM provider', { userId, providerId, error });
       throw error;
     }
   }
@@ -992,6 +1038,47 @@ export class UserLLMService {
 
     systemPrompt += '.\n\n';
 
+    if (typeof agent.persona?.systemPrompt === 'string' && agent.persona.systemPrompt.trim()) {
+      systemPrompt += `PERSONA INSTRUCTIONS:\n${agent.persona.systemPrompt.trim()}\n\n`;
+    }
+
+    const traits = Array.isArray(agent.persona?.traits)
+      ? agent.persona.traits
+          .map((trait) => {
+            if (typeof trait === 'string') return trait;
+            if (typeof trait === 'object' && trait !== null && 'name' in trait) {
+              const name = Reflect.get(trait, 'name');
+              return typeof name === 'string' ? name : null;
+            }
+            return null;
+          })
+          .filter((trait): trait is string => Boolean(trait))
+      : [];
+    if (traits.length > 0) {
+      systemPrompt += `Persona traits: ${traits.join(', ')}\n`;
+    }
+
+    const expertise = Array.isArray(agent.persona?.expertise)
+      ? agent.persona.expertise
+          .map((item) => (typeof item === 'string' ? item : null))
+          .filter((item): item is string => Boolean(item))
+      : [];
+    if (expertise.length > 0) {
+      systemPrompt += `Expertise: ${expertise.join(', ')}\n`;
+    }
+
+    if (agent.persona?.restrictions && Object.keys(agent.persona.restrictions).length > 0) {
+      systemPrompt += `Restrictions: ${JSON.stringify(agent.persona.restrictions)}\n`;
+    }
+
+    if (agent.systemPrompt?.trim()) {
+      systemPrompt += `Agent-specific instructions:\n${agent.systemPrompt.trim()}\n`;
+    }
+
+    if (traits.length > 0 || expertise.length > 0 || agent.persona?.restrictions || agent.systemPrompt?.trim()) {
+      systemPrompt += '\n';
+    }
+
     // Dynamic response limits based on available context
     const availableTokens = this.contextManager.calculateOptimalResponseLimit(
       this.contextManager.config.maxTokens - this.contextManager.estimateTokens(systemPrompt)
@@ -1004,6 +1091,11 @@ export class UserLLMService {
     systemPrompt +=
       '- Use structured format (bullet points, numbered lists) for complex information\n';
     systemPrompt += '- Offer to elaborate on specific aspects if the topic is complex\n\n';
+    systemPrompt += 'DISCUSSION GUIDELINES:\n';
+    systemPrompt += '- Stay at the decision and tradeoff level unless explicitly asked for implementation details\n';
+    systemPrompt += '- Add a genuinely new angle, risk, constraint, stakeholder concern, or decision criterion\n';
+    systemPrompt += '- Avoid repeating points already made; if you agree, say what that agreement unlocks\n';
+    systemPrompt += '- When enough angles are covered, synthesize a conclusion with decision, rationale, risks, and next steps\n\n';
 
     if (agent.persona?.capabilities && agent.persona.capabilities.length > 0) {
       systemPrompt += `Your capabilities include: ${agent.persona.capabilities.join(', ')}\n`;

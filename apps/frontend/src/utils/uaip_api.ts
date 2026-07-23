@@ -68,10 +68,11 @@ import type {
   KnowledgeRelationship as _KnowledgeRelationship,
   AgentResponseRequest,
   ToolExecutionError,
+  UserLLMProviderType,
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
-import { DiscussionStatus, MessageType, LLMProviderType, TurnStrategy, KnowledgeType, SourceType } from '@uaip/types';
+import { LLMProviderType, TurnStrategy, KnowledgeType, SourceType } from '@uaip/types';
 export { TurnStrategy };
 export type { DiscussionEvent } from '@uaip/types';
 
@@ -729,14 +730,21 @@ export const uaipAPI = {
       config: {
         name?: string;
         description?: string;
+        type?: UserLLMProviderType;
         baseUrl?: string;
+        apiKey?: string;
         defaultModel?: string;
         priority?: number;
         configuration?: Record<string, unknown>;
+        isActive?: boolean;
       }
     ): Promise<void> {
       const client = getAPIClient();
-      await client.llm.userLLM.updateProvider(providerId, config);
+      const { apiKey, ...providerConfig } = config;
+      await client.llm.userLLM.updateProvider(providerId, providerConfig);
+      if (apiKey) {
+        await client.llm.userLLM.updateProviderApiKey(providerId, { apiKey });
+      }
     },
 
     async updateProviderApiKey(providerId: string, apiKey: string): Promise<void> {
@@ -752,21 +760,37 @@ export const uaipAPI = {
         baseUrl?: string;
         apiKey?: string;
         defaultModel?: string;
+        type?: UserLLMProviderType;
         priority?: number;
         configuration?: Record<string, unknown>;
         isActive?: boolean;
       }
     ): Promise<void> {
       const client = getAPIClient();
-      const { name, description, baseUrl, defaultModel, priority, configuration } = updates;
-      await client.llm.userLLM.updateProvider(providerId, {
+      const {
         name,
         description,
         baseUrl,
         defaultModel,
         priority,
         configuration,
+        apiKey,
+        isActive,
+        type,
+      } = updates;
+      await client.llm.userLLM.updateProvider(providerId, {
+        name,
+        description,
+        type,
+        baseUrl,
+        defaultModel,
+        priority,
+        configuration,
+        isActive,
       });
+      if (apiKey) {
+        await client.llm.userLLM.updateProviderApiKey(providerId, { apiKey });
+      }
     },
 
     async testProvider(providerId: string): Promise<unknown> {

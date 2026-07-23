@@ -2089,14 +2089,31 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Build context-aware comment based on discussion state
       let contextComment: string;
+      const agentCount = discussion.participants.filter((p) => p.agentId && p.isActive).length;
+      const messageCount = discussion.state.messageCount || messageHistory.length;
+      const synthesisThreshold = Math.max(6, agentCount * 2 + 2);
+      const needsSynthesis = messageCount >= synthesisThreshold;
+      const needsAngleCoverage = messageCount > 0 && !needsSynthesis;
+      const discussionBrief = [
+        `Discussion topic: ${discussion.topic}.`,
+        discussion.description ? `Discussion goal/context: ${discussion.description}` : '',
+        needsSynthesis
+          ? 'Current phase: synthesis. Stop expanding unless a critical angle is missing. Produce a concise conclusion with decision, rationale, open risks, and concrete next steps.'
+          : needsAngleCoverage
+            ? 'Current phase: angle coverage. Add one important missing angle, tradeoff, stakeholder concern, risk, constraint, or decision criterion. Do not dive into implementation specifics unless implementation feasibility is the angle.'
+            : 'Current phase: framing. Establish the most important angles the group should cover before deciding.',
+        'Avoid circular discussion: do not restate prior points unless you are resolving them.',
+        'Stay above implementation detail by default; focus on what should be decided and why.',
+      ].filter((line) => line.length > 0).join('\n');
+
       if (messageHistory.length === 0) {
-        contextComment = `Start the discussion about: ${discussion.topic}. ${discussion.description || ''}`;
+        contextComment = `${discussionBrief}\n\nStart with your perspective and the key angle you will cover.`;
       } else {
         const recentContext = messageHistory
-          .slice(-3)
-          .map((m) => `${m.participantName}: ${m.content.substring(0, 100)}`)
+          .slice(-5)
+          .map((m) => `${m.participantName}: ${m.content.substring(0, 180)}`)
           .join('\n');
-        contextComment = `Continue the discussion about: ${discussion.topic}.\n\nRecent messages:\n${recentContext}`;
+        contextComment = `${discussionBrief}\n\nRecent messages:\n${recentContext}`;
       }
 
       await this.eventBusService.publish('agent.discussion.trigger', {
@@ -2672,16 +2689,21 @@ export class DiscussionOrchestrationService extends EventEmitter {
         'decision',
         'final',
         'summary',
+        'synthesis',
+        'synthesize',
         'complete',
         'done',
         'finished',
         'consensus',
         'solution',
         'answer',
+        'recommendation',
+        'next steps',
+        'tradeoff',
       ];
 
       const recentContent = recentMessages
-        .slice(0, 5) // Check last 5 messages
+        .slice(-5)
         .map((m) => m.content.toLowerCase())
         .join(' ');
 
@@ -2690,7 +2712,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       );
 
       // Check if there's been recent activity (last 5 minutes)
-      const lastMessage = recentMessages[0];
+      const lastMessage = recentMessages[recentMessages.length - 1];
       const timeSinceLastMessage = Date.now() - lastMessage.createdAt.getTime();
       const isStale = timeSinceLastMessage > 300000; // 5 minutes
 

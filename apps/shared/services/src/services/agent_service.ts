@@ -67,6 +67,10 @@ export class AgentService extends BaseDomainService {
     return this.getRepository('personaRepo', () => new PersonaRepository());
   }
 
+  public async findPersonaById(id: string) {
+    return this.getPersonaRepository().findById(id);
+  }
+
   public async createAgent(data: {
     name: string;
     displayName?: string;
@@ -81,6 +85,8 @@ export class AgentService extends BaseDomainService {
     personaId?: string;
     intelligenceConfig?: Agent['intelligenceConfig'];
     securityContext?: Agent['securityContext'];
+    configuration?: Agent['configuration'];
+    organizationId?: string;
     createdBy?: string;
   }): Promise<Agent> {
     const agentRepo = this.getAgentRepository();
@@ -104,6 +110,8 @@ export class AgentService extends BaseDomainService {
       capabilities: [],
       intelligenceConfig: data.intelligenceConfig ?? {},
       securityContext: data.securityContext ?? {},
+      configuration: data.configuration ?? {},
+      organizationId: data.organizationId,
     });
     return result;
   }

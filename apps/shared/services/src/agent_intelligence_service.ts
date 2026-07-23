@@ -135,6 +135,23 @@ export class AgentIntelligenceService {
     return id;
   }
 
+  private async resolvePersonaForAgent(personaId: string | null | undefined): Promise<Persona> {
+    if (!personaId) {
+      return this.getDefaultPersona();
+    }
+
+    try {
+      const persona = await this.databaseService.agents.findPersonaById(personaId);
+      return this.mapPersonaFromEntity(persona ?? { id: personaId });
+    } catch (error) {
+      logger.warn('Failed to resolve agent persona, using fallback persona', {
+        personaId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return this.mapPersonaFromEntity({ id: personaId });
+    }
+  }
+
   public async getAgents(): Promise<Agent[] | null> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -147,16 +164,21 @@ export class AgentIntelligenceService {
         return null;
       }
 
-      const mappedAgents: Agent[] = limitedAgents.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        role: agent.role,
-        persona: this.mapPersonaFromEntity({ id: agent.personaId }),
-        intelligenceConfig: agent.intelligenceConfig,
-        securityContext: agent.securityContext,
-        configuration: agent.configuration,
-        isActive: agent.isActive,
-      }));
+      const mappedAgents: Agent[] = await Promise.all(
+        limitedAgents.map(async (agent) => {
+          const persona = await this.resolvePersonaForAgent(agent.personaId);
+          return {
+            id: agent.id,
+            name: agent.name,
+            role: agent.role,
+            persona,
+            intelligenceConfig: agent.intelligenceConfig,
+            securityContext: agent.securityContext,
+            configuration: agent.configuration,
+            isActive: agent.isActive,
+          };
+        })
+      );
 
       return mappedAgents;
     } catch (error) {
@@ -179,11 +201,13 @@ export class AgentIntelligenceService {
         return null;
       }
 
+      const persona = await this.resolvePersonaForAgent(agent.personaId);
+
       const mappedAgent: Agent = {
         id: agent.id,
         name: agent.name,
         role: agent.role,
-        persona: this.mapPersonaFromEntity({ id: agent.personaId }),
+        persona,
         intelligenceConfig: agent.intelligenceConfig,
         securityContext: agent.securityContext,
         configuration: agent.configuration,
@@ -382,11 +406,13 @@ export class AgentIntelligenceService {
         throw new ApiError(404, 'Agent not found', 'AGENT_NOT_FOUND');
       }
 
+      const persona = await this.resolvePersonaForAgent(updatedAgent.personaId);
+
       const agent: Agent = {
         id: updatedAgent.id,
         name: updatedAgent.name,
         role: updatedAgent.role,
-        persona: this.mapPersonaFromEntity({ id: updatedAgent.personaId }),
+        persona,
         intelligenceConfig: updatedAgent.intelligenceConfig,
         securityContext: updatedAgent.securityContext,
         configuration: updatedAgent.configuration,
@@ -460,6 +486,7 @@ export class AgentIntelligenceService {
         name: typeof agentData.name === 'string' ? agentData.name : '',
         description: typeof agentData.description === 'string' ? agentData.description : undefined,
         role: toAgentRole(role),
+        personaId: typeof agentData.personaId === 'string' ? agentData.personaId : undefined,
         instructions: typeof agentData.systemPrompt === 'string' ? agentData.systemPrompt : undefined,
         modelId: typeof agentData.modelId === 'string' ? agentData.modelId
           : typeof agentData.modelName === 'string' ? agentData.modelName : undefined,
@@ -474,11 +501,13 @@ export class AgentIntelligenceService {
 
       const savedAgent = await this.databaseService.agents.createAgent(createPayload);
 
+      const persona = await this.resolvePersonaForAgent(savedAgent.personaId);
+
       const agent: Agent = {
         id: savedAgent.id,
         name: savedAgent.name,
         role: savedAgent.role,
-        persona: this.mapPersonaFromEntity({ id: savedAgent.personaId }),
+        persona,
         intelligenceConfig: savedAgent.intelligenceConfig,
         securityContext: savedAgent.securityContext,
         configuration: savedAgent.configuration,

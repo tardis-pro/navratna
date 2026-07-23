@@ -9,7 +9,7 @@ import { llmAPI } from '@/api/llm_api';
 import { projectsAPI } from '@/api/projects_api';
 import { STALE_TIMES } from '@/api/query_config';
 import { useAuth } from '@/contexts/AuthContext';
-import { LLMProviderType } from '@uaip/types';
+import { LLMProviderType, type UserLLMProviderType } from '@uaip/types';
 
 import { LLMProviderCard } from '@/components/workspace/LLMProviderCard';
 import { Badge } from '@/components/ui/badge';
@@ -121,7 +121,7 @@ export default function WorkspacePage() {
     const list = Array.isArray(userProviders) ? userProviders : [];
     const map = new Map<string, (typeof list)[number]>();
     for (const p of list) {
-      map.set(String(p.provider), p);
+      map.set(String(p.type), p);
     }
     return map;
   }, [userProviders]);
@@ -196,7 +196,7 @@ export default function WorkspacePage() {
     } else {
       await llmAPI.userLLM.createProvider({
         name: providerName,
-        type: providerKey,
+        type: providerKey as UserLLMProviderType,
         apiKey,
       });
     }

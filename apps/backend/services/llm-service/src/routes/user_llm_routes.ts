@@ -74,6 +74,12 @@ const ProviderResponseSchema = t.Object({
   message: t.Optional(t.String()),
 });
 
+type UserLLMProviderUpdateBody = UpdateUserLLMProviderRequest & {
+  apiKey?: string;
+  isActive?: boolean;
+  type?: UserLLMProviderType;
+};
+
 export function registerUserLLMRoutes(userLLMService: UserLLMService){
   return new Elysia().group(
     '/api/v1/user/llm',
@@ -172,17 +178,35 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           if (authError) return authError;
 
           const { providerId } = params;
-          const requestBody: UpdateUserLLMProviderRequest = body;
-          const { name, description, baseUrl, defaultModel, priority, configuration } = requestBody;
+          const requestBody: UserLLMProviderUpdateBody = body;
+          const { name, description, baseUrl, defaultModel, priority, configuration, apiKey, isActive, type } =
+            requestBody;
 
-          await userLLMService.updateUserProviderConfig(userId, providerId, {
-            name,
-            description,
-            baseUrl,
-            defaultModel,
-            priority,
-            configuration,
-          });
+          if (apiKey) {
+            await userLLMService.updateUserProviderApiKey(userId, providerId, apiKey);
+          }
+
+          if (
+            name !== undefined ||
+            description !== undefined ||
+            baseUrl !== undefined ||
+            defaultModel !== undefined ||
+            priority !== undefined ||
+            configuration !== undefined ||
+            isActive !== undefined ||
+            type !== undefined
+          ) {
+            await userLLMService.updateUserProviderConfig(userId, providerId, {
+              name,
+              description,
+              baseUrl,
+              defaultModel,
+              priority,
+              configuration,
+              isActive,
+              type,
+            });
+          }
 
           return {
             success: true,
@@ -192,10 +216,20 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           body: t.Object({
             name: t.Optional(t.String()),
             description: t.Optional(t.String()),
+            type: t.Optional(t.Union([
+              t.Literal('ollama'),
+              t.Literal('llmstudio'),
+              t.Literal('openai'),
+              t.Literal('anthropic'),
+              t.Literal('google'),
+              t.Literal('custom'),
+            ])),
             baseUrl: t.Optional(t.String()),
             defaultModel: t.Optional(t.String()),
             priority: t.Optional(t.Number()),
             configuration: t.Optional(t.Any()),
+            apiKey: t.Optional(t.String()),
+            isActive: t.Optional(t.Boolean()),
           }),
           response: { 200: ProviderResponseSchema },
         })
@@ -225,6 +259,25 @@ export function registerUserLLMRoutes(userLLMService: UserLLMService){
           body: t.Object({
             apiKey: t.String(),
           }),
+          response: { 200: ProviderResponseSchema },
+        })
+
+        .post('/providers/:providerId/default', async ({ headers, params }) => {
+          const { userId, error: authError } = requireUserId(headers);
+          if (authError) return authError;
+
+          const provider = await userLLMService.getUserProviderById(params.providerId);
+          if (!provider || provider.userId !== userId) {
+            return { success: false, error: 'Provider not found or access denied' };
+          }
+
+          await userLLMService.setDefaultProvider(userId, params.providerId);
+
+          return {
+            success: true,
+            message: 'Default provider updated successfully',
+          };
+        }, {
           response: { 200: ProviderResponseSchema },
         })
 

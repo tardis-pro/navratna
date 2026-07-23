@@ -17,8 +17,15 @@ import type {
   LLMProviderShape,
   UpdateApiKeyRequest,
   UpdateUserLLMProviderRequest,
+  UserLLMProviderType,
   UserLLMGenerateRequest,
 } from '@uaip/types';
+
+type UserLLMProviderUpdateRequest = UpdateUserLLMProviderRequest & {
+  apiKey?: string;
+  isActive?: boolean;
+  type?: UserLLMProviderType;
+};
 
 export type UserLLMProviderConfig = Omit<LLMProviderShape, 'apiKeyEncrypted'> & {
   hasApiKey: boolean;
@@ -91,7 +98,7 @@ export const llmAPI = {
 
     async updateProvider(
       id: string,
-      updates: UpdateUserLLMProviderRequest
+      updates: UserLLMProviderUpdateRequest
     ): Promise<{ success: boolean; message?: string }> {
       return edenWithCSRFRetry(() => userLlm.providers[id].put(updates));
     },
