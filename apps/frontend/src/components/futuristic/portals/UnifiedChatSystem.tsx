@@ -47,6 +47,7 @@ import { useToast } from '../../../hooks';
 import { knowledgeAPI } from '../../../api/knowledge_api';
 import { logger } from '@/utils/browser_logger';
 import { useWhatsApp } from '../../../hooks/use_whats_app';
+import { getWebSocketURL } from '../../../config/api_config';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
@@ -309,7 +310,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     startStream: startAgentStream,
     cancelStream: cancelAgentStream,
   } = useStreamingChat({
-    baseUrl: '',
+    baseUrl: getWebSocketURL(),
     token: '',
     onChunk: handleStreamingChunk,
     onComplete: handleStreamingComplete,
@@ -1987,11 +1988,9 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                 agentId={window.agentId}
                 conversationId={window.sessionId}
                 placeholder="Type a message..."
-                disabled={isLoading || !isWebSocketConnected}
+                disabled={isLoading}
                 disabledReason={
-                  !isWebSocketConnected
-                    ? 'Reconnecting to live agent…'
-                    : waState !== 'connected'
+                  waState !== 'connected'
                       ? 'WhatsApp not connected — message will be queued'
                       : undefined
                 }
@@ -2355,14 +2354,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                     selectedAgent ? `Message ${selectedAgent.name}...` : 'Select an agent first...'
                   }
                   disabled={
-                    !isWebSocketConnected ||
                     (typingIndicators['portal'] ?? false) ||
                     (loadingStates['portal']?.isLoading ?? false)
                   }
                   disabledReason={
-                    !isWebSocketConnected
-                      ? 'Reconnecting to live agent…'
-                      : waState !== 'connected'
+                    waState !== 'connected'
                         ? 'WhatsApp not connected — message will be queued'
                         : undefined
                   }
