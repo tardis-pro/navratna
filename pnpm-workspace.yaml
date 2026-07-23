@@ -17,14 +17,14 @@ catalog:
 catalogs:
   frontend:
     '@elysiajs/eden': ^1.4.5
-    react: ^19.2.4
-    react-dom: ^19.2.4
+    react: ^19.2.7
+    react-dom: ^19.2.7
     '@types/react': ^19.2.14
     '@types/react-dom': ^19.2.3
     '@vitejs/plugin-react': ^6.0.1
     '@types/node': ^22.13.14
     react-hook-form: ^7.72.0
-    react-router-dom: ^7.13.0
+    react-router: 8.3.0
     react-day-picker: ^9.14.0
     react-resizable-panels: ^4.7.5
     '@radix-ui/react-accordion': ^1.2.12

@@ -82,7 +82,7 @@
     "react-hook-form": "catalog:frontend",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "catalog:frontend",
-    "react-router-dom": "catalog:frontend",
+    "react-router": "catalog:frontend",
     "recharts": "^3.8.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
