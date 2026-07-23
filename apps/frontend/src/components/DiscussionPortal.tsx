@@ -28,6 +28,7 @@ import type { FrontendMessage as Message } from '@uaip/types';
 import { cn } from '@/lib/utils';
 import { getAgentColorIndex } from '@/lib/status_tokens';
 import uaipAPI from '@/utils/uaip_api';
+import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { DiscussionHistory } from './DiscussionHistory';
 import { ApprovalRequest } from './ApprovalRequest';
 import {
@@ -492,11 +493,11 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
           {/* Message Content */}
           <div
             className={cn(
-              'text-sm leading-relaxed whitespace-pre-wrap',
+              'text-sm leading-relaxed',
               isThought ? 'text-amber-200/90 italic' : 'text-slate-200'
             )}
           >
-            {content}
+            <MarkdownRenderer content={content} isStreaming={false} />
           </div>
         </div>
       </motion.div>

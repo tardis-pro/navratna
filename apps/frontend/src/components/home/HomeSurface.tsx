@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useAgents } from '@/contexts/AgentContext';
 import { ThreadDockCard } from './ThreadDockCard';
+import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
 import {
   Thread,
   ThreadParticipant,
@@ -12,6 +13,7 @@ import {
 } from '@uaip/types';
 import {
   MessageSquare,
+  MessageSquarePlus,
   Bot,
   LayoutGrid,
   Sparkles,
@@ -21,6 +23,7 @@ import {
 } from 'lucide-react';
 import { swift } from '@/lib/motion';
 import { UnifiedChatSystem } from '@/components/futuristic/portals/UnifiedChatSystem';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { uaipAPI } from '@/utils/uaip_api';
 
@@ -45,21 +48,50 @@ export const HomeSurface: React.FC = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [whisperOpen, setWhisperOpen] = useState<boolean>(true);
   const [animatingCard, setAnimatingCard] = useState<AnimatingRect | null>(null);
+  const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
+
+  const fetchDiscussions = useCallback(async () => {
+    try {
+      const response = await uaipAPI.discussions.list({ limit: 20 });
+      if (Array.isArray(response)) {
+        setDiscussions(response);
+      }
+    } catch {
+      // Degrade silently per guidelines
+    }
+  }, []);
 
   // Load backend discussions on mount
   useEffect(() => {
-    const fetchDiscussions = async () => {
-      try {
-        const response = await uaipAPI.discussions.list({ limit: 20 });
-        if (Array.isArray(response)) {
-          setDiscussions(response);
-        }
-      } catch {
-        // Degrade silently per guidelines
-      }
-    };
     void fetchDiscussions();
+  }, [fetchDiscussions]);
+
+  useEffect(() => {
+    const handleOpenDiscussion = () => {
+      setDiscussionModalOpen(true);
+    };
+
+    window.addEventListener('open-discussion-config', handleOpenDiscussion);
+    window.addEventListener('open-discussion-portal', handleOpenDiscussion);
+
+    return () => {
+      window.removeEventListener('open-discussion-config', handleOpenDiscussion);
+      window.removeEventListener('open-discussion-portal', handleOpenDiscussion);
+    };
   }, []);
+
+  const handleDiscussionStarted = useCallback(
+    (newDiscussionId: string, agentIds: string[]) => {
+      void fetchDiscussions();
+      const discussion = discussions.find((item) => item.id === newDiscussionId);
+      const firstParticipant = discussion?.participants?.[0];
+      const agentId = discussion?.metadata?.agentId || firstParticipant?.agentId || agentIds[0];
+      if (typeof agentId === 'string') {
+        setSelectedAgentId(agentId);
+      }
+    },
+    [discussions, fetchDiscussions]
+  );
 
   // Map discussions + active agents to Threads
   const threads = useMemo(() => {
@@ -172,14 +204,25 @@ export const HomeSurface: React.FC = () => {
             <MessageSquare className="h-5 w-5 text-primary" />
             Threads
           </h2>
-          <Link
-            to="/explore"
-            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
-            aria-label="Browse all portals"
-          >
-            <LayoutGrid className="h-4 w-4" />
-            Browse all
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDiscussionModalOpen(true)}
+              className="h-8 px-2 text-xs gap-1"
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              New
+            </Button>
+            <Link
+              to="/explore"
+              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+              aria-label="Browse all portals"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Browse all
+            </Link>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -323,6 +366,12 @@ export const HomeSurface: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      <DiscussionConfigModal
+        isOpen={discussionModalOpen}
+        onClose={() => setDiscussionModalOpen(false)}
+        onDiscussionStarted={handleDiscussionStarted}
+      />
     </div>
   );
 };

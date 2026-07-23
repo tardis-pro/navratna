@@ -52,6 +52,10 @@ interface PendingApprovalRequest {
   timestamp?: string;
 }
 
+interface DiscussionStartResult {
+  discussionId: string;
+}
+
 interface DiscussionContextType {
   // State
   isActive: boolean;
@@ -67,7 +71,11 @@ interface DiscussionContextType {
   pendingApprovals: PendingApprovalRequest[];
 
   // Actions
-  start: (topic?: string, agentIds?: string[], enhancedContext?: unknown) => Promise<void>;
+  start: (
+    topic?: string,
+    agentIds?: string[],
+    enhancedContext?: unknown
+  ) => Promise<DiscussionStartResult | undefined>;
   stop: () => Promise<void>;
   pause: () => Promise<void>;
   resume: (discussionId: string) => Promise<void>;
@@ -234,19 +242,19 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
     async (topic?: string, agentIds?: string[], enhancedContext?: unknown) => {
       if (isActive) {
         logger.warn('Discussion is already active');
-        return;
+        return undefined;
       }
 
       if (!isWebSocketConnected) {
         logger.warn('Cannot start discussion: WebSocket not connected');
         setLastError('WebSocket not connected. Please check your connection.');
-        return;
+        return undefined;
       }
 
       if (!user?.id) {
         logger.error('Cannot start discussion: User not authenticated');
         setLastError('User not authenticated');
-        return;
+        return undefined;
       }
 
       try {
@@ -348,6 +356,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
 
         // Note: The discussion will be marked as active when we receive the 'discussion_started' event
         // This is handled in the useEffect that listens to WebSocket events
+        return { discussionId: currentDiscussionId };
       } catch (error) {
         logger.error('❌ Failed to start discussion:', error);
 
@@ -369,6 +378,7 @@ export const DiscussionProvider: React.FC<DiscussionProviderProps> = ({
           setLastError('Failed to start discussion');
         }
         setIsLoading(false);
+        return undefined;
       }
     },
     [

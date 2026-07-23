@@ -31,8 +31,7 @@ export const DiscussionTrigger: React.FC<DiscussionTriggerProps> = ({
   className,
 }) => {
   const handleClick = () => {
-    // Trigger the global discussion portal
-    const event = new CustomEvent('open-discussion-portal', {
+    const event = new CustomEvent('open-discussion-config', {
       detail: {
         contextType,
         contextData,

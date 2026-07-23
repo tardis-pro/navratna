@@ -58,7 +58,23 @@ export type ArtifactType =
 interface DiscussionConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDiscussionStarted?: (discussionId: string) => void;
+  onDiscussionStarted?: (discussionId: string, agentIds: string[]) => void;
+}
+
+interface DiscussionConfigEventDetail {
+  contextData?: {
+    topic?: string;
+    chatHistory?: Array<{
+      content: string;
+      sender: string;
+      timestamp: string;
+    }>;
+    knowledgeItem?: {
+      content: string;
+      tags?: string[];
+    };
+  };
+  preselectedAgents?: string[];
 }
 
 // Discussion purpose configurations
@@ -313,10 +329,24 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
   useEffect(() => {
     const handleOpenDiscussion = (e: Event) => {
       if (!(e instanceof CustomEvent)) return;
-      const { _contextData, preselectedAgents } = e.detail;
+      const { contextData, preselectedAgents } = e.detail as DiscussionConfigEventDetail;
 
       if (preselectedAgents) {
         setSelectedAgents(preselectedAgents);
+      }
+
+      if (contextData?.topic) {
+        setCustomTopic(contextData.topic);
+      }
+
+      if (contextData?.knowledgeItem) {
+        setAdditionalContext(contextData.knowledgeItem.content);
+      } else if (contextData?.chatHistory?.length) {
+        setAdditionalContext(
+          contextData.chatHistory
+            .map((message) => `${message.sender}: ${message.content}`)
+            .join('\n')
+        );
       }
     };
 
@@ -370,7 +400,7 @@ export const DiscussionConfigModal: React.FC<DiscussionConfigModalProps> = ({
 
       // Trigger portal opening after discussion starts
       if (onDiscussionStarted && result?.discussionId) {
-        onDiscussionStarted(result.discussionId);
+        onDiscussionStarted(result.discussionId, selectedAgents);
       }
     } catch (error) {
       logger.error('Failed to start discussion:', error);

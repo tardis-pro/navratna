@@ -30,7 +30,7 @@ function routeCapabilityAction(action: CapabilityAction, blockId: string): void 
           window.dispatchEvent(new CustomEvent('openNewAgentChat', { detail: { source: 'intent' } }));
           break;
         case 'new-discussion':
-          window.dispatchEvent(new CustomEvent('open-discussion-portal', { detail: { source: 'intent' } }));
+          window.dispatchEvent(new CustomEvent('open-discussion-config', { detail: { source: 'intent' } }));
           break;
         case 'search-knowledge':
         case 'upload-knowledge':

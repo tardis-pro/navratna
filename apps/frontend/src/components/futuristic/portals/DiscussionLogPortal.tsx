@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDown, MessageSquare, Search } from 'lucide-react';
 import { discussionsAPI } from '@/api';
+import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 import { useDiscussion } from '@/contexts/DiscussionContext';
 import { cn } from '@/lib/utils';
 
@@ -321,8 +322,10 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({ classN
 
               const { group } = item;
 
+              const groupKey = group.messages[0]?.id ?? group.senderId;
+
               return (
-                <div key={`${group.senderId}-${itemIndex}`} className="flex items-start gap-3">
+                <div key={groupKey} className="flex items-start gap-3">
                   <div className="h-9 w-9 rounded-full bg-slate-700/70 border border-slate-600/70 text-slate-100 text-xs font-semibold flex items-center justify-center shrink-0">
                     {initialsFromName(group.senderName)}
                   </div>
@@ -346,9 +349,9 @@ export const DiscussionLogPortal: React.FC<DiscussionLogPortalProps> = ({ classN
                           key={message.id}
                           className="rounded-xl border border-slate-700/50 bg-slate-900/40 px-3 py-2"
                         >
-                          <p className="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap break-words">
-                            {stripHtml(message.content) || '[empty message]'}
-                          </p>
+                          <div className="text-sm leading-relaxed text-slate-200">
+                            <MarkdownRenderer content={message.content} isStreaming={false} />
+                          </div>
                           <p className="mt-1 text-[11px] text-slate-500">{formatTime(message.createdAt)}</p>
                         </div>
                       ))}
