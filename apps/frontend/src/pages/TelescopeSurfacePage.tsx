@@ -82,7 +82,9 @@ export default function TelescopeSurfacePage() {
     };
 
     void refresh();
-    const interval = window.setInterval(() => void refresh(), DYNAMIC_REFRESH_MS);
+    const interval = window.setInterval((): void => {
+      void refresh();
+    }, DYNAMIC_REFRESH_MS);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
@@ -154,7 +156,7 @@ export default function TelescopeSurfacePage() {
 
   if (showWelcome) {
     return (
-      <div className="relative min-h-screen bg-background flex flex-col items-center justify-center p-8">
+      <div className="relative flex h-full min-h-0 flex-col items-center justify-center bg-background p-8">
         <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">Welcome to Navratna</h1>
         <p className="text-muted-foreground mb-12 text-center max-w-lg">
           Set up your cognitive shell in three steps. Each step builds your constellation.
@@ -181,7 +183,7 @@ export default function TelescopeSurfacePage() {
       onBlockSelect={handleBlockSelect}
       onIntentSelect={handleIntentSelect}
       focusTarget={focusTarget}
-      className="min-h-screen"
+      className="h-full min-h-0"
     />
   );
 }

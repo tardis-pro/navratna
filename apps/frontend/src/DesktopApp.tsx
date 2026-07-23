@@ -11,7 +11,9 @@ import { SecurityProvider } from './contexts/SecurityContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import TelescopeSurfacePage from './pages/TelescopeSurfacePage';
-import { HomeSurface } from './components/home/HomeSurface';
+import { HomeShellLayout } from './components/home/HomeShellLayout';
+import { HomeWorkspace } from './components/home/HomeWorkspace';
+import { ThreadWorkspace } from './components/home/ThreadWorkspace';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import WorkspacePage from './pages/workspace/WorkspacePage';
 import CodingSessionPage from './pages/workspace/CodingSessionPage';
@@ -77,18 +79,13 @@ function DesktopApp() {
                                   path="/projects/:id/workspace/session/:sessionId"
                                   element={<CodingSessionPage />}
                                 />
-                                <Route
-                                  path="/"
-                                  element={<HomeSurface />}
-                                />
-                                <Route
-                                  path="/explore"
-                                  element={<TelescopeSurfacePage />}
-                                />
-                                <Route
-                                  path="*"
-                                  element={<HomeSurface />}
-                                />
+                                <Route path="/" element={<HomeShellLayout />}>
+                                  <Route index element={<HomeWorkspace />} />
+                                  <Route path="thread/:threadId" element={<ThreadWorkspace />} />
+                                  <Route path="explore" element={<TelescopeSurfacePage />} />
+                                  <Route path="explore/:blockId" element={<TelescopeSurfacePage />} />
+                                  <Route path="*" element={<HomeWorkspace />} />
+                                </Route>
                               </Routes>
                             </BrowserRouter>
                           </ErrorBoundary>
