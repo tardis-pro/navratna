@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useNavigate, useParams } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HomeShellLayout } from './HomeShellLayout';
@@ -21,6 +22,14 @@ vi.mock('@/utils/uaip_api', () => ({
 
 vi.mock('@/components/DiscussionConfigModal', () => ({
   DiscussionConfigModal: (): null => null,
+}));
+
+interface ProviderStubProps {
+  children: ReactNode;
+}
+
+vi.mock('@/components/TelescopeSurface/ExploreSurfaceProvider', () => ({
+  ExploreSurfaceProvider: ({ children }: ProviderStubProps) => children,
 }));
 
 function HomeProbe() {
