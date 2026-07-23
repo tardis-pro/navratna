@@ -2340,6 +2340,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   </details>
                 )}
 
+                <ContextChipBar
+                  chips={activeContextChip ? [activeContextChip] : []}
+                  activeChipId={activeContextChip?.id}
+                  onChipClick={handleContextChipClick}
+                  onRemove={handleContextChipRemove}
+                  className="px-0"
+                />
+
                 <ChatComposer
                   agentId={selectedAgentId}
                   conversationId={conversationIds['portal']}
