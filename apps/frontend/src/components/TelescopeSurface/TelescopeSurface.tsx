@@ -20,11 +20,9 @@ import { cn } from '@/lib/utils';
 import { IntentField } from '@/components/IntentField/IntentField';
 import type { IntentOption } from '@/components/IntentField/intent_field_types';
 import { AttentionBudget } from '@/components/AttentionBudget/AttentionBudget';
-import { WhisperLine } from '@/components/AmbientIntelligence/WhisperLine';
 import { CrystallizationEffect } from '@/components/PredictiveIntent/CrystallizationEffect';
 import { MorningFog } from '@/components/AmbientIntelligence/MorningFog';
 import { BreathCycle } from '@/components/AmbientIntelligence/BreathCycle';
-import { useKnowledgeMicroexpression } from '@/hooks/use_knowledge_microexpression';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -502,28 +500,6 @@ export function TelescopeSurface({
     [visibleBlocks.length, maxVisibleBlocks]
   );
 
-  const topBlock = visibleBlocks[0];
-  const topExpression = useKnowledgeMicroexpression({
-    health: 'stable',
-    relevanceScore: topBlock?.relevanceScore ?? 0,
-    isProcessing: fogActive,
-    hasConflicts: false,
-  });
-
-  const whisperMessage = useMemo(() => {
-    if (!topBlock) return '';
-    const title = typeof topBlock.metadata?.title === 'string' ? topBlock.metadata.title : topBlock.id;
-    const pct = Math.round(topBlock.relevanceScore * 100);
-    if (topExpression.expression === 'working') return `Loading constellations...`;
-    if (topExpression.expression === 'satisfied') return `Showing ${title} — ${pct}% context match`;
-    return `Showing ${title} because it ranks highest in your current context`;
-  }, [topBlock, topExpression.expression]);
-
-  const whisperContext = useMemo(() => {
-    if (visibleBlocks.length <= 1) return undefined;
-    return `${visibleBlocks.length} active • ${topExpression.label}`;
-  }, [visibleBlocks.length, topExpression.label]);
-
   return (
     <div
       ref={containerRef}
@@ -675,15 +651,6 @@ export function TelescopeSurface({
         </motion.div>
       )}
 
-      {visibleBlocks.length > 0 && whisperMessage && (
-        <WhisperLine
-          message={whisperMessage}
-          context={whisperContext}
-          relevanceScore={topBlock?.relevanceScore}
-          position="bottom"
-          className="absolute bottom-0 left-0 right-0 z-20"
-        />
-      )}
     </div>
   );
 }
