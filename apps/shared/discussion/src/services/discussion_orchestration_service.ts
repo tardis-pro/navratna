@@ -115,6 +115,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
     return participant.metadata ?? {}
   }
 
+  private cacheActiveDiscussion(discussion: Discussion): void {
+    if (discussion.status === DiscussionStatus.ACTIVE) {
+      this.activeDiscussions.set(discussion.id, discussion);
+      return;
+    }
+
+    this.activeDiscussions.delete(discussion.id);
+    this.turnRequestQueues.delete(discussion.id);
+  }
+
   constructor(
     discussionService: DiscussionService,
     eventBusService: EventBusService,
@@ -176,9 +186,6 @@ export class DiscussionOrchestrationService extends EventEmitter {
         createdBy,
         status: DiscussionStatus.DRAFT,
       });
-
-      // Add to active discussions cache
-      this.activeDiscussions.set(discussion.id, discussion);
 
       // Emit creation event
       const creationEvent: DiscussionEvent = {
@@ -285,7 +292,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.broadcastContextChangeIfNeeded(discussionId, discussion.state, fullDiscussion.state);
 
       // Update cache
-      this.activeDiscussions.set(discussionId, fullDiscussion);
+      this.cacheActiveDiscussion(fullDiscussion);
 
       // Set turn timer
       if (turnResult.nextParticipant) {
@@ -411,7 +418,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // Update cache
       const updatedDiscussion = await this.getDiscussion(discussionId, true);
       if (updatedDiscussion) {
-        this.activeDiscussions.set(discussionId, updatedDiscussion);
+        this.cacheActiveDiscussion(updatedDiscussion);
       }
 
       // Emit participant joined event
@@ -704,7 +711,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.broadcastContextChangeIfNeeded(discussionId, discussion.state, updatedDiscussion.state);
 
       // Update cache
-      this.activeDiscussions.set(discussionId, updatedDiscussion);
+      this.cacheActiveDiscussion(updatedDiscussion);
 
       // Set new turn timer
       if (turnResult.nextParticipant) {
@@ -778,7 +785,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       if (discussion) {
         // Update cache
-        this.activeDiscussions.set(discussionId, discussion);
+        this.cacheActiveDiscussion(discussion);
         logger.debug('Discussion retrieved from database and cached', { discussionId });
       }
 
@@ -843,7 +850,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     };
 
     const huddle = await this.discussionService.createDiscussion(huddleRequest);
-    this.activeDiscussions.set(huddle.id, huddle);
+    this.cacheActiveDiscussion(huddle);
 
     logger.info('Huddle created', {
       huddleId: huddle.id,
@@ -1026,7 +1033,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         state: nextState,
       });
 
-      this.activeDiscussions.set(discussionId, updatedDiscussion);
+      this.cacheActiveDiscussion(updatedDiscussion);
       this.broadcastContextChangeIfNeeded(discussionId, previousState, nextState);
 
       return {
@@ -1829,7 +1836,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           ...agentToTrigger,
           role: toValidRole(agentToTrigger.role),
         };
-        await this.triggerAgentParticipationEvent(discussion.id, typedAgentToTrigger);
+        await this.triggerAgentParticipationEvent(discussion.id, typedAgentToTrigger, true);
       }
       // Phase 2: Main discussion phase - continue conversation with participated agents
       else if (participatedAgents.length > 0 && discussion.state.currentTurn) {
@@ -1960,7 +1967,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   private async triggerAgentParticipationEvent(
     discussionId: string,
-    participant: DiscussionParticipant
+    participant: DiscussionParticipant,
+    isInitialParticipation = false
   ): Promise<void> {
     try {
       if (!participant.agentId) {
@@ -2097,6 +2105,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           discussionId,
           agentId: participant.agentId,
           comment: contextComment,
+          isInitialParticipation,
         },
       });
 
@@ -2126,8 +2135,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       const result = await this.discussionService.updateDiscussion(discussionId, { status });
 
       if (result) {
-        // Update cache
-        this.activeDiscussions.set(discussionId, result);
+        this.cacheActiveDiscussion(result);
 
         // Emit status change event
         await this.emitEvent({
@@ -2648,7 +2656,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return false;
       }
 
-      // Simple heuristic: check for conclusion keywords in recent messages
+      const activeAgentParticipants = discussion.participants.filter((p) => p.agentId && p.isActive);
+      const respondingAgentCount = activeAgentParticipants.filter((p) => p.messageCount > 0).length;
+      const totalMessageCount = Math.max(discussion.state.messageCount || 0, recentMessages.length);
+
+      if (totalMessageCount < 5 || respondingAgentCount < 2) {
+        return false;
+      }
+
+      // Simple heuristic: check for whole-word conclusion keywords in recent messages
       const conclusionKeywords = [
         'concluded',
         'resolved',
@@ -2669,7 +2685,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
         .map((m) => m.content.toLowerCase())
         .join(' ');
 
-      const hasConclusion = conclusionKeywords.some((keyword) => recentContent.includes(keyword));
+      const hasConclusion = conclusionKeywords.some((keyword) =>
+        new RegExp(`\\b${keyword}\\b`, 'i').test(recentContent)
+      );
 
       // Check if there's been recent activity (last 5 minutes)
       const lastMessage = recentMessages[0];

@@ -7,6 +7,7 @@ type TriggerParams = {
   discussionId: string
   agentId: string
   comment: string
+  isInitialParticipation: boolean
 }
 
 function parseTrigger(event: EventBusMessage): TriggerParams | null {
@@ -16,8 +17,9 @@ function parseTrigger(event: EventBusMessage): TriggerParams | null {
   const discussionId = typeof params.discussionId === 'string' ? params.discussionId : ''
   const agentId = typeof params.agentId === 'string' ? params.agentId : ''
   const comment = typeof params.comment === 'string' ? params.comment : ''
+  const isInitialParticipation = params.isInitialParticipation === true
   if (!discussionId || !agentId) return null
-  return { discussionId, agentId, comment }
+  return { discussionId, agentId, comment, isInitialParticipation }
 }
 
 type ParticipantRow = { id: string; discussionId?: string; agentId?: string }
@@ -58,7 +60,7 @@ export async function handleAgentDiscussionTrigger(
     return
   }
 
-  const { discussionId, agentId, comment } = trigger
+  const { discussionId, agentId, comment, isInitialParticipation } = trigger
 
   try {
     const agent = await deps.agentIntelligenceService.getAgent(agentId)
@@ -122,6 +124,7 @@ export async function handleAgentDiscussionTrigger(
       agentId,
       content,
       messageType: 'message',
+      isInitialParticipation,
     })
 
     logger.info('agent.discussion.trigger: agent response published', {

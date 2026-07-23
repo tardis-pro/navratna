@@ -14,10 +14,18 @@ import type {
   LLMArtifactType,
   StreamingLLMRequest,
   UserLLMProviderType,
+  UserContext,
 } from '@uaip/types';
 import { logger, ValidationError, isRecord } from '@uaip/utils';
 
 const _artifactTypes: readonly LLMArtifactType[] = ['code', 'documentation', 'test', 'prd'];
+const ADMIN_ORG_ID = '00000000-0000-0000-0000-000000000001';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+
+type HeaderBag = Record<string, string | undefined>;
+type StoreUser = {
+  id?: unknown;
+};
 
 
 function isChatMessageArray(value: unknown): value is ChatMessage[] {
@@ -98,6 +106,50 @@ function toUserProviderType(value: unknown): UserLLMProviderType | undefined {
     default:
       return undefined;
   }
+}
+
+function getHeader(headers: HeaderBag, key: string): string | undefined {
+  return headers[key] ?? headers[key.toLowerCase()] ?? headers[key.toUpperCase()];
+}
+
+function getStoreUserId(store: unknown): string | undefined {
+  const storeUser = isRecord(store) ? Reflect.get(store, 'user') : undefined;
+  const user = isRecord(storeUser) ? storeUser as StoreUser : undefined;
+  return typeof user?.id === 'string' ? user.id : undefined;
+}
+
+function getForwardedUser(headers: HeaderBag): UserContext | null {
+  const edgeSecret = process.env.EDGE_AUTH_SECRET;
+  if (!edgeSecret && process.env.NODE_ENV === 'production') {
+    logger.error(
+      'LLM stream auth: EDGE_AUTH_SECRET is not set in production — refusing forwarded identity headers'
+    );
+    return null;
+  }
+
+  if (edgeSecret && getHeader(headers, 'x-edge-auth') !== edgeSecret) {
+    return null;
+  }
+
+  const userId = getHeader(headers, 'x-user-id');
+  if (!userId || !UUID_REGEX.test(userId)) {
+    return null;
+  }
+
+  const organizationId = getHeader(headers, 'x-user-org');
+
+  return {
+    id: userId,
+    email: getHeader(headers, 'x-user-email') ?? '',
+    role: getHeader(headers, 'x-user-role') ?? 'user',
+    organizationId: organizationId && UUID_REGEX.test(organizationId)
+      ? organizationId
+      : ADMIN_ORG_ID,
+  };
+}
+
+function getAuthenticatedUserId(store: unknown, headers: HeaderBag): string | null {
+  return getStoreUserId(store) ?? getForwardedUser(headers)?.id ?? null;
 }
 
 export function registerLLMRoutes(
@@ -467,7 +519,7 @@ export function registerLLMRoutes(
         // Streaming endpoints
         .post(
           '/stream',
-          async ({ body, store }) => {
+          async ({ body, store, headers }) => {
             const payload = isRecord(body) ? body : {};
             const prompt = Reflect.get(payload, 'prompt');
             const systemPrompt = Reflect.get(payload, 'systemPrompt');
@@ -476,11 +528,10 @@ export function registerLLMRoutes(
             const agentId = Reflect.get(payload, 'agentId');
             const conversationId = Reflect.get(payload, 'conversationId');
             const providerType = Reflect.get(payload, 'providerType');
-            const storeUser = isRecord(store) ? Reflect.get(store, 'user') : undefined;
-            const userId = isRecord(storeUser) ? Reflect.get(storeUser, 'id') : undefined;
+            const userId = getAuthenticatedUserId(store, headers as HeaderBag);
             const preferredProviderType = toUserProviderType(providerType);
 
-            if (typeof userId !== 'string') {
+            if (!userId) {
               throw new ValidationError('User not authenticated');
             }
 

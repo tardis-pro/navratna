@@ -51,8 +51,8 @@ export const HomeSurface: React.FC = () => {
     const fetchDiscussions = async () => {
       try {
         const response = await uaipAPI.discussions.list({ limit: 20 });
-        if (response && response.discussions) {
-          setDiscussions(response.discussions);
+        if (Array.isArray(response)) {
+          setDiscussions(response);
         }
       } catch {
         // Degrade silently per guidelines

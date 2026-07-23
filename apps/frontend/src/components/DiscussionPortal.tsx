@@ -257,9 +257,9 @@ export const DiscussionPortal: React.FC<DiscussionPortalProps> = ({
           limit: 50,
           status: ['active', 'completed'],
         });
-        setAvailableDiscussions(response?.discussions || []);
+        setAvailableDiscussions(Array.isArray(response) ? response : []);
 
-        if (discussionId && response?.discussions) {
+        if (discussionId && Array.isArray(response)) {
           setSelectedDiscussionId(discussionId);
         }
       } catch (error) {

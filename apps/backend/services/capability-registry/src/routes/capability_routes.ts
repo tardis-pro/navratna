@@ -60,6 +60,14 @@ export function registerCapabilityRoutes(controller?: CapabilityController){
       }),
       response: { 200: t.Any(), 400: CapabilityErrorSchema, 500: CapabilityErrorSchema },
     })
+    .post('/search', (ctx) => capabilityController.searchCapabilitiesFromBody(ctx), {
+      body: t.Object({
+        query: t.Optional(t.String()),
+        type: t.Optional(t.String()),
+        limit: t.Optional(t.Number()),
+      }),
+      response: { 200: t.Any(), 400: CapabilityErrorSchema, 500: CapabilityErrorSchema },
+    })
     .get('/categories', (ctx) => capabilityController.getCategories(ctx), {
       response: {
         200: t.Object({ success: t.Boolean(), data: t.Object({ categories: t.Array(t.String()) }), meta: MetaSchema }),

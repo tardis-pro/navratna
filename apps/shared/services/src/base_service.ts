@@ -118,20 +118,31 @@ export abstract class BaseService {
       });
     });
 
-    this.app.onError(({ code, error, request }) => {
+    this.app.onError(({ code, error, request, set }) => {
       const url = new URL(request.url);
+      const statusCode = typeof set.status === 'number'
+        ? set.status
+        : code === 'NOT_FOUND'
+          ? 404
+          : 500;
       logger.error(`${this.config.name}: onError`, {
         code,
         error: error instanceof Error ? error.message : String(error),
       });
-      captureException(error, {
-        requestId: request.headers.get('x-request-id') || undefined,
-        userId: request.headers.get('x-user-id') || undefined,
-        endpoint: url.pathname,
-        tags: { service: this.config.name },
-      });
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-        status: 500,
+
+      if (statusCode >= 500 && code !== 'NOT_FOUND') {
+        captureException(error, {
+          requestId: request.headers.get('x-request-id') || undefined,
+          userId: request.headers.get('x-user-id') || undefined,
+          endpoint: url.pathname,
+          tags: { service: this.config.name, statusCode: String(statusCode) },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        error: statusCode >= 500 ? 'Internal Server Error' : 'Not Found',
+      }), {
+        status: statusCode,
         headers: { 'content-type': 'application/json' },
       });
     });
@@ -372,11 +383,17 @@ export abstract class BaseService {
 
     process.on('uncaughtException', (error) => {
       logger.error(`${this.config.name}: Uncaught exception:`, error);
+      captureException(error, {
+        tags: { service: this.config.name, source: 'uncaughtException' },
+      });
       shutdown('uncaughtException');
     });
 
     process.on('unhandledRejection', (reason, promise) => {
       logger.error(`${this.config.name}: Unhandled rejection at:`, promise, 'reason:', reason);
+      captureException(reason instanceof Error ? reason : new Error(String(reason)), {
+        tags: { service: this.config.name, source: 'unhandledRejection' },
+      });
     });
   }
 

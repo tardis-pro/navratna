@@ -749,8 +749,8 @@ type AttachedTool = {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (agent) =>
-          agent.name.toLowerCase().includes(query) ||
-          agent.role.toLowerCase().includes(query) ||
+          (agent.name ?? '').toLowerCase().includes(query) ||
+          (agent.role ?? '').toLowerCase().includes(query) ||
           agent.description?.toLowerCase().includes(query)
       );
     }
@@ -771,7 +771,7 @@ type AttachedTool = {
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === 'role') return a.role.localeCompare(b.role);
+      if (sortBy === 'role') return (a.role ?? '').localeCompare(b.role ?? '');
       if (sortBy === 'status') {
         const sa = a.status ?? '';
         const sb = b.status ?? '';
@@ -787,7 +787,7 @@ type AttachedTool = {
         const ub = b.updatedAt ?? '';
         return ub.localeCompare(ua);
       }
-      return a.name.localeCompare(b.name);
+      return (a.name ?? '').localeCompare(b.name ?? '');
     });
 
     return sorted;

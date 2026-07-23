@@ -76,7 +76,14 @@ type EdenRequestConfig = {
   signal?: AbortSignal
 }
 
-type EdenService = 'core' | 'gateway' | 'questionforge'
+type ErrorResponsePayload = {
+  message?: string
+  error?: string
+  code?: string
+  errorCode?: string
+  details?: unknown
+  errors?: unknown
+}
 
 function dispatchResponseEvents(response: Response): void {
   if (response.status === 401) {
@@ -87,37 +94,6 @@ function dispatchResponseEvents(response: Response): void {
     const retryAfter = parseInt(response.headers.get('retry-after') ?? '60', 10)
     window.dispatchEvent(new CustomEvent('api:rate-limited', { detail: { retryAfter } }))
   }
-}
-
-function resolveService(path: string): EdenService {
-  if (path.startsWith('/api/v1/questionforge')) {
-    return 'questionforge'
-  }
-
-  if (
-    path.startsWith('/api/v1/auth') ||
-    path.startsWith('/api/v1/users') ||
-    path.startsWith('/api/v1/approvals') ||
-    path.startsWith('/api/v1/audit') ||
-    path.startsWith('/api/v1/security') ||
-    path.startsWith('/api/v1/providers') ||
-    path.startsWith('/api/v1/oauth') ||
-    path.startsWith('/api/v1/knowledge') ||
-    path.startsWith('/api/v1/contacts') ||
-    path.startsWith('/api/v1/projects') ||
-    path.startsWith('/api/v1/tasks') ||
-    path.startsWith('/api/v1/operations') ||
-    path.startsWith('/api/v1/workflows') ||
-    path.startsWith('/api/v1/capabilities') ||
-    path.startsWith('/api/v1/mcp') ||
-    path.startsWith('/api/v1/tools') ||
-    path.startsWith('/api/v1/workspaces') ||
-    path.startsWith('/api/v1/webhooks')
-  ) {
-    return 'gateway'
-  }
-
-  return 'core'
 }
 
 function isResponseWrapper<T>(value: unknown): value is EdenFetchResult<T> {
@@ -193,7 +169,18 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
 
   dispatchResponseEvents(response)
 
-  const result: unknown = await response.json()
+  const responseText = await response.text()
+  const result: unknown = responseText ? JSON.parse(responseText) : null
+
+  if (!response.ok && !isResponseWrapper<T>(result)) {
+    const value = isRecord(result) ? result as ErrorResponsePayload : undefined
+    throw new EdenClientError(
+      value?.message ?? value?.error ?? `Request failed with status ${response.status}`,
+      response.status,
+      value?.code ?? value?.errorCode,
+      value?.details ?? value?.errors,
+    )
+  }
 
   if (isResponseWrapper<T>(result)) {
     if (result.error?.status === 403) {

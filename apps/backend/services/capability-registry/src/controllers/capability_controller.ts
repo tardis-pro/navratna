@@ -17,6 +17,12 @@ interface ElysiaContext {
   set: { status?: number | string };
 }
 
+type CapabilitySearchInput = {
+  query?: string;
+  type?: CapabilityType;
+  limit: number;
+};
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
@@ -26,7 +32,16 @@ function toQueryString(val: unknown): string | undefined {
 }
 
 function toQueryInt(val: unknown, fallback: number): number {
-  return typeof val === 'string' ? parseInt(val, 10) : fallback;
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    return val;
+  }
+
+  if (typeof val === 'string') {
+    const parsed = parseInt(val, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  return fallback;
 }
 
 const capabilityTypeValues = new Set<unknown>(Object.values(CapabilityType));
@@ -59,6 +74,17 @@ function registryMeta(extra?: Record<string, unknown>) {
   return { ...extra, timestamp: new Date(), service: 'capability-registry' };
 }
 
+function capabilitySearchInput(source: Record<string, unknown>): CapabilitySearchInput {
+  const qParam = toQueryString(source.query);
+  const { type, limit = 50 } = source;
+
+  return {
+    query: qParam,
+    type: isCapabilityType(type) ? type : undefined,
+    limit: toQueryInt(limit, 50),
+  };
+}
+
 export class CapabilityController {
   private capabilityDiscoveryService: CapabilityDiscoveryService;
   private securityValidationService: SecurityValidationService;
@@ -69,19 +95,18 @@ export class CapabilityController {
   }
 
   public searchCapabilities = async ({ query, headers, set }: ElysiaContext) => {
-    const q = query ?? {};
+    const searchInput = capabilitySearchInput(query ?? {});
     const h = headers ?? {};
-    const { query: qParam, type, limit = 50 } = q;
 
-    if (!qParam || typeof qParam !== 'string') {
+    if (!searchInput.query) {
       set.status = 400;
       return { success: false, error: 'Query parameter is required' };
     }
 
     const searchQuery: CapabilitySearchQuery = {
-      query: qParam,
-      type: isCapabilityType(type) ? type : undefined,
-      limit: toQueryInt(limit, 50),
+      query: searchInput.query,
+      type: searchInput.type,
+      limit: searchInput.limit,
     };
 
     const securityContext = this.extractSecurityContext(h);
@@ -169,8 +194,7 @@ export class CapabilityController {
   };
 
   public listCapabilities = async ({ query, headers, set: _set }: ElysiaContext) => {
-    const q = query ?? {};
-    const { query: qParam = '*', type, limit = 50 } = q;
+    const searchInput = capabilitySearchInput(query ?? {});
 
     const securityContext = this.extractSecurityContext(headers ?? {});
 
@@ -178,19 +202,54 @@ export class CapabilityController {
       securityContext,
       'capability_read',
       ['capabilities'],
-      { query: qParam, type, limit }
+      { query: searchInput.query ?? '*', type: searchInput.type, limit: searchInput.limit }
     );
 
     const capabilities: Capability[] = await this.capabilityDiscoveryService.searchCapabilities({
-      query: typeof qParam === 'string' && qParam.length > 0 ? qParam : '*',
-      type: isCapabilityType(type) ? type : undefined,
-      limit: toQueryInt(limit, 50),
+      query: searchInput.query && searchInput.query.length > 0 ? searchInput.query : '*',
+      type: searchInput.type,
+      limit: searchInput.limit,
     });
 
     return {
       success: true,
       data: { capabilities, totalCount: capabilities.length },
       meta: registryMeta(),
+    };
+  };
+
+  public searchCapabilitiesFromBody = async ({ body, headers, set: _set }: ElysiaContext) => {
+    const requestBody = isRecord(body) ? body : {};
+    const searchInput = capabilitySearchInput(requestBody);
+    const searchQuery: CapabilitySearchQuery = {
+      query: searchInput.query && searchInput.query.length > 0 ? searchInput.query : '*',
+      type: searchInput.type,
+      limit: searchInput.limit,
+    };
+
+    const securityContext = this.extractSecurityContext(headers ?? {});
+
+    await this.securityValidationService.validateOperation(
+      securityContext,
+      'capability_search',
+      ['capabilities'],
+      searchQuery
+    );
+
+    const capabilities: Capability[] = await this.capabilityDiscoveryService.searchCapabilities(searchQuery);
+
+    return {
+      success: true,
+      data: {
+        capabilities,
+        totalCount: capabilities.length,
+        recommendations: [] satisfies unknown[],
+      },
+      meta: {
+        query: searchQuery,
+        timestamp: new Date(),
+        service: 'capability-registry',
+      },
     };
   };
 

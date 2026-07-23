@@ -31,7 +31,12 @@ const capabilities = gatewayClient.api.v1.capabilities;
 
 export const capabilitiesAPI = {
   async search(request: CapabilitySearchRequest): Promise<Capability[]> {
-    return edenWithCSRFRetry(() => capabilities.search.post(request));
+    const query = {
+      query: request.query,
+      type: request.type,
+      limit: request.limit !== undefined ? String(request.limit) : undefined,
+    };
+    return edenWithCSRFRetry(() => capabilities.search.get({ query }));
   },
 
   async list(options?: CapabilityListOptions): Promise<Capability[]> {

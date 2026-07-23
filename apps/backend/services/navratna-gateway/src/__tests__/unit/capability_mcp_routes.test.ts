@@ -72,6 +72,7 @@ vi.mock('../../../../capability-registry/src/controllers/capability_controller.j
     return {
       listCapabilities: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [], totalCount: 0 }, meta: { timestamp: new Date(), service: 'test' } }),
       searchCapabilities: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [] }, meta: { timestamp: new Date(), service: 'test' } }),
+      searchCapabilitiesFromBody: vi.fn().mockResolvedValue({ success: true, data: { capabilities: [] }, meta: { timestamp: new Date(), service: 'test' } }),
       getCapability: vi.fn().mockResolvedValue({ success: true, data: { capability: null } }),
       registerCapability: vi.fn().mockResolvedValue({ success: true, data: {} }),
       updateCapability: vi.fn().mockResolvedValue({ success: true, data: { capability: { id: 'c1' } } }),
@@ -110,6 +111,20 @@ describe('Capability Routes', () => {
       const app = buildCapabilityApp();
       const res = await app.handle(
         new Request('http://localhost/api/v1/capabilities/', { headers: authHeader() })
+      );
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /api/v1/capabilities/search', () => {
+    it('supports body-based capability search for frontend compatibility', async () => {
+      const app = buildCapabilityApp();
+      const res = await app.handle(
+        new Request('http://localhost/api/v1/capabilities/search', {
+          method: 'POST',
+          headers: { ...authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: 'search', limit: 10 }),
+        })
       );
       expect(res.status).toBe(200);
     });

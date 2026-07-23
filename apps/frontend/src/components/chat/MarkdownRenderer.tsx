@@ -55,6 +55,26 @@ interface ParsedBlock {
   isClosed: boolean;
 }
 
+type HastNode = {
+  type?: string;
+  tagName?: string;
+  children?: unknown[];
+  properties?: Record<string, unknown>;
+};
+
+function isHastNode(value: unknown): value is HastNode {
+  return typeof value === 'object' && value !== null;
+}
+
+function getStringProperty(source: unknown, key: string): string | undefined {
+  if (!isHastNode(source)) {
+    return undefined;
+  }
+
+  const value = source[key as keyof HastNode];
+  return typeof value === 'string' ? value : undefined;
+}
+
 export function parseMarkdownCodeBlocks(markdown: string): ParsedBlock[] {
   const lines = markdown.split('\n');
   const blocks: ParsedBlock[] = [];
@@ -105,12 +125,18 @@ export function parseMarkdownCodeBlocks(markdown: string): ParsedBlock[] {
 // authoritative (a stream that arrived clean can be Shiki-highlighted on the next render).
 function rehypeCodeBlockMeta(rawMarkdown: string, forceUnstable: boolean) {
   const blocks = parseMarkdownCodeBlocks(rawMarkdown);
-  return (tree: any) => {
+  return (tree: unknown) => {
     let index = 0;
 
-    function traverse(node: any) {
+    function traverse(node: unknown) {
+      if (!isHastNode(node)) {
+        return;
+      }
+
       if (node.type === 'element' && node.tagName === 'pre') {
-        const codeNode = node.children?.find((child: any) => child.tagName === 'code');
+        const codeNode = node.children?.find(
+          (child): child is HastNode => isHastNode(child) && child.tagName === 'code'
+        );
         if (codeNode) {
           const block = blocks[index];
           if (block) {
@@ -218,10 +244,10 @@ export const MarkdownRenderer = React.memo<MarkdownRendererProps>(
             td: ({ children }) => <td className="px-4 py-2 text-xs text-foreground leading-normal">{children}</td>,
             code: (props) => {
               const { children, className } = props;
-              const hasIndex = (props as any)['data-code-index'] !== undefined;
+              const hasIndex = getStringProperty(props, 'data-code-index') !== undefined;
               
               if (hasIndex) {
-                const isStable = (props as any)['data-is-stable'] === 'true';
+                const isStable = getStringProperty(props, 'data-is-stable') === 'true';
                 const match = /language-(\w+)/.exec(className || '');
                 const language = match ? match[1] : 'text';
                 
