@@ -1,71 +1,121 @@
-import { eq, and, desc } from 'drizzle-orm';
-import { LLMProviderUsageType } from '@uaip/types';
-import { getIntelligenceDb, llmProviders } from '../database/index';
+import type { LLMProviderUsageType } from '@uaip/types';
+import { isEncryptedApiKey, logger } from '@uaip/utils';
+import { LLMProviderRepository } from '../database/repositories/l_l_m_provider_repository';
 import type { LLMProviderRow } from '../database/repositories/l_l_m_provider_repository';
 
+export type ProviderConfigSource = 'database' | 'environment' | 'default';
+
 export interface ResolvedEmbeddingProvider {
-  baseUrl: string;
+  endpoint: string;
+  source: ProviderConfigSource;
   apiKey?: string;
   model?: string;
 }
 
 export interface ResolvedRerankingProvider {
-  baseUrl: string;
+  endpoint: string;
+  source: 'database' | 'environment';
   apiKey?: string;
   model?: string;
 }
 
 export interface ResolvedProviderConfig {
-  embedding?: ResolvedEmbeddingProvider;
-  reranking?: ResolvedRerankingProvider;
+  embedding: ResolvedEmbeddingProvider;
+  reranking: ResolvedRerankingProvider | null;
+}
+
+const DEFAULT_EMBEDDINGS_URL = 'https://api.openai.com/v1/embeddings';
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-ada-002';
+const PROVIDER_USAGE_TYPES = {
+  embedding: 'embedding',
+  reranking: 'reranking',
+} satisfies Record<string, `${LLMProviderUsageType}`>;
+
+function normalizeDatabaseEndpoint(baseUrl: string, operation: 'embeddings' | 'rerank'): string {
+  const normalized = baseUrl.replace(/\/+$/, '');
+  if (normalized.endsWith(`/${operation}`)) {
+    return normalized;
+  }
+  if (normalized.endsWith('/v1')) {
+    return `${normalized}/${operation}`;
+  }
+  return `${normalized}/v1/${operation}`;
+}
+
+function safeProviderApiKey(provider: LLMProviderRow): string | undefined {
+  const value = provider.apiKeyEncrypted;
+  if (!value) {
+    return undefined;
+  }
+  if (isEncryptedApiKey(value)) {
+    logger.warn('Omitting unresolved encrypted provider credential', {
+      service: 'embedding-provider-resolver',
+      providerId: provider.id,
+      usageType: provider.usageType,
+    });
+    return undefined;
+  }
+  return value;
 }
 
 async function findActiveProviderByUsageType(
-  usageType: LLMProviderUsageType
+  usageType: `${LLMProviderUsageType}`
 ): Promise<LLMProviderRow | null> {
-  const db = getIntelligenceDb();
-  const [row] = await db
-    .select()
-    .from(llmProviders)
-    .where(and(eq(llmProviders.usageType, usageType), eq(llmProviders.isActive, true)))
-    .orderBy(desc(llmProviders.priority), desc(llmProviders.createdAt))
-    .limit(1);
-  return row ?? null;
+  try {
+    const repository = new LLMProviderRepository();
+    const providers = await repository.findActiveProviders();
+    const matches = providers.filter((provider) => provider.usageType === usageType && provider.baseUrl);
+    return matches[0] ?? null;
+  } catch (error) {
+    logger.warn('LLM provider resolution failed, falling back to environment config', {
+      service: 'embedding-provider-resolver',
+      usageType,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return null;
+  }
 }
 
 export async function resolveEmbeddingProvider(): Promise<ResolvedEmbeddingProvider> {
-  const provider = await findActiveProviderByUsageType(LLMProviderUsageType.EMBEDDING);
-
+  const provider = await findActiveProviderByUsageType(PROVIDER_USAGE_TYPES.embedding);
   if (provider?.baseUrl) {
     return {
-      baseUrl: provider.baseUrl,
-      apiKey: provider.apiKeyEncrypted || undefined,
+      endpoint: normalizeDatabaseEndpoint(provider.baseUrl, 'embeddings'),
+      source: 'database',
+      apiKey: safeProviderApiKey(provider),
       model: provider.defaultModel || undefined,
     };
   }
 
+  const environmentEndpoint = process.env.EMBEDDINGS_URL;
   return {
-    baseUrl: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-    apiKey: process.env.EMBEDDINGS_API_KEY || undefined,
-    model: process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002',
+    endpoint: environmentEndpoint || DEFAULT_EMBEDDINGS_URL,
+    source: environmentEndpoint ? 'environment' : 'default',
+    apiKey: process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY || undefined,
+    model: process.env.EMBEDDINGS_MODEL || DEFAULT_EMBEDDING_MODEL,
   };
 }
 
-export async function resolveRerankingProvider(): Promise<ResolvedRerankingProvider> {
-  const provider = await findActiveProviderByUsageType(LLMProviderUsageType.RERANKING);
-
+export async function resolveRerankingProvider(): Promise<ResolvedRerankingProvider | null> {
+  const provider = await findActiveProviderByUsageType(PROVIDER_USAGE_TYPES.reranking);
   if (provider?.baseUrl) {
     return {
-      baseUrl: provider.baseUrl,
-      apiKey: provider.apiKeyEncrypted || undefined,
+      endpoint: normalizeDatabaseEndpoint(provider.baseUrl, 'rerank'),
+      source: 'database',
+      apiKey: safeProviderApiKey(provider),
       model: provider.defaultModel || undefined,
     };
   }
 
+  const environmentEndpoint = process.env.RERANKING_URL;
+  if (!environmentEndpoint) {
+    return null;
+  }
   return {
-    baseUrl: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
-    apiKey: process.env.EMBEDDINGS_API_KEY || undefined,
-    model: undefined,
+    endpoint: environmentEndpoint,
+    source: 'environment',
+    apiKey: process.env.RERANKING_API_KEY || process.env.EMBEDDINGS_API_KEY || undefined,
+    model: process.env.RERANKING_MODEL || undefined,
   };
 }
 

@@ -4,7 +4,6 @@ import type { SimplifiedSyncResult } from '@uaip/types';
 import { KnowledgeRepository } from '../database/repositories/knowledge_repository';
 import { QdrantService } from '../qdrant_service';
 import { ToolGraphDatabase } from '../database/tool_graph_database';
-import { EmbeddingService } from './embedding_service';
 import { SmartEmbeddingService } from './smart_embedding_service';
 import { ContentClassifier } from './content_classifier_service';
 import { ConceptExtractorService } from './concept_extractor_service';
@@ -41,7 +40,7 @@ export class KnowledgeBootstrapService {
     private readonly knowledgeRepository: KnowledgeRepository,
     private readonly qdrantService: QdrantService,
     private readonly graphDb: ToolGraphDatabase,
-    private readonly embeddingService: EmbeddingService,
+    private readonly embeddingService: SmartEmbeddingService,
     private readonly config: BootstrapConfig = {
       enableAutoSync: true,
       syncOnStartup: true,
@@ -51,18 +50,7 @@ export class KnowledgeBootstrapService {
       useSimplifiedSync: true,
     }
   ) {
-    this.smartEmbeddingService =
-      embeddingService instanceof SmartEmbeddingService
-        ? embeddingService
-        : new SmartEmbeddingService({
-            preferTEI: true,
-            fallbackToOpenAI: false,
-            teiUrls: {
-              embedding: process.env.TEI_EMBEDDING_URL || 'http://localhost:8080',
-              reranker: process.env.TEI_RERANKER_URL || 'http://localhost:8083',
-              embeddingCPU: process.env.TEI_EMBEDDING_CPU_URL || 'http://localhost:8082',
-            },
-          });
+    this.smartEmbeddingService = embeddingService;
 
     // Initialize services
     // TODO: Add user persona sync later

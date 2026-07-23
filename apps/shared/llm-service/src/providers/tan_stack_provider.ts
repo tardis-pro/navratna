@@ -1,8 +1,8 @@
 import { chat } from '@tanstack/ai';
 import type { AIAdapter } from '@tanstack/ai';
-import { openai } from '@tanstack/ai-openai';
-import { anthropic } from '@tanstack/ai-anthropic';
-import { ollama } from '@tanstack/ai-ollama';
+import { createOpenAI } from '@tanstack/ai-openai';
+import { createAnthropic } from '@tanstack/ai-anthropic';
+import { createOllama } from '@tanstack/ai-ollama';
 import { BaseProvider } from './base_provider.js';
 import { LLMRequest, LLMResponse, LLMProviderConfig, ProviderModelInfo } from '../interfaces.js';
 import { StreamChunk, StreamingLLMRequest } from '@uaip/types';
@@ -21,26 +21,28 @@ export class TanStackProvider extends BaseProvider {
     const { type, baseUrl } = this.config;
 
     switch (type) {
-      case 'openai':
-        return openai({
+      case 'openai': {
+        const apiKey = await this.getApiKey();
+        return createOpenAI(apiKey, {
           baseURL: baseUrl || 'https://api.openai.com/v1',
         });
+      }
 
-      case 'anthropic':
-        return anthropic({
-          baseURL: baseUrl,
-        });
+      case 'anthropic': {
+        const apiKey = await this.getApiKey();
+        return createAnthropic(apiKey);
+      }
 
       case 'ollama':
-        return ollama({
-          baseURL: baseUrl || 'http://localhost:11434',
-        });
+        return createOllama(baseUrl || 'http://localhost:11434');
 
-      default:
+      default: {
         // Fallback to OpenAI-compatible for custom providers
-        return openai({
+        const apiKey = await this.getApiKey();
+        return createOpenAI(apiKey, {
           baseURL: baseUrl,
         });
+      }
     }
   }
 
@@ -58,7 +60,7 @@ export class TanStackProvider extends BaseProvider {
         throw new Error(`${this.name}: no model configured for TanStack request`);
       }
 
-      const response = await chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
+      const response = chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
 
       // Collect full response from stream
       let content = '';
@@ -98,7 +100,7 @@ export class TanStackProvider extends BaseProvider {
       throw new Error(`${this.name}: no model configured for TanStack stream`);
     }
 
-    const stream = await chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
+    const stream = chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
 
     let tokenIndex = 0;
 

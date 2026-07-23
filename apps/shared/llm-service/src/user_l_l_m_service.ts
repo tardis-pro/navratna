@@ -32,7 +32,7 @@ type AgentMCPToolItem = {
   parameters?: Record<string, unknown>;
 };
 
-interface UserLLMProvider {
+export interface UserLLMProvider {
   id: string;
   userId: string;
   name: string;
@@ -860,15 +860,15 @@ export class UserLLMService {
       const repository = await this.getUserLLMProviderRepository();
       const rawRows = await repository.findActiveByUserId(userId);
       const rows = toUserLLMProviderDbRows(rawRows);
+      const providers = mapDbRowsToUserLLMProviders(rows);
       if (preferredType) {
-        const filtered = rows.filter((row) => row.providerId === preferredType);
+        const filtered = providers.filter((provider) => provider.type === preferredType);
         if (filtered.length > 0) {
-          return mapDbRowToUserLLMProvider(filtered[0]);
+          return filtered[0];
         }
       }
-      const defaultRow = rows.find((row) => row.isDefault === true);
-      const selectedRow = defaultRow ?? rows[0];
-      return selectedRow ? mapDbRowToUserLLMProvider(selectedRow) : null;
+      const defaultProvider = providers.find((provider) => provider.isDefault === true);
+      return defaultProvider ?? providers[0] ?? null;
     } catch (error) {
       logger.error('Error getting best user provider', { userId, preferredType, error });
       return null;
@@ -881,15 +881,15 @@ export class UserLLMService {
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
     const rawRows = await repository.findActiveByUserId(userId);
-    const rows = toUserLLMProviderDbRows(rawRows);
-    const selectedRow = rows.find((row) => row.providerId === providerType);
+    const providers = mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(rawRows));
+    const selectedProvider = providers.find((provider) => provider.type === providerType);
 
-    if (!selectedRow) {
+    if (!selectedProvider) {
       logger.error('Selected provider not found', { providerType });
       throw new Error(`Selected provider not found: ${providerType}`);
     }
 
-    return mapDbRowToUserLLMProvider(selectedRow);
+    return selectedProvider;
   }
 
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {

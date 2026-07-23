@@ -1,29 +1,111 @@
 import { ContextRequest } from '@uaip/types';
 import { BaseEmbeddingService } from './base_embedding_service.js';
+import type { ResolvedEmbeddingProvider } from './embedding_provider_resolver';
+import type { EmbeddingPort } from './provider_reranking';
 
-export class EmbeddingService extends BaseEmbeddingService {
+export interface EmbeddingServiceOptions {
+  apiKey?: string;
+  model?: string;
+  provider?: ResolvedEmbeddingProvider | null;
+}
+
+interface OpenAIEmbeddingItem {
+  embedding: number[];
+  index?: number;
+}
+
+interface NormalizedEmbeddingResponse {
+  data: OpenAIEmbeddingItem[];
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((n) => typeof n === 'number');
+}
+
+function isNumberMatrix(value: unknown): value is number[][] {
+  return Array.isArray(value) && value.every((row) => isNumberArray(row));
+}
+
+/**
+ * Normalize OpenAI-shaped embedding responses (`{ data: [{ embedding }] }`)
+ * with runtime validation. Also accepts the safe bare-vector variants
+ * (`number[]` for single input, `number[][]` for batch) returned by some
+ * hosted embedding gateways.
+ */
+export function normalizeEmbeddingResponse(body: unknown): NormalizedEmbeddingResponse {
+  if (isNumberMatrix(body)) {
+    return { data: body.map((embedding, index) => ({ embedding, index })) };
+  }
+
+  if (isNumberArray(body)) {
+    return { data: [{ embedding: body, index: 0 }] };
+  }
+
+  if (isPlainRecord(body) && Array.isArray(body.data)) {
+    const items: OpenAIEmbeddingItem[] = [];
+    for (const entry of body.data) {
+      if (!isPlainRecord(entry) || !isNumberArray(entry.embedding)) {
+        throw new Error('Embedding response contains an entry without a numeric embedding vector');
+      }
+      items.push({
+        embedding: entry.embedding,
+        index: typeof entry.index === 'number' ? entry.index : undefined,
+      });
+    }
+    return { data: items };
+  }
+
+  throw new Error('Embedding response is not an OpenAI-shaped object or numeric vector payload');
+}
+
+const DEFAULT_EMBEDDINGS_URL = 'https://api.openai.com/v1/embeddings';
+const DEFAULT_EMBEDDING_MODEL = 'text-embedding-ada-002';
+
+export class EmbeddingService extends BaseEmbeddingService implements EmbeddingPort {
   protected openaiApiKey: string;
   protected embeddingModel: string;
   protected embeddingsUrl: string;
 
-  constructor(openaiApiKey?: string, embeddingModel?: string) {
+  constructor(options?: EmbeddingServiceOptions);
+  constructor(openaiApiKey?: string, embeddingModel?: string);
+  constructor(
+    optionsOrApiKey?: EmbeddingServiceOptions | string,
+    legacyEmbeddingModel?: string
+  ) {
     super();
-    // Env-driven config. Defaults preserve today's behavior (OpenAI, ada-002)
-    // when nothing is set; point EMBEDDINGS_URL at the CF embed worker to switch.
-    this.embeddingsUrl = process.env.EMBEDDINGS_URL || 'https://api.openai.com/v1/embeddings';
+    let options: EmbeddingServiceOptions;
+    if (typeof optionsOrApiKey === 'string') {
+      options = { apiKey: optionsOrApiKey, model: legacyEmbeddingModel };
+    } else if (optionsOrApiKey === undefined) {
+      options = { model: legacyEmbeddingModel };
+    } else {
+      options = optionsOrApiKey;
+    }
+
+    // Env-driven config. Defaults preserve OpenAI/ada-002 behavior when nothing
+    // is set; EMBEDDINGS_URL is the environment embedding fallback (e.g. the CF
+    // embed worker). A resolved DB provider overrides env values.
+    const provider = options.provider ?? null;
+    this.embeddingsUrl = provider?.endpoint || process.env.EMBEDDINGS_URL || DEFAULT_EMBEDDINGS_URL;
     this.openaiApiKey =
-      openaiApiKey || process.env.EMBEDDINGS_API_KEY || process.env.OPENAI_API_KEY || '';
+      provider?.apiKey ||
+      options.apiKey ||
+      process.env.EMBEDDINGS_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      '';
     this.embeddingModel =
-      embeddingModel || process.env.EMBEDDINGS_MODEL || 'text-embedding-ada-002';
+      provider?.model || options.model || process.env.EMBEDDINGS_MODEL || DEFAULT_EMBEDDING_MODEL;
 
     if (!this.openaiApiKey) {
       console.warn('No embeddings API key found (EMBEDDINGS_API_KEY / OPENAI_API_KEY)');
     }
   }
 
-  private async fetchOpenAIEmbeddings(
-    input: string | string[]
-  ): Promise<{ data: Array<{ embedding: number[] }> }> {
+  protected async fetchEmbeddings(input: string | string[]): Promise<NormalizedEmbeddingResponse> {
     const response = await fetch(this.embeddingsUrl, {
       method: 'POST',
       headers: {
@@ -40,14 +122,18 @@ export class EmbeddingService extends BaseEmbeddingService {
       throw new Error(`Embeddings API error: ${response.statusText}`);
     }
 
-    const json = await response.json() as { data: Array<{ embedding: number[] }> };
-    return json;
+    const json: unknown = await response.json();
+    return normalizeEmbeddingResponse(json);
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const data = await this.fetchOpenAIEmbeddings(text);
-      return data.data[0].embedding;
+      const data = await this.fetchEmbeddings(text);
+      const first = data.data[0];
+      if (!first) {
+        throw new Error('Embedding response contained no vectors');
+      }
+      return first.embedding;
     } catch (error) {
       console.error('Embedding generation error:', error);
       const wrappedError = new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
@@ -76,8 +162,8 @@ export class EmbeddingService extends BaseEmbeddingService {
 
   async generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
     try {
-      const data = await this.fetchOpenAIEmbeddings(texts);
-      return data.data.map((item: { embedding: number[] }) => item.embedding);
+      const data = await this.fetchEmbeddings(texts);
+      return data.data.map((item) => item.embedding);
     } catch (error) {
       console.error('Batch embedding generation error:', error);
       const embeddings: number[][] = [];

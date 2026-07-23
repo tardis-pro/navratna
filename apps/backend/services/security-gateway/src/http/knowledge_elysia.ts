@@ -886,15 +886,11 @@ export function registerKnowledgeRoutes() {
           KnowledgeBootstrapService,
           DatabaseService,
           QdrantService,
-          SmartEmbeddingService,
         } = await import('@uaip/shared-services');
         const databaseService = DatabaseService.getInstance();
         const qdrantService = new QdrantService();
         await databaseService.initialize();
-        const embeddingService = new SmartEmbeddingService({
-          preferTEI: true,
-          fallbackToOpenAI: false,
-        });
+        const embeddingService = await serviceFactory.getSmartEmbeddingService();
         const knowledgeRepository = await databaseService.getKnowledgeRepository();
         const toolGraphDatabase = await databaseService.getToolGraphDatabase();
         const bootstrap = new KnowledgeBootstrapService(

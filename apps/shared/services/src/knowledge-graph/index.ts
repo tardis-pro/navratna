@@ -19,6 +19,17 @@ export {
   type ResolvedRerankingProvider,
   type ResolvedProviderConfig,
 } from './embedding_provider_resolver';
+export {
+  ProviderRerankingClient,
+  createRerankingPort,
+  normalizeRerankResponse,
+  type EmbeddingPort,
+  type ProviderEmbeddingPort,
+  type RerankingPort,
+  type RerankResultItem,
+  type RerankingClientConfig,
+} from './provider_reranking';
+export { normalizeEmbeddingResponse } from './embedding_service';
 export { EnhancedRAGService } from './enhanced_rag_service';
 export { ContentClassifier } from './content_classifier_service';
 export { RelationshipDetector } from './relationship_detector_service';

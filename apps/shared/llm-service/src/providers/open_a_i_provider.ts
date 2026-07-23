@@ -38,14 +38,18 @@ export class OpenAIProvider extends BaseProvider {
    * the model-selection orchestrator, e.g. `gpt-4o-mini`) may not exist on the
    * active provider (e.g. Omni serves `auto/best-reasoning`, `auto/best-coding`).
    * Precedence: requested model if available, otherwise the explicitly
-   * configured provider default. An unavailable catalog or model is a hard
-   * failure: choosing an arbitrary first model can silently change behavior.
+   * configured provider default. Providers are allowed to omit `/v1/models`;
+   * in that case the requested model is sent to the completion endpoint and
+   * that endpoint remains the source of truth.
    */
   private async resolveModel(requestedModel: string): Promise<string> {
     try {
       const models = await this.getAvailableModels();
       if (!models || models.length === 0) {
-        throw new Error(`${this.name}: provider returned no usable models`);
+        logger.warn(`${this.name}: provider model catalog unavailable; using requested model`, {
+          requestedModel,
+        });
+        return requestedModel;
       }
       const availableIds = models.map((m) => m.id);
       if (availableIds.includes(requestedModel)) {
@@ -55,9 +59,11 @@ export class OpenAIProvider extends BaseProvider {
         ? this.config.defaultModel
         : undefined;
       if (!fallbackModel) {
-        throw new Error(
-          `${this.name}: requested model "${requestedModel}" is unavailable and no configured default model is offered`
-        );
+        logger.warn(`${this.name}: requested model is absent from provider catalog; trying it directly`, {
+          requestedModel,
+          availableIds,
+        });
+        return requestedModel;
       }
       logger.warn(
         `${this.name}: requested model "${requestedModel}" not offered by provider; using "${fallbackModel}"`,
@@ -65,10 +71,11 @@ export class OpenAIProvider extends BaseProvider {
       );
       return fallbackModel;
     } catch (error) {
-      throw new Error(
-        `${this.name}: failed to validate model "${requestedModel}": ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error }
-      );
+      logger.warn(`${this.name}: model catalog check failed; using requested model`, {
+        requestedModel,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return requestedModel;
     }
   }
 

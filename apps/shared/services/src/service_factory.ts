@@ -287,11 +287,11 @@ export class ServiceFactory {
 
   async getEnhancedRAGService(): Promise<EnhancedRAGService> {
     return this.getOrCreateService('enhanced-rag-service', async () => {
-      const [teiEmbeddingService, qdrantService] = await Promise.all([
-        this.getTEIEmbeddingService(),
+      const [smartEmbeddingService, qdrantService] = await Promise.all([
+        this.getSmartEmbeddingService(),
         this.getQdrantService(),
       ]);
-      return new EnhancedRAGService(teiEmbeddingService, qdrantService);
+      return new EnhancedRAGService(smartEmbeddingService, qdrantService);
     });
   }
 

@@ -201,9 +201,7 @@ export class LLMService {
       this.providers.set('llmstudio', llmStudioProvider);
     }
 
-    const openAiApiKey = process.env.OPENAI_API_URL
-      ? process.env.CUSTOM_OPENAI_API_KEY
-      : process.env.OPENAI_API_KEY;
+    const openAiApiKey = process.env.CUSTOM_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
     if (openAiApiKey && process.env.OPENAI_MODEL) {
       const openaiProvider = new OpenAIProvider(
         {

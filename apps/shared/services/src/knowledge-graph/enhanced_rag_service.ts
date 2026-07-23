@@ -1,7 +1,7 @@
 import { VectorSearchResult } from '@uaip/types';
 import { logger } from '@uaip/utils';
-import { TEIEmbeddingService } from './tei_embedding_service';
 import { QdrantService } from '../qdrant_service';
+import type { ProviderEmbeddingPort, RerankingPort } from './provider_reranking';
 
 export interface SearchResult {
   id: string;
@@ -69,8 +69,9 @@ function mapCandidateToResult(candidate: VectorCandidate, index: number, include
 
 export class EnhancedRAGService {
   constructor(
-    private embeddingService: TEIEmbeddingService,
-    private vectorStore: QdrantService
+    private embeddingService: ProviderEmbeddingPort,
+    private vectorStore: QdrantService,
+    private reranker?: RerankingPort | null
   ) {}
 
   /**
@@ -293,16 +294,13 @@ export class EnhancedRAGService {
     vectorStore: boolean;
   }> {
     try {
-      const [teiHealth, vectorStoreHealth] = await Promise.allSettled([
-        this.embeddingService.checkHealth(),
-        Promise.resolve(this.vectorStore.isHealthy()),
-      ]);
+      const vectorStoreHealth = await Promise.resolve(this.vectorStore.isHealthy());
+      const rerankerConfigured = await this.resolveReranker() !== null;
 
       return {
-        embedding:
-          teiHealth.status === 'fulfilled' ? teiHealth.value.embedding : { status: 'error' },
-        reranker: teiHealth.status === 'fulfilled' ? teiHealth.value.reranker : { status: 'error' },
-        vectorStore: vectorStoreHealth.status === 'fulfilled' ? vectorStoreHealth.value : false,
+        embedding: { status: 'configured' },
+        reranker: { status: rerankerConfigured ? 'configured' : 'not-configured' },
+        vectorStore: vectorStoreHealth,
       };
     } catch (error) {
       logger.error('Health check failed', { error });
@@ -314,17 +312,49 @@ export class EnhancedRAGService {
     }
   }
 
+  private async resolveReranker(): Promise<RerankingPort | null> {
+    if (this.reranker) {
+      return this.reranker;
+    }
+    if (typeof this.embeddingService.rerank === 'function') {
+      const serviceRerank = this.embeddingService.rerank.bind(this.embeddingService);
+      return { rerank: serviceRerank };
+    }
+    return null;
+  }
+
   /**
-   * Private method to rerank search results
+   * Private method to rerank search results.
+   *
+   * Never fabricates scores: when no reranker is configured or the provider
+   * fails, the original candidate order (first-stage vector order) is
+   * returned through this explicit fallback with only `originalScore` set.
    */
   private async rerankResults(
     query: string,
     candidates: SearchResult[],
     topK: number
   ): Promise<EnhancedSearchResult[]> {
+    const fallbackToVectorOrder = (): EnhancedSearchResult[] =>
+      candidates.slice(0, topK).map((candidate, index) => ({
+        ...candidate,
+        originalScore: candidate.score,
+        rank: index + 1,
+      }));
+
     try {
+      const reranker = await this.resolveReranker();
+      if (!reranker) {
+        logger.info('No reranker configured; using first-stage vector order');
+        return fallbackToVectorOrder();
+      }
+
       const documents = candidates.map((c) => c.content);
-      const rerankResults = await this.embeddingService.rerank(query, documents, topK);
+      const rerankResults = await reranker.rerank(query, documents, topK);
+      if (rerankResults === null) {
+        logger.info('Reranker unavailable; using first-stage vector order');
+        return fallbackToVectorOrder();
+      }
 
       // Map rerank results back to original candidates
       const enhancedResults: EnhancedSearchResult[] = rerankResults.map((rerankResult, rank) => {
@@ -341,13 +371,7 @@ export class EnhancedRAGService {
       return enhancedResults;
     } catch (error) {
       logger.error('Reranking failed, falling back to vector scores', { error });
-
-      // Fallback to original vector similarity scores
-      return candidates.slice(0, topK).map((candidate, index) => ({
-        ...candidate,
-        originalScore: candidate.score,
-        rank: index + 1,
-      }));
+      return fallbackToVectorOrder();
     }
   }
 
