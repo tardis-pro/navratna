@@ -14,11 +14,6 @@ import { registerContactRoutes } from '../../security-gateway/src/http/contacts_
 import { registerToolPreferenceRoutes } from '../../security-gateway/src/http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from '../../security-gateway/src/http/dashboard_elysia.js'
 import { registerProjectRoutes as registerSecurityProjectRoutes } from '../../security-gateway/src/http/projects_elysia.js'
-import { registerProjectRoutes as registerOrchestrationProjectRoutes } from '../../orchestration-pipeline/src/routes/project_routes.js'
-import { registerTaskRoutes } from '../../orchestration-pipeline/src/routes/task_routes.js'
-import { registerWorkflowRoutes } from '../../orchestration-pipeline/src/routes/workflow_routes.js'
-import type { TaskController } from '../../orchestration-pipeline/src/controllers/task_controller.js'
-import type { WorkflowEngineService } from '../../orchestration-pipeline/src/services/workflow_engine_service.js'
 import { registerCapabilityRoutes } from '../../capability-registry/src/routes/capability_routes.js'
 import { registerMCPRoutes } from '../../capability-registry/src/routes/mcp_routes.js'
 import { registerHealthRoutes } from '../../capability-registry/src/routes/health_routes.js'
@@ -36,8 +31,6 @@ type GatewayHealthResponse = {
   features: string[]
 }
 
-const typeExportStub = null as unknown
-
 export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .get('/health', (): GatewayHealthResponse => ({ status: 'ok', service: 'navratna-gateway', features: [] }))
   .use(registerAuthRoutes())
@@ -54,10 +47,6 @@ export const gatewayApp = new Elysia({ name: 'navratna-gateway' })
   .use(registerToolPreferenceRoutes())
   .use(registerDashboardRoutes())
   .use(registerSecurityProjectRoutes())
-  .use(registerOrchestrationProjectRoutes())
-  // Services are null here; app.ts is a type-export stub — services are initialized at runtime in index.ts
-  .use(registerTaskRoutes(typeExportStub as TaskController))
-  .use(registerWorkflowRoutes(typeExportStub as WorkflowEngineService))
   .use(registerCapabilityRoutes())
   .use(registerMCPRoutes())
   .use(registerHealthRoutes())

@@ -424,7 +424,7 @@ export class UserLLMService {
   /**
    * Test a user's provider connectivity
    */
-  async testUserProvider(userId: string): Promise<{
+  async testUserProvider(userId: string, providerId?: string): Promise<{
     isHealthy: boolean;
     error?: string;
     modelCount: number;
@@ -434,16 +434,28 @@ export class UserLLMService {
       const repository = await this.getUserLLMProviderRepository();
       const rows = await repository.findByUserId(userId);
       const userProviders = mapDbRowsToUserLLMProviders(toUserLLMProviderDbRows(rows));
-      if (!userProviders || userProviders.length === 0) {
+      const activeProviders = userProviders.filter((candidate) => candidate.isActive !== false);
+      const userProvider = providerId
+        ? activeProviders.find((candidate) => candidate.id === providerId)
+        : activeProviders.find((candidate) => candidate.isDefault) ?? activeProviders[0];
+      if (!userProvider) {
         throw new Error('Provider not found or access denied');
       }
 
       const startTime = Date.now();
-      const provider = await this.createProviderInstance(userProviders[0]);
+      const provider = await this.createProviderInstance(userProvider);
 
       try {
         const models = await provider.getAvailableModels();
         const responseTime = Date.now() - startTime;
+        if (models.length === 0) {
+          return {
+            isHealthy: false,
+            error: 'Provider returned no models',
+            modelCount: 0,
+            responseTime,
+          };
+        }
         return {
           isHealthy: true,
           modelCount: models.length,
@@ -481,11 +493,18 @@ export class UserLLMService {
     try {
       // Get provider if not provided
       if (!provider) {
-        const providers = await this.getUserProviders(userId);
-        if (providers.length === 0) {
+        const providers = await this.getActiveUserProviders(userId);
+        const configuredProviders = providers.filter(
+          (candidate) =>
+            typeof candidate.apiKeyEncrypted === 'string' &&
+            candidate.apiKeyEncrypted.length > 0 &&
+            (typeof candidate.baseUrl === 'string' ||
+              (typeof candidate.configuration === 'object' && candidate.configuration !== null))
+        );
+        if (configuredProviders.length === 0) {
           throw new Error('No LLM providers configured for user');
         }
-        provider = providers[0]; // Use first available provider
+        provider = configuredProviders.find((candidate) => candidate.isDefault) ?? configuredProviders[0];
       }
 
       // Ensure we have a fresh entity instance if the provider might be a plain object
@@ -548,8 +567,7 @@ export class UserLLMService {
       });
 
       return {
-        content:
-          'I apologize, but I encountered an error while generating your response. Please try again or check your provider configuration.',
+        content: '',
         model: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
         finishReason: 'error',
@@ -840,7 +858,7 @@ export class UserLLMService {
   ): Promise<UserLLMProvider | null> {
     try {
       const repository = await this.getUserLLMProviderRepository();
-      const rawRows = await repository.findByUserId(userId);
+      const rawRows = await repository.findActiveByUserId(userId);
       const rows = toUserLLMProviderDbRows(rawRows);
       if (preferredType) {
         const filtered = rows.filter((row) => row.providerId === preferredType);
@@ -862,10 +880,9 @@ export class UserLLMService {
     providerType: UserLLMProviderType
   ): Promise<UserLLMProvider> {
     const repository = await this.getUserLLMProviderRepository();
-    const rawRows = await repository.findByUserId(userId);
+    const rawRows = await repository.findActiveByUserId(userId);
     const rows = toUserLLMProviderDbRows(rawRows);
-    const filteredRows = rows.filter((row) => row.providerId === providerType);
-    const selectedRow = filteredRows[0] ?? rows[0];
+    const selectedRow = rows.find((row) => row.providerId === providerType);
 
     if (!selectedRow) {
       logger.error('Selected provider not found', { providerType });
@@ -918,6 +935,7 @@ export class UserLLMService {
       rawType === 'google' || rawType === 'anthropic' ? 'custom' : rawType;
 
     return {
+      providerId: userProvider.id,
       type: providerConfigType,
       baseUrl: userProvider.baseUrl || getDefaultBaseUrl(userProvider.type),
       // apiKeyEncrypted is already decrypted to plaintext by the repository read

@@ -80,6 +80,7 @@ export enum MessageSentiment {
 export const DiscussionParticipantSchema = BaseEntitySchema.extend({
   discussionId: IDSchema,
   agentId: IDSchema, // Only agents participate in discussions
+  personaId: IDSchema.optional(),
   userId: IDSchema.optional(), // Human user if applicable
   role: z.enum(['participant', 'moderator', 'observer', 'facilitator']).default('participant'),
   joinedAt: z.date(),

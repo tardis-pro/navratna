@@ -53,7 +53,10 @@ export class TanStackProvider extends BaseProvider {
     try {
       const adapter = await this.createAdapter();
       const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
-      const model = request.model || this.config.defaultModel || 'gpt-4o';
+      const model = request.model || this.config.defaultModel;
+      if (!model) {
+        throw new Error(`${this.name}: no model configured for TanStack request`);
+      }
 
       const response = await chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
 
@@ -90,7 +93,10 @@ export class TanStackProvider extends BaseProvider {
   async *streamResponse(request: StreamingLLMRequest): AsyncGenerator<StreamChunk, void, unknown> {
     const adapter = await this.createAdapter();
     const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
-    const model = request.model || this.config.defaultModel || 'gpt-4o';
+    const model = request.model || this.config.defaultModel;
+    if (!model) {
+      throw new Error(`${this.name}: no model configured for TanStack stream`);
+    }
 
     const stream = await chat({ adapter, model, messages, options: { maxTokens: request.maxTokens || 2000, temperature: request.temperature || 0.7 } });
 
@@ -142,27 +148,16 @@ export class TanStackProvider extends BaseProvider {
   }
 
   protected async fetchModelsFromProvider(): Promise<ProviderModelInfo[]> {
-    // TanStack AI doesn't have a models endpoint - return configured models
-    const defaultModels = this.getDefaultModelsForType();
-    return defaultModels.map((model) => ({
-      id: model,
-      name: model,
-      description: `${this.config.type} model: ${model}`,
+    if (!this.config.defaultModel) {
+      return [];
+    }
+
+    return [{
+      id: this.config.defaultModel,
+      name: this.config.defaultModel,
+      description: `${this.config.type} model: ${this.config.defaultModel}`,
       source: this.config.baseUrl || 'default',
       apiEndpoint: this.config.baseUrl || '',
-    }));
-  }
-
-  private getDefaultModelsForType(): string[] {
-    switch (this.config.type) {
-      case 'openai':
-        return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'];
-      case 'anthropic':
-        return ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'];
-      case 'ollama':
-        return ['llama3.2', 'mistral', 'codellama'];
-      default:
-        return ['default'];
-    }
+    }];
   }
 }

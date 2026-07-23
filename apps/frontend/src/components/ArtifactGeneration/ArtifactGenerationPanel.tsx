@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { artifactFactory } from '@/services/artifact/artifact_factory';
+import { artifactCollection } from '@/services/artifact/artifact_collection';
 import type { Artifact } from '@uaip/types';
 import type {
   ArtifactGenerationPanelProps,
@@ -34,7 +34,7 @@ export const ArtifactGenerationPanel: React.FC<ArtifactGenerationPanelProps> = (
 
   const sortedArtifacts = useMemo(
     () =>
-      artifactFactory.listArtifacts(artifacts),
+      artifactCollection.listArtifacts(artifacts),
     [artifacts]
   );
 

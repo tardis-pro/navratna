@@ -37,35 +37,38 @@ export class OpenAIProvider extends BaseProvider {
    * When switching BYOK providers the requested model (from the agent config or
    * the model-selection orchestrator, e.g. `gpt-4o-mini`) may not exist on the
    * active provider (e.g. Omni serves `auto/best-reasoning`, `auto/best-coding`).
-   * Precedence: requested model if available → configured defaultModel if
-   * available → provider's first available model. If the model list can't be
-   * fetched, fall back to the requested model unchanged (no hard failure).
+   * Precedence: requested model if available, otherwise the explicitly
+   * configured provider default. An unavailable catalog or model is a hard
+   * failure: choosing an arbitrary first model can silently change behavior.
    */
   private async resolveModel(requestedModel: string): Promise<string> {
     try {
       const models = await this.getAvailableModels();
       if (!models || models.length === 0) {
-        return requestedModel;
+        throw new Error(`${this.name}: provider returned no usable models`);
       }
       const availableIds = models.map((m) => m.id);
       if (availableIds.includes(requestedModel)) {
         return requestedModel;
       }
-      const fallbackModel =
-        this.config.defaultModel && availableIds.includes(this.config.defaultModel)
-          ? this.config.defaultModel
-          : availableIds[0];
+      const fallbackModel = this.config.defaultModel && availableIds.includes(this.config.defaultModel)
+        ? this.config.defaultModel
+        : undefined;
+      if (!fallbackModel) {
+        throw new Error(
+          `${this.name}: requested model "${requestedModel}" is unavailable and no configured default model is offered`
+        );
+      }
       logger.warn(
         `${this.name}: requested model "${requestedModel}" not offered by provider; using "${fallbackModel}"`,
         { requestedModel, fallbackModel, availableIds }
       );
       return fallbackModel;
     } catch (error) {
-      logger.warn(`${this.name}: could not verify model availability, using requested model`, {
-        requestedModel,
-        error: error instanceof Error ? error.message : error,
-      });
-      return requestedModel;
+      throw new Error(
+        `${this.name}: failed to validate model "${requestedModel}": ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
     }
   }
 
@@ -92,7 +95,10 @@ export class OpenAIProvider extends BaseProvider {
         request.images && request.images.length > 0
           ? this.buildVisionMessages(request.systemPrompt, request.prompt, request.images)
           : this.buildChatMessages(request.systemPrompt, request.prompt);
-      const requestedModel = request.model || this.config.defaultModel || 'gpt-3.5-turbo';
+      const requestedModel = request.model || this.config.defaultModel;
+      if (!requestedModel) {
+        throw new Error(`${this.name}: no model configured for OpenAI-compatible request`);
+      }
       const model = await this.resolveModel(requestedModel);
       const body = {
         model,
@@ -210,29 +216,11 @@ export class OpenAIProvider extends BaseProvider {
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Failed to fetch models from OpenAI:`, errorMessage);
-
-      // If we have an API key, return fallback models, otherwise throw error
-      if (this.config.apiKey) {
-        return [
-          {
-            id: 'gpt-3.5-turbo',
-            name: 'gpt-3.5-turbo',
-            description: 'OpenAI GPT-3.5 Turbo',
-            source: this.config.baseUrl || 'https://api.openai.com',
-            apiEndpoint: this.getChatCompletionsUrl(),
-          },
-          {
-            id: 'gpt-4',
-            name: 'gpt-4',
-            description: 'OpenAI GPT-4',
-            source: this.config.baseUrl || 'https://api.openai.com',
-            apiEndpoint: this.getChatCompletionsUrl(),
-          },
-        ];
-      } else {
-        throw new Error(`OpenAI connection failed: ${errorMessage}`, { cause: error });
-      }
+      logger.error(`${this.name}: failed to fetch provider models`, {
+        error: errorMessage,
+        baseUrl: this.config.baseUrl,
+      });
+      throw new Error(`OpenAI connection failed: ${errorMessage}`, { cause: error });
     }
   }
 }

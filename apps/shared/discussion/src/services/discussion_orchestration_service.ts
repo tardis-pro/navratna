@@ -23,6 +23,15 @@ export interface DiscussionOrchestrationResult {
 }
 
 type ParticipantRole = DiscussionParticipant['role'];
+type AgentMessageFailure = {
+  discussionId: string;
+  participantId: string;
+  agentId?: string;
+  error: string;
+  model?: string;
+};
+
+const MAX_CONSECUTIVE_AGENT_TURN_FAILURES = 3;
 
 const VALID_PARTICIPANT_ROLES: readonly ParticipantRole[] = [
   'participant',
@@ -123,6 +132,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
     this.activeDiscussions.delete(discussion.id);
     this.turnRequestQueues.delete(discussion.id);
+  }
+
+  private getConsecutiveFailureCount(metadata: Record<string, unknown> | undefined): number {
+    const count = metadata?.consecutiveAgentTurnFailures;
+    return typeof count === 'number' ? count : 0;
   }
 
   constructor(
@@ -258,6 +272,16 @@ export class DiscussionOrchestrationService extends EventEmitter {
         };
       }
 
+      const unboundAgent = activeParticipants.find(
+        (participant) => participant.agentId && !participant.personaId
+      );
+      if (unboundAgent) {
+        return {
+          success: false,
+          error: `Agent participant ${unboundAgent.agentId} is not linked to a persona`,
+        };
+      }
+
       // Initialize first turn
       const turnResult = await this.turnStrategyService.advanceTurn(
         discussion,
@@ -268,6 +292,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       // Update discussion status and state
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
         status: DiscussionStatus.ACTIVE,
+        startedAt: new Date(),
         state: {
           ...discussion.state,
           currentTurn: {
@@ -583,6 +608,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
 
       // Update discussion state (the service handles participant updates internally)
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
+        metadata: {
+          ...discussion.metadata,
+          consecutiveAgentTurnFailures: 0,
+          lastAgentTurnFailure: undefined,
+        },
         state: {
           ...discussion.state,
           messageCount: discussion.state.messageCount + 1,
@@ -764,6 +794,67 @@ export class DiscussionOrchestrationService extends EventEmitter {
         error: 'Failed to advance turn',
       };
     }
+  }
+
+  async recordAgentMessageFailure(failure: AgentMessageFailure): Promise<void> {
+    const discussion = await this.getDiscussion(failure.discussionId, true);
+    if (!discussion || discussion.status !== DiscussionStatus.ACTIVE) {
+      logger.debug('Ignoring agent message failure for inactive discussion', {
+        discussionId: failure.discussionId,
+        status: discussion?.status,
+      });
+      return;
+    }
+
+    const failureCount = this.getConsecutiveFailureCount(discussion.metadata) + 1;
+    const lastFailure = {
+      participantId: failure.participantId,
+      agentId: failure.agentId,
+      error: failure.error,
+      model: failure.model,
+      failedAt: new Date(),
+    };
+
+    const shouldPause = failureCount >= MAX_CONSECUTIVE_AGENT_TURN_FAILURES;
+    const updatedDiscussion = await this.discussionService.updateDiscussion(failure.discussionId, {
+      status: shouldPause ? DiscussionStatus.PAUSED : discussion.status,
+      metadata: {
+        ...discussion.metadata,
+        consecutiveAgentTurnFailures: failureCount,
+        lastAgentTurnFailure: lastFailure,
+        pauseReason: shouldPause ? 'agent_turn_generation_failed' : discussion.metadata?.pauseReason,
+        pausedAt: shouldPause ? new Date() : discussion.metadata?.pausedAt,
+      },
+    });
+
+    this.cacheActiveDiscussion(updatedDiscussion);
+
+    if (shouldPause) {
+      await this.clearTurnTimer(failure.discussionId);
+      this.turnRequestQueues.delete(failure.discussionId);
+      await this.emitEvent({
+        id: this.generateEventId(),
+        type: DiscussionEventType.STATUS_CHANGED,
+        discussionId: failure.discussionId,
+        data: {
+          oldStatus: DiscussionStatus.ACTIVE,
+          newStatus: DiscussionStatus.PAUSED,
+          reason: 'agent_turn_generation_failed',
+          consecutiveAgentTurnFailures: failureCount,
+        },
+        timestamp: new Date(),
+        metadata: { source: 'orchestration-service' },
+      });
+    }
+
+    logger.warn('Recorded failed agent discussion turn', {
+      discussionId: failure.discussionId,
+      participantId: failure.participantId,
+      agentId: failure.agentId,
+      failureCount,
+      paused: shouldPause,
+      error: failure.error,
+    });
   }
 
   /**
@@ -2258,29 +2349,24 @@ export class DiscussionOrchestrationService extends EventEmitter {
     userId: string
   ): Promise<DiscussionOrchestrationResult> {
     try {
-      const result = await this.updateDiscussionStatus(
-        discussionId,
-        DiscussionStatus.COMPLETED,
-        userId
-      );
+      const discussion = await this.discussionService.endDiscussion(discussionId, userId, 'manual');
+      this.cacheActiveDiscussion(discussion);
 
-      if (result.success) {
-        // Clear turn timer and remove from active discussions
-        const timer = this.turnTimers.get(discussionId);
-        if (timer) {
-          clearTimeout(timer);
-          this.turnTimers.delete(discussionId);
-        }
-        this.activeDiscussions.delete(discussionId);
-        this.turnRequestQueues.delete(discussionId);
+      // Clear turn timer and remove from active discussion state
+      const timer = this.turnTimers.get(discussionId);
+      if (timer) {
+        clearTimeout(timer);
+        this.turnTimers.delete(discussionId);
+      }
+      this.activeDiscussions.delete(discussionId);
+      this.turnRequestQueues.delete(discussionId);
 
-        // Emit discussion completion event for artifact generation
+      if (discussion.status === DiscussionStatus.COMPLETED) {
         await this.emitDiscussionCompletionEvent(discussionId, userId, 'manual');
-
-        logger.info('Discussion stopped', { discussionId, userId });
       }
 
-      return result;
+      logger.info('Discussion stopped', { discussionId, userId, status: discussion.status });
+      return { success: true, data: discussion };
     } catch (error) {
       logger.error('Failed to stop discussion', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -2315,9 +2401,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
     try {
       const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
       const validRoles = new Set<string>(['participant', 'moderator', 'observer', 'facilitator']);
-      type ParticipantRole = 'participant' | 'moderator' | 'observer' | 'facilitator';
-      const isValidRole = (r: unknown): r is ParticipantRole => typeof r === 'string' && validRoles.has(r);
-      const DEFAULT_ROLE: ParticipantRole = 'participant';
+      type ActiveParticipantRole = 'participant' | 'moderator' | 'observer' | 'facilitator';
+      const isValidRole = (r: unknown): r is ActiveParticipantRole => typeof r === 'string' && validRoles.has(r);
+      const DEFAULT_ROLE: ActiveParticipantRole = 'participant';
       const raw = await participantManagementService.getActiveParticipants(discussionId);
       return raw.map((p) => ({
         ...p,
@@ -2463,6 +2549,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
       | 'consensus_reached'
   ): Promise<void> {
     try {
+      const participantManagementService = new ParticipantManagementService(this.discussionService.getDatabaseService());
+      await participantManagementService.backfillDiscussionPersonaIds(discussionId);
+
       const discussion = await this.getDiscussion(discussionId);
       if (!discussion) {
         logger.error('Cannot emit completion event - discussion not found', { discussionId });
@@ -2505,6 +2594,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           description: discussion.description,
           topic: discussion.topic,
           status: discussion.status,
+          createdBy: discussion.createdBy,
           completedBy,
           completionReason,
           metrics: discussionMetrics,

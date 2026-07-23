@@ -26,6 +26,11 @@ import { PersonaService } from './persona_service';
 import { logger, NotFoundError, ValidationError, InternalServerError, isRecord } from '@uaip/utils';
 
 type ParticipantRoleValue = DiscussionParticipantType['role'];
+type DiscussionAgentLookup = {
+  name?: string;
+  personaId?: string;
+};
+
 const VALID_PARTICIPANT_ROLES = ['participant', 'moderator', 'observer', 'facilitator'] as const;
 function toParticipantRole(role: string): ParticipantRoleValue {
   return VALID_PARTICIPANT_ROLES.find((r) => r === role) ?? 'participant';
@@ -125,6 +130,7 @@ export class DiscussionService {
       updatedAt: p.updatedAt ?? undefined,
       discussionId: p.discussionId,
       agentId: p.agentId,
+      personaId: p.personaId ?? undefined,
       userId: p.userId ?? undefined,
       role: toParticipantRole(p.role),
       joinedAt: p.joinedAt,
@@ -541,7 +547,7 @@ export class DiscussionService {
       }
 
       // Validate agent exists
-      const agent = await this.databaseService.findById<{ name?: string }>(
+      const agent = await this.databaseService.findById<DiscussionAgentLookup>(
         'agents',
         participantRequest.agentId
       );
@@ -558,6 +564,7 @@ export class DiscussionService {
       const participant = await participantManagementService.createAgentParticipant({
         discussionId,
         agentId: participantRequest.agentId,
+        personaId: agent.personaId,
         displayName: participantRequest.displayName || agent.name,
         roleInDiscussion: participantRequest.role || 'participant',
         permissions: participantRequest.permissions,
@@ -1109,13 +1116,9 @@ export class DiscussionService {
       throw new ValidationError(`Discussion topic must be ${maxTopicLength} characters or fewer`);
     }
 
-    if (!request.initialParticipants || request.initialParticipants.length < 1) {
-      throw new ValidationError('Discussion requires at least 1 initial participant');
-    }
-
     // Validate agents exist
     await Promise.all(
-      request.initialParticipants.map(async (participant) => {
+      (request.initialParticipants ?? []).map(async (participant) => {
         if (!participant.agentId) {
           throw new ValidationError('Participant agentId is required');
         }

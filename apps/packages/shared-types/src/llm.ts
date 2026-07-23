@@ -663,6 +663,7 @@ export interface AvailableTool {
 
 // Provider configuration
 export interface LLMProviderConfig {
+  providerId?: string;
   type: 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
   baseUrl: string;
   apiKey?: string;
@@ -883,33 +884,6 @@ export interface LLMProviderShape {
   isActive?: boolean;
   defaultModel?: string;
   modelId?: string;
-}
-
-export enum AgentLLMProvider {
-  ANTHROPIC = 'anthropic',
-  OPENAI_CODEX = 'openai-codex',
-  GITHUB_COPILOT = 'github-copilot',
-  GOOGLE_GEMINI_CLI = 'google-gemini-cli',
-  OPENAI = 'openai',
-  GOOGLE = 'google',
-  GROQ = 'groq',
-  MISTRAL = 'mistral',
-  OPENROUTER = 'openrouter',
-}
-
-export interface LLMProviderCredentialRecord {
-  id: string;
-  userId: string;
-  provider: AgentLLMProvider;
-  credentialType: 'api_key' | 'oauth';
-  encryptedApiKey?: string;
-  encryptedAccessToken?: string;
-  encryptedRefreshToken?: string;
-  tokenExpiresAt?: Date;
-  isActive: boolean;
-  connectedAt: Date;
-  lastUsedAt?: Date;
-  metadata?: Record<string, unknown>;
 }
 
 export interface ModelForUser {

@@ -44,10 +44,12 @@ export class ModelSyncService {
     const apiKey = get('apiKey');
     const apiKeyEncrypted = get('apiKeyEncrypted');
     const defaultModel = get('defaultModel');
+    const providerId = get('providerId');
     const timeout = get('timeout');
     const retries = get('retries');
 
     return {
+      providerId: typeof providerId === 'string' ? providerId : undefined,
       type: normalizedType,
       baseUrl,
       apiKey: typeof apiKey === 'string' ? apiKey : undefined,
@@ -169,7 +171,15 @@ export class ModelSyncService {
         const providerWithMethod = {
           type: String(dbProvider.provider_type ?? dbProvider.type ?? ''),
           name: String(dbProvider.name ?? ''),
-          getProviderConfig: () => dbProvider.configuration ?? dbProvider.config ?? {},
+          getProviderConfig: () => ({
+            ...(typeof dbProvider.configuration === 'object' && dbProvider.configuration !== null
+              ? dbProvider.configuration
+              : {}),
+            ...(typeof dbProvider.config === 'object' && dbProvider.config !== null
+              ? dbProvider.config
+              : {}),
+            providerId: String(dbProvider.id),
+          }),
         };
         provider = this.createProviderInstance(providerWithMethod);
       } catch (error) {

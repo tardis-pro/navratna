@@ -5,7 +5,7 @@ import { ProjectManagementService } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/shared-services';
 import { EventBusService } from '@uaip/infra/event_bus';
 import { withOptionalAuth } from '@uaip/middleware';
-import { ProjectStatus } from '@uaip/types';
+import { ProjectRole, ProjectStatus } from '@uaip/types';
 
 /**
  * Winston serializes a bare Error to `{}` (its fields are non-enumerable), so
@@ -77,6 +77,19 @@ const projectQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: z.nativeEnum(ProjectStatus).optional(),
   search: z.string().max(100).optional(),
+});
+
+const projectMemberSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.nativeEnum(ProjectRole).default(ProjectRole.MEMBER),
+});
+
+const projectMemberRoleSchema = z.object({
+  role: z.nativeEnum(ProjectRole),
+});
+
+const projectToolsSchema = z.object({
+  toolIds: z.array(z.string().min(1)).min(1),
 });
 
 export function registerProjectRoutes() {
@@ -212,6 +225,146 @@ export function registerProjectRoutes() {
         logger.error('Failed to delete project', { error: describeError(error), projectId: params.projectId });
         set.status = 500;
         return { success: false, error: 'Failed to delete project' };
+      }
+    })
+
+    .get('/:projectId/members', async ({ params, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const service = await getProjectService();
+        return { success: true, data: await service.getProjectMembers(params.projectId) };
+      } catch (error) {
+        logger.error('Failed to list project members', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to list project members' };
+      }
+    })
+
+    .post('/:projectId/members', async ({ params, body, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const parsed = projectMemberSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid project member', details: parsed.error.flatten() };
+        }
+        const service = await getProjectService();
+        set.status = 201;
+        return {
+          success: true,
+          data: await service.addProjectMember(params.projectId, parsed.data.userId, parsed.data.role),
+        };
+      } catch (error) {
+        logger.error('Failed to add project member', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to add project member' };
+      }
+    })
+
+    .patch('/:projectId/members/:userId', async ({ params, body, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const parsed = projectMemberRoleSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid project member role', details: parsed.error.flatten() };
+        }
+        const service = await getProjectService();
+        const updated = await service.updateMemberRole(params.projectId, params.userId, parsed.data.role);
+        if (!updated) {
+          set.status = 404;
+          return { success: false, error: 'Project member not found' };
+        }
+        return { success: true, data: await service.getProjectMembers(params.projectId) };
+      } catch (error) {
+        logger.error('Failed to update project member', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to update project member' };
+      }
+    })
+
+    .get('/:projectId/tools', async ({ params, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const service = await getProjectService();
+        return { success: true, data: await service.getProjectTools(params.projectId) };
+      } catch (error) {
+        logger.error('Failed to list project tools', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to list project tools' };
+      }
+    })
+
+    .post('/:projectId/tools', async ({ params, body, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const parsed = projectToolsSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid tool assignment', details: parsed.error.flatten() };
+        }
+        const service = await getProjectService();
+        return { success: true, data: await service.assignProjectTools(params.projectId, parsed.data.toolIds) };
+      } catch (error) {
+        logger.error('Failed to assign project tools', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to assign project tools' };
+      }
+    })
+
+    .delete('/:projectId/tools', async ({ params, body, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const parsed = projectToolsSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'Invalid tool removal', details: parsed.error.flatten() };
+        }
+        const service = await getProjectService();
+        return { success: true, data: await service.removeProjectTools(params.projectId, parsed.data.toolIds) };
+      } catch (error) {
+        logger.error('Failed to remove project tools', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to remove project tools' };
+      }
+    })
+
+    .delete('/:projectId/members/:userId', async ({ params, set, user }) => {
+      try {
+        if (!user) {
+          set.status = 401;
+          return { error: 'Authentication required' };
+        }
+        const service = await getProjectService();
+        const removed = await service.removeProjectMember(params.projectId, params.userId);
+        if (!removed) {
+          set.status = 404;
+          return { success: false, error: 'Project member not found' };
+        }
+        set.status = 204;
+        return null;
+      } catch (error) {
+        logger.error('Failed to remove project member', { error: describeError(error), projectId: params.projectId });
+        set.status = 500;
+        return { success: false, error: 'Failed to remove project member' };
       }
     })
   

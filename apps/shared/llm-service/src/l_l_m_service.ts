@@ -102,6 +102,7 @@ export class LLMService {
 
           const llmProviderConfig = {
             ...providerConfig,
+            providerId: dbProvider.id,
             type: this.normalizeApiType(providerType),
             baseUrl: dbProvider.baseUrl || 'http://localhost:11434',
             // apiKeyEncrypted is decrypted to plaintext by the repository read path
@@ -146,8 +147,8 @@ export class LLMService {
 
       // Fallback to environment-based providers if no database providers
       if (this.providers.size === 0) {
-        logger.warn('No database providers found, falling back to environment configuration');
-        await this.initializeFallbackProviders();
+        logger.warn('No active database LLM providers found');
+        await this.initializeEnvironmentProvidersIfEnabled();
       }
 
       this.initialized = true;
@@ -159,64 +160,70 @@ export class LLMService {
         error: error instanceof Error ? error.message : error,
         stack: error instanceof Error ? error.stack : undefined,
       });
-      // Fallback to environment-based initialization
-      await this.initializeFallbackProviders();
+      await this.initializeEnvironmentProvidersIfEnabled();
     }
   }
 
-  private async initializeFallbackProviders(): Promise<void> {
-    logger.info('Initializing fallback providers from environment');
+  private async initializeEnvironmentProvidersIfEnabled(): Promise<void> {
+    if (process.env.LLM_ENABLE_ENV_PROVIDERS !== 'true') {
+      this.initialized = true;
+      logger.warn('Environment LLM providers disabled; no provider fallback registered');
+      return;
+    }
 
-    // Default Ollama provider
-    const ollamaProvider = new OllamaProvider(
-      {
-        type: 'ollama',
-        baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-        defaultModel: 'llama2',
-        timeout: 30000,
-        retries: 3,
-      },
-      'Default Ollama'
-    );
+    logger.info('Initializing explicitly configured environment LLM providers');
 
-    // Default LLM Studio provider
-    const llmStudioProvider = new LLMStudioProvider(
-      {
-        type: 'llmstudio',
-        baseUrl: process.env.LLM_STUDIO_URL || 'http://192.168.1.9:1234',
-        defaultModel: 'gpt-3.5-turbo',
-        timeout: 30000,
-        retries: 3,
-      },
-      'Default LLM Studio'
-    );
+    if (process.env.OLLAMA_URL && process.env.OLLAMA_MODEL) {
+      const ollamaProvider = new OllamaProvider(
+        {
+          type: 'ollama',
+          baseUrl: process.env.OLLAMA_URL,
+          defaultModel: process.env.OLLAMA_MODEL,
+          timeout: 30000,
+          retries: 3,
+        },
+        'Environment Ollama'
+      );
+      this.providers.set('ollama', ollamaProvider);
+    }
 
-    // OpenAI provider (if API key is available)
-    if (process.env.OPENAI_API_KEY) {
+    if (process.env.LLM_STUDIO_URL && process.env.LLM_STUDIO_MODEL) {
+      const llmStudioProvider = new LLMStudioProvider(
+        {
+          type: 'llmstudio',
+          baseUrl: process.env.LLM_STUDIO_URL,
+          defaultModel: process.env.LLM_STUDIO_MODEL,
+          timeout: 30000,
+          retries: 3,
+        },
+        'Environment LLM Studio'
+      );
+      this.providers.set('llmstudio', llmStudioProvider);
+    }
+
+    const openAiApiKey = process.env.OPENAI_API_URL
+      ? process.env.CUSTOM_OPENAI_API_KEY
+      : process.env.OPENAI_API_KEY;
+    if (openAiApiKey && process.env.OPENAI_MODEL) {
       const openaiProvider = new OpenAIProvider(
         {
           type: 'openai',
           baseUrl: process.env.OPENAI_API_URL
             ? process.env.OPENAI_API_URL
             : 'https://api.openai.com',
-          apiKey: process.env.OPENAI_API_URL
-            ? process.env.CUSTOM_OPENAI_API_KEY
-            : process.env.OPENAI_API_KEY,
-          defaultModel: process.env.OPENAI_API_URL ? '' : 'gpt-3.5-turbo',
+          apiKey: openAiApiKey,
+          defaultModel: process.env.OPENAI_MODEL,
           timeout: 30000,
           retries: 3,
         },
-        'OpenAI'
+        'Environment OpenAI'
       );
 
       this.providers.set('openai', openaiProvider);
     }
 
-    this.providers.set('ollama', ollamaProvider);
-    this.providers.set('llmstudio', llmStudioProvider);
-
     this.initialized = true;
-    logger.info(`LLM Service initialized with ${this.providers.size} fallback providers`, {
+    logger.info(`LLM Service initialized with ${this.providers.size} environment providers`, {
       providerTypes: Array.from(this.providers.keys()),
     });
   }
@@ -257,8 +264,7 @@ export class LLMService {
       const providerSelection = await this.getBestProvider(preferredType);
       if (!providerSelection) {
         return {
-          content:
-            'I apologize, but no LLM providers are currently available. Please check the system configuration.',
+          content: '',
           model: 'unavailable',
           error: 'No active providers available',
           finishReason: 'error',
@@ -310,8 +316,7 @@ export class LLMService {
       });
 
       return {
-        content:
-          'I apologize, but I encountered an error generating my response. Please try again later.',
+        content: '',
         model: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error',
         finishReason: 'error',
@@ -357,8 +362,7 @@ export class LLMService {
       });
 
       return {
-        content:
-          'I apologize, but I encountered an error generating my response. Please try again.',
+        content: '',
         model: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error',
         finishReason: 'error',
@@ -400,7 +404,7 @@ export class LLMService {
       });
 
       return {
-        content: `// Error generating ${request.type}\n// ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: '',
         model: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error',
         finishReason: 'error',

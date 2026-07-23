@@ -80,7 +80,7 @@ export abstract class BaseProvider {
       try {
         const decryptionService = ApiKeyDecryptionService.getInstance();
         const decryptedKey = await decryptionService.decryptApiKey(
-          'provider-id', // TODO: Pass actual provider ID
+          this.config.providerId ?? this.name,
           this.name,
           this.config.apiKeyEncrypted
         );
@@ -180,8 +180,7 @@ export abstract class BaseProvider {
     logger.error(`${this.name} ${context} error`, { error: errorMessage });
 
     return {
-      content:
-        'I apologize, but I am currently unable to generate a response. Please try again later.',
+      content: '',
       model: this.config.defaultModel || 'unknown',
       error: errorMessage,
       finishReason: 'error',

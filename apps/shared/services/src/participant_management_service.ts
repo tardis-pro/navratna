@@ -1,4 +1,4 @@
-import { logger } from '@uaip/utils';
+import { logger, ValidationError } from '@uaip/utils';
 import { DatabaseService } from '@uaip/infra/database';
 import type { DiscussionParticipant } from './database/drizzle/schemas/intelligence_schema';
 
@@ -8,6 +8,7 @@ type ParticipantRoleInDiscussion = 'moderator' | 'participant' | 'observer' | 'f
 
 type BaseParticipantOptions = {
   discussionId: string;
+  personaId?: string;
   displayName?: string;
   roleInDiscussion?: ParticipantRoleInDiscussion;
   permissions?: string[];
@@ -16,6 +17,10 @@ type BaseParticipantOptions = {
   participationConfig?: Record<string, unknown>;
   behavioralConstraints?: Record<string, unknown>;
   contextAwareness?: Record<string, unknown>;
+};
+
+type ParticipantAgentLookup = {
+  personaId?: string;
 };
 
 /**
@@ -46,6 +51,7 @@ export class ParticipantManagementService {
     participantIdField: 'agentId' | 'userId',
     roleInDiscussion: string,
     meta: {
+      personaId?: string;
       displayName?: string;
       permissions?: string[];
       turnOrder?: number;
@@ -79,12 +85,14 @@ export class ParticipantManagementService {
 
       const hasMetadataChanges =
         JSON.stringify(nextMetadata) !== JSON.stringify(existing.metadata || {});
+      const shouldBackfillPersona = meta.personaId && existing.personaId !== meta.personaId;
 
-      if (hasMetadataChanges) {
+      if (hasMetadataChanges || shouldBackfillPersona) {
         const updatedParticipant = await this.databaseService.update<DiscussionParticipant>(
           PARTICIPANTS_TABLE,
           existing.id,
           {
+            ...(shouldBackfillPersona ? { personaId: meta.personaId } : {}),
             metadata: nextMetadata,
             updatedAt: new Date(),
           }
@@ -112,6 +120,7 @@ export class ParticipantManagementService {
       discussionId,
       participantType,
       [participantIdField]: participantId,
+      ...(meta.personaId ? { personaId: meta.personaId } : {}),
       role: roleInDiscussion,
       joinedAt: new Date(),
       isActive: true,
@@ -150,6 +159,7 @@ export class ParticipantManagementService {
   async createAgentParticipant(options: BaseParticipantOptions & { agentId: string }): Promise<DiscussionParticipant> {
     const {
       discussionId,
+      personaId,
       agentId,
       displayName: _displayName,
       roleInDiscussion = 'participant',
@@ -162,9 +172,16 @@ export class ParticipantManagementService {
     } = options;
 
     try {
+      const agent = await this.databaseService.findById<ParticipantAgentLookup>('agents', agentId);
+      const resolvedPersonaId = personaId ?? agent?.personaId;
+      if (!resolvedPersonaId) {
+        throw new ValidationError(`Agent ${agentId} is not linked to a persona`);
+      }
+
       return await this.createOrFindParticipant(
         discussionId, 'agent', agentId, 'agentId', roleInDiscussion,
         {
+          personaId: resolvedPersonaId,
           displayName: _displayName,
           permissions: _permissions,
           turnOrder: _turnOrder,
@@ -259,6 +276,53 @@ export class ParticipantManagementService {
         discussionId,
       });
       return [];
+    }
+  }
+
+  async backfillDiscussionPersonaIds(discussionId: string): Promise<number> {
+    try {
+      const participants = await this.getDiscussionParticipants(discussionId);
+      const agentParticipants = participants.filter(
+        (participant) => participant.participantType === 'agent' && participant.agentId && !participant.personaId
+      );
+
+      const updates = await Promise.all(
+        agentParticipants.map(async (participant) => {
+          const agent = await this.databaseService.findById<ParticipantAgentLookup>(
+            'agents',
+            String(participant.agentId)
+          );
+          if (!agent?.personaId) {
+            return null;
+          }
+
+          await this.databaseService.update<DiscussionParticipant>(
+            PARTICIPANTS_TABLE,
+            participant.id,
+            {
+              personaId: agent.personaId,
+              updatedAt: new Date(),
+            }
+          );
+          return participant.id;
+        })
+      );
+
+      const updatedCount = updates.filter((participantId) => participantId !== null).length;
+      if (updatedCount > 0) {
+        logger.info('Backfilled discussion participant persona IDs', {
+          discussionId,
+          updatedCount,
+        });
+      }
+
+      return updatedCount;
+    } catch (error) {
+      logger.error('Error backfilling discussion participant persona IDs', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        discussionId,
+      });
+      return 0;
     }
   }
 

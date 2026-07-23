@@ -4,20 +4,9 @@ import { logger, isRecord } from '@uaip/utils';
 import { DatabaseService } from '@uaip/shared-services';
 import { withRequiredAuth } from '@uaip/middleware';
 import { ShortLinkService } from '../services/short_link_service.js';
+import { isArtifactType, supportedArtifactTypes } from '../artifact_types.js';
 
 import { Elysia, t } from 'elysia';
-
-const supportedArtifactTypes: readonly ArtifactType[] = ['code', 'test', 'documentation', 'prd'];
-
-
-function isArtifactType(value: unknown): value is ArtifactType {
-  return (
-    value === 'code' ||
-    value === 'test' ||
-    value === 'documentation' ||
-    value === 'prd'
-  );
-}
 
 function isArtifactConversationContext(value: unknown): value is ArtifactConversationContext {
   return (
@@ -277,7 +266,10 @@ export function registerArtifactRoutes(
               persona: request.context.persona.role,
             });
     
-            const response = await artifactService.generateArtifact(request);
+            const response = await artifactService.generateAndPersistArtifact(request, {
+              generatedBy: request.context.agent.id,
+              generator: 'artifact-service-http',
+            });
             set.status = response.success ? 200 : 400;
             return response;
           } catch (error) {

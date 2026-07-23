@@ -129,6 +129,48 @@ const providerIdParamsSchema = z.object({ id: z.string().min(1) });
 
 let eventBusServiceSingleton: EventBusService | null = null;
 
+type UserProviderRecord = Record<string, unknown>;
+
+function getProviderConfiguration(provider: UserProviderRecord): Record<string, unknown> {
+  const configuration = provider.configuration;
+  return typeof configuration === 'object' && configuration !== null
+    ? configuration as Record<string, unknown>
+    : {};
+}
+
+function getStringConfigValue(
+  provider: UserProviderRecord,
+  key: string,
+  fallback?: unknown
+): string | undefined {
+  const configuration = getProviderConfiguration(provider);
+  const configValue = configuration[key];
+  if (typeof configValue === 'string') return configValue;
+  return typeof fallback === 'string' ? fallback : undefined;
+}
+
+function getNumberConfigValue(
+  provider: UserProviderRecord,
+  key: string,
+  fallback?: unknown
+): number | undefined {
+  const configuration = getProviderConfiguration(provider);
+  const configValue = configuration[key];
+  if (typeof configValue === 'number') return configValue;
+  return typeof fallback === 'number' ? fallback : undefined;
+}
+
+function getBooleanConfigValue(
+  provider: UserProviderRecord,
+  key: string,
+  fallback?: unknown
+): boolean | undefined {
+  const configuration = getProviderConfiguration(provider);
+  const configValue = configuration[key];
+  if (typeof configValue === 'boolean') return configValue;
+  return typeof fallback === 'boolean' ? fallback : undefined;
+}
+
 const getEventBusService = (): EventBusService => {
   if (!eventBusServiceSingleton) {
     eventBusServiceSingleton = EventBusService.getInstance();
@@ -481,12 +523,16 @@ export function registerProviderRoutes() {
             if (v.baseUrl !== undefined) configUpdates.baseUrl = v.baseUrl;
             if (v.defaultModel !== undefined) configUpdates.defaultModel = v.defaultModel;
             if (v.priority !== undefined) configUpdates.priority = v.priority;
-            if (v.configuration !== undefined) configUpdates.configuration = v.configuration;
+            if (v.status !== undefined) configUpdates.status = v.status;
+            if (v.isActive !== undefined) configUpdates.isActive = v.isActive;
+            if (v.configuration !== undefined) Object.assign(configUpdates, v.configuration);
             if (Object.keys(configUpdates).length > 0) {
-              await repo.updateProviderConfig(id, configUpdates);
-            }
-            if (v.status !== undefined) {
-              await repo.updateStatus(id, v.status);
+              await repo.updateProviderConfig(id, {
+                configuration: {
+                  ...getProviderConfiguration(provider),
+                  ...configUpdates,
+                },
+              });
             }
             const updatedProvider = await repo.findById(id);
             if (updatedProvider) {
@@ -552,25 +598,24 @@ export function registerProviderRoutes() {
           const { set, params } = ctx;
           try {
             const { id } = providerIdParamsSchema.parse(params);
-            const { ModelService } = await import('../services/model_service.js');
-            const modelService = new ModelService();
             const repo = UserService.getInstance().getUserLLMProviderRepository();
             const provider = await repo.findById(id);
             if (!provider || provider.userId !== user!.id) {
               set.status = 404;
               return { success: false, error: 'LLM provider not found' };
             }
-            const isHealthy = await modelService.healthCheck();
-            const models = await modelService.getModelsForProvider(id);
+            const { UserLLMService } = await import('@uaip/llm-service');
+            const userLLMService = new UserLLMService();
+            const result = await userLLMService.testUserProvider(user!.id, id);
             return {
               success: true,
               data: {
-                status: isHealthy ? 'healthy' : 'unhealthy',
-                latency: 0,
-                error: isHealthy ? null : 'Database connection failed',
-                modelCount: models.length,
+                status: result.isHealthy ? 'healthy' : 'unhealthy',
+                latency: result.responseTime,
+                error: result.error ?? null,
+                modelCount: result.modelCount,
                 testedAt: new Date().toISOString(),
-                note: 'Database-only test. External API connectivity tested by LLM Service.',
+                note: 'Live provider connectivity tested through LLM Service.',
               },
             };
           } catch (error) {
@@ -610,18 +655,20 @@ export function registerProviderRoutes() {
 }
 
 function toSafeProvider(provider: Record<string, unknown>) {
+  const configuration = getProviderConfiguration(provider);
+  const isActive = getBooleanConfigValue(provider, 'isActive', provider.isActive);
   return {
     id: provider.id,
     userId: provider.userId,
-    name: provider.name,
-    description: provider.description,
-    type: provider.type,
-    baseUrl: provider.baseUrl,
-    defaultModel: provider.defaultModel,
-    configuration: provider.configuration,
-    status: provider.status,
-    isActive: provider.isActive,
-    priority: provider.priority,
+    name: getStringConfigValue(provider, 'name', provider.name),
+    description: getStringConfigValue(provider, 'description', provider.description),
+    type: getStringConfigValue(provider, 'type', provider.providerId ?? provider.type),
+    baseUrl: getStringConfigValue(provider, 'baseUrl', provider.baseUrl),
+    defaultModel: getStringConfigValue(provider, 'defaultModel', provider.defaultModel),
+    configuration,
+    status: getStringConfigValue(provider, 'status', provider.status),
+    isActive: isActive ?? true,
+    priority: getNumberConfigValue(provider, 'priority', provider.priority),
     hasApiKey: Boolean(provider.apiKeyEncrypted),
     totalTokensUsed: provider.totalTokensUsed,
     totalRequests: provider.totalRequests,

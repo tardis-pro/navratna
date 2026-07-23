@@ -18,7 +18,6 @@ import { registerToolPreferenceRoutes } from './http/tool_preferences_elysia.js'
 import { registerDashboardRoutes } from './http/dashboard_elysia.js'
 import { registerOIDCRoutes } from './http/oidc_elysia.js'
 import { registerOrganizationRoutes } from './http/organizations_elysia.js'
-import { registerLLMAgentProviderRoutes } from './routes/llm_agent_provider_routes.js'
 import { ErasureSweepJob } from './jobs/erasure_sweep_job.js'
 import { AuditRetentionJob } from './jobs/audit_retention_job.js'
 import { TokenCleanupJob } from './jobs/token_cleanup_job.js'
@@ -89,7 +88,6 @@ export const securityFeature: Feature = {
     app.use(registerDashboardRoutes())
     app.use(registerOIDCRoutes())
     app.use(registerOrganizationRoutes())
-    app.use(registerLLMAgentProviderRoutes())
     // GitHub webhooks are now mounted by orchestration-pipeline (HMAC-SHA256
     // verified, gated on GITHUB_WEBHOOK_SECRET). jira_webhook_routes.ts remains
     // unmounted until its signature verification is implemented.

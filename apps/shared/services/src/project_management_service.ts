@@ -10,17 +10,16 @@ import {
   MemberStatus,
   ProjectType,
 } from '@uaip/types';
-import type { NewTask, Task } from './database/drizzle/schemas/control_schema';
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | Date | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
 import type {
   CreateProjectData,
-  CreateTaskData,
   ProjectAnalytics,
   ProjectMetrics,
 } from '@uaip/types';
+import type { Task } from './database/drizzle/schemas/control_schema';
 
 interface IRepository<T = any> {
   findOne(opts: { where?: any }): Promise<T | null>;
@@ -69,7 +68,7 @@ function isRecord(value: object | null): value is Record<string, JsonValue> {
 // Public interfaces
 // ---------------------------------------------------------------------------
 
-export type { CreateProjectData, CreateTaskData, ProjectAnalytics, ProjectMetrics };
+export type { CreateProjectData, ProjectAnalytics, ProjectMetrics };
 
 // ---------------------------------------------------------------------------
 // Service
@@ -78,6 +77,7 @@ export type { CreateProjectData, CreateTaskData, ProjectAnalytics, ProjectMetric
 export class ProjectManagementService {
   private projectRepository: any;
   private memberRepository: any;
+  private taskRepository: IRepository | null = null;
 
   constructor(
     private databaseService: DatabaseService,
@@ -87,6 +87,7 @@ export class ProjectManagementService {
   async initialize(): Promise<void> {
     this.projectRepository = this.databaseService.getProjectRepository();
     this.memberRepository = this.databaseService.getProjectMemberRepository();
+    this.taskRepository = this.databaseService.getTaskRepository();
 
     logger.info('Project Management Service initialized');
   }
@@ -309,6 +310,24 @@ export class ProjectManagementService {
     }
   }
 
+  async getProjectMembers(projectId: string): Promise<ProjectMemberEntity[]> {
+    return this.memberRepository.find({ where: { projectId }, order: { joinedAt: 'ASC' } });
+  }
+
+  async updateMemberRole(projectId: string, userId: string, role: ProjectRole): Promise<boolean> {
+    const member = await this.memberRepository.findOne({ where: { projectId, userId } });
+    if (!member) return false;
+    await this.memberRepository.update(member.id, { role, permissions: this.getDefaultPermissions(role) });
+    return true;
+  }
+
+  async removeProjectMember(projectId: string, userId: string): Promise<boolean> {
+    const member = await this.memberRepository.findOne({ where: { projectId, userId } });
+    if (!member) return false;
+    await this.memberRepository.delete(member.id);
+    return true;
+  }
+
   async addProjectAgent(
     projectId: string,
     userId: string,
@@ -318,20 +337,73 @@ export class ProjectManagementService {
   }
 
   // -------------------------------------------------------------------------
-  // Analytics (stub — new entity has no budget/taskCount fields)
+  // Analytics
   // -------------------------------------------------------------------------
+
+  async getProjectTools(projectId: string): Promise<string[]> {
+    const project = await this.getProject(projectId);
+    if (!project) throw new Error(`Project ${projectId} not found`);
+
+    const settings = isRecord(project.settings) ? project.settings : {};
+    const allowedTools = settings.allowedTools;
+    return Array.isArray(allowedTools)
+      ? allowedTools.filter((toolId): toolId is string => typeof toolId === 'string')
+      : [];
+  }
+
+  async assignProjectTools(projectId: string, toolIds: string[]): Promise<string[]> {
+    const currentTools = await this.getProjectTools(projectId);
+    const tools = Array.from(new Set([...currentTools, ...toolIds]));
+    await this.updateProject(projectId, { settings: { allowedTools: tools } });
+    return tools;
+  }
+
+  async removeProjectTools(projectId: string, toolIds: string[]): Promise<string[]> {
+    const currentTools = await this.getProjectTools(projectId);
+    const tools = currentTools.filter((toolId) => !toolIds.includes(toolId));
+    await this.updateProject(projectId, { settings: { allowedTools: tools } });
+    return tools;
+  }
 
   async getProjectMetrics(projectId: string): Promise<ProjectMetrics> {
     const project = await this.getProject(projectId);
     if (!project) throw new Error(`Project ${projectId} not found`);
 
+    if (!this.taskRepository) throw new Error('Project Management Service is not initialized');
+    const tasks: Task[] = await this.taskRepository.find({ where: { projectId } });
+    const completedTasks = tasks.filter((task) => task.status === 'completed' || task.status === 'done');
+    const taskCompletionRate = tasks.length === 0 ? 0 : completedTasks.length / tasks.length;
+    const durations = completedTasks
+      .map((task) => task.completedAt && task.createdAt
+        ? task.completedAt.getTime() - task.createdAt.getTime()
+        : null)
+      .filter((duration): duration is number => typeof duration === 'number' && Number.isFinite(duration));
+    const averageTaskDuration = durations.length === 0
+      ? 0
+      : durations.reduce((sum, duration) => sum + duration, 0) / durations.length;
+
     return {
-      completionRate: 0,
+      completionRate: project.status === ProjectStatus.COMPLETED ? 1 : taskCompletionRate,
       budgetUtilization: 0,
-      taskCompletionRate: 0,
-      averageTaskDuration: 0,
+      taskCompletionRate,
+      averageTaskDuration,
       toolUsageStats: [],
-      agentPerformance: [],
+      agentPerformance: Array.from(
+        tasks.reduce((agents, task) => {
+          if (!task.assigneeId) return agents;
+          const current = agents.get(task.assigneeId) ?? { tasksCompleted: 0, totalTasks: 0 };
+          current.totalTasks += 1;
+          if (task.status === 'completed' || task.status === 'done') current.tasksCompleted += 1;
+          agents.set(task.assigneeId, current);
+          return agents;
+        }, new Map<string, { tasksCompleted: number; totalTasks: number }>())
+      ).map(([agentId, stats]) => ({
+        agentId,
+        tasksCompleted: stats.tasksCompleted,
+        successRate: stats.totalTasks === 0 ? 0 : stats.tasksCompleted / stats.totalTasks,
+        averageTaskTime: 0,
+        toolsUsed: 0,
+      })),
     };
   }
 
@@ -369,35 +441,6 @@ export class ProjectManagementService {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Task management — stub (TaskEntity exists but routes forward to here)
-  // -------------------------------------------------------------------------
-
-  async createTask(
-    data: CreateTaskData
-  ): Promise<{ id: string; projectId: string; title: string }> {
-    logger.warn('createTask called but TaskEntity integration not yet implemented', { data });
-    return { id: `task-${Date.now()}`, projectId: data.projectId, title: data.title };
-  }
-
-  async updateTask(id: string, updates: Partial<NewTask>): Promise<Task> {
-    logger.warn('updateTask called but TaskEntity integration not yet implemented', { id });
-    return {
-      id,
-      projectId: String(updates.projectId ?? ''),
-      title: String(updates.title ?? ''),
-      description: typeof updates.description === 'string' ? updates.description : null,
-      status: String(updates.status ?? 'pending'),
-      priority: String(updates.priority ?? 'medium'),
-      assigneeId: updates.assigneeId ?? null,
-      dueAt: updates.dueAt ?? null,
-      completedAt: updates.completedAt ?? null,
-      metadata: updates.metadata ?? {},
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  }
-
   async recordToolUsage(data: {
     toolId: string;
     projectId: string;
@@ -406,7 +449,24 @@ export class ProjectManagementService {
     success?: boolean;
     metadata?: JsonObject;
   }): Promise<void> {
-    logger.warn('recordToolUsage called but tool usage tracking not yet implemented', { data });
+    const metadata = isRecord(data.metadata ?? null) ? data.metadata : {};
+    const metadataAgentId = metadata.agentId;
+    const metadataError = metadata.errorMessage;
+
+    await this.databaseService.getToolUsageRepository().recordToolUsage({
+      toolId: data.toolId,
+      agentId: typeof metadataAgentId === 'string' ? metadataAgentId : undefined,
+      userId: data.userId,
+      executionTimeMs: data.executionTimeMs,
+      success: data.success,
+      error: typeof metadataError === 'string' ? metadataError : undefined,
+    });
+
+    logger.info('Project tool usage recorded', {
+      projectId: data.projectId,
+      toolId: data.toolId,
+      success: data.success,
+    });
   }
 
   // -------------------------------------------------------------------------

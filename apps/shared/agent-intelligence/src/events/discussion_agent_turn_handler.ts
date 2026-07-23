@@ -115,6 +115,23 @@ export async function handleAgentDiscussionTrigger(
 
     const userId = typeof agent.createdBy === 'string' ? agent.createdBy : ''
     const response = await deps.userLLMService.generateAgentResponse(userId, request)
+    if (response.error || response.finishReason === 'error') {
+      logger.error('agent.discussion.trigger: LLM failed, suppressing fallback content', {
+        discussionId,
+        agentId,
+        model: response.model,
+        error: response.error,
+      })
+      await deps.publish('discussion.agent.message.failed', {
+        discussionId,
+        participantId,
+        agentId,
+        error: response.error || 'LLM response finished with error',
+        model: response.model,
+      }).catch((): undefined => undefined)
+      return
+    }
+
     const content = extractContent(response)
 
     if (!content) {

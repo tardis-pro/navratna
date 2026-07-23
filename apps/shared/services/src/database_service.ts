@@ -661,6 +661,10 @@ export class DatabaseService {
     return new DrizzleRepository('project_members');
   }
 
+  public getTaskRepository() {
+    return new DrizzleRepository('tasks');
+  }
+
   public getProjectFileRepository() {
     return new DrizzleRepository('project_files');
   }

@@ -107,6 +107,38 @@ export const discussionFeature: Feature = {
       }
     })
 
+    await bus.subscribe('discussion.agent.message.failed', async (event: EventBusMessage) => {
+      try {
+        const rawPayload: unknown = isRecord(event.data) ? event.data : event
+        const payload = isRecord(rawPayload) ? rawPayload : {}
+        const discussionId = typeof payload.discussionId === 'string' ? payload.discussionId : ''
+        const participantId = typeof payload.participantId === 'string' ? payload.participantId : ''
+        const agentId = typeof payload.agentId === 'string' ? payload.agentId : undefined
+        const error = typeof payload.error === 'string' ? payload.error : 'Agent turn generation failed'
+        const model = typeof payload.model === 'string' ? payload.model : undefined
+
+        if (!discussionId || !participantId) {
+          logger.warn('Skipping malformed agent message failure event', {
+            discussionId,
+            participantId,
+          })
+          return
+        }
+
+        await orchestrationService.recordAgentMessageFailure({
+          discussionId,
+          participantId,
+          agentId,
+          error,
+          model,
+        })
+      } catch (error) {
+        logger.error('Error processing agent message failure event', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    })
+
     logger.info('discussion-orchestration event subscriptions configured')
   },
 

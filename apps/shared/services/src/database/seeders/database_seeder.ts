@@ -168,10 +168,12 @@ export class DatabaseSeeder {
 
   private async seedAgents(): Promise<void> {
     const allUsers = await this.controlDb.select({ id: users.id }).from(users);
-    const allPersonas = await this.intelligenceDb.select({ id: personas.id }).from(personas);
+    const allPersonas = await this.intelligenceDb
+      .select({ id: personas.id, name: personas.name, role: personas.role })
+      .from(personas);
     const agentSeed = new AgentSeed(
       allUsers.map((u) => u.id),
-      allPersonas.map((p) => p.id)
+      allPersonas
     );
     await agentSeed.seed();
   }

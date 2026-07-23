@@ -14,12 +14,12 @@ type AgentInsert = InferInsertModel<typeof agents>;
 export class AgentSeed extends BaseSeed {
   private db = getIntelligenceDb();
   private users: { id: string }[] = [];
-  private personas: { id: string }[] = [];
+  private personas: { id: string; name: string; role: string }[] = [];
 
-  constructor(userIds: string[], personaIds: string[]) {
+  constructor(userIds: string[], personaRecords: { id: string; name: string; role: string }[]) {
     super('Agents');
     this.users = userIds.map((id) => ({ id }));
-    this.personas = personaIds.map((id) => ({ id }));
+    this.personas = personaRecords;
   }
 
   async seed(): Promise<Agent[]> {
@@ -29,14 +29,32 @@ export class AgentSeed extends BaseSeed {
       await this.db
         .insert(agents)
         .values({ organizationId: '00000000-0000-0000-0000-000000000001', ...agent })
-        .onConflictDoNothing();
+        .onConflictDoUpdate({
+          target: agents.name,
+          set: { personaId: agent.personaId, updatedAt: new Date() },
+        });
     }
 
     return await this.db.select().from(agents);
   }
 
-  private getPersonaIdByRole(_agentRole: string): string {
-    return this.personas[0]?.id ?? '00000000-0000-0000-0000-000000000000';
+  private getPersonaIdByRole(agentName: string): string {
+    const personaNames: Record<string, string> = {
+      Pro: 'Data Scientist',
+      Taniye: 'Delivery Manager',
+      Prashis: 'Software Engineer',
+      Keegan: 'Backend Architect',
+      Josh: 'User Advocate',
+      Pankaj: 'DevOps Engineer',
+      Maya: 'Creative Director',
+      Zara: 'Psychologist',
+    };
+    const targetName = personaNames[agentName];
+    const persona = this.personas.find((candidate) => candidate.name === targetName);
+    if (!persona) {
+      throw new Error(`No seeded persona found for agent ${agentName}: ${targetName}`);
+    }
+    return persona.id;
   }
 
   async getSeedData(): Promise<AgentInsert[]> {

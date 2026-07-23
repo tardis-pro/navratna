@@ -102,21 +102,13 @@ export class AgentGenerationHandler {
 
     // Use user-specific service if agent has user context
     if (agent?.createdBy) {
-      try {
-        return await this.userLLMService.generateResponse(
-          typeof agent['createdBy'] === 'string' ? agent['createdBy'] : String(agent['createdBy']),
-          generationRequest
-        );
-      } catch (error) {
-        logger.warn('UserLLMService failed, falling back to global', {
-          agentId: agent.id,
-          userId: agent.createdBy,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
+      return await this.userLLMService.generateResponse(
+        typeof agent['createdBy'] === 'string' ? agent['createdBy'] : String(agent['createdBy']),
+        generationRequest
+      );
     }
 
-    // Fall back to global service
+    // Generic, non-agent generation uses the global service.
     return await this.llmService.generateResponse(generationRequest);
   }
 

@@ -19,6 +19,32 @@ import { TemplateManager } from './templates/template_manager.js';
 import { ArtifactValidator } from './validation/artifact_validator.js';
 import { logger, InternalServerError, ValidationError } from '@uaip/utils';
 import { EventBusService } from '@uaip/infra/event_bus';
+import { DatabaseService } from '@uaip/shared-services';
+import type { NewArtifact } from '@uaip/shared-services/drizzle/intelligence';
+
+type PersistedArtifactGenerationResponse = ArtifactGenerationResponse & {
+  persistedArtifact?: Awaited<ReturnType<ReturnType<DatabaseService['getArtifactRepository']>['create']>>;
+};
+
+type PersistArtifactOptions = {
+  generatedBy?: string;
+  generator?: string;
+};
+
+type ArtifactPersistenceInput = {
+  request: ArtifactGenerationRequest;
+  response: ArtifactGenerationResponse;
+  options?: PersistArtifactOptions;
+};
+
+const INVALID_ARTIFACT_PATTERNS = [
+  /I apologize, but I am currently unable to generate a response/i,
+  /I apologize, but I encountered an error/i,
+  /no LLM providers are currently available/i,
+  /TODO:\s*Implement/i,
+  /not yet implemented/i,
+  /NotImplementedError/i,
+] as const;
 
 export interface LLMGenerationRequest {
   type: 'generate_artifact_content';
@@ -117,7 +143,9 @@ export class ArtifactService implements IArtifactService {
       const requestId =
         typeof eventMessage.metadata?.requestId === 'string'
           ? eventMessage.metadata.requestId
-          : eventMessage.correlationId;
+          : typeof response.metadata?.requestId === 'string'
+            ? response.metadata.requestId
+            : eventMessage.correlationId;
 
       if (!requestId) {
         logger.warn('Received LLM response without requestId', { response });
@@ -190,10 +218,144 @@ export class ArtifactService implements IArtifactService {
     }
   }
 
+  async generateAndPersistArtifact(
+    request: ArtifactGenerationRequest,
+    options?: PersistArtifactOptions
+  ): Promise<PersistedArtifactGenerationResponse> {
+    const response = await this.generateArtifact(request);
+    if (!response.success || !response.artifact) {
+      return response;
+    }
+
+    try {
+      const persistedArtifact = await this.persistArtifact({ request, response, options });
+      return {
+        ...response,
+        persistedArtifact,
+        metadata: {
+          ...(response.metadata || {}),
+          persistedArtifactId: persistedArtifact.id,
+        },
+      };
+    } catch (error) {
+      logger.warn('Generated artifact was not persisted', {
+        type: request.type,
+        conversationId: request.context.conversationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      return {
+        success: false,
+        error: {
+          code: 'ARTIFACT_PERSISTENCE_REJECTED',
+          message: error instanceof Error ? error.message : 'Generated artifact failed persistence gate',
+        },
+        metadata: response.metadata,
+      };
+    }
+  }
+
+  private async persistArtifact(input: ArtifactPersistenceInput) {
+    const { request, response, options } = input;
+    const artifact = response.artifact;
+    if (!artifact) {
+      throw new ValidationError('Cannot persist artifact generation without artifact content');
+    }
+
+    const content = artifact.content.trim();
+    if (!content) {
+      throw new ValidationError('Generated artifact content is empty');
+    }
+
+    const invalidPattern = INVALID_ARTIFACT_PATTERNS.find((pattern) => pattern.test(content));
+    if (invalidPattern) {
+      throw new ValidationError('Generated artifact content failed quality gate', {
+        pattern: invalidPattern.source,
+      });
+    }
+
+    const validation = artifact.validation;
+    if (validation && !validation.isValid) {
+      throw new ValidationError('Generated artifact failed validation', {
+        validationStatus: validation.status,
+        validationScore: validation.score,
+      });
+    }
+
+    const metadata = artifact.metadata;
+    const context = request.context;
+    const sourceMessages = context.messages.map((message) => message.id).filter((id) => id.length > 0);
+    const generator = options?.generator || String(response.metadata?.generationMethod ?? 'artifact-service');
+    const validationScore = validation?.score === undefined
+      ? undefined
+      : validation.score > 1
+        ? validation.score / 100
+        : validation.score;
+    const generatedBy =
+      options?.generatedBy ||
+      metadata.generatedBy ||
+      context.agent?.id ||
+      'artifact-service';
+
+    const artifactRecord: NewArtifact = {
+      type: request.type,
+      content,
+      title: metadata.title,
+      description: metadata.description,
+      language: metadata.language || request.options?.language || context.technical?.language,
+      framework: metadata.framework || request.options?.framework || context.technical?.framework,
+      targetFile: metadata.targetFile,
+      estimatedEffort: metadata.estimatedEffort,
+      tags: metadata.tags,
+      conversationId: context.conversationId,
+      generatedBy,
+      generatedAt: new Date(),
+      generator,
+      confidence: validationScore ?? 0.8,
+      sourceMessages,
+      validationResult: validation,
+      validationStatus: validation?.status ?? 'pending',
+      validationScore,
+      status: 'draft',
+      qualityScore: validationScore,
+      contentSizeBytes: Buffer.byteLength(content, 'utf8'),
+      lineCount: content.split('\n').length,
+      metadata: {
+        ...(request.metadata || {}),
+        ...(response.metadata || {}),
+        ...(metadata.template ? { template: metadata.template } : {}),
+      },
+      generationContext: {
+        summary: context.summary,
+        topics: context.topics,
+        decisions: context.decisions,
+        actionItems: context.actionItems,
+        participantCount: context.participants.length,
+        messageCount: context.messages.length,
+      },
+    };
+
+    const repository = DatabaseService.getInstance().getArtifactRepository();
+    const persistedArtifact = await repository.create(artifactRecord);
+
+    logger.info('Generated artifact persisted', {
+      artifactId: persistedArtifact.id,
+      type: persistedArtifact.type,
+      conversationId: persistedArtifact.conversationId,
+    });
+
+    return persistedArtifact;
+  }
+
   private shouldUseLLMService(
     artifactType: string,
-    context: { messages?: unknown[]; decisions?: unknown[]; actionItems?: unknown[] }
+    context: ArtifactConversationContext
   ): boolean {
+    // Completed discussions carry the authenticated creator so artifact generation
+    // can use the same user-scoped provider as agent turns. Never route that path
+    // through legacy generators, which use the global provider singleton.
+    if (typeof context.metadata?.userId === 'string') return true;
+
     // Determine if we need advanced LLM generation based on complexity
     const complexArtifactTypes = ['code', 'prd', 'analysis', 'workflow'];
     const hasComplexContext =
@@ -225,6 +387,9 @@ export class ArtifactService implements IArtifactService {
           requestId,
           conversationId: request.context.conversationId,
           timestamp: new Date(),
+          ...(typeof request.context.metadata?.userId === 'string'
+            ? { userId: request.context.metadata.userId }
+            : {}),
         },
       };
 
@@ -408,7 +573,12 @@ export class ArtifactService implements IArtifactService {
       // Send request to LLM service
       this.eventBusService
         .publish('llm.generate.request', llmRequest, {
-          metadata: { requestId },
+          metadata: {
+            requestId,
+            ...(typeof this.getArtifactUserId(llmRequest) === 'string'
+              ? { userId: this.getArtifactUserId(llmRequest) }
+              : {}),
+          },
         })
         .catch((error) => {
           this.pendingLLMRequests.delete(requestId);
@@ -416,6 +586,13 @@ export class ArtifactService implements IArtifactService {
           reject(error);
         });
     });
+  }
+
+  private getArtifactUserId(llmRequest: LLMGenerationRequest): string | undefined {
+    const metadata = llmRequest.metadata
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined
+    const userId = (metadata as Record<string, unknown>).userId
+    return typeof userId === 'string' && userId.length > 0 ? userId : undefined
   }
 
   private prepareLLMContext(context: ArtifactConversationContext): Record<string, unknown> {

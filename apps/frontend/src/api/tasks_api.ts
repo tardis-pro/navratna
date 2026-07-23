@@ -35,11 +35,19 @@ function buildFilterParams(filters?: TaskFilters): string {
   return qs ? `?${qs}` : '';
 }
 
+function unwrapData<T>(response: unknown): T {
+  if (typeof response === 'object' && response !== null && 'data' in response) {
+    return (response as { data: T }).data;
+  }
+  return response as T;
+}
+
 export const tasksApi = {
   async getProjectTasks(projectId: string, filters?: TaskFilters) {
-    return edenRequest(`/api/v1/projects/${projectId}/tasks${buildFilterParams(filters)}`, {
+    const response = await edenRequest<unknown>(`/api/v1/projects/${projectId}/tasks${buildFilterParams(filters)}`, {
       method: 'GET',
     });
+    return unwrapData(response);
   },
 
   async getTask(taskId: string) {
@@ -63,7 +71,8 @@ export const tasksApi = {
   },
 
   async getAssignmentSuggestions(taskId: string) {
-    return edenRequest(`/api/v1/tasks/${taskId}/assignment-suggestions`, { method: 'GET' });
+    const response = await edenRequest<unknown>(`/api/v1/tasks/${taskId}/assignment-suggestions`, { method: 'GET' });
+    return unwrapData(response);
   },
 
   async updateTaskProgress(taskId: string, progress: TaskProgressUpdate) {
@@ -77,15 +86,17 @@ export const tasksApi = {
   },
 
   async getUserTasks(userId: string, filters?: TaskFilters) {
-    return edenRequest(`/api/v1/users/${userId}/tasks${buildFilterParams(filters)}`, {
+    const response = await edenRequest<unknown>(`/api/v1/users/${userId}/tasks${buildFilterParams(filters)}`, {
       method: 'GET',
     });
+    return unwrapData(response);
   },
 
   async getAgentTasks(agentId: string, filters?: TaskFilters) {
-    return edenRequest(`/api/v1/agents/${agentId}/tasks${buildFilterParams(filters)}`, {
+    const response = await edenRequest<unknown>(`/api/v1/agents/${agentId}/tasks${buildFilterParams(filters)}`, {
       method: 'GET',
     });
+    return unwrapData(response);
   },
 };
 

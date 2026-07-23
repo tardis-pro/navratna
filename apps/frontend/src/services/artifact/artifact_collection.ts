@@ -1,6 +1,6 @@
 import type { Artifact } from '@uaip/types';
 
-export const artifactFactory = {
+export const artifactCollection = {
   listArtifacts(artifacts: Artifact[]): Artifact[] {
     return [...artifacts].sort((a, b) => {
       const aDate = a.traceability?.generatedAt ?? a.metadata.updatedAt ?? a.metadata.createdAt;

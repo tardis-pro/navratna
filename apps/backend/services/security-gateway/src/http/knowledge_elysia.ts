@@ -276,7 +276,7 @@ function parseChatFile(
     } catch {
       items.push({ content: content.slice(0, 8000), title: fileName, tags: ['chat-import'] });
     }
-  } else if (ext === 'txt' || ext === 'md') {
+  } else if (ext === 'txt') {
     const chunks = content.split(/\n(?=\d{1,2}\/\d{1,2}\/\d{2,4}|\[\d)/);
     const MAX_CHUNK = 2000;
     let buf = '';

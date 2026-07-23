@@ -4,7 +4,6 @@ import { logger } from '@uaip/utils'
 
 import { TaskController } from './controllers/task_controller.js'
 import { registerApprovalRoutes } from './routes/approval_routes.js'
-import { registerProjectRoutes } from './routes/project_routes.js'
 import { registerTaskRoutes } from './routes/task_routes.js'
 import { registerWorkflowRoutes } from './routes/workflow_routes.js'
 import { registerGitHubWebhookRoutes } from './routes/github_webhook_routes.js'
@@ -38,7 +37,6 @@ export const orchestrationFeature: Feature = {
 
   routes(app) {
     app.use(registerApprovalRoutes(rdloApprovalService))
-    app.use(registerProjectRoutes())
     app.use(registerTaskRoutes(taskController))
     app.use(registerWorkflowRoutes(workflowEngineService))
     // GitHub webhook receiver (push/PR/check_run → CI monitor). HMAC-SHA256

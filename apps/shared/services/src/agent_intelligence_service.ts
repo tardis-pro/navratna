@@ -137,19 +137,14 @@ export class AgentIntelligenceService {
 
   private async resolvePersonaForAgent(personaId: string | null | undefined): Promise<Persona> {
     if (!personaId) {
-      return this.getDefaultPersona();
+      throw new ApiError(422, 'Agent is not linked to a persona', 'AGENT_PERSONA_REQUIRED');
     }
 
-    try {
-      const persona = await this.databaseService.agents.findPersonaById(personaId);
-      return this.mapPersonaFromEntity(persona ?? { id: personaId });
-    } catch (error) {
-      logger.warn('Failed to resolve agent persona, using fallback persona', {
-        personaId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      return this.mapPersonaFromEntity({ id: personaId });
+    const persona = await this.databaseService.agents.findPersonaById(personaId);
+    if (!persona) {
+      throw new ApiError(422, `Persona ${personaId} was not found`, 'AGENT_PERSONA_NOT_FOUND');
     }
+    return this.mapPersonaFromEntity(persona);
   }
 
   public async getAgents(): Promise<Agent[] | null> {
@@ -631,7 +626,7 @@ export class AgentIntelligenceService {
 
   private mapPersonaFromEntity(personaData: unknown): Persona {
     if (!personaData || !isRecord(personaData)) {
-      return this.getDefaultPersona();
+      throw new ApiError(422, 'Agent persona data is invalid', 'AGENT_PERSONA_INVALID');
     }
 
     const p = personaData;
@@ -689,47 +684,6 @@ export class AgentIntelligenceService {
       metadata: isRecord(p.metadata) ? p.metadata : undefined,
       createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(),
       updatedAt: p.updatedAt instanceof Date ? p.updatedAt : new Date(),
-    };
-  }
-
-  private getDefaultPersona(): Persona {
-    return {
-      id: 'default',
-      name: 'Default Assistant',
-      role: 'AI Assistant',
-      description: 'A helpful AI assistant',
-      traits: [],
-      expertise: [],
-      background: 'General AI assistant',
-      systemPrompt: 'You are a helpful AI assistant.',
-      conversationalStyle: {
-        tone: 'friendly',
-        verbosity: 'moderate',
-        formality: 'neutral',
-        empathy: 0.7,
-        assertiveness: 0.5,
-        creativity: 0.5,
-        analyticalDepth: 0.6,
-        questioningStyle: 'exploratory',
-        responsePattern: 'structured',
-      },
-      status: PersonaStatus.ACTIVE,
-      visibility: PersonaVisibility.PRIVATE,
-      createdBy: 'system',
-      version: 1,
-      tags: [],
-      usageStats: {
-        totalUsages: 0,
-        uniqueUsers: 0,
-        averageSessionDuration: 0,
-        popularityScore: 0,
-        feedbackCount: 0,
-      },
-      configuration: {},
-      capabilities: [],
-      restrictions: {},
-      createdAt: new Date(),
-      updatedAt: new Date(),
     };
   }
 

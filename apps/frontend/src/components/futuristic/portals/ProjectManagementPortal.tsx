@@ -557,22 +557,35 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
     }
   };
 
-  const handleEditProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleEditProject = async (projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!editingProject) return;
 
-    const updatedProject: Project = {
-      ...editingProject,
-      ...projectData,
-      updatedAt: new Date(),
-    };
-
-    setProjects((prev) => prev.map((p) => (p.id === editingProject.id ? updatedProject : p)));
-    setEditingProject(null);
+    try {
+      await projectsAPI.update(editingProject.id, {
+        name: projectData.name,
+        description: projectData.description,
+        metadata: {
+          priority: projectData.priority,
+          progress: projectData.progress,
+          dueDate: projectData.dueDate?.toISOString() ?? null,
+          tags: projectData.tags,
+        },
+      });
+      await refreshProjects();
+      setEditingProject(null);
+    } catch (error) {
+      logger.error('Failed to update project:', error);
+    }
   };
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = async (id: string) => {
     if (confirm('Are you sure you want to delete this project?')) {
-      setProjects((prev) => prev.filter((p) => p.id !== id));
+      try {
+        await projectsAPI.delete(id);
+        await refreshProjects();
+      } catch (error) {
+        logger.error('Failed to delete project:', error);
+      }
     }
   };
 

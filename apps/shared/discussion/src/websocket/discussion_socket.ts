@@ -184,7 +184,7 @@ export function setupWebSocketHandlers(
       socket.rateLimitReset = Date.now() + 60000; // Reset every minute
 
       // Create session in Redis (async operation wrapped)
-      const mockConnection: WebSocketConnection = {
+      const sessionConnection: WebSocketConnection = {
         ws: null, // Placeholder - not used for session tracking
         connectionId: socket.sessionId!,
         userId: payload.userId,
@@ -201,7 +201,7 @@ export function setupWebSocketHandlers(
       // Store session in Redis (without discussion ID initially) - async operation
       redisSessionManager
         .createSession(
-          mockConnection,
+          sessionConnection,
           socket.handshake.address,
           socket.handshake.headers['user-agent']
         )

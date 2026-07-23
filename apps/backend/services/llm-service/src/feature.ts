@@ -4,7 +4,6 @@ import type { PersonaService } from '@uaip/shared-services'
 import type { EventBusMessage } from '@uaip/types'
 import { UnifiedModelSelectionFacade } from '@uaip/shared-services'
 import { LLMService, UserLLMService, ModelBootstrapService } from '@uaip/llm-service'
-import type { ArtifactRequest } from '@uaip/types'
 import { logger, isRecord } from '@uaip/utils'
 
 import { registerLLMRoutes } from './routes/llm_routes.js'
@@ -76,23 +75,40 @@ export const llmFeature: Feature = {
 
       try {
         const data: Record<string, unknown> = isRecord(rawData) ? rawData : {}
+        const eventMetadata = isRecord(event.metadata) ? event.metadata : {}
+        const requestMetadata = isRecord(data.metadata) ? data.metadata : {}
+        const userId = typeof eventMetadata.userId === 'string'
+          ? eventMetadata.userId
+          : typeof requestMetadata.userId === 'string'
+            ? requestMetadata.userId
+            : undefined
+        if (!userId) {
+          throw new Error('User identity is required for artifact generation')
+        }
+        if (!userLLMService) {
+          userLLMService = new UserLLMService(new UnifiedModelSelectionFacade())
+        }
         const artifactType = typeof data.artifactType === 'string' ? data.artifactType : 'code'
         const contextData: unknown = data.context
         const contextStr = typeof contextData === 'string'
           ? contextData
           : JSON.stringify(contextData ?? {})
 
-        const optionsData: unknown = data.options
-        const options = isRecord(optionsData) ? optionsData : {}
-
-        const artifactRequest: ArtifactRequest = {
-          type: artifactType as ArtifactRequest['type'],
-          language: typeof options.language === 'string' ? options.language : undefined,
-          context: contextStr,
-          requirements: [],
+        const response = await userLLMService.generateResponse(userId, {
+          prompt: `Generate a complete ${artifactType} artifact from the following discussion context. Return only the artifact content, with no preamble or explanation.\n\n${contextStr}`,
+          systemPrompt: `You are an expert artifact generator. Produce a concrete, useful ${artifactType} artifact grounded only in the supplied discussion context. Do not invent missing requirements and do not return an apology, placeholder, or TODO-only response.`,
+          maxTokens: 4000,
+        })
+        if (response.error || !response.content?.trim()) {
+          await bus.publish('llm.generate.response', {
+            success: false,
+            error: {
+              code: 'LLM_GENERATION_FAILED',
+              message: response.error || 'LLM returned empty artifact content',
+            },
+          }, { metadata: { requestId } })
+          return
         }
-
-        const response = await llmService.generateArtifact(artifactRequest)
 
         await bus.publish('llm.generate.response', {
           success: true,

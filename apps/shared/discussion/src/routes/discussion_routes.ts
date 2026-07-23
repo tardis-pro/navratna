@@ -354,8 +354,12 @@ export function registerDiscussionRoutes(
           try {
             // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const startedBy: string = ctx.user.id;
-            const discussion = await discussionService.startDiscussion(ctx.params.id, startedBy);
-            return { success: true, data: discussion };
+            const result = await orchestrationService.startDiscussion(ctx.params.id, startedBy);
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error || 'Failed to start discussion' };
+            }
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to start discussion', { error, id: ctx.params.id });
             ctx.set.status = 400;
@@ -380,6 +384,16 @@ export function registerDiscussionRoutes(
             // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const endedBy: string = ctx.user.id;
             const body: { reason?: string } | undefined = ctx.body;
+            const existingDiscussion = await discussionService.getDiscussion(ctx.params.id);
+            if (existingDiscussion?.status === DiscussionStatus.ACTIVE) {
+              const result = await orchestrationService.stopDiscussion(ctx.params.id, endedBy);
+              if (!result.success) {
+                ctx.set.status = 400;
+                return { success: false, error: result.error || 'Failed to end discussion' };
+              }
+              return { success: true, data: result.data };
+            }
+
             const discussion = await discussionService.endDiscussion(
               ctx.params.id,
               endedBy,

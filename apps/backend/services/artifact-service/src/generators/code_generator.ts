@@ -2,17 +2,11 @@ import { ArtifactConversationContext } from '@uaip/types';
 import type { ArtifactRequest } from '@uaip/types';
 import { LLMService } from '@uaip/llm-service';
 
-import { TemplateManager } from '../templates/template_manager.js';
 import { logger, InternalServerError } from '@uaip/utils';
 import { ArtifactGenerator } from '../interfaces';
 
 export class CodeGenerator implements ArtifactGenerator {
   private readonly supportedType = 'code';
-  private templateManager: TemplateManager;
-
-  constructor() {
-    this.templateManager = new TemplateManager();
-  }
 
   /**
    * Check if this generator can handle the given context
@@ -76,38 +70,19 @@ export class CodeGenerator implements ArtifactGenerator {
         context: context.messages.slice(-10).map((m) => m.content).join('\n'),
         requirements,
         constraints: context.decisions?.map((d) => String(d)) ?? [],
+      };
+
+      const llmResponse = await LLMService.getInstance().generateArtifact(llmRequest);
+      if (llmResponse.error) {
+        throw new InternalServerError(`LLM code generation failed: ${llmResponse.error}`);
       }
 
-      const llmResponse = await LLMService.getInstance().generateArtifact(llmRequest)
-      if (llmResponse.content && !llmResponse.error) {
-        return llmResponse.content
+      const content = llmResponse.content.trim();
+      if (!content) {
+        throw new InternalServerError('LLM code generation returned empty content');
       }
 
-      logger.warn('LLM code generation returned empty content, falling back to template', {
-        conversationId: context.conversationId,
-        model: llmResponse.model,
-      })
-    } catch (llmError) {
-      logger.warn('LLM code generation failed, falling back to template', {
-        conversationId: context.conversationId,
-        error: llmError instanceof Error ? llmError.message : String(llmError),
-      })
-    }
-
-    try {
-      const functionName = this.extractFunctionName(context.messages) || 'generatedFunction';
-
-      switch (language.toLowerCase()) {
-        case 'typescript':
-        case 'javascript':
-          return this.generateTypeScriptCode(functionName, requirements);
-        case 'python':
-          return this.generatePythonCode(functionName, requirements);
-        case 'java':
-          return this.generateJavaCode(functionName, requirements);
-        default:
-          return this.generateGenericCode(functionName, requirements, language);
-      }
+      return content;
     } catch (error) {
       logger.error('Code generation failed:', error);
       throw new InternalServerError(
@@ -154,19 +129,6 @@ export class CodeGenerator implements ArtifactGenerator {
     return requirements.slice(0, 5); // Limit to top 5 requirements
   }
 
-  private extractFunctionName(messages: Array<{ content: string }>): string | null {
-    for (const message of messages) {
-      // Look for function name patterns
-      const functionMatch = message.content.match(
-        /function\s+(\w+)|(\w+)\s*function|create\s+(\w+)|implement\s+(\w+)/i
-      );
-      if (functionMatch) {
-        return functionMatch[1] || functionMatch[2] || functionMatch[3] || functionMatch[4];
-      }
-    }
-    return null;
-  }
-
   private detectLanguage(messages: Array<{ content: string }>): string | undefined {
     const languageKeywords = {
       typescript: ['typescript', 'ts', 'interface', 'type'],
@@ -190,82 +152,6 @@ export class CodeGenerator implements ArtifactGenerator {
     return undefined;
   }
 
-  private generateTypeScriptCode(functionName: string, requirements: string[]): string {
-    const requirementsComment =
-      requirements.length > 0 ? `/**\n * ${requirements.join('\n * ')}\n */\n` : '';
-
-    return `${requirementsComment}export function ${functionName}(): void {
-  // TODO: Implement function based on requirements
-  console.log('${functionName} called');
-  
-  // Add your implementation here
-  throw new InternalServerError('Function not yet implemented');
-}
-
-// Example usage:
-// ${functionName}();`;
-  }
-
-  private generatePythonCode(functionName: string, requirements: string[]): string {
-    const requirementsComment =
-      requirements.length > 0 ? `"""\n${requirements.join('\n')}\n"""\n` : '';
-
-    return `def ${functionName}():
-    ${requirementsComment}
-    """
-    TODO: Implement function based on requirements
-    """
-    print(f"${functionName} called")
-    
-    # Add your implementation here
-    raise NotImplementedError("Function not yet implemented")
-
-# Example usage:
-# ${functionName}()`;
-  }
-
-  private generateJavaCode(functionName: string, requirements: string[]): string {
-    const requirementsComment =
-      requirements.length > 0 ? `    /**\n     * ${requirements.join('\n     * ')}\n     */\n` : '';
-
-    const className = this.capitalizeFirst(functionName) + 'Service';
-
-    return `public class ${className} {
-${requirementsComment}    public void ${functionName}() {
-        // TODO: Implement method based on requirements
-        System.out.println("${functionName} called");
-        
-        // Add your implementation here
-        throw new UnsupportedOperationException("Method not yet implemented");
-    }
-    
-    // Example usage:
-    // ${className} service = new ${className}();
-    // service.${functionName}();
-}`;
-  }
-
-  private generateGenericCode(
-    functionName: string,
-    requirements: string[],
-    language: string
-  ): string {
-    const requirementsComment =
-      requirements.length > 0 ? `// Requirements:\n// ${requirements.join('\n// ')}\n\n` : '';
-
-    return `${requirementsComment}// ${language} implementation
-function ${functionName}() {
-    // TODO: Implement function based on requirements
-    console.log("${functionName} called");
-    
-    // Add your implementation here
-    throw new InternalServerError("Function not yet implemented");
-}
-
-// Example usage:
-// ${functionName}();`;
-  }
-
   async generateFunction(
     signature: string,
     description: string,
@@ -281,20 +167,20 @@ function ${functionName}() {
 
     try {
       const response = await LLMService.getInstance().generateArtifact(request);
-      if (response.content && !response.error) {
-        return response.content;
+      const content = response.content.trim();
+      if (!response.error && content) {
+        return content;
       }
+      throw new InternalServerError(response.error ?? 'LLM function generation returned empty content');
     } catch (llmError) {
-      logger.warn('LLM generateFunction failed, using template fallback', {
+      logger.error('LLM generateFunction failed', {
         error: llmError instanceof Error ? llmError.message : String(llmError),
       });
+      throw new InternalServerError(
+        `Function generation failed: ${llmError instanceof Error ? llmError.message : 'Unknown error'}`,
+        { cause: llmError }
+      );
     }
-
-    const lang = language.toLowerCase();
-    if (lang === 'python') {
-      return `def ${this.extractFunctionNameFromSignature(signature)}():\n    """${description}"""\n    raise NotImplementedError`;
-    }
-    return `export function ${this.extractFunctionNameFromSignature(signature)}() {\n  // ${description}\n  throw new Error('Not implemented');\n}`;
   }
 
   async generateClass(
@@ -312,28 +198,20 @@ function ${functionName}() {
 
     try {
       const response = await LLMService.getInstance().generateArtifact(request);
-      if (response.content && !response.error) {
-        return response.content;
+      const content = response.content.trim();
+      if (!response.error && content) {
+        return content;
       }
+      throw new InternalServerError(response.error ?? 'LLM class generation returned empty content');
     } catch (llmError) {
-      logger.warn('LLM generateClass failed, using template fallback', {
+      logger.error('LLM generateClass failed', {
         error: llmError instanceof Error ? llmError.message : String(llmError),
       });
+      throw new InternalServerError(
+        `Class generation failed: ${llmError instanceof Error ? llmError.message : 'Unknown error'}`,
+        { cause: llmError }
+      );
     }
-
-    const methodStubs = methods
-      .map((m) => `  ${m}() {\n    throw new Error('Not implemented');\n  }`)
-      .join('\n\n');
-
-    return `export class ${className} {\n${methodStubs}\n}`;
   }
 
-  private extractFunctionNameFromSignature(signature: string): string {
-    const match = signature.match(/(?:function\s+)?(\w+)\s*\(/);
-    return match?.[1] ?? 'generatedFunction';
-  }
-
-  private capitalizeFirst(str: string): string {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  }
 }
