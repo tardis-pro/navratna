@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { buildDynamicBlocks, createInitialBlocks } from './dynamic_block_registry';
 import { useTelescopeSurface } from './TelescopeSurface';
@@ -21,6 +21,11 @@ export function ExploreSurfaceProvider({ children }: ExploreSurfaceProviderProps
   const initialBlocks = useMemo(() => createInitialBlocks(), []);
   const surface = useTelescopeSurface(initialBlocks);
   const { mergeBlocks } = surface;
+  const mergeBlocksRef = useRef(mergeBlocks);
+
+  useEffect(() => {
+    mergeBlocksRef.current = mergeBlocks;
+  }, [mergeBlocks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +33,7 @@ export function ExploreSurfaceProvider({ children }: ExploreSurfaceProviderProps
     const refresh = async (): Promise<void> => {
       try {
         const dynamicBlocks = await buildDynamicBlocks();
-        if (!cancelled) mergeBlocks(dynamicBlocks);
+        if (!cancelled) mergeBlocksRef.current(dynamicBlocks);
       } catch (error) {
         logger.warn('[ExploreSurface] dynamic refresh failed; keeping warm state', error);
       }
@@ -43,7 +48,7 @@ export function ExploreSurfaceProvider({ children }: ExploreSurfaceProviderProps
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [mergeBlocks]);
+  }, []);
 
   const value = useMemo<ExploreSurfaceContextValue>(() => ({ surface }), [surface]);
 
