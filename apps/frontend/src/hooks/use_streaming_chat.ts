@@ -19,6 +19,13 @@ interface StreamingState {
   sessionId: string | null;
 }
 
+interface StartStreamRequest {
+  prompt: string;
+  systemPrompt?: string;
+  agentId?: string;
+  conversationId?: string;
+}
+
 export function useStreamingChat(options: UseStreamingChatOptions) {
   const { baseUrl = '', token, onChunk, onComplete, onError } = options;
 
@@ -117,18 +124,21 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
   // Start streaming
   const startStream = useCallback(
-    async (request: {
-      prompt: string;
-      systemPrompt?: string;
-      agentId?: string;
-      conversationId?: string;
-    }) => {
+    async (request: StartStreamRequest): Promise<string> => {
       try {
+        const socket = socketRef.current;
+        if (!socket?.connected) {
+          throw new Error('Streaming socket is not connected');
+        }
+
         const { sessionId } = await edenRequest<{ sessionId: string }>('/api/v1/llm/stream', { method: 'POST', body: request });
+        if (!socket.connected) {
+          throw new Error('Streaming socket disconnected before subscription');
+        }
         currentSessionRef.current = sessionId;
 
         // Subscribe to the session
-        socketRef.current?.emit('subscribe', sessionId);
+        socket.emit('subscribe', sessionId);
 
         return sessionId;
       } catch (error) {
