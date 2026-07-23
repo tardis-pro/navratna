@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { ArrowLeft, FileText, MessageSquare, Swords } from 'lucide-react';
 

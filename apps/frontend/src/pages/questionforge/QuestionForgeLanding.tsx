@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { questionforgeAPI } from '@/api/questionforge_api';
@@ -92,7 +92,7 @@ export default function QuestionForgeLanding() {
     },
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!forgeMutation.isPending) {
       setLoadingMessageIndex(0);
       return;
