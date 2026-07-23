@@ -15,6 +15,7 @@ const createAgentStateFromBackend = (data: unknown): AgentState => {
 import { useDiscussion } from '../../../contexts/DiscussionContext';
 import { uaipAPI } from '../../../utils/uaip_api';
 import { edenRequest } from '../../../api/eden';
+import { normalizeApiList } from '../../../api/envelope';
 import { AgentRole, LLMModel as _LLMModel, LLMProviderType as _LLMProviderType } from '@uaip/types';
 
 const AGENT_ROLE_VALUES = new Set<string>(Object.values(AgentRole));
@@ -367,12 +368,11 @@ type AttachedTool = {
     queryKey: ['agents', 'portal', AGENTS_PAGE_SIZE],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
-      // unwrapEden strips the {success,data,pagination} envelope to the bare data array, dropping pagination
-      const agents = await edenRequest<AgentState[]>(
+      const agentsResponse = await edenRequest<unknown>(
         `/api/v1/agents?page=${pageParam}&limit=${AGENTS_PAGE_SIZE}`,
         { method: 'GET' }
       );
-      const list = Array.isArray(agents) ? agents : [];
+      const list = normalizeApiList<AgentState>(agentsResponse);
       const page: AgentsListPage = {
         data: list,
         pagination: {
