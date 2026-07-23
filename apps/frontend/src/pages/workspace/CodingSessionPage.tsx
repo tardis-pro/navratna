@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { AlertTriangle, Loader2, Square, Send, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 

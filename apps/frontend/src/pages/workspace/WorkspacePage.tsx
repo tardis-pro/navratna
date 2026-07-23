@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GitBranch, Github, Plus, RefreshCw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
