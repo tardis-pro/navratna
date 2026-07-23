@@ -44,6 +44,11 @@ export const discussionsAPI = {
       return arr;
     }
 
+    if (isRecord(response) && 'data' in response && Array.isArray(response['data'])) {
+      const arr: any = response['data']; // oxlint-disable-line @typescript-eslint/no-explicit-any -- elements are Discussion objects; runtime-validated
+      return arr;
+    }
+
     return [];
   },
 

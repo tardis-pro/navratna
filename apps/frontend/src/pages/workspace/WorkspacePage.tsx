@@ -5,11 +5,12 @@ import { GitBranch, Github, Plus, RefreshCw, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { edenRequest } from '@/api/eden';
+import { discussionsAPI } from '@/api/discussions_api';
 import { llmAPI } from '@/api/llm_api';
 import { projectsAPI } from '@/api/projects_api';
 import { STALE_TIMES } from '@/api/query_config';
 import { useAuth } from '@/contexts/AuthContext';
-import { LLMProviderType, type UserLLMProviderType } from '@uaip/types';
+import { LLMProviderType, type Discussion, type UserLLMProviderType } from '@uaip/types';
 
 import { LLMProviderCard } from '@/components/workspace/LLMProviderCard';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,11 @@ type StoredWorkspaceState = {
   githubCloneUrl: string;
 };
 
+type WorkspaceSessionEntry = {
+  sessionId: string;
+  createdAt: number;
+};
+
 function toKebabCase(value: string) {
   return value
     .trim()
@@ -47,6 +53,13 @@ function toKebabCase(value: string) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
+}
+
+function formatDateTime(value: string | Date | number | undefined) {
+  if (!value) return 'Unknown time';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  return date.toLocaleString();
 }
 
 export default function WorkspacePage() {
@@ -77,10 +90,10 @@ export default function WorkspacePage() {
   const [isSettingUp, setIsSettingUp] = useState(false);
 
   const sessionsKey = `workspace.sessions.${projectId}`;
-  const [sessions, setSessions] = useState<Array<{ sessionId: string; createdAt: number }>>(() => {
+  const [sessions, setSessions] = useState<WorkspaceSessionEntry[]>(() => {
     try {
       const raw = localStorage.getItem(sessionsKey);
-      const parsed: Array<{ sessionId: string; createdAt: number }> = raw ? JSON.parse(raw) : [];
+      const parsed: WorkspaceSessionEntry[] = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -105,6 +118,21 @@ export default function WorkspacePage() {
     queryKey: ['llmProviders', 'user'],
     queryFn: () => llmAPI.userLLM.listProviders(),
     staleTime: STALE_TIMES.STATIC,
+  });
+
+  const {
+    data: previousDiscussions = [],
+    isLoading: discussionsLoading,
+    refetch: refetchDiscussions,
+  } = useQuery({
+    queryKey: ['workspace', projectId, 'previousDiscussions'],
+    queryFn: () =>
+      discussionsAPI.list({
+        limit: 20,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      }),
+    staleTime: STALE_TIMES.FAST,
   });
 
   const providerCatalog = useMemo(() => {
@@ -249,11 +277,16 @@ export default function WorkspacePage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => void refetchProject()}
-              disabled={projectLoading}
+              onClick={() => {
+                void refetchProject();
+                void refetchDiscussions();
+              }}
+              disabled={projectLoading || discussionsLoading}
               className="border-white/15 text-white hover:bg-white/5"
             >
-              <RefreshCw className={projectLoading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+              <RefreshCw
+                className={projectLoading || discussionsLoading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
+              />
               Refresh
             </Button>
             <Button onClick={startNewSession} disabled={!workspaceState?.workspaceId}>
@@ -427,7 +460,7 @@ export default function WorkspacePage() {
 
             <Card className="bg-white/5 border-white/10 text-white">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Sessions</CardTitle>
+                <CardTitle className="text-base">Coding Sessions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {sessions.length === 0 ? (
@@ -449,6 +482,44 @@ export default function WorkspacePage() {
                         <div className="text-sm text-slate-100 truncate">{s.sessionId}</div>
                         <div className="text-xs text-slate-400">
                           {new Date(s.createdAt).toLocaleString()}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/5 border-white/10 text-white">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Previous Discussions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {discussionsLoading ? (
+                  <div className="text-xs text-slate-300">Loading discussions...</div>
+                ) : previousDiscussions.length === 0 ? (
+                  <div className="text-xs text-slate-300">No previous discussions found.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {previousDiscussions.slice(0, 8).map((discussion: Discussion) => (
+                      <button
+                        key={discussion.id}
+                        className="w-full text-left rounded-md border border-white/10 bg-black/20 px-3 py-2 hover:bg-white/5 transition"
+                        onClick={() => navigate('/')}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm text-slate-100 truncate">
+                            {discussion.title || 'Untitled discussion'}
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="bg-white/5 text-slate-200 border border-white/10 shrink-0"
+                          >
+                            {discussion.status}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {formatDateTime(discussion.updatedAt || discussion.createdAt)}
                         </div>
                       </button>
                     ))}
