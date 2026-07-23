@@ -1,12 +1,14 @@
 import { chat } from '@tanstack/ai';
 import type { AIAdapter } from '@tanstack/ai';
-import { createOpenAI } from '@tanstack/ai-openai';
 import { createAnthropic } from '@tanstack/ai-anthropic';
 import { createOllama } from '@tanstack/ai-ollama';
+import OpenAI from 'openai';
 import { BaseProvider } from './base_provider.js';
 import { LLMRequest, LLMResponse, LLMProviderConfig, ProviderModelInfo } from '../interfaces.js';
 import { StreamChunk, StreamingLLMRequest } from '@uaip/types';
 import { logger } from '@uaip/utils';
+
+type SupportedFinishReason = NonNullable<LLMResponse['finishReason']>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -21,13 +23,6 @@ export class TanStackProvider extends BaseProvider {
     const { type, baseUrl } = this.config;
 
     switch (type) {
-      case 'openai': {
-        const apiKey = await this.getApiKey();
-        return createOpenAI(apiKey, {
-          baseURL: baseUrl || 'https://api.openai.com/v1',
-        });
-      }
-
       case 'anthropic': {
         const apiKey = await this.getApiKey();
         return createAnthropic(apiKey);
@@ -36,14 +31,77 @@ export class TanStackProvider extends BaseProvider {
       case 'ollama':
         return createOllama(baseUrl || 'http://localhost:11434');
 
-      default: {
-        // Fallback to OpenAI-compatible for custom providers
-        const apiKey = await this.getApiKey();
-        return createOpenAI(apiKey, {
-          baseURL: baseUrl,
-        });
-      }
+      default:
+        throw new Error(`${this.name}: ${type} uses the OpenAI-compatible client, not a TanStack adapter`);
     }
+  }
+
+  private isOpenAICompatible(): boolean {
+    return this.config.type !== 'anthropic' && this.config.type !== 'ollama';
+  }
+
+  private async createOpenAIClient(): Promise<OpenAI> {
+    return new OpenAI({
+      apiKey: await this.getApiKey(),
+      baseURL: this.config.baseUrl || 'https://api.openai.com/v1',
+      defaultHeaders: {
+        'User-Agent': null,
+      },
+    });
+  }
+
+  private buildOpenAIMessages(systemPrompt: string | undefined, prompt: string): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+    messages.push({ role: 'user', content: prompt });
+    return messages;
+  }
+
+  private async generateOpenAIResponse(request: LLMRequest): Promise<LLMResponse> {
+    const model = request.model || this.config.defaultModel;
+    if (!model) throw new Error(`${this.name}: no model configured for OpenAI-compatible request`);
+
+    const response = await (await this.createOpenAIClient()).chat.completions.create({
+      model,
+      messages: this.buildOpenAIMessages(request.systemPrompt, request.prompt),
+      max_tokens: request.maxTokens || 2000,
+      temperature: request.temperature || 0.7,
+    });
+
+    return {
+      content: response.choices[0]?.message.content || '',
+      model: response.model || model,
+      tokensUsed: response.usage?.total_tokens || 0,
+      confidence: 0.9,
+      finishReason: this.normalizeFinishReason(response.choices[0]?.finish_reason),
+    };
+  }
+
+  private normalizeFinishReason(reason: OpenAI.Chat.Completions.ChatCompletion.Choice['finish_reason'] | undefined): SupportedFinishReason {
+    if (reason === 'length') return 'length';
+    if (reason === 'tool_calls' || reason === 'function_call') return 'tool_calls';
+    if (reason === 'content_filter') return 'error';
+    return 'stop';
+  }
+
+  private async *streamOpenAIResponse(request: StreamingLLMRequest): AsyncGenerator<StreamChunk> {
+    const model = request.model || this.config.defaultModel;
+    if (!model) throw new Error(`${this.name}: no model configured for OpenAI-compatible stream`);
+
+    const stream = await (await this.createOpenAIClient()).chat.completions.create({
+      model,
+      messages: this.buildOpenAIMessages(request.systemPrompt, request.prompt),
+      max_tokens: request.maxTokens || 2000,
+      temperature: request.temperature || 0.7,
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta.content;
+      if (content) yield { type: 'token', content };
+    }
+
+    yield { type: 'done' };
   }
 
   private buildTanStackMessages(systemPrompt: string | undefined, prompt: string): Array<{ role: 'user'; content: string }> {
@@ -53,6 +111,8 @@ export class TanStackProvider extends BaseProvider {
 
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
+      if (this.isOpenAICompatible()) return await this.generateOpenAIResponse(request);
+
       const adapter = await this.createAdapter();
       const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
       const model = request.model || this.config.defaultModel;
@@ -93,6 +153,11 @@ export class TanStackProvider extends BaseProvider {
    * Stream response - yields chunks as they arrive
    */
   async *streamResponse(request: StreamingLLMRequest): AsyncGenerator<StreamChunk, void, unknown> {
+    if (this.isOpenAICompatible()) {
+      yield* this.streamOpenAIResponse(request);
+      return;
+    }
+
     const adapter = await this.createAdapter();
     const messages = this.buildTanStackMessages(request.systemPrompt, request.prompt);
     const model = request.model || this.config.defaultModel;

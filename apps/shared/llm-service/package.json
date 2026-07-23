@@ -37,6 +37,7 @@
     "@uaip/types": "workspace:*",
     "@uaip/utils": "workspace:*",
     "node-fetch": "^3.3.2",
+    "openai": "6.33.0",
     "uuid": "catalog:backend"
   },
   "devDependencies": {

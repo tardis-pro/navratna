@@ -4,15 +4,21 @@ import { TanStackProvider } from '../../providers/tan_stack_provider';
 
 const adapterMocks = vi.hoisted(() => ({
   chat: vi.fn(),
-  createOpenAI: vi.fn(() => ({ provider: 'openai' })),
   createAnthropic: vi.fn(() => ({ provider: 'anthropic' })),
   createOllama: vi.fn(() => ({ provider: 'ollama' })),
 }));
 
+const openAIMocks = vi.hoisted(() => ({
+  create: vi.fn(),
+  constructor: vi.fn(function OpenAIClientMock() {
+    return { chat: { completions: { create: openAIMocks.create } } };
+  }),
+}));
+
 vi.mock('@tanstack/ai', () => ({ chat: adapterMocks.chat }));
-vi.mock('@tanstack/ai-openai', () => ({ createOpenAI: adapterMocks.createOpenAI }));
 vi.mock('@tanstack/ai-anthropic', () => ({ createAnthropic: adapterMocks.createAnthropic }));
 vi.mock('@tanstack/ai-ollama', () => ({ createOllama: adapterMocks.createOllama }));
+vi.mock('openai', () => ({ default: openAIMocks.constructor }));
 
 async function* completedChatStream() {
   yield { type: 'done', usage: { totalTokens: 1 } };
@@ -88,8 +94,12 @@ describe('OpenAIProvider', () => {
 });
 
 describe('TanStackProvider credentials', () => {
-  it('passes the user API key and base URL to OpenAI', async () => {
-    adapterMocks.chat.mockReturnValue(completedChatStream());
+  it('suppresses the SDK User-Agent for OpenAI requests', async () => {
+    openAIMocks.create.mockResolvedValue({
+      choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+      model: 'gpt-test',
+      usage: { total_tokens: 1 },
+    });
     const provider = new TanStackProvider({
       providerId: 'user-openai',
       type: 'openai',
@@ -100,13 +110,19 @@ describe('TanStackProvider credentials', () => {
 
     await provider.generateResponse({ prompt: 'hello' });
 
-    expect(adapterMocks.createOpenAI).toHaveBeenCalledWith('user-openai-key', {
+    expect(openAIMocks.constructor).toHaveBeenCalledWith({
+      apiKey: 'user-openai-key',
       baseURL: 'https://openai.example/v1',
+      defaultHeaders: { 'User-Agent': null },
     });
   });
 
-  it('passes the user API key and base URL to OpenAI-compatible providers', async () => {
-    adapterMocks.chat.mockReturnValue(completedChatStream());
+  it('suppresses the SDK User-Agent for custom OpenAI-compatible providers', async () => {
+    openAIMocks.create.mockResolvedValue({
+      choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+      model: 'custom-model',
+      usage: { total_tokens: 1 },
+    });
     const provider = new TanStackProvider({
       providerId: 'user-custom',
       type: 'custom',
@@ -117,8 +133,38 @@ describe('TanStackProvider credentials', () => {
 
     await provider.generateResponse({ prompt: 'hello' });
 
-    expect(adapterMocks.createOpenAI).toHaveBeenCalledWith('user-custom-key', {
+    expect(openAIMocks.constructor).toHaveBeenCalledWith({
+      apiKey: 'user-custom-key',
       baseURL: 'https://compatible.example/v1',
+      defaultHeaders: { 'User-Agent': null },
+    });
+  });
+
+  it('suppresses the SDK User-Agent for OpenAI-compatible streams', async () => {
+    async function* stream() {
+      yield { choices: [{ delta: { content: 'hello' } }] };
+    }
+    openAIMocks.create.mockResolvedValue(stream());
+    const provider = new TanStackProvider({
+      providerId: 'user-stream',
+      type: 'custom',
+      apiKey: 'stream-key',
+      baseUrl: 'https://compatible.example/v1',
+      defaultModel: 'custom-model',
+    });
+
+    const chunks = [];
+    for await (const chunk of provider.streamResponse({
+      prompt: 'hello',
+      userId: 'oauth-user',
+      streaming: { enabled: true },
+    })) chunks.push(chunk);
+
+    expect(chunks).toEqual([{ type: 'token', content: 'hello' }, { type: 'done' }]);
+    expect(openAIMocks.constructor).toHaveBeenCalledWith({
+      apiKey: 'stream-key',
+      baseURL: 'https://compatible.example/v1',
+      defaultHeaders: { 'User-Agent': null },
     });
   });
 
@@ -128,6 +174,7 @@ describe('TanStackProvider credentials', () => {
       providerId: 'user-anthropic',
       type: 'anthropic',
       apiKey: 'user-anthropic-key',
+      baseUrl: 'https://api.anthropic.com',
       defaultModel: 'claude-test',
     });
 

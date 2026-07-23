@@ -1985,6 +1985,9 @@ importers:
       node-fetch:
         specifier: ^3.3.2
         version: 3.3.2
+      openai:
+        specifier: 6.33.0
+        version: 6.33.0(ws@8.21.0)(zod@4.3.6)
       uuid:
         specifier: '>=11.1.1'
         version: 14.0.0
