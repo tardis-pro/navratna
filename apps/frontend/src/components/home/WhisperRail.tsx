@@ -19,7 +19,7 @@ export function WhisperRail({
       )}
       aria-label="Whisper suggestions"
     >
-      <div className="flex h-11 items-center justify-between border-b border-border px-3">
+      <div className="flex h-12 items-center justify-between border-b border-border px-3 lg:h-11">
         {isOpen && (
           <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
@@ -29,7 +29,7 @@ export function WhisperRail({
         <button
           type="button"
           onClick={onToggle}
-          className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:h-7 lg:w-7"
           aria-label={isOpen ? 'Collapse suggestions' : 'Expand suggestions'}
         >
           {isOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

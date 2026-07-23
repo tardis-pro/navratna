@@ -258,7 +258,7 @@ export function HomeShellLayout() {
   return (
     <ExploreSurfaceProvider>
       <div
-        className="relative flex h-dvh w-screen flex-col overflow-hidden bg-background text-foreground"
+        className="relative flex h-dvh w-screen flex-col overflow-hidden bg-background pb-[env(safe-area-inset-bottom)] text-foreground"
         data-testid="home-shell"
       >
         <ShellHeader

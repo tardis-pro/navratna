@@ -23,7 +23,7 @@ export function ThreadDock({
       )}
       aria-label="Threads"
     >
-      <div className="flex h-11 items-center justify-between border-b border-border px-3">
+      <div className="flex h-12 items-center justify-between border-b border-border px-3 lg:h-11">
         <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
           <MessageSquare className="h-4 w-4 text-primary" />
           Threads
@@ -32,7 +32,7 @@ export function ThreadDock({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Close threads"
           >
             <X className="h-4 w-4" />

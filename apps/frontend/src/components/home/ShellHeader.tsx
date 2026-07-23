@@ -25,13 +25,13 @@ export function ShellHeader({
       <button
         type="button"
         onClick={onOpenThreads}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
         aria-label="Open threads"
       >
         <Menu className="h-4 w-4" />
       </button>
 
-      <NavLink to="/" className="flex shrink-0 items-center gap-2 px-1" aria-label="Navratna home">
+      <NavLink to="/" className="flex h-11 shrink-0 items-center gap-2 px-1 sm:h-8" aria-label="Navratna home">
         <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
           N
         </span>
@@ -51,7 +51,7 @@ export function ShellHeader({
 
       <NavLink
         to="/explore"
-        className="mx-auto flex h-8 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground sm:px-3"
+        className="mx-auto flex h-11 min-w-0 max-w-md flex-1 items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 text-xs text-muted-foreground transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground sm:h-8 sm:px-3"
         aria-label="Find anything"
       >
         <Search className="h-3.5 w-3.5 shrink-0" />
@@ -65,7 +65,7 @@ export function ShellHeader({
         <button
           type="button"
           onClick={onNewDiscussion}
-          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:min-w-0"
           aria-label="New discussion"
         >
           <MessageSquarePlus className="h-4 w-4" />
@@ -75,7 +75,7 @@ export function ShellHeader({
           type="button"
           onClick={onToggleWhisper}
           className={cn(
-            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+            'inline-flex h-11 w-11 items-center justify-center rounded-md transition-colors sm:h-8 sm:w-8',
             whisperOpen
               ? 'bg-amber-500/15 text-amber-500'
               : 'text-muted-foreground hover:bg-muted hover:text-foreground'
