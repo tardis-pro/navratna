@@ -418,16 +418,15 @@ export function ChatComposer({
   // ── Suggestion accept (Tab/Enter while index >= 0) ─────────────────────
   const acceptSelectedSuggestion = useCallback(
     (override?: AutocompleteSuggestion): AutocompleteSuggestion | undefined => {
-      if (!showSuggestions || selectedSuggestionIndex < 0) return undefined;
-      const chosen = suggestions[selectedSuggestionIndex] ?? override;
+      if (!showSuggestions) return undefined;
+      const chosen = override ?? suggestions[selectedSuggestionIndex];
       if (!chosen) return undefined;
       const text = valueRef.current;
       const cursor = textareaRef.current?.selectionStart ?? text.length;
       const head = text.slice(0, cursor);
       const tail = text.slice(cursor);
       const replacedHead = head.replace(/(^|\s)@?\w*$/, (_m, lead) => {
-        if (chosen.type === 'intent') return lead;
-        const replacement = `@${chosen.text.replace(/\s+/g, '_')} `;
+        const replacement = `${chosen.text.trim()} `;
         return `${lead}${replacement}`;
       });
       setValue(`${replacedHead}${tail}`);
@@ -697,8 +696,7 @@ export function ChatComposer({
         </div>
       )}
 
-      {/* Connection indicator (pill — top-right of composer) */}
-      <div className="pointer-events-none absolute right-3 top-2 z-10 flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="pointer-events-none flex min-h-5 items-center justify-end gap-1 px-3 pt-2 text-[10px] uppercase tracking-wider text-muted-foreground">
         {disabled ? (
           <span className="flex items-center gap-1 text-amber-400">
             <WifiOff className="h-3 w-3" /> Offline
