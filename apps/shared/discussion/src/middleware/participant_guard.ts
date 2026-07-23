@@ -99,6 +99,10 @@ export async function participantGuard(ctx: GuardContext): Promise<GuardFailure 
       return null
     }
 
+    if (normalizeString(discussionRow.createdBy) === userId) {
+      return null
+    }
+
     const [messageRow] = await db
       .select({ messageId: discussionMessages.id })
       .from(discussionMessages)
