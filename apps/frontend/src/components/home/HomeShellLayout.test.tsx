@@ -81,7 +81,7 @@ describe('HomeShellLayout', () => {
     const shell = screen.getByTestId('home-shell');
     expect(screen.getByText('Home workspace')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('link', { name: 'Explore capabilities' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Find anything' }));
     expect(screen.getByText('Explore workspace')).toBeInTheDocument();
     expect(screen.getByTestId('home-shell')).toBe(shell);
 
@@ -100,5 +100,28 @@ describe('HomeShellLayout', () => {
     expect(await screen.findByText('Capability knowledge')).toBeInTheDocument();
     expect(screen.getByTestId('home-shell')).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'Threads' })).toBeInTheDocument();
+  });
+
+  it('progressively discloses compact-shell panels', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ShellRoutes />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open threads' }));
+    expect(screen.getByRole('button', { name: 'Close threads' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close shell panel' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close threads' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Close threads' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Whisper' }));
+    expect(screen.getByRole('button', { name: 'Close Whisper' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
   });
 });
