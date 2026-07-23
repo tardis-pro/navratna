@@ -1,6 +1,6 @@
 # FRONTEND — @council/frontend
 
-React 19 + Vite + Tailwind 4 SPA. Ambient Telescope surface with portal-based navigation, 10 context providers, Socket.IO real-time, shadcn/ui components.
+React 19 + Vite + Tailwind 4 SPA. Persistent Home shell with contextual Telescope discovery, 10 context providers, Socket.IO real-time, shadcn/ui components.
 
 ## STRUCTURE
 
@@ -34,15 +34,19 @@ src/
 
 ## ROUTING
 
-All routes declared in `DesktopApp.tsx`. The app is primarily single-surface — navigation happens inside `TelescopeSurface` via portal switching, not URL changes.
+All routes are declared in `DesktopApp.tsx`. The authenticated application uses a persistent `HomeShellLayout`; Home, Threads, and Explore render as nested center workspaces while the compact header, thread dock, warm Explore provider, and contextual Whisper rail remain mounted. Explore capability focus is URL-controlled.
 
-| Path                                         | Component                    |
-| -------------------------------------------- | ---------------------------- |
-| `/`                                          | `TelescopeSurface` (default) |
-| `/questionforge`                             | `QuestionForgeLanding`       |
-| `/questionforge/results`                     | `QuestionForgeResults`       |
-| `/projects/:id/workspace`                    | `WorkspacePage`              |
-| `/projects/:id/workspace/session/:sessionId` | `CodingSessionPage`          |
+| Path                                         | Component                                      |
+| -------------------------------------------- | ---------------------------------------------- |
+| `/`                                          | `HomeShellLayout` → `HomeWorkspace`            |
+| `/thread/:threadId`                          | `HomeShellLayout` → `ThreadWorkspace`          |
+| `/explore`                                   | `HomeShellLayout` → `TelescopeSurfacePage`     |
+| `/explore/:blockId`                          | `HomeShellLayout` → focused capability portal  |
+| `/questionforge`                             | `QuestionForgeLanding`                         |
+| `/questionforge/results`                     | `QuestionForgeResults`                         |
+| `/projects/:id/workspace`                    | `WorkspacePage`                                |
+| `/projects/:id/workspace/session/:sessionId` | `CodingSessionPage`                            |
+| `/shared/:shortCode`                         | `SharedArtifactView` (public, outside shell)   |
 
 ## WHERE TO LOOK
 
