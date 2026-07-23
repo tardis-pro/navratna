@@ -17,10 +17,6 @@ import { useConversationIntelligence } from '../../../hooks/use_conversation_int
 import {
   MessageSquare,
   Users,
-  Activity,
-  Brain,
-  Zap,
-  Sparkles,
   LayoutGrid,
   Maximize,
   AlertCircle,
@@ -2073,31 +2069,20 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
 
   // Render portal mode
   const renderPortalMode = () => (
-    <div className={`flex flex-col h-full space-y-6 ${className}`}>
+    <div className={`flex h-full min-h-0 flex-col ${className ?? ''}`}>
       {/* Chat Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden bg-gradient-to-br from-background/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl p-6 border border-cyan-500/20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="relative z-20 shrink-0 border-b border-border/70 bg-card/80 px-3 py-2.5 backdrop-blur-xl sm:px-4"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <motion.div
-              className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center"
-              animate={{
-                boxShadow: [
-                  '0 0 20px rgba(59, 130, 246, 0.3)',
-                  '0 0 30px rgba(6, 182, 212, 0.4)',
-                  '0 0 20px rgba(59, 130, 246, 0.3)',
-                ],
-              }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <MessageSquare className="w-6 h-6 text-white" />
-            </motion.div>
-            <div>
-              <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
                 <ConversationTopicDisplay
                   conversationId={conversationIds['portal'] || ''}
                   agentId={selectedAgentId}
@@ -2108,34 +2093,33 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                   onTopicChange={(newTopic) => {
                     setConversationTopics((prev) => ({ ...prev, portal: newTopic }));
                   }}
-                  className="text-xl font-bold text-white"
+                  className="truncate text-sm font-semibold text-foreground"
                 />
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="text-muted-foreground">
-                  {selectedAgent
-                    ? `Chatting with ${selectedAgent.name}`
-                    : 'Select an agent to start chatting'}
-                </p>
                 <div
-                  className={`w-2 h-2 rounded-full ${isWebSocketConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${isWebSocketConnected ? 'bg-emerald-400' : 'bg-red-400'}`}
                 />
                 <span
-                  className={`text-xs ${isWebSocketConnected ? 'text-green-400' : 'text-red-400'}`}
+                  className={`shrink-0 text-[11px] ${isWebSocketConnected ? 'text-emerald-400' : 'text-red-400'}`}
                 >
-                  {isWebSocketConnected ? 'Real-time' : 'Offline'}
+                  {isWebSocketConnected ? 'Live' : 'Offline'}
                 </span>
               </div>
+              <p className="truncate text-xs text-muted-foreground">
+                {selectedAgent?.role || 'Select an agent to begin'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1">
             {portalMessages.length > 0 && (
               <DiscussionTrigger
                 trigger={
-                  <button className="px-4 py-2 text-sm bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 rounded-xl border border-cyan-500/30 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
-                    <Users className="w-4 h-4" />
-                    Discuss
+                  <button
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label="Start discussion from chat"
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Discuss</span>
                   </button>
                 }
                 contextType="chat"
@@ -2155,39 +2139,69 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             {portalMessages.length > 0 && (
               <button
                 onClick={clearPortalConversation}
-                className="px-4 py-2 text-sm bg-red-500/20 text-red-400 rounded-xl border border-red-500/30 hover:bg-red-500/30 transition-colors hover:scale-105 active:scale-95"
+                className="inline-flex h-8 items-center rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
               >
                 Clear
               </button>
             )}
             <button
               onClick={() => setViewMode(viewMode === 'floating' ? 'portal' : 'floating')}
-              className="px-4 py-2 text-sm bg-muted/50 text-muted-foreground rounded-xl border border-border/40 hover:bg-muted/70 transition-colors flex items-center gap-2 hover:scale-105 active:scale-95"
+              className="hidden h-8 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
+              aria-label={viewMode === 'floating' ? 'Use portal chat' : 'Float chat'}
             >
               {viewMode === 'floating' ? (
-                <LayoutGrid className="w-4 h-4" />
+                <LayoutGrid className="h-3.5 w-3.5" />
               ) : (
-                <Maximize className="w-4 h-4" />
+                <Maximize className="h-3.5 w-3.5" />
               )}
-              {viewMode === 'floating' ? 'Portal' : 'Float'}
+              <span className="hidden sm:inline">{viewMode === 'floating' ? 'Portal' : 'Float'}</span>
             </button>
           </div>
         </div>
 
-        {/* Agent Selector */}
         {agentList.length > 0 && (
-          <div className="mt-6">
-            <AgentSwitcher
-              agents={agents}
-              value={selectedAgentId}
-              onChange={handleAgentChange}
-              onCreateAgent={() => {
-                window.dispatchEvent(new CustomEvent('navigate-to-agent-manager'));
-              }}
-              onRetry={() => {
-                void refreshAgents();
-              }}
-            />
+          <div className="mt-2 flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <AgentSwitcher
+                agents={agents}
+                value={selectedAgentId}
+                onChange={handleAgentChange}
+                onCreateAgent={() => {
+                  window.dispatchEvent(new CustomEvent('navigate-to-agent-manager'));
+                }}
+                onRetry={() => {
+                  void refreshAgents();
+                }}
+              />
+            </div>
+
+            {selectedAgent && (
+              <details className="group relative shrink-0">
+                <summary className="flex h-9 cursor-pointer list-none items-center rounded-md border border-border/60 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                  Capabilities
+                  <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                    {selectedAgent.capabilities?.length ?? 0}
+                  </span>
+                </summary>
+                <div className="absolute right-0 top-11 z-30 w-72 rounded-xl border border-border bg-popover p-3 shadow-2xl">
+                  <p className="mb-2 text-xs font-medium text-foreground">{selectedAgent.name} can help with</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedAgent.capabilities?.map((capability) => (
+                      <span
+                        key={`${selectedAgent.id}-capability-${capability}`}
+                        className="rounded-md border border-border/70 bg-muted/60 px-2 py-1 text-[11px] text-muted-foreground"
+                      >
+                        {capability}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                    Knowledge, tools, and memory are applied contextually while you chat.
+                  </p>
+                </div>
+              </details>
+            )}
+
             {pendingAgentId &&
               (() => {
                 const pendingAgent = agentList.find((a) => a.id === pendingAgentId);
@@ -2197,7 +2211,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                     role="alertdialog"
                     aria-labelledby="agent-switch-confirm-title"
                     aria-describedby="agent-switch-confirm-desc"
-                    className="mt-3 flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+                    className="absolute left-3 right-3 top-full z-40 mt-2 flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-popover px-4 py-3 text-sm shadow-2xl"
                   >
                     <p
                       id="agent-switch-confirm-title"
@@ -2237,66 +2251,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               })()}
           </div>
         )}
-
-        {/* Agent Capabilities Display */}
-        {selectedAgent && (
-          <motion.div
-            className="mt-4 p-4 bg-muted/30 border border-border/30 rounded-xl"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-foreground">Agent Capabilities</h4>
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-emerald-400">Enhanced</span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-3">
-              {selectedAgent.capabilities?.slice(0, 6).map((capability) => (
-                <motion.span
-                  key={`${selectedAgent.id}-capability-${capability}`}
-                  className="text-xs px-3 py-1 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 rounded-lg border border-blue-500/30"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  {capability}
-                </motion.span>
-              ))}
-              {selectedAgent.capabilities && selectedAgent.capabilities.length > 6 && (
-                <span className="text-xs px-3 py-1 bg-muted/60 text-muted-foreground rounded-lg border border-border/40">
-                  +{selectedAgent.capabilities.length - 6} more
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-yellow-400" />
-                <span className="text-muted-foreground">Knowledge</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-400" />
-                <span className="text-muted-foreground">Tools</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-cyan-400" />
-                <span className="text-muted-foreground">Memory</span>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
 
       {/* Chat Messages */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex-1 relative overflow-hidden bg-gradient-to-br from-background/60 via-blue-900/30 to-purple-900/20 backdrop-blur-xl rounded-2xl border border-cyan-500/20"
+        className="relative min-h-0 flex-1 overflow-hidden bg-background"
         style={{ minHeight: 0 }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-purple-500/5" />
         <div className="relative h-full">
           <ThreadContainer
             messages={portalMessages}
@@ -2348,30 +2311,34 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             composer={
               <motion.div
                 data-companion-composer
-                className="p-6 border-t border-cyan-500/20 bg-gradient-to-r from-muted/60 to-blue-900/30 backdrop-blur-sm relative"
-                initial={{ opacity: 0, y: 20 }}
+                className="relative border-t border-border/70 bg-card/80 p-3 backdrop-blur-xl sm:p-4"
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
+                transition={{ duration: 0.2 }}
               >
-                <div className="mb-4">
-                  <PromptSuggestions
-                    agentId={selectedAgentId}
-                    conversationContext={{
-                      currentTopic:
-                        conversationTopics['portal'] ||
-                        (selectedAgent ? `Chat with ${selectedAgent.name}` : 'Agent Chat'),
-                      recentMessages: portalMessages.slice(-5).map((msg) => ({
-                        content: msg.content,
-                        role: msg.sender === 'user' ? 'user' : 'assistant',
-                        timestamp: new Date(msg.timestamp),
-                      })),
-                    }}
-                    onSelectPrompt={(prompt) => {
-                      sendPortalMessageWithText(prompt);
-                    }}
-                    className="mb-2"
-                  />
-                </div>
+                {selectedAgent && (
+                  <details className="mb-2">
+                    <summary className="w-fit cursor-pointer list-none rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                      Prompt ideas
+                    </summary>
+                    <PromptSuggestions
+                      agentId={selectedAgentId}
+                      conversationContext={{
+                        currentTopic:
+                          conversationTopics['portal'] || `Chat with ${selectedAgent.name}`,
+                        recentMessages: portalMessages.slice(-5).map((msg) => ({
+                          content: msg.content,
+                          role: msg.sender === 'user' ? 'user' : 'assistant',
+                          timestamp: new Date(msg.timestamp),
+                        })),
+                      }}
+                      onSelectPrompt={(prompt) => {
+                        sendPortalMessageWithText(prompt);
+                      }}
+                      className="mt-2"
+                    />
+                  </details>
+                )}
 
                 <ChatComposer
                   agentId={selectedAgentId}
