@@ -19,6 +19,7 @@ export interface HomeShellContextValue {
   selectedAgentId: string | null;
   selectAgent: (agentId: string) => void;
   selectThreadById: (threadId: string) => void;
+  openDiscussionComposer: () => void;
 }
 
 export interface ThreadDockProps {

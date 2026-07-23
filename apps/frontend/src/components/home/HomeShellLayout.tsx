@@ -8,6 +8,7 @@ import { ThreadPresence, ThreadState } from '@uaip/types';
 import { useAgents } from '@/contexts/AgentContext';
 import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ExploreSurfaceProvider } from '@/components/TelescopeSurface/ExploreSurfaceProvider';
 import { cn } from '@/lib/utils';
 import { swift } from '@/lib/motion';
 import { uaipAPI } from '@/utils/uaip_api';
@@ -196,9 +197,18 @@ export function HomeShellLayout() {
     [fetchDiscussions, selectAgent]
   );
 
+  const openDiscussionComposer = useCallback(() => {
+    setDiscussionModalOpen(true);
+  }, []);
+
   const shellContext = useMemo<HomeShellContextValue>(
-    () => ({ selectedAgentId, selectAgent, selectThreadById }),
-    [selectAgent, selectThreadById, selectedAgentId]
+    () => ({
+      selectedAgentId,
+      selectAgent,
+      selectThreadById,
+      openDiscussionComposer,
+    }),
+    [openDiscussionComposer, selectAgent, selectThreadById, selectedAgentId]
   );
 
   return (
@@ -214,9 +224,11 @@ export function HomeShellLayout() {
       />
 
       <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
-        <ErrorBoundary key={location.pathname}>
-          <Outlet context={shellContext} />
-        </ErrorBoundary>
+        <ExploreSurfaceProvider>
+          <ErrorBoundary key={location.pathname}>
+            <Outlet context={shellContext} />
+          </ErrorBoundary>
+        </ExploreSurfaceProvider>
       </main>
 
       <aside
