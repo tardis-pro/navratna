@@ -14,12 +14,20 @@ export interface SentryConfig {
 
 let initialized = false;
 
+function serviceDsnEnvKey(serviceName: string): string {
+  return `SENTRY_DSN_${serviceName.replace(/[^a-z0-9]/gi, '_').toUpperCase()}`;
+}
+
+function resolveSentryDsn(config: SentryConfig): string | undefined {
+  return config.dsn || process.env[serviceDsnEnvKey(config.serviceName)] || process.env.SENTRY_DSN;
+}
+
 /**
  * Initialize Sentry for backend services (Bun runtime).
  * Call once at service startup, before any request handling.
  */
 export function initSentry(config: SentryConfig): void {
-  const dsn = config.dsn || process.env.SENTRY_DSN;
+  const dsn = resolveSentryDsn(config);
   const enabled = config.enabled ?? (process.env.SENTRY_ENABLED !== 'false');
 
   if (!enabled || !dsn) {
@@ -34,6 +42,11 @@ export function initSentry(config: SentryConfig): void {
     serverName: config.serviceName,
     sampleRate: config.sampleRate ?? 1.0,
     tracesSampleRate: config.tracesSampleRate ?? (process.env.NODE_ENV === 'production' ? 0.2 : 1.0),
+    initialScope: {
+      tags: {
+        service: config.serviceName,
+      },
+    },
     integrations: [
       Sentry.onUnhandledRejectionIntegration({ mode: 'warn' }),
     ],
