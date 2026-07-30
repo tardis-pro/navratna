@@ -15,7 +15,7 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
-    "dev": "tsc --watch",
+    "dev": "tsc -b tsconfig.build.json --watch",
     "clean": "rimraf dist",
     "lint": "oxlint src",
     "lint:fix": "oxlint --fix src",
