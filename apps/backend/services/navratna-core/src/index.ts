@@ -326,7 +326,23 @@ class NavratnaCoreService extends BaseService {
           const edgeSecret = process.env.EDGE_AUTH_SECRET
           const rawEdge = socket.handshake.headers['x-edge-auth']
           const edgeHeader = Array.isArray(rawEdge) ? rawEdge[0] : rawEdge
-          const edgeTrusted = !edgeSecret || edgeHeader === edgeSecret
+          const edgeTrusted = Boolean(edgeSecret) && edgeHeader === edgeSecret
+
+          if (!edgeSecret) {
+            logger.warn('Socket.IO auth: EDGE_AUTH_SECRET is not configured; denying edge-trusted fast-path', {
+              socketId: socket.id,
+              headerNames: Object.keys(socket.handshake.headers),
+              hasUserIdHeader: Boolean(userId),
+              hasEdgeHeader: Boolean(edgeHeader),
+            })
+          } else if (userId && !edgeTrusted) {
+            logger.warn('Socket.IO auth: invalid edge auth secret; denying edge-trusted fast-path', {
+              socketId: socket.id,
+              headerNames: Object.keys(socket.handshake.headers),
+              hasUserIdHeader: Boolean(userId),
+              hasEdgeHeader: Boolean(edgeHeader),
+            })
+          }
 
           if (userId && edgeTrusted) {
             const UUID_REGEX =

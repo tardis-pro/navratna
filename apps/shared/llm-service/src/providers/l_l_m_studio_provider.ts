@@ -65,6 +65,10 @@ export class LLMStudioProvider extends BaseProvider {
       }
 
       const usage = LLMStudioProvider.isRecord(data.usage) ? data.usage : undefined;
+      const promptTokens = LLMStudioProvider.toNumber(usage?.prompt_tokens) ?? 0;
+      const completionTokens = LLMStudioProvider.toNumber(usage?.completion_tokens) ?? 0;
+      const totalTokens = LLMStudioProvider.toNumber(usage?.total_tokens) ?? 0;
+      const tokensUsed = totalTokens || promptTokens + completionTokens;
       const finishReasonRaw = LLMStudioProvider.toString(choice?.finish_reason);
       const finishReason: LLMResponse['finishReason'] =
         finishReasonRaw === 'length' ||
@@ -80,7 +84,7 @@ export class LLMStudioProvider extends BaseProvider {
           request.model ||
           this.config.defaultModel ||
           'unknown',
-        tokensUsed: LLMStudioProvider.toNumber(usage?.total_tokens) ?? 0,
+        tokensUsed,
         confidence: 0.8, // LLM Studio doesn't provide confidence scores
         finishReason,
       };

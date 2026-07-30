@@ -32,7 +32,17 @@ export { BaseProvider } from './providers/base_provider.js';
 export { OllamaProvider } from './providers/ollama_provider.js';
 export { LLMStudioProvider } from './providers/l_l_m_studio_provider.js';
 export { OpenAIProvider } from './providers/open_a_i_provider.js';
+export { AnthropicProvider } from './providers/anthropic_provider.js';
+export { GoogleProvider } from './providers/google_provider.js';
 export { TanStackProvider } from './providers/tan_stack_provider.js';
+
+// Cache key exports
+export {
+  CACHE_TTL,
+  MODELS_CACHE_KEY,
+  PROVIDERS_CACHE_KEY,
+  PROVIDER_MODELS_CACHE_PREFIX,
+} from './cache_keys.js';
 
 // Streaming exports
 export { StreamingService } from './streaming_service.js';

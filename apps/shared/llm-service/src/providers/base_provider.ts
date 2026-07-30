@@ -139,6 +139,11 @@ export abstract class BaseProvider {
           throw error;
         }
 
+        // 4xx = rejected request; replaying it only wastes quota.
+        if (BaseProvider.isNonRetriableStatus(error)) {
+          throw error;
+        }
+
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
         // eslint-disable-next-line no-await-in-loop -- sequential retry required
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -173,6 +178,16 @@ export abstract class BaseProvider {
     if (apiKey) requestHeaders['Authorization'] = `Bearer ${apiKey}`;
 
     return this.executeWithRetry(url, { method: 'GET', headers: requestHeaders }, 'GET request');
+  }
+
+  // 408 (timeout) and 429 (throttle) ARE transient despite being 4xx.
+  private static isNonRetriableStatus(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const match = /HTTP (\d{3})/.exec(message);
+    if (!match) return false;
+    const status = Number(match[1]);
+    if (status === 408 || status === 429) return false;
+    return status >= 400 && status < 500;
   }
 
   protected handleError(error: unknown, context: string): LLMResponse {

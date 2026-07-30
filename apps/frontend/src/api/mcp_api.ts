@@ -140,10 +140,6 @@ export const mcpAPI = {
     return edenWithCSRFRetry(() => mcp.servers[serverName].restart.post());
   },
 
-  async getSystemRequirements(): Promise<unknown> {
-    return edenWithCSRFRetry(() => mcp['system-requirements'].get());
-  },
-
   async installTool(toolName: string): Promise<{
     success: boolean;
     message: string;

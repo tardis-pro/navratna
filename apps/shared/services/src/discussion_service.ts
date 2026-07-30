@@ -21,6 +21,8 @@ import {
 } from '@uaip/types';
 import { Persona as _Persona } from '@uaip/types';
 import { DiscussionRepository } from './database/repositories/discussion_repository';
+import { compareAndSetDiscussionStatus } from './discussion_status_cas.js';
+import { enforceParticipantCapacity } from './participant_capacity_cas.js';
 
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra/event_bus';
@@ -134,6 +136,25 @@ export class DiscussionService {
 
   getDatabaseService(): DatabaseService {
     return this.databaseService;
+  }
+
+  // Claims the transition with a conditional UPDATE so a second instance that
+  // read the same old status matches no row and aborts before any side effect.
+  private async claimTransition(
+    id: string,
+    target: DiscussionStatus,
+    allowedSourceStates: readonly DiscussionStatus[],
+    conflictMessage: string
+  ): Promise<void> {
+    const outcome = await compareAndSetDiscussionStatus(
+      this.databaseService,
+      id,
+      target,
+      allowedSourceStates
+    );
+    if (!outcome.updated) {
+      throw new ValidationError(conflictMessage);
+    }
   }
 
   dispose(): void {
@@ -456,9 +477,15 @@ export class DiscussionService {
         throw new ValidationError('Discussion requires at least 2 participants to start');
       }
 
-      // Update discussion status and state
+      await this.claimTransition(
+        id,
+        DiscussionStatus.ACTIVE,
+        [DiscussionStatus.DRAFT],
+        `Discussion cannot be started from status: ${discussion.status}`
+      );
+
+      // Update discussion state; status is already claimed above.
       await this.updateDiscussion(id, {
-        status: DiscussionStatus.ACTIVE,
         startedAt: new Date(),
         state: {
           ...discussion.state,
@@ -520,9 +547,14 @@ export class DiscussionService {
           ? DiscussionStatus.CANCELLED
           : DiscussionStatus.COMPLETED;
 
-      // Update discussion status
+      await this.claimTransition(
+        id,
+        finalStatus,
+        [discussion.status],
+        `Discussion cannot be ended from status: ${discussion.status}`
+      );
+
       const updatedDiscussion = await this.updateDiscussion(id, {
-        status: finalStatus,
         endedAt: new Date(),
         actualDuration: discussion.startedAt ? Date.now() - discussion.startedAt.getTime() : 0,
         state: {
@@ -630,6 +662,19 @@ export class DiscussionService {
         behavioralConstraints: participantRequest.behavioralConstraints,
         contextAwareness: participantRequest.contextAwareness,
       });
+
+      // The check above is a read-then-insert two instances can both pass.
+      const admitted = await enforceParticipantCapacity(
+        this.databaseService,
+        discussionId,
+        maxParticipants,
+        participant.id
+      );
+      if (!admitted) {
+        throw new ValidationError(
+          `Discussion has reached maximum participants limit: ${maxParticipants}`
+        );
+      }
 
       // Update discussion participant count
       await this.updateDiscussion(discussionId, {
@@ -1302,9 +1347,14 @@ export class DiscussionService {
         throw new ValidationError(`Discussion cannot be paused from status: ${discussion.status}`);
       }
 
-      // Update discussion status
+      await this.claimTransition(
+        id,
+        DiscussionStatus.PAUSED,
+        [DiscussionStatus.ACTIVE],
+        `Discussion cannot be paused from status: ${discussion.status}`
+      );
+
       const updatedDiscussion = await this.updateDiscussion(id, {
-        status: DiscussionStatus.PAUSED,
         metadata: {
           ...discussion.metadata,
           pausedAt: new Date(),
@@ -1340,9 +1390,14 @@ export class DiscussionService {
         throw new ValidationError(`Discussion cannot be resumed from status: ${discussion.status}`);
       }
 
-      // Update discussion status
+      await this.claimTransition(
+        id,
+        DiscussionStatus.ACTIVE,
+        [DiscussionStatus.PAUSED],
+        `Discussion cannot be resumed from status: ${discussion.status}`
+      );
+
       const updatedDiscussion = await this.updateDiscussion(id, {
-        status: DiscussionStatus.ACTIVE,
         state: {
           ...discussion.state,
           lastActivity: new Date(),

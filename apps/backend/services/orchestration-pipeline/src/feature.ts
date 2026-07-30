@@ -1,5 +1,5 @@
 import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory'
-import { EventBusService, TaskService } from '@uaip/shared-services'
+import { EnsureSystemActor, EventBusService, TaskService } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
 
 import { TaskController } from './controllers/task_controller.js'
@@ -20,6 +20,16 @@ export const orchestrationFeature: Feature = {
   name: 'orchestration-pipeline',
 
   async initialize(deps: ServiceDeps): Promise<void> {
+    // DIAGNOSTIC ONLY — FeatureFactory swallows init errors and mounts routes
+    // anyway. Enforcement is CrossPlaneGuard in createOperation.
+    try {
+      await new EnsureSystemActor().verify()
+    } catch (error) {
+      logger.error('orchestration-pipeline: system actor missing — operation writes will be rejected', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
     const taskService = TaskService.getInstance()
     const eventBusService = deps.eventBusService ?? EventBusService.getInstance()
     taskController = new TaskController(taskService)

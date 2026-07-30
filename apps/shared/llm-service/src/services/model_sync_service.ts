@@ -9,6 +9,8 @@ import { BaseProvider } from '../providers/base_provider.js';
 import { OllamaProvider } from '../providers/ollama_provider.js';
 import { LLMStudioProvider } from '../providers/l_l_m_studio_provider.js';
 import { OpenAIProvider } from '../providers/open_a_i_provider.js';
+import { AnthropicProvider } from '../providers/anthropic_provider.js';
+import { GoogleProvider } from '../providers/google_provider.js';
 import type { LLMProviderConfig, ModelSyncResult, ModelData } from '@uaip/types';
 
 export type { ModelSyncResult, ModelData };
@@ -226,10 +228,12 @@ export class ModelSyncService {
         return new OllamaProvider(config, dbProvider.name);
       case 'llmstudio':
         return new LLMStudioProvider(config, dbProvider.name);
-      case 'openai':
       case 'anthropic':
-      case 'custom':
+        return new AnthropicProvider(config, dbProvider.name);
       case 'google':
+        return new GoogleProvider(config, dbProvider.name);
+      case 'openai':
+      case 'custom':
         return new OpenAIProvider(config, dbProvider.name);
       default:
         throw new Error(`Unsupported provider type: ${dbProvider.type}`);

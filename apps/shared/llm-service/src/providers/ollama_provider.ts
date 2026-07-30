@@ -33,7 +33,9 @@ export class OllamaProvider extends BaseProvider {
         request.model ||
         this.config.defaultModel ||
         'unknown';
-      const tokensUsed = OllamaProvider.toNumber(data.eval_count) ?? 0;
+      const promptEvalCount = OllamaProvider.toNumber(data.prompt_eval_count) ?? 0;
+      const evalCount = OllamaProvider.toNumber(data.eval_count) ?? 0;
+      const tokensUsed = promptEvalCount + evalCount;
       const done = data.done === true;
 
       return {

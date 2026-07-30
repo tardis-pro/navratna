@@ -42,6 +42,29 @@ async function getProjectService(): Promise<ProjectManagementService> {
   return projectService;
 }
 
+/**
+ * Every :projectId route must prove the caller owns or belongs to the project.
+ * Returns null when access is granted, otherwise the response body to return —
+ * 404 rather than 403 so the endpoint is not an existence oracle.
+ */
+async function assertProjectAccess(
+  projectId: string,
+  userId: string | undefined,
+  set: { status?: number | string }
+): Promise<{ success: false; error: string } | null> {
+  if (!userId) {
+    set.status = 401;
+    return { success: false, error: 'Authentication required' };
+  }
+  const service = await getProjectService();
+  const project = await service.getProject(projectId, userId);
+  if (!project) {
+    set.status = 404;
+    return { success: false, error: 'Project not found' };
+  }
+  return null;
+}
+
 const createProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required'),
   description: z.string().optional(),
@@ -126,10 +149,8 @@ export function registerProjectRoutes() {
     // Get project by ID
     .get('/:projectId', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         const project = await service.getProject(params.projectId, user?.id);
   
@@ -184,10 +205,8 @@ export function registerProjectRoutes() {
     // Update project
     .put('/:projectId', async ({ params, body, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         const parsed = updateProjectSchema.safeParse(body);
         if (!parsed.success) {
@@ -213,10 +232,8 @@ export function registerProjectRoutes() {
     // Delete project
     .delete('/:projectId', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         await service.deleteProject(params.projectId);
         set.status = 204;
@@ -230,10 +247,8 @@ export function registerProjectRoutes() {
 
     .get('/:projectId/members', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         return { success: true, data: await service.getProjectMembers(params.projectId) };
       } catch (error) {
@@ -245,10 +260,8 @@ export function registerProjectRoutes() {
 
     .post('/:projectId/members', async ({ params, body, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const parsed = projectMemberSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -269,10 +282,8 @@ export function registerProjectRoutes() {
 
     .patch('/:projectId/members/:userId', async ({ params, body, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const parsed = projectMemberRoleSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -294,10 +305,8 @@ export function registerProjectRoutes() {
 
     .get('/:projectId/tools', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         return { success: true, data: await service.getProjectTools(params.projectId) };
       } catch (error) {
@@ -309,10 +318,8 @@ export function registerProjectRoutes() {
 
     .post('/:projectId/tools', async ({ params, body, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const parsed = projectToolsSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -329,10 +336,8 @@ export function registerProjectRoutes() {
 
     .delete('/:projectId/tools', async ({ params, body, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const parsed = projectToolsSchema.safeParse(body);
         if (!parsed.success) {
           set.status = 400;
@@ -349,10 +354,8 @@ export function registerProjectRoutes() {
 
     .delete('/:projectId/members/:userId', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         const removed = await service.removeProjectMember(params.projectId, params.userId);
         if (!removed) {
@@ -371,10 +374,8 @@ export function registerProjectRoutes() {
     // Get project metrics
     .get('/:projectId/metrics', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         const metrics = await service.getProjectMetrics(params.projectId);
         return { success: true, data: metrics };
@@ -388,10 +389,8 @@ export function registerProjectRoutes() {
     // Get project analytics
     .get('/:projectId/analytics', async ({ params, set, user }) => {
       try {
-        if (!user) {
-          set.status = 401;
-          return { error: 'Authentication required' };
-        }
+        const denied = await assertProjectAccess(params.projectId, user?.id, set);
+        if (denied) return denied;
         const service = await getProjectService();
         const metrics = await service.getProjectMetrics(params.projectId);
         return { success: true, data: metrics };

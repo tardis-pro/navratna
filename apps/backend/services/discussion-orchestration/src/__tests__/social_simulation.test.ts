@@ -9,13 +9,14 @@ import {
   type DiscussionParticipant,
 } from '@uaip/types';
 import { EventBusService } from '@uaip/shared-services';
+import type { DatabaseService } from '@uaip/infra';
 import { DiscussionService } from '@uaip/shared-services/discussion';
 import {
   DiscussionOrchestrationService,
   TurnStrategyService,
   ModeratedStrategy,
-  DiscussionWebSocketHandler,
 } from '@uaip/discussion-core';
+import type { IWebSocketHandler } from '@uaip/types';
 
 const createParticipant = (
   id: string,
@@ -234,10 +235,12 @@ describe('Layer 4: Social Simulation', () => {
 
     const service = new DiscussionOrchestrationService(discussionService, eventBusService);
 
+    // Participant-row ids; createHuddle resolves each to its agentId.
     const result = await service.createHuddle(
       parentDiscussion.id,
-      ['agent-a', 'agent-b', 'agent-a'],
-      'Resolve integration conflict'
+      ['p1', 'p2', 'p1'],
+      'Resolve integration conflict',
+      'user-1'
     );
 
     expect(discussionService.createDiscussion).toHaveBeenCalledWith(
@@ -267,6 +270,19 @@ describe('Layer 4: Social Simulation', () => {
       1
     );
 
+    const turnWriteStub = {
+      executeQuery: vi.fn(async (_sql: string, params?: unknown[]) => {
+        const next = params?.[2];
+        if (typeof next === 'string') {
+          discussion.state.currentTurn = {
+            ...discussion.state.currentTurn,
+            ...JSON.parse(next),
+          };
+        }
+        return [{ id: discussion.id }];
+      }),
+    } as Partial<DatabaseService> as DatabaseService;
+
     const discussionService = {
       getDiscussion: vi.fn(async () => discussion),
       updateDiscussion: vi.fn(async (_discussionId: string, update: Partial<Discussion>) => {
@@ -282,7 +298,10 @@ describe('Layer 4: Social Simulation', () => {
         }
         return discussion;
       }),
-    } as DiscussionService;
+      // The turn advance is a conditional UPDATE that writes currentTurn in SQL;
+      // mirror it onto the fixture so later assertions see the advanced turn.
+      getDatabaseService: vi.fn(() => turnWriteStub),
+    } as Partial<DiscussionService> as DiscussionService;
 
     const eventBusService = {
       publish: vi.fn(async () => undefined),
@@ -291,7 +310,7 @@ describe('Layer 4: Social Simulation', () => {
     const webSocketHandler = {
       broadcastToDiscussion: vi.fn(),
       broadcastContextUpdate: vi.fn(),
-    } as DiscussionWebSocketHandler;
+    } satisfies IWebSocketHandler;
 
     const service = new DiscussionOrchestrationService(
       discussionService,
@@ -336,7 +355,7 @@ describe('Layer 4: Social Simulation', () => {
     const webSocketHandler = {
       broadcastToDiscussion: vi.fn(),
       broadcastContextUpdate: vi.fn(),
-    } as DiscussionWebSocketHandler;
+    } satisfies IWebSocketHandler;
 
     const service = new DiscussionOrchestrationService(
       discussionService,

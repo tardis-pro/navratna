@@ -47,3 +47,7 @@ export type {
   ContextRequest,
   ContextAnalysis,
 };
+
+export interface ExtendedLLMRequest extends LLMRequest {
+  fallbackModel?: string;
+}

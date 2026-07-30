@@ -1,12 +1,11 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { logger } from '@uaip/utils';
 import { DiscussionOrchestrationService } from '../services/discussion_orchestration_service.js';
-import { DiscussionEvent, DiscussionEventType, MessageType } from '@uaip/types';
+import { DiscussionEvent, DiscussionEventType, MessageType, WebSocketConnection } from '@uaip/types';
 import { z } from 'zod';
 import { testJWTToken } from '@uaip/middleware';
 import { RedisSessionManager } from './redis_session_manager.js';
 import { extractAccessTokenFromCookieHeader } from './websocket_security_utils.js';
-import { WebSocketConnection } from './discussion_web_socket_handler.js';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -56,9 +55,9 @@ const TypingSchema = z.object({
   discussionId: z.string().uuid('Discussion ID must be a valid UUID'),
 });
 
+// No startedBy: the actor is always the authenticated socket user.
 const StartDiscussionSchema = z.object({
   discussionId: z.string().uuid('Discussion ID must be a valid UUID'),
-  startedBy: z.string().uuid('User ID must be a valid UUID').optional(),
 });
 
 const DiscussionControlSchema = z.object({
@@ -282,10 +281,25 @@ export function setupWebSocketHandlers(
         }
 
         // Join the discussion room
+        // Else the socket stays in the old room, which the leave guard now refuses to leave.
+        if (socket.discussionId && socket.discussionId !== discussionId) {
+          const previousRoom = `discussion:${socket.discussionId}`;
+          const previousParticipantId = socket.participantId;
+          await socket.leave(previousRoom);
+          socket.to(previousRoom).emit('participant_disconnected', {
+            participantId: previousParticipantId,
+            userId: socket.userId,
+            sessionId: socket.sessionId,
+            timestamp: new Date(),
+          });
+        }
+
         await socket.join(`discussion:${discussionId}`);
         socket.discussionId = discussionId;
 
-        // Get participant info
+        // SECURITY: unconditional — a stale participantId must not carry over.
+        socket.participantId = undefined;
+
         const participant = await orchestrationService.getParticipantByUserId(
           discussionId,
           socket.userId!
@@ -300,10 +314,13 @@ export function setupWebSocketHandlers(
           participantId: socket.participantId,
         });
 
-        // Notify others that user joined
-        socket.to(`discussion:${discussionId}`).emit('participant_joined', {
+        // Presence, not roster: joining a room never calls addParticipant, so
+        // this pairs with participant_disconnected — NOT with participant_joined,
+        // which orchestration reserves for actual roster changes.
+        socket.to(`discussion:${discussionId}`).emit('participant_connected', {
           participantId: socket.participantId,
           userId: socket.userId,
+          sessionId: socket.sessionId,
           timestamp: new Date(),
         });
 
@@ -349,7 +366,10 @@ export function setupWebSocketHandlers(
 
         // Validate input data
         const validatedData = StartDiscussionSchema.parse(data);
-        const { discussionId, startedBy } = validatedData;
+        // SECURITY: never trust client startedBy — startDiscussion authorizes
+        // whoever it is given, so a participant could pass the owner's id.
+        const { discussionId } = validatedData;
+        const startedBy = socket.userId!;
 
         // Verify user has permission to start this discussion
         const hasAccess = await orchestrationService.verifyParticipantAccess(
@@ -375,13 +395,13 @@ export function setupWebSocketHandlers(
           socketId: socket.id,
           userId: socket.userId,
           discussionId,
-          startedBy: startedBy || socket.userId,
+          startedBy,
         });
 
         // Start the discussion using orchestration service
         const result = await orchestrationService.startDiscussion(
           discussionId,
-          startedBy || socket.userId!
+          startedBy
         );
 
         if (result.success) {
@@ -392,7 +412,7 @@ export function setupWebSocketHandlers(
             : 0;
           socket.to(`discussion:${discussionId}`).emit('discussion_started', {
             discussionId,
-            startedBy: startedBy || socket.userId,
+            startedBy,
             timestamp: new Date(),
             participants: activeParticipants || 0,
           });
@@ -400,7 +420,7 @@ export function setupWebSocketHandlers(
           // Confirm to the starter
           socket.emit('discussion_started', {
             discussionId,
-            startedBy: startedBy || socket.userId,
+            startedBy,
             timestamp: new Date(),
             participants: activeParticipants || 0,
             success: true,
@@ -468,7 +488,7 @@ export function setupWebSocketHandlers(
           return;
         }
 
-        const result = await orchestrationService.pauseDiscussion(discussionId, socket.userId!);
+        const result = await orchestrationService.pauseDiscussionAsUser(discussionId, socket.userId!);
 
         if (result.success) {
           io.to(`discussion:${discussionId}`).emit('discussion_paused', {
@@ -523,7 +543,7 @@ export function setupWebSocketHandlers(
           return;
         }
 
-        const result = await orchestrationService.resumeDiscussion(discussionId, socket.userId!);
+        const result = await orchestrationService.resumeDiscussionAsUser(discussionId, socket.userId!);
 
         if (result.success) {
           io.to(`discussion:${discussionId}`).emit('discussion_resumed', {
@@ -616,17 +636,25 @@ export function setupWebSocketHandlers(
       try {
         const { discussionId } = data;
 
-        await socket.leave(`discussion:${discussionId}`);
+        // SECURITY: else a client can spoof a disconnect for any room.
+        if (!socket.discussionId || socket.discussionId !== discussionId) {
+          socket.emit('error', { message: 'Not joined to this discussion' });
+          return;
+        }
 
-        // Notify others that user left
-        socket.to(`discussion:${discussionId}`).emit('participant_left', {
-          participantId: socket.participantId,
-          userId: socket.userId,
-          timestamp: new Date(),
-        });
+        const departingParticipantId = socket.participantId;
+
+        await socket.leave(`discussion:${discussionId}`);
 
         socket.discussionId = undefined;
         socket.participantId = undefined;
+
+        socket.to(`discussion:${discussionId}`).emit('participant_disconnected', {
+          participantId: departingParticipantId,
+          userId: socket.userId,
+          sessionId: socket.sessionId,
+          timestamp: new Date(),
+        });
 
         socket.emit('left_discussion', { discussionId });
 
@@ -646,7 +674,15 @@ export function setupWebSocketHandlers(
     // Send message with rate limiting and validation
     socket.on('send_message', async (data: z.input<typeof SendMessageSchema>) => {
       try {
-        // Update activity and check rate limits
+        // Room check BEFORE any counter: a foreign discussionId must not be
+        // able to consume this session's message budget.
+        const preValidated = SendMessageSchema.safeParse(data);
+        if (!preValidated.success || !inJoinedDiscussion(socket, preValidated.data.discussionId)) {
+          if (preValidated.success) return;
+          socket.emit('error', { code: 'INVALID_DATA', message: 'Invalid message data' });
+          return;
+        }
+
         socket.lastActivity = new Date();
         socket.messageCount = (socket.messageCount || 0) + 1;
 
@@ -671,8 +707,7 @@ export function setupWebSocketHandlers(
         }
 
         // Validate input data
-        const validatedData = SendMessageSchema.parse(data);
-        const { discussionId, content, messageType, replyToId, threadId } = validatedData;
+        const { discussionId, content, messageType, replyToId, threadId } = preValidated.data;
 
         if (!socket.participantId) {
           socket.emit('error', {
@@ -692,12 +727,6 @@ export function setupWebSocketHandlers(
           messageType || MessageType.MESSAGE,
           { replyToId, threadId }
         );
-
-        // Broadcast message to all participants in the discussion
-        io.to(`discussion:${discussionId}`).emit('message_received', {
-          message: message.data,
-          timestamp: new Date(),
-        });
 
         logger.info('Message sent via socket', {
           socketId: socket.id,
@@ -736,6 +765,11 @@ export function setupWebSocketHandlers(
     // Typing indicators with rate limiting
     socket.on('typing_start', async (data: z.input<typeof TypingSchema>) => {
       try {
+        const preValidated = TypingSchema.safeParse(data);
+        if (!preValidated.success || socket.discussionId !== preValidated.data.discussionId) {
+          return;
+        }
+
         socket.lastActivity = new Date();
 
         if (
@@ -748,9 +782,9 @@ export function setupWebSocketHandlers(
           return; // Silently ignore typing events if rate limited
         }
 
-        const validatedData = TypingSchema.parse(data);
+        const validatedData = preValidated.data;
 
-        if (socket.participantId) {
+        if (socket.discussionId === validatedData.discussionId && socket.participantId) {
           socket.to(`discussion:${validatedData.discussionId}`).emit('user_typing', {
             participantId: socket.participantId,
             userId: socket.userId,
@@ -772,7 +806,7 @@ export function setupWebSocketHandlers(
 
         const validatedData = TypingSchema.parse(data);
 
-        if (socket.participantId) {
+        if (socket.discussionId === validatedData.discussionId && socket.participantId) {
           socket.to(`discussion:${validatedData.discussionId}`).emit('user_stopped_typing', {
             participantId: socket.participantId,
             userId: socket.userId,
@@ -791,6 +825,13 @@ export function setupWebSocketHandlers(
     // Turn management with rate limiting
     socket.on('request_turn', async (data: z.input<typeof TypingSchema>) => {
       try {
+        const preValidated = TypingSchema.safeParse(data);
+        if (!preValidated.success || !inJoinedDiscussion(socket, preValidated.data.discussionId)) {
+          if (preValidated.success) return;
+          socket.emit('error', { code: 'INVALID_DATA', message: 'Invalid turn request data' });
+          return;
+        }
+
         socket.lastActivity = new Date();
 
         if (
@@ -807,20 +848,16 @@ export function setupWebSocketHandlers(
           return;
         }
 
-        const validatedData = TypingSchema.parse(data); // Reuse schema since it has same structure
-
-        if (!socket.participantId) {
-          socket.emit('error', {
-            code: 'NOT_IN_DISCUSSION',
-            message: 'Must join discussion first',
-          });
-          return;
-        }
+        const validatedData = preValidated.data;
 
         const result = await orchestrationService.requestTurn(
           validatedData.discussionId,
           socket.participantId
         );
+        if (!result.success) {
+          socket.emit('error', { code: 'TURN_REQUEST_FAILED', message: result.error });
+          return;
+        }
 
         // Notify all participants about turn request
         io.to(`discussion:${validatedData.discussionId}`).emit('turn_requested', {
@@ -851,12 +888,13 @@ export function setupWebSocketHandlers(
 
     socket.on('end_turn', async (data: { discussionId: string }) => {
       try {
-        if (!socket.participantId) {
-          socket.emit('error', { message: 'Must join discussion first' });
-          return;
-        }
+        if (!inJoinedDiscussion(socket, data.discussionId)) return;
 
         const result = await orchestrationService.endTurn(data.discussionId, socket.participantId);
+        if (!result.success) {
+          socket.emit('error', { code: 'END_TURN_FAILED', message: result.error });
+          return;
+        }
 
         // Notify all participants about turn end
         io.to(`discussion:${data.discussionId}`).emit('turn_ended', {
@@ -877,6 +915,13 @@ export function setupWebSocketHandlers(
     // Reactions with validation and rate limiting
     socket.on('add_reaction', async (data: z.input<typeof ReactionSchema>) => {
       try {
+        const preValidated = ReactionSchema.safeParse(data);
+        if (!preValidated.success || !inJoinedDiscussion(socket, preValidated.data.discussionId)) {
+          if (preValidated.success) return;
+          socket.emit('error', { code: 'INVALID_DATA', message: 'Invalid reaction data' });
+          return;
+        }
+
         socket.lastActivity = new Date();
 
         if (
@@ -893,15 +938,7 @@ export function setupWebSocketHandlers(
           return;
         }
 
-        const validatedData = ReactionSchema.parse(data);
-
-        if (!socket.participantId) {
-          socket.emit('error', {
-            code: 'NOT_IN_DISCUSSION',
-            message: 'Must join discussion first',
-          });
-          return;
-        }
+        const validatedData = preValidated.data;
 
         const reaction = await orchestrationService.addReaction(
           validatedData.discussionId,
@@ -909,13 +946,6 @@ export function setupWebSocketHandlers(
           socket.participantId,
           validatedData.emoji
         );
-
-        // Broadcast reaction to all participants
-        io.to(`discussion:${validatedData.discussionId}`).emit('reaction_added', {
-          messageId: validatedData.messageId,
-          reaction,
-          timestamp: new Date(),
-        });
       } catch (error) {
         if (error instanceof z.ZodError) {
           socket.emit('error', {
@@ -1001,6 +1031,9 @@ export function setupWebSocketHandlers(
       case DiscussionEventType.MESSAGE_SENT:
         io.to(room).emit('message_received', event);
         break;
+      case DiscussionEventType.REACTION_ADDED:
+        io.to(room).emit('reaction_added', event);
+        break;
       case DiscussionEventType.SETTINGS_UPDATED:
         io.to(room).emit('settings_updated', event);
         break;
@@ -1013,6 +1046,26 @@ export function setupWebSocketHandlers(
 }
 
 // Helper functions for security and rate limiting
+
+/**
+ * A participant-scoped action must target the room this socket actually joined.
+ * Without it a client can name any discussionId and inject events into rooms it
+ * never joined, since only join_discussion verifies access.
+ */
+export function inJoinedDiscussion(
+  socket: Pick<AuthenticatedSocket, 'discussionId' | 'participantId' | 'emit'>,
+  discussionId: string
+): boolean {
+  if (socket.discussionId === discussionId && socket.participantId) {
+    return true;
+  }
+
+  socket.emit('error', {
+    code: 'NOT_IN_DISCUSSION',
+    message: 'Join this discussion before acting in it',
+  });
+  return false;
+}
 
 function getSecurityLevelFromRole(role: string): number {
   switch (role) {

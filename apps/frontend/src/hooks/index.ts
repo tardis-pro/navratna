@@ -13,7 +13,6 @@ export { useIsMobile } from './use_mobile';
 export { useDebounce } from './use_debounce';
 export { useDiscussionManager } from './use_discussion_manager';
 export { useConversationIntelligence } from './use_conversation_intelligence';
-export { useConversationEnhancement } from './use_conversation_enhancement';
 export { useDebatePrompts } from './use_debate_prompts';
 
 // Microexpression state hook

@@ -70,6 +70,7 @@ import type {
   AgentResponseRequest,
   ToolExecutionError,
   UserLLMProviderType,
+  MCPToolItem,
 } from '@uaip/types';
 
 // Import enums separately (not as type imports)
@@ -555,18 +556,18 @@ export const uaipAPI = {
     },
 
     // Agent tool management functions
-    async addTool(agentId: string, toolId: string): Promise<unknown> {
+    async addTool(agentId: string, tool: MCPToolItem): Promise<MCPToolItem[]> {
       try {
-        return await edenRequest(`/api/v1/agents/${agentId}/tools`, { method: 'POST', body: { toolId } });
+        return await api.agents.assignTools(agentId, [tool]);
       } catch (error) {
-        logger.error(`Failed to add tool ${toolId} to agent ${agentId}:`, error);
+        logger.error(`Failed to add tool ${tool.toolId} to agent ${agentId}:`, error);
         throw error;
       }
     },
 
-    async removeTool(agentId: string, toolId: string): Promise<unknown> {
+    async removeTool(agentId: string, toolId: string): Promise<MCPToolItem[]> {
       try {
-        return await edenRequest(`/api/v1/agents/${agentId}/tools/${toolId}`, { method: 'DELETE' });
+        return await api.agents.removeTool(agentId, toolId);
       } catch (error) {
         logger.error(`Failed to remove tool ${toolId} from agent ${agentId}:`, error);
         throw error;

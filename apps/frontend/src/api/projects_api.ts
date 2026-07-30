@@ -14,6 +14,16 @@ import type {
   ProjectFile,
   ProjectListOptions,
 } from '@uaip/contracts/api';
+import type { ProjectMetrics } from '@uaip/types';
+
+type ProjectMetricsEnvelope = { success: boolean; data: ProjectMetrics };
+
+function hasProjectsArray(value: unknown): value is { projects: Project[] } {
+  if (typeof value !== 'object' || value === null || !('projects' in value)) {
+    return false;
+  }
+  return Array.isArray(value.projects);
+}
 
 export type {
   Project,
@@ -33,8 +43,8 @@ export const projectsAPI = {
 
     // The endpoint answers with a paginated envelope ({ projects, total }), not a bare
     // array — callers .map() over this, so hand back the list itself.
-    if (result && !Array.isArray(result) && Array.isArray((result as { projects?: Project[] }).projects)) {
-      return (result as unknown as { projects: Project[] }).projects;
+    if (hasProjectsArray(result)) {
+      return result.projects;
     }
     return Array.isArray(result) ? result : [];
   },
@@ -132,13 +142,21 @@ export const projectsAPI = {
     });
   },
 
-  // Analytics and stats
-  async getStats(projectId: string): Promise<unknown> {
-    return edenWithCSRFRetry(() => projects[projectId].stats.get());
+  // Gateway names these /metrics and /analytics; /stats and /activity do not exist.
+  async getStats(projectId: string): Promise<ProjectMetrics> {
+    const response = await edenRequest<ProjectMetricsEnvelope>(
+      `/api/v1/projects/${projectId}/metrics`,
+      { method: 'GET' }
+    );
+    return response.data;
   },
 
-  async getActivity(projectId: string, days: number = 30): Promise<unknown> {
-    return edenWithCSRFRetry(() => projects[projectId].activity.get({ query: { days } }));
+  async getActivity(projectId: string): Promise<ProjectMetrics> {
+    const response = await edenRequest<ProjectMetricsEnvelope>(
+      `/api/v1/projects/${projectId}/analytics`,
+      { method: 'GET' }
+    );
+    return response.data;
   },
 
   // Bulk operations

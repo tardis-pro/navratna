@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { EventBusService, getControlDb } from '@uaip/shared-services'
+import {
+  EventBusService,
+  getControlDb,
+  OperationRepository,
+  SYSTEM_AGENT_ID,
+  SYSTEM_USER_ID,
+} from '@uaip/shared-services'
 import { and, eq } from '@uaip/shared-services/drizzle/clients'
 import { operations } from '@uaip/shared-services/drizzle/control'
 import type {
@@ -59,7 +65,7 @@ export class RDLOApprovalService {
     const executionPlan: ExecutionPlan = {
       id: approvalId,
       type: 'rdlo-approval',
-      agentId: 'system',
+      agentId: SYSTEM_AGENT_ID,
       steps: [],
       dependencies: [],
       estimatedDuration: timeoutMs,
@@ -83,27 +89,24 @@ export class RDLOApprovalService {
       },
     }
 
-    const db = getControlDb()
-    const [created] = await db
-      .insert(operations)
-      .values({
-        id: approvalId,
-        type: 'rdlo-approval',
-        status: OperationStatus.PENDING,
-        agentId: 'system',
-        userId: 'system',
-        name: `${gate} approval gate`,
-        executionPlan,
-        metadata,
-        dependencies: [],
-        dependentOperations: [],
-        tags: ['rdlo', 'approval'],
-        currentStep: 0,
-        retryCount: 0,
-        maxRetries: 0,
-        timeoutDuration: timeoutMs,
-      })
-      .returning()
+    // Via the repository so the cross-plane agentId is verified before insert.
+    const created = await new OperationRepository().createOperation({
+      id: approvalId,
+      type: 'rdlo-approval',
+      status: OperationStatus.PENDING,
+      agentId: SYSTEM_AGENT_ID,
+      userId: SYSTEM_USER_ID,
+      name: `${gate} approval gate`,
+      executionPlan,
+      metadata,
+      dependencies: [],
+      dependentOperations: [],
+      tags: ['rdlo', 'approval'],
+      currentStep: 0,
+      retryCount: 0,
+      maxRetries: 0,
+      timeoutDuration: timeoutMs,
+    })
 
     const approval: StoredPendingApproval | null = this.toStoredPendingApproval(created)
     if (!approval) {

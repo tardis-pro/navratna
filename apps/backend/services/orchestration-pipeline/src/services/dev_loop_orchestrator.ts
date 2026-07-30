@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { EventBusService, getControlDb } from '@uaip/shared-services'
+import {
+  EventBusService,
+  getControlDb,
+  OperationRepository,
+  SYSTEM_AGENT_ID,
+} from '@uaip/shared-services'
 import { operations } from '@uaip/shared-services/drizzle/control'
 import { eq } from '@uaip/shared-services/drizzle/clients'
 import { OperationStatus } from '@uaip/types'
@@ -393,17 +398,17 @@ export class DevLoopOrchestrator {
   }
 
   private async persistOperation(state: DevLoopState, startedBy: string): Promise<void> {
-    const db = getControlDb()
-    await db.insert(operations).values({
+    // Via the repository so the cross-plane agentId is verified before insert.
+    await new OperationRepository().createOperation({
       type: 'rdlo-dev-loop',
       name: `RDLO: ${state.config.epicTitle}`,
       status: OperationStatus.RUNNING,
-      agentId: 'system',
+      agentId: SYSTEM_AGENT_ID,
       userId: startedBy,
       executionPlan: {
         id: state.id,
         type: 'rdlo-dev-loop',
-        agentId: 'system',
+        agentId: SYSTEM_AGENT_ID,
         steps: STAGE_ORDER.map((stage, stepIndex) => ({
           id: `${state.id}-${stepIndex + 1}-${stage}`,
           type: stage,

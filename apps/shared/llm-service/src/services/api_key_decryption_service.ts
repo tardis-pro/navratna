@@ -63,10 +63,22 @@ export class ApiKeyDecryptionService {
         reject(new Error(`API key decryption timeout for provider ${providerName}`));
       }, timeoutMs);
 
+      const wrappedResolve = (value: string | undefined) => {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(requestId);
+        resolve(value);
+      };
+
+      const wrappedReject = (error: Error) => {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(requestId);
+        reject(error);
+      };
+
       // Store promise handlers
       this.pendingRequests.set(requestId, {
-        resolve,
-        reject,
+        resolve: wrappedResolve,
+        reject: wrappedReject,
         timeout,
       });
 

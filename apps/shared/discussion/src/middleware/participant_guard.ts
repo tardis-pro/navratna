@@ -1,6 +1,5 @@
 import {
   and,
-  discussionMessages,
   discussionParticipants,
   discussions,
   eq,
@@ -9,12 +8,7 @@ import {
 import type { GuardContext, GuardFailure } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
-type UnknownRecord = Record<string, unknown>
-
 const MODERATOR_ROLES = new Set(['admin', 'moderator'])
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const normalizeString = (value: unknown): string | null => {
   if (typeof value !== 'string') {
@@ -27,42 +21,25 @@ const normalizeString = (value: unknown): string | null => {
 
 const normalizeRole = (value: unknown): string | null => normalizeString(value)?.toLowerCase() ?? null
 
-const extractUserFromContext = (ctx: GuardContext): { userId: string | null; role: string | null } => {
+const extractUserFromContext = (
+  ctx: GuardContext
+): { userId: string | null; role: string | null; organizationId: string | null } => {
   const headerUserId = normalizeString(ctx.headers?.['x-user-id'])
   const headerRole = normalizeRole(ctx.headers?.['x-user-role'])
+  const headerOrgId = normalizeString(ctx.headers?.['x-organization-id'])
 
   const contextUserId = normalizeString(ctx.user?.id)
   const contextRole = normalizeRole(ctx.user?.role)
+  const contextOrgId = normalizeString(ctx.user?.organizationId)
 
   return {
     userId: contextUserId ?? headerUserId,
     role: contextRole ?? headerRole,
+    organizationId: contextOrgId ?? headerOrgId,
   }
 }
 
-const discussionHasParticipant = (discussionRow: unknown, userId: string): boolean => {
-  if (!isRecord(discussionRow) || !Array.isArray(discussionRow.participants)) {
-    return false
-  }
 
-  return discussionRow.participants.some((participant) => {
-    const participantId = normalizeString(participant)
-    if (participantId === userId) {
-      return true
-    }
-
-    if (!isRecord(participant)) {
-      return false
-    }
-
-    const nestedUserId =
-      normalizeString(participant.userId) ??
-      normalizeString(participant.id) ??
-      normalizeString(participant.participantId)
-
-    return nestedUserId === userId
-  })
-}
 
 export async function participantGuard(ctx: GuardContext): Promise<GuardFailure | null> {
   const discussionId = normalizeString(ctx.params?.id)
@@ -71,14 +48,10 @@ export async function participantGuard(ctx: GuardContext): Promise<GuardFailure 
     return { success: false, error: 'Discussion id is required' }
   }
 
-  const { userId, role } = extractUserFromContext(ctx)
+  const { userId, role, organizationId } = extractUserFromContext(ctx)
   if (!userId) {
     ctx.set.status = 401
     return { success: false, error: 'Authentication required' }
-  }
-
-  if (role && MODERATOR_ROLES.has(role)) {
-    return null
   }
 
   try {
@@ -95,7 +68,14 @@ export async function participantGuard(ctx: GuardContext): Promise<GuardFailure 
       return { success: false, error: 'Discussion not found' }
     }
 
-    if (discussionHasParticipant(discussionRow, userId)) {
+    // SECURITY: before the role bypass — else a moderator crosses tenants.
+    const discussionOrgId = normalizeString(discussionRow.organizationId)
+    if (discussionOrgId && organizationId !== discussionOrgId) {
+      ctx.set.status = 403
+      return { success: false, error: 'Forbidden: discussion access denied' }
+    }
+
+    if (role && MODERATOR_ROLES.has(role)) {
       return null
     }
 
@@ -103,19 +83,20 @@ export async function participantGuard(ctx: GuardContext): Promise<GuardFailure 
       return null
     }
 
-    const [messageRow] = await db
-      .select({ messageId: discussionMessages.id })
-      .from(discussionMessages)
-      .innerJoin(discussionParticipants, eq(discussionMessages.participantId, discussionParticipants.id))
+    // discussions has NO participants column; isActive drops removed members.
+    const [participantRow] = await db
+      .select({ participantId: discussionParticipants.id })
+      .from(discussionParticipants)
       .where(
         and(
-          eq(discussionMessages.discussionId, discussionId),
-          eq(discussionParticipants.userId, userId)
+          eq(discussionParticipants.discussionId, discussionId),
+          eq(discussionParticipants.userId, userId),
+          eq(discussionParticipants.isActive, true)
         )
       )
       .limit(1)
 
-    if (messageRow) {
+    if (participantRow) {
       return null
     }
 

@@ -824,6 +824,12 @@ export class EnhancedAuthService {
     userAgent?: string,
     agentCapabilities?: AgentCapability[]
   ): Promise<Session> {
+    // SECURITY: the only isActive gate on the OAuth path — password login
+    // checks it at the route, OAuth does not.
+    if (user.isActive === false) {
+      throw new ApiError(403, 'Account is disabled', 'ACCOUNT_DISABLED');
+    }
+
     const sessionToken = this.generateSessionToken();
 
     const created = await this.sessionService.createSession(user.id ?? '', sessionToken, {

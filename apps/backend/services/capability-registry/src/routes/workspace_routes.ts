@@ -162,7 +162,10 @@ export function registerWorkspaceRoutes(
         body: t.Object({
           projectId: t.String({ minLength: 1 }),
           repositoryId: t.String({ minLength: 1, pattern: '^[1-9]\\d*$' }),
-          bindingId: t.String({ minLength: 1, format: 'uuid' }),
+          bindingId: t.String({
+            minLength: 1,
+            pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+          }),
           llmCredentials: t.Optional(t.Array(t.Any())),
           systemPromptAdditions: t.Optional(t.String()),
         }),

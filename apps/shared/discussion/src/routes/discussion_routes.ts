@@ -318,8 +318,17 @@ export function registerDiscussionRoutes(
         '/:id',
         async (ctx) => {
           try {
-            const discussion = await discussionService.updateDiscussion(ctx.params.id, ctx.body);
-            return { success: true, data: discussion };
+            const user = getNginxUser(ctx);
+            const result = await orchestrationService.updateDiscussion(
+              ctx.params.id,
+              ctx.body as Record<string, unknown>,
+              user.id
+            );
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to update discussion' };
+            }
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to update discussion', { error, id: ctx.params.id });
             ctx.set.status = 400;
@@ -384,22 +393,16 @@ export function registerDiscussionRoutes(
             // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const endedBy: string = ctx.user.id;
             const body: { reason?: string } | undefined = ctx.body;
-            const existingDiscussion = await discussionService.getDiscussion(ctx.params.id);
-            if (existingDiscussion?.status === DiscussionStatus.ACTIVE) {
-              const result = await orchestrationService.stopDiscussion(ctx.params.id, endedBy);
-              if (!result.success) {
-                ctx.set.status = 400;
-                return { success: false, error: result.error || 'Failed to end discussion' };
-              }
-              return { success: true, data: result.data };
-            }
-
-            const discussion = await discussionService.endDiscussion(
+            const result = await orchestrationService.stopDiscussion(
               ctx.params.id,
               endedBy,
               body?.reason
             );
-            return { success: true, data: discussion };
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error || 'Failed to end discussion' };
+            }
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to end discussion', { error, id: ctx.params.id });
             ctx.set.status = 400;
@@ -429,8 +432,12 @@ export function registerDiscussionRoutes(
               ctx.body,
               addedBy
             );
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to add participant' };
+            }
             ctx.set.status = 201;
-            return { success: true, data: result };
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to add participant', { error, id: ctx.params.id });
             ctx.set.status = 400;
@@ -458,7 +465,15 @@ export function registerDiscussionRoutes(
           try {
             // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const removedBy: string = ctx.user.id;
-            await discussionService.removeParticipant(ctx.params.id, ctx.params.pid, removedBy);
+            const result = await orchestrationService.removeParticipant(
+              ctx.params.id,
+              ctx.params.pid,
+              removedBy
+            );
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to remove participant' };
+            }
             return { success: true, message: 'Participant removed' };
           } catch (error) {
             logger.error('Failed to remove participant', { error, id: ctx.params.id });
@@ -487,6 +502,18 @@ export function registerDiscussionRoutes(
               messageType?: string;
               metadata?: Record<string, unknown>;
             } = ctx.body;
+            // SECURITY: sendMessage does not bind participant->user, so :pid
+            // must be proven to be the caller's or anyone can post as anyone.
+            const author = getNginxUser(ctx);
+            const callerParticipant = await orchestrationService.getParticipantByUserId(
+              ctx.params.id,
+              author.id
+            );
+            if (!callerParticipant || callerParticipant.id !== ctx.params.pid) {
+              ctx.set.status = 403;
+              return { success: false, error: 'Cannot send a message as another participant' };
+            }
+
             const sanitizedContent = stripHtmlTags(body.content);
             const result = await orchestrationService.sendMessage(
               ctx.params.id,
@@ -527,6 +554,11 @@ export function registerDiscussionRoutes(
         '/:id/messages',
         async (ctx) => {
           try {
+            const guardFailure = await participantGuard(ctx);
+            if (guardFailure) {
+              return guardFailure;
+            }
+
             const { limit = '50', offset = '0' } = ctx.query;
             const messages = await discussionService.getDiscussionMessages(ctx.params.id, {
               limit: parseInt(limit, 10),
@@ -564,7 +596,11 @@ export function registerDiscussionRoutes(
 
             // @ts-expect-error -- Elysia withNginxAuth injects user context that TypeScript cannot infer through nested groups
             const forcedBy: string = ctx.user.id;
-            await discussionService.advanceTurn(ctx.params.id, forcedBy);
+            const result = await orchestrationService.forceAdvanceTurn(ctx.params.id, forcedBy);
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to advance turn' };
+            }
             return { success: true, message: 'Turn advanced' };
           } catch (error) {
             logger.error('Failed to advance turn', { error, id: ctx.params.id });
@@ -588,6 +624,11 @@ export function registerDiscussionRoutes(
         '/:id/analytics',
         async (ctx) => {
           try {
+            const guardFailure = await participantGuard(ctx);
+            if (guardFailure) {
+              return guardFailure;
+            }
+
             const analytics = await discussionService.getDiscussionAnalytics(ctx.params.id);
             return { success: true, data: analytics };
           } catch (error) {
@@ -608,14 +649,24 @@ export function registerDiscussionRoutes(
         '/:id/turns/request',
         async (ctx) => {
           try {
-            const body: { participantId?: string; reason?: string } | undefined = ctx.body;
-            const participantId = body?.participantId;
-            if (!participantId) {
-              ctx.set.status = 400;
-              return { success: false, error: 'participantId is required' };
+            // SECURITY: never from the body — requestTurn only checks the id
+            // exists, so a body id lets anyone act as another participant.
+            const user = getNginxUser(ctx);
+            const participant = await orchestrationService.getParticipantByUserId(
+              ctx.params.id,
+              user.id
+            );
+            if (!participant) {
+              ctx.set.status = 403;
+              return { success: false, error: 'You are not a participant in this discussion' };
             }
-            const result = await orchestrationService.requestTurn(ctx.params.id, participantId);
-            return { success: true, data: result };
+
+            const result = await orchestrationService.requestTurn(ctx.params.id, participant.id);
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to request turn' };
+            }
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to request turn', { error, id: ctx.params.id });
             ctx.set.status = 400;
@@ -659,10 +710,15 @@ export function registerDiscussionRoutes(
               ctx.set.status = 400;
               return { success: false, error: 'participants or initiatorId is required' };
             }
+
+            // createHuddle validates membership and maps participant ids to
+            // agent ids; this route only proves the caller may act here.
+            const creator = getNginxUser(ctx);
             const result = await orchestrationService.createHuddle(
               ctx.params.id,
               participantIds,
-              body?.topic || 'Specialist huddle'
+              body?.topic || 'Specialist huddle',
+              creator.id
             );
             ctx.set.status = 201;
             return { success: true, data: result };
@@ -693,8 +749,31 @@ export function registerDiscussionRoutes(
         '/:id/huddles/:huddle_id/resolve',
         async (ctx) => {
           try {
+            // resolveHuddle takes only the huddle id, so without this any huddle
+            // could be resolved through any discussion's URL.
+            const huddle = await discussionService.getDiscussion(ctx.params.huddle_id);
+            if (!huddle) {
+              ctx.set.status = 404;
+              return { success: false, error: 'Huddle not found' };
+            }
+            // Column first, matching resolveHuddle — metadata is user-writable.
+            const parentId =
+              huddle.parentDiscussionId ??
+              (typeof huddle.metadata?.parentDiscussionId === 'string'
+                ? huddle.metadata.parentDiscussionId
+                : undefined);
+            if (parentId !== ctx.params.id) {
+              ctx.set.status = 404;
+              return { success: false, error: 'Huddle not found in this discussion' };
+            }
+
             const body: { summary?: string } | undefined = ctx.body;
-            await orchestrationService.resolveHuddle(ctx.params.huddle_id, body?.summary || '');
+            const resolver = getNginxUser(ctx);
+            await orchestrationService.resolveHuddle(
+              ctx.params.huddle_id,
+              body?.summary || '',
+              resolver.id
+            );
             return { success: true, message: 'Huddle resolved' };
           } catch (error) {
             logger.error('Failed to resolve huddle', { error, huddleId: ctx.params.huddle_id });
@@ -730,13 +809,22 @@ export function registerDiscussionRoutes(
                 error: `Invalid turn strategy. Valid values: ${validStrategies.join(', ')}`,
               };
             }
-            const discussion = await discussionService.updateDiscussion(ctx.params.id, {
-              turnStrategy: {
-                strategy: strategyValue as TurnStrategy,
-                ...(body?.config ?? {}),
-              },
-            });
-            return { success: true, data: discussion };
+
+            // Enum check above is not enough — not every enum value is implemented.
+            const user = getNginxUser(ctx);
+            const result = await orchestrationService.updateTurnStrategy(
+              ctx.params.id,
+              strategyValue as TurnStrategy,
+              body?.config,
+              user.id
+            );
+
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to update turn strategy' };
+            }
+
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to update turn strategy', { error, id: ctx.params.id });
             ctx.set.status = 400;
@@ -772,10 +860,17 @@ export function registerDiscussionRoutes(
                 error: `Invalid status. Valid values: ${validStatuses.join(', ')}`,
               };
             }
-            const discussion = await discussionService.updateDiscussion(ctx.params.id, {
-              status: statusValue as DiscussionStatus,
-            });
-            return { success: true, data: discussion };
+            const user = getNginxUser(ctx);
+            const result = await orchestrationService.changeStatus(
+              ctx.params.id,
+              statusValue as DiscussionStatus,
+              user.id
+            );
+            if (!result.success) {
+              ctx.set.status = 400;
+              return { success: false, error: result.error ?? 'Failed to update discussion status' };
+            }
+            return { success: true, data: result.data };
           } catch (error) {
             logger.error('Failed to update discussion status', { error, id: ctx.params.id });
             ctx.set.status = 400;

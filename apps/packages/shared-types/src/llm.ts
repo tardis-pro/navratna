@@ -560,6 +560,7 @@ export interface LLMResponse {
   content: string;
   tokensUsed?: number;
   model: string;
+  provider?: string;
   confidence?: number;
   error?: string;
   toolCalls?: LLMToolCall[];
@@ -664,7 +665,7 @@ export interface AvailableTool {
 // Provider configuration
 export interface LLMProviderConfig {
   providerId?: string;
-  type: 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'custom';
+  type: 'ollama' | 'openai' | 'llmstudio' | 'anthropic' | 'google' | 'custom';
   baseUrl: string;
   apiKey?: string;
   apiKeyEncrypted?: string;

@@ -1,5 +1,6 @@
 import { Elysia, t } from 'elysia';
 import {
+  CACHE_TTL,
   LLMService,
   ModelBootstrapService,
   StreamingService,
@@ -16,6 +17,7 @@ import type {
   UserLLMProviderType,
 } from '@uaip/types';
 import { logger, ValidationError, isRecord } from '@uaip/utils';
+import { createRateLimiter } from '@uaip/middleware';
 import { getNginxUser, withNginxAuth } from '@uaip/middleware';
 
 const _artifactTypes: readonly LLMArtifactType[] = ['code', 'documentation', 'test', 'prd'];
@@ -108,12 +110,10 @@ export function registerLLMRoutes(
     '/api/v1/llm',
     (group) =>
       withNginxAuth(group)
-        // Get available models from all providers
         .get('/models', async ({ set }) => {
           const models = await llmService.getAvailableModels();
 
-          // Set cache headers (1 hour)
-          set.headers['Cache-Control'] = 'public, max-age=3600';
+          set.headers['Cache-Control'] = `public, max-age=${CACHE_TTL}`;
           set.headers['ETag'] = `"models-${models.length}-${Date.now()}"`;
 
           return {
@@ -149,45 +149,57 @@ export function registerLLMRoutes(
         )
 
         // Generate LLM response
-        .post('/generate', async ({ body }) => {
-          const payload: Record<string, unknown> = isRecord(body) ? body : {};
-          const prompt = payload['prompt'];
-          const systemPrompt = payload['systemPrompt'];
-          const maxTokens = payload['maxTokens'];
-          const temperature = payload['temperature'];
-          const model = payload['model'];
-          const preferredType = payload['preferredType'];
+        .post(
+          '/generate',
+          async ({ body: rawBody }) => {
+            const body = rawBody as {
+              prompt: string;
+              systemPrompt?: string;
+              maxTokens?: number;
+              temperature?: number;
+              model?: string;
+              preferredType?: string;
+            };
+            const prompt = body.prompt;
+            const systemPrompt = body.systemPrompt;
+            const maxTokens = body.maxTokens;
+            const temperature = body.temperature;
+            const model = body.model;
+            const preferredType = body.preferredType;
 
-          if (typeof prompt !== 'string' || !prompt) {
-            throw new ValidationError('Prompt is required');
+            if (typeof prompt !== 'string' || !prompt) {
+              throw new ValidationError('Prompt is required');
+            }
+
+            const response = await llmService.generateResponse(
+              {
+                prompt,
+                systemPrompt: typeof systemPrompt === 'string' ? systemPrompt : undefined,
+                maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
+                temperature: typeof temperature === 'number' ? temperature : undefined,
+                model: typeof model === 'string' ? model : undefined,
+              },
+              typeof preferredType === 'string' ? preferredType : undefined
+            );
+
+            return {
+              success: true,
+              data: response,
+            } as const;
+          },
+          {
+            body: t.Object({
+              prompt: t.String(),
+              systemPrompt: t.Optional(t.String()),
+              maxTokens: t.Optional(t.Number()),
+              temperature: t.Optional(t.Number()),
+              model: t.Optional(t.String()),
+              preferredType: t.Optional(t.String()),
+            }),
+            response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
           }
+        )
 
-          const response = await llmService.generateResponse(
-            {
-              prompt,
-              systemPrompt: typeof systemPrompt === 'string' ? systemPrompt : undefined,
-              maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
-              temperature: typeof temperature === 'number' ? temperature : undefined,
-              model: typeof model === 'string' ? model : undefined,
-            },
-            typeof preferredType === 'string' ? preferredType : undefined
-          );
-
-          return {
-            success: true,
-            data: response,
-          };
-        }, {
-          body: t.Object({
-            prompt: t.String(),
-            systemPrompt: t.Optional(t.String()),
-            maxTokens: t.Optional(t.Number()),
-            temperature: t.Optional(t.Number()),
-            model: t.Optional(t.String()),
-            preferredType: t.Optional(t.String()),
-          }),
-          response: { 200: t.Object({ success: t.Literal(true), data: t.Any() }) },
-        })
 
         // Generate agent response
         .post('/agent-response', async ({ body }) => {
@@ -327,7 +339,7 @@ export function registerLLMRoutes(
 
         // Check provider health
         .get('/providers/health', async ({ store: _store }) => {
-          const healthResults = await llmService.checkProviderHealth();
+          const healthResults = await llmService.getProviderHealth();
 
           return {
             success: true,

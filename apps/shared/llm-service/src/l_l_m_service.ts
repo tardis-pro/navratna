@@ -7,6 +7,7 @@ import {
   ArtifactResponse,
   ContextRequest,
   AvailableTool,
+  ExtendedLLMRequest,
 } from './interfaces.js';
 import type { LLMToolCall } from '@uaip/types';
 import { getContextManager, ContextManager } from './context-manager/context_manager.js';
@@ -15,14 +16,41 @@ import { BaseProvider } from './providers/base_provider.js';
 import { OllamaProvider } from './providers/ollama_provider.js';
 import { LLMStudioProvider } from './providers/l_l_m_studio_provider.js';
 import { OpenAIProvider } from './providers/open_a_i_provider.js';
+import { AnthropicProvider } from './providers/anthropic_provider.js';
+import { GoogleProvider } from './providers/google_provider.js';
 import {
-  LLMProviderRepository,
-  RedisCacheService,
-} from '@uaip/shared-services';
-import { DatabaseService } from '@uaip/shared-services';
+  CACHE_TTL,
+  MODELS_CACHE_KEY,
+  PROVIDERS_CACHE_KEY,
+  PROVIDER_MODELS_CACHE_PREFIX,
+} from './cache_keys.js';
+import { LLMProviderRepository, RedisCacheService } from '@uaip/shared-services';
 import { logger } from '@uaip/utils';
 import { recordLLMRequest } from '@uaip/middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { DatabaseService } from '@uaip/shared-services';
+
+// 'unknown' is distinct from 'healthy': a configured provider that has never
+// been called has had nothing verified about it.
+export type ProviderHealth = 'unknown' | 'healthy' | 'degraded' | 'unavailable';
+
+const MAX_PROVIDER_FAILOVERS = 3;
+
+// 4xx (except 408/429) means the REQUEST is wrong, not the provider — failing
+// over would replay the same rejection against every configured provider.
+const NON_RETRIABLE_STATUS = /\b(400|401|403|404|405|409|413|422)\b/;
+
+const NO_PROVIDER_MESSAGE = 'No active providers available';
+
+function isNoProviderAvailable(error: unknown): boolean {
+  return error instanceof Error && error.message === NO_PROVIDER_MESSAGE;
+}
+
+function isNonRetriableLLMError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/\b(408|429|5\d\d)\b/.test(message)) return false;
+  return NON_RETRIABLE_STATUS.test(message) || /unauthorized|forbidden|invalid api key/i.test(message);
+}
 
 export class LLMService {
   private static instance: LLMService;
@@ -33,19 +61,20 @@ export class LLMService {
   private contextManager: ContextManager;
 
   // Cache keys and TTL (1 hour = 3600 seconds)
-  private static readonly CACHE_TTL = 3600;
-  private static readonly MODELS_CACHE_KEY = 'llm:models:all';
-  private static readonly PROVIDERS_CACHE_KEY = 'llm:providers:configured';
-  private static readonly PROVIDER_MODELS_CACHE_PREFIX = 'llm:models:provider:';
+  private static readonly CACHE_TTL = CACHE_TTL;
+  private static readonly MODELS_CACHE_KEY = MODELS_CACHE_KEY;
+  private static readonly PROVIDERS_CACHE_KEY = PROVIDERS_CACHE_KEY;
+  private static readonly PROVIDER_MODELS_CACHE_PREFIX = PROVIDER_MODELS_CACHE_PREFIX;
 
   private normalizeApiType(
     apiType: string
-  ): 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom' {
+  ): 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom' {
     switch (apiType) {
       case 'ollama':
       case 'llmstudio':
       case 'openai':
       case 'anthropic':
+      case 'google':
       case 'custom':
         return apiType;
       default:
@@ -58,6 +87,7 @@ export class LLMService {
     this.cacheService = RedisCacheService.getInstance();
     this.contextManager = getContextManager();
   }
+
 
   public static getInstance(): LLMService {
     if (!LLMService.instance) {
@@ -118,9 +148,13 @@ export class LLMService {
             case 'llmstudio':
               provider = new LLMStudioProvider(llmProviderConfig, providerName);
               break;
-            case 'openai':
             case 'anthropic':
+              provider = new AnthropicProvider(llmProviderConfig, providerName);
+              break;
             case 'google':
+              provider = new GoogleProvider(llmProviderConfig, providerName);
+              break;
+            case 'openai':
             case 'custom':
               // All OpenAI-compatible and cloud providers use OpenAIProvider
               provider = new OpenAIProvider(llmProviderConfig, providerName);
@@ -227,57 +261,147 @@ export class LLMService {
   }
 
   private async getBestProvider(
-    preferredType?: string
+    preferredType?: string,
+    excluded?: ReadonlySet<string>
   ): Promise<{ provider: BaseProvider; providerType: string } | null> {
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
 
-    // If preferred type is specified, try to use it
-    if (preferredType && this.providers.has(preferredType)) {
+    // An explicit preference is honoured ONCE. After it fails it lands in
+    // `excluded`, and returning it again would re-call a known-dead provider.
+    if (preferredType && this.providers.has(preferredType) && !excluded?.has(preferredType)) {
       return { provider: this.providers.get(preferredType)!, providerType: preferredType };
     }
 
-    // Fallback order: OpenAI -> LLM Studio -> Ollama
-    const fallbackOrder = ['openai', 'llmstudio', 'ollama'];
+    const preferredOrder = ['openai', 'anthropic', 'google', 'llmstudio', 'ollama'];
+    const candidates = [
+      ...preferredOrder.filter((type) => this.providers.has(type)),
+      ...[...this.providers.keys()].filter((type) => !preferredOrder.includes(type)),
+    ].filter((type) => !excluded?.has(type));
 
-    for (const providerType of fallbackOrder) {
-      if (this.providers.has(providerType)) {
-        return { provider: this.providers.get(providerType)!, providerType };
-      }
+    const firstAvailable = candidates.find((type) => !this.isCircuitOpen(type));
+    return firstAvailable
+      ? { provider: this.providers.get(firstAvailable)!, providerType: firstAvailable }
+      : null;
+  }
+
+  private isCircuitOpen(providerType: string): boolean {
+    const breaker = this.circuitBreaker.get(providerType);
+    return Boolean(breaker && breaker.openUntil > Date.now());
+  }
+
+  private assertProviderAvailable(providerType: string): void {
+    const breaker = this.circuitBreaker.get(providerType);
+    if (breaker && breaker.openUntil > Date.now()) {
+      throw new Error(`Provider ${providerType} is currently unavailable`);
     }
-
-    return null;
   }
 
   // Core LLM generation method
   async generateResponse(
-    request: LLMRequest,
+    request: ExtendedLLMRequest,
     preferredType?: string,
     requestType: 'user' | 'global' | 'agent' | 'artifact' | 'unknown' = 'global'
   ): Promise<LLMResponse> {
     const startTime = Date.now();
 
-    try {
-      const providerSelection = await this.getBestProvider(preferredType);
+    let lastProviderType: string | undefined;
+    const failedProviders = new Set<string>();
+
+    const doGenerate = async (
+      req: LLMRequest,
+      excluded?: ReadonlySet<string>
+    ): Promise<LLMResponse> => {
+      const providerSelection = await this.getBestProvider(preferredType, excluded);
       if (!providerSelection) {
-        return {
-          content: '',
-          model: 'unavailable',
-          error: 'No active providers available',
-          finishReason: 'error',
-        };
+        throw new Error(NO_PROVIDER_MESSAGE);
       }
 
       const { provider, providerType } = providerSelection;
+      lastProviderType = providerType;
+      this.assertProviderAvailable(providerType);
+      const response = await provider.generateResponse(req);
 
+      // BaseProvider.handleError RETURNS an error response instead of throwing;
+      // without this, failures look successful and retry/fallback never run.
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      this.resetBreaker(providerType);
+      return { ...response, provider: providerType };
+    };
+
+    // FAILS OVER, never retries — BaseProvider.executeWithRetry owns retry.
+    const attemptGeneration = async (req: LLMRequest): Promise<LLMResponse> => {
+      const excluded = new Set<string>();
+      let lastError: unknown;
+
+      for (let attempt = 0; attempt < MAX_PROVIDER_FAILOVERS; attempt++) {
+        try {
+          return await doGenerate(req, excluded);
+        } catch (error) {
+          // Once every provider is excluded the pool is empty, so keep the
+          // provider's own failure rather than "No active providers available".
+          if (isNoProviderAvailable(error) && lastError) {
+            break;
+          }
+          lastError = error;
+
+          // Bad REQUEST, not a bad provider: no failover, no health penalty.
+          if (isNonRetriableLLMError(error)) {
+            break;
+          }
+
+          if (lastProviderType) {
+            excluded.add(lastProviderType);
+            // Per provider — the outer catch only sees the LAST failure.
+            failedProviders.add(lastProviderType);
+          }
+
+          logger.warn('LLM provider failed, trying the next available provider', {
+            failedProvider: lastProviderType,
+            error: error instanceof Error ? error.message : error,
+          });
+        }
+      }
+
+      throw lastError instanceof Error ? lastError : new Error('LLM generation failed');
+    };
+
+    try {
       logger.info('Generating LLM response', {
         provider: preferredType || 'auto',
         promptLength: request.prompt.length,
         model: request.model,
       });
 
-      const response = await provider.generateResponse(request);
+      let response: LLMResponse;
+      try {
+        response = await attemptGeneration(request);
+      } catch (error) {
+        if (!request.fallbackModel) {
+          this.registerAllFailures(failedProviders);
+          throw error;
+        }
+
+        logger.warn('Primary LLM generation failed, attempting fallback', {
+          error: error instanceof Error ? error.message : error,
+          fallback: request.fallbackModel,
+        });
+
+        try {
+          response = await attemptGeneration({ ...request, model: request.fallbackModel });
+        } catch (fallbackError) {
+          this.registerAllFailures(failedProviders);
+          throw fallbackError;
+        }
+      }
+
+      // On SUCCESS too — a provider that failed before a working failover is
+      // still unhealthy, and would otherwise never reach the breaker.
+      this.registerAllFailures(failedProviders);
 
       const duration = Date.now() - startTime;
       logger.info('LLM response generated successfully', {
@@ -288,7 +412,7 @@ export class LLMService {
 
       recordLLMRequest({
         agentId: request.agentId,
-        provider: providerType,
+        provider: response.provider ?? preferredType ?? 'unknown',
         model: response.model || request.model,
         requestType,
         status: response.error ? 'failure' : 'success',
@@ -304,18 +428,22 @@ export class LLMService {
         duration,
       });
 
+      const failedProvider = lastProviderType ?? preferredType ?? 'unknown';
+
       recordLLMRequest({
         agentId: request.agentId,
-        provider: preferredType || 'unknown',
+        provider: failedProvider,
         model: request.model,
         requestType,
         status: 'failure',
         durationMs: duration,
       });
 
+      // Attribution: 'unknown' here makes every outage look identical.
       return {
         content: '',
-        model: 'unknown',
+        model: request.model ?? 'unknown',
+        provider: failedProvider,
         error: error instanceof Error ? error.message : 'Unknown error',
         finishReason: 'error',
       };
@@ -491,7 +619,7 @@ export class LLMService {
       description?: string;
       source: string;
       apiEndpoint: string;
-      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
       provider: string;
       isAvailable: boolean;
     }>
@@ -502,7 +630,7 @@ export class LLMService {
       description?: string;
       source: string;
       apiEndpoint: string;
-      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'custom';
+      apiType: 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
       provider: string;
       isAvailable: boolean;
     };
@@ -749,51 +877,60 @@ export class LLMService {
     return providers;
   }
 
-  // Health check method to test provider connectivity
-  async checkProviderHealth(): Promise<
-    Array<{
-      name: string;
-      type: string;
-      baseUrl: string;
-      isHealthy: boolean;
-      error?: string;
-      modelCount: number;
-    }>
-  > {
+  private circuitBreaker = new Map<string, { lastFailure: number; failureCount: number; openUntil: number }>();
+  private readonly FAILURE_THRESHOLD = 3;
+  private readonly CIRCUIT_OPEN_DURATION = 30000;
+
+  async getProviderHealth(): Promise<Record<string, ProviderHealth>> {
+    // Else the first health request reports zero providers on a healthy service.
     if (!this.initialized) {
       await this.initializeFromDatabase();
     }
 
-    const healthResults = [];
-
-    for (const [providerType, provider] of this.providers) {
-      try {
-        const startTime = Date.now();
-        // eslint-disable-next-line no-await-in-loop -- sequential processing required
-        const models = await provider.getAvailableModels();
-        const responseTime = Date.now() - startTime;
-
-        healthResults.push({
-          name: `Default ${providerType.charAt(0).toUpperCase() + providerType.slice(1)}`,
-          type: providerType,
-          baseUrl: provider.getBaseUrl(),
-          isHealthy: true,
-          modelCount: models.length,
-          responseTime,
-        });
-      } catch (error) {
-        healthResults.push({
-          name: `Default ${providerType.charAt(0).toUpperCase() + providerType.slice(1)}`,
-          type: providerType,
-          baseUrl: provider.getBaseUrl(),
-          isHealthy: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          modelCount: 0,
-        });
+    const status: Record<string, ProviderHealth> = {};
+    for (const [type, provider] of this.providers) {
+      const breaker = this.circuitBreaker.get(type);
+      if (!breaker) {
+        // Never called — nothing has verified credentials or reachability.
+        status[type] = 'unknown';
+      } else if (breaker.openUntil > Date.now()) {
+        status[type] = 'unavailable';
+      } else if (breaker.failureCount > 0) {
+        // Below the trip threshold — failing but still selectable.
+        status[type] = 'degraded';
+      } else {
+        status[type] = 'healthy';
       }
     }
+    return status;
+  }
 
-    return healthResults;
+  // Empty set = no provider-attributable failure (e.g. a 4xx request error).
+  private registerAllFailures(failedProviders: ReadonlySet<string>) {
+    for (const providerType of failedProviders) {
+      this.registerFailure(providerType);
+    }
+  }
+
+  private registerFailure(type: string) {
+    const now = Date.now();
+    const breaker = this.circuitBreaker.get(type) || { lastFailure: 0, failureCount: 0, openUntil: 0 };
+
+    if (now - breaker.lastFailure > 60000) {
+      breaker.failureCount = 1;
+    } else {
+      breaker.failureCount++;
+    }
+
+    breaker.lastFailure = now;
+    if (breaker.failureCount >= this.FAILURE_THRESHOLD) {
+      breaker.openUntil = now + this.CIRCUIT_OPEN_DURATION;
+    }
+    this.circuitBreaker.set(type, breaker);
+  }
+
+  private resetBreaker(type: string) {
+    this.circuitBreaker.set(type, { lastFailure: 0, failureCount: 0, openUntil: 0 });
   }
 
   // Private helper methods

@@ -53,7 +53,9 @@ export function registerGitHubAppInstallationRoutes(
         installationId: t.String({ pattern: '^[1-9]\\d*$' }),
         repositoryId: t.String({ pattern: '^[1-9]\\d*$' }),
         repositoryFullName: t.String({ pattern: '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' }),
-        userId: t.String({ format: 'uuid' }),
+        userId: t.String({
+          pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+        }),
         tenantId: t.String({ minLength: 1 }),
         projectId: t.String({ minLength: 1 }),
       }),

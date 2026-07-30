@@ -151,13 +151,29 @@ export class ProjectManagementService {
     }
   }
 
-  async getProject(id: string, _userId?: string): Promise<ProjectEntity | null> {
+  async getProject(id: string, userId?: string): Promise<ProjectEntity | null> {
     try {
-      return await this.projectRepository.findOne({ where: { id } });
+      const project = await this.projectRepository.findOne({ where: { id } });
+      if (!project) return null;
+
+      // SECURITY: omitting userId is an INTERNAL lookup only; request handlers
+      // must always pass it or the project is returned unchecked.
+      if (userId && !(await this.userCanAccessProject(project, userId))) {
+        return null;
+      }
+      return project;
     } catch (error) {
       logger.error('Failed to get project', { error, id });
       throw error;
     }
+  }
+
+  async userCanAccessProject(project: ProjectEntity, userId: string): Promise<boolean> {
+    if (project.ownerId === userId) return true;
+    const member = await this.memberRepository.findOne({
+      where: { projectId: project.id, userId },
+    });
+    return Boolean(member);
   }
 
   async getProjects(

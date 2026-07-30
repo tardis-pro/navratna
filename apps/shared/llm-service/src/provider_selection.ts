@@ -6,6 +6,8 @@ export interface ProviderSelectionCandidate {
   defaultModel?: string;
   modelId?: string;
   configuration?: Record<string, unknown>;
+  isActive?: boolean;
+  status?: string;
 }
 
 function isRecordValue(value: unknown): value is Record<string, unknown> {
@@ -46,26 +48,30 @@ export function selectUserProviderForModel<T extends ProviderSelectionCandidate>
   model?: string,
   preferredProviderId?: string
 ): T | null {
+  const activeProviders = providers.filter(
+    (p) => p.isActive !== false && p.status !== 'error' && p.status !== 'inactive'
+  );
+
   if (preferredProviderId) {
-    const preferredProvider = providers.find((provider) => provider.id === preferredProviderId);
+    const preferredProvider = activeProviders.find((provider) => provider.id === preferredProviderId);
     if (preferredProvider) return preferredProvider;
   }
 
   if (model) {
     const normalizedModel = model.trim().toLowerCase();
-    const modelProvider = providers.find((provider) =>
+    const modelProvider = activeProviders.find((provider) =>
       getConfiguredProviderModels(provider).includes(normalizedModel)
     );
     if (modelProvider) return modelProvider;
 
     const routedProvider =
-      providers.find((provider) => provider.type === 'custom' && Boolean(provider.baseUrl)) ??
-      providers.find((provider) => Boolean(provider.baseUrl));
+      activeProviders.find((provider) => provider.type === 'custom' && Boolean(provider.baseUrl)) ??
+      activeProviders.find((provider) => Boolean(provider.baseUrl));
     if (routedProvider) return routedProvider;
   }
 
-  const defaultProvider = providers.find((provider) => provider.isDefault);
+  const defaultProvider = activeProviders.find((provider) => provider.isDefault);
   if (defaultProvider) return defaultProvider;
 
-  return providers.find((provider) => provider.type === providerType) ?? providers[0] ?? null;
+  return activeProviders.find((provider) => provider.type === providerType) ?? activeProviders[0] ?? null;
 }

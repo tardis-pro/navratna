@@ -21,6 +21,12 @@ import type {
   AgentChatRequest,
   AgentChatResponse,
 } from '@uaip/contracts/api';
+import type { MCPToolItem } from '@uaip/types';
+
+type AgentMCPToolsResponse = {
+  success: boolean;
+  assignedMCPTools: MCPToolItem[];
+};
 
 export type {
   AgentHealthCheck,
@@ -111,19 +117,20 @@ export const agentsAPI = {
     });
   },
 
-  async removeTool(agentId: string, toolId: string): Promise<void> {
-    return edenRequest(`/api/v1/agents/${agentId}/tools/${toolId}`, { method: 'DELETE' });
+  async assignTools(agentId: string, toolsToAssign: MCPToolItem[]): Promise<MCPToolItem[]> {
+    const result = await edenRequest<AgentMCPToolsResponse>(
+      `/api/v1/agents/${agentId}/mcp-tools`,
+      { method: 'POST', body: { toolsToAssign } }
+    );
+    return result.assignedMCPTools;
   },
 
-  async getTools(id: string): Promise<unknown[]> {
-    return edenRequest(`/api/v1/agents/${id}/tools`, { method: 'GET' });
-  },
-
-  async executeTool(agentId: string, toolName: string, input: unknown): Promise<unknown> {
-    return edenRequest(`/api/v1/agents/${agentId}/tools/${toolName}/execute`, {
-      method: 'POST',
-      body: input,
-    });
+  async removeTool(agentId: string, toolId: string): Promise<MCPToolItem[]> {
+    const result = await edenRequest<AgentMCPToolsResponse>(
+      `/api/v1/agents/${agentId}/mcp-tools/${toolId}`,
+      { method: 'DELETE' }
+    );
+    return result.assignedMCPTools;
   },
 
   health: {

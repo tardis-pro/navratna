@@ -49,6 +49,10 @@ export class StreamingService extends EventEmitter {
    * Start a streaming session
    */
   async startStream(request: StreamingLLMRequest, providerId: string = 'default'): Promise<string> {
+    if (!this.eventBus) {
+      throw new Error('EventBus is not configured for StreamingService');
+    }
+
     const sessionId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const provider = this.providers.get(providerId);
@@ -159,21 +163,24 @@ export class StreamingService extends EventEmitter {
   /**
    * Cancel an active stream
    */
-  async cancelStream(sessionId: string): Promise<void> {
+  async cancelStream(sessionId: string): Promise<boolean> {
     const activeStream = this.activeStreams.get(sessionId);
     if (!activeStream) {
       logger.warn(`No active stream found for session: ${sessionId}`);
-      return;
+      return false;
     }
 
     activeStream.abortController.abort();
     activeStream.session.status = 'cancelled';
 
     this.emit(StreamingEventType.STREAM_CANCEL, { sessionId });
-    await this.eventBus.publish('llm.stream.cancel', { sessionId });
+    if (this.eventBus) {
+      await this.eventBus.publish('llm.stream.cancel', { sessionId });
+    }
 
     this.activeStreams.delete(sessionId);
     logger.info(`Cancelled stream: ${sessionId}`);
+    return true;
   }
 
   /**

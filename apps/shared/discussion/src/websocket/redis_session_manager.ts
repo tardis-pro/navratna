@@ -3,8 +3,6 @@ import { logger } from '@uaip/utils';
 import { getRedisTLSOptions } from '@uaip/infra';
 import type { WebSocketConnection, WebSocketSession, RateLimitData } from '@uaip/types';
 
-type RateLimitEntry = { count: number; resetTime: number };
-
 function isWebSocketSessionShape(v: object): v is Omit<WebSocketSession, 'connectedAt' | 'lastActivity'> & { connectedAt: unknown; lastActivity: unknown } {
   return (
     'connectionId' in v && typeof v.connectionId === 'string' &&
@@ -17,24 +15,20 @@ function isWebSocketSessionShape(v: object): v is Omit<WebSocketSession, 'connec
   );
 }
 
-function isRateLimitEntry(v: unknown): v is RateLimitEntry {
-  return (
-    typeof v === 'object' && v !== null &&
-    'count' in v && typeof v.count === 'number' &&
-    'resetTime' in v && typeof v.resetTime === 'number'
-  );
-}
-
-function isRateLimitDataShape(v: object): v is RateLimitData {
-  return (
-    'messages' in v && isRateLimitEntry(v.messages) &&
-    'typing' in v && isRateLimitEntry(v.typing) &&
-    'reactions' in v && isRateLimitEntry(v.reactions) &&
-    'turns' in v && isRateLimitEntry(v.turns)
-  );
-}
-
 export type { WebSocketSession, RateLimitData };
+
+// Atomic fixed-window counter. EXPIRE is set only on the first increment so the
+// window starts with the first request and is not extended by later ones.
+const RATE_LIMIT_SCRIPT = `
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+end
+if current > tonumber(ARGV[1]) then
+  return 0
+end
+return 1
+`;
 
 export class RedisSessionManager {
   private redis: Redis;
@@ -118,19 +112,8 @@ export class RedisSessionManager {
         this.SESSION_TTL
       );
 
-      // Initialize rate limiting data
-      const rateLimitData: RateLimitData = {
-        messages: { count: 0, resetTime: Date.now() + 60000 },
-        typing: { count: 0, resetTime: Date.now() + 60000 },
-        reactions: { count: 0, resetTime: Date.now() + 60000 },
-        turns: { count: 0, resetTime: Date.now() + 60000 },
-      };
-
-      pipeline.setex(
-        `${this.RATE_LIMIT_PREFIX}${connection.connectionId}`,
-        this.RATE_LIMIT_TTL,
-        JSON.stringify(rateLimitData)
-      );
+      // No rate-limit pre-seed: the atomic counter creates its own per-bucket
+      // key on first use, so writing one here leaves an unread orphan.
 
       await pipeline.exec();
 
@@ -228,8 +211,9 @@ export class RedisSessionManager {
         // Remove from discussion connections
         pipeline.srem(`${this.DISCUSSION_CONNECTIONS_PREFIX}${session.discussionId}`, connectionId);
 
-        // Remove rate limiting data
-        pipeline.del(`${this.RATE_LIMIT_PREFIX}${connectionId}`);
+        for (const key of this.rateLimitKeys(connectionId)) {
+          pipeline.del(key);
+        }
 
         await pipeline.exec();
 
@@ -242,7 +226,9 @@ export class RedisSessionManager {
         // Still try to clean up any orphaned data
         const pipeline = this.redis.pipeline();
         pipeline.del(`${this.SESSION_PREFIX}${connectionId}`);
-        pipeline.del(`${this.RATE_LIMIT_PREFIX}${connectionId}`);
+        for (const key of this.rateLimitKeys(connectionId)) {
+          pipeline.del(key);
+        }
         await pipeline.exec();
       }
     } catch (error) {
@@ -300,77 +286,50 @@ export class RedisSessionManager {
   }
 
   /**
-   * Check and update rate limits
+   * Check and consume one unit of a rate-limit bucket.
+   *
+   * INCR + conditional EXPIRE run inside a single Lua script so the read and the
+   * write cannot interleave: a GET/modify/SET would let concurrent callers all
+   * observe the same count and overwrite each other, letting an unbounded burst
+   * through. Fails CLOSED — any Redis error or unparseable reply denies.
    */
+  private rateLimitKeys(connectionId: string): string[] {
+    const types: Array<keyof RateLimitData> = ['messages', 'typing', 'reactions', 'turns'];
+    return types.map((type) => `${this.RATE_LIMIT_PREFIX}${connectionId}:${type}`);
+  }
+
   async checkRateLimit(
     connectionId: string,
     type: keyof RateLimitData,
     maxPerMinute: number
   ): Promise<boolean> {
+    const key = `${this.RATE_LIMIT_PREFIX}${connectionId}:${type}`;
+
     try {
-      const rateLimitData = await this.redis.get(`${this.RATE_LIMIT_PREFIX}${connectionId}`);
-
-      if (!rateLimitData) {
-        // Initialize if not exists
-        const newRateLimitData: RateLimitData = {
-          messages: { count: 0, resetTime: Date.now() + 60000 },
-          typing: { count: 0, resetTime: Date.now() + 60000 },
-          reactions: { count: 0, resetTime: Date.now() + 60000 },
-          turns: { count: 0, resetTime: Date.now() + 60000 },
-        };
-
-        await this.redis.setex(
-          `${this.RATE_LIMIT_PREFIX}${connectionId}`,
-          this.RATE_LIMIT_TTL,
-          JSON.stringify(newRateLimitData)
-        );
-
-        newRateLimitData[type].count = 1;
-        await this.redis.setex(
-          `${this.RATE_LIMIT_PREFIX}${connectionId}`,
-          this.RATE_LIMIT_TTL,
-          JSON.stringify(newRateLimitData)
-        );
-
-        return true;
-      }
-
-      const parsedLimits: unknown = JSON.parse(rateLimitData);
-      if (typeof parsedLimits !== 'object' || parsedLimits === null) return true;
-      if (!isRateLimitDataShape(parsedLimits)) return true;
-      const limits: RateLimitData = parsedLimits;
-      const now = Date.now();
-      const typeLimit = limits[type];
-
-      // Reset counter if time window has passed
-      if (now > typeLimit.resetTime) {
-        typeLimit.count = 0;
-        typeLimit.resetTime = now + 60000;
-      }
-
-      // Check if under limit
-      if (typeLimit.count >= maxPerMinute) {
-        return false;
-      }
-
-      // Increment counter
-      typeLimit.count++;
-
-      // Update in Redis
-      await this.redis.setex(
-        `${this.RATE_LIMIT_PREFIX}${connectionId}`,
-        this.RATE_LIMIT_TTL,
-        JSON.stringify(limits)
+      const allowed = await this.redis.eval(
+        RATE_LIMIT_SCRIPT,
+        1,
+        key,
+        String(maxPerMinute),
+        String(this.RATE_LIMIT_TTL)
       );
 
-      return true;
+      if (typeof allowed === 'number') return allowed === 1;
+      if (typeof allowed === 'string') return allowed === '1';
+
+      logger.error('Rate limit script returned an unusable reply; denying', {
+        connectionId,
+        type,
+        reply: typeof allowed,
+      });
+      return false;
     } catch (error) {
-      logger.error('Failed to check rate limit', {
+      logger.error('Failed to check rate limit; denying', {
         connectionId,
         type,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      return false; // Deny on error
+      return false;
     }
   }
 

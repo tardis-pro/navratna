@@ -7,6 +7,9 @@ describe('DiscussionService relation hydration', () => {
     findById: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    // Lifecycle transitions claim the row with a conditional UPDATE; a returned
+    // row means this instance won.
+    executeQuery: vi.fn(async () => [{ id: 'discussion-1', status: 'active' }]),
   }
 
   const eventBusService = {

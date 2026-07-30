@@ -90,10 +90,6 @@ export const usersAPI = {
     return edenWithCSRFRetry(() => users[id].password.post({ currentPassword, newPassword }));
   },
 
-  async getActivity(id: string, days: number = 30): Promise<unknown> {
-    return edenWithCSRFRetry(() => users[id].activity.get({ query: { days } }));
-  },
-
   async getPermissions(id: string): Promise<string[]> {
     return edenWithCSRFRetry(() => users[id].permissions.get());
   },

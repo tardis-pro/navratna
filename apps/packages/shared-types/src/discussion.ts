@@ -7,6 +7,7 @@ export interface GuardContext {
   user?: {
     id?: string
     role?: string
+    organizationId?: string
   } | null
   set: {
     status?: number | string

@@ -239,9 +239,14 @@ export const UnifiedToolPortal: React.FC = () => {
     }
   };
 
-  const addToolToAgent = async (toolId: string, agentId: string) => {
+  const addToolToAgent = async (tool: Tool, agentId: string) => {
     try {
-      await uaipAPI.agents.addTool(agentId, toolId);
+      await uaipAPI.agents.addTool(agentId, {
+        toolId: tool.id,
+        toolName: tool.name,
+        serverName: tool.metadata?.mcpServer ?? '',
+        enabled: true,
+      });
 
       // Refresh agents to show updated tool attachments
       await loadAgents();
@@ -885,7 +890,7 @@ export const UnifiedToolPortal: React.FC = () => {
                       </button>
                     ) : (
                       <button
-                        onClick={() => addToolToAgent(toolToAddToAgent.id, agent.id)}
+                        onClick={() => addToolToAgent(toolToAddToAgent, agent.id)}
                         className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors"
                       >
                         Add

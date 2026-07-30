@@ -135,6 +135,13 @@ export { ProjectLifecycleService } from './project_lifecycle_service';
 // Persona and Discussion Services
 export { PersonaService } from './persona_service';
 export { DiscussionService } from './discussion_service';
+export { addReactionToMessage } from './discussion_reactions';
+export type { ReactionMap } from './discussion_reactions';
+export { compareAndSetDiscussionStatus } from './discussion_status_cas';
+export type { CompareAndSetResult } from './discussion_status_cas';
+export { compareAndSetDiscussionTurn } from './discussion_turn_cas';
+export type { NextTurn } from './discussion_turn_cas';
+export { enforceParticipantCapacity } from './participant_capacity_cas';
 export { ParticipantManagementService } from './participant_management_service';
 
 // Widget Services
@@ -311,6 +318,8 @@ export { base as schemaBase, llmPreferenceCommonColumns } from './database/drizz
 
 // Database Seeders
 export { DefaultUserLLMProviderSeed } from './database/seeders/default_user_l_l_m_provider_seed';
+export { EnsureSystemActor } from './database/migrations/ensure_system_actor';
+export type { EnsureSystemActorResult } from './database/migrations/ensure_system_actor';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

@@ -15,7 +15,13 @@
  * property of that executor, not of this service — which is why this stays runtime-agnostic.
  */
 
-import { EventBusService, getControlDb } from '@uaip/shared-services';
+import {
+  EventBusService,
+  getControlDb,
+  OperationRepository,
+  SYSTEM_AGENT_ID,
+  SYSTEM_USER_ID,
+} from '@uaip/shared-services';
 import { eq } from '@uaip/shared-services/drizzle/clients';
 import { workflowDefinitions } from '@uaip/shared-services/drizzle/control';
 import { operations } from '@uaip/shared-services/drizzle/control';
@@ -24,7 +30,7 @@ import { OperationStatus } from '@uaip/types';
 import { randomUUID } from 'crypto';
 
 const WORKFLOW_QUEUE_EVENT = 'workflow.definition.trigger';
-const SYSTEM_ID = '00000000-0000-0000-0000-000000000001';
+
 
 interface WorkflowStep {
   type: 'bash' | 'agentTurn' | 'httpCall';
@@ -84,17 +90,17 @@ export class WorkflowExecutorService {
     }
 
     const steps = (definition.steps ?? []) as WorkflowStep[];
-    const agentId = definition.agentId || SYSTEM_ID;
+    const agentId = definition.agentId || SYSTEM_AGENT_ID;
     const operationId = randomUUID();
     const startedAt = new Date();
 
-    // Record the run as an Operation — the composition instance for this firing.
-    await db.insert(operations).values({
+    // Via the repository so the cross-plane agentId is verified before insert.
+    await new OperationRepository().createOperation({
       id: operationId,
       type: 'hybrid_workflow',
       status: OperationStatus.RUNNING,
       agentId,
-      userId: SYSTEM_ID,
+      userId: SYSTEM_USER_ID,
       name: `workflow:${definition.name}`,
       description: definition.description ?? null,
       executionPlan: { steps } as unknown as Record<string, unknown>,
@@ -219,7 +225,7 @@ export class WorkflowExecutorService {
       error?: string;
     }>(
       'tool.execute.request',
-      { requestId, toolId, agentId, parameters, securityContext: { userId: SYSTEM_ID, agentId } },
+      { requestId, toolId, agentId, parameters, securityContext: { userId: SYSTEM_USER_ID, agentId } },
       120000
     );
     if (response && response.status === 'ERROR') {
@@ -253,7 +259,7 @@ export class WorkflowExecutorService {
         url: delivery.target,
         headers: { 'Content-Type': 'application/json' },
         body: { workflow: workflowName, outcomes, summary },
-      }, SYSTEM_ID);
+      }, SYSTEM_AGENT_ID);
       return;
     }
 
@@ -264,7 +270,7 @@ export class WorkflowExecutorService {
         url: delivery.target,
         headers: { 'Content-Type': 'application/json' },
         body: { text: summary },
-      }, SYSTEM_ID);
+      }, SYSTEM_AGENT_ID);
       return;
     }
 
@@ -288,7 +294,7 @@ export class WorkflowExecutorService {
           type: 'text',
           text: { body: summary },
         },
-      }, SYSTEM_ID);
+      }, SYSTEM_AGENT_ID);
       return;
     }
 

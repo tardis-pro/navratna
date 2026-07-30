@@ -10,6 +10,8 @@ import { BaseProvider } from './providers/base_provider.js';
 import { OllamaProvider } from './providers/ollama_provider.js';
 import { LLMStudioProvider } from './providers/l_l_m_studio_provider.js';
 import { OpenAIProvider } from './providers/open_a_i_provider.js';
+import { AnthropicProvider } from './providers/anthropic_provider.js';
+import { GoogleProvider } from './providers/google_provider.js';
 import {
   UserLLMProviderRepository,
   DatabaseService,
@@ -971,10 +973,12 @@ export class UserLLMService {
         return new OllamaProvider(config, userProvider.name);
       case 'llmstudio':
         return new LLMStudioProvider(config, userProvider.name);
-      case 'openai':
       case 'anthropic':
-      case 'custom':
+        return new AnthropicProvider(config, userProvider.name);
       case 'google':
+        return new GoogleProvider(config, userProvider.name);
+      case 'openai':
+      case 'custom':
         return new OpenAIProvider(config, userProvider.name);
       default:
         throw new Error(`Unsupported provider type: ${userProvider.type}`);

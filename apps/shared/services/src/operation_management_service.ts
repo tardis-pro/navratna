@@ -1,4 +1,4 @@
-import { getControlDb } from './database/drizzle/clients/index';
+import { getControlDb, getIntelligencePool, CrossPlaneGuard } from './database/drizzle/clients/index';
 import {
   operations,
   operationStates,
@@ -27,6 +27,15 @@ export class OperationManagementService {
 
   async createOperation(operationData: typeof operations.$inferInsert): Promise<OperationRow> {
     try {
+      // agentId is intelligence-plane; no cross-plane FK exists, so verify here.
+      if (operationData.agentId) {
+        await CrossPlaneGuard.verify(
+          getIntelligencePool(),
+          'agents',
+          operationData.agentId,
+          'Agent'
+        );
+      }
       const [row] = await this.db.insert(operations).values(operationData).returning();
       return row;
     } catch (error) {

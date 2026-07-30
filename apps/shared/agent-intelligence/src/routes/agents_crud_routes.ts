@@ -11,6 +11,41 @@ type AgentCrudDeps = Pick<
 >
 
 
+type AssignedMCPTool = NonNullable<typeof agents.$inferSelect.assignedMCPTools>[number]
+
+/**
+ * Read-modify-write of the whole assigned_mcp_tools array loses a concurrent
+ * add or remove, so the row is locked FOR UPDATE for the duration.
+ * Returns null when the agent does not exist.
+ */
+async function mutateAssignedMCPTools(
+  agentId: string,
+  organizationId: string,
+  mutate: (current: AssignedMCPTool[]) => AssignedMCPTool[]
+): Promise<AssignedMCPTool[] | null> {
+  const db = getIntelligenceDb()
+
+  return await db.transaction(async (tx) => {
+    // Tenant scope lives in the SAME locked query as the read: an agent from
+    // another organization must be indistinguishable from a missing one.
+    const [row] = await tx
+      .select({ assigned: agents.assignedMCPTools })
+      .from(agents)
+      .where(and(eq(agents.id, agentId), eq(agents.organizationId, organizationId)))
+      .limit(1)
+      .for('update')
+
+    if (!row) return null
+
+    const assignedMCPTools = mutate(row.assigned ?? [])
+    await tx
+      .update(agents)
+      .set({ assignedMCPTools })
+      .where(and(eq(agents.id, agentId), eq(agents.organizationId, organizationId)))
+    return assignedMCPTools
+  })
+}
+
 const AGENT_LIST_DEFAULT_LIMIT = 12
 const AGENT_LIST_MAX_LIMIT = 100
 const AGENT_LIST_DEFAULT_PAGE = 1
@@ -190,11 +225,12 @@ export function registerAgentCrudRoutes(
 
       .get('/:agentId/mcp-tools', async (ctx) => {
         try {
+          const { organizationId } = getNginxUser(ctx)
           const db = getIntelligenceDb()
           const [row] = await db
             .select({ assigned: agents.assignedMCPTools, settings: agents.mcpToolSettings })
             .from(agents)
-            .where(eq(agents.id, ctx.params.agentId))
+            .where(and(eq(agents.id, ctx.params.agentId), eq(agents.organizationId, organizationId)))
             .limit(1)
           if (!row) {
             ctx.set.status = 404
@@ -210,31 +246,27 @@ export function registerAgentCrudRoutes(
 
       .post('/:agentId/mcp-tools', async (ctx) => {
         try {
-          const db = getIntelligenceDb()
-          const [row] = await db
-            .select({ assigned: agents.assignedMCPTools })
-            .from(agents)
-            .where(eq(agents.id, ctx.params.agentId))
-            .limit(1)
-          if (!row) {
+          const body = isRecord(ctx.body) ? ctx.body : {}
+          const toolsToAssign = Array.isArray(body.toolsToAssign) ? body.toolsToAssign : []
+
+          const assignedMCPTools = await mutateAssignedMCPTools(ctx.params.agentId, getNginxUser(ctx).organizationId, (current) => {
+            const byId = new Map(current.map((tool) => [tool.toolId, tool]))
+            for (const raw of toolsToAssign) {
+              if (!isRecord(raw) || typeof raw.toolId !== 'string') continue
+              byId.set(raw.toolId, {
+                toolId: raw.toolId,
+                toolName: typeof raw.toolName === 'string' ? raw.toolName : raw.toolId,
+                serverName: typeof raw.serverName === 'string' ? raw.serverName : '',
+                enabled: raw.enabled !== false,
+              })
+            }
+            return Array.from(byId.values())
+          })
+
+          if (assignedMCPTools === null) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-          const body = isRecord(ctx.body) ? ctx.body : {}
-          const toolsToAssign = Array.isArray(body.toolsToAssign) ? body.toolsToAssign : []
-          const current = row.assigned ?? []
-          const byId = new Map(current.map((tool) => [tool.toolId, tool]))
-          for (const raw of toolsToAssign) {
-            if (!isRecord(raw) || typeof raw.toolId !== 'string') continue
-            byId.set(raw.toolId, {
-              toolId: raw.toolId,
-              toolName: typeof raw.toolName === 'string' ? raw.toolName : raw.toolId,
-              serverName: typeof raw.serverName === 'string' ? raw.serverName : '',
-              enabled: raw.enabled !== false,
-            })
-          }
-          const assignedMCPTools = Array.from(byId.values())
-          await db.update(agents).set({ assignedMCPTools }).where(eq(agents.id, ctx.params.agentId))
           return { success: true, assignedMCPTools }
         } catch (error) {
           logger.error('Failed to assign agent MCP tools', { error, agentId: ctx.params.agentId })
@@ -245,22 +277,19 @@ export function registerAgentCrudRoutes(
 
       .put('/:agentId/mcp-tools/:toolId', async (ctx) => {
         try {
-          const db = getIntelligenceDb()
-          const [row] = await db
-            .select({ assigned: agents.assignedMCPTools })
-            .from(agents)
-            .where(eq(agents.id, ctx.params.agentId))
-            .limit(1)
-          if (!row) {
+          const body = isRecord(ctx.body) ? ctx.body : {}
+          const enabled = body.enabled !== false
+
+          const assignedMCPTools = await mutateAssignedMCPTools(ctx.params.agentId, getNginxUser(ctx).organizationId, (current) =>
+            current.map((tool) =>
+              tool.toolId === ctx.params.toolId ? { ...tool, enabled } : tool
+            )
+          )
+
+          if (assignedMCPTools === null) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-          const body = isRecord(ctx.body) ? ctx.body : {}
-          const enabled = body.enabled !== false
-          const assignedMCPTools = (row.assigned ?? []).map((tool) =>
-            tool.toolId === ctx.params.toolId ? { ...tool, enabled } : tool
-          )
-          await db.update(agents).set({ assignedMCPTools }).where(eq(agents.id, ctx.params.agentId))
           return { success: true, assignedMCPTools }
         } catch (error) {
           logger.error('Failed to update agent MCP tool', { error, agentId: ctx.params.agentId })
@@ -271,18 +300,14 @@ export function registerAgentCrudRoutes(
 
       .delete('/:agentId/mcp-tools/:toolId', async (ctx) => {
         try {
-          const db = getIntelligenceDb()
-          const [row] = await db
-            .select({ assigned: agents.assignedMCPTools })
-            .from(agents)
-            .where(eq(agents.id, ctx.params.agentId))
-            .limit(1)
-          if (!row) {
+          const assignedMCPTools = await mutateAssignedMCPTools(ctx.params.agentId, getNginxUser(ctx).organizationId, (current) =>
+            current.filter((tool) => tool.toolId !== ctx.params.toolId)
+          )
+
+          if (assignedMCPTools === null) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-          const assignedMCPTools = (row.assigned ?? []).filter((tool) => tool.toolId !== ctx.params.toolId)
-          await db.update(agents).set({ assignedMCPTools }).where(eq(agents.id, ctx.params.agentId))
           return { success: true, assignedMCPTools }
         } catch (error) {
           logger.error('Failed to remove agent MCP tool', { error, agentId: ctx.params.agentId })

@@ -130,6 +130,9 @@ function createServiceHarness(status: DiscussionStatus, turnNumber = 0): Service
   const databaseService = {
     findMany: vi.fn(async () => discussion.participants),
     getAgentById: vi.fn(async (agentId: string) => ({ id: agentId, name: agentId })),
+    // Status transitions are a conditional UPDATE; returning a row means this
+    // instance won the claim.
+    executeQuery: vi.fn(async () => [{ id: discussion.id, status: discussion.status }]),
   }
   const discussionService = Object.assign(Object.create(DiscussionService.prototype), {
     getDiscussion: vi.fn(async () => discussion),

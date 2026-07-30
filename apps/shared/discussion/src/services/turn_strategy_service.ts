@@ -5,6 +5,14 @@ import { RoundRobinStrategy } from '../strategies/round_robin_strategy.js';
 import { ModeratedStrategy } from '../strategies/moderated_strategy.js';
 import { ContextAwareStrategy } from '../strategies/context_aware_strategy.js';
 
+const MODERATOR_ACTIONS = new Set([
+  'advance_turn',
+  'pause_discussion',
+  'resume_discussion',
+  'select_next_participant',
+  'grant_speaking_permission',
+]);
+
 export class TurnStrategyService {
   private strategies: Map<TurnStrategy, TurnStrategyInterface>;
   private strategyMetrics: Map<
@@ -144,7 +152,8 @@ export class TurnStrategyService {
         participantId: currentParticipant.id,
         strategy: discussion.turnStrategy.strategy,
       });
-      return true; // Default to advancing on error
+      // Hold the turn: advancing here would silently steal a participant's turn.
+      return false;
     }
   }
 
@@ -277,6 +286,12 @@ export class TurnStrategyService {
         errors.push(`Strategy type mismatch: expected ${strategyType}, got ${config.strategy}`);
       }
 
+      if (config.config.type !== strategyType) {
+        errors.push(
+          `Strategy config type mismatch: expected ${strategyType}, got ${config.config.type}`
+        );
+      }
+
       // Strategy-specific validation based on config type
       switch (config.config.type) {
         case 'round_robin':
@@ -372,20 +387,8 @@ export class TurnStrategyService {
         available: discussion.status === 'paused',
       });
 
-      // Strategy-specific actions
-      if (discussion.turnStrategy.strategy === TurnStrategy.MODERATED) {
-        actions.push({
-          action: 'select_next_participant',
-          description: 'Select the next participant to speak',
-          available: true,
-        });
-
-        actions.push({
-          action: 'grant_speaking_permission',
-          description: 'Grant speaking permission to a participant',
-          available: true,
-        });
-      }
+      // Participant-selection actions need persistence this layer lacks; they
+      // live on DiscussionOrchestrationService and are advertised there.
 
       return actions;
     } catch (error) {
@@ -410,36 +413,15 @@ export class TurnStrategyService {
     try {
       const strategy = this.getStrategy(discussion.turnStrategy.strategy);
 
-      switch (action) {
-        case 'advance_turn':
-          // This would be handled by the discussion orchestration service
-          return { success: true, message: 'Turn advance initiated' };
-
-        case 'select_next_participant': {
-          const participantId = typeof params?.participantId === 'string' ? params.participantId : null;
-          if (
-            discussion.turnStrategy.strategy === TurnStrategy.MODERATED &&
-            participantId
-          ) {
-            if (!(strategy instanceof ModeratedStrategy)) {
-              return { success: false, message: 'Strategy is not a ModeratedStrategy instance' };
-            }
-            const success = await strategy.selectNextParticipant(
-              moderatorId,
-              participantId,
-              discussion
-            );
-            return {
-              success,
-              message: success ? 'Participant selected' : 'Failed to select participant',
-            };
-          }
-          return { success: false, message: 'Invalid action for current strategy' };
-        }
-
-        default:
-          return { success: false, message: 'Unknown moderator action' };
+      // No persistence in this layer — reporting success would fake the mutation.
+      if (MODERATOR_ACTIONS.has(action)) {
+        return {
+          success: false,
+          message: `Action '${action}' must be executed via DiscussionOrchestrationService`,
+        };
       }
+
+      return { success: false, message: 'Unknown moderator action' };
     } catch (error) {
       logger.error('Error executing moderator action', {
         error: error instanceof Error ? error.message : 'Unknown error',

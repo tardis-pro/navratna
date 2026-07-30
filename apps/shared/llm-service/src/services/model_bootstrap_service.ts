@@ -1,3 +1,4 @@
+import { cacheKeys } from '../cache_keys.js';
 import { logger } from '@uaip/utils';
 import { LLMService } from '../l_l_m_service.js';
 import { UserLLMService } from '../user_l_l_m_service.js';
@@ -46,10 +47,10 @@ export class ModelBootstrapService {
 
   // Cache keys and TTL (6 hours for boot cache = 21600 seconds)
   private static readonly BOOT_CACHE_TTL = 21600;
-  private static readonly ALL_USER_MODELS_CACHE_KEY = 'llm:models:all_users_boot';
-  private static readonly USER_MODELS_CACHE_PREFIX = 'llm:models:user:';
-  private static readonly GLOBAL_MODELS_CACHE_KEY = 'llm:models:global_boot';
-  private static readonly BOOTSTRAP_STATUS_KEY = 'llm:bootstrap:status';
+  private static readonly ALL_USER_MODELS_CACHE_KEY = cacheKeys.ALL_USER_MODELS_CACHE_KEY;
+  private static readonly USER_MODELS_CACHE_PREFIX = cacheKeys.USER_MODELS_CACHE_PREFIX;
+  private static readonly GLOBAL_MODELS_CACHE_KEY = cacheKeys.GLOBAL_MODELS_CACHE_KEY;
+  private static readonly BOOTSTRAP_STATUS_KEY = cacheKeys.BOOTSTRAP_STATUS_KEY;
 
   private constructor() {
     this.cacheService = RedisCacheService.getInstance();

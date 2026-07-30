@@ -18,7 +18,7 @@ export function registerHealthRoutes() {
         const llmService = LLMService.getInstance();
 
         // Get LLM service health data
-        const providerHealth = await llmService.checkProviderHealth();
+        const providerHealth = await llmService.getProviderHealth();
         const configuredProviders = await llmService.getConfiguredProviders();
 
         const healthData = {
@@ -32,10 +32,16 @@ export function registerHealthRoutes() {
           llmService: {
             providers: configuredProviders,
             health: providerHealth,
+            // 'unknown' is counted separately: a provider nothing has called yet
+            // is not failing, and lumping it into `unhealthy` would make every
+            // fresh boot look broken.
             healthySummary: {
-              total: providerHealth.length,
-              healthy: providerHealth.filter((p) => p.isHealthy).length,
-              unhealthy: providerHealth.filter((p) => !p.isHealthy).length,
+              total: Object.keys(providerHealth).length,
+              healthy: Object.values(providerHealth).filter((status) => status === 'healthy').length,
+              unhealthy: Object.values(providerHealth).filter(
+                (status) => status === 'degraded' || status === 'unavailable'
+              ).length,
+              unknown: Object.values(providerHealth).filter((status) => status === 'unknown').length,
             },
           },
           eventSystem: {
@@ -50,7 +56,9 @@ export function registerHealthRoutes() {
         };
 
         // Determine overall health status
-        const hasHealthyProvider = providerHealth.some((p) => p.isHealthy);
+        const hasHealthyProvider = Object.values(providerHealth).some(
+          (status) => status === 'healthy'
+        );
         if (!hasHealthyProvider) {
           healthData.status = 'degraded';
         }

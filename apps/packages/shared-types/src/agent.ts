@@ -98,7 +98,7 @@ const AgentConfigSchema = z.object({
   collaborationMode: z.enum(['independent', 'collaborative', 'supervised']).optional(),
 });
 
-const MCPToolItemSchema = z.object({
+export const MCPToolItemSchema = z.object({
   toolId: z.string(),
   toolName: z.string(),
   serverName: z.string(),
@@ -106,6 +106,8 @@ const MCPToolItemSchema = z.object({
   priority: z.number().optional(),
   parameters: z.record(z.any()).optional(),
 });
+
+export type MCPToolItem = z.infer<typeof MCPToolItemSchema>;
 
 const MCPToolSettingsSchema = z.object({
   allowedServers: z.array(z.string()).optional(),

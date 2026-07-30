@@ -9,9 +9,18 @@ import {
   DiscussionEventType,
   MessageType,
   ArtifactGenerationConfigSchema,
+  TurnStrategy,
+  TurnStrategyConfigSchema,
 } from '@uaip/types';
+import type { TurnStrategyConfig } from '@uaip/types';
 import { logger, InternalServerError, NotFoundError, ValidationError, isRecord } from '@uaip/utils';
-import { EventBusService, ParticipantManagementService } from '@uaip/shared-services';
+import {
+  EventBusService,
+  ParticipantManagementService,
+  addReactionToMessage,
+  compareAndSetDiscussionStatus,
+  compareAndSetDiscussionTurn,
+} from '@uaip/shared-services';
 import { DiscussionService } from '@uaip/shared-services/discussion';
 import { TurnStrategyService } from './turn_strategy_service.js';
 import type { IWebSocketHandler } from '@uaip/types';
@@ -44,6 +53,36 @@ const VALID_PARTICIPANT_ROLES: readonly ParticipantRole[] = [
 function toValidRole(role: string): ParticipantRole {
   const found = VALID_PARTICIPANT_ROLES.find((r) => r === role);
   return found ?? 'participant';
+}
+
+type CompletionReason =
+  | 'manual'
+  | 'max_messages_reached'
+  | 'goal_achieved'
+  | 'timeout'
+  | 'consensus_reached';
+
+const COMPLETION_REASONS: readonly CompletionReason[] = [
+  'manual',
+  'max_messages_reached',
+  'goal_achieved',
+  'timeout',
+  'consensus_reached',
+] as const;
+
+// SECURITY: metadata is EXCLUDED — it holds moderator grants and auto-pause
+// counters. status/turnStrategy excluded too; each has a validated path.
+const UPDATABLE_DISCUSSION_FIELDS: readonly string[] = [
+  'title',
+  'description',
+  'topic',
+  'settings',
+  'tags',
+  'objectives',
+];
+
+function toCompletionReason(reason: string): CompletionReason {
+  return COMPLETION_REASONS.find((r) => r === reason) ?? 'manual';
 }
 
 interface TurnRequestEntry {
@@ -138,6 +177,426 @@ export class DiscussionOrchestrationService extends EventEmitter {
   private getConsecutiveFailureCount(metadata: Record<string, unknown> | undefined): number {
     const count = metadata?.consecutiveAgentTurnFailures;
     return typeof count === 'number' ? count : 0;
+  }
+
+  async updateTurnStrategy(
+    discussionId: string,
+    strategy: TurnStrategy,
+    config: Record<string, unknown> | undefined,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
+    try {
+      await this.assertDiscussionControl(discussionId, requestedBy);
+
+      // Parsed, not cast — the schema applies required fields and defaults.
+      const parsed = TurnStrategyConfigSchema.safeParse({
+        strategy,
+        config: { ...(config ?? {}), type: strategy },
+      });
+      if (!parsed.success) {
+        return {
+          success: false,
+          error: `Invalid turn strategy configuration: ${parsed.error.issues
+            .map((issue) => `${issue.path.join('.')} ${issue.message}`)
+            .join(', ')}`,
+        };
+      }
+
+      const turnStrategy = parsed.data;
+
+      const validation = this.turnStrategyService.validateStrategyConfig(strategy, turnStrategy);
+      if (!validation.isValid) {
+        return {
+          success: false,
+          error: `Invalid turn strategy configuration: ${validation.errors.join(', ')}`,
+        };
+      }
+
+      const discussion = await this.discussionService.updateDiscussion(discussionId, {
+        turnStrategy,
+      });
+      this.cacheActiveDiscussion(discussion);
+
+      return { success: true, data: discussion };
+    } catch (error) {
+      logger.error('Failed to update turn strategy', {
+        discussionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update turn strategy',
+      };
+    } finally {
+      release();
+    }
+  }
+
+  // advanceTurn is also driven by the turn timer and end-of-turn flow, which
+  // have no user to authorize. Callers acting for a user must enter here.
+  async forceAdvanceTurn(
+    discussionId: string,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    try {
+      await this.assertDiscussionControl(discussionId, requestedBy);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Not authorized to advance the turn',
+      };
+    }
+
+    return await this.advanceTurn(discussionId, requestedBy);
+  }
+
+  async pauseDiscussionAsUser(
+    discussionId: string,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    try {
+      await this.assertDiscussionControl(discussionId, requestedBy);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Not authorized to pause the discussion',
+      };
+    }
+
+    return await this.pauseDiscussion(discussionId, requestedBy);
+  }
+
+  async resumeDiscussionAsUser(
+    discussionId: string,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    try {
+      await this.assertDiscussionControl(discussionId, requestedBy);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Not authorized to resume the discussion',
+      };
+    }
+
+    return await this.resumeDiscussion(discussionId, requestedBy);
+  }
+
+  async grantSpeakingPermission(
+    discussionId: string,
+    moderatorId: string,
+    participantId: string
+  ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
+    try {
+      const discussion = await this.getDiscussion(discussionId, true);
+      if (!discussion) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      const moderator = discussion.participants.find(
+        // isActive: a removed moderator must lose control immediately.
+        (p) => p.id === moderatorId && p.role === 'moderator' && p.isActive
+      );
+      if (!moderator) {
+        return { success: false, error: 'Only a moderator can grant speaking permission' };
+      }
+
+      const target = discussion.participants.find((p) => p.id === participantId);
+      if (!target || !target.isActive) {
+        return { success: false, error: 'Participant is not an active member of this discussion' };
+      }
+
+      // Key must match what ModeratedStrategy.canParticipantTakeTurn reads.
+      const updated = await this.discussionService.updateDiscussion(discussionId, {
+        metadata: {
+          ...(discussion.metadata ?? {}),
+          pendingModeratorSelection: {
+            participantId,
+            moderatorId,
+            timestamp: new Date(),
+          },
+        },
+      });
+
+      this.cacheActiveDiscussion(updated);
+
+      return { success: true, data: updated };
+    } catch (error) {
+      logger.error('Failed to grant speaking permission', {
+        discussionId,
+        moderatorId,
+        participantId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to grant speaking permission',
+      };
+    } finally {
+      release();
+    }
+  }
+
+  // Mutation gate. NOT assertDiscussionAccess — that admits any participant.
+  // Mirrors DiscussionService.endDiscussion, which maps DRAFT to CANCELLED and
+  // ACTIVE to COMPLETED — so a draft is cancelled here, never completed.
+  private static readonly LEGAL_SOURCE_STATES: Partial<
+    Record<DiscussionStatus, DiscussionStatus[]>
+  > = {
+    [DiscussionStatus.PAUSED]: [DiscussionStatus.ACTIVE],
+    [DiscussionStatus.ACTIVE]: [DiscussionStatus.PAUSED],
+    [DiscussionStatus.COMPLETED]: [DiscussionStatus.ACTIVE],
+    [DiscussionStatus.CANCELLED]: [DiscussionStatus.DRAFT],
+  };
+
+  // For automatic completion (goal reached, message cap). Still validated and
+  // locked: without it a paused or already-completed discussion is re-completed.
+  private async completeBySystem(
+    discussionId: string,
+    reason: string
+  ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
+    try {
+      const invalid = await this.assertTransition(discussionId, DiscussionStatus.COMPLETED);
+      if (invalid) {
+        logger.info('System completion skipped — not in a completable state', {
+          discussionId,
+          reason,
+          error: invalid.error,
+        });
+        return invalid;
+      }
+      const result = await this.updateDiscussionStatus(
+        discussionId,
+        DiscussionStatus.COMPLETED,
+        'system'
+      );
+
+      if (result.success) {
+        // Same terminal cleanup stopDiscussion does — a status-only write
+        // leaves the turn timer running and a stale row in the active cache.
+        await this.discussionService.updateDiscussion(discussionId, { endedAt: new Date() });
+        const timer = this.turnTimers.get(discussionId);
+        if (timer) {
+          clearTimeout(timer);
+          this.turnTimers.delete(discussionId);
+        }
+        this.activeDiscussions.delete(discussionId);
+        this.turnRequestQueues.delete(discussionId);
+      }
+
+      return result;
+    } finally {
+      release();
+    }
+  }
+
+  // The in-process mutex cannot serialize two Fly machines — the DB decides:
+  // the UPDATE is conditional, so a loser matches no row. null = success.
+  private async transitionStatus(
+    discussionId: string,
+    target: DiscussionStatus
+  ): Promise<DiscussionOrchestrationResult | null> {
+    const legal = DiscussionOrchestrationService.LEGAL_SOURCE_STATES[target];
+    if (!legal) {
+      return { success: false, error: `Status '${target}' cannot be set directly` };
+    }
+
+    const outcome = await compareAndSetDiscussionStatus(
+      this.discussionService.getDatabaseService(),
+      discussionId,
+      target,
+      legal
+    );
+
+    if (!outcome.updated) {
+      const current = await this.getDiscussion(discussionId, true);
+      return {
+        success: false,
+        error: current
+          ? `Cannot change status from ${current.status} to ${target}`
+          : 'Discussion not found',
+      };
+    }
+    return null;
+  }
+
+  private async assertTransition(
+    discussionId: string,
+    target: DiscussionStatus
+  ): Promise<DiscussionOrchestrationResult | null> {
+    const discussion = await this.getDiscussion(discussionId, true);
+    if (!discussion) {
+      return { success: false, error: 'Discussion not found' };
+    }
+
+    const legal = DiscussionOrchestrationService.LEGAL_SOURCE_STATES[target];
+    if (!legal) {
+      return { success: false, error: `Status '${target}' cannot be set directly` };
+    }
+    if (!legal.includes(discussion.status)) {
+      return {
+        success: false,
+        error: `Cannot change status from ${discussion.status} to ${target}`,
+      };
+    }
+    return null;
+  }
+
+  private async assertDiscussionControl(
+    discussionId: string,
+    userId: string
+  ): Promise<Discussion> {
+    const discussion = await this.getDiscussion(discussionId, true);
+    if (!discussion) {
+      throw new Error('Discussion not found');
+    }
+
+    const isOwner = discussion.createdBy === userId;
+    const isModerator = discussion.participants.some(
+      // isActive: a removed moderator must lose control immediately.
+      (p) => p.userId === userId && p.role === 'moderator' && p.isActive
+    );
+
+    if (!isOwner && !isModerator) {
+      throw new Error('Only the discussion owner or a moderator can perform this action');
+    }
+
+    return discussion;
+  }
+
+  async updateDiscussion(
+    discussionId: string,
+    updates: Record<string, unknown>,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
+    try {
+      await this.assertDiscussionControl(discussionId, requestedBy);
+
+      // Allowlist, not denylist — updateDiscussion spreads whatever it is given,
+      // so an unlisted key such as createdBy or organizationId would persist.
+      const rejected = Object.keys(updates).filter(
+        (key) => !UPDATABLE_DISCUSSION_FIELDS.includes(key)
+      );
+      if (rejected.length > 0) {
+        return { success: false, error: `Fields not updatable here: ${rejected.join(', ')}` };
+      }
+
+      const patch: Record<string, unknown> = {};
+      for (const field of UPDATABLE_DISCUSSION_FIELDS) {
+        if (field in updates) {
+          patch[field] = updates[field];
+        }
+      }
+
+      const discussion = await this.discussionService.updateDiscussion(discussionId, patch);
+      this.cacheActiveDiscussion(discussion);
+
+      return { success: true, data: discussion };
+    } catch (error) {
+      logger.error('Failed to update discussion', {
+        discussionId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update discussion',
+      };
+    } finally {
+      release();
+    }
+  }
+
+  async removeParticipant(
+    discussionId: string,
+    participantId: string,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
+    try {
+      const discussion = await this.assertDiscussionControl(discussionId, requestedBy);
+
+      const participant = discussion.participants.find((p) => p.id === participantId);
+      if (!participant) {
+        return { success: false, error: 'Participant not found in this discussion' };
+      }
+
+      // DiscussionService.removeParticipant already publishes PARTICIPANT_LEFT.
+      await this.discussionService.removeParticipant(discussionId, participantId, requestedBy);
+
+      const refreshed = await this.getDiscussion(discussionId, true);
+      if (refreshed) {
+        this.cacheActiveDiscussion(refreshed);
+      }
+
+      return { success: true, data: refreshed ?? discussion };
+    } catch (error) {
+      logger.error('Failed to remove participant', {
+        discussionId,
+        participantId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to remove participant',
+      };
+    } finally {
+      release();
+    }
+  }
+
+  async changeStatus(
+    discussionId: string,
+    status: DiscussionStatus,
+    requestedBy: string
+  ): Promise<DiscussionOrchestrationResult> {
+    try {
+      const current = await this.getDiscussion(discussionId, true);
+      if (!current) {
+        return { success: false, error: 'Discussion not found' };
+      }
+
+      // Each target has legal source states; a raw write also skips timer
+      // cleanup on pause and completion handling on end.
+      switch (status) {
+        case DiscussionStatus.PAUSED:
+          return await this.pauseDiscussionAsUser(discussionId, requestedBy);
+
+        case DiscussionStatus.ACTIVE:
+          // A draft must START (validates participants, seeds the first turn);
+          // resuming it would skip both.
+          if (current.status === DiscussionStatus.DRAFT) {
+            return await this.startDiscussion(discussionId, requestedBy);
+          }
+          return await this.resumeDiscussionAsUser(discussionId, requestedBy);
+
+        case DiscussionStatus.COMPLETED:
+        case DiscussionStatus.CANCELLED: {
+          const invalid = await this.assertTransition(discussionId, status);
+          if (invalid) return invalid;
+          return await this.stopDiscussion(discussionId, requestedBy);
+        }
+
+        default:
+          return {
+            success: false,
+            error: `Status '${status}' cannot be set directly`,
+          };
+      }
+    } catch (error) {
+      logger.error('Failed to change discussion status', {
+        discussionId,
+        status,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to change discussion status',
+      };
+    }
   }
 
   constructor(
@@ -252,13 +711,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
     discussionId: string,
     startedBy: string
   ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
     try {
-      logger.info('Starting discussion', { discussionId, startedBy });
-
-      const discussion = await this.getDiscussion(discussionId);
-      if (!discussion) {
-        return { success: false, error: 'Discussion not found' };
-      }
+      const discussion = await this.assertDiscussionControl(discussionId, startedBy);
 
       if (discussion.status !== DiscussionStatus.DRAFT) {
         return { success: false, error: 'Discussion cannot be started from current status' };
@@ -292,9 +747,19 @@ export class DiscussionOrchestrationService extends EventEmitter {
         discussion.turnStrategy
       );
 
-      // Update discussion status and state
+      // NOT LEGAL_SOURCE_STATES[ACTIVE] — that is [PAUSED], the RESUME rule.
+      // Widening it would let resume start a draft, skipping validation.
+      const claim = await compareAndSetDiscussionStatus(
+        this.discussionService.getDatabaseService(),
+        discussionId,
+        DiscussionStatus.ACTIVE,
+        [DiscussionStatus.DRAFT]
+      );
+      if (!claim.updated) {
+        return { success: false, error: 'Discussion has already been started' };
+      }
+
       const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
-        status: DiscussionStatus.ACTIVE,
         startedAt: new Date(),
         state: {
           ...discussion.state,
@@ -392,6 +857,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         success: false,
         error: 'Failed to start discussion',
       };
+    } finally {
+      release();
     }
   }
 
@@ -414,10 +881,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         addedBy,
       });
 
-      const discussion = await this.getDiscussion(discussionId);
-      if (!discussion) {
-        return { success: false, error: 'Discussion not found' };
-      }
+      const discussion = await this.assertDiscussionControl(discussionId, addedBy);
 
       // Check participant limits
       if (discussion.participants.length >= discussion.settings.maxParticipants) {
@@ -442,20 +906,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
         this.cacheActiveDiscussion(updatedDiscussion);
       }
 
-      // Emit participant joined event
-      const joinEvent: DiscussionEvent = {
-        id: this.generateEventId(),
-        type: DiscussionEventType.PARTICIPANT_JOINED,
-        discussionId,
-        data: {
-          participant: newParticipant,
-          addedBy,
-        },
-        timestamp: new Date(),
-        metadata: { source: 'orchestration-service' },
-      };
-
-      await this.emitEvent(joinEvent);
+      // DiscussionService.addParticipant already publishes PARTICIPANT_JOINED.
 
       logger.info('Participant added successfully', {
         discussionId,
@@ -466,7 +917,6 @@ export class DiscussionOrchestrationService extends EventEmitter {
       return {
         success: true,
         data: newParticipant,
-        events: [joinEvent],
       };
     } catch (error) {
       logger.error('Error adding participant', {
@@ -720,21 +1170,36 @@ export class DiscussionOrchestrationService extends EventEmitter {
         };
       }
 
-      // Update discussion state
-      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
-        state: {
-          ...discussion.state,
-          currentTurn: {
-            participantId: turnResult.nextParticipant?.id,
-            startedAt: new Date(),
-            expectedEndAt: turnResult.nextParticipant
-              ? new Date(Date.now() + turnResult.estimatedDuration * 1000)
-              : undefined,
-            turnNumber: turnResult.turnNumber,
-          },
-          lastActivity: new Date(),
-        },
-      });
+      // A moderator grant selects ONE turn; leaving it set would let that
+      // participant take every subsequent turn.
+      const metadata = { ...(discussion.metadata ?? {}) };
+      const hadGrant = 'pendingModeratorSelection' in metadata;
+      if (hadGrant) {
+        delete metadata.pendingModeratorSelection;
+      }
+
+      // Conditional on the observed turn — two instances can both read turn N
+      // and both pick a speaker; the loser must not overwrite the winner.
+      const claimedTurn = await compareAndSetDiscussionTurn(
+        this.discussionService.getDatabaseService(),
+        discussionId,
+        discussion.state.currentTurn?.turnNumber,
+        {
+          participantId: turnResult.nextParticipant?.id,
+          startedAt: new Date(),
+          expectedEndAt: turnResult.nextParticipant
+            ? new Date(Date.now() + turnResult.estimatedDuration * 1000)
+            : undefined,
+          turnNumber: turnResult.turnNumber,
+        }
+      );
+      if (!claimedTurn) {
+        return { success: false, error: 'Turn was already advanced by another writer' };
+      }
+
+      const updatedDiscussion = hadGrant
+        ? await this.discussionService.updateDiscussion(discussionId, { metadata })
+        : ((await this.getDiscussion(discussionId, true)) ?? discussion);
 
       this.broadcastContextChangeIfNeeded(discussionId, discussion.state, updatedDiscussion.state);
 
@@ -817,9 +1282,15 @@ export class DiscussionOrchestrationService extends EventEmitter {
       failedAt: new Date(),
     };
 
-    const shouldPause = failureCount >= MAX_CONSECUTIVE_AGENT_TURN_FAILURES;
+    const wantsPause = failureCount >= MAX_CONSECUTIVE_AGENT_TURN_FAILURES;
+
+    // Claim first — losing the race must not write "paused" metadata onto a
+    // discussion another instance already moved.
+    const shouldPause =
+      wantsPause &&
+      (await this.transitionStatus(failure.discussionId, DiscussionStatus.PAUSED)) === null;
+
     const updatedDiscussion = await this.discussionService.updateDiscussion(failure.discussionId, {
-      status: shouldPause ? DiscussionStatus.PAUSED : discussion.status,
       metadata: {
         ...discussion.metadata,
         consecutiveAgentTurnFailures: failureCount,
@@ -895,8 +1366,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
   async createHuddle(
     parentDiscussionId: string,
     participantIds: string[],
-    topic: string
+    topic: string,
+    requestedBy: string
   ): Promise<Discussion> {
+    await this.assertDiscussionControl(parentDiscussionId, requestedBy);
+
     const parentDiscussion = await this.getDiscussion(parentDiscussionId, true);
     if (!parentDiscussion) {
       throw new NotFoundError('Parent discussion not found');
@@ -910,6 +1384,23 @@ export class DiscussionOrchestrationService extends EventEmitter {
       throw new ValidationError('At least one participant is required for a huddle');
     }
 
+    // Callers pass PARTICIPANT-row ids; initialParticipants needs AGENT ids.
+    // Without this mapping a participant id is stored in the agentId column.
+    const huddleAgentIds = uniqueParticipants.map((participantId) => {
+      const parentParticipant = parentDiscussion.participants.find(
+        (p) => p.id === participantId && p.isActive
+      );
+      if (!parentParticipant) {
+        throw new ValidationError(
+          `${participantId} is not an active participant of the parent discussion`
+        );
+      }
+      if (!parentParticipant.agentId) {
+        throw new ValidationError(`Participant ${participantId} has no agent to huddle with`);
+      }
+      return parentParticipant.agentId;
+    });
+
     const normalizedTopic = topic.trim();
     if (!normalizedTopic) {
       throw new ValidationError('Huddle topic is required');
@@ -920,7 +1411,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
       topic: normalizedTopic,
       description: `Specialist huddle for discussion ${parentDiscussion.title}`,
       createdBy: parentDiscussion.createdBy,
-      initialParticipants: uniqueParticipants.map((agentId) => ({
+      initialParticipants: huddleAgentIds.map((agentId) => ({
         agentId,
         role: 'participant',
       })),
@@ -954,23 +1445,43 @@ export class DiscussionOrchestrationService extends EventEmitter {
     return huddle;
   }
 
-  async resolveHuddle(huddleId: string, summary: string): Promise<void> {
+  async resolveHuddle(huddleId: string, summary: string, requestedBy: string): Promise<void> {
     const huddle = await this.getDiscussion(huddleId, true);
     if (!huddle) {
       throw new NotFoundError('Huddle not found');
     }
 
-    const parentDiscussionId =
-      (typeof huddle.metadata?.parentDiscussionId === 'string'
+    // The COLUMN is canonical; metadata is user-writable elsewhere, so letting
+    // it override would let a forged value redirect the authorization target.
+    const metadataParentId =
+      typeof huddle.metadata?.parentDiscussionId === 'string'
         ? huddle.metadata.parentDiscussionId
-        : undefined) || huddle.parentDiscussionId;
+        : undefined;
+    const parentDiscussionId = huddle.parentDiscussionId ?? metadataParentId;
 
     if (!parentDiscussionId) {
       throw new InternalServerError('Huddle has no parent discussion');
     }
+    if (metadataParentId && metadataParentId !== parentDiscussionId) {
+      throw new ValidationError('Huddle parent metadata does not match its parent discussion');
+    }
+
+    // Authorized against the PARENT: the huddle has no roster of its own.
+    await this.assertDiscussionControl(parentDiscussionId, requestedBy);
+
+    // NOT LEGAL_SOURCE_STATES — a huddle is created DRAFT and never started,
+    // so COMPLETED-only-from-ACTIVE would reject every resolve.
+    const claim = await compareAndSetDiscussionStatus(
+      this.discussionService.getDatabaseService(),
+      huddleId,
+      DiscussionStatus.COMPLETED,
+      [DiscussionStatus.DRAFT, DiscussionStatus.ACTIVE]
+    );
+    if (!claim.updated) {
+      throw new ValidationError('Huddle has already been resolved');
+    }
 
     await this.discussionService.updateDiscussion(huddleId, {
-      status: DiscussionStatus.COMPLETED,
       endedAt: new Date(),
       metadata: {
         ...(huddle.metadata || {}),
@@ -1104,50 +1615,6 @@ export class DiscussionOrchestrationService extends EventEmitter {
         userId,
       });
       return null;
-    }
-  }
-
-  async updateWorkingMemoryContext(
-    discussionId: string,
-    context: Record<string, unknown>,
-    updatedBy?: string
-  ): Promise<DiscussionOrchestrationResult> {
-    try {
-      const discussion = await this.getDiscussion(discussionId, true);
-      if (!discussion) {
-        return { success: false, error: 'Discussion not found' };
-      }
-
-      const previousState = discussion.state || {};
-      // workingMemoryContext is a runtime extension of the state object not reflected in the static type
-      const nextState = Object.assign({}, previousState, { workingMemoryContext: context, lastActivity: new Date() });
-
-      const updatedDiscussion = await this.discussionService.updateDiscussion(discussionId, {
-        state: nextState,
-      });
-
-      this.cacheActiveDiscussion(updatedDiscussion);
-      this.broadcastContextChangeIfNeeded(discussionId, previousState, nextState);
-
-      return {
-        success: true,
-        data: {
-          discussionId,
-          context,
-          updatedBy,
-        },
-      };
-    } catch (error) {
-      logger.error('Error updating working memory context', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        discussionId,
-        updatedBy,
-      });
-
-      return {
-        success: false,
-        error: 'Failed to update working memory context',
-      };
     }
   }
 
@@ -1317,8 +1784,14 @@ export class DiscussionOrchestrationService extends EventEmitter {
         return { success: false, error: 'Participant not found or inactive' };
       }
 
-      // For now, we'll just emit the reaction event without persisting it
-      // This would need to be implemented in the DiscussionService
+      const reactions = await addReactionToMessage(
+        this.discussionService.getDatabaseService(),
+        discussionId,
+        messageId,
+        participantId,
+        emoji
+      );
+
       const reaction = {
         id: this.generateEventId(),
         participantId,
@@ -1336,6 +1809,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
           participantId,
           emoji,
           reaction,
+          reactions,
         },
         timestamp: new Date(),
         metadata: { source: 'orchestration-service' },
@@ -1527,23 +2001,89 @@ export class DiscussionOrchestrationService extends EventEmitter {
     }
   }
 
+  private readonly emittedEvents = new Set<string>();
+  private static readonly EMITTED_EVENTS_MAX = 1000;
+
   private generateEventId(): string {
     return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async emitEvent(event: DiscussionEvent): Promise<void> {
-    try {
-      // Emit to event bus
-      await this.eventBusService.publish('discussion.events', event);
+  // event.id never dedupes (unique per construction) and a timestamp fallback
+  // drops distinct same-ms events. No stable identity => null => skip dedup.
+  private buildIdempotencyKey(event: DiscussionEvent): string | null {
+    const explicit = event.metadata?.idempotencyKey;
+    if (typeof explicit === 'string' && explicit.length > 0) {
+      return explicit;
+    }
 
-      // Emit to EventEmitter interface (for WebSocket handler)
-      this.emit('discussion_event', event);
+    const data = event.data ?? {};
+    const prefix = `${event.discussionId}:${event.type}`;
+    const str = (value: unknown): string | null =>
+      typeof value === 'string' && value.length > 0 ? value : null;
 
-      // Broadcast to WebSocket connections (fallback)
-      if (this.webSocketHandler) {
-        this.webSocketHandler.broadcastToDiscussion(event.discussionId, event);
+    switch (event.type) {
+      case DiscussionEventType.REACTION_ADDED: {
+        const messageId = str(data.messageId);
+        const participantId = str(data.participantId) ?? str(event.participantId);
+        const emoji = str(data.emoji);
+        if (!messageId || !participantId || !emoji) return null;
+        return `${prefix}:${messageId}:${participantId}:${emoji}`;
       }
 
+      case DiscussionEventType.MESSAGE_SENT: {
+        const message = isRecord(data.message) ? data.message : undefined;
+        const messageId = str(message?.id) ?? str(data.messageId);
+        return messageId ? `${prefix}:${messageId}` : null;
+      }
+
+      case DiscussionEventType.TURN_CHANGED: {
+        if (typeof data.turnNumber !== 'number') return null;
+        const current = str(data.currentParticipantId) ?? 'none';
+        return `${prefix}:${data.turnNumber}:${current}`;
+      }
+
+      // A status transition is repeatable (pause -> resume -> pause), so its
+      // value is not an identity. Only an explicit key above can dedupe it.
+      case DiscussionEventType.STATUS_CHANGED:
+        return null;
+
+      case DiscussionEventType.PARTICIPANT_JOINED:
+      case DiscussionEventType.PARTICIPANT_LEFT: {
+        const participant = isRecord(data.participant) ? data.participant : undefined;
+        const participantId =
+          str(participant?.id) ?? str(data.participantId) ?? str(event.participantId);
+        return participantId ? `${prefix}:${participantId}` : null;
+      }
+
+      default:
+        return null;
+    }
+  }
+
+  private rememberEmittedEvent(key: string): void {
+    if (this.emittedEvents.size >= DiscussionOrchestrationService.EMITTED_EVENTS_MAX) {
+      const oldest = this.emittedEvents.values().next();
+      if (!oldest.done) {
+        this.emittedEvents.delete(oldest.value);
+      }
+    }
+    this.emittedEvents.add(key);
+  }
+
+  private async emitEvent(event: DiscussionEvent): Promise<void> {
+    try {
+      const idempotencyKey = this.buildIdempotencyKey(event);
+      if (idempotencyKey !== null && this.emittedEvents.has(idempotencyKey)) {
+        logger.debug('Event deduped', { eventType: event.type, discussionId: event.discussionId, idempotencyKey });
+        return;
+      }
+
+      await this.eventBusService.publish('discussion.events', event);
+      this.emit('discussion_event', event);
+
+      if (idempotencyKey !== null) {
+        this.rememberEmittedEvent(idempotencyKey);
+      }
       logger.debug('Event emitted', { eventType: event.type, discussionId: event.discussionId });
     } catch (error) {
       logger.error('Error emitting event', {
@@ -1632,13 +2172,9 @@ export class DiscussionOrchestrationService extends EventEmitter {
             });
 
             // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-            await this.updateDiscussionStatus(
-              fullDiscussion.id,
-              DiscussionStatus.COMPLETED,
-              'system'
-            );
-            // oxlint-disable-next-line no-await-in-loop -- sequential processing required
-            await this.emitDiscussionCompletionEvent(fullDiscussion.id, 'system', 'goal_achieved');
+            if ((await this.completeBySystem(fullDiscussion.id, 'goal_achieved')).success) {
+              await this.emitDiscussionCompletionEvent(fullDiscussion.id, 'system', 'goal_achieved');
+            }
             continue;
           }
 
@@ -1867,9 +2403,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
         });
 
         // Stop the discussion to prevent loops
-        await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
-        // Emit discussion completion event for artifact generation
-        await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
+        if ((await this.completeBySystem(discussion.id, 'auto_complete')).success) {
+
+          await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
+
+        }
         return;
       }
 
@@ -1952,9 +2490,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
           });
 
           // Stop the discussion properly to prevent loops
-          await this.updateDiscussionStatus(discussion.id, DiscussionStatus.COMPLETED, 'system');
-          // Emit discussion completion event for artifact generation
-          await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
+          if ((await this.completeBySystem(discussion.id, 'auto_complete')).success) {
+
+            await this.emitDiscussionCompletionEvent(discussion.id, 'system', 'max_messages_reached');
+
+          }
           return;
         }
 
@@ -2257,7 +2797,12 @@ export class DiscussionOrchestrationService extends EventEmitter {
     userId: string
   ): Promise<DiscussionOrchestrationResult> {
     try {
-      const result = await this.discussionService.updateDiscussion(discussionId, { status });
+      // Conditional write first: this is the only place status is set, so the
+      // cross-machine guard cannot be skipped by a new caller.
+      const stale = await this.transitionStatus(discussionId, status);
+      if (stale) return stale;
+
+      const result = await this.getDiscussion(discussionId, true);
 
       if (result) {
         this.cacheActiveDiscussion(result);
@@ -2293,6 +2838,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     discussionId: string,
     userId: string
   ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
     try {
       const result = await this.updateDiscussionStatus(
         discussionId,
@@ -2319,6 +2865,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         userId,
       });
       return { success: false, error: 'Failed to pause discussion' };
+    } finally {
+      release();
     }
   }
 
@@ -2329,6 +2877,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     discussionId: string,
     userId: string
   ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
     try {
       const result = await this.updateDiscussionStatus(
         discussionId,
@@ -2355,6 +2904,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         userId,
       });
       return { success: false, error: 'Failed to resume discussion' };
+    } finally {
+      release();
     }
   }
 
@@ -2363,10 +2914,13 @@ export class DiscussionOrchestrationService extends EventEmitter {
    */
   async stopDiscussion(
     discussionId: string,
-    userId: string
+    userId: string,
+    reason = 'manual'
   ): Promise<DiscussionOrchestrationResult> {
+    const release = await this.mutex.acquire(discussionId);
     try {
-      const discussion = await this.discussionService.endDiscussion(discussionId, userId, 'manual');
+      await this.assertDiscussionControl(discussionId, userId);
+      const discussion = await this.discussionService.endDiscussion(discussionId, userId, reason);
       this.cacheActiveDiscussion(discussion);
 
       // Clear turn timer and remove from active discussion state
@@ -2379,7 +2933,11 @@ export class DiscussionOrchestrationService extends EventEmitter {
       this.turnRequestQueues.delete(discussionId);
 
       if (discussion.status === DiscussionStatus.COMPLETED) {
-        await this.emitDiscussionCompletionEvent(discussionId, userId, 'manual');
+        await this.emitDiscussionCompletionEvent(
+          discussionId,
+          userId,
+          toCompletionReason(reason)
+        );
       }
 
       logger.info('Discussion stopped', { discussionId, userId, status: discussion.status });
@@ -2391,6 +2949,8 @@ export class DiscussionOrchestrationService extends EventEmitter {
         userId,
       });
       return { success: false, error: 'Failed to stop discussion' };
+    } finally {
+      release();
     }
   }
 
@@ -2865,6 +3425,7 @@ export class DiscussionOrchestrationService extends EventEmitter {
     this.turnRequestQueues.clear();
     this.participationRateLimits.clear();
     this.recentParticipationRequests.clear();
+    this.emittedEvents.clear();
     this.mutex.clear();
 
     logger.info('Discussion orchestration service cleanup completed');

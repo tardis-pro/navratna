@@ -4,6 +4,7 @@ import { users } from '../drizzle/schemas/control_schema';
 import { agents } from '../drizzle/schemas/intelligence_schema';
 import { personas } from '../drizzle/schemas/intelligence_schema';
 import { OrganizationSeed } from './organization_seed';
+import { EnsureSystemActor } from '../migrations/ensure_system_actor';
 import { UserSeed } from './user_seed';
 import { UserLLMProviderSeed } from './user_l_l_m_provider_seed';
 import { LLMPreferencesSeed } from './l_l_m_preferences_seed';
@@ -45,6 +46,14 @@ export class DatabaseSeeder {
       results.organizations = true;
     } catch (error) {
       console.error('   ❌ Organization seeding failed:', error);
+    }
+
+    // Also delivered by the ensure_system_actor migration, which is the path
+    // production uses — seedAll() refuses to run there.
+    try {
+      await new EnsureSystemActor().run();
+    } catch (error) {
+      console.error('   ❌ System actor provisioning failed:', error);
     }
 
     try {
