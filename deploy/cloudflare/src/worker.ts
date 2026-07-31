@@ -54,6 +54,7 @@ const ROUTE_TABLE: RouteRule[] = [
   // --- gateway (security + orchestration + capability) ---
   { prefix: '/api/v1/auth', target: 'gateway' },
   { prefix: '/api/v1/oauth', target: 'gateway' },
+  { prefix: '/api/v1/integrations', target: 'gateway' },
   { prefix: '/api/v1/security', target: 'gateway' },
   { prefix: '/api/v1/approvals', target: 'gateway' },
   { prefix: '/api/v1/users', target: 'gateway' },

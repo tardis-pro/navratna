@@ -1,0 +1,212 @@
+import { Elysia } from 'elysia';
+import { z } from 'zod';
+import { logger } from '@uaip/utils';
+import { withRequiredAuth } from '@uaip/middleware';
+import {
+  IntegrationConnectionService,
+  IntegrationError,
+  type IntegrationErrorCode,
+} from '@uaip/shared-services';
+
+import { getAuthUser } from './context_helpers.js';
+
+const STATUS_BY_ERROR_CODE: Record<IntegrationErrorCode, number> = {
+  connection_not_found: 404,
+  provider_not_found: 404,
+  binding_not_found: 404,
+  forbidden: 403,
+};
+
+/**
+ * `format:` validators are avoided throughout: the production Bun build does not
+ * register TypeBox string formats, so an AOT-compiled route schema using one
+ * rejects every request. Shapes are validated with zod inside the handler.
+ */
+const createConnectionSchema = z.object({
+  providerId: z.string().uuid(),
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1).optional(),
+  scopes: z.array(z.string()).optional(),
+  expiresAt: z.string().datetime().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+const linkConnectionSchema = z.object({
+  connectionId: z.string().uuid(),
+  enabled: z.boolean().optional(),
+});
+
+const rotateTokenSchema = z.object({
+  accessToken: z.string().min(1),
+  expiresAt: z.string().datetime().optional(),
+});
+
+const bindingParamsSchema = z.object({
+  projectId: z.string().uuid(),
+  agentId: z.string().uuid(),
+  providerId: z.string().uuid(),
+});
+
+function service(): IntegrationConnectionService {
+  return IntegrationConnectionService.getInstance();
+}
+
+interface ErrorResponse {
+  success: false;
+  error: string;
+}
+
+function respondToError(
+  error: unknown,
+  set: { status?: number | string },
+  fallback: string
+): ErrorResponse {
+  if (error instanceof IntegrationError) {
+    set.status = STATUS_BY_ERROR_CODE[error.code];
+    return { success: false, error: error.message };
+  }
+  logger.error(fallback, { error: error instanceof Error ? error.message : String(error) });
+  set.status = 500;
+  return { success: false, error: fallback };
+}
+
+export function registerIntegrationRoutes() {
+  return new Elysia().group('/api/v1/integrations', (app) =>
+    withRequiredAuth(app)
+      .get('/providers', async (ctx) => {
+        const { set } = ctx;
+        try {
+          return { success: true, providers: await service().listProviders() };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to list integration providers');
+        }
+      })
+
+      .get('/connections', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
+        try {
+          // Scoped to the caller only. A connection is a credential, so there is
+          // deliberately no parameter that could widen this to another user.
+          return { success: true, connections: await service().listConnections(user.id) };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to list integration connections');
+        }
+      })
+
+      .post('/connections', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
+        const parsed = createConnectionSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'providerId and accessToken are required' };
+        }
+        try {
+          const connection = await service().createConnection({
+            providerId: parsed.data.providerId,
+            ownerUserId: user.id,
+            accessToken: parsed.data.accessToken,
+            refreshToken: parsed.data.refreshToken,
+            scopes: parsed.data.scopes,
+            expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : undefined,
+            metadata: parsed.data.metadata,
+          });
+          set.status = 201;
+          return { success: true, connection };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to create integration connection');
+        }
+      })
+
+      .post('/connections/:connectionId/token', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
+        const parsed = rotateTokenSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'accessToken is required' };
+        }
+        try {
+          await service().rotateConnectionToken(
+            params.connectionId,
+            user.id,
+            parsed.data.accessToken,
+            parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : undefined
+          );
+          return { success: true };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to rotate integration token');
+        }
+      })
+
+      .delete('/connections/:connectionId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        try {
+          await service().revokeConnection(params.connectionId, user.id);
+          return { success: true };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to revoke integration connection');
+        }
+      })
+
+      .get('/projects/:projectId/bindings', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, query } = ctx;
+        try {
+          const agentId =
+            typeof query === 'object' && query !== null && typeof query.agentId === 'string'
+              ? query.agentId
+              : undefined;
+          const bindings = await service().listBindings(params.projectId, user.id, agentId);
+          return { success: true, bindings };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to list integration bindings');
+        }
+      })
+
+      .put('/projects/:projectId/agents/:agentId/connection', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
+        const parsed = linkConnectionSchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'connectionId is required' };
+        }
+        try {
+          const binding = await service().linkConnection({
+            projectId: params.projectId,
+            agentId: params.agentId,
+            connectionId: parsed.data.connectionId,
+            actorUserId: user.id,
+            enabled: parsed.data.enabled,
+          });
+          return { success: true, binding };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to link integration connection');
+        }
+      })
+
+      .delete('/projects/:projectId/agents/:agentId/providers/:providerId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const parsed = bindingParamsSchema.safeParse(params);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'projectId, agentId and providerId are required' };
+        }
+        try {
+          await service().unlinkConnection(
+            parsed.data.projectId,
+            parsed.data.agentId,
+            parsed.data.providerId,
+            user.id
+          );
+          return { success: true };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to unlink integration connection');
+        }
+      })
+  );
+}

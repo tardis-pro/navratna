@@ -119,6 +119,16 @@ export {
   type McpResolvedCredential,
 } from './services/mcp_connection_resolver';
 export {
+  IntegrationConnectionService,
+  IntegrationError,
+  type IntegrationErrorCode,
+  type IntegrationProviderSummary,
+  type IntegrationConnectionSummary,
+  type IntegrationBindingSummary,
+  type CreateIntegrationConnectionInput,
+  type LinkIntegrationConnectionInput,
+} from './services/integration_connection_service';
+export {
   CalendarToolService,
   CalendarToolError,
   isCalendarToolId,
