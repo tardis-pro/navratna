@@ -17,7 +17,8 @@ export type McpConnectionErrorCode =
   | 'forbidden'
   | 'no_integration_connection'
   | 'connection_unusable'
-  | 'credential_unreadable';
+  | 'credential_unreadable'
+  | 'catalog_credential_required';
 
 export class McpConnectionError extends Error {
   constructor(
@@ -39,6 +40,12 @@ export interface McpExecutionRequest {
 export interface McpResolvedCredential {
   accessToken: string;
   tokenVersion: number;
+}
+
+export interface McpIntegrationServerSummary {
+  serverKey: string;
+  credentialMode: McpCredentialMode;
+  enabled: boolean;
 }
 
 export interface McpResolvedConnection {
@@ -106,6 +113,75 @@ export class McpConnectionResolver {
 
     if (!row) return null;
     return this.resolve(request);
+  }
+
+  async listIntegrationServers(): Promise<McpIntegrationServerSummary[]> {
+    const rows = await this.db
+      .select({
+        serverKey: mcpServers.serverKey,
+        credentialMode: mcpServers.credentialMode,
+        enabled: mcpServers.enabled,
+      })
+      .from(mcpServers)
+      .where(isNotNull(mcpServers.serverKey));
+
+    return rows
+      .filter((row): row is typeof row & { serverKey: string } => Boolean(row.serverKey))
+      .map((row) => ({
+        serverKey: row.serverKey,
+        credentialMode: row.credentialMode,
+        enabled: row.enabled,
+      }));
+  }
+
+  /**
+   * Resolves a connection for CATALOG discovery, which has no acting user. It is
+   * therefore usable only where a credential is not caller-specific: a public
+   * server, or one with a configured catalog connection. A caller_connection
+   * server is refused rather than silently discovered unauthenticated, because a
+   * partial catalog is worse than a missing one — an agent would plan against
+   * tools the provider never advertised.
+   */
+  async resolveForCatalog(serverKey: string): Promise<McpResolvedConnection> {
+    const server = await this.loadServer(serverKey);
+
+    if (server.credentialMode === 'none') {
+      return {
+        serverKey,
+        url: server.url,
+        credentialMode: 'none',
+        connectionId: PUBLIC_CONNECTION_ID,
+        providerId: server.providerId ?? undefined,
+      };
+    }
+
+    if (server.credentialMode === 'caller_connection') {
+      throw new McpConnectionError(
+        `MCP server "${serverKey}" needs a user's own connection, so its catalog is discovered when a connection is linked`,
+        'catalog_credential_required'
+      );
+    }
+
+    if (!server.providerId) {
+      throw new McpConnectionError(
+        `MCP server "${serverKey}" requires a credential but has no provider configured`,
+        'server_misconfigured'
+      );
+    }
+
+    const connectionId = this.requireCatalogConnectionId(server.catalogConnectionId, serverKey);
+    const credential = await this.loadCredential(connectionId, server.providerId);
+
+    return {
+      serverKey,
+      url: server.url,
+      credentialMode: 'catalog',
+      authHeaderName: server.authHeaderName ?? undefined,
+      authScheme: server.authScheme ?? undefined,
+      connectionId,
+      providerId: server.providerId,
+      credential,
+    };
   }
 
   async resolve(request: McpExecutionRequest): Promise<McpResolvedConnection> {

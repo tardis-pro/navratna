@@ -115,6 +115,7 @@ export {
   McpConnectionError,
   type McpConnectionErrorCode,
   type McpExecutionRequest,
+  type McpIntegrationServerSummary,
   type McpResolvedConnection,
   type McpResolvedCredential,
 } from './services/mcp_connection_resolver';

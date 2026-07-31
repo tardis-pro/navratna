@@ -362,6 +362,76 @@ describe('credentialMode: catalog', () => {
   });
 });
 
+describe('resolveForCatalog', () => {
+  it('resolves a public server with no credential', async () => {
+    setRows({ server: [serverRow({ credentialMode: 'none', providerId: null })] });
+
+    const resolved = await resolver().resolveForCatalog('cloudflare-docs');
+
+    expect(resolved.credentialMode).toBe('none');
+    expect(resolved.credential).toBeUndefined();
+    expect(mocks.decrypt).not.toHaveBeenCalled();
+  });
+
+  it('refuses a caller_connection server rather than discovering it unauthenticated', async () => {
+    setRows({ server: [serverRow({ credentialMode: 'caller_connection' })] });
+
+    await expectCode(resolver().resolveForCatalog('github'), 'catalog_credential_required');
+  });
+
+  it('never reads a credential for a caller_connection server', async () => {
+    setRows({
+      server: [serverRow({ credentialMode: 'caller_connection' })],
+      connection: [connectionRow()],
+    });
+
+    await resolver().resolveForCatalog('github').catch(() => undefined);
+
+    expect(mocks.decrypt).not.toHaveBeenCalled();
+  });
+
+  it('uses the configured catalog credential when one exists', async () => {
+    setRows({
+      server: [
+        serverRow({ credentialMode: 'catalog', catalogConnectionId: CATALOG_CONNECTION_ID }),
+      ],
+      connection: [connectionRow()],
+    });
+
+    const resolved = await resolver().resolveForCatalog('github');
+
+    expect(resolved.connectionId).toBe(CATALOG_CONNECTION_ID);
+    expect(resolved.credential?.accessToken).toBe('plain(cipher)');
+  });
+
+  it('refuses a catalog server with no catalog connection configured', async () => {
+    setRows({
+      server: [serverRow({ credentialMode: 'catalog', catalogConnectionId: null })],
+    });
+
+    await expectCode(resolver().resolveForCatalog('github'), 'server_misconfigured');
+  });
+
+  it('needs no project, agent or acting user', async () => {
+    setRows({
+      server: [serverRow({ credentialMode: 'none', providerId: null })],
+      project: [],
+      member: [],
+      binding: [],
+    });
+
+    await expect(resolver().resolveForCatalog('cloudflare-docs')).resolves.toMatchObject({
+      serverKey: 'cloudflare-docs',
+    });
+  });
+
+  it('refuses an unknown server', async () => {
+    setRows({ server: [] });
+
+    await expectCode(resolver().resolveForCatalog('nope'), 'server_not_found');
+  });
+});
+
 describe('lookup predicates are scoped, not just filtered in memory', () => {
   it('scopes the credential lookup by provider as well as id', async () => {
     setRows({

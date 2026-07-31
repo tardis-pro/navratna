@@ -90,6 +90,28 @@ export class IntegrationMcpExecutor {
     });
   }
 
+  /**
+   * Lists a server's tools with no acting user, for building the shared catalog.
+   * The session is closed immediately rather than cached: discovery runs once at
+   * boot, and keeping a credential-less session alive would occupy a cache slot
+   * no execution can ever reuse.
+   */
+  async listCatalogTools(serverKey: string): Promise<IntegrationMcpToolDescriptor[]> {
+    const connection = await this.resolver.resolveForCatalog(serverKey);
+    const session = await this.openSession(connection);
+    try {
+      const { tools } = await session.client.listTools();
+      return tools.map(toToolDescriptor);
+    } finally {
+      await session.close().catch((error: unknown) => {
+        logger.warn('Failed to close catalog discovery session', {
+          serverKey,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }
+
   async callTool(
     request: McpExecutionRequest,
     toolName: string,

@@ -11,6 +11,7 @@ import { registerGitHubAppInstallationRoutes } from './routes/github_app_install
 import { FederationRegistryService } from './services/federation_registry_service.js'
 import { OAuthCapabilityDiscovery } from './services/oauth_capability_discovery.js'
 import { MCPClientService } from './services/mcp_client_service.js'
+import { IntegrationCatalogDiscovery } from './services/integration_catalog_discovery.js'
 import { McpRepository } from './database/mcp_repository.js'
 import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
 import { UnifiedToolRegistry } from './services/unified_tool_registry.js'
@@ -240,6 +241,17 @@ export const capabilityFeature: Feature = {
       )
     } catch (error) {
       logger.warn('MCPClientService init failed — MCP servers with autoStart will not boot', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+
+    // Integration servers are remote and have no process to spawn, so
+    // MCPClientService's autoStart path never reaches them. Without this their
+    // tools are never registered and no agent can see anything to call.
+    try {
+      await IntegrationCatalogDiscovery.getInstance().discoverAll(deps?.eventBusService)
+    } catch (error) {
+      logger.warn('Integration catalog discovery failed — remote MCP tools will not be listed', {
         error: error instanceof Error ? error.message : String(error),
       })
     }
