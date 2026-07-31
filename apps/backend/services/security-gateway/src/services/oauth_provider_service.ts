@@ -128,6 +128,57 @@ export class OAuthProviderService {
       userInfo: 'https://graph.microsoft.com/v1.0/me',
       revoke: 'https://login.microsoftonline.com/common/oauth2/v2.0/logout',
     });
+
+    this.providerEndpoints.set(OAuthProviderType.SLACK, {
+      authorization: 'https://slack.com/oauth/v2/authorize',
+      token: 'https://slack.com/api/oauth.v2.access',
+      userInfo: 'https://slack.com/api/users.identity',
+      revoke: 'https://slack.com/api/auth.revoke',
+    });
+
+    // Jira and Confluence are both Atlassian Cloud products behind one OAuth 2.0
+    // (3LO) app. They share every endpoint and differ only in requested scopes.
+    this.providerEndpoints.set(OAuthProviderType.JIRA, {
+      authorization: 'https://auth.atlassian.com/authorize',
+      token: 'https://auth.atlassian.com/oauth/token',
+      userInfo: 'https://api.atlassian.com/me',
+      revoke: 'https://auth.atlassian.com/oauth/token/revoke',
+    });
+
+    this.providerEndpoints.set(OAuthProviderType.CONFLUENCE, {
+      authorization: 'https://auth.atlassian.com/authorize',
+      token: 'https://auth.atlassian.com/oauth/token',
+      userInfo: 'https://api.atlassian.com/me',
+      revoke: 'https://auth.atlassian.com/oauth/token/revoke',
+    });
+
+    this.providerEndpoints.set(OAuthProviderType.CLOUDFLARE, {
+      authorization: 'https://dash.cloudflare.com/oauth2/auth',
+      token: 'https://dash.cloudflare.com/oauth2/token',
+      userInfo: 'https://api.cloudflare.com/client/v4/user',
+      revoke: 'https://dash.cloudflare.com/oauth2/revoke',
+    });
+
+    this.providerEndpoints.set(OAuthProviderType.VERCEL, {
+      authorization: 'https://vercel.com/oauth/authorize',
+      token: 'https://api.vercel.com/v2/oauth/access_token',
+      userInfo: 'https://api.vercel.com/v2/user',
+      revoke: 'https://api.vercel.com/v2/oauth/token',
+    });
+
+    this.providerEndpoints.set(OAuthProviderType.DISCORD, {
+      authorization: 'https://discord.com/oauth2/authorize',
+      token: 'https://discord.com/api/oauth2/token',
+      userInfo: 'https://discord.com/api/users/@me',
+      revoke: 'https://discord.com/api/oauth2/token/revoke',
+    });
+
+    this.providerEndpoints.set(OAuthProviderType.LINKEDIN, {
+      authorization: 'https://www.linkedin.com/oauth/v2/authorization',
+      token: 'https://www.linkedin.com/oauth/v2/accessToken',
+      userInfo: 'https://api.linkedin.com/v2/userinfo',
+      revoke: 'https://www.linkedin.com/oauth/v2/revoke',
+    });
   }
 
   /**

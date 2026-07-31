@@ -44,6 +44,10 @@ export enum OAuthProviderType {
   GMAIL = 'gmail',
   OUTLOOK = 'outlook',
   ZOHO_MAIL = 'zoho_mail',
+  JIRA = 'jira',
+  CONFLUENCE = 'confluence',
+  CLOUDFLARE = 'cloudflare',
+  VERCEL = 'vercel',
   CUSTOM = 'custom',
 }
 

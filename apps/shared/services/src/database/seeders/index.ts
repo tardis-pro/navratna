@@ -23,6 +23,12 @@ export { AgentSeed } from './agent_seed';
 export { ToolDefinitionSeed } from './tool_definition_seed';
 export { ProjectSeed } from './project_seed';
 export { CapabilitySeed } from './capability_seed';
+export {
+  OAuthProviderSeed,
+  OAUTH_PROVIDER_TEMPLATES,
+  type OAuthProviderTemplate,
+  type OAuthProviderSeedResult,
+} from './oauth_provider_seed';
 export { DefaultUserLLMProviderSeed } from './default_user_l_l_m_provider_seed';
 export { EnsureSystemActor } from '../migrations/ensure_system_actor';
 export type { EnsureSystemActorResult } from '../migrations/ensure_system_actor';

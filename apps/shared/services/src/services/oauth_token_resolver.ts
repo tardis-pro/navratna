@@ -28,6 +28,22 @@ function encryptionKey(): string {
 }
 
 /**
+ * Mirrors OAuthProviderService.encryptSecret exactly — the ciphertext is read
+ * back by that service, so the salt:iv:authTag:encrypted layout must match.
+ */
+export function encryptOAuthSecret(secret: string): string {
+  const salt = crypto.randomBytes(16);
+  const key = crypto.scryptSync(encryptionKey(), salt, 32);
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+
+  const encrypted = cipher.update(secret, 'utf8', 'hex') + cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+
+  return `${salt.toString('hex')}:${iv.toString('hex')}:${authTag}:${encrypted}`;
+}
+
+/**
  * Mirrors OAuthProviderService.decryptSecret. Three historical formats exist in
  * the column and all must keep decrypting, so the branch order matters:
  * 4 parts = salt:iv:authTag:encrypted (current, per-record random salt),

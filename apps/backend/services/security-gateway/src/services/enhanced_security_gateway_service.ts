@@ -679,7 +679,9 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
   }
 
   private assessOAuthProviderRisk(provider: OAuthProviderType): RiskFactor {
-    const riskMap = {
+    // Typed as a total Record so adding an OAuthProviderType fails the build here
+    // rather than silently yielding undefined and crashing on risk.level below.
+    const riskMap: Record<OAuthProviderType, { score: number; level: RiskLevel }> = {
       [OAuthProviderType.GITHUB]: { score: 2, level: RiskLevel.MEDIUM },
       [OAuthProviderType.GOOGLE]: { score: 1, level: RiskLevel.LOW },
       [OAuthProviderType.GMAIL]: { score: 2, level: RiskLevel.MEDIUM },
@@ -690,6 +692,12 @@ export class EnhancedSecurityGatewayService extends SecurityGatewayService {
       [OAuthProviderType.LINKEDIN]: { score: 1, level: RiskLevel.LOW },
       [OAuthProviderType.SLACK]: { score: 2, level: RiskLevel.MEDIUM },
       [OAuthProviderType.DISCORD]: { score: 3, level: RiskLevel.MEDIUM },
+      [OAuthProviderType.JIRA]: { score: 2, level: RiskLevel.MEDIUM },
+      [OAuthProviderType.CONFLUENCE]: { score: 2, level: RiskLevel.MEDIUM },
+      // Cloudflare and Vercel grant production infrastructure control — DNS,
+      // Workers, deployments — so they carry the same weight as a custom provider.
+      [OAuthProviderType.CLOUDFLARE]: { score: 4, level: RiskLevel.HIGH },
+      [OAuthProviderType.VERCEL]: { score: 4, level: RiskLevel.HIGH },
       [OAuthProviderType.CUSTOM]: { score: 4, level: RiskLevel.HIGH },
     };
 

@@ -1,4 +1,5 @@
 import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory'
+import { OAuthProviderSeed } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
 import { Elysia } from 'elysia'
 
@@ -32,6 +33,18 @@ export const securityFeature: Feature = {
   name: 'security-gateway',
 
   async initialize(_deps: ServiceDeps): Promise<void> {
+    // Provider rows are credential configuration, not sample data, so this runs on
+    // every boot including production. DatabaseSeeder.seedAll() refuses to run in
+    // production, which would otherwise leave prod with no connectable providers.
+    // The seed is idempotent and skips any provider whose env credentials are absent.
+    try {
+      await new OAuthProviderSeed().seed()
+    } catch (err) {
+      logger.error('security-gateway: OAuth provider seeding failed', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
     erasureSweepJob = new ErasureSweepJob()
     try {
       await erasureSweepJob.start()

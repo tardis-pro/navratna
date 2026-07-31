@@ -338,6 +338,12 @@ export { base as schemaBase, llmPreferenceCommonColumns } from './database/drizz
 
 // Database Seeders
 export { DefaultUserLLMProviderSeed } from './database/seeders/default_user_l_l_m_provider_seed';
+export {
+  OAuthProviderSeed,
+  OAUTH_PROVIDER_TEMPLATES,
+  type OAuthProviderTemplate,
+  type OAuthProviderSeedResult,
+} from './database/seeders/oauth_provider_seed';
 export { EnsureSystemActor } from './database/migrations/ensure_system_actor';
 export type { EnsureSystemActorResult } from './database/migrations/ensure_system_actor';
 
