@@ -1,0 +1,290 @@
+import { and, eq } from 'drizzle-orm';
+import { logger } from '@uaip/utils';
+import { IntegrationConnectionStatus, type McpCredentialMode } from '@uaip/types';
+import { getControlDb } from '../database/drizzle/clients/index';
+import {
+  integrationConnections,
+  mcpServers,
+  projectAgentIntegrationConnections,
+  projects,
+  projectMembers,
+} from '../database/drizzle/schemas/control_schema';
+import { decryptOAuthSecret } from './oauth_token_resolver';
+
+export type McpConnectionErrorCode =
+  | 'server_not_found'
+  | 'server_misconfigured'
+  | 'forbidden'
+  | 'no_integration_connection'
+  | 'connection_unusable'
+  | 'credential_unreadable';
+
+export class McpConnectionError extends Error {
+  constructor(
+    message: string,
+    readonly code: McpConnectionErrorCode
+  ) {
+    super(message);
+    this.name = 'McpConnectionError';
+  }
+}
+
+export interface McpExecutionRequest {
+  serverKey: string;
+  projectId: string;
+  agentId: string;
+  actorUserId: string;
+}
+
+export interface McpResolvedCredential {
+  accessToken: string;
+  tokenVersion: number;
+}
+
+export interface McpResolvedConnection {
+  serverKey: string;
+  url: string;
+  credentialMode: McpCredentialMode;
+  authHeaderName?: string;
+  authScheme?: string;
+  connectionId: string;
+  providerId?: string;
+  credential?: McpResolvedCredential;
+}
+
+/**
+ * A server needing no credential still needs a stable session-cache key. Using a
+ * sentinel keeps every public server's sessions in one bucket instead of
+ * fabricating a per-user id that would multiply identical anonymous sessions.
+ */
+const PUBLIC_CONNECTION_ID = '__public__';
+
+export class McpConnectionResolver {
+  private static instance: McpConnectionResolver;
+
+  static getInstance(): McpConnectionResolver {
+    if (!McpConnectionResolver.instance) {
+      McpConnectionResolver.instance = new McpConnectionResolver();
+    }
+    return McpConnectionResolver.instance;
+  }
+
+  private get db() {
+    return getControlDb();
+  }
+
+  async resolve(request: McpExecutionRequest): Promise<McpResolvedConnection> {
+    const server = await this.loadServer(request.serverKey);
+
+    if (server.credentialMode === 'none') {
+      return {
+        serverKey: request.serverKey,
+        url: server.url,
+        credentialMode: 'none',
+        connectionId: PUBLIC_CONNECTION_ID,
+        providerId: server.providerId ?? undefined,
+      };
+    }
+
+    if (!server.providerId) {
+      throw new McpConnectionError(
+        `MCP server "${request.serverKey}" requires a credential but has no provider configured`,
+        'server_misconfigured'
+      );
+    }
+
+    const connectionId =
+      server.credentialMode === 'catalog'
+        ? this.requireCatalogConnectionId(server.catalogConnectionId, request.serverKey)
+        : await this.resolveCallerConnectionId(request, server.providerId);
+
+    const credential = await this.loadCredential(connectionId, server.providerId);
+
+    return {
+      serverKey: request.serverKey,
+      url: server.url,
+      credentialMode: server.credentialMode,
+      authHeaderName: server.authHeaderName ?? undefined,
+      authScheme: server.authScheme ?? undefined,
+      connectionId,
+      providerId: server.providerId,
+      credential,
+    };
+  }
+
+  private async loadServer(serverKey: string) {
+    const [row] = await this.db
+      .select({
+        url: mcpServers.url,
+        providerId: mcpServers.providerId,
+        credentialMode: mcpServers.credentialMode,
+        authHeaderName: mcpServers.authHeaderName,
+        authScheme: mcpServers.authScheme,
+        catalogConnectionId: mcpServers.catalogConnectionId,
+        enabled: mcpServers.enabled,
+        transportType: mcpServers.transportType,
+      })
+      .from(mcpServers)
+      .where(eq(mcpServers.serverKey, serverKey))
+      .limit(1);
+
+    if (!row) {
+      throw new McpConnectionError(`MCP server "${serverKey}" not found`, 'server_not_found');
+    }
+    if (!row.enabled) {
+      throw new McpConnectionError(`MCP server "${serverKey}" is disabled`, 'server_not_found');
+    }
+    if (!row.url) {
+      throw new McpConnectionError(
+        `MCP server "${serverKey}" has no URL configured`,
+        'server_misconfigured'
+      );
+    }
+    // A stdio server's credentials are fixed when the process is spawned, so a
+    // caller-scoped token could never reach it — reject rather than silently
+    // running the tool under the wrong identity.
+    if (row.credentialMode === 'caller_connection' && row.transportType === 'stdio') {
+      throw new McpConnectionError(
+        `MCP server "${serverKey}" is stdio and cannot use caller credentials`,
+        'server_misconfigured'
+      );
+    }
+
+    return { ...row, url: row.url };
+  }
+
+  private requireCatalogConnectionId(
+    catalogConnectionId: string | null,
+    serverKey: string
+  ): string {
+    if (!catalogConnectionId) {
+      throw new McpConnectionError(
+        `MCP server "${serverKey}" uses catalog credentials but none is configured`,
+        'server_misconfigured'
+      );
+    }
+    return catalogConnectionId;
+  }
+
+  /**
+   * The credential is chosen from the stored (project, agent, provider) binding.
+   * The caller never supplies a connection id — accepting one would let any actor
+   * borrow another user's credential by guessing a uuid.
+   */
+  private async resolveCallerConnectionId(
+    request: McpExecutionRequest,
+    providerId: string
+  ): Promise<string> {
+    const permitted = await this.actorCanAccessProject(request.actorUserId, request.projectId);
+    if (!permitted) {
+      throw new McpConnectionError(
+        'Project not found or not accessible',
+        'forbidden'
+      );
+    }
+
+    const [binding] = await this.db
+      .select({
+        connectionId: projectAgentIntegrationConnections.connectionId,
+        enabled: projectAgentIntegrationConnections.enabled,
+      })
+      .from(projectAgentIntegrationConnections)
+      .where(
+        and(
+          eq(projectAgentIntegrationConnections.projectId, request.projectId),
+          eq(projectAgentIntegrationConnections.agentId, request.agentId),
+          eq(projectAgentIntegrationConnections.providerId, providerId)
+        )
+      )
+      .limit(1);
+
+    if (!binding || !binding.enabled) {
+      throw new McpConnectionError(
+        'No enabled integration connection is linked to this project and agent',
+        'no_integration_connection'
+      );
+    }
+
+    return binding.connectionId;
+  }
+
+  private async actorCanAccessProject(userId: string, projectId: string): Promise<boolean> {
+    const [owned] = await this.db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, projectId), eq(projects.ownerId, userId)))
+      .limit(1);
+    if (owned) return true;
+
+    const [member] = await this.db
+      .select({ id: projectMembers.id })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+      .limit(1);
+    return Boolean(member);
+  }
+
+  private async loadCredential(
+    connectionId: string,
+    providerId: string
+  ): Promise<McpResolvedCredential> {
+    const [connection] = await this.db
+      .select({
+        accessTokenEncrypted: integrationConnections.accessTokenEncrypted,
+        expiresAt: integrationConnections.expiresAt,
+        status: integrationConnections.status,
+        tokenVersion: integrationConnections.tokenVersion,
+      })
+      .from(integrationConnections)
+      .where(
+        // Matching the provider too means a binding cannot reach a connection
+        // belonging to a different provider even if a row were tampered with.
+        and(
+          eq(integrationConnections.id, connectionId),
+          eq(integrationConnections.providerId, providerId)
+        )
+      )
+      .limit(1);
+
+    if (!connection) {
+      throw new McpConnectionError(
+        'Linked integration connection no longer exists',
+        'no_integration_connection'
+      );
+    }
+    if (connection.status !== IntegrationConnectionStatus.ACTIVE) {
+      throw new McpConnectionError(
+        `Integration connection is ${connection.status}`,
+        'connection_unusable'
+      );
+    }
+    if (connection.expiresAt && connection.expiresAt.getTime() <= Date.now()) {
+      throw new McpConnectionError(
+        'Integration connection token has expired',
+        'connection_unusable'
+      );
+    }
+    if (!connection.accessTokenEncrypted) {
+      throw new McpConnectionError(
+        'Integration connection has no stored access token',
+        'connection_unusable'
+      );
+    }
+
+    try {
+      return {
+        accessToken: decryptOAuthSecret(connection.accessTokenEncrypted),
+        tokenVersion: connection.tokenVersion,
+      };
+    } catch (error) {
+      logger.error('Failed to decrypt integration connection token', {
+        connectionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new McpConnectionError(
+        'Integration connection token could not be decrypted',
+        'credential_unreadable'
+      );
+    }
+  }
+}

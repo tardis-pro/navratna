@@ -107,8 +107,17 @@ export { ProjectTaskRepository } from './database/repositories/project_task_repo
 export {
   OAuthTokenResolver,
   decryptOAuthSecret,
+  encryptOAuthSecret,
   type ResolvedOAuthToken,
 } from './services/oauth_token_resolver';
+export {
+  McpConnectionResolver,
+  McpConnectionError,
+  type McpConnectionErrorCode,
+  type McpExecutionRequest,
+  type McpResolvedConnection,
+  type McpResolvedCredential,
+} from './services/mcp_connection_resolver';
 export {
   CalendarToolService,
   CalendarToolError,
