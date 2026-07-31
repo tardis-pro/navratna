@@ -4,10 +4,12 @@ import { z } from 'zod';
 import {
   servicesHealthCheck,
   getUserKnowledgeService,
+  getKnowledgeGraphService,
   serviceFactory,
   chunkDocument,
   UnifiedModelSelectionFacade,
   type UserKnowledgeService,
+  type KnowledgeGraphService,
 } from '@uaip/shared-services';
 import { LLMService } from '@uaip/llm-service';
 import { logger } from '@uaip/utils';
@@ -20,7 +22,38 @@ import {
   type KnowledgeItem,
   type KnowledgeSearchRequest,
   type KnowledgeIngestRequest,
+  type ParsedConversation,
+  type ParsedMessage,
 } from '@uaip/types';
+
+interface KnowledgeServices {
+  userKnowledgeService: UserKnowledgeService | null;
+  initializationError: string | null;
+}
+
+interface KnowledgeGraphServices {
+  knowledgeGraphService: KnowledgeGraphService | null;
+  initializationError: string | null;
+}
+
+interface NameCount {
+  name: string;
+  count: number;
+}
+
+interface ExtractWorkflowsBody {
+  conversationIds?: string[];
+}
+
+interface RelationBody {
+  targetItemId?: string;
+  relationshipType?: string;
+  confidence?: number;
+}
+
+interface BulkUploadBody {
+  items?: Record<string, unknown>[];
+}
 
 interface _ItemIdParams {
   itemId: string;
@@ -64,6 +97,8 @@ interface RelationshipsQuery {
 
 const itemIdParamsSchema = z.object({ itemId: z.string().min(1) });
 const tagParamsSchema = z.object({ tag: z.string().min(1) });
+const relationIdParamsSchema = z.object({ relationId: z.string().min(1) });
+const participantParamsSchema = z.object({ participant: z.string().min(1) });
 const knowledgeTypeSchema = z.nativeEnum(KnowledgeType);
 const sourceTypeSchema = z.nativeEnum(SourceType);
 
@@ -463,10 +498,7 @@ async function parseUrlSource(
   return chunkDocument(text, title, tags).filter((i) => i.content.trim().length > 20);
 }
 
-async function getServices(): Promise<{
-  userKnowledgeService: UserKnowledgeService | null;
-  initializationError: string | null;
-}> {
+async function getServices(): Promise<KnowledgeServices> {
   try {
     const userKnowledgeService = await getUserKnowledgeService();
     return { userKnowledgeService, initializationError: null };
@@ -474,6 +506,144 @@ async function getServices(): Promise<{
     const initializationError = `Failed to initialize UserKnowledgeService: ${error instanceof Error ? error.message : 'Unknown error'}`;
     return { userKnowledgeService: null, initializationError };
   }
+}
+
+async function getGraphService(): Promise<KnowledgeGraphServices> {
+  try {
+    const knowledgeGraphService = await getKnowledgeGraphService();
+    return { knowledgeGraphService, initializationError: null };
+  } catch (error) {
+    const initializationError = `Failed to initialize KnowledgeGraphService: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    return { knowledgeGraphService: null, initializationError };
+  }
+}
+
+/**
+ * Rebuild `ParsedConversation[]` from a user's stored chat-import knowledge items.
+ *
+ * The analysis services (workflow extractor, expertise analyzer, learning detector)
+ * all consume `ParsedConversation[]`, but ingestion flattens each conversation into
+ * a knowledge item whose `content` is the rendered "sender: body" transcript. This
+ * reverses that projection well enough for the analyzers, which only read
+ * `messages[].sender/content/timestamp` and `participants`.
+ */
+function knowledgeItemsToConversations(items: KnowledgeItem[]): ParsedConversation[] {
+  return items.map((item) => {
+    const createdAt = item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt);
+    const lines = item.content.split(/\n{2,}/).filter((line) => line.trim().length > 0);
+    const participants = new Set<string>();
+
+    const messages: ParsedMessage[] = lines.map((line, index) => {
+      const separator = line.indexOf(':');
+      const maybeSender = separator > 0 ? line.slice(0, separator).trim() : '';
+      // Treat a short leading token before ':' as the speaker label; anything
+      // longer is prose that merely contains a colon.
+      const hasSender = maybeSender.length > 0 && maybeSender.length <= 40;
+      const sender = hasSender ? maybeSender : 'unknown';
+      const content = hasSender ? line.slice(separator + 1).trim() : line.trim();
+      participants.add(sender);
+      return {
+        id: `${item.id}-${index}`,
+        timestamp: createdAt,
+        sender,
+        content,
+        type: 'text',
+        metadata: {},
+      };
+    });
+
+    return {
+      id: item.id,
+      platform: 'generic',
+      title: item.sourceIdentifier,
+      participants: Array.from(participants),
+      messages,
+      metadata: {
+        totalMessages: messages.length,
+        dateRange: { start: createdAt, end: createdAt },
+        fileSize: item.content.length,
+        originalFilename: item.sourceIdentifier,
+        parsedAt: createdAt,
+      },
+    };
+  });
+}
+
+async function loadUserConversations(
+  userKnowledgeService: UserKnowledgeService,
+  userId: string,
+  conversationIds?: string[],
+  limit = 100
+): Promise<ParsedConversation[]> {
+  const items = await userKnowledgeService.getKnowledgeByTags(
+    userId,
+    ['chat-import'],
+    Math.max(limit, conversationIds?.length ?? 0)
+  );
+  const scoped =
+    conversationIds && conversationIds.length > 0
+      ? items.filter((item) => conversationIds.includes(item.id))
+      : items;
+  return knowledgeItemsToConversations(scoped);
+}
+
+function knowledgeItemsToCsv(items: KnowledgeItem[]): string {
+  const headers = [
+    'id',
+    'type',
+    'sourceType',
+    'sourceIdentifier',
+    'tags',
+    'confidence',
+    'createdAt',
+    'content',
+  ];
+  const escape = (value: unknown): string => {
+    const str = value === null || value === undefined ? '' : String(value);
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+  const rows = items.map((item) =>
+    [
+      item.id,
+      item.type,
+      item.sourceType,
+      item.sourceIdentifier,
+      (item.tags ?? []).join('|'),
+      item.confidence,
+      item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+      item.content,
+    ]
+      .map(escape)
+      .join(',')
+  );
+  return [headers.join(','), ...rows].join('\n');
+}
+
+function tallyBy(items: KnowledgeItem[], select: (item: KnowledgeItem) => string[]): NameCount[] {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    for (const key of select(item)) {
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+async function loadAllUserItems(
+  userKnowledgeService: UserKnowledgeService,
+  userId: string,
+  limit = 1000
+): Promise<KnowledgeItem[]> {
+  const result = await userKnowledgeService.search(userId, {
+    query: '',
+    filters: {},
+    options: { limit, includeRelationships: false },
+    timestamp: Date.now(),
+  });
+  return result.items;
 }
 
 const KnowledgeErrorSchema = t.Object({ error: t.String(), details: t.Optional(t.String()) });
@@ -517,6 +687,158 @@ export function registerKnowledgeRoutes() {
         response: {
           201: KnowledgeSuccessDataSchema,
           400: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .post('/bulk', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
+        const userId = user.id;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+
+        const rawItems = (body as BulkUploadBody | undefined)?.items;
+        if (!Array.isArray(rawItems) || rawItems.length === 0) {
+          set.status = 400;
+          return { error: 'A non-empty "items" array is required' };
+        }
+
+        const normalized: KnowledgeIngestRequest[] = [];
+        const errors: string[] = [];
+        rawItems.forEach((raw, index) => {
+          const item = normalizeKnowledgeItem(raw);
+          if (!item.content) {
+            errors.push(`items[${index}]: content is required`);
+            return;
+          }
+          normalized.push(item);
+        });
+
+        if (normalized.length === 0) {
+          set.status = 400;
+          return { error: 'No valid items to upload', details: errors.join('; ') };
+        }
+
+        const result = await userKnowledgeService!.addKnowledge(userId, normalized);
+        const uploaded = result.processedCount ?? normalized.length;
+        const allErrors = [...errors, ...(result.errors ?? [])];
+        set.status = 201;
+        return {
+          uploaded,
+          failed: rawItems.length - uploaded,
+          errors: allErrors.length > 0 ? allErrors : undefined,
+        };
+      }, {
+        body: t.Any(),
+        response: {
+          201: t.Object({
+            uploaded: t.Number(),
+            failed: t.Number(),
+            errors: t.Optional(t.Array(t.String())),
+          }),
+          400: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/categories', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const items = await loadAllUserItems(userKnowledgeService!, user.id);
+        return tallyBy(items, (item) => [String(item.type)]);
+      }, {
+        response: {
+          200: t.Array(t.Object({ name: t.String(), count: t.Number() })),
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/tags', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const items = await loadAllUserItems(userKnowledgeService!, user.id);
+        return tallyBy(items, (item) => item.tags ?? []);
+      }, {
+        response: {
+          200: t.Array(t.Object({ name: t.String(), count: t.Number() })),
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/export', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, query } = ctx;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const format = String((query as Record<string, unknown>).format ?? 'json');
+        if (format !== 'json' && format !== 'csv') {
+          set.status = 400;
+          return { error: 'format must be "json" or "csv"' };
+        }
+        const items = await loadAllUserItems(userKnowledgeService!, user.id);
+        const stamp = new Date().toISOString().slice(0, 10);
+        if (format === 'csv') {
+          set.headers['content-type'] = 'text/csv; charset=utf-8';
+          set.headers['content-disposition'] =
+            `attachment; filename="knowledge-${stamp}.csv"`;
+          return knowledgeItemsToCsv(items);
+        }
+        set.headers['content-type'] = 'application/json; charset=utf-8';
+        set.headers['content-disposition'] =
+          `attachment; filename="knowledge-${stamp}.json"`;
+        return JSON.stringify({ exportedAt: new Date().toISOString(), items }, null, 2);
+      }, {
+        response: {
+          200: t.String(),
+          400: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .post('/reindex', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set } = ctx;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const started = Date.now();
+        const items = await loadAllUserItems(userKnowledgeService!, user.id);
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        let indexed = 0;
+        for (const item of items) {
+          try {
+            // oxlint-disable-next-line no-await-in-loop -- sequential on purpose: parallel re-embedding trips provider rate limits
+            await knowledgeGraphService!.updateKnowledge(item.id, { content: item.content });
+            indexed += 1;
+          } catch (error) {
+            logger.warn('Reindex failed for knowledge item', {
+              itemId: item.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+        return { indexed, duration: Date.now() - started };
+      }, {
+        response: {
+          200: t.Object({ indexed: t.Number(), duration: t.Number() }),
           503: KnowledgeErrorSchema,
         },
       })
@@ -566,6 +888,28 @@ export function registerKnowledgeRoutes() {
           400: KnowledgeErrorSchema,
           404: KnowledgeErrorSchema,
           500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/:itemId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const { itemId } = itemIdParamsSchema.parse(params);
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const item = await userKnowledgeService!.getKnowledgeItem(user.id, itemId);
+        if (!item) {
+          set.status = 404;
+          return { error: 'Knowledge item not found or not accessible' };
+        }
+        return item;
+      }, {
+        response: {
+          200: t.Any(),
+          404: KnowledgeErrorSchema,
           503: KnowledgeErrorSchema,
         },
       })
@@ -651,6 +995,125 @@ export function registerKnowledgeRoutes() {
       }, {
         response: {
           200: KnowledgeSuccessDataSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .delete('/relations/:relationId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const { relationId } = relationIdParamsSchema.parse(params);
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        const relation = await knowledgeGraphService!.getRelationshipById(relationId);
+        if (!relation) {
+          set.status = 404;
+          return { error: 'Relationship not found' };
+        }
+        const owned = await userKnowledgeService!.getKnowledgeItem(user.id, relation.sourceId);
+        if (!owned) {
+          set.status = 404;
+          return { error: 'Relationship not found' };
+        }
+        await knowledgeGraphService!.deleteRelationship(relationId);
+        return { success: true as const, message: 'Relationship deleted successfully' };
+      }, {
+        response: {
+          200: t.Object({ success: t.Literal(true), message: t.String() }),
+          404: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/:itemId/relations', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const { itemId } = itemIdParamsSchema.parse(params);
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const owned = await userKnowledgeService!.getKnowledgeItem(user.id, itemId);
+        if (!owned) {
+          set.status = 404;
+          return { error: 'Knowledge item not found or not accessible' };
+        }
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        const rows = await knowledgeGraphService!.listRelationships(itemId);
+        return rows.map((row) => ({
+          id: row.id,
+          sourceItemId: row.sourceId,
+          targetItemId: row.targetId,
+          relationshipType: row.relationshipType,
+          confidence: Number(row.strength ?? 0),
+          createdAt: row.createdAt,
+        }));
+      }, {
+        response: {
+          200: t.Any(),
+          404: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .post('/:itemId/relations', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params, body } = ctx;
+        const { itemId } = itemIdParamsSchema.parse(params);
+        const payload = (body ?? {}) as RelationBody;
+        if (!payload.targetItemId || !payload.relationshipType) {
+          set.status = 400;
+          return { error: 'targetItemId and relationshipType are required' };
+        }
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const [source, target] = await Promise.all([
+          userKnowledgeService!.getKnowledgeItem(user.id, itemId),
+          userKnowledgeService!.getKnowledgeItem(user.id, payload.targetItemId),
+        ]);
+        if (!source || !target) {
+          set.status = 404;
+          return { error: 'Source or target knowledge item not found or not accessible' };
+        }
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        const row = await knowledgeGraphService!.createRelationship({
+          sourceItemId: itemId,
+          targetItemId: payload.targetItemId,
+          relationshipType: payload.relationshipType,
+          confidence: payload.confidence ?? 0.8,
+        });
+        set.status = 201;
+        return {
+          id: row.id,
+          sourceItemId: row.sourceId,
+          targetItemId: row.targetId,
+          relationshipType: row.relationshipType,
+          confidence: Number(row.strength ?? 0),
+          createdAt: row.createdAt,
+        };
+      }, {
+        body: t.Any(),
+        response: {
+          201: t.Any(),
+          400: KnowledgeErrorSchema,
+          404: KnowledgeErrorSchema,
           503: KnowledgeErrorSchema,
         },
       })
@@ -1168,6 +1631,224 @@ export function registerKnowledgeRoutes() {
         }
       )
       
+      .post('/generate-qa', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, query } = ctx;
+        const { knowledgeGraphService, initializationError } = await getGraphService();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: initializationError };
+        }
+        const q = query as Record<string, unknown>;
+        const domain = q.domain ? String(q.domain) : undefined;
+        const maxPairs = q.limit ? Number(q.limit) : 20;
+        try {
+          const pairs = await knowledgeGraphService!.generateQAFromKnowledge(domain, { maxPairs });
+          return {
+            qaPairs: pairs.map((pair) => ({
+              question: pair.question,
+              answer: pair.answer,
+              source: pair.source ?? domain ?? 'knowledge-base',
+              confidence: pair.confidence ?? 0,
+              topic: pair.topic ?? domain ?? 'general',
+            })),
+            generated: pairs.length,
+          };
+        } catch (error) {
+          logger.error('Q&A generation failed', {
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          set.status = 500;
+          return {
+            error: 'Failed to generate Q&A pairs',
+            details: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }, {
+        response: {
+          200: t.Object({ qaPairs: t.Any(), generated: t.Number() }),
+          500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .post('/extract-workflows', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        const conversationIds = (body as ExtractWorkflowsBody | undefined)?.conversationIds;
+        try {
+          const conversations = await loadUserConversations(
+            userKnowledgeService!,
+            user.id,
+            conversationIds
+          );
+          if (conversations.length === 0) {
+            return { workflows: [], extracted: 0 };
+          }
+          const workflows = await knowledgeGraphService!.extractWorkflowsFromChats(conversations);
+          return { workflows, extracted: workflows.length };
+        } catch (error) {
+          logger.error('Workflow extraction failed', {
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          set.status = 500;
+          return {
+            error: 'Failed to extract workflows',
+            details: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }, {
+        body: t.Any(),
+        response: {
+          200: t.Object({ workflows: t.Any(), extracted: t.Number() }),
+          500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/expertise/:participant', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const { participant } = participantParamsSchema.parse(params);
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        try {
+          const conversations = await loadUserConversations(userKnowledgeService!, user.id);
+          const profiles = await knowledgeGraphService!.analyzeParticipantExpertise(conversations);
+          const profile = profiles.find((p) => p.participant === participant);
+          if (!profile) {
+            return {
+              participant,
+              domains: [],
+              overallConfidence: 0,
+              totalInteractions: 0,
+              knowledgeAreas: [],
+            };
+          }
+          return {
+            participant: profile.participant,
+            domains: profile.domains.map((domain) => ({
+              domain: domain.domain,
+              confidence: domain.confidence,
+              topics: domain.knowledge.map((area) => area.area),
+              evidenceCount: domain.indicators.length,
+            })),
+            overallConfidence: profile.confidenceScore,
+            totalInteractions: profile.metadata.totalMessages,
+            knowledgeAreas: profile.domains.flatMap((domain) =>
+              domain.knowledge.map((area) => area.area)
+            ),
+          };
+        } catch (error) {
+          logger.error('Expertise analysis failed', {
+            userId: user.id,
+            participant,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          set.status = 500;
+          return {
+            error: 'Failed to analyze expertise',
+            details: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }, {
+        response: {
+          200: t.Object({
+            participant: t.String(),
+            domains: t.Any(),
+            overallConfidence: t.Number(),
+            totalInteractions: t.Number(),
+            knowledgeAreas: t.Array(t.String()),
+          }),
+          500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
+      .get('/learning-insights', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, query } = ctx;
+        const { userKnowledgeService, initializationError } = await getServices();
+        if (initializationError) {
+          set.status = 503;
+          return { error: 'Knowledge service not available', details: initializationError };
+        }
+        const { knowledgeGraphService, initializationError: graphError } = await getGraphService();
+        if (graphError) {
+          set.status = 503;
+          return { error: 'Knowledge graph service not available', details: graphError };
+        }
+        const participantQuery = (query as Record<string, unknown>).participant;
+        const participant = participantQuery ? String(participantQuery) : undefined;
+        try {
+          const conversations = await loadUserConversations(userKnowledgeService!, user.id);
+          if (conversations.length === 0) {
+            return {
+              insights: [],
+              progressions: [],
+              totalLearningMoments: 0,
+              activeTopics: [],
+            };
+          }
+          const moments = await knowledgeGraphService!.detectLearningMoments(
+            conversations,
+            participant ? { participants: [participant] } : undefined
+          );
+          const insights = moments.map((moment) => ({
+            learner: moment.learner,
+            teacher: moment.teacher,
+            topic: moment.topic,
+            content: moment.content,
+            timestamp: moment.timestamp.toISOString(),
+            confidence: moment.confidence,
+          }));
+          const activeTopics = Array.from(new Set(insights.map((i) => i.topic))).filter(Boolean);
+          return {
+            insights,
+            progressions: [],
+            totalLearningMoments: moments.length,
+            activeTopics,
+          };
+        } catch (error) {
+          logger.error('Learning insight generation failed', {
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          set.status = 500;
+          return {
+            error: 'Failed to generate learning insights',
+            details: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }, {
+        response: {
+          200: t.Object({
+            insights: t.Any(),
+            progressions: t.Any(),
+            totalLearningMoments: t.Number(),
+            activeTopics: t.Array(t.String()),
+          }),
+          500: KnowledgeErrorSchema,
+          503: KnowledgeErrorSchema,
+        },
+      })
       .get('/chat-jobs/:jobId', async ({ set, params }) => {
         const jobId = params.jobId;
         const job = chatImportJobs.get(jobId);

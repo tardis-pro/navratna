@@ -148,7 +148,7 @@ export const knowledgeAPI = {
   },
 
   async update(id: string, updates: Partial<KnowledgeUploadRequest>): Promise<KnowledgeItem> {
-    return edenWithCSRFRetry(() => knowledge[id].put(updates));
+    return edenWithCSRFRetry(() => knowledge[id].patch(updates));
   },
 
   async delete(id: string): Promise<void> {
@@ -203,11 +203,12 @@ export const knowledgeAPI = {
   async createRelation(
     relation: Omit<KnowledgeRelation, 'id' | 'createdAt'>
   ): Promise<KnowledgeRelation> {
-    return edenWithCSRFRetry(() => knowledge.post(relation));
+    const { sourceItemId, ...payload } = relation;
+    return edenWithCSRFRetry(() => knowledge[sourceItemId].relations.post(payload));
   },
 
   async deleteRelation(relationId: string): Promise<void> {
-    await edenWithCSRFRetry(() => knowledge[relationId].delete());
+    await edenWithCSRFRetry(() => knowledge.relations[relationId].delete());
   },
 
   async getGraph(options?: {

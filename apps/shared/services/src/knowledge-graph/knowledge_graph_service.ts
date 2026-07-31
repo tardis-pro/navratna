@@ -15,7 +15,10 @@ import {
 } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { QdrantService, buildVectorFilters } from '../qdrant_service';
-import { KnowledgeRepository } from '../database/repositories/knowledge_repository';
+import {
+  KnowledgeRepository,
+  type RelationshipRow as KnowledgeRelationshipRecord,
+} from '../database/repositories/knowledge_repository';
 import { EmbeddingService } from './embedding_service';
 import { ContentClassifier } from './content_classifier_service';
 import { RelationshipDetector } from './relationship_detector_service';
@@ -373,6 +376,27 @@ export class KnowledgeGraphService implements KnowledgeIngestionPort {
   /**
    * Relationship discovery - used by services for knowledge graph navigation
    */
+  async listRelationships(itemId: string): Promise<KnowledgeRelationshipRecord[]> {
+    return this.repository.getRelationships(itemId);
+  }
+
+  async createRelationship(input: {
+    sourceItemId: string;
+    targetItemId: string;
+    relationshipType: string;
+    confidence: number;
+  }): Promise<KnowledgeRelationshipRecord> {
+    return this.repository.createRelationship(input);
+  }
+
+  async deleteRelationship(relationshipId: string): Promise<boolean> {
+    return this.repository.deleteRelationship(relationshipId);
+  }
+
+  async getRelationshipById(relationshipId: string): Promise<KnowledgeRelationshipRecord | null> {
+    return this.repository.findRelationshipById(relationshipId);
+  }
+
   async findRelated(
     itemId: string,
     relationshipTypes?: string[],

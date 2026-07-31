@@ -216,6 +216,22 @@ export class KnowledgeRepository {
     return request;
   }
 
+  async deleteRelationship(id: string): Promise<boolean> {
+    const result = await this.db
+      .delete(knowledgeRelationships)
+      .where(eq(knowledgeRelationships.id, id));
+    return ((result as { rowCount?: number }).rowCount ?? 0) > 0;
+  }
+
+  async findRelationshipById(id: string): Promise<RelationshipRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(knowledgeRelationships)
+      .where(eq(knowledgeRelationships.id, id))
+      .limit(1);
+    return row ?? null;
+  }
+
   async findRelationships(sourceId: string): Promise<RelationshipRow[]> {
     if (sourceId === 'all') {
       return this.db
