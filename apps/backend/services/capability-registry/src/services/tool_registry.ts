@@ -152,7 +152,7 @@ export class ToolRegistry {
   }
 
   // Tool Registration and Management
-  async registerTool(tool: Partial<ToolDefinition>): Promise<void> {
+  async registerTool(tool: Partial<ToolDefinition>): Promise<string> {
     try {
       // Transform and create node in Neo4j
       const transformedTool = this.transformValidatedToToolDefinition(tool);
@@ -160,7 +160,7 @@ export class ToolRegistry {
       logger.debug('Tool node creation requested', { toolId: transformedTool.id });
 
       // Use ToolService for tool management
-      await this.toolService.createTool({
+      const created = await this.toolService.createTool({
         name: tool.name ?? '',
         displayName: tool.name ?? '', // Use name as displayName
         description: tool.description ?? '',
@@ -170,9 +170,17 @@ export class ToolRegistry {
         inputSchema: isRecord(tool.parameters) ? tool.parameters : {},
         outputSchema: isRecord(tool.returnType) ? tool.returnType : {},
         securityLevel: this.toSecurityLevel(tool.securityLevel),
+        author: tool.author,
+        tags: tool.tags,
+        requiresApproval: tool.requiresApproval,
+        dependencies: tool.dependencies,
+        examples: tool.examples,
+        executionTimeEstimate: tool.executionTimeEstimate,
       });
 
-      logger.info(`Tool registered successfully: ${tool.id}`);
+      const createdId = typeof created.id === 'string' ? created.id : '';
+      logger.info(`Tool registered successfully: ${createdId || tool.id}`);
+      return createdId;
     } catch (error) {
       logger.error(`Failed to register tool ${tool.id}:`, error);
 

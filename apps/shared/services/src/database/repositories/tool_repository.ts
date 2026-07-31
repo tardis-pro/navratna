@@ -55,6 +55,13 @@ export type BaseCreateToolParams = {
   securityLevel?: ToolDefinitionInsert['securityLevel'];
   maxRetries?: number;
   timeout?: number;
+  author?: ToolDefinitionInsert['author'];
+  tags?: ToolDefinitionInsert['tags'];
+  requiresApproval?: ToolDefinitionInsert['requiresApproval'];
+  dependencies?: ToolDefinitionInsert['dependencies'];
+  examples?: ToolDefinitionInsert['examples'];
+  costEstimate?: ToolDefinitionInsert['costEstimate'];
+  executionTimeEstimate?: ToolDefinitionInsert['executionTimeEstimate'];
 };
 
 export class ToolRepository {
@@ -74,8 +81,14 @@ export class ToolRepository {
           returnType: data.outputSchema ?? {},
           securityLevel: data.securityLevel ?? SecurityLevel.MEDIUM,
           version: data.version ?? '1.0.0',
-          author: 'system',
+          author: data.author ?? 'system',
           isEnabled: data.isEnabled ?? true,
+          tags: data.tags ?? [],
+          requiresApproval: data.requiresApproval ?? false,
+          dependencies: data.dependencies ?? [],
+          examples: data.examples ?? [],
+          costEstimate: data.costEstimate,
+          executionTimeEstimate: data.executionTimeEstimate,
         })
         .returning();
 

@@ -9,6 +9,8 @@ export type {
   ToolExecutionResponse,
 } from '@uaip/types';
 
+export type ToolSecurityLevel = 'low' | 'medium' | 'high' | 'critical';
+
 export interface Tool {
   id: string;
   name: string;
@@ -17,7 +19,7 @@ export interface Tool {
   category: string;
   parameters: Record<string, unknown>;
   returnType?: Record<string, unknown>;
-  securityLevel: 'safe' | 'moderate' | 'restricted' | 'dangerous';
+  securityLevel: ToolSecurityLevel;
   requiresApproval: boolean;
   isEnabled: boolean;
   executionTimeEstimate?: number;
@@ -36,9 +38,9 @@ export interface ToolCreate {
   category: string;
   parameters: Record<string, unknown>;
   returnType?: Record<string, unknown>;
-  securityLevel?: 'safe' | 'moderate' | 'restricted' | 'dangerous';
+  securityLevel?: ToolSecurityLevel;
   requiresApproval?: boolean;
-  author: string;
+  author?: string;
   tags?: string[];
   dependencies?: string[];
 }
@@ -50,7 +52,7 @@ export interface ToolUpdate {
   category?: string;
   parameters?: Record<string, unknown>;
   returnType?: Record<string, unknown>;
-  securityLevel?: 'safe' | 'moderate' | 'restricted' | 'dangerous';
+  securityLevel?: ToolSecurityLevel;
   requiresApproval?: boolean;
   isEnabled?: boolean;
   tags?: string[];

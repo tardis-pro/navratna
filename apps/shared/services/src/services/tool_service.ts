@@ -63,6 +63,15 @@ export class ToolService extends BaseDomainService {
       isEnabled: data.isEnabled ?? true,
       version: data.version || '1.0.0',
       securityLevel: data.securityLevel || SecurityLevel.MEDIUM,
+      inputSchema: data.inputSchema,
+      outputSchema: data.outputSchema,
+      author: data.author,
+      tags: data.tags,
+      requiresApproval: data.requiresApproval,
+      dependencies: data.dependencies,
+      examples: data.examples,
+      costEstimate: data.costEstimate,
+      executionTimeEstimate: data.executionTimeEstimate,
     });
   }
 

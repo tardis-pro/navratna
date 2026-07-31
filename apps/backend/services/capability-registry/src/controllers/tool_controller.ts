@@ -76,12 +76,12 @@ const RegisterToolSchema = z.object({
   parameters: z.object({}).passthrough(),
   returnType: z.object({}).passthrough().optional(),
   securityLevel: z.enum(['low', 'medium', 'high', 'critical']),
-  requiresApproval: z.boolean(),
+  requiresApproval: z.boolean().optional().default(false),
   isEnabled: z.boolean().optional().default(true),
   executionTimeEstimate: z.number().positive().optional(),
   costEstimate: z.number().min(0).optional(),
-  author: z.string(),
-  tags: z.array(z.string()),
+  author: z.string().optional().default('system'),
+  tags: z.array(z.string()).optional().default([]),
   dependencies: z.array(z.string()).optional().default([]),
   examples: z.array(z.object({}).passthrough()).optional().default([]),
 });
@@ -209,13 +209,13 @@ export class ToolController {
     try {
       const validatedTool = RegisterToolSchema.parse(body);
       const toolDefinition = this.transformToToolDefinition(validatedTool);
-      await this.toolRegistry.registerTool(toolDefinition);
+      const createdId = await this.toolRegistry.registerTool(toolDefinition);
 
       set.status = 201;
       return {
         success: true,
         message: 'Tool registered successfully',
-        data: { toolId: validatedTool.id },
+        data: { toolId: createdId || validatedTool.id },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -806,21 +806,9 @@ export class ToolController {
   private applyToolDefinitionTransforms(transformed: Record<string, unknown>): void {
     // Transform category string to ToolCategory enum
     if (typeof transformed.category === 'string' && transformed.category.length > 0) {
-      const categoryMap: Record<string, ToolCategory> = {
-        api: ToolCategory.API,
-        computation: ToolCategory.COMPUTATION,
-        'file-system': ToolCategory.FILE_SYSTEM,
-        database: ToolCategory.DATABASE,
-        'web-search': ToolCategory.WEB_SEARCH,
-        'code-execution': ToolCategory.CODE_EXECUTION,
-        communication: ToolCategory.COMMUNICATION,
-        'knowledge-graph': ToolCategory.KNOWLEDGE_GRAPH,
-        deployment: ToolCategory.DEPLOYMENT,
-        monitoring: ToolCategory.MONITORING,
-        analysis: ToolCategory.ANALYSIS,
-        generation: ToolCategory.GENERATION,
-      };
-      transformed.category = categoryMap[transformed.category] || ToolCategory.API;
+      transformed.category = isToolCategory(transformed.category)
+        ? transformed.category
+        : ToolCategory.API;
     }
 
     // Transform securityLevel string to SecurityLevel enum
