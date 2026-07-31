@@ -12,6 +12,7 @@ import type { NewMCPServer } from '@uaip/shared-services/drizzle/control';
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
 import { encryptHeaders, decryptHeaders, resolveEnvRefs } from '../utils/mcp_secrets.js';
+import { buildMcpToolRegistration } from '../utils/mcp_tool_key.js';
 import { McpRepository } from '../database/index.js';
 
 import { promisify } from 'util';
@@ -682,6 +683,10 @@ export class MCPClientService extends EventEmitter {
     }
   }
 
+  getRegisteredServerNames(): string[] {
+    return Array.from(this.servers.keys());
+  }
+
   private async discoverTools(serverName: string): Promise<void> {
     try {
       const server = this.servers.get(serverName)!;
@@ -737,12 +742,9 @@ export class MCPClientService extends EventEmitter {
     try {
       for (const tool of tools) {
         const mcpTool = this.asRecord(tool);
+        const registration = buildMcpToolRegistration(serverName, mcpTool);
         const toolRegistration = {
-          id: `mcp-${serverName}-${String(mcpTool.name || '')}`,
-          name: String(mcpTool.name || ''),
-          description:
-            (typeof mcpTool.description === 'string' ? mcpTool.description : undefined) ||
-            `${String(mcpTool.name || '')} from ${serverName} MCP server`,
+          ...registration,
           category: ToolCategory.API,
           version: '1.0.0',
           isEnabled: true,
@@ -750,13 +752,8 @@ export class MCPClientService extends EventEmitter {
           costEstimate: 0.01,
           executionTimeEstimate: 5000,
           metadata: {
-            mcpServer: serverName,
-            mcpTool: String(mcpTool.name || ''),
-            inputSchema:
-              mcpTool.inputSchema && typeof mcpTool.inputSchema === 'object'
-                ? mcpTool.inputSchema
-                : {},
-            protocol: 'mcp',
+            ...registration.metadata,
+            inputSchema: registration.parameters,
             // serverConfig intentionally omitted — never publish secrets to event bus
           },
         };

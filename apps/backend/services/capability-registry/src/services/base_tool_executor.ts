@@ -18,6 +18,7 @@ import {
   isCalendarToolId,
   type CalendarToolId,
 } from '@uaip/shared-services';
+import { isMcpToolKey, parseMcpToolKey } from '../utils/mcp_tool_key.js';
 
 interface OAuthTokenInfo {
   accessToken: string;
@@ -66,7 +67,7 @@ export class BaseToolExecutor {
         if (isCalendarToolId(toolId)) {
           return this.executeCalendarTool(toolId, parameters);
         }
-        if (toolId.startsWith('mcp-')) {
+        if (isMcpToolKey(toolId)) {
           return this.executeMCPTool(toolId, parameters);
         }
         if (toolId.startsWith('oauth-')) {
@@ -726,14 +727,11 @@ export class BaseToolExecutor {
       const { MCPClientService } = await import('./mcp_client_service.js');
       const mcpClient = MCPClientService.getInstance();
 
-      // Extract server name from dynamic tool ID (e.g., 'mcp-calculator-add' -> 'calculator', tool: 'add')
-      const parts = toolId.split('-');
-      if (parts.length < 3) {
+      const parsed = parseMcpToolKey(toolId, mcpClient.getRegisteredServerNames());
+      if (!parsed) {
         throw new ValidationError(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-server-tool`);
       }
-
-      const serverName = parts[1]; // e.g., 'calculator'
-      const toolName = parts.slice(2).join('-'); // e.g., 'add' or 'complex-tool-name'
+      const { serverName, toolName } = parsed;
 
       // Execute through MCP protocol
       const result = await mcpClient.executeTool(serverName, toolName, parameters);

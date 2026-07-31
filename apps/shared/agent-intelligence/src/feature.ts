@@ -25,9 +25,18 @@ import { registerConstellationRoutes } from './routes/constellation_routes.js'
 import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
 import type { ToolSchemaProvider } from './routes/agent_chat_routes.js'
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const loadToolSchema: ToolSchemaProvider = async (toolId) => {
   try {
-    const tool = await ToolService.getInstance().findToolById(toolId)
+    // Mirrors UnifiedToolRegistry.executeTool's resolution: MCP-discovered bindings
+    // carry a semantic `mcp-<server>-<tool>` id, not the row's generated uuid, and
+    // findToolById throws on a non-uuid value. Resolving by name here is what keeps
+    // a discovered tool visible to the LLM instead of being silently dropped.
+    const service = ToolService.getInstance()
+    const tool = UUID_PATTERN.test(toolId)
+      ? await service.findToolById(toolId)
+      : await service.findToolByName(toolId)
     if (!tool) return null
 
     const description = typeof tool.description === 'string' ? tool.description : ''

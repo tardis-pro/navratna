@@ -15,6 +15,11 @@ import { EventBusService } from '@uaip/infra';
 import { logger, DatabaseError, NotFoundError } from '@uaip/utils';
 import { z } from 'zod';
 
+function getDisplayName(tool: Partial<ToolDefinition>): string {
+  const candidate = (tool as { displayName?: unknown }).displayName;
+  return typeof candidate === 'string' && candidate.length > 0 ? candidate : (tool.name ?? '');
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -152,6 +157,11 @@ export class ToolRegistry {
   }
 
   // Tool Registration and Management
+  /**
+   * `name` is the dispatch key (BaseToolExecutor switches on it, and
+   * UnifiedToolRegistry resolves non-uuid ids through findToolByName), so it must
+   * be persisted verbatim. `displayName` is the human label and may differ.
+   */
   async registerTool(tool: Partial<ToolDefinition>): Promise<string> {
     try {
       // Transform and create node in Neo4j
@@ -160,9 +170,26 @@ export class ToolRegistry {
       logger.debug('Tool node creation requested', { toolId: transformedTool.id });
 
       // Use ToolService for tool management
+      // Discovery re-runs on every server start and on tools/list_changed, and
+      // tool_definitions.name is UNIQUE, so a plain insert would throw on the second
+      // pass and abort registration for the rest of the server's tools.
+      const existing = tool.name ? await this.toolService.findToolByName(tool.name) : null;
+      if (existing) {
+        const existingId = typeof existing.id === 'string' ? existing.id : '';
+        await this.toolService.updateTool(existingId, {
+          description: tool.description ?? '',
+          parameters: isRecord(tool.parameters) ? tool.parameters : {},
+          returnType: isRecord(tool.returnType) ? tool.returnType : {},
+          isEnabled: tool.isEnabled ?? true,
+          version: tool.version ?? '1.0.0',
+        });
+        logger.info(`Tool re-registered (updated): ${tool.name}`);
+        return existingId;
+      }
+
       const created = await this.toolService.createTool({
         name: tool.name ?? '',
-        displayName: tool.name ?? '', // Use name as displayName
+        displayName: getDisplayName(tool),
         description: tool.description ?? '',
         category: this.mapStringToToolCategory(tool.category),
         isEnabled: tool.isEnabled,
