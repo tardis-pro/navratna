@@ -29,6 +29,8 @@ import {
   json,
   index,
   uniqueIndex,
+  primaryKey,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { base, llmPreferenceCommonColumns } from './schema_base';
@@ -46,12 +48,15 @@ import type {
   AuthenticationMethod,
   OAuthProviderType,
   LLMProviderUsageType,
+  IntegrationAuthKind,
+  McpCredentialMode,
 } from '@uaip/types';
 import {
   SecurityLevel,
   UserType,
   MCPServerStatus,
   SessionStatus,
+  IntegrationConnectionStatus,
 } from '@uaip/types';
 
 // ─── ORGANIZATIONS ─────────────────────────────────────────────────────────
@@ -315,6 +320,84 @@ export const agentOAuthConnections = pgTable('agent_oauth_connections', {
   scopes: jsonb('scopes').$type<string[]>().default([]),
   metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 });
+
+export const integrationProviders = pgTable(
+  'integration_providers',
+  {
+    ...base,
+    key: varchar('key', { length: 100 }).notNull().unique(),
+    displayName: varchar('display_name', { length: 255 }).notNull(),
+    oauthProviderId: uuid('oauth_provider_id').references(() => oauthProviders.id, {
+      onDelete: 'set null',
+    }),
+    enabled: boolean('enabled').notNull().default(true),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  },
+  (t) => [index('idx_integration_providers_enabled').on(t.enabled)]
+);
+
+export const integrationConnections = pgTable(
+  'integration_connections',
+  {
+    ...base,
+    providerId: uuid('provider_id')
+      .notNull()
+      .references(() => integrationProviders.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    authKind: text('auth_kind').$type<IntegrationAuthKind>().notNull().default('oauth2'),
+    accessTokenEncrypted: text('access_token_encrypted'),
+    refreshTokenEncrypted: text('refresh_token_encrypted'),
+    expiresAt: timestamp('expires_at'),
+    scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    // Bumped on every token refresh. Cached MCP sessions embed it, so a refresh
+    // invalidates sessions holding the superseded token instead of reusing it.
+    tokenVersion: integer('token_version').notNull().default(1),
+    status: text('status')
+      .$type<IntegrationConnectionStatus>()
+      .notNull()
+      .default(IntegrationConnectionStatus.ACTIVE),
+  },
+  (t) => [
+    // Required as the target of the binding table's composite FK — that is what makes
+    // binding a connection to a different provider structurally impossible.
+    uniqueIndex('idx_integration_connections_id_provider').on(t.id, t.providerId),
+    index('idx_integration_connections_owner').on(t.ownerUserId),
+    index('idx_integration_connections_provider_status').on(t.providerId, t.status),
+  ]
+);
+
+export const projectAgentIntegrationConnections = pgTable(
+  'project_agent_integration_connections',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    // cross-plane ref: intelligence.agents.id — no DB FK
+    agentId: uuid('agent_id').notNull(),
+    providerId: uuid('provider_id')
+      .notNull()
+      .references(() => integrationProviders.id, { onDelete: 'cascade' }),
+    connectionId: uuid('connection_id').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    createdByUserId: uuid('created_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.agentId, t.providerId] }),
+    foreignKey({
+      columns: [t.connectionId, t.providerId],
+      foreignColumns: [integrationConnections.id, integrationConnections.providerId],
+      name: 'fk_project_agent_integration_connection',
+    }).onDelete('cascade'),
+    index('idx_project_agent_integration_connection').on(t.connectionId),
+  ]
+);
 
 export const userPreferences = pgTable('user_preferences', {
   ...base,
@@ -619,6 +702,16 @@ export const mcpServers = pgTable(
     transportType: varchar('transport_type', { length: 20 }).notNull().default('stdio'),
     url: text('url'),
     headers: text('headers'),
+    providerId: uuid('provider_id').references(() => integrationProviders.id, {
+      onDelete: 'set null',
+    }),
+    // IMMUTABLE once set: discovered tool ids are `mcp-<serverKey>-<toolName>`, so
+    // changing it orphans every agent binding that references those tools.
+    serverKey: varchar('server_key', { length: 100 }).unique(),
+    credentialMode: text('credential_mode').$type<McpCredentialMode>().notNull().default('none'),
+    authHeaderName: varchar('auth_header_name', { length: 100 }),
+    authScheme: varchar('auth_scheme', { length: 50 }),
+    catalogConnectionId: uuid('catalog_connection_id'),
     enabled: boolean('enabled').notNull().default(true),
     autoStart: boolean('auto_start').notNull().default(false),
     retryAttempts: integer('retry_attempts').notNull().default(3),
@@ -678,6 +771,7 @@ export const mcpServers = pgTable(
     index('idx_mcp_servers_type').on(t.type),
     index('idx_mcp_servers_status').on(t.status),
     index('idx_mcp_servers_security_level').on(t.securityLevel),
+    index('idx_mcp_servers_provider').on(t.providerId),
   ]
 );
 

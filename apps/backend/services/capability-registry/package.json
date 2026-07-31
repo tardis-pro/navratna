@@ -27,6 +27,7 @@
     "@mariozechner/pi-agent-core": "^0.55.3",
     "@mariozechner/pi-ai": "^0.55.3",
     "@mariozechner/pi-coding-agent": "^0.55.3",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@uaip/config": "workspace:*",
     "@uaip/infra": "workspace:*",
     "@uaip/middleware": "workspace:*",
@@ -38,14 +39,14 @@
     "compression": "catalog:backend",
     "cors": "catalog:backend",
     "dotenv": "catalog:backend",
+    "elysia": "catalog:backend",
     "helmet": "catalog:backend",
+    "jose": "^5.10.0",
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "neo4j-driver": "catalog:backend",
     "pg": "catalog:backend",
     "prom-client": "catalog:backend",
-    "elysia": "catalog:backend",
-    "jose": "^5.10.0",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -56,14 +57,14 @@
     "@types/multer": "^1.4.12",
     "@types/node": "catalog:backend",
     "@types/pg": "catalog:backend",
-    "concurrently": "catalog:dev",
-    "vitest": "catalog:backend",
     "@vitest/coverage-v8": "catalog:backend",
+    "concurrently": "catalog:dev",
     "nodemon": "catalog:backend",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "catalog:backend",
     "tsx": "catalog:backend",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:backend"
   },
   "keywords": [
     "uaip",

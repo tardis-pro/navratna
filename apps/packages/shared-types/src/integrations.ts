@@ -18,6 +18,16 @@ export enum IntegrationConnectionStatus {
   PENDING = 'pending',
 }
 
+export type IntegrationAuthKind = 'oauth2' | 'api_token';
+
+/**
+ * How an MCP server obtains its credential.
+ *  none              — public server, no auth (e.g. the Cloudflare docs server)
+ *  catalog           — one shared app-level credential, used only for canonical tool discovery
+ *  caller_connection — the acting user's own connection, resolved per execution
+ */
+export type McpCredentialMode = 'none' | 'catalog' | 'caller_connection';
+
 export interface IntegrationConnection {
   id: string;
   userId: string;
