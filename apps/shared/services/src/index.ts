@@ -104,6 +104,18 @@ export {
   type ProjectTaskToolId,
 } from './services/project_task_tool_service';
 export { ProjectTaskRepository } from './database/repositories/project_task_repository';
+export {
+  OAuthTokenResolver,
+  decryptOAuthSecret,
+  type ResolvedOAuthToken,
+} from './services/oauth_token_resolver';
+export {
+  CalendarToolService,
+  CalendarToolError,
+  isCalendarToolId,
+  CALENDAR_TOOL_IDS,
+  type CalendarToolId,
+} from './services/calendar_tool_service';
 export type {
   CreateTaskRequest,
   UpdateTaskRequest,

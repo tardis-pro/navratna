@@ -5,7 +5,7 @@
  */
 
 import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolService, isProjectTaskToolId } from '@uaip/shared-services';
+import { ToolService, isProjectTaskToolId, isCalendarToolId } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
 import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
@@ -899,7 +899,7 @@ export class UnifiedToolRegistry {
     // authenticated execution context, never from the model-supplied arguments —
     // otherwise an agent could read or mutate another tenant's data by passing a
     // different userId.
-    if (isProjectTaskToolId(toolId)) {
+    if (isProjectTaskToolId(toolId) || isCalendarToolId(toolId)) {
       if (!context.userId) {
         throw new ValidationError(`Tool ${toolId} requires an authenticated user context`);
       }

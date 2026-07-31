@@ -13,6 +13,10 @@ import {
   ProjectTaskToolError,
   isProjectTaskToolId,
   type ProjectTaskToolId,
+  CalendarToolService,
+  CalendarToolError,
+  isCalendarToolId,
+  type CalendarToolId,
 } from '@uaip/shared-services';
 
 interface OAuthTokenInfo {
@@ -58,6 +62,9 @@ export class BaseToolExecutor {
       default:
         if (isProjectTaskToolId(toolId)) {
           return this.executeProjectTaskTool(toolId, parameters);
+        }
+        if (isCalendarToolId(toolId)) {
+          return this.executeCalendarTool(toolId, parameters);
         }
         if (toolId.startsWith('mcp-')) {
           return this.executeMCPTool(toolId, parameters);
@@ -770,6 +777,35 @@ export class BaseToolExecutor {
     } catch (error) {
       if (error instanceof ProjectTaskToolError) {
         if (error.code === 'INVALID_PARAMS') throw new ValidationError(error.message);
+        throw new InternalServerError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Calendar tools act on behalf of a user and read that user's stored Google
+   * connection, so the caller's id must arrive in `parameters.userId`. It is
+   * injected server-side by UnifiedToolRegistry, never taken from the model.
+   */
+  private async executeCalendarTool(
+    toolId: CalendarToolId,
+    parameters: Record<string, unknown>
+  ): Promise<unknown> {
+    const userId = asString(parameters.userId);
+    if (!userId) {
+      throw new ValidationError(
+        `Tool ${toolId} requires a userId parameter identifying the acting user`
+      );
+    }
+
+    try {
+      const result = await CalendarToolService.getInstance().execute(toolId, userId, parameters);
+      return { toolId, success: true, executionTime: Date.now(), result };
+    } catch (error) {
+      if (error instanceof CalendarToolError) {
+        if (error.code === 'INVALID_PARAMS') throw new ValidationError(error.message);
+        if (error.code === 'PROVIDER_ERROR') throw new ExternalServiceError(error.message);
         throw new InternalServerError(error.message);
       }
       throw error;
