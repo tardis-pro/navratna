@@ -25,6 +25,7 @@ export * from './tools_api';
 export * from './discussions_api';
 export * from './artifacts_api';
 export * from './projects_api';
+export * from './integrations_api';
 export * from './users_api';
 export * from './security_api';
 export * from './audit_api';

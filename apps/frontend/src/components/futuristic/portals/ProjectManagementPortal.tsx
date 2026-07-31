@@ -34,6 +34,7 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProjectOnboardingFlow } from './ProjectOnboardingFlow';
 import { projectsAPI, type Project as _APIProject } from '../../../api/projects_api';
+import { ProjectIntegrationsPanel } from '@/components/integrations';
 import { ViewportSize } from '@/hooks/use_viewport';
 import { logger } from '@/utils/browser_logger';
 
@@ -663,6 +664,11 @@ export const ProjectManagementPortal: React.FC<ProjectManagementPortalProps> = (
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="bg-slate-800/50 rounded-xl p-4">
+              <h3 className="font-semibold text-white mb-4">Integrations</h3>
+              <ProjectIntegrationsPanel projectId={selectedProject.id} />
             </div>
 
             <div className="bg-slate-800/50 rounded-xl p-4">
