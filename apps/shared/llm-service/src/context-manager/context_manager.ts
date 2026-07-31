@@ -62,12 +62,16 @@ export class ContextManager {
   /**
    * Cache and reuse persona descriptions to avoid repetition
    */
-  public cachePersonaPrompt(agentId: string, personaPrompt: string): void {
-    this.personaCache.set(agentId, personaPrompt);
+  public cachePersonaPrompt(agentId: string, personaPrompt: string, revision?: string): void {
+    this.personaCache.set(this.personaCacheKey(agentId, revision), personaPrompt);
   }
 
-  public getCachedPersonaPrompt(agentId: string): string | undefined {
-    return this.personaCache.get(agentId);
+  public getCachedPersonaPrompt(agentId: string, revision?: string): string | undefined {
+    return this.personaCache.get(this.personaCacheKey(agentId, revision));
+  }
+
+  private personaCacheKey(agentId: string, revision?: string): string {
+    return revision ? `${agentId}:${revision}` : agentId;
   }
 
   /**

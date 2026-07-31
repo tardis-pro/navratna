@@ -21,6 +21,9 @@ process.env.POSTGRES_PORT = '5432';
 process.env.POSTGRES_USER = 'test_user';
 process.env.POSTGRES_PASSWORD = 'test_password';
 process.env.POSTGRES_DB = 'test_db';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-jwt-refresh-secret';
+process.env.DELETION_HASH_SALT = process.env.DELETION_HASH_SALT || 'test-deletion-hash-salt';
 
 afterEach(() => {
   vi.clearAllMocks();

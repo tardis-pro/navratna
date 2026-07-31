@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IDSchema } from './common.js';
+import type { AgentSkill } from './agent.js';
 
 // LLM provider types
 
@@ -605,6 +606,7 @@ export interface AgentResponseRequest {
     metadata?: Record<string, unknown>;
     version?: number;
     assignedMCPTools?: AgentAssignedTool[];
+    skills?: AgentSkill[];
   };
   messages: ChatMessage[];
   context?: DocumentContext;

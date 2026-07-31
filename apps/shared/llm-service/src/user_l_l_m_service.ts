@@ -23,11 +23,42 @@ import { LLMTaskType, AgentRole, AgentSkill } from '@uaip/types';
 import type { AgentAssignedTool } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { recordLLMRequest } from '@uaip/middleware';
+import { createHash } from 'node:crypto';
 import { selectUserProviderForModel } from './provider_selection.js';
 import { runToolCallingLoop } from './tool_calling.js';
 import { AgentToolExecutor, type ToolExecutionRpcBus } from './agent_tool_executor.js';
 
 type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
+
+export function selectEnabledSkills(skills: AgentSkill[] | undefined): AgentSkill[] {
+  return (skills ?? []).filter((skill) => skill.enabled !== false);
+}
+
+export function skillsRevision(skills: AgentSkill[]): string | undefined {
+  if (skills.length === 0) return undefined;
+  return createHash('sha1')
+    .update(skills.map((skill) => `${skill.name}:${skill.content}`).join('\u0000'))
+    .digest('hex')
+    .slice(0, 16);
+}
+
+export function renderSkillsPromptSection(skills: AgentSkill[]): string {
+  if (skills.length === 0) return '';
+
+  let section = '\nSKILLS:\n';
+  section +=
+    'The following skills give you specialised knowledge and instructions. Apply them when the task matches their description.\n\n';
+  for (const skill of skills) {
+    section += `--- SKILL: ${skill.name} ---\n`;
+    section += `${skill.description}\n\n`;
+    section += `${skill.content.trim()}\n`;
+    if (skill.allowedTools && skill.allowedTools.length > 0) {
+      section += `Tools permitted while applying this skill: ${skill.allowedTools.join(', ')}\n`;
+    }
+    section += '\n';
+  }
+  return section;
+}
 
 type AgentMCPToolItem = {
   toolId: string;
@@ -680,7 +711,7 @@ export class UserLLMService {
           securityContext: {},
           isActive: true,
           lastActiveAt: now,
-          skills: new Array<AgentSkill>(),
+          skills: request.agent.skills ?? new Array<AgentSkill>(),
           capabilityScores: {},
           deploymentEnvironment: 'production',
           totalOperations: 0,
@@ -1103,8 +1134,12 @@ export class UserLLMService {
   private buildAgentSystemPrompt(request: AgentResponseRequest): string {
     const { agent, tools = [] } = request;
 
-    // Check cache for persona prompt
-    const cachedPrompt = this.contextManager.getCachedPersonaPrompt(agent.id);
+    const enabledSkills = selectEnabledSkills(agent.skills);
+    // Skills are editable at runtime, so the cache key must change when they do —
+    // otherwise an edited skill keeps serving the previously cached prompt.
+    const promptRevision = skillsRevision(enabledSkills);
+
+    const cachedPrompt = this.contextManager.getCachedPersonaPrompt(agent.id, promptRevision);
     if (cachedPrompt) {
       return cachedPrompt;
     }
@@ -1187,8 +1222,9 @@ export class UserLLMService {
       });
     }
 
-    // Cache the persona prompt to avoid rebuilding
-    this.contextManager.cachePersonaPrompt(agent.id, systemPrompt);
+    systemPrompt += renderSkillsPromptSection(enabledSkills);
+
+    this.contextManager.cachePersonaPrompt(agent.id, systemPrompt, promptRevision);
 
     return systemPrompt;
   }

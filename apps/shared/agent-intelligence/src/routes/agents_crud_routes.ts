@@ -68,8 +68,23 @@ function parsePaginationParams(query: Record<string, string | undefined>): {
   return { page, limit, search }
 }
 
+const AgentSkillBodySchema = t.Object({
+  id: t.Optional(t.String()),
+  name: t.String(),
+  description: t.String(),
+  content: t.String(),
+  source: t.Optional(t.Union([t.Literal('inline'), t.Literal('filesystem'), t.Literal('registry')])),
+  sourcePath: t.Optional(t.String()),
+  sourceUrl: t.Optional(t.String()),
+  enabled: t.Optional(t.Boolean()),
+  model: t.Optional(t.String()),
+  allowedTools: t.Optional(t.Array(t.String())),
+  metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+})
+
 const AgentSchema = t.Object({
   id: t.Optional(t.String()),
+  skills: t.Optional(t.Any()),
   name: t.Optional(t.String()),
   description: t.Optional(t.Union([t.String(), t.Null()])),
   role: t.Optional(t.String()),
@@ -194,6 +209,7 @@ export function registerAgentCrudRoutes(
           personaId: t.Optional(t.String()),
           isActive: t.Optional(t.Boolean()),
           capabilities: t.Optional(t.Array(t.String())),
+          skills: t.Optional(t.Array(AgentSkillBodySchema)),
           metadata: t.Optional(t.Record(t.String(), t.Unknown())),
           configuration: t.Optional(t.Record(t.String(), t.Unknown())),
           intelligenceConfig: t.Optional(t.Record(t.String(), t.Unknown())),
@@ -381,6 +397,7 @@ export function registerAgentCrudRoutes(
           apiType: t.String(),
           configuration: t.Record(t.String(), t.Unknown()),
           capabilities: t.Array(t.String()),
+          skills: t.Array(AgentSkillBodySchema),
           metadata: t.Record(t.String(), t.Unknown()),
         })),
         response: {

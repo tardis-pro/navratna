@@ -156,6 +156,7 @@ const toAgentRequest = (
     metadata: isRecord(agent.metadata) ? agent.metadata : undefined,
     version: typeof agent.version === 'number' ? agent.version : undefined,
     assignedMCPTools: toAssignedTools(agent.assignedMCPTools),
+    skills: Array.isArray(agent.skills) ? agent.skills : undefined,
   },
   messages,
   context,

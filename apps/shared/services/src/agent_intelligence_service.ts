@@ -6,6 +6,8 @@ import {
   Agent,
   AgentAnalysis,
   AgentRole,
+  AgentSkillSchema,
+  type AgentSkill,
   ExecutionPlan,
   LearningResult,
   OperationStatus,
@@ -28,6 +30,21 @@ function getNum(v: unknown, fallback = 0): number {
 
 function getStrArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+}
+
+function toAgentSkills(v: unknown): AgentSkill[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const parsed = v.flatMap((entry) => {
+    const result = AgentSkillSchema.safeParse(entry);
+    if (!result.success) {
+      logger.warn('Dropping invalid agent skill', {
+        issues: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+      });
+      return [];
+    }
+    return [result.data];
+  });
+  return parsed;
 }
 
 function toEnum<T extends Record<string, string>>(enumObj: T, v: unknown): T[keyof T] | undefined {
@@ -171,6 +188,7 @@ export class AgentIntelligenceService {
             securityContext: agent.securityContext,
             configuration: agent.configuration,
             isActive: agent.isActive,
+            skills: toAgentSkills(agent.skills) ?? [],
           };
         })
       );
@@ -216,6 +234,7 @@ export class AgentIntelligenceService {
         temperature: agent.temperature,
         maxTokens: agent.maxTokens,
         systemPrompt: agent.systemPrompt,
+        skills: toAgentSkills(agent.skills) ?? [],
       };
 
       return mappedAgent;
@@ -386,6 +405,11 @@ export class AgentIntelligenceService {
       if (updateData.maxTokens) updatePayload.maxTokens = updateData.maxTokens;
       if (updateData.systemPrompt) updatePayload.systemPrompt = updateData.systemPrompt;
 
+      if (updateData.skills !== undefined) {
+        const skills = toAgentSkills(updateData.skills);
+        if (skills) updatePayload.skills = skills;
+      }
+
       logger.info('Updating agent with payload', {
         agentId: validatedId,
         updateFields: Object.keys(updatePayload),
@@ -416,6 +440,7 @@ export class AgentIntelligenceService {
         lastActiveAt: updatedAgent.lastActiveAt,
         createdAt: updatedAgent.createdAt,
         updatedAt: updatedAgent.updatedAt,
+        skills: toAgentSkills(updatedAgent.skills) ?? [],
       };
 
       return agent;
@@ -492,6 +517,7 @@ export class AgentIntelligenceService {
         configuration: isRecord(configuration) ? configuration : {},
         createdBy: createdBy || 'system',
         organizationId: organizationId || undefined,
+        skills: toAgentSkills(agentData.skills) ?? [],
       };
 
       const savedAgent = await this.databaseService.agents.createAgent(createPayload);
@@ -511,6 +537,7 @@ export class AgentIntelligenceService {
         lastActiveAt: savedAgent.lastActiveAt,
         createdAt: savedAgent.createdAt,
         updatedAt: savedAgent.updatedAt,
+        skills: toAgentSkills(savedAgent.skills) ?? [],
       };
 
       await this.safePublishEvent('agent.created', {

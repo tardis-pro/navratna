@@ -158,6 +158,7 @@ export async function handleAgentDiscussionTrigger(
                 : undefined,
             }
           : undefined,
+        skills: Array.isArray(agent.skills) ? agent.skills : undefined,
       },
       messages,
     }
