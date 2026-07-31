@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState } from 'react';
-import { Settings, User, Server, Database, ShieldCheck } from 'lucide-react';
+import { Settings, User, Server, Database, ShieldCheck, Link2 } from 'lucide-react';
 import { ViewportSize, useViewport } from '@/hooks/use_viewport';
 import { cn } from '@/lib/utils';
 
@@ -13,17 +13,23 @@ const ProviderSettingsPortal = lazy(() =>
 const SystemConfigPortal = lazy(() =>
   import('./SystemConfigPortal').then((m) => ({ default: m.SystemConfigPortal }))
 );
+const OAuthConnectionsManager = lazy(() =>
+  import('@/components/security/OAuthConnectionsManager').then((m) => ({
+    default: m.OAuthConnectionsManager,
+  }))
+);
 
 interface SettingsPortalProps {
   className?: string;
   viewport?: ViewportSize;
 }
 
-type SettingsTab = 'general' | 'providers' | 'system' | 'security';
+type SettingsTab = 'general' | 'providers' | 'integrations' | 'system' | 'security';
 
 const TABS: { id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'general', label: 'General', icon: User },
   { id: 'providers', label: 'Providers', icon: Server },
+  { id: 'integrations', label: 'Integrations', icon: Link2 },
   { id: 'system', label: 'System', icon: Database },
   { id: 'security', label: 'Security', icon: ShieldCheck },
 ];
@@ -36,10 +42,11 @@ const TabFallback: React.FC = () => (
  * Canonical Settings hub. Collapses the former separate settings surfaces
  * (provider-settings / general-settings / system-config) into one tabbed portal:
  *
- *   - General   → GeneralSettingsPortal (theme / notifications / preferences)
- *   - Providers → ProviderSettingsPortal (LLM provider CRUD + per-task model prefs,
- *                 which itself renders ModelProviderSettings)
- *   - System    → SystemConfigPortal (theme / language / DB / performance)
+ *   - General      → GeneralSettingsPortal (theme / notifications / preferences)
+ *   - Providers    → ProviderSettingsPortal (LLM provider CRUD + per-task model prefs,
+ *                    which itself renders ModelProviderSettings)
+ *   - Integrations → OAuthConnectionsManager (connect/disconnect OAuth providers)
+ *   - System       → SystemConfigPortal (theme / language / DB / performance)
  *   - Security  → placeholder (no dedicated security-settings component yet;
  *                 the standalone `security` dashboard portal is unchanged)
  */
@@ -96,6 +103,11 @@ export const SettingsPortal: React.FC<SettingsPortalProps> = ({ className, viewp
         <Suspense fallback={<TabFallback />}>
           {activeTab === 'general' && <GeneralSettingsPortal />}
           {activeTab === 'providers' && <ProviderSettingsPortal viewport={viewport} />}
+          {activeTab === 'integrations' && (
+            <div className="p-4">
+              <OAuthConnectionsManager />
+            </div>
+          )}
           {activeTab === 'system' && <SystemConfigPortal viewport={viewport} />}
           {activeTab === 'security' && (
             <div className="flex flex-col items-center justify-center h-full min-h-40 gap-2 p-6 text-center">

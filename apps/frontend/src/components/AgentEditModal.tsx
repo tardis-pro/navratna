@@ -38,7 +38,8 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Link2 } from 'lucide-react';
+import { OAuthConnectionsManager } from '@/components/security/OAuthConnectionsManager';
 import { logger } from '@/utils/browser_logger';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -181,6 +182,12 @@ const tabs: TabConfig[] = [
     label: 'Skills',
     icon: Sparkles,
     gradient: 'from-violet-500 to-purple-500',
+  },
+  {
+    id: 'integrations',
+    label: 'Integrations',
+    icon: Link2,
+    gradient: 'from-cyan-500 to-blue-500',
   },
 ];
 
@@ -1540,6 +1547,8 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
     />
   );
 
+  const renderIntegrationsTab = () => <OAuthConnectionsManager agentId={agentId} />;
+
   const renderPreview = () => (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
@@ -1710,6 +1719,7 @@ export const AgentEditModal: React.FC<AgentEditModalProps> = ({
                     {activeTab === 'tools' && renderToolsTab()}
                     {activeTab === 'chat' && renderChatTab()}
                     {activeTab === 'skills' && renderSkillsTab()}
+                    {activeTab === 'integrations' && renderIntegrationsTab()}
                   </>
                 )}
               </div>

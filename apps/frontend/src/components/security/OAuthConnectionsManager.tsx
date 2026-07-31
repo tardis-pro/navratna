@@ -19,19 +19,15 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  Settings,
   RefreshCw,
   Key,
   Calendar,
   Activity,
 } from 'lucide-react';
-import { OAuthProviderType, AgentOAuthConnection } from '@uaip/types';
+import { OAuthProviderType } from '@uaip/types';
 import { edenRequest } from '@/api/eden';
 
-interface OAuthProvider {
-  id: string;
-  name: string;
-  type: OAuthProviderType;
+interface ProviderPresentation {
   icon: React.ReactNode;
   description: string;
   capabilities: string[];
@@ -39,73 +35,134 @@ interface OAuthProvider {
   bgGradient: string;
 }
 
-const providers: OAuthProvider[] = [
-  {
-    id: 'github',
-    name: 'GitHub',
-    type: OAuthProviderType.GITHUB,
+/**
+ * Presentation metadata keyed by provider TYPE. The provider `id` is a database
+ * uuid assigned when the row is created, so it can never be hardcoded here — the
+ * live list comes from GET /api/v1/oauth/providers.
+ */
+const PROVIDER_PRESENTATION: Record<string, ProviderPresentation> = {
+  [OAuthProviderType.GITHUB]: {
     icon: <Github className="w-5 h-5" />,
     description: 'Connect to repositories, issues, and pull requests',
     capabilities: ['Code Access', 'Issue Management', 'PR Automation'],
     color: 'text-slate-900',
     bgGradient: 'from-slate-100 to-slate-200',
   },
-  {
-    id: 'gmail',
-    name: 'Gmail',
-    type: OAuthProviderType.GMAIL,
+  [OAuthProviderType.GMAIL]: {
     icon: <Mail className="w-5 h-5" />,
     description: 'Access and manage emails programmatically',
     capabilities: ['Email Reading', 'Email Sending', 'Label Management'],
     color: 'text-red-600',
     bgGradient: 'from-red-50 to-red-100',
   },
-  {
-    id: 'confluence',
-    name: 'Confluence',
-    type: OAuthProviderType.CUSTOM,
-    icon: <FileText className="w-5 h-5" />,
-    description: 'Access and create documentation',
-    capabilities: ['Page Creation', 'Content Search', 'Space Management'],
+  [OAuthProviderType.GOOGLE]: {
+    icon: <Mail className="w-5 h-5" />,
+    description: 'Connect your Google account',
+    capabilities: ['Profile', 'Email'],
+    color: 'text-red-600',
+    bgGradient: 'from-red-50 to-red-100',
+  },
+  [OAuthProviderType.SLACK]: {
+    icon: <Building2 className="w-5 h-5" />,
+    description: 'Post messages and read channels',
+    capabilities: ['Messaging', 'Channel Access'],
+    color: 'text-purple-600',
+    bgGradient: 'from-purple-50 to-purple-100',
+  },
+  [OAuthProviderType.MICROSOFT]: {
+    icon: <Building2 className="w-5 h-5" />,
+    description: 'Connect your Microsoft account',
+    capabilities: ['Profile', 'Mail'],
     color: 'text-blue-600',
     bgGradient: 'from-blue-50 to-blue-100',
   },
-  {
-    id: 'jira',
-    name: 'Jira',
-    type: OAuthProviderType.CUSTOM,
-    icon: <Building2 className="w-5 h-5" />,
-    description: 'Manage projects and track issues',
-    capabilities: ['Issue Tracking', 'Sprint Management', 'Reporting'],
+  [OAuthProviderType.CUSTOM]: {
+    icon: <FileText className="w-5 h-5" />,
+    description: 'Connect this provider to your workspace',
+    capabilities: ['API Access'],
     color: 'text-indigo-600',
     bgGradient: 'from-indigo-50 to-indigo-100',
   },
-];
+};
+
+const FALLBACK_PRESENTATION: ProviderPresentation = {
+  icon: <Link2 className="w-5 h-5" />,
+  description: 'Connect this provider to your workspace',
+  capabilities: ['API Access'],
+  color: 'text-slate-600',
+  bgGradient: 'from-slate-50 to-slate-100',
+};
+
+interface OAuthProvider {
+  id: string;
+  name: string;
+  type: OAuthProviderType;
+  presentation: ProviderPresentation;
+}
+
+interface OAuthProviderResponse {
+  id: string;
+  name: string;
+  type: OAuthProviderType;
+  isEnabled: boolean;
+}
+
+interface OAuthConnectionSummary {
+  id: string;
+  agentId: string;
+  providerId: string;
+  scopes: string[];
+  expiresAt: string | null;
+  isExpired: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentId }) => {
-  const [connections, setConnections] = useState<AgentOAuthConnection[]>([]);
+  const [providers, setProviders] = useState<OAuthProvider[]>([]);
+  const [connections, setConnections] = useState<OAuthConnectionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchConnections();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId]);
 
-  const fetchConnections = async () => {
+  const fetchConnections = async (): Promise<OAuthConnectionSummary[]> => {
+    const response = await edenRequest<{ connections: OAuthConnectionSummary[] }>(
+      `/api/v1/oauth/connections${agentId ? `?agentId=${encodeURIComponent(agentId)}` : ''}`,
+      { method: 'GET' }
+    );
+    return response.connections ?? [];
+  };
+
+  const load = async () => {
     try {
       setLoading(true);
-      const response = await edenRequest<AgentOAuthConnection[]>(
-        `/security/oauth/connections${agentId ? `?agentId=${agentId}` : ''}`,
-        { method: 'GET' }
+      const [providerResponse, nextConnections] = await Promise.all([
+        edenRequest<{ providers: OAuthProviderResponse[] }>('/api/v1/oauth/providers', {
+          method: 'GET',
+        }),
+        fetchConnections(),
+      ]);
+      setProviders(
+        (providerResponse.providers ?? [])
+          .filter((provider) => provider.isEnabled)
+          .map((provider) => ({
+            id: provider.id,
+            name: provider.name,
+            type: provider.type,
+            presentation: PROVIDER_PRESENTATION[provider.type] ?? FALLBACK_PRESENTATION,
+          }))
       );
-      setConnections(response);
+      setConnections(nextConnections);
     } catch {
       toast({
         title: 'Error',
-        description: 'Failed to fetch OAuth connections',
+        description: 'Failed to load OAuth providers and connections',
         variant: 'destructive',
       });
     } finally {
@@ -113,13 +170,25 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
     }
   };
 
+  const reloadConnections = async () => {
+    try {
+      setConnections(await fetchConnections());
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to refresh OAuth connections',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleConnect = async (providerId: string) => {
     try {
       setConnecting(providerId);
-      const response = await edenRequest<{ authorizationUrl: string }>('/security/oauth/authorize', {
-        method: 'POST',
-        body: { providerId, agentId },
-      });
+      const response = await edenRequest<{ authorizationUrl: string }>(
+        '/api/v1/oauth/connections/authorize',
+        { method: 'POST', body: { providerId, agentId } }
+      );
 
       // Redirect to OAuth authorization URL
       window.location.href = response.authorizationUrl;
@@ -135,7 +204,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
 
   const handleDisconnect = async (connectionId: string, providerName: string) => {
     try {
-      await edenRequest(`/security/oauth/connections/${connectionId}`, { method: 'DELETE' });
+      await edenRequest(`/api/v1/oauth/connections/${connectionId}`, { method: 'DELETE' });
       setConnections((prev) => prev.filter((c) => c.id !== connectionId));
       toast({
         title: 'Disconnected',
@@ -153,12 +222,12 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const handleRefreshToken = async (connectionId: string, providerName: string) => {
     try {
       setRefreshing(connectionId);
-      await edenRequest(`/security/oauth/connections/${connectionId}/refresh`, { method: 'POST' });
+      await edenRequest(`/api/v1/oauth/connections/${connectionId}/refresh`, { method: 'POST' });
       toast({
         title: 'Token Refreshed',
         description: `Successfully refreshed ${providerName} access token`,
       });
-      fetchConnections();
+      await reloadConnections();
     } catch {
       toast({
         title: 'Refresh Failed',
@@ -177,7 +246,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
   const renderProviderCard = (provider: OAuthProvider) => {
     const connection = getConnectionForProvider(provider.id);
     const isConnected = !!connection;
-    const isExpired = connection && new Date(connection.expiresAt) < new Date();
+    const isExpired = connection?.isExpired ?? false;
 
     return (
       <motion.div
@@ -194,17 +263,21 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
           }`}
         >
           {/* Background Gradient */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${provider.bgGradient} opacity-10`} />
+          <div
+            className={`absolute inset-0 bg-gradient-to-br ${provider.presentation.bgGradient} opacity-10`}
+          />
 
           <CardHeader className="relative">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-white shadow-sm ${provider.color}`}>
-                  {provider.icon}
+                <div className={`p-2 rounded-lg bg-white shadow-sm ${provider.presentation.color}`}>
+                  {provider.presentation.icon}
                 </div>
                 <div>
                   <CardTitle className="text-lg font-semibold">{provider.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">{provider.description}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {provider.presentation.description}
+                  </p>
                 </div>
               </div>
 
@@ -232,7 +305,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
           <CardContent className="relative space-y-4">
             {/* Capabilities */}
             <div className="flex flex-wrap gap-2">
-              {provider.capabilities.map((capability) => (
+              {provider.presentation.capabilities.map((capability) => (
                 <Badge key={capability} variant="secondary" className="text-xs">
                   {capability}
                 </Badge>
@@ -259,11 +332,11 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <Activity className="w-3 h-3" />
-                    Last Used:
+                    Expires:
                   </span>
                   <span>
-                    {connection.lastUsedAt
-                      ? new Date(connection.lastUsedAt).toLocaleDateString()
+                    {connection.expiresAt
+                      ? new Date(connection.expiresAt).toLocaleDateString()
                       : 'Never'}
                   </span>
                 </div>
@@ -295,15 +368,6 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
                       )}
                     </Button>
                   )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => window.open(`/security/oauth/${provider.id}/settings`, '_blank')}
-                    className="flex-1"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </Button>
                   <Button
                     size="sm"
                     variant="destructive"
@@ -357,7 +421,7 @@ export const OAuthConnectionsManager: React.FC<{ agentId?: string }> = ({ agentI
       {/* Header */}
       {/* Header - removed since portal provides its own header */}
       <div className="flex items-center justify-end">
-        <Button variant="outline" onClick={fetchConnections}>
+        <Button variant="outline" onClick={reloadConnections}>
           <RefreshCw className="w-4 h-4 mr-2" />
           Refresh
         </Button>

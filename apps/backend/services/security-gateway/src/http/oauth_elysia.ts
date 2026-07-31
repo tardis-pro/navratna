@@ -6,7 +6,14 @@ import { OAuthProviderService } from '../services/oauth_provider_service.js';
 import { EnhancedAuthService } from '../services/enhanced_auth_service.js';
 import { AuditService } from '../services/audit_service.js';
 import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
-import { UserService } from '@uaip/shared-services';
+import {
+  UserService,
+  OAuthService,
+  getIntelligenceDb,
+  agents,
+  eq,
+  and,
+} from '@uaip/shared-services';
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
 import { setAuthCookies } from './auth_elysia.js';
@@ -46,6 +53,7 @@ function getServices() {
     oauthProviderService: oauthProviderServiceSingleton,
     enhancedAuthService: enhancedAuthServiceSingleton,
     auditService: auditServiceSingleton,
+    oauthService: OAuthService.getInstance(),
   };
 }
 
@@ -78,6 +86,65 @@ const connectBodySchema = z.object({
   redirectUri: z.string().optional(),
 });
 const optionalOperationSchema = z.object({ operation: z.string().optional() });
+const connectionIdParamsSchema = z.object({ connectionId: z.string().uuid() });
+const startAuthorizeBodySchema = z.object({
+  providerId: z.string().min(1),
+  agentId: z.string().uuid().optional(),
+});
+
+export interface ConnectionSummary {
+  id: string;
+  agentId: string;
+  providerId: string;
+  scopes: string[];
+  expiresAt: string | null;
+  isExpired: boolean;
+  createdAt: string;
+  updatedAt: string;
+  metadata: Record<string, unknown>;
+}
+
+async function userOwnsAgent(userId: string, agentId: string): Promise<boolean> {
+  try {
+    const rows = await getIntelligenceDb()
+      .select({ id: agents.id })
+      .from(agents)
+      .where(and(eq(agents.id, agentId), eq(agents.createdBy, userId)))
+      .limit(1);
+    return rows.length > 0;
+  } catch (error) {
+    logger.error('Failed to verify agent ownership', { userId, agentId, error });
+    return false;
+  }
+}
+
+async function callerOwnsConnection(userId: string, connectionAgentId: string): Promise<boolean> {
+  if (connectionAgentId === userId) return true;
+  return userOwnsAgent(userId, connectionAgentId);
+}
+
+function toConnectionSummary(row: {
+  id: string;
+  agentId: string;
+  providerId: string;
+  scopes?: string[] | null;
+  expiresAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  metadata?: Record<string, unknown> | null;
+}): ConnectionSummary {
+  return {
+    id: row.id,
+    agentId: row.agentId,
+    providerId: row.providerId,
+    scopes: row.scopes ?? [],
+    expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    isExpired: row.expiresAt ? row.expiresAt.getTime() <= Date.now() : false,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    metadata: row.metadata ?? {},
+  };
+}
 
 export function registerOAuthRoutes() {
   return new Elysia().group('/api/v1/oauth', (app) => withOptionalAuth(app)
@@ -373,8 +440,131 @@ export function registerOAuthRoutes() {
     })
   
     // POST /connect (requires auth)
-    .group('', (g) => // @ts-expect-error - Elysia middleware injects user, but TypeScript cannot infer through nested groups
-    withRequiredAuth(g).post('/connect', async ({ set, body, user }) => {
+    .group('', (g) =>
+    withRequiredAuth(g)
+      .get('/connections', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, query } = ctx;
+        try {
+          const rawAgentId =
+            typeof query === 'object' && query !== null && 'agentId' in query
+              ? query.agentId
+              : undefined;
+          // Connections are keyed by agentId. A user's own connections are stored
+          // under their user id as the agent id, so default to the caller and never
+          // let an arbitrary agentId widen the scope beyond agents they own.
+          const scopeId = typeof rawAgentId === 'string' && rawAgentId ? rawAgentId : user.id;
+          if (scopeId !== user.id) {
+            const owns = await userOwnsAgent(user.id, scopeId);
+            if (!owns) {
+              set.status = 403;
+              return { success: false, error: 'Agent not found or not accessible' };
+            }
+          }
+          const { oauthService } = getServices();
+          const rows = await oauthService.findAgentOAuthConnections(scopeId);
+          return { success: true, connections: rows.map(toConnectionSummary) };
+        } catch (error) {
+          logger.error('Failed to list OAuth connections', { userId: user.id, error });
+          set.status = 500;
+          return { success: false, error: 'Failed to list OAuth connections' };
+        }
+      })
+
+      .post('/connections/authorize', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, body } = ctx;
+        const parsed = startAuthorizeBodySchema.safeParse(body);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'providerId is required' };
+        }
+        try {
+          const { providerId, agentId } = parsed.data;
+          const scopeId = agentId ?? user.id;
+          if (scopeId !== user.id) {
+            const owns = await userOwnsAgent(user.id, scopeId);
+            if (!owns) {
+              set.status = 403;
+              return { success: false, error: 'Agent not found or not accessible' };
+            }
+          }
+          const { oauthProviderService } = getServices();
+          const { url } = await oauthProviderService.generateAuthorizationUrl(
+            providerId,
+            getOAuthCallbackUrl(),
+            UserType.HUMAN
+          );
+          return { success: true, authorizationUrl: url };
+        } catch (error) {
+          logger.error('Failed to start OAuth authorization', { userId: user.id, error });
+          set.status = 500;
+          return { success: false, error: getErrorMessage(error) || 'Failed to start authorization' };
+        }
+      })
+
+      .delete('/connections/:connectionId', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const parsed = connectionIdParamsSchema.safeParse(params);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'A valid connectionId is required' };
+        }
+        try {
+          const { oauthService } = getServices();
+          const connection = await oauthService.findOAuthConnectionById(parsed.data.connectionId);
+          if (!connection || !(await callerOwnsConnection(user.id, connection.agentId))) {
+            set.status = 404;
+            return { success: false, error: 'Connection not found' };
+          }
+          await oauthService.deactivateOAuthConnection(connection.id);
+          return { success: true, message: 'OAuth connection removed' };
+        } catch (error) {
+          logger.error('Failed to delete OAuth connection', { userId: user.id, error });
+          set.status = 500;
+          return { success: false, error: 'Failed to delete OAuth connection' };
+        }
+      })
+
+      .post('/connections/:connectionId/refresh', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        const parsed = connectionIdParamsSchema.safeParse(params);
+        if (!parsed.success) {
+          set.status = 400;
+          return { success: false, error: 'A valid connectionId is required' };
+        }
+        try {
+          const { oauthService, oauthProviderService } = getServices();
+          const connection = await oauthService.findOAuthConnectionById(parsed.data.connectionId);
+          if (!connection || !(await callerOwnsConnection(user.id, connection.agentId))) {
+            set.status = 404;
+            return { success: false, error: 'Connection not found' };
+          }
+          const accessToken = await oauthProviderService.getAgentAccessToken(
+            connection.agentId,
+            connection.providerId
+          );
+          if (!accessToken) {
+            set.status = 502;
+            return { success: false, error: 'Provider refused to refresh the access token' };
+          }
+          const refreshed = await oauthService.findOAuthConnectionById(connection.id);
+          return {
+            success: true,
+            connection: refreshed ? toConnectionSummary(refreshed) : null,
+          };
+        } catch (error) {
+          logger.error('Failed to refresh OAuth connection', { userId: user.id, error });
+          set.status = 500;
+          return { success: false, error: 'Failed to refresh OAuth connection' };
+        }
+      })
+
+      .post('/connect', async (ctx) => {
+      const user = getAuthUser(ctx);
+      const { set, body } = ctx;
       try {
         const parsedBody = connectBodySchema.safeParse(body);
         if (!parsedBody.success) {
@@ -389,7 +579,7 @@ export function registerOAuthRoutes() {
         const { enhancedAuthService } = getServices();
         const baseRedirect = redirectUri || '';
         const result = await enhancedAuthService.connectOAuthProvider(
-          user!.id,
+          user.id,
           code,
           state,
           baseRedirect
@@ -399,7 +589,7 @@ export function registerOAuthRoutes() {
             ? Boolean(result.success)
             : true;
         logger.info('OAuth provider connected', {
-          userId: user!.id,
+          userId: user.id,
           success: resultSuccess,
         });
         return {

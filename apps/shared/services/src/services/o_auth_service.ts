@@ -180,6 +180,18 @@ export class OAuthService extends BaseDomainService {
       .where(eq(agentOAuthConnections.agentId, agentId));
   }
 
+  public async findOAuthConnectionById(
+    connectionId: string
+  ): Promise<AgentOAuthConnection | null> {
+    const db = getControlDb();
+    const result = await db
+      .select()
+      .from(agentOAuthConnections)
+      .where(eq(agentOAuthConnections.id, connectionId))
+      .limit(1);
+    return result[0] ?? null;
+  }
+
   public async findAgentOAuthConnection(
     agentId: string,
     providerId: string
