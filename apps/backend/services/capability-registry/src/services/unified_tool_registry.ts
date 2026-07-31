@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { ExecutionScheduler } from './execution_mesh/scheduler.js';
 import { resolveToolDescriptor } from './execution_mesh/descriptor.js';
 import { BaseToolExecutor } from './base_tool_executor.js';
+import { isMcpToolKey, withMcpExecutionContext } from '../utils/mcp_tool_key.js';
 import type { ExecutionRequestEnvelope } from '@uaip/types';
 import { randomUUID } from 'node:crypto';
 
@@ -904,6 +905,22 @@ export class UnifiedToolRegistry {
         throw new ValidationError(`Tool ${toolId} requires an authenticated user context`);
       }
       paramsRecord = { ...paramsRecord, userId: context.userId };
+    }
+
+    // An MCP tool runs against the credential bound to a (project, agent, provider)
+    // triple, so all three identities must come from the authenticated context. They
+    // are applied AFTER the model-supplied arguments so a model cannot forge them.
+    if (isMcpToolKey(toolId)) {
+      if (!context.userId || !context.projectId || !context.agentId) {
+        throw new ValidationError(
+          `Tool ${toolId} requires an authenticated user, project and agent context`
+        );
+      }
+      paramsRecord = withMcpExecutionContext(paramsRecord, {
+        userId: context.userId,
+        projectId: context.projectId,
+        agentId: context.agentId,
+      });
     }
     const requires = Array.isArray(paramsRecord.requires)
       ? (paramsRecord.requires as unknown[]).filter((r): r is string => typeof r === 'string')

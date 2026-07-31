@@ -18,7 +18,12 @@ import {
   isCalendarToolId,
   type CalendarToolId,
 } from '@uaip/shared-services';
-import { isMcpToolKey, parseMcpToolKey } from '../utils/mcp_tool_key.js';
+import {
+  extractMcpExecutionContext,
+  isMcpToolKey,
+  parseMcpToolKey,
+  type McpToolExecutionContext,
+} from '../utils/mcp_tool_key.js';
 
 interface OAuthTokenInfo {
   accessToken: string;
@@ -720,27 +725,36 @@ export class BaseToolExecutor {
 
   // MCP Tool Execution - Delegate to MCP Client Service
   private async executeMCPTool(toolId: string, parameters: unknown): Promise<unknown> {
-    logger.info(`Delegating MCP tool execution: ${toolId}`, { parameters });
+    const { context, args } = extractMcpExecutionContext(parameters);
+    logger.info(`Delegating MCP tool execution: ${toolId}`, { parameters: args });
 
     try {
       // Import MCP Client Service dynamically to avoid circular dependencies
       const { MCPClientService } = await import('./mcp_client_service.js');
       const mcpClient = MCPClientService.getInstance();
 
-      const parsed = parseMcpToolKey(toolId, mcpClient.getRegisteredServerNames());
+      const { McpConnectionResolver } = await import('@uaip/shared-services');
+      const resolver = McpConnectionResolver.getInstance();
+      const integrationServerKeys = await resolver.listServerKeys();
+
+      const parsed = parseMcpToolKey(toolId, [
+        ...mcpClient.getRegisteredServerNames(),
+        ...integrationServerKeys,
+      ]);
       if (!parsed) {
         throw new ValidationError(`Invalid MCP tool ID format: ${toolId}. Expected: mcp-server-tool`);
       }
       const { serverName, toolName } = parsed;
 
-      // Execute through MCP protocol
-      const result = await mcpClient.executeTool(serverName, toolName, parameters);
+      const result = integrationServerKeys.includes(serverName)
+        ? await this.executeIntegrationMcpTool(serverName, toolName, args, context)
+        : await mcpClient.executeTool(serverName, toolName, args);
 
       return {
         toolId,
         serverName,
         toolName,
-        parameters,
+        parameters: args,
         result,
         protocol: 'mcp',
         executionTime: Date.now(),
@@ -751,6 +765,36 @@ export class BaseToolExecutor {
       const message = error instanceof Error ? error.message : String(error);
       throw new ExternalServiceError(`MCP execution failed: ${message}`, { cause: error });
     }
+  }
+
+  /**
+   * An integration server runs under the caller's own credential, so it refuses to
+   * execute without an authenticated context rather than falling back to the
+   * legacy unauthenticated path.
+   */
+  private async executeIntegrationMcpTool(
+    serverKey: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    context: McpToolExecutionContext | null
+  ): Promise<unknown> {
+    if (!context) {
+      throw new ValidationError(
+        `MCP server "${serverKey}" requires an authenticated user, project and agent context`
+      );
+    }
+
+    const { IntegrationMcpExecutor } = await import('./integration_mcp_executor.js');
+    return IntegrationMcpExecutor.getInstance().callTool(
+      {
+        serverKey,
+        projectId: context.projectId,
+        agentId: context.agentId,
+        actorUserId: context.userId,
+      },
+      toolName,
+      args
+    );
   }
 
   /**

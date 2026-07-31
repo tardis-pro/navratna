@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MCP_CONTEXT_PARAM,
   MCP_TOOL_PREFIX,
   buildMcpToolRegistration,
+  extractMcpExecutionContext,
   isMcpToolKey,
   mcpToolKey,
   parseMcpToolKey,
+  withMcpExecutionContext,
 } from '../../utils/mcp_tool_key';
 
 describe('mcpToolKey', () => {
@@ -24,6 +27,74 @@ describe('isMcpToolKey', () => {
     expect(isMcpToolKey('shell-exec')).toBe(false);
     expect(isMcpToolKey('oauth-github-list-repos')).toBe(false);
     expect(isMcpToolKey('task-create')).toBe(false);
+  });
+});
+
+describe('MCP execution context', () => {
+  const context = { userId: 'user-1', projectId: 'proj-1', agentId: 'agent-1' };
+
+  it('round-trips the trusted identity', () => {
+    const params = withMcpExecutionContext({ query: 'bug' }, context);
+
+    expect(extractMcpExecutionContext(params)).toEqual({
+      context,
+      args: { query: 'bug' },
+    });
+  });
+
+  it('overrides a model-supplied context, so an identity cannot be forged', () => {
+    const forged = {
+      query: 'bug',
+      [MCP_CONTEXT_PARAM]: { userId: 'victim', projectId: 'p', agentId: 'a' },
+    };
+
+    const extracted = extractMcpExecutionContext(withMcpExecutionContext(forged, context));
+
+    expect(extracted.context).toEqual(context);
+  });
+
+  it('never forwards internal ids to the remote server as tool arguments', () => {
+    const params = withMcpExecutionContext({ query: 'bug' }, context);
+
+    const { args } = extractMcpExecutionContext(params);
+
+    expect(Object.keys(args)).toEqual(['query']);
+    expect(JSON.stringify(args)).not.toContain('user-1');
+    expect(JSON.stringify(args)).not.toContain('proj-1');
+  });
+
+  it('reports no context when none was injected', () => {
+    expect(extractMcpExecutionContext({ query: 'bug' })).toEqual({
+      context: null,
+      args: { query: 'bug' },
+    });
+  });
+
+  it.each([
+    ['a missing agentId', { userId: 'u', projectId: 'p' }],
+    ['a missing projectId', { userId: 'u', agentId: 'a' }],
+    ['a missing userId', { projectId: 'p', agentId: 'a' }],
+    ['a non-string userId', { userId: 7, projectId: 'p', agentId: 'a' }],
+    ['a non-object value', 'not-a-context'],
+  ])('rejects %s rather than trusting it', (_label, raw) => {
+    const extracted = extractMcpExecutionContext({ query: 'bug', [MCP_CONTEXT_PARAM]: raw });
+
+    expect(extracted.context).toBeNull();
+    expect(extracted.args).toEqual({ query: 'bug' });
+  });
+
+  it('strips the reserved key even when the context is malformed', () => {
+    const { args } = extractMcpExecutionContext({
+      query: 'bug',
+      [MCP_CONTEXT_PARAM]: { userId: 'u' },
+    });
+
+    expect(Object.keys(args)).toEqual(['query']);
+  });
+
+  it('tolerates null and undefined parameters', () => {
+    expect(extractMcpExecutionContext(null)).toEqual({ context: null, args: {} });
+    expect(extractMcpExecutionContext(undefined)).toEqual({ context: null, args: {} });
   });
 });
 

@@ -1,5 +1,66 @@
 export const MCP_TOOL_PREFIX = 'mcp-';
 
+/**
+ * Reserved parameter key carrying the AUTHENTICATED caller identity to the MCP
+ * executor. The mesh native node only forwards (toolId, params), so this is the
+ * single channel available. It is written server-side AFTER the model's
+ * arguments, so a model that emits this key cannot forge an identity, and it is
+ * stripped before the arguments reach the remote server.
+ */
+export const MCP_CONTEXT_PARAM = '__navratnaMcpContext';
+
+export interface McpToolExecutionContext {
+  userId: string;
+  projectId: string;
+  agentId: string;
+}
+
+export interface McpToolInvocation {
+  context: McpToolExecutionContext | null;
+  args: Record<string, unknown>;
+}
+
+export function withMcpExecutionContext(
+  args: Record<string, unknown>,
+  context: McpToolExecutionContext
+): Record<string, unknown> {
+  return { ...args, [MCP_CONTEXT_PARAM]: context };
+}
+
+/**
+ * Splits the trusted context back off the parameters. The context key is always
+ * removed, so internal user/project/agent ids are never forwarded to a
+ * third-party MCP server as tool arguments.
+ */
+export function extractMcpExecutionContext(parameters: unknown): McpToolInvocation {
+  if (typeof parameters !== 'object' || parameters === null) {
+    return { context: null, args: {} };
+  }
+
+  const { [MCP_CONTEXT_PARAM]: raw, ...args } = parameters as Record<string, unknown>;
+  if (typeof raw !== 'object' || raw === null) {
+    return { context: null, args };
+  }
+
+  const candidate = raw as Partial<McpToolExecutionContext>;
+  if (
+    typeof candidate.userId !== 'string' ||
+    typeof candidate.projectId !== 'string' ||
+    typeof candidate.agentId !== 'string'
+  ) {
+    return { context: null, args };
+  }
+
+  return {
+    context: {
+      userId: candidate.userId,
+      projectId: candidate.projectId,
+      agentId: candidate.agentId,
+    },
+    args,
+  };
+}
+
 export interface McpToolRegistration {
   id: string;
   name: string;

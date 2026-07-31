@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import { IntegrationConnectionStatus, type McpCredentialMode } from '@uaip/types';
 import { getControlDb } from '../database/drizzle/clients/index';
@@ -71,6 +71,41 @@ export class McpConnectionResolver {
 
   private get db() {
     return getControlDb();
+  }
+
+  /**
+   * Server keys of every DB-registered integration server. Used to split a
+   * `mcp-<server>-<tool>` id when both halves may contain hyphens; a legacy
+   * stdio server has no server_key and is absent here by design.
+   */
+  async listServerKeys(): Promise<string[]> {
+    const rows = await this.db
+      .select({ serverKey: mcpServers.serverKey })
+      .from(mcpServers)
+      .where(isNotNull(mcpServers.serverKey));
+
+    return rows
+      .map((row) => row.serverKey)
+      .filter((serverKey): serverKey is string => Boolean(serverKey));
+  }
+
+  /**
+   * Returns null ONLY when no integration server owns this key, meaning the tool
+   * belongs to the legacy MCP path. Every other failure throws, so a
+   * misconfigured or unauthorised integration can never silently fall back to an
+   * unauthenticated execution.
+   */
+  async resolveIfIntegration(
+    request: McpExecutionRequest
+  ): Promise<McpResolvedConnection | null> {
+    const [row] = await this.db
+      .select({ id: mcpServers.id })
+      .from(mcpServers)
+      .where(eq(mcpServers.serverKey, request.serverKey))
+      .limit(1);
+
+    if (!row) return null;
+    return this.resolve(request);
   }
 
   async resolve(request: McpExecutionRequest): Promise<McpResolvedConnection> {
