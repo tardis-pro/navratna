@@ -1,5 +1,10 @@
 import { Elysia } from 'elysia'
 
+// Referenced by the inferred type of `gatewayApp` below. Without these imports the
+// declaration emit cannot name them portably (TS2883) — its only path would be a
+// deep `node_modules/@uaip/shared-services/src/...` specifier.
+import type { ProjectEntity, ProjectMetrics, ProjectStatus, UserEntity } from '@uaip/types'
+
 import { registerAuthRoutes } from '../../security-gateway/src/http/auth_elysia.js'
 import { registerUserRoutes } from '../../security-gateway/src/http/users_elysia.js'
 import { registerApprovalRoutes } from '../../security-gateway/src/http/approval_elysia.js'
