@@ -5,6 +5,7 @@ import {
   DatabaseService,
   SecurityService,
   ServiceFactory,
+  ToolService,
   UnifiedModelSelectionFacade,
 } from '@uaip/shared-services'
 import type { EventBusService } from '@uaip/shared-services/event-bus'
@@ -22,6 +23,25 @@ import { registerAgentRoutes } from './routes/agent_routes.js'
 import { registerCognitivePortraitRoutes } from './routes/cognitive_portrait_routes.js'
 import { registerConstellationRoutes } from './routes/constellation_routes.js'
 import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
+import type { ToolSchemaProvider } from './routes/agent_chat_routes.js'
+
+const loadToolSchema: ToolSchemaProvider = async (toolId) => {
+  try {
+    const tool = await ToolService.getInstance().findToolById(toolId)
+    if (!tool) return null
+
+    const description = typeof tool.description === 'string' ? tool.description : ''
+    const parameters =
+      typeof tool.parameters === 'object' && tool.parameters !== null
+        ? (tool.parameters as Record<string, unknown>)
+        : { type: 'object', properties: {} }
+
+    return { description, parameters }
+  } catch (error) {
+    logger.warn('Failed to load tool schema for agent binding', { toolId, error })
+    return null
+  }
+}
 
 let agentIntelligenceService: AgentIntelligenceService
 let capabilityDiscoveryService: CapabilityDiscoveryService
@@ -42,6 +62,7 @@ export const agentIntelligenceFeature: Feature = {
     await agentIntelligenceService.initialize()
     capabilityDiscoveryService = new CapabilityDiscoveryService(databaseService)
     userLLMService = new UserLLMService(new UnifiedModelSelectionFacade())
+    userLLMService.setToolExecutionBus(deps.eventBusService)
     securityService = SecurityService.getInstance()
     const factory = ServiceFactory.getInstance()
     semanticMemoryManager = await factory.getSemanticMemoryManager()
@@ -61,7 +82,14 @@ export const agentIntelligenceFeature: Feature = {
 
   routes(app) {
     app.use(registerAgentCrudRoutes(agentIntelligenceService))
-    app.use(registerAgentChatRoutes(agentIntelligenceService, userLLMService, securityService))
+    app.use(
+      registerAgentChatRoutes(
+        agentIntelligenceService,
+        userLLMService,
+        securityService,
+        loadToolSchema
+      )
+    )
     app.use(registerAgentCapabilityRoutes(agentIntelligenceService, capabilityDiscoveryService))
     app.use(registerAgentMemoryRoutes(semanticMemoryManager))
     app.use(registerAgentRoutes())

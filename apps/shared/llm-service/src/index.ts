@@ -46,3 +46,15 @@ export {
 
 // Streaming exports
 export { StreamingService } from './streaming_service.js';
+
+// Tool-calling exports
+export { runToolCallingLoop, buildAvailableTools } from './tool_calling.js';
+export type {
+  AssignedToolRef,
+  ResolvedToolSchema,
+  ToolSchemaResolver,
+  ToolCallExecutor,
+  ToolCallingLoopOptions,
+} from './tool_calling.js';
+export { AgentToolExecutor } from './agent_tool_executor.js';
+export type { ToolExecutionRpcBus, AgentToolBinding } from './agent_tool_executor.js';

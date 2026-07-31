@@ -20,9 +20,12 @@ import {
   AgentTaskTypeResolver,
 } from '@uaip/shared-services';
 import { LLMTaskType, AgentRole, AgentSkill } from '@uaip/types';
+import type { AgentAssignedTool } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { recordLLMRequest } from '@uaip/middleware';
 import { selectUserProviderForModel } from './provider_selection.js';
+import { runToolCallingLoop } from './tool_calling.js';
+import { AgentToolExecutor, type ToolExecutionRpcBus } from './agent_tool_executor.js';
 
 type UserLLMProviderType = 'ollama' | 'llmstudio' | 'openai' | 'anthropic' | 'google' | 'custom';
 
@@ -134,6 +137,7 @@ export class UserLLMService {
   private modelSelectionFacade: UnifiedModelSelectionFacade | null = null;
   private taskTypeResolver: AgentTaskTypeResolver | null = null;
   private contextManager: ContextManager;
+  private toolExecutionBus: ToolExecutionRpcBus | null = null;
 
   constructor(modelSelectionFacade?: UnifiedModelSelectionFacade) {
     this.modelSelectionFacade = modelSelectionFacade || null;
@@ -609,6 +613,7 @@ export class UserLLMService {
         model: request.agent.modelId,
         userId,
         agentId: request.agent.id,
+        ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       };
 
       logger.info('Built LLM request for agent', {
@@ -735,12 +740,20 @@ export class UserLLMService {
           selectedModel: modelSelection.model.model,
         });
 
-        response = await this.generateResponse(userId, llmRequest, selectedProvider);
+        response = await this.runWithTools(
+          llmRequest,
+          (next) => this.generateResponse(userId, next, selectedProvider),
+          request.agent.assignedMCPTools ?? []
+        );
       } else {
         logger.info('Using traditional user provider lookup', {
           reason: !this.modelSelectionFacade ? 'no facade' : 'no agent id',
         });
-        response = await this.generateResponse(userId, llmRequest);
+        response = await this.runWithTools(
+          llmRequest,
+          (next) => this.generateResponse(userId, next),
+          request.agent.assignedMCPTools ?? []
+        );
       }
 
       return {
@@ -750,11 +763,41 @@ export class UserLLMService {
         confidence: response.confidence,
         finishReason: response.finishReason,
         error: response.error,
+        toolsExecuted: response.toolsExecuted,
+        suggestedTools: response.suggestedTools,
       };
     } catch (error) {
       logger.error('Error generating agent response for user', { userId, error });
       throw error;
     }
+  }
+
+  /**
+   * Runs the provider call through the tool-calling loop when the agent has
+   * tools bound. Without tools the provider is invoked exactly once, so an
+   * agent with no bound tools behaves identically to before.
+   */
+  private async runWithTools(
+    llmRequest: LLMRequest,
+    callProvider: (request: LLMRequest) => Promise<LLMResponse>,
+    bindings: AgentAssignedTool[]
+  ): Promise<LLMResponse> {
+    if (!llmRequest.tools || llmRequest.tools.length === 0 || !this.toolExecutionBus) {
+      return callProvider(llmRequest);
+    }
+
+    const executor = new AgentToolExecutor(this.toolExecutionBus, bindings);
+
+    return runToolCallingLoop({
+      request: llmRequest,
+      callProvider,
+      executeTool: (call) => executor.execute(call, llmRequest.agentId, llmRequest.userId),
+      requiresApproval: (call) => executor.requiresApproval(call.function.name),
+    });
+  }
+
+  setToolExecutionBus(bus: ToolExecutionRpcBus): void {
+    this.toolExecutionBus = bus;
   }
 
   /**

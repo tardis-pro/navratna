@@ -1,7 +1,13 @@
 import { Elysia, t } from 'elysia'
 import { withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
-import type { AgentResponseRequest, ChatMessage, DocumentContext } from '@uaip/types'
+import type {
+  AgentAssignedTool,
+  AgentResponseRequest,
+  AvailableTool,
+  ChatMessage,
+  DocumentContext,
+} from '@uaip/types'
 import type { UserLLMService } from '@uaip/llm-service'
 import { logger, isRecord } from '@uaip/utils'
 
@@ -17,6 +23,43 @@ type ApprovalDecisionRepo = {
 type SecurityDeps = {
   getApprovalWorkflowRepository(): ApprovalWorkflowRepo
   getApprovalDecisionRepository(): ApprovalDecisionRepo
+}
+
+/**
+ * Looks up the stored definition of a bound tool so the model receives its real
+ * JSON schema. Returns null for a tool that no longer exists, which drops it
+ * from the turn rather than failing the chat.
+ */
+export type ToolSchemaProvider = (
+  toolId: string
+) => Promise<{ description: string; parameters: Record<string, unknown> } | null>
+
+export const resolveAgentTools = async (
+  assigned: AgentAssignedTool[],
+  provider: ToolSchemaProvider | undefined
+): Promise<AvailableTool[]> => {
+  if (!provider) return []
+
+  const resolved: AvailableTool[] = []
+  for (const tool of assigned) {
+    if (tool.enabled === false) continue
+
+    const schema = await provider(tool.toolId)
+    if (!schema) {
+      logger.warn('Skipping agent tool with no resolvable definition', {
+        toolId: tool.toolId,
+        toolName: tool.toolName,
+      })
+      continue
+    }
+
+    resolved.push({
+      name: tool.toolName,
+      description: schema.description,
+      parameters: schema.parameters,
+    })
+  }
+  return resolved
 }
 
 
@@ -63,10 +106,30 @@ const toDocumentContext = (value: unknown): DocumentContext | undefined => {
   }
 }
 
+const toAssignedTools = (value: unknown): AgentAssignedTool[] => {
+  if (!Array.isArray(value)) return []
+
+  const assigned: AgentAssignedTool[] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) continue
+    if (typeof entry.toolId !== 'string' || typeof entry.toolName !== 'string') continue
+
+    assigned.push({
+      toolId: entry.toolId,
+      toolName: entry.toolName,
+      serverName: typeof entry.serverName === 'string' ? entry.serverName : '',
+      enabled: entry.enabled !== false,
+      requiresApproval: entry.requiresApproval === true,
+    })
+  }
+  return assigned
+}
+
 const toAgentRequest = (
   agent: Awaited<ReturnType<AgentIntelligenceService['getAgent']>>,
   messages: ChatMessage[],
-  context?: DocumentContext
+  context?: DocumentContext,
+  tools?: AvailableTool[]
 ): AgentResponseRequest => ({
   agent: {
     id: agent.id,
@@ -92,15 +155,18 @@ const toAgentRequest = (
     description: typeof agent.description === 'string' ? agent.description : undefined,
     metadata: isRecord(agent.metadata) ? agent.metadata : undefined,
     version: typeof agent.version === 'number' ? agent.version : undefined,
+    assignedMCPTools: toAssignedTools(agent.assignedMCPTools),
   },
   messages,
   context,
+  ...(tools && tools.length > 0 ? { tools } : {}),
 })
 
 export function registerAgentChatRoutes(
   agentIntelligenceService: AgentChatDeps,
   userLLMService: UserLlmDeps,
-  securityService: SecurityDeps
+  securityService: SecurityDeps,
+  toolSchemaProvider?: ToolSchemaProvider
 ) {
   return new Elysia().group(
     '/api/v1/agents',
@@ -139,7 +205,15 @@ export function registerAgentChatRoutes(
             return { success: false, error: 'Message or messages array is required' }
           }
     
-          const request = toAgentRequest(agent, messages, toDocumentContext(body.context))
+          const assignedTools = toAssignedTools(agent.assignedMCPTools)
+          const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
+
+          const request = toAgentRequest(
+            agent,
+            messages,
+            toDocumentContext(body.context),
+            tools
+          )
           const response = await userLLMService.generateAgentResponse(userId, request)
           return { success: true, data: response }
         } catch (error) {

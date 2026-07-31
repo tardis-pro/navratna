@@ -554,6 +554,7 @@ export interface LLMRequest {
   userId?: string;
   agentId?: string;
   images?: LLMImageInput[];
+  tools?: AvailableTool[];
 }
 
 export interface LLMResponse {
@@ -603,10 +604,19 @@ export interface AgentResponseRequest {
     description?: string;
     metadata?: Record<string, unknown>;
     version?: number;
+    assignedMCPTools?: AgentAssignedTool[];
   };
   messages: ChatMessage[];
   context?: DocumentContext;
   tools?: AvailableTool[];
+}
+
+export interface AgentAssignedTool {
+  toolId: string;
+  toolName: string;
+  serverName: string;
+  enabled?: boolean;
+  requiresApproval?: boolean;
 }
 
 export interface AgentResponseResponse extends LLMResponse {

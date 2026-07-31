@@ -1,6 +1,6 @@
 import { BaseProvider } from './base_provider.js';
 import { LLMRequest, LLMResponse, ProviderModelInfo } from '../interfaces';
-import { LLMImageInput } from '@uaip/types';
+import { LLMImageInput, LLMToolCall } from '@uaip/types';
 import { logger } from '@uaip/utils';
 
 type VisionContentPart =
@@ -95,6 +95,28 @@ export class OpenAIProvider extends BaseProvider {
     return messages;
   }
 
+  private static parseToolCalls(raw: unknown): LLMToolCall[] {
+    if (!Array.isArray(raw)) return [];
+
+    const calls: LLMToolCall[] = [];
+    for (const entry of raw) {
+      if (!OpenAIProvider.isRecord(entry)) continue;
+      const fn = OpenAIProvider.isRecord(entry.function) ? entry.function : undefined;
+      const name = OpenAIProvider.toString(fn?.name);
+      if (!name) continue;
+
+      calls.push({
+        id: OpenAIProvider.toString(entry.id) ?? `call_${calls.length}`,
+        type: 'function',
+        function: {
+          name,
+          arguments: OpenAIProvider.toString(fn?.arguments) ?? '{}',
+        },
+      });
+    }
+    return calls;
+  }
+
   async generateResponse(request: LLMRequest): Promise<LLMResponse> {
     try {
       const url = this.getChatCompletionsUrl();
@@ -107,13 +129,24 @@ export class OpenAIProvider extends BaseProvider {
         throw new Error(`${this.name}: no model configured for OpenAI-compatible request`);
       }
       const model = await this.resolveModel(requestedModel);
-      const body = {
+      const body: Record<string, unknown> = {
         model,
         messages,
         stream: request.stream || false,
         max_tokens: request.maxTokens || 200,
         temperature: request.temperature || 0.7,
       };
+
+      if (request.tools && request.tools.length > 0) {
+        body.tools = request.tools.map((tool) => ({
+          type: 'function',
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters,
+          },
+        }));
+      }
 
       // OpenRouter requires specific headers
       const isOpenRouter = this.config.baseUrl?.includes('openrouter.ai');
@@ -138,8 +171,11 @@ export class OpenAIProvider extends BaseProvider {
           ? firstChoice.message
           : undefined;
       const content = OpenAIProvider.toString(message?.content);
+      const toolCalls = OpenAIProvider.parseToolCalls(message?.tool_calls);
 
-      if (!content) {
+      // A tool-calling reply legitimately carries no content, so only an answer
+      // with neither content nor tool calls is malformed.
+      if (!content && toolCalls.length === 0) {
         throw new Error('Invalid response format from OpenAI');
       }
 
@@ -152,10 +188,12 @@ export class OpenAIProvider extends BaseProvider {
         finishReasonRaw === 'tool_calls' ||
         finishReasonRaw === 'error'
           ? finishReasonRaw
-          : 'stop';
+          : toolCalls.length > 0
+            ? 'tool_calls'
+            : 'stop';
 
       return {
-        content,
+        content: content ?? '',
         model:
           OpenAIProvider.toString(data.model) ||
           request.model ||
@@ -164,6 +202,7 @@ export class OpenAIProvider extends BaseProvider {
         tokensUsed: totalTokens,
         confidence: 0.9, // OpenAI generally provides high-quality responses
         finishReason,
+        ...(toolCalls.length > 0 ? { toolCalls } : {}),
       };
     } catch (error) {
       return this.handleError(error, 'generateResponse');
