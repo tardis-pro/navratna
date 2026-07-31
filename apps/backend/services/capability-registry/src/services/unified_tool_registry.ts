@@ -5,7 +5,7 @@
  */
 
 import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
-import { ToolService } from '@uaip/shared-services';
+import { ToolService, isProjectTaskToolId } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
 import { logger, ConflictError, InternalServerError, NotFoundError, RateLimitError, ValidationError } from '@uaip/utils';
@@ -893,7 +893,18 @@ export class UnifiedToolRegistry {
 
     const descriptor = await resolveToolDescriptor(toolId);
     const runtime = scheduler.resolveRuntime(descriptor);
-    const paramsRecord = (parameters ?? {}) as Record<string, unknown>;
+    let paramsRecord = (parameters ?? {}) as Record<string, unknown>;
+
+    // Project/task tools scope every query to a user. That id must come from the
+    // authenticated execution context, never from the model-supplied arguments —
+    // otherwise an agent could read or mutate another tenant's data by passing a
+    // different userId.
+    if (isProjectTaskToolId(toolId)) {
+      if (!context.userId) {
+        throw new ValidationError(`Tool ${toolId} requires an authenticated user context`);
+      }
+      paramsRecord = { ...paramsRecord, userId: context.userId };
+    }
     const requires = Array.isArray(paramsRecord.requires)
       ? (paramsRecord.requires as unknown[]).filter((r): r is string => typeof r === 'string')
       : undefined;

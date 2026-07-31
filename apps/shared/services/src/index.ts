@@ -96,6 +96,14 @@ export { AuditService } from './services/audit_service';
 export { SecurityService } from './services/security_service';
 export { UserToolPreferencesService } from './services/user_tool_preferences_service';
 export { TaskService } from './services/task_service';
+export {
+  ProjectTaskToolService,
+  ProjectTaskToolError,
+  isProjectTaskToolId,
+  PROJECT_TASK_TOOL_IDS,
+  type ProjectTaskToolId,
+} from './services/project_task_tool_service';
+export { ProjectTaskRepository } from './database/repositories/project_task_repository';
 export type {
   CreateTaskRequest,
   UpdateTaskRequest,

@@ -8,6 +8,12 @@ import { SlackAdapter } from '../adapters/slack_adapter.js';
 import { JiraAdapter } from '../adapters/jira_adapter.js';
 import { ConfluenceAdapter } from '../adapters/confluence_adapter.js';
 import type { EnterpriseToolDefinition as ToolDefinition } from '@uaip/types';
+import {
+  ProjectTaskToolService,
+  ProjectTaskToolError,
+  isProjectTaskToolId,
+  type ProjectTaskToolId,
+} from '@uaip/shared-services';
 
 interface OAuthTokenInfo {
   accessToken: string;
@@ -50,6 +56,9 @@ export class BaseToolExecutor {
         return this.executeHttpRequest(parameters);
       // Dynamic tool discovery - MCP and OAuth tools
       default:
+        if (isProjectTaskToolId(toolId)) {
+          return this.executeProjectTaskTool(toolId, parameters);
+        }
         if (toolId.startsWith('mcp-')) {
           return this.executeMCPTool(toolId, parameters);
         }
@@ -736,6 +745,34 @@ export class BaseToolExecutor {
       logger.error(`MCP tool execution failed for ${toolId}:`, error);
       const message = error instanceof Error ? error.message : String(error);
       throw new ExternalServiceError(`MCP execution failed: ${message}`, { cause: error });
+    }
+  }
+
+  /**
+   * Project/task tools act on behalf of a user, so the caller's id must arrive in
+   * `parameters.userId`. The tool service refuses to run without it rather than
+   * falling back to an unscoped query.
+   */
+  private async executeProjectTaskTool(
+    toolId: ProjectTaskToolId,
+    parameters: Record<string, unknown>
+  ): Promise<unknown> {
+    const userId = asString(parameters.userId);
+    if (!userId) {
+      throw new ValidationError(
+        `Tool ${toolId} requires a userId parameter identifying the acting user`
+      );
+    }
+
+    try {
+      const result = await ProjectTaskToolService.getInstance().execute(toolId, userId, parameters);
+      return { toolId, success: true, executionTime: Date.now(), result };
+    } catch (error) {
+      if (error instanceof ProjectTaskToolError) {
+        if (error.code === 'INVALID_PARAMS') throw new ValidationError(error.message);
+        throw new InternalServerError(error.message);
+      }
+      throw error;
     }
   }
 
