@@ -96,25 +96,6 @@ export class McpConnectionResolver {
       .filter((serverKey): serverKey is string => Boolean(serverKey));
   }
 
-  /**
-   * Returns null ONLY when no integration server owns this key, meaning the tool
-   * belongs to the legacy MCP path. Every other failure throws, so a
-   * misconfigured or unauthorised integration can never silently fall back to an
-   * unauthenticated execution.
-   */
-  async resolveIfIntegration(
-    request: McpExecutionRequest
-  ): Promise<McpResolvedConnection | null> {
-    const [row] = await this.db
-      .select({ id: mcpServers.id })
-      .from(mcpServers)
-      .where(eq(mcpServers.serverKey, request.serverKey))
-      .limit(1);
-
-    if (!row) return null;
-    return this.resolve(request);
-  }
-
   async listIntegrationServers(): Promise<McpIntegrationServerSummary[]> {
     const rows = await this.db
       .select({
