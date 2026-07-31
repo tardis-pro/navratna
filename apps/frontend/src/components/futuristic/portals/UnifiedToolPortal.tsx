@@ -17,6 +17,8 @@ import {
   Server,
   BarChart2,
   Link,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { mcpAPI } from '@/api';
 import { uaipAPI } from '@/utils/uaip_api';
@@ -70,12 +72,153 @@ interface Tool {
 
 interface MCPServer {
   name: string;
-  status: 'running' | 'stopped' | 'error' | 'starting';
+  status: 'running' | 'stopped' | 'error' | 'starting' | 'unknown';
   command: string;
   args: string[];
   disabled: boolean;
   toolCount?: number;
   uptime?: number;
+}
+
+type ToolSecurityLevel = 'low' | 'medium' | 'high' | 'critical';
+
+interface ToolFormValues {
+  name: string;
+  description: string;
+  version: string;
+  category: string;
+  securityLevel: ToolSecurityLevel;
+  requiresApproval: boolean;
+  author: string;
+  tags: string[];
+  parameters: Record<string, unknown>;
+}
+
+type McpTransportType = 'stdio' | 'streamable-http';
+
+interface McpServerFormValues {
+  name: string;
+  transportType: McpTransportType;
+  command: string;
+  args: string[];
+  httpUrl: string;
+}
+
+interface McpServerPreset {
+  label: string;
+  values: McpServerFormValues;
+}
+
+/**
+ * Every preset below was validated with a live JSON-RPC handshake. stdio entries
+ * use `bunx` because the gateway container ships only bun/bunx — an npx or uvx
+ * command is rejected before it ever spawns.
+ */
+const MCP_SERVER_PRESETS: McpServerPreset[] = [
+  {
+    label: 'DuckDuckGo Search',
+    values: {
+      name: 'ddg-search',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@oevortex/ddg_search'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'Sequential Thinking',
+    values: {
+      name: 'sequential-thinking',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'Memory',
+    values: {
+      name: 'memory',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@modelcontextprotocol/server-memory'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'Fetch',
+    values: {
+      name: 'fetch',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@tokenizin/mcp-npx-fetch'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'Playwright',
+    values: {
+      name: 'playwright',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@playwright/mcp@latest', '--headless', '--isolated'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'Puppeteer',
+    values: {
+      name: 'puppeteer',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@modelcontextprotocol/server-puppeteer'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'Everything (reference)',
+    values: {
+      name: 'everything',
+      transportType: 'stdio',
+      command: 'bunx',
+      args: ['-y', '@modelcontextprotocol/server-everything'],
+      httpUrl: '',
+    },
+  },
+  {
+    label: 'GitMCP',
+    values: {
+      name: 'gitmcp',
+      transportType: 'streamable-http',
+      command: '',
+      args: [],
+      httpUrl: 'https://gitmcp.io/docs',
+    },
+  },
+];
+
+const SECURITY_LEVELS: ToolSecurityLevel[] = ['low', 'medium', 'high', 'critical'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The gateway returns bare arrays, `{ <key>: [] }` and `{ data: { <key>: [] } }`
+ * depending on the route, so every list call has to probe all three shapes.
+ */
+function extractRecordArray<T>(value: unknown, key: string): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (!isRecord(value)) return [];
+
+  const direct = value[key];
+  if (Array.isArray(direct)) return direct as T[];
+
+  const data = value['data'];
+  if (Array.isArray(data)) return data as T[];
+  if (isRecord(data) && Array.isArray(data[key])) return data[key] as T[];
+
+  return [];
 }
 
 interface SystemStatus {
@@ -94,6 +237,460 @@ interface SystemStatus {
   };
 }
 
+interface ToolFormDialogProps {
+  initialTool: Tool | null;
+  categories: string[];
+  onSubmit: (values: ToolFormValues) => Promise<void>;
+  onClose: () => void;
+}
+
+const ToolFormDialog: React.FC<ToolFormDialogProps> = ({
+  initialTool,
+  categories,
+  onSubmit,
+  onClose,
+}) => {
+  const [name, setName] = useState(initialTool?.name ?? '');
+  const [description, setDescription] = useState(initialTool?.description ?? '');
+  const [version, setVersion] = useState(initialTool?.version ?? '1.0.0');
+  const [category, setCategory] = useState(initialTool?.category ?? categories[0] ?? 'development');
+  const [securityLevel, setSecurityLevel] = useState<ToolSecurityLevel>(
+    initialTool?.securityLevel ?? 'low'
+  );
+  const [requiresApproval, setRequiresApproval] = useState(initialTool?.requiresApproval ?? false);
+  const [author, setAuthor] = useState(initialTool?.author ?? '');
+  const [tagsText, setTagsText] = useState((initialTool?.tags ?? []).join(', '));
+  const [parametersText, setParametersText] = useState(
+    JSON.stringify(
+      isRecord(initialTool?.parameters)
+        ? initialTool.parameters
+        : { type: 'object', properties: {} },
+      null,
+      2
+    )
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const isEditing = initialTool !== null;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!name.trim()) {
+      setError('Name is required.');
+      return;
+    }
+    if (!description.trim()) {
+      setError('Description is required.');
+      return;
+    }
+
+    let parameters: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(parametersText);
+      if (!isRecord(parsed)) {
+        setError('Parameters must be a JSON object.');
+        return;
+      }
+      parameters = parsed;
+    } catch (parseError) {
+      setError(
+        `Parameters is not valid JSON: ${parseError instanceof Error ? parseError.message : 'parse failed'}`
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        description: description.trim(),
+        version: version.trim() || '1.0.0',
+        category,
+        securityLevel,
+        requiresApproval,
+        author: author.trim() || 'system',
+        tags: tagsText
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+        parameters,
+      });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Failed to save tool.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-label={isEditing ? 'Edit tool' : 'Create tool'}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose();
+      }}
+    >
+      <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-white">{isEditing ? 'Edit Tool' : 'Create Tool'}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="tool-name" className="block text-sm text-gray-400 mb-1">
+              Name
+            </label>
+            <input
+              id="tool-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="tool-description" className="block text-sm text-gray-400 mb-1">
+              Description
+            </label>
+            <textarea
+              id="tool-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="tool-version" className="block text-sm text-gray-400 mb-1">
+                Version
+              </label>
+              <input
+                id="tool-version"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="tool-category" className="block text-sm text-gray-400 mb-1">
+                Category
+              </label>
+              <select
+                id="tool-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+              >
+                {categories.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="tool-security" className="block text-sm text-gray-400 mb-1">
+                Security level
+              </label>
+              <select
+                id="tool-security"
+                value={securityLevel}
+                onChange={(e) => setSecurityLevel(e.target.value as ToolSecurityLevel)}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+              >
+                {SECURITY_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="tool-author" className="block text-sm text-gray-400 mb-1">
+                Author
+              </label>
+              <input
+                id="tool-author"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                placeholder="system"
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="tool-tags" className="block text-sm text-gray-400 mb-1">
+              Tags (comma separated)
+            </label>
+            <input
+              id="tool-tags"
+              value={tagsText}
+              onChange={(e) => setTagsText(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="tool-parameters" className="block text-sm text-gray-400 mb-1">
+              Parameters (JSON Schema)
+            </label>
+            <textarea
+              id="tool-parameters"
+              value={parametersText}
+              onChange={(e) => setParametersText(e.target.value)}
+              rows={6}
+              spellCheck={false}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white font-mono text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input
+              type="checkbox"
+              checked={requiresApproval}
+              onChange={(e) => setRequiresApproval(e.target.checked)}
+              className="rounded border-gray-600 bg-gray-900"
+            />
+            Requires approval before execution
+          </label>
+
+          {error && (
+            <p role="alert" className="text-sm text-red-400">
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 px-4 rounded-lg transition-colors"
+            >
+              {submitting ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Tool'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface McpServerFormDialogProps {
+  onSubmit: (values: McpServerFormValues) => Promise<void>;
+  onClose: () => void;
+}
+
+const McpServerFormDialog: React.FC<McpServerFormDialogProps> = ({ onSubmit, onClose }) => {
+  const [name, setName] = useState('');
+  const [transportType, setTransportType] = useState<McpTransportType>('stdio');
+  const [command, setCommand] = useState('bunx');
+  const [argsText, setArgsText] = useState('');
+  const [httpUrl, setHttpUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const applyPreset = (preset: McpServerPreset) => {
+    setName(preset.values.name);
+    setTransportType(preset.values.transportType);
+    setCommand(preset.values.command);
+    setArgsText(preset.values.args.join(' '));
+    setHttpUrl(preset.values.httpUrl);
+    setError(null);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!name.trim()) {
+      setError('Server name is required.');
+      return;
+    }
+    if (transportType === 'stdio' && !command.trim()) {
+      setError('Command is required for stdio servers.');
+      return;
+    }
+    if (transportType !== 'stdio' && !httpUrl.trim()) {
+      setError('URL is required for remote servers.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        transportType,
+        command: command.trim(),
+        args: argsText.split(/\s+/).filter(Boolean),
+        httpUrl: httpUrl.trim(),
+      });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Failed to add server.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add MCP server"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose();
+      }}
+    >
+      <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-white">Add MCP Server</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="mb-4">
+          <p className="text-sm text-gray-400 mb-2">Start from a verified server</p>
+          <div className="flex flex-wrap gap-2">
+            {MCP_SERVER_PRESETS.map((preset) => (
+              <button
+                key={preset.values.name}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs rounded transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="mcp-name" className="block text-sm text-gray-400 mb-1">
+              Server name
+            </label>
+            <input
+              id="mcp-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="mcp-transport" className="block text-sm text-gray-400 mb-1">
+              Transport
+            </label>
+            <select
+              id="mcp-transport"
+              value={transportType}
+              onChange={(e) => setTransportType(e.target.value as McpTransportType)}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            >
+              <option value="stdio">stdio (local process)</option>
+              <option value="streamable-http">streamable-http (remote)</option>
+            </select>
+          </div>
+
+          {transportType === 'stdio' ? (
+            <>
+              <div>
+                <label htmlFor="mcp-command" className="block text-sm text-gray-400 mb-1">
+                  Command
+                </label>
+                <input
+                  id="mcp-command"
+                  value={command}
+                  onChange={(e) => setCommand(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be a bare launcher name — no paths. The runtime provides{' '}
+                  <code className="text-gray-400">bunx</code> and{' '}
+                  <code className="text-gray-400">bun</code>; put the package in Arguments.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="mcp-args" className="block text-sm text-gray-400 mb-1">
+                  Arguments (space separated)
+                </label>
+                <input
+                  id="mcp-args"
+                  value={argsText}
+                  onChange={(e) => setArgsText(e.target.value)}
+                  placeholder="-y @modelcontextprotocol/server-memory"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+            </>
+          ) : (
+            <div>
+              <label htmlFor="mcp-url" className="block text-sm text-gray-400 mb-1">
+                Server URL
+              </label>
+              <input
+                id="mcp-url"
+                value={httpUrl}
+                onChange={(e) => setHttpUrl(e.target.value)}
+                placeholder="https://gitmcp.io/docs"
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="text-sm text-red-400">
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 px-4 rounded-lg transition-colors"
+            >
+              {submitting ? 'Installing…' : 'Add Server'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const UnifiedToolPortal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'discover' | 'manage' | 'monitor'>('discover');
   const [tools, setTools] = useState<Tool[]>([]);
@@ -103,9 +700,13 @@ export const UnifiedToolPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [_showToolForm, setShowToolForm] = useState(false);
+  const [showToolForm, setShowToolForm] = useState(false);
+  const [toolBeingEdited, setToolBeingEdited] = useState<Tool | null>(null);
+  const [toolPendingDelete, setToolPendingDelete] = useState<Tool | null>(null);
+  const [showMcpServerForm, setShowMcpServerForm] = useState(false);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [toolToAddToAgent, setToolToAddToAgent] = useState<Tool | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -121,20 +722,7 @@ export const UnifiedToolPortal: React.FC = () => {
     try {
       // Load regular tools
       const regularResult = await uaipAPI.tools.list();
-      function extractToolsArray(result: unknown): Tool[] {
-        if (Array.isArray(result)) return result satisfies Tool[];
-        if (result !== null && typeof result === 'object') {
-          const obj = result satisfies Record<string, unknown>;
-          const data = obj['data'];
-          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-            const dataObj = data satisfies Record<string, unknown>;
-            if (Array.isArray(dataObj['tools'])) return dataObj['tools'] satisfies Tool[];
-          }
-          if (Array.isArray(obj['tools'])) return obj['tools'] satisfies Tool[];
-        }
-        return [];
-      }
-      const regularTools = extractToolsArray(regularResult);
+      const regularTools = extractRecordArray<Tool>(regularResult, 'tools');
 
       // Load MCP tools
       let mcpTools: Tool[] = [];
@@ -178,22 +766,7 @@ export const UnifiedToolPortal: React.FC = () => {
   const loadAgents = async () => {
     try {
       const result = await uaipAPI.agents.list();
-      // Handle different response structures from the untyped API
-      function extractAgentsArray(r: unknown): Agent[] {
-        if (Array.isArray(r)) return r satisfies Agent[];
-        if (r !== null && typeof r === 'object') {
-          const obj = r satisfies Record<string, unknown>;
-          if (Array.isArray(obj['agents'])) return obj['agents'] satisfies Agent[];
-          const data = obj['data'];
-          if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-            const dataObj = data satisfies Record<string, unknown>;
-            if (Array.isArray(dataObj['agents'])) return dataObj['agents'] satisfies Agent[];
-          }
-          if (Array.isArray(obj['data'])) return obj['data'] satisfies Agent[];
-        }
-        return [];
-      }
-      setAgents(extractAgentsArray(result));
+      setAgents(extractRecordArray<Agent>(result, 'agents'));
     } catch (error) {
       logger.error('Failed to load agents:', error);
       setAgents([]);
@@ -237,6 +810,59 @@ export const UnifiedToolPortal: React.FC = () => {
         },
       });
     }
+  };
+
+  const submitToolForm = async (values: ToolFormValues) => {
+    setActionError(null);
+    const payload = {
+      name: values.name,
+      description: values.description,
+      version: values.version,
+      category: values.category,
+      parameters: values.parameters,
+      securityLevel: values.securityLevel,
+      requiresApproval: values.requiresApproval,
+      author: values.author,
+      tags: values.tags,
+    };
+
+    if (toolBeingEdited) {
+      await uaipAPI.tools.update(toolBeingEdited.id, payload);
+    } else {
+      await uaipAPI.tools.create(payload);
+    }
+
+    await loadTools();
+    setShowToolForm(false);
+    setToolBeingEdited(null);
+  };
+
+  const confirmDeleteTool = async () => {
+    if (!toolPendingDelete) return;
+    setActionError(null);
+    try {
+      await uaipAPI.tools.delete(toolPendingDelete.id);
+      await loadTools();
+      setToolPendingDelete(null);
+      setSelectedTool(null);
+    } catch (error) {
+      logger.error('Failed to delete tool:', error);
+      setActionError(error instanceof Error ? error.message : 'Failed to delete tool.');
+    }
+  };
+
+  const submitMcpServerForm = async (values: McpServerFormValues) => {
+    setActionError(null);
+    const isRemote = values.transportType !== 'stdio';
+    await mcpAPI.installServer(values.name, {
+      transportType: values.transportType,
+      ...(isRemote
+        ? { httpUrl: values.httpUrl }
+        : { command: values.command, args: values.args }),
+    });
+
+    await Promise.all([loadSystemStatus(), loadTools()]);
+    setShowMcpServerForm(false);
   };
 
   const addToolToAgent = async (tool: Tool, agentId: string) => {
@@ -373,6 +999,13 @@ export const UnifiedToolPortal: React.FC = () => {
               className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
             >
               Discover Tools
+            </button>
+            <button
+              onClick={() => setShowMcpServerForm(true)}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded transition-colors flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add MCP Server
             </button>
           </div>
         </div>
@@ -521,13 +1154,22 @@ export const UnifiedToolPortal: React.FC = () => {
         </select>
 
         <button
-          onClick={() => setShowToolForm(true)}
+          onClick={() => {
+            setToolBeingEdited(null);
+            setShowToolForm(true);
+          }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
           Add Tool
         </button>
       </div>
+
+      {actionError && (
+        <p role="alert" className="text-sm text-red-400">
+          {actionError}
+        </p>
+      )}
 
       {/* Tools Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -584,17 +1226,44 @@ export const UnifiedToolPortal: React.FC = () => {
                 )}
               </div>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setToolToAddToAgent(tool);
-                  setShowAgentSelector(true);
-                }}
-                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors flex items-center gap-1"
-              >
-                <Users className="w-3 h-3" />
-                Add to Agent
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setToolBeingEdited(tool);
+                    setShowToolForm(true);
+                  }}
+                  aria-label={`Edit ${tool.name}`}
+                  className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors flex items-center gap-1"
+                >
+                  <Pencil className="w-3 h-3" />
+                  Edit
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setToolPendingDelete(tool);
+                  }}
+                  aria-label={`Delete ${tool.name}`}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Delete
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setToolToAddToAgent(tool);
+                    setShowAgentSelector(true);
+                  }}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors flex items-center gap-1"
+                >
+                  <Users className="w-3 h-3" />
+                  Add to Agent
+                </button>
+              </div>
             </div>
 
             {/* Tool type and source indicator */}
@@ -978,6 +1647,55 @@ export const UnifiedToolPortal: React.FC = () => {
 
               <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors">
                 Test Tool
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showToolForm && (
+        <ToolFormDialog
+          initialTool={toolBeingEdited}
+          categories={categories.filter((category) => category !== 'all')}
+          onSubmit={submitToolForm}
+          onClose={() => {
+            setShowToolForm(false);
+            setToolBeingEdited(null);
+          }}
+        />
+      )}
+
+      {showMcpServerForm && (
+        <McpServerFormDialog
+          onSubmit={submitMcpServerForm}
+          onClose={() => setShowMcpServerForm(false)}
+        />
+      )}
+
+      {toolPendingDelete && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm delete"
+        >
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-white mb-2">Delete tool</h2>
+            <p className="text-gray-400 mb-6">
+              Permanently delete &quot;{toolPendingDelete.name}&quot;? This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={confirmDeleteTool}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setToolPendingDelete(null)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

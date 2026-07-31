@@ -14,6 +14,18 @@ import type {
 
 export type { MCPServer, MCPTool, MCPStatus, MCPConfig, MCPUploadResult };
 
+export type MCPTransportType = 'stdio' | 'http' | 'streamable-http';
+
+export interface MCPServerInstallRequest {
+  transportType: MCPTransportType;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  httpUrl?: string;
+  httpHeaders?: Record<string, string>;
+}
+
 const mcp = gatewayClient.api.v1.mcp;
 
 export const mcpAPI = {
@@ -138,6 +150,17 @@ export const mcpAPI = {
     status: string;
   }> {
     return edenWithCSRFRetry(() => mcp.servers[serverName].restart.post());
+  },
+
+  async installServer(
+    serverName: string,
+    config: MCPServerInstallRequest
+  ): Promise<{ success: boolean }> {
+    return edenWithCSRFRetry(() => mcp.servers[serverName].install.post(config));
+  },
+
+  async uninstallServer(serverName: string): Promise<{ success: boolean }> {
+    return edenWithCSRFRetry(() => mcp.servers[serverName].uninstall.post());
   },
 
   async installTool(toolName: string): Promise<{

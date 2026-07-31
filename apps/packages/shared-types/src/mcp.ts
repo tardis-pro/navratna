@@ -81,6 +81,7 @@ export interface MCPTool {
   description: string;
   inputSchema: unknown;
   outputSchema?: unknown;
+  serverName?: string;
 }
 
 export interface MCPResource {

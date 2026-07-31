@@ -94,6 +94,7 @@ type PersonaCreateInput = Parameters<typeof api.personas.create>[0];
 type PersonaUpdateInput = Parameters<typeof api.personas.update>[1];
 type ToolListInput = Parameters<typeof api.tools.list>[0];
 type ToolCreateInput = Parameters<typeof api.tools.create>[0];
+type ToolUpdateInput = Parameters<typeof api.tools.update>[1];
 type ToolExecutionInput = Parameters<typeof api.tools.execute>[1];
 type UserLLMCreateInput = Parameters<typeof api.llm.userLLM.createProvider>[0];
 type KnowledgeUpdateInput = Parameters<typeof api.knowledge.update>[1];
@@ -607,6 +608,26 @@ export const uaipAPI = {
         return await client.tools.create(toolData);
       } catch (error) {
         logger.error('Failed to create tool:', error);
+        throw error;
+      }
+    },
+
+    async update(id: string, updates: ToolUpdateInput): Promise<unknown> {
+      try {
+        const client = getAPIClient();
+        return await client.tools.update(id, updates);
+      } catch (error) {
+        logger.error('Failed to update tool:', error);
+        throw error;
+      }
+    },
+
+    async delete(id: string): Promise<void> {
+      try {
+        const client = getAPIClient();
+        await client.tools.delete(id);
+      } catch (error) {
+        logger.error('Failed to delete tool:', error);
         throw error;
       }
     },
@@ -1255,18 +1276,23 @@ export const uaipAPI = {
     }> {
       try {
         const response = await api.mcp.getTools();
+        const servers = Array.isArray(response?.servers) ? response.servers : [];
+        const rawTools = Array.isArray(response?.tools) ? response.tools : [];
         return {
-          count: response.count,
-          servers: response.servers,
-          tools: response.tools.map((tool, index) => ({
-            id: `${response.servers[0] ?? 'mcp'}:${tool.name}:${index}`,
-            name: tool.name,
-            description: tool.description,
-            serverName: response.servers[0] ?? 'mcp',
-            command: tool.name,
-            parameters: tool.inputSchema,
-            category: 'mcp',
-          })),
+          count: typeof response?.count === 'number' ? response.count : rawTools.length,
+          servers,
+          tools: rawTools.map((tool, index) => {
+            const serverName = tool.serverName ?? servers[0] ?? 'mcp';
+            return {
+              id: `${serverName}:${tool.name}:${index}`,
+              name: tool.name,
+              description: tool.description,
+              serverName,
+              command: tool.name,
+              parameters: tool.inputSchema,
+              category: 'mcp',
+            };
+          }),
         };
       } catch (error) {
         logger.error('MCP tools error:', error);
