@@ -430,10 +430,14 @@ export class MCPClientService extends EventEmitter {
         // Setup process event handlers
         this.setupProcessHandlers(serverName, childProcess);
 
-        // Initialize MCP connection
+        // The handshake goes through sendRequest, which refuses any server that
+        // is not already 'running' — so the state must be set before it, exactly
+        // as the HTTP branch above does. A failed handshake still lands in the
+        // catch below and marks the server 'error'.
+        serverState.status = 'running';
+
         await this.initializeConnection(serverName);
 
-        serverState.status = 'running';
         this.emit('serverStarted', { serverName, pid: childProcess.pid });
         await this.publishEvent('mcp.server.started', { serverName, pid: childProcess.pid });
         logger.info(`MCP server started successfully: ${serverName} (PID: ${childProcess.pid})`);
