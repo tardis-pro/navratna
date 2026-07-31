@@ -1,5 +1,5 @@
 import type { Feature, ServiceDeps } from '@uaip/shared-services/feature-factory'
-import { OAuthProviderSeed } from '@uaip/shared-services'
+import { IntegrationProviderSeed, OAuthProviderSeed } from '@uaip/shared-services'
 import { logger } from '@uaip/utils'
 import { Elysia } from 'elysia'
 
@@ -39,6 +39,9 @@ export const securityFeature: Feature = {
     // The seed is idempotent and skips any provider whose env credentials are absent.
     try {
       await new OAuthProviderSeed().seed()
+      // Ordered after the OAuth seed because each integration provider links to the
+      // oauth_providers row created above.
+      await new IntegrationProviderSeed().seed()
     } catch (err) {
       logger.error('security-gateway: OAuth provider seeding failed', {
         error: err instanceof Error ? err.message : String(err),

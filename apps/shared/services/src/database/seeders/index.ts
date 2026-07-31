@@ -29,6 +29,12 @@ export {
   type OAuthProviderTemplate,
   type OAuthProviderSeedResult,
 } from './oauth_provider_seed';
+export {
+  IntegrationProviderSeed,
+  INTEGRATION_CATALOG,
+  type IntegrationCatalogEntry,
+  type IntegrationProviderSeedResult,
+} from './integration_provider_seed';
 export { DefaultUserLLMProviderSeed } from './default_user_l_l_m_provider_seed';
 export { EnsureSystemActor } from '../migrations/ensure_system_actor';
 export type { EnsureSystemActorResult } from '../migrations/ensure_system_actor';

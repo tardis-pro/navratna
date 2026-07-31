@@ -353,6 +353,12 @@ export {
   type OAuthProviderTemplate,
   type OAuthProviderSeedResult,
 } from './database/seeders/oauth_provider_seed';
+export {
+  IntegrationProviderSeed,
+  INTEGRATION_CATALOG,
+  type IntegrationCatalogEntry,
+  type IntegrationProviderSeedResult,
+} from './database/seeders/integration_provider_seed';
 export { EnsureSystemActor } from './database/migrations/ensure_system_actor';
 export type { EnsureSystemActorResult } from './database/migrations/ensure_system_actor';
 
