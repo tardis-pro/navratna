@@ -182,6 +182,12 @@ interface MCPServerState {
   transportType: 'stdio' | 'http' | 'streamable-http';
   httpUrl?: string;
   httpHeaders?: Record<string, string>;
+  /**
+   * Session identifier issued by a streamable-HTTP server on `initialize`. The
+   * server rejects every subsequent request that omits it (-32000). Treated as
+   * a secret alongside httpHeaders — never serialized to clients.
+   */
+  httpSessionId?: string;
   status: 'stopped' | 'starting' | 'running' | 'error' | 'stopping';
   pid?: number;
   startTime?: Date;
@@ -523,6 +529,9 @@ export class MCPClientService extends EventEmitter {
         Accept: 'application/json, text/event-stream',
         ...(server.httpHeaders || {}),
       };
+      if (server.httpSessionId) {
+        headers['Mcp-Session-Id'] = server.httpSessionId;
+      }
       const startTime = Date.now();
       try {
         const resp = await fetch(url, {
@@ -530,6 +539,10 @@ export class MCPClientService extends EventEmitter {
           headers,
           body: JSON.stringify(request),
         });
+        const issuedSessionId = resp.headers.get('mcp-session-id');
+        if (issuedSessionId) {
+          server.httpSessionId = issuedSessionId;
+        }
         if (!resp.ok) {
           throw new ExternalServiceError(`HTTP ${resp.status} ${resp.statusText}`);
         }
@@ -592,10 +605,6 @@ export class MCPClientService extends EventEmitter {
     if (!server || server.status !== 'running') {
       return;
     }
-    // HTTP transport is request/response only — no notification channel
-    if (server.transportType !== 'stdio' || !server.process) {
-      return;
-    }
 
     const notification: JSONRPCNotification = {
       jsonrpc: '2.0',
@@ -603,8 +612,32 @@ export class MCPClientService extends EventEmitter {
       params,
     };
 
+    if (server.transportType === 'http' || server.transportType === 'streamable-http') {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        ...(server.httpHeaders || {}),
+      };
+      if (server.httpSessionId) {
+        headers['Mcp-Session-Id'] = server.httpSessionId;
+      }
+      void fetch(server.httpUrl!, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(notification),
+      }).catch((error: unknown) => {
+        logger.warn(`MCP notification ${method} failed for ${serverName}`, error);
+      });
+      this.addLog(serverName, `→ ${method} (notification): ${JSON.stringify(params)}`);
+      return;
+    }
+
+    if (!server.process) {
+      return;
+    }
+
     const message = JSON.stringify(notification) + '\n';
-    server.process!.stdin?.write(message);
+    server.process.stdin?.write(message);
 
     this.addLog(serverName, `→ ${method} (notification): ${JSON.stringify(params)}`);
   }

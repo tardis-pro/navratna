@@ -17,7 +17,13 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function sanitizeServerState(s: unknown) {
   const state: Record<string, unknown> = isRecord(s) ? s : {};
-  const { config, _httpHeaders: _ignoredHttpHeaders, ...rest } = state;
+  const {
+    config,
+    httpHeaders: _ignoredHttpHeaders,
+    httpSessionId: _ignoredHttpSessionId,
+    process: _ignoredProcess,
+    ...rest
+  } = state;
   const cfg: Record<string, unknown> | undefined = isRecord(config) ? config : undefined;
   return {
     ...rest,
@@ -62,6 +68,39 @@ export function registerMCPRoutes() {
           success: true,
           data: { tools: tools ?? [], count: tools?.length ?? 0 },
         };
+      })
+
+      // Aggregated tool list across every running server. The client maps over
+      // `tools` unconditionally, so all three fields must always be present.
+      .get('/tools', async () => {
+        const servers = mcpService.getAllServers();
+        const tools = servers.flatMap((s) =>
+          (s.tools ?? []).map((tool) => ({
+            name: tool.name,
+            description: tool.description ?? '',
+            inputSchema: tool.inputSchema ?? {},
+            serverName: s.name,
+          }))
+        );
+        return {
+          success: true as const,
+          data: {
+            tools,
+            count: tools.length,
+            servers: servers.map((s) => s.name),
+          },
+        };
+      }, {
+        response: {
+          200: t.Object({
+            success: t.Literal(true),
+            data: t.Object({
+              tools: t.Array(McpAny),
+              count: t.Number(),
+              servers: t.Array(t.String()),
+            }),
+          }),
+        },
       })
 
       // Tool recommendations for an agent
