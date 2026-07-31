@@ -64,6 +64,22 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
   const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
 
+  // Effect deps must NOT include these callbacks: call sites pass inline arrows
+  // (new identity per render), which would tear down + recreate the socket every
+  // render → polling flood + aborted WS upgrade + 400 "Session ID unknown".
+  const callbacksRef = useRef({
+    onIntentDetected,
+    onTopicGenerated,
+    onSuggestionsUpdated,
+    onAutocompleteResults,
+  });
+  callbacksRef.current = {
+    onIntentDetected,
+    onTopicGenerated,
+    onSuggestionsUpdated,
+    onAutocompleteResults,
+  };
+
   // Initialize WebSocket connection
   useEffect(() => {
     if (!user) return;
@@ -105,9 +121,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
         loading: { ...prev.loading, intent: false },
       }));
 
-      if (onIntentDetected) {
-        onIntentDetected(data.intent, data.toolPreview);
-      }
+      callbacksRef.current.onIntentDetected?.(data.intent, data.toolPreview);
     });
 
     // Topic generation events
@@ -119,9 +133,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
         loading: { ...prev.loading, topic: false },
       }));
 
-      if (onTopicGenerated) {
-        onTopicGenerated(data.topicName, data.confidence);
-      }
+      callbacksRef.current.onTopicGenerated?.(data.topicName, data.confidence);
     });
 
     // Suggestions events
@@ -132,9 +144,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
         loading: { ...prev.loading, suggestions: false },
       }));
 
-      if (onSuggestionsUpdated) {
-        onSuggestionsUpdated(data.prompts);
-      }
+      callbacksRef.current.onSuggestionsUpdated?.(data.prompts);
     });
 
     // Autocomplete events
@@ -145,9 +155,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
         loading: { ...prev.loading, autocomplete: false },
       }));
 
-      if (onAutocompleteResults) {
-        onAutocompleteResults(data.suggestions);
-      }
+      callbacksRef.current.onAutocompleteResults?.(data.suggestions);
     });
 
     // Error handling
@@ -172,15 +180,7 @@ export const useConversationIntelligence = (options: UseConversationIntelligence
         autocompleteTimeoutRef.current = null;
       }
     };
-  }, [
-    user,
-    agentId,
-    conversationId,
-    onIntentDetected,
-    onTopicGenerated,
-    onSuggestionsUpdated,
-    onAutocompleteResults,
-  ]);
+  }, [user?.id, agentId, conversationId]);
 
   // Update conversation context
   const updateConversation = useCallback((newConversationId?: string, newAgentId?: string) => {
