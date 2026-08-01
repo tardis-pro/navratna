@@ -190,11 +190,25 @@ describe('parseMcpToolKey', () => {
     });
   });
 
-  it('falls back to a positional split for an unregistered server', () => {
-    expect(parseMcpToolKey('mcp-unknown-thing', [])).toEqual({
-      serverName: 'unknown',
-      toolName: 'thing',
+  it('refuses an unregistered server rather than guessing positionally', () => {
+    expect(parseMcpToolKey('mcp-unknown-thing', [])).toBeNull();
+  });
+
+  it('resolves against a registered server even when the TOOL name has hyphens', () => {
+    // Genuinely ambiguous: with only `github` registered this is server `github`
+    // + tool `copilot-create_issue`, which is a real shape. The registered-name
+    // match is the disambiguation — a wrong guess here fails at the remote with
+    // "unknown tool" rather than performing another server's action.
+    expect(parseMcpToolKey('mcp-github-copilot-create_issue', ['github'])).toEqual({
+      serverName: 'github',
+      toolName: 'copilot-create_issue',
     });
+  });
+
+  it('still resolves once the hyphenated server is registered', () => {
+    expect(parseMcpToolKey('mcp-github-copilot-create_issue', ['github', 'github-copilot'])).toEqual(
+      { serverName: 'github-copilot', toolName: 'create_issue' }
+    );
   });
 
   it('rejects a non-MCP key', () => {

@@ -126,7 +126,9 @@ export function isMcpToolKey(value: string): boolean {
  * (`github-copilot`, `create_pull_request-draft`), so it cannot be split
  * positionally — `parts[1]` yields `github` for `mcp-github-copilot-x`.
  * Disambiguate against the registered server names, preferring the longest
- * match so `github-copilot` wins over a also-registered `github`.
+ * match so `github-copilot` wins over a also-registered `github`. A key that
+ * matches no registered server returns null — dispatch must fail closed rather
+ * than guess a server whose credential is not the one the key was minted for.
  */
 export function parseMcpToolKey(
   key: string,
@@ -145,15 +147,8 @@ export function parseMcpToolKey(
     best = { serverName, toolName };
   }
 
-  if (best) return best;
-
-  // The server is not registered in this process (restarted instance, or the
-  // server was removed). Fall back to the legacy positional split so a stale
-  // binding still routes somewhere explicable instead of silently vanishing.
-  const separator = remainder.indexOf('-');
-  if (separator <= 0 || separator === remainder.length - 1) return null;
-  return {
-    serverName: remainder.slice(0, separator),
-    toolName: remainder.slice(separator + 1),
-  };
+  // No positional fallback: `mcp-github-copilot-create_issue` splits to server
+  // `github`, which may itself be registered, so a stale key would execute
+  // against ANOTHER server's credential. An unresolvable key fails closed.
+  return best;
 }
