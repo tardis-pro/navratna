@@ -95,3 +95,52 @@ describe('filterToolsForProject', () => {
     expect(assigned).toHaveLength(2);
   });
 });
+
+const { toAssignedTools } = await import('@uaip/agent-intelligence-core');
+
+describe('toAssignedTools approval default', () => {
+  it('gates an external tool whose stored row predates the approval policy', () => {
+    const [parsed] = toAssignedTools([
+      { toolId: 'mcp-github-create_issue', toolName: 'mcp-github-create_issue', serverName: 'github' },
+    ]);
+
+    expect(
+      parsed.requiresApproval,
+      'a legacy row carries no flag; reading that as false auto-executes a third-party action'
+    ).toBe(true);
+  });
+
+  it('honours an explicit false from the server annotations', () => {
+    const [parsed] = toAssignedTools([
+      {
+        toolId: 'mcp-github-search',
+        toolName: 'mcp-github-search',
+        serverName: 'github',
+        requiresApproval: false,
+      },
+    ]);
+
+    expect(parsed.requiresApproval).toBe(false);
+  });
+
+  it('honours an explicit true', () => {
+    const [parsed] = toAssignedTools([
+      {
+        toolId: 'mcp-github-delete',
+        toolName: 'mcp-github-delete',
+        serverName: 'github',
+        requiresApproval: true,
+      },
+    ]);
+
+    expect(parsed.requiresApproval).toBe(true);
+  });
+
+  it('leaves a built-in tool ungated by default', () => {
+    const [parsed] = toAssignedTools([
+      { toolId: 'file-reader', toolName: 'file-reader', serverName: '' },
+    ]);
+
+    expect(parsed.requiresApproval).toBe(false);
+  });
+});

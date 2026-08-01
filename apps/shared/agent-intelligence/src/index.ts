@@ -5,6 +5,7 @@ export {
   registerAgentChatRoutes,
   resolveAgentTools,
   filterToolsForProject,
+  toAssignedTools,
 } from './routes/agent_chat_routes.js'
 export { registerAgentCapabilityRoutes } from './routes/agent_capability_routes.js'
 export { registerAgentMemoryRoutes } from './routes/agent_memory_routes.js'

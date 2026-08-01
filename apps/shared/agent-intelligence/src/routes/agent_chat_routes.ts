@@ -140,7 +140,14 @@ const toDocumentContext = (value: unknown): DocumentContext | undefined => {
   }
 }
 
-const toAssignedTools = (value: unknown): AgentAssignedTool[] => {
+/**
+ * An external (`mcp-*`) tool acts on a real third-party account under the user's
+ * own credential, so a MISSING approval flag must read as "gate it", not "allow
+ * it". Rows written before the policy existed carry no flag; treating that as
+ * false would auto-execute them until rediscovery happened to repair the row.
+ * A built-in tool keeps the original opt-in behaviour.
+ */
+export const toAssignedTools = (value: unknown): AgentAssignedTool[] => {
   if (!Array.isArray(value)) return []
 
   const assigned: AgentAssignedTool[] = []
@@ -148,12 +155,16 @@ const toAssignedTools = (value: unknown): AgentAssignedTool[] => {
     if (!isRecord(entry)) continue
     if (typeof entry.toolId !== 'string' || typeof entry.toolName !== 'string') continue
 
+    const isExternal = entry.toolId.startsWith('mcp-')
+    const requiresApproval =
+      typeof entry.requiresApproval === 'boolean' ? entry.requiresApproval : isExternal
+
     assigned.push({
       toolId: entry.toolId,
       toolName: entry.toolName,
       serverName: typeof entry.serverName === 'string' ? entry.serverName : '',
       enabled: entry.enabled !== false,
-      requiresApproval: entry.requiresApproval === true,
+      requiresApproval,
     })
   }
   return assigned

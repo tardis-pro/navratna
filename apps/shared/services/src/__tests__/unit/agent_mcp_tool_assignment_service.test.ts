@@ -114,7 +114,109 @@ describe('assign — approval policy survives the write', () => {
     expect(stored().map((tool) => tool.toolId)).toEqual(['existing', 'mcp-github-search']);
   });
 
+  it('upgrades an existing assignment that predates the approval policy', async () => {
+    mocks.agentRow = {
+      assigned: [
+        {
+          toolId: 'mcp-github-create_issue',
+          toolName: 'mcp-github-create_issue',
+          serverName: 'github',
+          enabled: true,
+        },
+      ],
+    };
+
+    await service().assign(AGENT_ID, [
+      {
+        toolId: 'mcp-github-create_issue',
+        toolName: 'mcp-github-create_issue',
+        serverName: 'github',
+        requiresApproval: true,
+      },
+    ]);
+
+    // Skipping a known toolId leaves a legacy assignment ungated forever, so
+    // rediscovery could never repair a tool registered before the policy existed.
+    expect(stored()[0].requiresApproval).toBe(true);
+  });
+
+  it('writes nothing when an already-gated assignment needs no repair', async () => {
+    mocks.agentRow = {
+      assigned: [
+        {
+          toolId: 'mcp-github-create_issue',
+          toolName: 'mcp-github-create_issue',
+          serverName: 'github',
+          enabled: true,
+          requiresApproval: true,
+        },
+      ],
+    };
+
+    await service().assign(AGENT_ID, [
+      {
+        toolId: 'mcp-github-create_issue',
+        toolName: 'mcp-github-create_issue',
+        serverName: 'github',
+        requiresApproval: true,
+      },
+    ]);
+
+    // Repair must be idempotent: rediscovery runs on every restart, so an
+    // unchanged policy must not rewrite the row on each pass.
+    expect(mocks.updates).toHaveLength(0);
+  });
+
+  it('preserves a user-disabled assignment while repairing its policy', async () => {
+    mocks.agentRow = {
+      assigned: [
+        {
+          toolId: 'mcp-github-create_issue',
+          toolName: 'mcp-github-create_issue',
+          serverName: 'github',
+          enabled: false,
+        },
+      ],
+    };
+
+    await service().assign(AGENT_ID, [
+      {
+        toolId: 'mcp-github-create_issue',
+        toolName: 'mcp-github-create_issue',
+        serverName: 'github',
+        requiresApproval: true,
+      },
+    ]);
+
+    const row = stored()[0] as { enabled?: boolean; requiresApproval?: boolean };
+    expect(row.requiresApproval).toBe(true);
+    expect(row.enabled, 'rediscovery must not silently re-enable a tool the user turned off').toBe(
+      false
+    );
+  });
+
   it('does not re-add a tool the agent already has', async () => {
+    mocks.agentRow = {
+      assigned: [
+        {
+          toolId: 'mcp-github-search',
+          toolName: 'mcp-github-search',
+          serverName: 'github',
+          enabled: true,
+          requiresApproval: true,
+        },
+      ],
+    };
+
+    const added = await service().assign(AGENT_ID, [
+      { toolId: 'mcp-github-search', toolName: 'mcp-github-search', serverName: 'github' },
+    ]);
+
+    expect(added).toBe(0);
+    expect(stored()).toHaveLength(0);
+  });
+
+  it('counts only genuinely new tools, not repaired ones', async () => {
     mocks.agentRow = {
       assigned: [
         {
@@ -130,8 +232,10 @@ describe('assign — approval policy survives the write', () => {
       { toolId: 'mcp-github-search', toolName: 'mcp-github-search', serverName: 'github' },
     ]);
 
+    // The row IS rewritten (its missing policy is repaired), but nothing new was
+    // assigned, so the caller's "assigned N tools" log must not claim otherwise.
     expect(added).toBe(0);
-    expect(mocks.updates).toHaveLength(0);
+    expect(stored()[0].requiresApproval).toBe(true);
   });
 
   it('assigns nothing to a missing agent', async () => {
