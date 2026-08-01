@@ -67,11 +67,26 @@ export interface McpToolRegistration {
   displayName: string;
   description: string;
   parameters: Record<string, unknown>;
+  requiresApproval: boolean;
   metadata: {
     mcpServer: string;
     mcpTool: string;
     protocol: 'mcp';
+    annotations?: Record<string, unknown>;
   };
+}
+
+/**
+ * A discovered tool runs against a real external account under the user's own
+ * credential, so it defaults to approval-required. Only an explicit
+ * `readOnlyHint: true` from the server downgrades that, and a `destructiveHint`
+ * overrides the hint entirely — an unannotated or oddly-typed hint must not be
+ * read as "safe".
+ */
+function requiresApprovalFor(annotations: Record<string, unknown> | undefined): boolean {
+  if (!annotations) return true;
+  if (annotations.destructiveHint === true) return true;
+  return annotations.readOnlyHint !== true;
 }
 
 /**
@@ -98,13 +113,24 @@ export function buildMcpToolRegistration(
       ? (tool.inputSchema as Record<string, unknown>)
       : {};
 
+  const annotations =
+    tool.annotations && typeof tool.annotations === 'object'
+      ? (tool.annotations as Record<string, unknown>)
+      : undefined;
+
   return {
     id: key,
     name: key,
     displayName: rawName,
     description,
     parameters,
-    metadata: { mcpServer: serverName, mcpTool: rawName, protocol: 'mcp' },
+    requiresApproval: requiresApprovalFor(annotations),
+    metadata: {
+      mcpServer: serverName,
+      mcpTool: rawName,
+      protocol: 'mcp',
+      ...(annotations ? { annotations } : {}),
+    },
   };
 }
 

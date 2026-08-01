@@ -15,6 +15,12 @@ export interface IntegrationMcpToolDescriptor {
   name: string;
   description?: string;
   inputSchema: Record<string, unknown>;
+  /**
+   * Preserved verbatim from tools/list. readOnlyHint / destructiveHint decide
+   * whether the registered tool requires approval, so dropping them here would
+   * silently auto-approve every mutating third-party action.
+   */
+  annotations?: Record<string, unknown>;
 }
 
 export interface IntegrationMcpExecutorOptions {
@@ -47,6 +53,7 @@ function toToolDescriptor(tool: {
   name: string;
   description?: string;
   inputSchema?: unknown;
+  annotations?: unknown;
 }): IntegrationMcpToolDescriptor {
   return {
     name: tool.name,
@@ -55,6 +62,9 @@ function toToolDescriptor(tool: {
       typeof tool.inputSchema === 'object' && tool.inputSchema !== null
         ? (tool.inputSchema as Record<string, unknown>)
         : {},
+    ...(typeof tool.annotations === 'object' && tool.annotations !== null
+      ? { annotations: tool.annotations as Record<string, unknown> }
+      : {}),
   };
 }
 

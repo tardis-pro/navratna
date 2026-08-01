@@ -115,6 +115,62 @@ describe('buildMcpToolRegistration', () => {
     expect(github.displayName).toBe(slack.displayName);
   });
 
+  it('requires approval for a third-party tool with no annotations', () => {
+    const registration = buildMcpToolRegistration('github', { name: 'create_issue' });
+
+    expect(
+      registration.requiresApproval,
+      'an unannotated remote tool may mutate a real external system, so it must not auto-approve'
+    ).toBe(true);
+  });
+
+  it('does not require approval for a tool the server marks read-only', () => {
+    const registration = buildMcpToolRegistration('github', {
+      name: 'search',
+      annotations: { readOnlyHint: true },
+    });
+
+    expect(registration.requiresApproval).toBe(false);
+  });
+
+  it('requires approval when the server marks the tool destructive', () => {
+    const registration = buildMcpToolRegistration('github', {
+      name: 'delete_repo',
+      annotations: { readOnlyHint: false, destructiveHint: true },
+    });
+
+    expect(registration.requiresApproval).toBe(true);
+  });
+
+  it('lets destructiveHint override a contradictory readOnlyHint', () => {
+    // A server advertising BOTH is self-contradictory; the destructive claim has
+    // to win, or a mislabelled delete would auto-approve.
+    const registration = buildMcpToolRegistration('github', {
+      name: 'delete_repo',
+      annotations: { readOnlyHint: true, destructiveHint: true },
+    });
+
+    expect(registration.requiresApproval).toBe(true);
+  });
+
+  it('ignores a readOnlyHint that is not a boolean', () => {
+    const registration = buildMcpToolRegistration('github', {
+      name: 'search',
+      annotations: { readOnlyHint: 'yes' },
+    });
+
+    expect(registration.requiresApproval).toBe(true);
+  });
+
+  it('preserves the server annotations so policy can be revisited later', () => {
+    const registration = buildMcpToolRegistration('github', {
+      name: 'search',
+      annotations: { readOnlyHint: true, title: 'Search' },
+    });
+
+    expect(registration.metadata.annotations).toEqual({ readOnlyHint: true, title: 'Search' });
+  });
+
   it('carries the input schema through as parameters', () => {
     const schema = { type: 'object', properties: { q: { type: 'string' } } };
     const registration = buildMcpToolRegistration('github', {

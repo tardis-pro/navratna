@@ -12,7 +12,10 @@ import {
   McpConnectionResolver,
 } from '@uaip/shared-services';
 import type { EventBusService } from '@uaip/infra';
-import { IntegrationMcpExecutor } from './integration_mcp_executor.js';
+import {
+  IntegrationMcpExecutor,
+  type IntegrationMcpToolDescriptor,
+} from './integration_mcp_executor.js';
 import { buildMcpToolRegistration, mcpToolKey } from '../utils/mcp_tool_key.js';
 
 export interface IntegrationCatalogDiscoveryOptions {
@@ -264,7 +267,7 @@ export class IntegrationCatalogDiscovery {
 
   private async registerTools(
     serverKey: string,
-    tools: { name: string; description?: string; inputSchema: Record<string, unknown> }[],
+    tools: IntegrationMcpToolDescriptor[],
     eventBus?: EventBusService
   ): Promise<void> {
     if (!eventBus) return;
@@ -274,6 +277,7 @@ export class IntegrationCatalogDiscovery {
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
+        annotations: tool.annotations,
       });
 
       // oxlint-disable-next-line no-await-in-loop -- ToolRegistry upserts by name; concurrent publishes of the same server's tools race on that unique constraint
@@ -283,7 +287,6 @@ export class IntegrationCatalogDiscovery {
           category: ToolCategory.API,
           version: '1.0.0',
           isEnabled: true,
-          requiresApproval: false,
           costEstimate: 0.01,
           executionTimeEstimate: 5000,
           metadata: { ...registration.metadata, inputSchema: registration.parameters },
