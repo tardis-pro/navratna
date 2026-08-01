@@ -84,6 +84,20 @@ export interface OAuthAuthorizationOptions {
  * user connects it. Applied only to an integration connect — a sign-in needs no
  * long-lived grant and should not re-prompt a user who already consented.
  */
+/**
+ * RFC 8707 resource indicator, echoed from the provider's additionalParams. The
+ * MCP authorization spec requires it on the authorization request AND the token
+ * request; sending it only on the former yields a token bound to no audience,
+ * which the resource server rejects. Carried through refresh too, so a renewed
+ * token keeps the audience the original grant was issued for.
+ */
+function resourceIndicatorFor(provider: {
+  additionalParams?: Record<string, string>;
+}): Record<string, string> {
+  const resource = provider.additionalParams?.resource;
+  return resource ? { resource } : {};
+}
+
 function offlineAccessParamsFor(
   type: OAuthProviderType | undefined,
   intent: OAuthAuthorizationIntent | undefined
@@ -904,6 +918,7 @@ export class OAuthProviderService {
       code,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
+      ...resourceIndicatorFor(provider),
     };
     if (codeVerifier) {
       tokenParams['code_verifier'] = codeVerifier;
@@ -948,6 +963,7 @@ export class OAuthProviderService {
       client_secret: provider.clientSecret ? await this.decryptSecret(provider.clientSecret) : '',
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
+      ...resourceIndicatorFor(provider),
     });
 
     const response: AxiosResponse<OAuthTokenResponse> = await axios.post(endpoints.token, params, {
