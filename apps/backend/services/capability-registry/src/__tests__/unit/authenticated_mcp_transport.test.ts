@@ -266,6 +266,51 @@ describe('McpSessionCache', () => {
     expect(cache.size()).toBe(1);
   });
 
+  it('does not let a session opened before invalidation land in the cache', async () => {
+    const cache = new McpSessionCache({ maxEntries: 4, idleTtlMs: 60_000, now });
+    const close = vi.fn().mockResolvedValue(undefined);
+    const client = stubClient(close);
+    let resolveFactory: (value: AuthenticatedMcpClient) => void = () => undefined;
+    const factory = vi.fn().mockImplementation(
+      () =>
+        new Promise<AuthenticatedMcpClient>((resolve) => {
+          resolveFactory = resolve;
+        })
+    );
+
+    const inFlight = cache.getOrCreate(key(), factory);
+    await vi.waitFor(() => expect(factory).toHaveBeenCalled());
+
+    // Revocation lands while the session is still being opened.
+    await cache.invalidate(key());
+    resolveFactory(client);
+    await inFlight;
+
+    expect(cache.size()).toBe(0);
+    expect(close).toHaveBeenCalled();
+  });
+
+  it('does not let invalidateConnection be undone by an in-flight session', async () => {
+    const cache = new McpSessionCache({ maxEntries: 4, idleTtlMs: 60_000, now });
+    const client = stubClient();
+    let resolveFactory: (value: AuthenticatedMcpClient) => void = () => undefined;
+    const factory = vi.fn().mockImplementation(
+      () =>
+        new Promise<AuthenticatedMcpClient>((resolve) => {
+          resolveFactory = resolve;
+        })
+    );
+
+    const inFlight = cache.getOrCreate(key({ connectionId: 'doomed' }), factory);
+    await vi.waitFor(() => expect(factory).toHaveBeenCalled());
+
+    await cache.invalidateConnection('doomed');
+    resolveFactory(client);
+    await inFlight;
+
+    expect(cache.size()).toBe(0);
+  });
+
   it('does not poison the cache when creation fails', async () => {
     const cache = new McpSessionCache({ maxEntries: 4, idleTtlMs: 60_000, now });
     const client = stubClient();

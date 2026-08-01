@@ -44,6 +44,11 @@ interface McpSessionCacheEntry {
   lastUsed: number;
 }
 
+interface McpSessionCacheAttempt {
+  connectionId: string;
+  promise: Promise<AuthenticatedMcpClient>;
+}
+
 const DEFAULT_AUTH_HEADER_NAME = 'Authorization';
 const DEFAULT_AUTH_SCHEME = 'Bearer';
 const DEFAULT_CLIENT_NAME = 'uaip-capability-registry';
@@ -108,7 +113,11 @@ export class McpSessionCache {
   private readonly idleTtlMs: number;
   private readonly now: () => number;
   private readonly entries = new Map<string, McpSessionCacheEntry>();
-  private readonly inFlight = new Map<string, Promise<AuthenticatedMcpClient>>();
+  private readonly inFlight = new Map<string, McpSessionCacheAttempt>();
+  // Keys invalidated while their session was still being opened. Without this the
+  // attempt would finish AFTER the revocation and cache a session built on the
+  // credential that was just revoked.
+  private readonly invalidatedInFlight = new Set<string>();
 
   constructor(options: McpSessionCacheOptions) {
     this.maxEntries = options.maxEntries;
@@ -135,21 +144,30 @@ export class McpSessionCache {
     }
 
     const pending = this.inFlight.get(serialized);
-    if (pending) return pending;
+    if (pending) return pending.promise;
 
     // Registered before the first await so a concurrent caller joins this attempt
     // rather than opening a second session to the same server for the same binding.
+    this.invalidatedInFlight.delete(serialized);
     const attempt = factory();
-    this.inFlight.set(serialized, attempt);
+    this.inFlight.set(serialized, { connectionId: key.connectionId, promise: attempt });
 
     let client: AuthenticatedMcpClient;
     try {
       client = await attempt;
     } catch (error) {
       this.inFlight.delete(serialized);
+      this.invalidatedInFlight.delete(serialized);
       throw error;
     }
     this.inFlight.delete(serialized);
+
+    // An invalidation that landed while this was opening must win: caching now
+    // would resurrect a session built on a credential that is already revoked.
+    if (this.invalidatedInFlight.delete(serialized)) {
+      await this.closeQuietly(client);
+      return client;
+    }
 
     this.entries.set(serialized, {
       connectionId: key.connectionId,
@@ -170,17 +188,27 @@ export class McpSessionCache {
       .filter(([, entry]) => entry.connectionId === connectionId)
       .map(([serialized]) => serialized);
 
+    // A session still being opened for this connection is doomed too — otherwise
+    // revoking a credential races with an in-flight open and loses.
+    for (const [serialized, attempt] of this.inFlight) {
+      if (attempt.connectionId === connectionId) this.invalidatedInFlight.add(serialized);
+    }
+
     await Promise.all(doomed.map((serialized) => this.evict(serialized)));
   }
 
   private async evict(serialized: string): Promise<void> {
     const entry = this.entries.get(serialized);
-    this.inFlight.delete(serialized);
+    if (this.inFlight.has(serialized)) this.invalidatedInFlight.add(serialized);
     if (!entry) return;
 
     this.entries.delete(serialized);
+    await this.closeQuietly(entry.client);
+  }
+
+  private async closeQuietly(client: AuthenticatedMcpClient): Promise<void> {
     try {
-      await entry.client.close();
+      await client.close();
     } catch (error) {
       // A session that is already gone server-side must not block eviction — the
       // entry is dropped either way, otherwise a dead session would be cached forever.

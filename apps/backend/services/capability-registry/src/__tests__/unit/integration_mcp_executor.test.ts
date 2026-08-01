@@ -291,12 +291,37 @@ describe('expired remote session recovery', () => {
 
   it('re-resolves the credential before reopening, so a token rotated mid-flight is used', async () => {
     const h = makeHarness();
+    // A 401 is exactly what a rotated-out token looks like, so retrying with the
+    // SAME credential can only fail again.
+    h.resolve
+      .mockResolvedValueOnce(connection())
+      .mockResolvedValue(
+        connection({ credential: { accessToken: 'token-B', tokenVersion: 2 } })
+      );
     h.callTool.mockRejectedValueOnce(httpError(401)).mockResolvedValueOnce({ content: [] });
 
     await h.executor.callTool(request(), 'search', {});
 
+    expect(h.resolve).toHaveBeenCalledTimes(2);
     expect(h.createdWith).toHaveLength(2);
-    expect(h.createdWith[1]).toMatchObject({ credential: { accessToken: 'token-A' } });
+    expect(h.createdWith[1]).toMatchObject({ credential: { accessToken: 'token-B' } });
+  });
+
+  it('keys the reopened session by the NEW token version, not the stale one', async () => {
+    const h = makeHarness();
+    h.resolve
+      .mockResolvedValueOnce(connection())
+      .mockResolvedValue(
+        connection({ credential: { accessToken: 'token-B', tokenVersion: 2 } })
+      );
+    h.callTool.mockRejectedValueOnce(httpError(401)).mockResolvedValueOnce({ content: [] });
+
+    await h.executor.callTool(request(), 'search', {});
+
+    // A third call must reuse the rotated session rather than opening a fourth.
+    await h.executor.callTool(request(), 'search', {});
+
+    expect(h.createClient).toHaveBeenCalledTimes(2);
   });
 });
 

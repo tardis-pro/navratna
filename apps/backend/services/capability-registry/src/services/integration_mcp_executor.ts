@@ -166,7 +166,16 @@ export class IntegrationMcpExecutor {
       });
 
       await this.sessionCache.invalidate(key);
-      const retried = await this.sessionCache.getOrCreate(key, () => this.openSession(connection));
+
+      // A 401 is what a rotated-out token looks like, so the credential must be
+      // resolved AGAIN — retrying with the same one can only fail identically.
+      // The new tokenVersion also changes the key, so the refreshed session is
+      // cached separately from the stale one.
+      const refreshed = await this.resolver.resolve(request);
+      const refreshedKey = this.sessionKey(request, refreshed);
+      const retried = await this.sessionCache.getOrCreate(refreshedKey, () =>
+        this.openSession(refreshed)
+      );
       return operation(retried);
     }
   }
