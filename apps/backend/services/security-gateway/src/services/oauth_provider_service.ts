@@ -65,6 +65,18 @@ interface ProviderEndpoints {
   revoke?: string;
 }
 
+/**
+ * `sign_in` mints a session; `connect_integration` stores the credential as an
+ * integration connection. Both share one registered redirect URI, so the intent
+ * has to travel in the OAuth state rather than the callback URL.
+ */
+export type OAuthAuthorizationIntent = 'sign_in' | 'connect_integration';
+
+export interface OAuthAuthorizationOptions {
+  userId?: string;
+  intent?: OAuthAuthorizationIntent;
+}
+
 export class OAuthProviderService {
   private providers: Map<string, OAuthProviderConfig> = new Map();
   private providerEndpoints: Map<OAuthProviderType, ProviderEndpoints> = new Map();
@@ -334,7 +346,8 @@ export class OAuthProviderService {
     providerId: string,
     redirectUri: string,
     userType: UserType = UserType.HUMAN,
-    agentCapabilities?: AgentCapability[]
+    agentCapabilities?: AgentCapability[],
+    options?: OAuthAuthorizationOptions
   ): Promise<{ url: string; state: string; codeVerifier?: string }> {
     try {
       await this.ensureProvidersLoaded();
@@ -404,6 +417,8 @@ export class OAuthProviderService {
         userType,
         agentCapabilities,
         codeVerifier: codeVerifier,
+        userId: options?.userId,
+        metadata: options?.intent ? { intent: options.intent } : undefined,
       });
 
       const urlParamEntries: Record<string, string> = {
@@ -452,6 +467,8 @@ export class OAuthProviderService {
     userInfo: OAuthUserInfo;
     provider: OAuthProviderConfig;
     oauthState: OAuthState;
+    intent: OAuthAuthorizationIntent;
+    stateUserId: string | null;
   }> {
     try {
       await this.ensureProvidersLoaded();
@@ -528,7 +545,18 @@ export class OAuthProviderService {
         userId: userInfo.id,
       });
 
-      return { tokens, userInfo, provider, oauthState };
+      const stateMetadata = isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata : {};
+      const intent: OAuthAuthorizationIntent =
+        stateMetadata.intent === 'connect_integration' ? 'connect_integration' : 'sign_in';
+
+      return {
+        tokens,
+        userInfo,
+        provider,
+        oauthState,
+        intent,
+        stateUserId: oauthStateEntity.userId ?? null,
+      };
     } catch (error) {
       logger.error('OAuth callback failed', {
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -2,13 +2,26 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
+import { UserType } from '@uaip/types';
 import {
   IntegrationConnectionService,
   IntegrationError,
   type IntegrationErrorCode,
 } from '@uaip/shared-services';
+import { OAuthProviderService } from '../services/oauth_provider_service.js';
+import { AuditService } from '../services/audit_service.js';
 
 import { getAuthUser } from './context_helpers.js';
+import { getOAuthCallbackUrl } from './oauth_elysia.js';
+
+let oauthProviderServiceSingleton: OAuthProviderService | null = null;
+
+function getOAuthProviderService(): OAuthProviderService {
+  if (!oauthProviderServiceSingleton) {
+    oauthProviderServiceSingleton = new OAuthProviderService(new AuditService());
+  }
+  return oauthProviderServiceSingleton;
+}
 
 const STATUS_BY_ERROR_CODE: Record<IntegrationErrorCode, number> = {
   connection_not_found: 404,
@@ -79,6 +92,39 @@ export function registerIntegrationRoutes() {
           return { success: true, providers: await service().listProviders() };
         } catch (error) {
           return respondToError(error, set, 'Failed to list integration providers');
+        }
+      })
+
+      .post('/providers/:providerKey/connect', async (ctx) => {
+        const user = getAuthUser(ctx);
+        const { set, params } = ctx;
+        try {
+          const provider = await service().findProviderByKey(params.providerKey);
+          if (!provider || !provider.enabled) {
+            set.status = 404;
+            return { success: false, error: 'Integration provider not found' };
+          }
+          if (!provider.oauthProviderId) {
+            set.status = 409;
+            return {
+              success: false,
+              error: `${provider.displayName} has no OAuth credentials configured on this server`,
+            };
+          }
+
+          const { url } = await getOAuthProviderService().generateAuthorizationUrl(
+            provider.oauthProviderId,
+            getOAuthCallbackUrl(),
+            UserType.HUMAN,
+            undefined,
+            // Bound at authorize time while the caller is authenticated — the
+            // callback is a bare browser redirect and cannot be trusted to say
+            // who it belongs to.
+            { userId: user.id, intent: 'connect_integration' }
+          );
+          return { success: true, authorizationUrl: url };
+        } catch (error) {
+          return respondToError(error, set, 'Failed to start integration authorization');
         }
       })
 

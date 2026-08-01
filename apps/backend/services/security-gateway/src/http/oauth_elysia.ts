@@ -9,6 +9,7 @@ import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@u
 import {
   UserService,
   OAuthService,
+  IntegrationConnectionService,
   getIntelligenceDb,
   agents,
   eq,
@@ -23,7 +24,7 @@ import { setAuthCookies } from './auth_elysia.js';
  * The SAME value must be used for the authorize step and the token exchange, so it is
  * centralized here. Override via OAUTH_CALLBACK_URL if the API host ever changes.
  */
-function getOAuthCallbackUrl(): string {
+export function getOAuthCallbackUrl(): string {
   return process.env.OAUTH_CALLBACK_URL || 'https://api.navratna.tardis.digital/api/v1/oauth/callback';
 }
 
@@ -144,6 +145,68 @@ function toConnectionSummary(row: {
     updatedAt: row.updatedAt.toISOString(),
     metadata: row.metadata ?? {},
   };
+}
+
+/**
+ * Completes a `connect_integration` callback: exchanges the code and stores the
+ * credential as an integration connection owned by the user who STARTED the flow.
+ *
+ * The owner is read from the OAuth state, never from the request. The callback is
+ * an unauthenticated browser redirect, so any session or parameter it carries
+ * could belong to a different user than the one who authorized.
+ */
+async function completeIntegrationConnect(code: string, state: string): Promise<string> {
+  const frontend = getFrontendBaseUrl();
+  const { oauthProviderService, auditService } = getServices();
+
+  const callback = await oauthProviderService.handleCallback(
+    code,
+    state,
+    getOAuthCallbackUrl()
+  );
+
+  if (!callback.stateUserId) {
+    logger.error('Integration connect callback has no bound user', {
+      providerId: callback.provider.id,
+    });
+    return `${frontend}/?integration_error=${encodeURIComponent('connect_state_missing_user')}`;
+  }
+  if (!callback.provider.id) {
+    return `${frontend}/?integration_error=${encodeURIComponent('provider_missing_id')}`;
+  }
+
+  const integrations = IntegrationConnectionService.getInstance();
+  const provider = await integrations.findProviderByOAuthProviderId(callback.provider.id);
+  if (!provider) {
+    logger.error('No integration provider maps to this OAuth provider', {
+      oauthProviderId: callback.provider.id,
+    });
+    return `${frontend}/?integration_error=${encodeURIComponent('integration_provider_not_found')}`;
+  }
+
+  await integrations.upsertConnectionForOwner({
+    providerId: provider.id,
+    ownerUserId: callback.stateUserId,
+    accessToken: callback.tokens.access_token,
+    refreshToken: callback.tokens.refresh_token,
+    scopes: callback.provider.scope ?? [],
+    expiresAt: callback.tokens.expires_in
+      ? new Date(Date.now() + callback.tokens.expires_in * 1000)
+      : undefined,
+  });
+
+  await auditService.logEvent({
+    eventType: AuditEventType.SECURITY_CONFIG_CHANGE,
+    userId: callback.stateUserId,
+    details: { action: 'connect_integration', providerKey: provider.key },
+  });
+
+  logger.info('Integration connected', {
+    userId: callback.stateUserId,
+    providerKey: provider.key,
+  });
+
+  return `${frontend}/?integration_connected=${encodeURIComponent(provider.key)}`;
 }
 
 export function registerOAuthRoutes() {
@@ -325,6 +388,23 @@ export function registerOAuthRoutes() {
         const { enhancedAuthService, auditService } = getServices();
         const ipAddress = request.headers.get('x-forwarded-for') || '';
         const userAgent = headers['user-agent'];
+
+        // Peek at the state WITHOUT consuming it: both flows share this one
+        // registered redirect URI, and only the state says which one this is.
+        // authenticateWithOAuth consumes the state, so the branch must happen first.
+        const pendingState = await OAuthService.getInstance().findOAuthState(state);
+        const pendingMetadata =
+          pendingState && typeof pendingState.metadata === 'object' && pendingState.metadata !== null
+            ? (pendingState.metadata as Record<string, unknown>)
+            : {};
+
+        if (pendingMetadata.intent === 'connect_integration') {
+          const redirect = await completeIntegrationConnect(code, state);
+          set.status = 302;
+          set.headers['Location'] = redirect;
+          return '';
+        }
+
         const authResult = await enhancedAuthService.authenticateWithOAuth(
           code,
           state,

@@ -20,6 +20,14 @@ export interface IntegrationProviderSummary {
   description?: string;
 }
 
+export interface IntegrationProviderRef {
+  id: string;
+  key: string;
+  displayName: string;
+  oauthProviderId: string | null;
+  enabled: boolean;
+}
+
 export interface IntegrationConnectionSummary {
   id: string;
   providerId: string;
@@ -106,6 +114,96 @@ export class IntegrationConnectionService {
 
   private get db() {
     return getControlDb();
+  }
+
+  async findProviderByKey(key: string): Promise<IntegrationProviderRef | null> {
+    const [row] = await this.db
+      .select({
+        id: integrationProviders.id,
+        key: integrationProviders.key,
+        displayName: integrationProviders.displayName,
+        oauthProviderId: integrationProviders.oauthProviderId,
+        enabled: integrationProviders.enabled,
+      })
+      .from(integrationProviders)
+      .where(eq(integrationProviders.key, key))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  /**
+   * Maps the OAuth provider that completed a callback back to the integration it
+   * belongs to. The callback only knows which oauth_providers row was used.
+   */
+  async findProviderByOAuthProviderId(
+    oauthProviderId: string
+  ): Promise<IntegrationProviderRef | null> {
+    const [row] = await this.db
+      .select({
+        id: integrationProviders.id,
+        key: integrationProviders.key,
+        displayName: integrationProviders.displayName,
+        oauthProviderId: integrationProviders.oauthProviderId,
+        enabled: integrationProviders.enabled,
+      })
+      .from(integrationProviders)
+      .where(eq(integrationProviders.oauthProviderId, oauthProviderId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  /**
+   * Re-connecting must not strand the previous credential: a second active row
+   * for the same provider would leave existing bindings pointing at the older,
+   * now-superseded token.
+   */
+  async upsertConnectionForOwner(
+    input: CreateIntegrationConnectionInput
+  ): Promise<IntegrationConnectionSummary> {
+    const [existing] = await this.db
+      .select({ id: integrationConnections.id })
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.providerId, input.providerId),
+          eq(integrationConnections.ownerUserId, input.ownerUserId)
+        )
+      )
+      .limit(1);
+
+    if (!existing) return this.createConnection(input);
+
+    await this.rotateConnectionToken(
+      existing.id,
+      input.ownerUserId,
+      input.accessToken,
+      input.expiresAt
+    );
+
+    const [refreshed] = await this.db
+      .select({
+        id: integrationConnections.id,
+        providerId: integrationConnections.providerId,
+        providerKey: integrationProviders.key,
+        ownerUserId: integrationConnections.ownerUserId,
+        authKind: integrationConnections.authKind,
+        scopes: integrationConnections.scopes,
+        status: integrationConnections.status,
+        expiresAt: integrationConnections.expiresAt,
+        createdAt: integrationConnections.createdAt,
+        updatedAt: integrationConnections.updatedAt,
+      })
+      .from(integrationConnections)
+      .innerJoin(
+        integrationProviders,
+        eq(integrationConnections.providerId, integrationProviders.id)
+      )
+      .where(eq(integrationConnections.id, existing.id))
+      .limit(1);
+
+    return this.toConnectionSummary(refreshed);
   }
 
   async listProviders(): Promise<IntegrationProviderSummary[]> {

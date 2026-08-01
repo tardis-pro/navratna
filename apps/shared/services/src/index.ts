@@ -124,6 +124,7 @@ export {
   IntegrationError,
   type IntegrationErrorCode,
   type IntegrationProviderSummary,
+  type IntegrationProviderRef,
   type IntegrationConnectionSummary,
   type IntegrationBindingSummary,
   type CreateIntegrationConnectionInput,

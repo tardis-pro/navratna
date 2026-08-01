@@ -90,6 +90,30 @@ export const ProjectIntegrations: React.FC<ProjectIntegrationsProps> = ({
     [providers, bindings, connections]
   );
 
+  const handleConnect = useCallback(
+    async (provider: IntegrationProvider) => {
+      setPendingProviderId(provider.id);
+      try {
+        const authorizationUrl = await integrationsAPI.startConnect(provider.key);
+        if (!authorizationUrl) {
+          throw new Error('No authorization URL returned');
+        }
+        // Full navigation, not a popup: the provider returns to our own callback,
+        // which finishes the connect and redirects back here.
+        window.location.href = authorizationUrl;
+      } catch (connectError) {
+        toast({
+          title: `Could not connect ${provider.displayName}`,
+          description:
+            connectError instanceof Error ? connectError.message : 'Unexpected error',
+          variant: 'destructive',
+        });
+        setPendingProviderId(null);
+      }
+    },
+    [toast]
+  );
+
   const handleLink = useCallback(
     async (provider: IntegrationProvider, connectionId: string) => {
       setPendingProviderId(provider.id);
@@ -219,9 +243,20 @@ export const ProjectIntegrations: React.FC<ProjectIntegrationsProps> = ({
                   </SelectContent>
                 </Select>
               ) : (
-                <span className="text-sm text-slate-500">
-                  Connect {provider.displayName} in Settings first
-                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending || !provider.configured}
+                  title={
+                    provider.configured
+                      ? `Connect your ${provider.displayName} account`
+                      : `${provider.displayName} has no OAuth credentials configured on the server`
+                  }
+                  onClick={() => void handleConnect(provider)}
+                >
+                  <Plug className="mr-2 h-3.5 w-3.5" />
+                  Connect
+                </Button>
               )}
               {isPending ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
             </div>

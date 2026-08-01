@@ -54,6 +54,15 @@ export interface CreateIntegrationConnectionRequest {
 const BASE = '/api/v1/integrations';
 
 export const integrationsAPI = {
+  /** Returns the provider's authorization URL; the browser must navigate to it. */
+  async startConnect(providerKey: string): Promise<string | null> {
+    const response = await edenRequest<{ authorizationUrl: string }>(
+      `${BASE}/providers/${encodeURIComponent(providerKey)}/connect`,
+      { method: 'POST' }
+    );
+    return response?.authorizationUrl ?? null;
+  },
+
   async listProviders(): Promise<IntegrationProvider[]> {
     const response = await edenRequest<{ providers: IntegrationProvider[] }>(`${BASE}/providers`, {
       method: 'GET',

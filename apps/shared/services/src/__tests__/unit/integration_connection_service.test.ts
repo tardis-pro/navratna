@@ -16,6 +16,7 @@ const { mocks } = vi.hoisted(() => ({
     updates: [] as Record<string, unknown>[],
     deleteReturns: [] as unknown[],
     deletePredicateColumns: [] as string[],
+    predicateColumnsByTable: new Map<unknown, string[]>(),
     encrypt: vi.fn(),
   },
 }));
@@ -43,7 +44,10 @@ vi.mock('../../database/drizzle/clients/index', () => ({
       // `from(table)` is itself awaited when a query has no WHERE (listProviders),
       // so the builder must be thenable as well as chainable.
       from: (table: unknown) => ({
-        where: () => ({ limit: async () => mocks.rowsByTable.get(table) ?? [] }),
+        where: (condition: unknown) => {
+          mocks.predicateColumnsByTable.set(table, collectPredicateColumns(condition));
+          return { limit: async () => mocks.rowsByTable.get(table) ?? [] };
+        },
         limit: async () => mocks.rowsByTable.get(table) ?? [],
         innerJoin: () => ({
           where: () => ({
@@ -129,6 +133,7 @@ beforeEach(() => {
   mocks.updates.length = 0;
   mocks.deleteReturns = [];
   mocks.deletePredicateColumns = [];
+  mocks.predicateColumnsByTable.clear();
   // Must not echo the plaintext: an echoing stub would make the "token never
   // reaches the row" assertion unfalsifiable and hide a real leak.
   mocks.encrypt
@@ -258,6 +263,115 @@ describe('createConnection', () => {
 
     expect(JSON.stringify(connection)).not.toContain('super-secret');
     expect(JSON.stringify(connection)).not.toContain(enc('super-secret'));
+  });
+});
+
+describe('findProviderByOAuthProviderId', () => {
+  it('maps the OAuth provider that completed a callback back to its integration', async () => {
+    mocks.rowsByTable.set(integrationProviders, [
+      {
+        id: PROVIDER_ID,
+        key: 'github',
+        displayName: 'GitHub',
+        oauthProviderId: 'oauth-1',
+        enabled: true,
+      },
+    ]);
+
+    const provider = await service().findProviderByOAuthProviderId('oauth-1');
+
+    expect(provider).toMatchObject({ id: PROVIDER_ID, key: 'github' });
+  });
+
+  it('returns null when no integration owns that OAuth provider', async () => {
+    mocks.rowsByTable.set(integrationProviders, []);
+
+    await expect(service().findProviderByOAuthProviderId('oauth-1')).resolves.toBeNull();
+  });
+});
+
+describe('upsertConnectionForOwner', () => {
+  const refreshedRow = {
+    id: CONNECTION_ID,
+    providerId: PROVIDER_ID,
+    providerKey: 'github',
+    ownerUserId: OWNER_ID,
+    authKind: 'oauth2',
+    scopes: ['repo'],
+    status: IntegrationConnectionStatus.ACTIVE,
+    expiresAt: null,
+    ...timestamps,
+  };
+
+  it('creates a connection the first time a user connects', async () => {
+    mocks.rowsByTable.set(integrationConnections, []);
+    mocks.rowsByTable.set(integrationProviders, [{ id: PROVIDER_ID, key: 'github' }]);
+    mocks.insertReturns = [refreshedRow];
+
+    await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'first-token',
+    });
+
+    expect(mocks.inserted).toHaveLength(1);
+    expect(mocks.inserted[0].accessTokenEncrypted).toBe(enc('first-token'));
+  });
+
+  it('rotates the existing connection instead of stranding it behind a second row', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 4 }]);
+    mocks.joinRows = [refreshedRow];
+
+    await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'second-token',
+    });
+
+    expect(mocks.inserted).toHaveLength(0);
+    expect(mocks.updates[0].accessTokenEncrypted).toBe(enc('second-token'));
+  });
+
+  it('bumps the token version on re-connect so cached sessions are invalidated', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 7 }]);
+    mocks.joinRows = [refreshedRow];
+
+    await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'second-token',
+    });
+
+    expect(mocks.updates[0].tokenVersion).toBe(8);
+  });
+
+  it('scopes the existing-connection lookup by owner as well as provider', async () => {
+    mocks.rowsByTable.set(integrationConnections, []);
+    mocks.rowsByTable.set(integrationProviders, [{ id: PROVIDER_ID, key: 'github' }]);
+    mocks.insertReturns = [refreshedRow];
+
+    await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'first-token',
+    });
+
+    const columns = mocks.predicateColumnsByTable.get(integrationConnections) ?? [];
+    expect(columns).toEqual(expect.arrayContaining(['provider_id', 'owner_user_id']));
+  });
+
+  it('never returns the raw token', async () => {
+    mocks.rowsByTable.set(integrationConnections, []);
+    mocks.rowsByTable.set(integrationProviders, [{ id: PROVIDER_ID, key: 'github' }]);
+    mocks.insertReturns = [refreshedRow];
+
+    const connection = await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'super-secret',
+    });
+
+    expect(JSON.stringify(connection)).not.toContain('super-secret');
   });
 });
 

@@ -95,6 +95,8 @@ export class OAuthService extends BaseDomainService {
     agentCapabilities?: AgentCapability[];
     codeVerifier?: string;
     nonce?: string;
+    userId?: string;
+    metadata?: Record<string, unknown>;
   }): Promise<OAuthState> {
     const state = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 600000);
@@ -107,7 +109,13 @@ export class OAuthService extends BaseDomainService {
         providerId: data.providerId,
         redirectUrl: data.redirectUri,
         expiresAt,
+        // The acting user is bound into the state at authorize time, while the
+        // caller is still authenticated. The callback arrives as a bare browser
+        // redirect, so trusting anything it carries would let one user complete
+        // another user's flow and capture the credential.
+        userId: data.userId ?? null,
         metadata: {
+          ...data.metadata,
           userType: data.userType || UserType.HUMAN,
           agentCapabilities: data.agentCapabilities,
           codeVerifier: data.codeVerifier,
