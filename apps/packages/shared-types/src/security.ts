@@ -10,6 +10,18 @@ export enum SecurityLevel {
   CRITICAL = 'critical',
 }
 
+/**
+ * Numeric ordering for SecurityLevel. A clearance and a requirement are compared
+ * as numbers, so both sides must read the SAME map — two local copies that drift
+ * silently either lock every caller out or let every caller through.
+ */
+export const SECURITY_CLEARANCE_LEVELS: Record<SecurityLevel, number> = {
+  [SecurityLevel.LOW]: 1,
+  [SecurityLevel.MEDIUM]: 2,
+  [SecurityLevel.HIGH]: 3,
+  [SecurityLevel.CRITICAL]: 4,
+};
+
 export enum PermissionType {
   READ = 'read',
   WRITE = 'write',

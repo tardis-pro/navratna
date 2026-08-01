@@ -4,7 +4,7 @@
  * Combines features from toolRegistry.ts and enterprise-tool-registry.ts
  */
 
-import { ToolDefinition, ToolCategory, SecurityLevel } from '@uaip/types';
+import { ToolDefinition, ToolCategory, SecurityLevel, SECURITY_CLEARANCE_LEVELS } from '@uaip/types';
 import { ToolService, isProjectTaskToolId, isCalendarToolId } from '@uaip/shared-services';
 import { DatabaseService } from '@uaip/infra';
 import { EventBusService } from '@uaip/infra';
@@ -1112,13 +1112,9 @@ export class UnifiedToolRegistry {
 
   // Additional helper methods
   private getRequiredSecurityLevel(toolSecurityLevel: string): number {
-    const levelMap: Record<string, number> = {
-      low: 1,
-      medium: 2,
-      high: 3,
-      critical: 4,
-    };
-    return levelMap[toolSecurityLevel] ?? 2;
+    return isSecurityLevel(toolSecurityLevel)
+      ? SECURITY_CLEARANCE_LEVELS[toolSecurityLevel]
+      : SECURITY_CLEARANCE_LEVELS[SecurityLevel.MEDIUM];
   }
 
   private async getToolExecutor(tool: UnifiedToolDefinition): Promise<ToolExecutor | null> {

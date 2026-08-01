@@ -1,6 +1,8 @@
 import { DatabaseService } from '@uaip/infra/database';
 import { EventBusService } from '@uaip/infra';
 import { redisCacheService } from '@uaip/infra/cache';
+import { UserService } from '@uaip/shared-services';
+import { SecurityLevel, SECURITY_CLEARANCE_LEVELS } from '@uaip/types';
 import { logger } from '@uaip/utils';
 import { randomUUID } from 'crypto';
 import { UnifiedToolRegistry } from './unified_tool_registry.js';
@@ -101,6 +103,30 @@ export class ToolExecutionCoordinator {
 
   private asString(value: unknown): string | null {
     return typeof value === 'string' ? value : null;
+  }
+
+  /**
+   * The caller's clearance, read from the user record rather than taken from the
+   * event: the request originates from an LLM tool call, so anything carried in
+   * the payload is ultimately model-influenced and cannot grant privilege.
+   * Unknown or missing users fall to the lowest level so the registry's own check
+   * refuses rather than waves the call through.
+   */
+  private async resolveSecurityLevel(userId: string | undefined): Promise<number> {
+    if (!userId) return 1;
+    try {
+      const details = await UserService.getInstance()
+        .getUserRepository()
+        .getUserAuthDetails(userId);
+      if (!details?.isActive) return 1;
+      return SECURITY_CLEARANCE_LEVELS[details.securityClearance ?? SecurityLevel.LOW] ?? 1;
+    } catch (error) {
+      logger.warn('Could not read the caller clearance; using the lowest level', {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return 1;
+    }
   }
 
   private toToolExecutionEvent(data: unknown): ToolExecutionEvent | null {
@@ -283,6 +309,7 @@ export class ToolExecutionCoordinator {
           userId: event.userId || '',
           agentId: event.agentId,
           projectId: event.projectId,
+          securityContext: { level: await this.resolveSecurityLevel(event.userId) },
         }
       );
 
@@ -356,6 +383,7 @@ export class ToolExecutionCoordinator {
           userId: event.userId || '',
           agentId: event.agentId,
           projectId: event.projectId,
+          securityContext: { level: await this.resolveSecurityLevel(event.userId) },
         }
       );
 
