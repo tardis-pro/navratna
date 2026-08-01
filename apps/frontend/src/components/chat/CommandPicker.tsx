@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { FolderKanban, CheckSquare, FileText, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { projectsAPI } from '@/api/projects_api';
+import type { Project } from '@uaip/types';
 
 export interface CommandOption {
   type: 'project' | 'task' | 'doc';
   label: string;
   icon: React.ReactNode;
+  /**
+   * Real backend id of the selected resource. A project chip without one is
+   * useless downstream: chat sends it as projectId, and an integration tool's
+   * credential is resolved from the (project, agent) binding, so a synthesized id
+   * matches no binding and every such tool is refused.
+   */
+  resourceId?: string;
 }
 
 interface CommandPickerProps {
@@ -20,13 +29,34 @@ export const CommandPicker: React.FC<CommandPickerProps> = ({
   searchQuery,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  // Real projects, not a hardcoded '/project' placeholder: the chosen id becomes
+  // the chat's projectId, which the backend resolves an integration credential
+  // from. A synthesized id matches no binding, so every integration tool is
+  // refused while the picker still looks functional.
+  useEffect(() => {
+    let cancelled = false;
+    projectsAPI
+      .list()
+      .then((list) => {
+        if (!cancelled) setProjects(list);
+      })
+      .catch(() => {
+        if (!cancelled) setProjects([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const commandOptions: CommandOption[] = [
-    {
-      type: 'project',
-      label: 'project',
+    ...projects.map((project) => ({
+      type: 'project' as const,
+      label: project.name,
+      resourceId: project.id,
       icon: <FolderKanban className="w-3.5 h-3.5" />,
-    },
+    })),
     {
       type: 'task',
       label: 'task',

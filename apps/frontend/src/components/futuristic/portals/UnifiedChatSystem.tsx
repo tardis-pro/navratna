@@ -271,10 +271,11 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // The project the user is currently working inside. Sent with every chat call:
   // an integration MCP tool's credential is bound to a (project, agent) pair, so
   // without it the resolver refuses every such tool.
+  // NO fallback to chip.id: that is a locally generated `cmd-*` key, not a project
+  // uuid. Falling back to it sends an id that matches no binding, which reads as
+  // "integration tools are broken" rather than "no project is selected".
   const activeProjectId =
-    activeContextChip?.type === 'project'
-      ? activeContextChip.resourceId || activeContextChip.id
-      : undefined;
+    activeContextChip?.type === 'project' ? activeContextChip.resourceId : undefined;
 
   // Portal-mode streaming state. `streamingMessageId` points at the placeholder
   // ChatMessage inside `portalMessages` whose `content` is being updated in
@@ -2272,6 +2273,10 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
                     id: chip.id,
                     type: chip.type,
                     label: chip.label,
+                    // Forwarding this is what makes the chip addressable: without it
+                    // activeProjectId is undefined and every integration tool is
+                    // withheld from the turn.
+                    ...(chip.resourceId ? { resourceId: chip.resourceId } : {}),
                   })}
                   onSubmit={(payload: ChatComposerSubmitPayload) => {
                     sendPortalMessageWithText(payload.text, payload.intent);

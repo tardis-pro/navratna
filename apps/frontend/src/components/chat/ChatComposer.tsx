@@ -66,6 +66,13 @@ export interface CommandChipStub {
   type: 'project' | 'task' | 'doc';
   /** Display label */
   label: string;
+  /**
+   * Real backend id of the picked resource. `id` above is a locally generated
+   * `cmd-*` key for list removal and is NOT addressable — chat sends this field as
+   * projectId, and an integration credential is resolved from the (project, agent)
+   * binding, so sending the local key matches no binding.
+   */
+  resourceId?: string;
 }
 
 export interface ChatComposerSubmitPayload {
@@ -359,6 +366,7 @@ export function ChatComposer({
       id: `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       type: option.type,
       label: option.label,
+      ...(option.resourceId ? { resourceId: option.resourceId } : {}),
     };
     setCommandChips((prev) => [...prev, chip]);
     setValue((prev) => {
