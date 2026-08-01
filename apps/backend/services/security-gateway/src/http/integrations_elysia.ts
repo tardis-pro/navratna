@@ -2,10 +2,12 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
-import { UserType } from '@uaip/types';
+import { INTEGRATION_CONNECTION_LINKED_EVENT, UserType } from '@uaip/types';
 import {
+  EventBusService,
   IntegrationConnectionService,
   IntegrationError,
+  type IntegrationBindingSummary,
   type IntegrationErrorCode,
 } from '@uaip/shared-services';
 import { OAuthProviderService } from '../services/oauth_provider_service.js';
@@ -21,6 +23,28 @@ function getOAuthProviderService(): OAuthProviderService {
     oauthProviderServiceSingleton = new OAuthProviderService(new AuditService());
   }
   return oauthProviderServiceSingleton;
+}
+
+/**
+ * A provider whose catalog needs the user's own credential is skipped by boot-time
+ * discovery, so linking is the only moment its tools can be registered. The event
+ * carries no token — the subscriber resolves the credential from the binding.
+ * Announcing must never fail the link: the binding is already stored.
+ */
+async function announceLinkedConnection(binding: IntegrationBindingSummary): Promise<void> {
+  try {
+    await EventBusService.getInstance().publish(INTEGRATION_CONNECTION_LINKED_EVENT, {
+      serverKey: binding.providerKey,
+      projectId: binding.projectId,
+      agentId: binding.agentId,
+      actorUserId: binding.createdByUserId,
+    });
+  } catch (error) {
+    logger.warn('Failed to announce a linked integration connection', {
+      providerKey: binding.providerKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 const STATUS_BY_ERROR_CODE: Record<IntegrationErrorCode, number> = {
@@ -228,6 +252,7 @@ export function registerIntegrationRoutes() {
             actorUserId: user.id,
             enabled: parsed.data.enabled,
           });
+          await announceLinkedConnection(binding);
           return { success: true, binding };
         } catch (error) {
           return respondToError(error, set, 'Failed to link integration connection');

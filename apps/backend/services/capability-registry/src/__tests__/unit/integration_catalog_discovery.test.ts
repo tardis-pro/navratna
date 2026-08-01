@@ -25,8 +25,10 @@ interface Harness {
   discovery: InstanceType<typeof IntegrationCatalogDiscovery>;
   listIntegrationServers: ReturnType<typeof vi.fn>;
   listCatalogTools: ReturnType<typeof vi.fn>;
+  listTools: ReturnType<typeof vi.fn>;
   publish: ReturnType<typeof vi.fn>;
-  eventBus: { publish: ReturnType<typeof vi.fn> };
+  subscribe: ReturnType<typeof vi.fn>;
+  eventBus: { publish: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
 }
 
 const server = (overrides: Record<string, unknown> = {}) => ({
@@ -41,14 +43,28 @@ const makeHarness = (): Harness => {
   const listCatalogTools = vi.fn().mockResolvedValue([
     { name: 'search_cloudflare_documentation', description: 'Search docs', inputSchema: {} },
   ]);
+  const listTools = vi
+    .fn()
+    .mockResolvedValue([{ name: 'create_issue', description: 'Create', inputSchema: {} }]);
   const publish = vi.fn().mockResolvedValue(undefined);
+  const subscribe = vi.fn().mockResolvedValue(undefined);
 
   const discovery = new IntegrationCatalogDiscovery({
     resolver: { listIntegrationServers } as unknown as NonNullable<DiscoveryOptions>['resolver'],
-    executor: { listCatalogTools } as unknown as NonNullable<DiscoveryOptions>['executor'],
+    executor: { listCatalogTools, listTools } as unknown as NonNullable<
+      DiscoveryOptions
+    >['executor'],
   });
 
-  return { discovery, listIntegrationServers, listCatalogTools, publish, eventBus: { publish } };
+  return {
+    discovery,
+    listIntegrationServers,
+    listCatalogTools,
+    listTools,
+    publish,
+    subscribe,
+    eventBus: { publish, subscribe },
+  };
 };
 
 let h: Harness;
@@ -209,5 +225,139 @@ describe('servers that cannot be catalogued', () => {
       discovered: ['cloudflare-docs'],
     });
     expect(h.publish).not.toHaveBeenCalled();
+  });
+});
+
+describe('discovery when a user links a connection', () => {
+  const LINK = {
+    serverKey: 'github',
+    projectId: 'proj-1',
+    agentId: 'agent-1',
+    actorUserId: 'user-1',
+  };
+
+  const envelope = (payload: unknown) => ({
+    id: 'evt_1',
+    type: 'integration.connection.linked',
+    source: 'security-gateway',
+    data: payload,
+    timestamp: new Date(),
+    version: '1.0.0',
+  });
+
+  const subscribedHandler = async (): Promise<(event: unknown) => Promise<void>> => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    return h.subscribe.mock.calls[0][1] as (event: unknown) => Promise<void>;
+  };
+
+  it('subscribes to the linked-connection event', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+
+    expect(h.subscribe).toHaveBeenCalledTimes(1);
+    expect(h.subscribe.mock.calls[0][0]).toBe('integration.connection.linked');
+  });
+
+  it('registers a caller_connection provider\'s tools, which boot discovery cannot', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.listTools).toHaveBeenCalledWith(LINK);
+    expect(h.publish).toHaveBeenCalledTimes(1);
+    const payload = h.publish.mock.calls[0][1] as { tool: { name: string } };
+    expect(payload.tool.name).toBe('mcp-github-create_issue');
+  });
+
+  it('reads the payload out of the bus envelope', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.listTools).toHaveBeenCalledWith(LINK);
+  });
+
+  it('uses the linking user\'s own credential, not a catalog one', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.listCatalogTools).not.toHaveBeenCalled();
+    expect(h.listTools.mock.calls[0][0].actorUserId).toBe('user-1');
+  });
+
+  it('scopes discovery to the exact project and agent that were linked', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope({ ...LINK, projectId: 'proj-9', agentId: 'agent-9' }));
+
+    expect(h.listTools.mock.calls[0][0]).toMatchObject({
+      projectId: 'proj-9',
+      agentId: 'agent-9',
+    });
+  });
+
+  it('publishes on the channel ToolRegistry subscribes to', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.publish.mock.calls[0][0]).toBe('tool.register');
+  });
+
+  it('registers every tool the provider exposes', async () => {
+    h.listTools.mockResolvedValue([
+      { name: 'create_issue', inputSchema: {} },
+      { name: 'search', inputSchema: {} },
+    ]);
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.publish).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['a missing serverKey', { projectId: 'p', agentId: 'a', actorUserId: 'u' }],
+    ['a missing actorUserId', { serverKey: 's', projectId: 'p', agentId: 'a' }],
+    ['a missing projectId', { serverKey: 's', agentId: 'a', actorUserId: 'u' }],
+    ['a non-object payload', 'nope'],
+  ])('ignores %s rather than discovering unscoped', async (_label, payload) => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(payload));
+
+    expect(h.listTools).not.toHaveBeenCalled();
+    expect(h.publish).not.toHaveBeenCalled();
+  });
+
+  it('never fails the link when discovery throws', async () => {
+    h.listTools.mockRejectedValue(new Error('provider unreachable'));
+    const handler = await subscribedHandler();
+
+    await expect(handler(envelope(LINK))).resolves.toBeUndefined();
+    expect(h.publish).not.toHaveBeenCalled();
+  });
+
+  it('reports how many tools it registered', async () => {
+    h.listTools.mockResolvedValue([
+      { name: 'a', inputSchema: {} },
+      { name: 'b', inputSchema: {} },
+    ]);
+
+    const count = await h.discovery.discoverForConnection(
+      LINK,
+      h.eventBus as unknown as Parameters<typeof h.discovery.discoverAll>[0]
+    );
+
+    expect(count).toBe(2);
+  });
+
+  it('warns instead of subscribing when there is no event bus', async () => {
+    await expect(h.discovery.initialize(undefined)).resolves.toBeUndefined();
+    expect(h.subscribe).not.toHaveBeenCalled();
   });
 });

@@ -249,7 +249,12 @@ export const capabilityFeature: Feature = {
     // MCPClientService's autoStart path never reaches them. Without this their
     // tools are never registered and no agent can see anything to call.
     try {
-      await IntegrationCatalogDiscovery.getInstance().discoverAll(deps?.eventBusService)
+      const integrationDiscovery = IntegrationCatalogDiscovery.getInstance()
+      // Subscribe BEFORE the boot sweep: a provider needing a user's own credential
+      // is deferred by the sweep and can only be discovered when a connection is
+      // linked, so missing that subscription leaves those providers with no tools.
+      await integrationDiscovery.initialize(deps?.eventBusService)
+      await integrationDiscovery.discoverAll(deps?.eventBusService)
     } catch (error) {
       logger.warn('Integration catalog discovery failed — remote MCP tools will not be listed', {
         error: error instanceof Error ? error.message : String(error),

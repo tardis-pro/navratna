@@ -1,5 +1,9 @@
 import { logger } from '@uaip/utils';
-import { ToolCategory } from '@uaip/types';
+import {
+  INTEGRATION_CONNECTION_LINKED_EVENT,
+  ToolCategory,
+  type IntegrationConnectionLinkedEvent,
+} from '@uaip/types';
 import { McpConnectionError, McpConnectionResolver } from '@uaip/shared-services';
 import type { EventBusService } from '@uaip/infra';
 import { IntegrationMcpExecutor } from './integration_mcp_executor.js';
@@ -8,6 +12,35 @@ import { buildMcpToolRegistration } from '../utils/mcp_tool_key.js';
 export interface IntegrationCatalogDiscoveryOptions {
   resolver?: McpConnectionResolver;
   executor?: IntegrationMcpExecutor;
+}
+
+export type IntegrationConnectionLinkedPayload = IntegrationConnectionLinkedEvent;
+
+function extractLinkedPayload(event: unknown): IntegrationConnectionLinkedPayload | null {
+  if (typeof event !== 'object' || event === null) return null;
+
+  // The bus delivers an envelope with the published payload under `data`; reading
+  // the top level instead is exactly what silently broke tool.register.
+  const envelope = event as { data?: unknown };
+  const source =
+    typeof envelope.data === 'object' && envelope.data !== null ? envelope.data : event;
+  const candidate = source as Partial<IntegrationConnectionLinkedPayload>;
+
+  if (
+    typeof candidate.serverKey !== 'string' ||
+    typeof candidate.projectId !== 'string' ||
+    typeof candidate.agentId !== 'string' ||
+    typeof candidate.actorUserId !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    serverKey: candidate.serverKey,
+    projectId: candidate.projectId,
+    agentId: candidate.agentId,
+    actorUserId: candidate.actorUserId,
+  };
 }
 
 export interface IntegrationCatalogDiscoveryResult {
@@ -40,6 +73,65 @@ export class IntegrationCatalogDiscovery {
       IntegrationCatalogDiscovery.instance = new IntegrationCatalogDiscovery();
     }
     return IntegrationCatalogDiscovery.instance;
+  }
+
+  /**
+   * A caller_connection server has no catalog until someone links a credential, so
+   * boot-time discovery defers it. This subscription is the other half: it runs a
+   * credential-scoped tools/list the moment a connection is linked, which is the
+   * only point at which those providers' tools can be registered at all.
+   */
+  async initialize(eventBus?: EventBusService): Promise<void> {
+    if (!eventBus) {
+      logger.warn(
+        'eventBusService not provided — integration tools will never be registered for providers that need a user connection'
+      );
+      return;
+    }
+
+    await eventBus.subscribe(INTEGRATION_CONNECTION_LINKED_EVENT, async (event) => {
+      const payload = extractLinkedPayload(event);
+      if (!payload) {
+        logger.warn('Ignoring malformed integration.connection.linked event');
+        return;
+      }
+      await this.discoverForConnection(payload, eventBus);
+    });
+  }
+
+  /**
+   * Discovers a server's tools using the credential bound to this
+   * (project, agent, provider), which is what makes a caller_connection provider
+   * visible to agents at all.
+   */
+  async discoverForConnection(
+    request: IntegrationConnectionLinkedPayload,
+    eventBus?: EventBusService
+  ): Promise<number> {
+    try {
+      const tools = await this.executor.listTools({
+        serverKey: request.serverKey,
+        projectId: request.projectId,
+        agentId: request.agentId,
+        actorUserId: request.actorUserId,
+      });
+
+      await this.registerTools(request.serverKey, tools, eventBus);
+
+      logger.info('Integration tools registered from a linked connection', {
+        serverKey: request.serverKey,
+        toolCount: tools.length,
+      });
+      return tools.length;
+    } catch (error) {
+      // A failure here must not fail the link itself: the connection is already
+      // stored, and discovery retries the next time it is linked or re-linked.
+      logger.warn('Discovery for a linked connection failed', {
+        serverKey: request.serverKey,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return 0;
+    }
   }
 
   async discoverAll(eventBus?: EventBusService): Promise<IntegrationCatalogDiscoveryResult> {

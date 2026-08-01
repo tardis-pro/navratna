@@ -28,6 +28,21 @@ export type IntegrationAuthKind = 'oauth2' | 'api_token';
  */
 export type McpCredentialMode = 'none' | 'catalog' | 'caller_connection';
 
+/**
+ * Published when a connection is bound to a (project, agent). Carries no token —
+ * the subscriber resolves the credential from the binding, so a secret never
+ * travels over the bus. Declared here because the publisher (security-gateway)
+ * and the subscriber (capability-registry) must not import each other.
+ */
+export const INTEGRATION_CONNECTION_LINKED_EVENT = 'integration.connection.linked';
+
+export interface IntegrationConnectionLinkedEvent {
+  serverKey: string;
+  projectId: string;
+  agentId: string;
+  actorUserId: string;
+}
+
 export interface IntegrationConnection {
   id: string;
   userId: string;
