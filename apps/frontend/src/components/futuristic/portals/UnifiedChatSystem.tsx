@@ -382,10 +382,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   }>({});
   const loadingTimeouts = useRef<{ [windowId: string]: ReturnType<typeof setInterval> }>({});
 
-  const wsFallbackTimeouts = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
-
-  const WS_FALLBACK_TIMEOUT_MS = 6_000;
-
   // Conversation Intelligence for portal mode
   const _portalConversationIntelligence = useConversationIntelligence({
     agentId: selectedAgentId,
@@ -456,11 +452,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       const knowledgeUsed = typeof wsPayload.knowledgeUsed === 'number' ? wsPayload.knowledgeUsed : undefined;
       const toolsExecuted = toToolsExecuted(wsPayload.toolsExecuted);
       const messageId = typeof wsPayload.messageId === 'string' ? wsPayload.messageId : undefined;
-
-      if (agentId && wsFallbackTimeouts.current[agentId]) {
-        clearTimeout(wsFallbackTimeouts.current[agentId]);
-        delete wsFallbackTimeouts.current[agentId];
-      }
 
       // Prevent duplicate processing of the same message
       if (messageId && processedMessageIds.current.has(messageId)) {
@@ -919,44 +910,17 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       };
 
       try {
-        if (isWebSocketConnected) {
-          sendWebSocketMessage('agent_chat', {
-            agentId: window.agentId,
-            message: trimmedMessage,
-            conversationHistory: snapshotMsgs,
-            context: { intent },
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-          });
-
-          if (wsFallbackTimeouts.current[windowId]) {
-            clearTimeout(wsFallbackTimeouts.current[windowId]);
-          }
-          wsFallbackTimeouts.current[windowId] = setTimeout(() => {
-            delete wsFallbackTimeouts.current[windowId];
-            uaipAPI.agents.chat(window.agentId, {
-              message: trimmedMessage,
-              conversationHistory: snapshotMsgs,
-              context: { intent },
-              projectId: activeProjectId,
-            }).then(appendFloatingMsg).catch(() => {
-              clearFloatingLoadingState();
-              setChatWindows((prev) =>
-                prev.map((w) =>
-                  w.id === windowId ? { ...w, isLoading: false, error: 'Failed to get agent response.' } : w
-                )
-              );
-            });
-          }, WS_FALLBACK_TIMEOUT_MS);
-        } else {
-          const restResponse = await uaipAPI.agents.chat(window.agentId, {
-            message: trimmedMessage,
-            conversationHistory: snapshotMsgs,
-            context: { intent },
-            projectId: activeProjectId,
-          });
-          await appendFloatingMsg(restResponse);
-        }
+        // Always REST. The WebSocket branch emitted `agent_chat`, which the server
+        // republishes as `agent.chat.request` — an event with ZERO subscribers, so
+        // no reply ever came and this path only cost a 6s dead wait before falling
+        // back to exactly this call.
+        const restResponse = await uaipAPI.agents.chat(window.agentId, {
+          message: trimmedMessage,
+          conversationHistory: snapshotMsgs,
+          context: { intent },
+          projectId: activeProjectId,
+        });
+        await appendFloatingMsg(restResponse);
       } catch (error) {
         logger.error('Chat error:', error);
         clearFloatingLoadingState();
@@ -969,7 +933,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         );
       }
     },
-    [activeProjectId, chatWindows, isWebSocketConnected, sendWebSocketMessage]
+    [activeProjectId, chatWindows]
   );
 
   // Aborts an in-flight portal agent stream. Wired to the abort button on
@@ -1313,11 +1277,6 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         clearInterval(loadingTimeouts.current[windowId]);
         delete loadingTimeouts.current[windowId];
       }
-      if (wsFallbackTimeouts.current[windowId]) {
-        clearTimeout(wsFallbackTimeouts.current[windowId]);
-        delete wsFallbackTimeouts.current[windowId];
-      }
-
       // Clean up conversation intelligence data
       setConversationTopics((prev) => {
         const newTopics = { ...prev };
@@ -1466,43 +1425,15 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       };
 
       try {
-        if (isWebSocketConnected) {
-          sendWebSocketMessage('agent_chat', {
-            agentId: window.agentId,
-            message: messageText,
-            conversationHistory: snapshotMessages,
-            context: {},
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-          });
-
-          if (wsFallbackTimeouts.current[windowId]) {
-            clearTimeout(wsFallbackTimeouts.current[windowId]);
-          }
-          wsFallbackTimeouts.current[windowId] = setTimeout(() => {
-            delete wsFallbackTimeouts.current[windowId];
-            uaipAPI.agents.chat(window.agentId, {
-              message: messageText,
-              conversationHistory: snapshotMessages,
-              context: {},
-              projectId: activeProjectId,
-            }).then(appendFloatingAgentMessage).catch(() => {
-              setChatWindows((prev) =>
-                prev.map((w) =>
-                  w.id === windowId ? { ...w, isLoading: false, error: 'Failed to get agent response.' } : w
-                )
-              );
-            });
-          }, WS_FALLBACK_TIMEOUT_MS);
-        } else {
-          const restResponse = await uaipAPI.agents.chat(window.agentId, {
-            message: messageText,
-            conversationHistory: snapshotMessages,
-            context: {},
-            projectId: activeProjectId,
-          });
-          await appendFloatingAgentMessage(restResponse);
-        }
+        // Always REST — see the note on the other floating-window sender: the
+        // `agent_chat` socket event has no subscriber, so it never replies.
+        const restResponse = await uaipAPI.agents.chat(window.agentId, {
+          message: messageText,
+          conversationHistory: snapshotMessages,
+          context: {},
+          projectId: activeProjectId,
+        });
+        await appendFloatingAgentMessage(restResponse);
       } catch (error) {
         logger.error('Chat error:', error);
         setChatWindows((prev) =>
@@ -1518,7 +1449,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         );
       }
     },
-    [activeProjectId, chatWindows, currentMessage, isWebSocketConnected, sendWebSocketMessage]
+    [activeProjectId, chatWindows, currentMessage]
   );
 
   const _sendPortalMessage = useCallback(async () => {
@@ -1554,52 +1485,41 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
     setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: true }));
 
     try {
-      if (isWebSocketConnected) {
-        // Try WebSocket first
-        const chatMessage = {
-          agentId: selectedAgentId,
-          message: messageText,
-          conversationHistory: conversationHistory.slice(-10),
-          context: {},
-          messageId: `msg-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-        };
+      // Always REST. This branch previously emitted `agent_chat` over the socket
+      // with NO fallback timer at all, so a WebSocket-connected portal chat hung
+      // on "Agent is thinking..." forever — `agent.chat.request` has no subscriber.
+      const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
+        message: messageText,
+        conversationHistory: conversationHistory.slice(-10),
+        context: {},
+        projectId: activeProjectId,
+      });
 
-        sendWebSocketMessage('agent_chat', chatMessage);
-      } else {
-        const restResponse = await uaipAPI.agents.chat(selectedAgentId, {
-          message: messageText,
-          conversationHistory: conversationHistory.slice(-10),
-          context: {},
-          projectId: activeProjectId,
-        });
+      const agentMessage: ChatMessage = {
+        id: `msg-${Date.now()}-agent`,
+        content: restResponse.response,
+        sender: 'agent',
+        senderName: readAgentName(restResponse, selectedAgent?.name || 'Assistant'),
+        timestamp: new Date().toISOString(),
+        messageType: MessageType.MESSAGE,
+        confidence: readConfidence(restResponse),
+        memoryEnhanced: readMemoryEnhanced(restResponse),
+        knowledgeUsed: readKnowledgeUsed(restResponse),
+        toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
+      };
 
-        const agentMessage: ChatMessage = {
-          id: `msg-${Date.now()}-agent`,
-          content: restResponse.response,
-          sender: 'agent',
-          senderName: readAgentName(restResponse, selectedAgent?.name || 'Assistant'),
-          timestamp: new Date().toISOString(),
-          messageType: MessageType.MESSAGE,
-          confidence: readConfidence(restResponse),
-          memoryEnhanced: readMemoryEnhanced(restResponse),
-          knowledgeUsed: readKnowledgeUsed(restResponse),
-          toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
-        };
+      setPortalMessages((prev) => [...prev, agentMessage]);
+      setConversationHistory((prev) => [
+        ...prev,
+        { content: restResponse.response, sender: 'agent', timestamp: new Date().toISOString() },
+      ]);
 
-        setPortalMessages((prev) => [...prev, agentMessage]);
-        setConversationHistory((prev) => [
-          ...prev,
-          { content: restResponse.response, sender: 'agent', timestamp: new Date().toISOString() },
-        ]);
-
-        setLoadingStates((prev) => {
-          const newStates = { ...prev };
-          delete newStates[portalWindowId];
-          return newStates;
-        });
-        setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
-      }
+      setLoadingStates((prev) => {
+        const newStates = { ...prev };
+        delete newStates[portalWindowId];
+        return newStates;
+      });
+      setTypingIndicators((prev) => ({ ...prev, [portalWindowId]: false }));
     } catch (error) {
       logger.error('Portal chat error:', error);
 
@@ -1622,14 +1542,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       };
       setPortalMessages((prev) => [...prev, errorMessage]);
     }
-  }, [
-    activeProjectId,
-    currentMessage,
-    selectedAgentId,
-    conversationHistory,
-    isWebSocketConnected,
-    sendWebSocketMessage,
-  ]);
+  }, [activeProjectId, currentMessage, selectedAgentId, conversationHistory]);
 
   const clearPortalConversation = useCallback(() => {
     setPortalMessages([]);
