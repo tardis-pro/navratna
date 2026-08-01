@@ -3,6 +3,7 @@ import {
   AgentIntelligenceService,
   CapabilityDiscoveryService,
   DatabaseService,
+  McpConnectionResolver,
   SecurityService,
   ServiceFactory,
   ToolService,
@@ -23,9 +24,21 @@ import { registerAgentRoutes } from './routes/agent_routes.js'
 import { registerCognitivePortraitRoutes } from './routes/cognitive_portrait_routes.js'
 import { registerConstellationRoutes } from './routes/constellation_routes.js'
 import { MemoryConsolidationScheduler } from './services/memory_consolidation_scheduler.js'
-import type { ToolSchemaProvider } from './routes/agent_chat_routes.js'
+import type { ProjectToolScopeProvider, ToolSchemaProvider } from './routes/agent_chat_routes.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const projectToolScope: ProjectToolScopeProvider = {
+  async listIntegrationServerKeys() {
+    const servers = await McpConnectionResolver.getInstance().listIntegrationServers()
+    return servers
+      .filter((server) => server.credentialMode === 'caller_connection')
+      .map((server) => server.serverKey)
+  },
+  async listBoundServerKeys(projectId, agentId) {
+    return await McpConnectionResolver.getInstance().listBoundServerKeys(projectId, agentId)
+  },
+}
 
 const loadToolSchema: ToolSchemaProvider = async (toolId) => {
   try {
@@ -96,7 +109,8 @@ export const agentIntelligenceFeature: Feature = {
         agentIntelligenceService,
         userLLMService,
         securityService,
-        loadToolSchema
+        loadToolSchema,
+        projectToolScope
       )
     )
     app.use(registerAgentCapabilityRoutes(agentIntelligenceService, capabilityDiscoveryService))

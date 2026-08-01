@@ -34,6 +34,40 @@ export type ToolSchemaProvider = (
   toolId: string
 ) => Promise<{ description: string; parameters: Record<string, unknown> } | null>
 
+export type ProjectToolScope = {
+  integrationServerKeys: string[]
+  boundServerKeys: string[]
+  /**
+   * Set when the binding tables could not be read. A sentinel server key would NOT
+   * work here — the filter matches on exact server names, so an unmatchable key
+   * keeps every tool instead of hiding it.
+   */
+  unknownScope?: boolean
+}
+
+/**
+ * Drops integration tools that are not bound to the project the caller named.
+ *
+ * An agent's assigned set spans every project it was linked in, so offering the
+ * whole set would let a chat in project A see (and call) a credential bound in
+ * project B. The resolver would refuse the call, but the model should never be
+ * offered a tool it cannot use. Tools whose server is not a caller-bound
+ * integration are untouched — those carry no per-project credential.
+ */
+export const filterToolsForProject = (
+  assigned: AgentAssignedTool[],
+  scope: ProjectToolScope
+): AgentAssignedTool[] => {
+  if (scope.unknownScope) return []
+  if (scope.integrationServerKeys.length === 0) return assigned
+
+  const bound = new Set(scope.boundServerKeys)
+  return assigned.filter((tool) => {
+    const isIntegration = scope.integrationServerKeys.includes(tool.serverName)
+    return !isIntegration || bound.has(tool.serverName)
+  })
+}
+
 export const resolveAgentTools = async (
   assigned: AgentAssignedTool[],
   provider: ToolSchemaProvider | undefined
@@ -165,11 +199,51 @@ const toAgentRequest = (
   ...(projectId ? { projectId } : {}),
 })
 
+/**
+ * Supplies the two server-key lists the project filter needs. Injected rather than
+ * imported so this route package does not depend on shared-services.
+ */
+export type ProjectToolScopeProvider = {
+  listIntegrationServerKeys(): Promise<string[]>
+  listBoundServerKeys(projectId: string, agentId: string): Promise<string[]>
+}
+
+/**
+ * Fails CLOSED: if the scope cannot be read, every caller-bound integration tool is
+ * treated as unbound and hidden, rather than offering the model a tool whose
+ * credential may belong to another project.
+ */
+const loadProjectToolScope = async (
+  provider: ProjectToolScopeProvider | undefined,
+  projectId: string | undefined,
+  agentId: string
+): Promise<ProjectToolScope> => {
+  if (!provider) return { integrationServerKeys: [], boundServerKeys: [] }
+
+  try {
+    const integrationServerKeys = await provider.listIntegrationServerKeys()
+    if (integrationServerKeys.length === 0 || !projectId) {
+      return { integrationServerKeys, boundServerKeys: [] }
+    }
+    return {
+      integrationServerKeys,
+      boundServerKeys: await provider.listBoundServerKeys(projectId, agentId),
+    }
+  } catch (error) {
+    logger.warn('Could not read the project tool scope; hiding integration tools', {
+      agentId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return { integrationServerKeys: [], boundServerKeys: [], unknownScope: true }
+  }
+}
+
 export function registerAgentChatRoutes(
   agentIntelligenceService: AgentChatDeps,
   userLLMService: UserLlmDeps,
   securityService: SecurityDeps,
-  toolSchemaProvider?: ToolSchemaProvider
+  toolSchemaProvider?: ToolSchemaProvider,
+  projectScopeProvider?: ProjectToolScopeProvider
 ) {
   return new Elysia().group(
     '/api/v1/agents',
@@ -208,14 +282,17 @@ export function registerAgentChatRoutes(
             return { success: false, error: 'Message or messages array is required' }
           }
     
-          const assignedTools = toAssignedTools(agent.assignedMCPTools)
-          const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
-
           // Passed through unchecked ON PURPOSE: McpConnectionResolver.resolve()
           // authorizes (actor, project) server-side before selecting a credential,
           // so a caller naming a project they cannot reach is refused there rather
           // than being trusted here.
           const projectId = typeof body.projectId === 'string' ? body.projectId : undefined
+
+          const assignedTools = filterToolsForProject(
+            toAssignedTools(agent.assignedMCPTools),
+            await loadProjectToolScope(projectScopeProvider, projectId, agent.id)
+          )
+          const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
 
           const request = toAgentRequest(
             agent,

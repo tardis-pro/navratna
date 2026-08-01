@@ -380,6 +380,32 @@ export class McpConnectionResolver {
     return Boolean(binding);
   }
 
+  /**
+   * Server keys that this exact (project, agent) pair has an ENABLED binding for.
+   * Chat uses it to hide integration tools bound in a DIFFERENT project — the
+   * agent's assigned set spans every project it was ever linked in.
+   */
+  async listBoundServerKeys(projectId: string, agentId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ serverKey: mcpServers.serverKey })
+      .from(projectAgentIntegrationConnections)
+      .innerJoin(
+        mcpServers,
+        eq(mcpServers.providerId, projectAgentIntegrationConnections.providerId)
+      )
+      .where(
+        and(
+          eq(projectAgentIntegrationConnections.projectId, projectId),
+          eq(projectAgentIntegrationConnections.agentId, agentId),
+          eq(projectAgentIntegrationConnections.enabled, true)
+        )
+      );
+
+    return rows
+      .map((row) => row.serverKey)
+      .filter((key): key is string => typeof key === 'string' && key.length > 0);
+  }
+
   private async loadCredential(
     connectionId: string,
     providerId: string
