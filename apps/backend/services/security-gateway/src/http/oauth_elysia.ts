@@ -392,6 +392,8 @@ export function registerOAuthRoutes() {
         // Peek at the state WITHOUT consuming it: both flows share this one
         // registered redirect URI, and only the state says which one this is.
         // authenticateWithOAuth consumes the state, so the branch must happen first.
+        // The peek only ROUTES — it grants nothing. Whichever branch runs then
+        // claims the state atomically, so a stale or replayed peek still loses.
         const pendingState = await OAuthService.getInstance().findOAuthState(state);
         const pendingMetadata =
           pendingState && typeof pendingState.metadata === 'object' && pendingState.metadata !== null

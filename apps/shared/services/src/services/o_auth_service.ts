@@ -7,7 +7,7 @@ import {
   oauthStates,
   agentOAuthConnections,
 } from '../database/drizzle/schemas/control_schema';
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, gt, lt } from 'drizzle-orm';
 import * as crypto from 'crypto';
 import type {
   OAuthProvider,
@@ -136,17 +136,21 @@ export class OAuthService extends BaseDomainService {
     return result[0] ?? null;
   }
 
+  /**
+   * Claims the state with a single conditional DELETE ... RETURNING. Reading it
+   * first and deleting afterwards leaves a window in which two callbacks both
+   * read the same row and both proceed, so one authorization code could be
+   * redeemed twice. Expiry is part of the predicate for the same reason.
+   */
   public async verifyAndConsumeOAuthState(state: string): Promise<OAuthState | null> {
-    const stateEntity = await this.findOAuthState(state);
-
-    if (!stateEntity || stateEntity.expiresAt < new Date()) {
-      return null;
-    }
-
     const db = getControlDb();
-    await db.delete(oauthStates).where(eq(oauthStates.state, state));
 
-    return stateEntity;
+    const [claimed] = await db
+      .delete(oauthStates)
+      .where(and(eq(oauthStates.state, state), gt(oauthStates.expiresAt, new Date())))
+      .returning();
+
+    return claimed ?? null;
   }
 
   public async cleanupExpiredStates(): Promise<void> {
