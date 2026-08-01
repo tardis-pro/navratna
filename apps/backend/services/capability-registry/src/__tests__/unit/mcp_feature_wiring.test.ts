@@ -69,6 +69,17 @@ vi.mock('../../services/oauth_capability_discovery.js', () => ({
 
 vi.mock('@uaip/shared-services', () => ({
   getControlDb: (): Record<string, never> => ({}),
+  // ToolRegistry resolves this in its constructor, which feature.initialize() now
+  // runs so that tool.register actually has a subscriber.
+  ToolService: {
+    getInstance: (): Record<string, never> => ({}),
+  },
+  McpConnectionResolver: {
+    getInstance: (): { listIntegrationServers: () => Promise<never[]> } => ({
+      listIntegrationServers: async (): Promise<never[]> => [],
+    }),
+  },
+  McpConnectionError: class extends Error {},
 }));
 
 class FakeMcpRepository {}
@@ -107,5 +118,46 @@ describe('capabilityFeature MCP wiring', () => {
       'MCPClientService.initialize() must receive an McpRepository as its 3rd argument, ' +
         'otherwise every MCP persistence call fails with "MCP repository not initialized"'
     ).toBeInstanceOf(McpRepository);
+  });
+
+  /**
+   * Regression guard for a second silent outage: ToolRegistry only subscribes to
+   * tool.register when it is constructed WITH an event bus, and production built
+   * it in tool_routes.ts without one. Every discovered MCP tool was published to
+   * zero consumers and never persisted.
+   */
+  it('subscribes a ToolRegistry to tool.register so discovered tools are persisted', async () => {
+    const { capabilityFeature } = await import('../../feature.js');
+    const subscribedTopics: string[] = [];
+
+    await capabilityFeature.initialize?.({
+      eventBusService: {
+        subscribe: async (topic: string): Promise<void> => {
+          subscribedTopics.push(topic);
+        },
+        publish: async (): Promise<void> => undefined,
+      } as unknown as Parameters<NonNullable<typeof capabilityFeature.initialize>>[0]['eventBusService'],
+    });
+
+    expect(
+      subscribedTopics,
+      'nothing subscribes to tool.register, so every discovered MCP tool is published into the void'
+    ).toContain('tool.register');
+  });
+
+  it('subscribes to integration.connection.linked so linked providers get discovered', async () => {
+    const { capabilityFeature } = await import('../../feature.js');
+    const subscribedTopics: string[] = [];
+
+    await capabilityFeature.initialize?.({
+      eventBusService: {
+        subscribe: async (topic: string): Promise<void> => {
+          subscribedTopics.push(topic);
+        },
+        publish: async (): Promise<void> => undefined,
+      } as unknown as Parameters<NonNullable<typeof capabilityFeature.initialize>>[0]['eventBusService'],
+    });
+
+    expect(subscribedTopics).toContain('integration.connection.linked');
   });
 });

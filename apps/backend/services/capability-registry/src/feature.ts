@@ -14,6 +14,7 @@ import { MCPClientService } from './services/mcp_client_service.js'
 import { IntegrationCatalogDiscovery } from './services/integration_catalog_discovery.js'
 import { McpRepository } from './database/mcp_repository.js'
 import { ToolExecutionCoordinator } from './services/tool_execution_coordinator_service.js'
+import { ToolRegistry } from './services/tool_registry.js'
 import { UnifiedToolRegistry } from './services/unified_tool_registry.js'
 import { CodingSessionStore } from './services/execution_mesh/coding_session_store.js'
 import { CodingNodeClient } from './services/execution_mesh/coding_node_client.js'
@@ -31,6 +32,9 @@ import { ToolCategory, SecurityLevel } from '@uaip/types'
 import { logger } from '@uaip/utils'
 
 let codingCoordinator: CodingSessionCoordinator | null = null
+// Retained only to keep the tool.register subscriber alive for the process
+// lifetime; nothing reads it, hence the underscore.
+let _toolRegistrySubscriber: ToolRegistry | null = null
 let githubTokenBroker: GitHubAppTokenBroker | null = null
 let githubInstallationRepository: GitHubAppInstallationRepository | null = null
 
@@ -243,6 +247,18 @@ export const capabilityFeature: Feature = {
       logger.warn('MCPClientService init failed — MCP servers with autoStart will not boot', {
         error: error instanceof Error ? error.message : String(error),
       })
+    }
+
+    // ToolRegistry subscribes to tool.register in its constructor, but ONLY when it
+    // is given an event bus. Production built it in tool_routes.ts with no bus, so
+    // every tool.register publish — stdio discovery and integration discovery alike
+    // — had zero consumers and nothing was ever persisted. Held in module scope so
+    // the subscription outlives this function.
+    if (deps?.eventBusService) {
+      _toolRegistrySubscriber = new ToolRegistry(deps.eventBusService)
+      logger.info('ToolRegistry subscribed to tool.register')
+    } else {
+      logger.warn('eventBusService not provided — discovered MCP tools will never be persisted')
     }
 
     // Integration servers are remote and have no process to spawn, so
