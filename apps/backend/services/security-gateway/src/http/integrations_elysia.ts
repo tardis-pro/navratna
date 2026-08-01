@@ -228,6 +228,14 @@ export function registerIntegrationRoutes() {
             expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : undefined,
             metadata: parsed.data.metadata,
           });
+          // createConnection resolves a duplicate (owner, provider) by ROTATING the
+          // existing row, so this endpoint can supersede a credential that cached
+          // sessions still hold. Announcing for a genuinely new connection is a
+          // harmless no-op — no session exists for it yet.
+          await announceCredentialChanged({
+            connectionId: connection.id,
+            reason: 'rotated',
+          });
           set.status = 201;
           return { success: true, connection };
         } catch (error) {

@@ -356,6 +356,35 @@ describe('upsertConnectionForOwner', () => {
     ...timestamps,
   };
 
+  it('widens the stored scopes when the user reconnects for more access', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 1 }]);
+    mocks.joinRows = [refreshedRow];
+
+    await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'second-token',
+      scopes: ['repo', 'workflow'],
+    });
+
+    // Reconnecting to grant calendar/workflow scope is the ONLY way to widen a
+    // connection; leaving scopes stale makes the UI report the old grant forever.
+    expect(mocks.updates[0].scopes).toEqual(['repo', 'workflow']);
+  });
+
+  it('leaves the stored scopes alone when the reconnect names none', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 1 }]);
+    mocks.joinRows = [refreshedRow];
+
+    await service().upsertConnectionForOwner({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'second-token',
+    });
+
+    expect(mocks.updates[0]).not.toHaveProperty('scopes');
+  });
+
   it('creates a connection the first time a user connects', async () => {
     mocks.rowsByTable.set(integrationConnections, []);
     mocks.rowsByTable.set(integrationProviders, [{ id: PROVIDER_ID, key: 'github' }]);

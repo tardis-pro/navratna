@@ -182,7 +182,8 @@ export class IntegrationConnectionService {
       input.ownerUserId,
       input.accessToken,
       input.expiresAt,
-      input.refreshToken
+      input.refreshToken,
+      input.scopes
     );
 
     const [refreshed] = await this.db
@@ -318,7 +319,8 @@ export class IntegrationConnectionService {
     ownerUserId: string,
     accessToken: string,
     expiresAt?: Date,
-    refreshToken?: string
+    refreshToken?: string,
+    scopes?: string[]
   ): Promise<void> {
     const owned = await this.connectionOwnedBy(connectionId, ownerUserId);
     if (!owned) {
@@ -329,6 +331,10 @@ export class IntegrationConnectionService {
       .update(integrationConnections)
       .set({
         accessTokenEncrypted: encryptOAuthSecret(accessToken),
+        // Reconnecting is the only way to widen a grant, so a reconnect that names
+        // scopes must replace them — matching the conflict-upsert path. A rotation
+        // that names none (a plain token refresh) leaves the stored grant alone.
+        ...(scopes ? { scopes } : {}),
         // Only overwrite when the provider actually issued a new one: OAuth
         // refresh responses often omit it, and writing undefined would erase the
         // stored token and make the connection unrefreshable.
