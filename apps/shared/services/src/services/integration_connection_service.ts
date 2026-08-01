@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import { IntegrationConnectionStatus, type IntegrationAuthKind } from '@uaip/types';
-import { getControlDb } from '../database/drizzle/clients/index';
+import { getControlDb, getIntelligenceDb } from '../database/drizzle/clients/index';
+import { agents } from '../database/drizzle/schemas/intelligence_schema';
 import {
   integrationConnections,
   integrationProviders,
@@ -90,6 +91,7 @@ export type IntegrationErrorCode =
   | 'connection_not_found'
   | 'provider_not_found'
   | 'forbidden'
+  | 'agent_not_found'
   | 'binding_not_found';
 
 export class IntegrationError extends Error {
@@ -396,6 +398,13 @@ export class IntegrationConnectionService {
       throw new IntegrationError('Project not found or not accessible', 'forbidden');
     }
 
+    // agent_id has no cross-plane FK, so without this any uuid would be accepted and
+    // a credential could be bound to an agent the actor has nothing to do with.
+    const ownsAgent = await this.actorOwnsAgent(input.actorUserId, input.agentId);
+    if (!ownsAgent) {
+      throw new IntegrationError('Agent not found or not accessible', 'agent_not_found');
+    }
+
     const [connection] = await this.db
       .select({
         id: integrationConnections.id,
@@ -495,6 +504,25 @@ export class IntegrationConnectionService {
       )
       .limit(1);
     return Boolean(row);
+  }
+
+  private async actorOwnsAgent(userId: string, agentId: string): Promise<boolean> {
+    try {
+      const [row] = await getIntelligenceDb()
+        .select({ id: agents.id })
+        .from(agents)
+        .where(and(eq(agents.id, agentId), eq(agents.createdBy, userId)))
+        .limit(1);
+      return Boolean(row);
+    } catch (error) {
+      // Fail closed: an unreadable intelligence plane must not silently widen access.
+      logger.error('Failed to verify agent ownership', {
+        userId,
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
   }
 
   private async actorCanAccessProject(userId: string, projectId: string): Promise<boolean> {

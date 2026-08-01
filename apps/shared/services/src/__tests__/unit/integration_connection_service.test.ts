@@ -17,6 +17,9 @@ const { mocks } = vi.hoisted(() => ({
     deleteReturns: [] as unknown[],
     deletePredicateColumns: [] as string[],
     predicateColumnsByTable: new Map<unknown, string[]>(),
+    agentRows: [] as unknown[],
+    agentPredicateColumns: [] as string[],
+    agentLookupError: null as Error | null,
     encrypt: vi.fn(),
   },
 }));
@@ -85,6 +88,23 @@ vi.mock('../../database/drizzle/clients/index', () => ({
       },
     }),
   }),
+  // The agent lives in the intelligence plane, so ownership is checked against a
+  // separate pool — there is no cross-plane FK to lean on.
+  getIntelligenceDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: (condition: unknown) => {
+          mocks.agentPredicateColumns = collectPredicateColumns(condition);
+          return {
+            limit: async () => {
+              if (mocks.agentLookupError) throw mocks.agentLookupError;
+              return mocks.agentRows;
+            },
+          };
+        },
+      }),
+    }),
+  }),
 }));
 
 vi.mock('../../services/oauth_token_resolver', () => ({
@@ -134,6 +154,9 @@ beforeEach(() => {
   mocks.deleteReturns = [];
   mocks.deletePredicateColumns = [];
   mocks.predicateColumnsByTable.clear();
+  mocks.agentRows = [{ id: AGENT_ID }];
+  mocks.agentPredicateColumns = [];
+  mocks.agentLookupError = null;
   // Must not echo the plaintext: an echoing stub would make the "token never
   // reaches the row" assertion unfalsifiable and hide a real leak.
   mocks.encrypt
@@ -509,6 +532,54 @@ describe('linkConnection', () => {
       'forbidden'
     );
     expect(mocks.inserted).toHaveLength(0);
+  });
+
+  it('refuses an agent the actor does not own', async () => {
+    mocks.agentRows = [];
+    mocks.joinRows = [connectionRow()];
+
+    await expectCode(
+      service().linkConnection({
+        projectId: PROJECT_ID,
+        agentId: AGENT_ID,
+        connectionId: CONNECTION_ID,
+        actorUserId: OWNER_ID,
+      }),
+      'agent_not_found'
+    );
+    expect(mocks.inserted).toHaveLength(0);
+  });
+
+  it('fails closed when the intelligence plane cannot be read', async () => {
+    mocks.agentLookupError = new Error('intelligence pool unavailable');
+    mocks.joinRows = [connectionRow()];
+
+    await expectCode(
+      service().linkConnection({
+        projectId: PROJECT_ID,
+        agentId: AGENT_ID,
+        connectionId: CONNECTION_ID,
+        actorUserId: OWNER_ID,
+      }),
+      'agent_not_found'
+    );
+    expect(mocks.inserted).toHaveLength(0);
+  });
+
+  it('scopes the agent lookup by the acting user, not just the agent id', async () => {
+    mocks.joinRows = [connectionRow()];
+    mocks.insertReturns = [bindingRow];
+
+    await service().linkConnection({
+      projectId: PROJECT_ID,
+      agentId: AGENT_ID,
+      connectionId: CONNECTION_ID,
+      actorUserId: OWNER_ID,
+    });
+
+    expect(mocks.agentPredicateColumns).toEqual(
+      expect.arrayContaining(['id', 'created_by'])
+    );
   });
 
   it('accepts a project member who is not the owner', async () => {

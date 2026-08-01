@@ -51,6 +51,7 @@ const STATUS_BY_ERROR_CODE: Record<IntegrationErrorCode, number> = {
   connection_not_found: 404,
   provider_not_found: 404,
   binding_not_found: 404,
+  agent_not_found: 404,
   forbidden: 403,
 };
 
