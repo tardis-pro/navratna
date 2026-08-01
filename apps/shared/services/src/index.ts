@@ -120,6 +120,10 @@ export {
   type McpResolvedCredential,
 } from './services/mcp_connection_resolver';
 export {
+  AgentMcpToolAssignmentService,
+  type AgentMcpToolAssignment,
+} from './services/agent_mcp_tool_assignment_service';
+export {
   IntegrationConnectionService,
   IntegrationError,
   type IntegrationErrorCode,

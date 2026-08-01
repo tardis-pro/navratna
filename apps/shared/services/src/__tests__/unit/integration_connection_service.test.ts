@@ -663,6 +663,10 @@ describe('linkConnection', () => {
 });
 
 describe('unlinkConnection', () => {
+  beforeEach(() => {
+    mocks.rowsByTable.set(integrationProviders, [{ id: PROVIDER_ID, key: 'github' }]);
+  });
+
   it('removes the binding for exactly that project, agent and provider', async () => {
     mocks.deleteReturns = [{ connectionId: CONNECTION_ID }];
 
@@ -671,6 +675,14 @@ describe('unlinkConnection', () => {
     expect(mocks.deletePredicateColumns).toEqual(
       expect.arrayContaining(['project_id', 'agent_id', 'provider_id'])
     );
+  });
+
+  it("returns the provider key so the agent's tools can be withdrawn", async () => {
+    mocks.deleteReturns = [{ connectionId: CONNECTION_ID }];
+
+    await expect(
+      service().unlinkConnection(PROJECT_ID, AGENT_ID, PROVIDER_ID, OWNER_ID)
+    ).resolves.toBe('github');
   });
 
   it('refuses an actor who cannot access the project', async () => {

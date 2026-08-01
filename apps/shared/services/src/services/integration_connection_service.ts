@@ -465,16 +465,27 @@ export class IntegrationConnectionService {
     };
   }
 
+  /**
+   * Returns the provider key of the removed binding so the caller can announce it:
+   * the agent still carries that provider's tools in its assigned set, and they
+   * must be withdrawn or the model keeps being offered tools it can no longer use.
+   */
   async unlinkConnection(
     projectId: string,
     agentId: string,
     providerId: string,
     actorUserId: string
-  ): Promise<void> {
+  ): Promise<string> {
     const permitted = await this.actorCanAccessProject(actorUserId, projectId);
     if (!permitted) {
       throw new IntegrationError('Project not found or not accessible', 'forbidden');
     }
+
+    const [provider] = await this.db
+      .select({ key: integrationProviders.key })
+      .from(integrationProviders)
+      .where(eq(integrationProviders.id, providerId))
+      .limit(1);
 
     const deleted = await this.db
       .delete(projectAgentIntegrationConnections)
@@ -490,6 +501,12 @@ export class IntegrationConnectionService {
     if (deleted.length === 0) {
       throw new IntegrationError('Integration binding not found', 'binding_not_found');
     }
+
+    if (!provider) {
+      throw new IntegrationError('Integration provider not found', 'provider_not_found');
+    }
+
+    return provider.key;
   }
 
   private async connectionOwnedBy(connectionId: string, ownerUserId: string): Promise<boolean> {

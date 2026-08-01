@@ -43,6 +43,19 @@ export interface IntegrationConnectionLinkedEvent {
   actorUserId: string;
 }
 
+/**
+ * Published when a binding is removed. The agent still carries that provider's
+ * tools in its assigned set, so they must be withdrawn — otherwise the model keeps
+ * being offered tools whose credential no longer resolves.
+ */
+export const INTEGRATION_CONNECTION_UNLINKED_EVENT = 'integration.connection.unlinked';
+
+export interface IntegrationConnectionUnlinkedEvent {
+  serverKey: string;
+  projectId: string;
+  agentId: string;
+}
+
 export interface IntegrationConnection {
   id: string;
   userId: string;

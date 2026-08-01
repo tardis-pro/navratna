@@ -1,17 +1,24 @@
 import { logger } from '@uaip/utils';
 import {
   INTEGRATION_CONNECTION_LINKED_EVENT,
+  INTEGRATION_CONNECTION_UNLINKED_EVENT,
   ToolCategory,
   type IntegrationConnectionLinkedEvent,
+  type IntegrationConnectionUnlinkedEvent,
 } from '@uaip/types';
-import { McpConnectionError, McpConnectionResolver } from '@uaip/shared-services';
+import {
+  AgentMcpToolAssignmentService,
+  McpConnectionError,
+  McpConnectionResolver,
+} from '@uaip/shared-services';
 import type { EventBusService } from '@uaip/infra';
 import { IntegrationMcpExecutor } from './integration_mcp_executor.js';
-import { buildMcpToolRegistration } from '../utils/mcp_tool_key.js';
+import { buildMcpToolRegistration, mcpToolKey } from '../utils/mcp_tool_key.js';
 
 export interface IntegrationCatalogDiscoveryOptions {
   resolver?: McpConnectionResolver;
   executor?: IntegrationMcpExecutor;
+  assignments?: AgentMcpToolAssignmentService;
 }
 
 export type IntegrationConnectionLinkedPayload = IntegrationConnectionLinkedEvent;
@@ -43,6 +50,29 @@ function extractLinkedPayload(event: unknown): IntegrationConnectionLinkedPayloa
   };
 }
 
+function extractUnlinkedPayload(event: unknown): IntegrationConnectionUnlinkedEvent | null {
+  if (typeof event !== 'object' || event === null) return null;
+
+  const envelope = event as { data?: unknown };
+  const source =
+    typeof envelope.data === 'object' && envelope.data !== null ? envelope.data : event;
+  const candidate = source as Partial<IntegrationConnectionUnlinkedEvent>;
+
+  if (
+    typeof candidate.serverKey !== 'string' ||
+    typeof candidate.projectId !== 'string' ||
+    typeof candidate.agentId !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    serverKey: candidate.serverKey,
+    projectId: candidate.projectId,
+    agentId: candidate.agentId,
+  };
+}
+
 export interface IntegrationCatalogDiscoveryResult {
   discovered: string[];
   deferred: string[];
@@ -62,10 +92,12 @@ export class IntegrationCatalogDiscovery {
 
   private readonly resolver: McpConnectionResolver;
   private readonly executor: IntegrationMcpExecutor;
+  private readonly assignments: AgentMcpToolAssignmentService;
 
   constructor(options: IntegrationCatalogDiscoveryOptions = {}) {
     this.resolver = options.resolver ?? McpConnectionResolver.getInstance();
     this.executor = options.executor ?? IntegrationMcpExecutor.getInstance();
+    this.assignments = options.assignments ?? AgentMcpToolAssignmentService.getInstance();
   }
 
   static getInstance(): IntegrationCatalogDiscovery {
@@ -97,6 +129,31 @@ export class IntegrationCatalogDiscovery {
       }
       await this.discoverForConnection(payload, eventBus);
     });
+
+    await eventBus.subscribe(INTEGRATION_CONNECTION_UNLINKED_EVENT, async (event) => {
+      const payload = extractUnlinkedPayload(event);
+      if (!payload) {
+        logger.warn('Ignoring malformed integration.connection.unlinked event');
+        return;
+      }
+      await this.withdrawForConnection(payload);
+    });
+  }
+
+  /**
+   * Removes a provider's tools from the agent's assigned set once its binding is
+   * gone. Leaving them would keep offering the model tools whose credential no
+   * longer resolves, so every such call would fail at execution instead.
+   */
+  async withdrawForConnection(event: IntegrationConnectionUnlinkedEvent): Promise<number> {
+    const removed = await this.assignments.unassignServer(event.agentId, event.serverKey);
+
+    logger.info('Withdrew integration tools from an unlinked connection', {
+      serverKey: event.serverKey,
+      agentId: event.agentId,
+      removed,
+    });
+    return removed;
   }
 
   /**
@@ -134,9 +191,22 @@ export class IntegrationCatalogDiscovery {
 
       await this.registerTools(request.serverKey, tools, eventBus);
 
+      // Registering a tool only makes it EXIST. Agent chat builds its toolset from
+      // agents.assigned_mcp_tools, so without this the provider the user just linked
+      // stays invisible to the very agent it was linked to.
+      const assigned = await this.assignments.assign(
+        request.agentId,
+        tools.map((tool) => ({
+          toolId: mcpToolKey(request.serverKey, tool.name),
+          toolName: mcpToolKey(request.serverKey, tool.name),
+          serverName: request.serverKey,
+        }))
+      );
+
       logger.info('Integration tools registered from a linked connection', {
         serverKey: request.serverKey,
         toolCount: tools.length,
+        assignedToAgent: assigned,
       });
       return tools.length;
     } catch (error) {

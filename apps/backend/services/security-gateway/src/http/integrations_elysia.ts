@@ -2,7 +2,12 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
-import { INTEGRATION_CONNECTION_LINKED_EVENT, UserType } from '@uaip/types';
+import {
+  INTEGRATION_CONNECTION_LINKED_EVENT,
+  INTEGRATION_CONNECTION_UNLINKED_EVENT,
+  UserType,
+  type IntegrationConnectionUnlinkedEvent,
+} from '@uaip/types';
 import {
   EventBusService,
   IntegrationConnectionService,
@@ -42,6 +47,24 @@ async function announceLinkedConnection(binding: IntegrationBindingSummary): Pro
   } catch (error) {
     logger.warn('Failed to announce a linked integration connection', {
       providerKey: binding.providerKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Withdrawing a binding must withdraw the agent's tools too, otherwise the model
+ * keeps being offered tools whose credential no longer resolves. Announcing must
+ * never fail the unlink: the binding is already gone.
+ */
+async function announceUnlinkedConnection(
+  event: IntegrationConnectionUnlinkedEvent
+): Promise<void> {
+  try {
+    await EventBusService.getInstance().publish(INTEGRATION_CONNECTION_UNLINKED_EVENT, event);
+  } catch (error) {
+    logger.warn('Failed to announce an unlinked integration connection', {
+      serverKey: event.serverKey,
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -269,12 +292,17 @@ export function registerIntegrationRoutes() {
           return { success: false, error: 'projectId, agentId and providerId are required' };
         }
         try {
-          await service().unlinkConnection(
+          const serverKey = await service().unlinkConnection(
             parsed.data.projectId,
             parsed.data.agentId,
             parsed.data.providerId,
             user.id
           );
+          await announceUnlinkedConnection({
+            serverKey,
+            projectId: parsed.data.projectId,
+            agentId: parsed.data.agentId,
+          });
           return { success: true };
         } catch (error) {
           return respondToError(error, set, 'Failed to unlink integration connection');

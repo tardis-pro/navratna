@@ -27,6 +27,8 @@ interface Harness {
   listCatalogTools: ReturnType<typeof vi.fn>;
   listTools: ReturnType<typeof vi.fn>;
   findBindingActor: ReturnType<typeof vi.fn>;
+  assign: ReturnType<typeof vi.fn>;
+  unassignServer: ReturnType<typeof vi.fn>;
   publish: ReturnType<typeof vi.fn>;
   subscribe: ReturnType<typeof vi.fn>;
   eventBus: { publish: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
@@ -50,6 +52,8 @@ const makeHarness = (): Harness => {
   const publish = vi.fn().mockResolvedValue(undefined);
   const subscribe = vi.fn().mockResolvedValue(undefined);
   const findBindingActor = vi.fn().mockResolvedValue('user-1');
+  const assign = vi.fn().mockResolvedValue(1);
+  const unassignServer = vi.fn().mockResolvedValue(2);
 
   const discovery = new IntegrationCatalogDiscovery({
     resolver: { listIntegrationServers, findBindingActor } as unknown as NonNullable<
@@ -58,6 +62,9 @@ const makeHarness = (): Harness => {
     executor: { listCatalogTools, listTools } as unknown as NonNullable<
       DiscoveryOptions
     >['executor'],
+    assignments: { assign, unassignServer } as unknown as NonNullable<
+      DiscoveryOptions
+    >['assignments'],
   });
 
   return {
@@ -66,6 +73,8 @@ const makeHarness = (): Harness => {
     listCatalogTools,
     listTools,
     findBindingActor,
+    assign,
+    unassignServer,
     publish,
     subscribe,
     eventBus: { publish, subscribe },
@@ -257,13 +266,39 @@ describe('discovery when a user links a connection', () => {
     return h.subscribe.mock.calls[0][1] as (event: unknown) => Promise<void>;
   };
 
-  it('subscribes to the linked-connection event', async () => {
+  it('subscribes to both the linked and unlinked events', async () => {
     await h.discovery.initialize(
       h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
     );
 
-    expect(h.subscribe).toHaveBeenCalledTimes(1);
-    expect(h.subscribe.mock.calls[0][0]).toBe('integration.connection.linked');
+    expect(h.subscribe.mock.calls.map((call) => call[0])).toEqual([
+      'integration.connection.linked',
+      'integration.connection.unlinked',
+    ]);
+  });
+
+  it('withdraws the provider tools from the agent when a binding is removed', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const unlinkedHandler = h.subscribe.mock.calls[1][1] as (e: unknown) => Promise<void>;
+
+    await unlinkedHandler(
+      envelope({ serverKey: 'github', projectId: 'proj-1', agentId: 'agent-1' })
+    );
+
+    expect(h.unassignServer).toHaveBeenCalledWith('agent-1', 'github');
+  });
+
+  it('ignores a malformed unlink event rather than stripping the wrong agent', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const unlinkedHandler = h.subscribe.mock.calls[1][1] as (e: unknown) => Promise<void>;
+
+    await unlinkedHandler(envelope({ serverKey: 'github', projectId: 'proj-1' }));
+
+    expect(h.unassignServer).not.toHaveBeenCalled();
   });
 
   it('registers a caller_connection provider\'s tools, which boot discovery cannot', async () => {
@@ -310,6 +345,55 @@ describe('discovery when a user links a connection', () => {
 
     expect(h.listTools).not.toHaveBeenCalled();
     expect(h.publish).not.toHaveBeenCalled();
+  });
+
+  it('assigns the discovered tools to the agent, or chat never sees them', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.assign).toHaveBeenCalledTimes(1);
+    expect(h.assign.mock.calls[0][0]).toBe('agent-1');
+    expect(h.assign.mock.calls[0][1]).toEqual([
+      {
+        toolId: 'mcp-github-create_issue',
+        toolName: 'mcp-github-create_issue',
+        serverName: 'github',
+      },
+    ]);
+  });
+
+  it('assigns using the same mcp- key the executor dispatches on', async () => {
+    h.listTools.mockResolvedValue([
+      { name: 'create_issue', inputSchema: {} },
+      { name: 'search', inputSchema: {} },
+    ]);
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    const publishedNames = h.publish.mock.calls.map(
+      (call) => (call[1] as { tool: { name: string } }).tool.name
+    );
+    const assignedIds = (h.assign.mock.calls[0][1] as { toolId: string }[]).map((t) => t.toolId);
+    expect(assignedIds).toEqual(publishedNames);
+  });
+
+  it('assigns to the agent named in the binding, not some other agent', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope({ ...LINK, agentId: 'agent-9' }));
+
+    expect(h.assign.mock.calls[0][0]).toBe('agent-9');
+  });
+
+  it('does not assign anything when no binding backs the event', async () => {
+    h.findBindingActor.mockResolvedValue(null);
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.assign).not.toHaveBeenCalled();
   });
 
   it('uses the linking user\'s own credential, not a catalog one', async () => {

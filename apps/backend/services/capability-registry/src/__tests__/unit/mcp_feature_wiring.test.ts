@@ -80,6 +80,15 @@ vi.mock('@uaip/shared-services', () => ({
     }),
   },
   McpConnectionError: class extends Error {},
+  // IntegrationCatalogDiscovery resolves this in its constructor. Without it the
+  // construction throws, feature.initialize() swallows it, and the subscription
+  // silently never happens — exactly the failure mode these tests guard.
+  AgentMcpToolAssignmentService: {
+    getInstance: (): { assign: () => Promise<number>; unassignServer: () => Promise<number> } => ({
+      assign: async (): Promise<number> => 0,
+      unassignServer: async (): Promise<number> => 0,
+    }),
+  },
 }));
 
 class FakeMcpRepository {}
