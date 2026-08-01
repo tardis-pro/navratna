@@ -235,6 +235,10 @@ export class AgentIntelligenceService {
         maxTokens: agent.maxTokens,
         systemPrompt: agent.systemPrompt,
         skills: toAgentSkills(agent.skills) ?? [],
+        // Agent chat builds the model's toolset from this field. Omitting it here
+        // silently strips EVERY assigned MCP tool from the LLM request, so the
+        // model answers from memory instead of calling the tool it was given.
+        assignedMCPTools: agent.assignedMCPTools ?? [],
       };
 
       return mappedAgent;
