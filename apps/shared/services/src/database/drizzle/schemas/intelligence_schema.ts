@@ -206,6 +206,10 @@ export const agents = pgTable(
           toolName: string;
           serverName: string;
           enabled: boolean;
+          // Agent chat rebuilds its approval gate from THIS array, not from
+          // tool_definitions, so an external tool's approval requirement must be
+          // stored here or a mutating third-party action auto-executes.
+          requiresApproval?: boolean;
           priority?: number;
           parameters?: Record<string, unknown>;
         }>

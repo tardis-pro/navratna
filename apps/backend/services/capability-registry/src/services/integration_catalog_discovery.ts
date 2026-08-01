@@ -16,7 +16,7 @@ import {
   IntegrationMcpExecutor,
   type IntegrationMcpToolDescriptor,
 } from './integration_mcp_executor.js';
-import { buildMcpToolRegistration, mcpToolKey } from '../utils/mcp_tool_key.js';
+import { buildMcpToolRegistration } from '../utils/mcp_tool_key.js';
 
 export interface IntegrationCatalogDiscoveryOptions {
   resolver?: McpConnectionResolver;
@@ -214,11 +214,20 @@ export class IntegrationCatalogDiscovery {
       // stays invisible to the very agent it was linked to.
       const assigned = await this.assignments.assign(
         request.agentId,
-        tools.map((tool) => ({
-          toolId: mcpToolKey(request.serverKey, tool.name),
-          toolName: mcpToolKey(request.serverKey, tool.name),
-          serverName: request.serverKey,
-        }))
+        tools.map((tool) => {
+          const registration = buildMcpToolRegistration(request.serverKey, {
+            name: tool.name,
+            annotations: tool.annotations,
+          });
+          return {
+            toolId: registration.name,
+            toolName: registration.name,
+            serverName: request.serverKey,
+            // Same policy the registration used, so the gate chat enforces and the
+            // gate the catalog records cannot disagree.
+            requiresApproval: registration.requiresApproval,
+          };
+        })
       );
 
       logger.info('Integration tools registered from a linked connection', {

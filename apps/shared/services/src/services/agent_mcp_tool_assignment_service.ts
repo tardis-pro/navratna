@@ -7,6 +7,12 @@ export interface AgentMcpToolAssignment {
   toolId: string;
   toolName: string;
   serverName: string;
+  /**
+   * Agent chat builds its approval gate from the stored assignment, so this must
+   * survive the write. Defaults to true: an external tool whose policy is unknown
+   * must not auto-execute under the user's credential.
+   */
+  requiresApproval?: boolean;
 }
 
 type StoredAssignment = NonNullable<typeof agents.$inferSelect.assignedMCPTools>[number];
@@ -58,6 +64,7 @@ export class AgentMcpToolAssignmentService {
             toolName: tool.toolName,
             serverName: tool.serverName,
             enabled: true,
+            requiresApproval: tool.requiresApproval !== false,
           }));
 
         if (added.length === 0) return 0;

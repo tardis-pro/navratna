@@ -393,8 +393,38 @@ describe('discovery when a user links a connection', () => {
         toolId: 'mcp-github-create_issue',
         toolName: 'mcp-github-create_issue',
         serverName: 'github',
+        // Carried onto the assignment, not just the registration: agent chat
+        // rebuilds its approval gate from the ASSIGNMENT, so dropping it here
+        // auto-executes a mutating third-party action.
+        requiresApproval: true,
       },
     ]);
+  });
+
+  it('assigns a read-only tool WITHOUT an approval gate', async () => {
+    h.listTools.mockResolvedValue([
+      { name: 'search', inputSchema: {}, annotations: { readOnlyHint: true } },
+    ]);
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.assign.mock.calls[0][1][0]).toMatchObject({ requiresApproval: false });
+  });
+
+  it('assigns a destructive tool WITH an approval gate', async () => {
+    h.listTools.mockResolvedValue([
+      {
+        name: 'delete_repo',
+        inputSchema: {},
+        annotations: { readOnlyHint: true, destructiveHint: true },
+      },
+    ]);
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.assign.mock.calls[0][1][0]).toMatchObject({ requiresApproval: true });
   });
 
   it('assigns using the same mcp- key the executor dispatches on', async () => {
