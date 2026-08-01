@@ -7,6 +7,22 @@ export interface ProviderEndpoints {
   revoke?: string
 }
 
+export type OAuthCallbackIntent = 'sign_in' | 'connect_integration'
+
+/**
+ * Sign-in needs the provider profile to identify the user. Connecting an
+ * integration only stores a credential and never reads the profile, so calling
+ * user-info there is a pointless round trip that also fails outright for providers
+ * with no such endpoint (Vercel) or when the granted scopes exclude it.
+ */
+export function shouldFetchUserInfo(
+  userInfoUrl: string,
+  intent: OAuthCallbackIntent
+): boolean {
+  if (intent === 'connect_integration') return false
+  return userInfoUrl.length > 0
+}
+
 export interface ProviderEndpointSource {
   type: OAuthProviderType
   authorizationUrl?: string | null

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OAuthProviderType } from '@uaip/types';
-import { resolveProviderEndpoints } from '../../services/oauth_endpoints.ts';
+import { resolveProviderEndpoints, shouldFetchUserInfo } from '../../services/oauth_endpoints.ts';
 
 const KNOWN = new Map([
   [
@@ -103,6 +103,24 @@ describe('resolveProviderEndpoints', () => {
     const endpoints = resolveProviderEndpoints({ type: OAuthProviderType.GITHUB }, withRevoke);
 
     expect(endpoints?.revoke).toBe('https://api.github.com/applications/{client_id}/grant');
+  });
+
+  it('is not fetched for an integration connect when the provider has no endpoint', () => {
+    expect(shouldFetchUserInfo('', 'connect_integration')).toBe(false);
+  });
+
+  it('is still fetched for a sign-in, which needs the identity', () => {
+    expect(shouldFetchUserInfo('https://api.github.com/user', 'sign_in')).toBe(true);
+  });
+
+  it('is skipped for an integration connect even when an endpoint exists', () => {
+    // The connect path stores a credential; it never reads the profile, so calling
+    // the provider is a pointless round trip that can also fail on scope.
+    expect(shouldFetchUserInfo('https://api.github.com/user', 'connect_integration')).toBe(false);
+  });
+
+  it('refuses a sign-in that has no user-info endpoint rather than inventing an identity', () => {
+    expect(shouldFetchUserInfo('', 'sign_in')).toBe(false);
   });
 
   it('tolerates a provider with no userInfo endpoint at all', () => {

@@ -3,6 +3,7 @@ import { ApiError } from '@uaip/utils';
 import { OAuthService } from '@uaip/shared-services';
 import {
   resolveProviderEndpoints,
+  shouldFetchUserInfo,
   type ProviderEndpoints as ResolvedProviderEndpoints,
 } from './oauth_endpoints.js';
 import * as crypto from 'crypto';
@@ -541,7 +542,16 @@ export class OAuthProviderService {
         oauthState.codeVerifier
       );
 
-      const userInfo = await this.getUserInfo(endpoints, tokens.access_token);
+      const stateMetadata = isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata : {};
+      const intent: OAuthAuthorizationIntent =
+        stateMetadata.intent === 'connect_integration' ? 'connect_integration' : 'sign_in';
+
+      // Resolved BEFORE the call, not after: connecting an integration only stores
+      // a credential, so fetching the profile is a pointless round trip that fails
+      // outright for a provider with no user-info endpoint.
+      const userInfo = shouldFetchUserInfo(endpoints.userInfo, intent)
+        ? await this.getUserInfo(endpoints, tokens.access_token)
+        : ({ id: '' } as OAuthUserInfo);
 
       // OAuth state already cleaned up by verifyAndConsumeOAuthState
 
@@ -566,10 +576,6 @@ export class OAuthProviderService {
         userType: oauthState.userType,
         userId: userInfo.id,
       });
-
-      const stateMetadata = isRecord(oauthStateEntity.metadata) ? oauthStateEntity.metadata : {};
-      const intent: OAuthAuthorizationIntent =
-        stateMetadata.intent === 'connect_integration' ? 'connect_integration' : 'sign_in';
 
       return {
         tokens,
