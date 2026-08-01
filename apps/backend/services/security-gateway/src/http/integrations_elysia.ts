@@ -5,8 +5,10 @@ import { withRequiredAuth } from '@uaip/middleware';
 import {
   INTEGRATION_CONNECTION_LINKED_EVENT,
   INTEGRATION_CONNECTION_UNLINKED_EVENT,
+  INTEGRATION_CREDENTIAL_CHANGED_EVENT,
   UserType,
   type IntegrationConnectionUnlinkedEvent,
+  type IntegrationCredentialChangedEvent,
 } from '@uaip/types';
 import {
   EventBusService,
@@ -65,6 +67,26 @@ async function announceUnlinkedConnection(
   } catch (error) {
     logger.warn('Failed to announce an unlinked integration connection', {
       serverKey: event.serverKey,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * A cached MCP session holds the superseded token inside an already-open HTTP
+ * session, so rotating or revoking a credential must close it rather than wait for
+ * it to expire. Announcing must never fail the rotation: the new credential is
+ * already stored.
+ */
+async function announceCredentialChanged(
+  event: IntegrationCredentialChangedEvent
+): Promise<void> {
+  try {
+    await EventBusService.getInstance().publish(INTEGRATION_CREDENTIAL_CHANGED_EVENT, event);
+  } catch (error) {
+    logger.warn('Failed to announce an integration credential change', {
+      connectionId: event.connectionId,
+      reason: event.reason,
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -228,6 +250,10 @@ export function registerIntegrationRoutes() {
             parsed.data.accessToken,
             parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : undefined
           );
+          await announceCredentialChanged({
+            connectionId: params.connectionId,
+            reason: 'rotated',
+          });
           return { success: true };
         } catch (error) {
           return respondToError(error, set, 'Failed to rotate integration token');
@@ -239,6 +265,10 @@ export function registerIntegrationRoutes() {
         const { set, params } = ctx;
         try {
           await service().revokeConnection(params.connectionId, user.id);
+          await announceCredentialChanged({
+            connectionId: params.connectionId,
+            reason: 'revoked',
+          });
           return { success: true };
         } catch (error) {
           return respondToError(error, set, 'Failed to revoke integration connection');

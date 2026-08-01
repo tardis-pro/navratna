@@ -28,6 +28,7 @@ interface Harness {
   listTools: ReturnType<typeof vi.fn>;
   findBindingActor: ReturnType<typeof vi.fn>;
   agentHasEnabledBinding: ReturnType<typeof vi.fn>;
+  invalidateConnection: ReturnType<typeof vi.fn>;
   assign: ReturnType<typeof vi.fn>;
   unassignServer: ReturnType<typeof vi.fn>;
   publish: ReturnType<typeof vi.fn>;
@@ -54,6 +55,7 @@ const makeHarness = (): Harness => {
   const subscribe = vi.fn().mockResolvedValue(undefined);
   const findBindingActor = vi.fn().mockResolvedValue('user-1');
   const agentHasEnabledBinding = vi.fn().mockResolvedValue(false);
+  const invalidateConnection = vi.fn().mockResolvedValue(undefined);
   const assign = vi.fn().mockResolvedValue(1);
   const unassignServer = vi.fn().mockResolvedValue(2);
 
@@ -65,7 +67,7 @@ const makeHarness = (): Harness => {
     } as unknown as NonNullable<
       DiscoveryOptions
     >['resolver'],
-    executor: { listCatalogTools, listTools } as unknown as NonNullable<
+    executor: { listCatalogTools, listTools, invalidateConnection } as unknown as NonNullable<
       DiscoveryOptions
     >['executor'],
     assignments: { assign, unassignServer } as unknown as NonNullable<
@@ -80,6 +82,7 @@ const makeHarness = (): Harness => {
     listTools,
     findBindingActor,
     agentHasEnabledBinding,
+    invalidateConnection,
     assign,
     unassignServer,
     publish,
@@ -273,7 +276,7 @@ describe('discovery when a user links a connection', () => {
     return h.subscribe.mock.calls[0][1] as (event: unknown) => Promise<void>;
   };
 
-  it('subscribes to both the linked and unlinked events', async () => {
+  it('subscribes to the linked, unlinked and credential-changed events', async () => {
     await h.discovery.initialize(
       h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
     );
@@ -281,7 +284,41 @@ describe('discovery when a user links a connection', () => {
     expect(h.subscribe.mock.calls.map((call) => call[0])).toEqual([
       'integration.connection.linked',
       'integration.connection.unlinked',
+      'integration.credential.changed',
     ]);
+  });
+
+  it('closes cached sessions when a credential is rotated', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const handler = h.subscribe.mock.calls[2][1] as (e: unknown) => Promise<void>;
+
+    await handler(envelope({ connectionId: 'conn-1', reason: 'rotated' }));
+
+    expect(h.invalidateConnection).toHaveBeenCalledWith('conn-1');
+  });
+
+  it('closes cached sessions when a credential is revoked', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const handler = h.subscribe.mock.calls[2][1] as (e: unknown) => Promise<void>;
+
+    await handler(envelope({ connectionId: 'conn-2', reason: 'revoked' }));
+
+    expect(h.invalidateConnection).toHaveBeenCalledWith('conn-2');
+  });
+
+  it('ignores a credential event carrying no connection id', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const handler = h.subscribe.mock.calls[2][1] as (e: unknown) => Promise<void>;
+
+    await handler(envelope({ reason: 'rotated' }));
+
+    expect(h.invalidateConnection).not.toHaveBeenCalled();
   });
 
   it('does NOT withdraw while the agent still has an enabled binding elsewhere', async () => {

@@ -5,7 +5,15 @@ import { withOptionalAuth, withRequiredAuth } from '@uaip/middleware';
 import { OAuthProviderService } from '../services/oauth_provider_service.js';
 import { EnhancedAuthService } from '../services/enhanced_auth_service.js';
 import { AuditService } from '../services/audit_service.js';
-import { UserType, AgentCapability, OAuthProviderType, AuditEventType } from '@uaip/types';
+import {
+  UserType,
+  AgentCapability,
+  OAuthProviderType,
+  AuditEventType,
+  INTEGRATION_CREDENTIAL_CHANGED_EVENT,
+  type IntegrationCredentialChangedEvent,
+} from '@uaip/types';
+import { EventBusService } from '@uaip/shared-services';
 import {
   UserService,
   OAuthService,
@@ -184,7 +192,7 @@ async function completeIntegrationConnect(code: string, state: string): Promise<
     return `${frontend}/?integration_error=${encodeURIComponent('integration_provider_not_found')}`;
   }
 
-  await integrations.upsertConnectionForOwner({
+  const connection = await integrations.upsertConnectionForOwner({
     providerId: provider.id,
     ownerUserId: callback.stateUserId,
     accessToken: callback.tokens.access_token,
@@ -193,7 +201,22 @@ async function completeIntegrationConnect(code: string, state: string): Promise<
     expiresAt: callback.tokens.expires_in
       ? new Date(Date.now() + callback.tokens.expires_in * 1000)
       : undefined,
-  });
+  })
+
+  // Reconnecting rotates the credential on an EXISTING row, so any MCP session
+  // cached under the superseded token must be closed. Never fail the connect:
+  // the new credential is already stored.
+  try {
+    await EventBusService.getInstance().publish(INTEGRATION_CREDENTIAL_CHANGED_EVENT, {
+      connectionId: connection.id,
+      reason: 'rotated',
+    } satisfies IntegrationCredentialChangedEvent)
+  } catch (error) {
+    logger.warn('Failed to announce a reconnected integration credential', {
+      connectionId: connection.id,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 
   await auditService.logEvent({
     eventType: AuditEventType.SECURITY_CONFIG_CHANGE,

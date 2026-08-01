@@ -56,6 +56,19 @@ export interface IntegrationConnectionUnlinkedEvent {
   agentId: string;
 }
 
+/**
+ * Published when a connection's credential changes (rotation, reconnect, revoke).
+ * Cached MCP sessions embed the old token in an open HTTP session, so a session
+ * opened under the superseded credential must be closed rather than left to expire.
+ * Carries no token — only the connection id whose sessions must go.
+ */
+export const INTEGRATION_CREDENTIAL_CHANGED_EVENT = 'integration.credential.changed';
+
+export interface IntegrationCredentialChangedEvent {
+  connectionId: string;
+  reason: 'rotated' | 'revoked';
+}
+
 export interface IntegrationConnection {
   id: string;
   userId: string;

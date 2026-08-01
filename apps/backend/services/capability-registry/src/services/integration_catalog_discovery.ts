@@ -2,9 +2,11 @@ import { logger } from '@uaip/utils';
 import {
   INTEGRATION_CONNECTION_LINKED_EVENT,
   INTEGRATION_CONNECTION_UNLINKED_EVENT,
+  INTEGRATION_CREDENTIAL_CHANGED_EVENT,
   ToolCategory,
   type IntegrationConnectionLinkedEvent,
   type IntegrationConnectionUnlinkedEvent,
+  type IntegrationCredentialChangedEvent,
 } from '@uaip/types';
 import {
   AgentMcpToolAssignmentService,
@@ -50,6 +52,26 @@ function extractLinkedPayload(event: unknown): IntegrationConnectionLinkedPayloa
     projectId: candidate.projectId,
     agentId: candidate.agentId,
     actorUserId: candidate.actorUserId,
+  };
+}
+
+function extractCredentialChangedPayload(
+  event: unknown
+): IntegrationCredentialChangedEvent | null {
+  if (typeof event !== 'object' || event === null) return null;
+
+  const envelope = event as { data?: unknown };
+  const source =
+    typeof envelope.data === 'object' && envelope.data !== null ? envelope.data : event;
+  const candidate = source as Partial<IntegrationCredentialChangedEvent>;
+
+  if (typeof candidate.connectionId !== 'string' || candidate.connectionId.length === 0) {
+    return null;
+  }
+
+  return {
+    connectionId: candidate.connectionId,
+    reason: candidate.reason === 'revoked' ? 'revoked' : 'rotated',
   };
 }
 
@@ -140,6 +162,28 @@ export class IntegrationCatalogDiscovery {
         return;
       }
       await this.withdrawForConnection(payload);
+    });
+
+    await eventBus.subscribe(INTEGRATION_CREDENTIAL_CHANGED_EVENT, async (event) => {
+      const payload = extractCredentialChangedPayload(event);
+      if (!payload) {
+        logger.warn('Ignoring malformed integration.credential.changed event');
+        return;
+      }
+      await this.closeSessionsForConnection(payload);
+    });
+  }
+
+  /**
+   * Closes every cached MCP session opened under a credential that has just been
+   * rotated or revoked. The session holds the superseded token inside an already
+   * open HTTP session, so nothing else would evict it until it idled out.
+   */
+  async closeSessionsForConnection(event: IntegrationCredentialChangedEvent): Promise<void> {
+    await this.executor.invalidateConnection(event.connectionId);
+    logger.info('Closed cached MCP sessions for a changed credential', {
+      connectionId: event.connectionId,
+      reason: event.reason,
     });
   }
 
