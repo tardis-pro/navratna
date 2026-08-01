@@ -286,6 +286,24 @@ export class IntegrationConnectionService {
         metadata: input.metadata ?? null,
         status: IntegrationConnectionStatus.ACTIVE,
       })
+      // A concurrent connect on another instance may have inserted the row between
+      // the caller's existence check and this insert. Resolving the conflict here
+      // turns that race into a rotation of the SAME row, instead of a unique
+      // violation or a duplicate credential a binding could point at.
+      .onConflictDoUpdate({
+        target: [integrationConnections.ownerUserId, integrationConnections.providerId],
+        set: {
+          accessTokenEncrypted: encryptOAuthSecret(input.accessToken),
+          ...(input.refreshToken
+            ? { refreshTokenEncrypted: encryptOAuthSecret(input.refreshToken) }
+            : {}),
+          expiresAt: input.expiresAt ?? null,
+          scopes: input.scopes ?? [],
+          tokenVersion: sql`${integrationConnections.tokenVersion} + 1`,
+          status: IntegrationConnectionStatus.ACTIVE,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
 
     return this.toConnectionSummary({ ...inserted, providerKey: provider.key });

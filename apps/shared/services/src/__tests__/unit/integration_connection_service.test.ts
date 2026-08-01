@@ -214,6 +214,33 @@ describe('createConnection', () => {
     ];
   });
 
+  it('resolves a concurrent insert into a rotation of the same row', async () => {
+    await service().createConnection({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'tok',
+    });
+
+    // Without the conflict target a second instance racing the existence check
+    // either raises a unique violation or (pre-index) creates a duplicate
+    // credential that a binding could point at.
+    expect(mocks.conflictTargets).toHaveLength(1);
+    const patch = mocks.conflictSets[0];
+    expect(patch.accessTokenEncrypted).toBe(enc('tok'));
+    expect(typeof patch.tokenVersion).not.toBe('number');
+    expect(patch.status).toBe(IntegrationConnectionStatus.ACTIVE);
+  });
+
+  it('does not erase a stored refresh token when the retry carries none', async () => {
+    await service().createConnection({
+      providerId: PROVIDER_ID,
+      ownerUserId: OWNER_ID,
+      accessToken: 'tok',
+    });
+
+    expect(mocks.conflictSets[0]).not.toHaveProperty('refreshTokenEncrypted');
+  });
+
   it('encrypts the access token rather than storing it in the clear', async () => {
     await service().createConnection({
       providerId: PROVIDER_ID,

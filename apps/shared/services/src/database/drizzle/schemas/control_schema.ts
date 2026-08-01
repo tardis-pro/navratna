@@ -364,6 +364,10 @@ export const integrationConnections = pgTable(
     // Required as the target of the binding table's composite FK — that is what makes
     // binding a connection to a different provider structurally impossible.
     uniqueIndex('idx_integration_connections_id_provider').on(t.id, t.providerId),
+    // One connection per (owner, provider). Enforcing this only in code lets two
+    // Fly instances both pass a select-then-insert check and create duplicates,
+    // after which a binding can point at the superseded credential.
+    uniqueIndex('idx_integration_connections_owner_provider').on(t.ownerUserId, t.providerId),
     index('idx_integration_connections_owner').on(t.ownerUserId),
     index('idx_integration_connections_provider_status').on(t.providerId, t.status),
   ]

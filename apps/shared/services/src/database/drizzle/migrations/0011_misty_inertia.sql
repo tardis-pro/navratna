@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "idx_integration_connections_owner_provider" ON "integration_connections" USING btree ("owner_user_id","provider_id");
