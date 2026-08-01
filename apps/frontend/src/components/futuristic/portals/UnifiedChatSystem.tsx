@@ -75,8 +75,32 @@ function toToolsExecuted(v: unknown): ChatMessage['toolsExecuted'] {
   });
 }
 
+function toToolsWithheld(v: unknown): ChatMessage['toolsWithheld'] {
+  if (!Array.isArray(v)) return undefined;
+  const withheld = v.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const toolId = typeof item.toolId === 'string' ? item.toolId : undefined;
+    const toolName = typeof item.toolName === 'string' ? item.toolName : undefined;
+    if (!toolId || !toolName) return [];
+    return [
+      {
+        toolId,
+        toolName,
+        reasoning: typeof item.reasoning === 'string' ? item.reasoning : undefined,
+      },
+    ];
+  });
+  return withheld.length > 0 ? withheld : undefined;
+}
+
+/**
+ * generateAgentResponse returns confidence / toolsExecuted / suggestedTools as
+ * FLAT fields, not under a `metadata` envelope, so reading only `response.metadata`
+ * silently rendered every message with no confidence and no tool footer. The flat
+ * response is the fallback; an explicit metadata key still wins where one exists.
+ */
 function readAgentChatMetadata(response: AgentChatResponseView): Record<string, unknown> {
-  return response.metadata ?? {};
+  return { ...(response as Record<string, unknown>), ...(response.metadata ?? {}) };
 }
 
 function readAgentName(response: AgentChatResponseView, fallback: string): string {
@@ -890,6 +914,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           memoryEnhanced: readMemoryEnhanced(restResponse),
           knowledgeUsed: readKnowledgeUsed(restResponse),
           toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
+          toolsWithheld: toToolsWithheld(readAgentChatMetadata(restResponse).suggestedTools),
           agentId: window.agentId,
         };
 
@@ -1076,6 +1101,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           memoryEnhanced: readMemoryEnhanced(restResponse),
           knowledgeUsed: readKnowledgeUsed(restResponse),
           toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
+          toolsWithheld: toToolsWithheld(readAgentChatMetadata(restResponse).suggestedTools),
         };
         setPortalMessages((prev) => [...prev, agentMessage]);
         setConversationHistory((prev) => [
@@ -1406,6 +1432,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           memoryEnhanced: readMemoryEnhanced(restResponse),
           knowledgeUsed: readKnowledgeUsed(restResponse),
           toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
+          toolsWithheld: toToolsWithheld(readAgentChatMetadata(restResponse).suggestedTools),
           agentId: window.agentId,
         };
 
@@ -1506,6 +1533,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         memoryEnhanced: readMemoryEnhanced(restResponse),
         knowledgeUsed: readKnowledgeUsed(restResponse),
         toolsExecuted: toToolsExecuted(readAgentChatMetadata(restResponse).toolsExecuted),
+        toolsWithheld: toToolsWithheld(readAgentChatMetadata(restResponse).suggestedTools),
       };
 
       setPortalMessages((prev) => [...prev, agentMessage]);

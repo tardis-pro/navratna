@@ -23,6 +23,7 @@ import {
   Zap,
   AlertCircle,
   Maximize2,
+  ShieldAlert,
   Square,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -69,9 +70,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     message.confidence ||
       message.memoryEnhanced ||
       message.knowledgeUsed ||
-      message.toolsExecuted?.length
+      message.toolsExecuted?.length ||
+      message.toolsWithheld?.length
   );
   const hasToolResults = Boolean(message.toolsExecuted && message.toolsExecuted.length > 0);
+  const hasWithheldTools = Boolean(message.toolsWithheld && message.toolsWithheld.length > 0);
   const canExpand = useMemo(() => canExpandMessage(message), [message]);
 
   const expandButton = onExpand && canExpand ? (
@@ -152,6 +155,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <span>{message.toolsExecuted!.length} tools</span>
         </div>
       ) : null}
+      {hasWithheldTools ? (
+        <div className="flex items-center gap-1 text-amber-400">
+          <ShieldAlert className="w-3 h-3" />
+          <span>{message.toolsWithheld!.length} awaiting approval</span>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -178,6 +187,26 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <AlertCircle className="w-3 h-3" />
             )}
           </motion.div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  const withheldTools = hasWithheldTools ? (
+    <div className="mt-3 pt-3 border-t border-border/40">
+      <div className="text-xs text-muted-foreground mb-2">Awaiting your approval:</div>
+      <div className="space-y-2">
+        {message.toolsWithheld!.map((tool) => (
+          <div
+            key={tool.toolId}
+            className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border bg-amber-500/10 text-amber-400 border-amber-500/20"
+          >
+            <ShieldAlert className="w-3 h-3 shrink-0" />
+            <span className="font-medium">{tool.toolName}</span>
+            {tool.reasoning ? (
+              <span className="truncate text-amber-400/70">— {tool.reasoning}</span>
+            ) : null}
+          </div>
         ))}
       </div>
     </div>
@@ -264,6 +293,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             )}
             {!isUser && !isStreaming && hasMetadata && metadataRow}
             {!isUser && !isStreaming && toolResults}
+            {!isUser && !isStreaming && withheldTools}
           </div>
         </motion.div>
         <div className="mt-2 flex items-center justify-between px-4">

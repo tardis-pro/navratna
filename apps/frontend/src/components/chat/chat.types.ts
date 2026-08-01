@@ -23,6 +23,15 @@ export interface ChatToolExecution {
   timestamp: string;
 }
 
+// A tool the agent wanted to call but that was withheld pending human approval.
+// Without surfacing this the turn is indistinguishable from the agent simply
+// choosing not to act, which reads as the integration being broken.
+export interface ChatToolWithheld {
+  toolId: string;
+  toolName: string;
+  reasoning?: string;
+}
+
 // View-model consumed by MessageBubble/MessageStream. Plain-data only — all
 // socket/persistence logic stays in the container that owns the messages.
 export interface ChatMessage {
@@ -37,6 +46,7 @@ export interface ChatMessage {
   memoryEnhanced?: boolean;
   knowledgeUsed?: number;
   toolsExecuted?: ChatToolExecution[];
+  toolsWithheld?: ChatToolWithheld[];
   metadata?: Record<string, unknown>;
 }
 
