@@ -1,6 +1,10 @@
 import { logger } from '@uaip/utils';
 import { ApiError } from '@uaip/utils';
 import { OAuthService } from '@uaip/shared-services';
+import {
+  resolveProviderEndpoints,
+  type ProviderEndpoints as ResolvedProviderEndpoints,
+} from './oauth_endpoints.js';
 import * as crypto from 'crypto';
 import * as _jwt from 'jsonwebtoken';
 import axios, { AxiosResponse } from 'axios';
@@ -58,12 +62,7 @@ interface OAuthUserInfo {
   [key: string]: unknown;
 }
 
-interface ProviderEndpoints {
-  authorization: string;
-  token: string;
-  userInfo: string;
-  revoke?: string;
-}
+type ProviderEndpoints = ResolvedProviderEndpoints;
 
 /**
  * `sign_in` mints a session; `connect_integration` stores the credential as an
@@ -91,6 +90,29 @@ export class OAuthProviderService {
   /**
    * Initialize default provider endpoints
    */
+  /**
+   * Endpoints come from the provider ROW first; the built-in map only fills the
+   * halves a legacy row leaves empty. Reading the map first is what forced an
+   * eighth provider to be a code change instead of a row.
+   */
+  private endpointsFor(provider: {
+    type?: OAuthProviderType;
+    authorizationUrl?: string;
+    tokenUrl?: string;
+    userInfoUrl?: string;
+  }): ProviderEndpoints | null {
+    if (!provider.type) return null;
+    return resolveProviderEndpoints(
+      {
+        type: provider.type,
+        authorizationUrl: provider.authorizationUrl,
+        tokenUrl: provider.tokenUrl,
+        userInfoUrl: provider.userInfoUrl,
+      },
+      this.providerEndpoints
+    );
+  }
+
   private initializeProviderEndpoints(): void {
     this.providerEndpoints.set(OAuthProviderType.GITHUB, {
       authorization: 'https://github.com/login/oauth/authorize',
@@ -388,7 +410,7 @@ export class OAuthProviderService {
       if (!provider.type) {
         throw new ApiError(500, 'OAuth provider type is missing', 'INVALID_PROVIDER');
       }
-      const endpoints = this.providerEndpoints.get(provider.type);
+      const endpoints = this.endpointsFor(provider);
       if (!endpoints) {
         throw new ApiError(500, 'Provider endpoints not configured', 'ENDPOINTS_NOT_CONFIGURED');
       }
@@ -506,7 +528,7 @@ export class OAuthProviderService {
       if (!providerType) {
         throw new ApiError(500, 'OAuth provider type is missing', 'INVALID_PROVIDER');
       }
-      const endpoints = this.providerEndpoints.get(providerType);
+      const endpoints = this.endpointsFor(provider);
       if (!endpoints) {
         throw new ApiError(500, 'Provider endpoints not configured', 'ENDPOINTS_NOT_CONFIGURED');
       }
@@ -519,7 +541,7 @@ export class OAuthProviderService {
         oauthState.codeVerifier
       );
 
-      const userInfo = await this.getUserInfo(providerType, tokens.access_token);
+      const userInfo = await this.getUserInfo(endpoints, tokens.access_token);
 
       // OAuth state already cleaned up by verifyAndConsumeOAuthState
 
@@ -795,7 +817,7 @@ export class OAuthProviderService {
         return null;
       }
 
-      const endpoints = this.providerEndpoints.get(provider.type);
+      const endpoints = this.endpointsFor(provider);
       if (!endpoints) {
         return null;
       }
@@ -876,11 +898,10 @@ export class OAuthProviderService {
   }
 
   private async getUserInfo(
-    providerType: OAuthProviderType,
+    endpoints: ProviderEndpoints,
     accessToken: string
   ): Promise<OAuthUserInfo> {
-    const endpoints = this.providerEndpoints.get(providerType);
-    if (!endpoints) {
+    if (!endpoints.userInfo) {
       throw new ApiError(500, 'Provider endpoints not configured', 'ENDPOINTS_NOT_CONFIGURED');
     }
 
