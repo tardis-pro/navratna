@@ -27,6 +27,7 @@ interface Harness {
   listCatalogTools: ReturnType<typeof vi.fn>;
   listTools: ReturnType<typeof vi.fn>;
   findBindingActor: ReturnType<typeof vi.fn>;
+  agentHasEnabledBinding: ReturnType<typeof vi.fn>;
   assign: ReturnType<typeof vi.fn>;
   unassignServer: ReturnType<typeof vi.fn>;
   publish: ReturnType<typeof vi.fn>;
@@ -52,11 +53,16 @@ const makeHarness = (): Harness => {
   const publish = vi.fn().mockResolvedValue(undefined);
   const subscribe = vi.fn().mockResolvedValue(undefined);
   const findBindingActor = vi.fn().mockResolvedValue('user-1');
+  const agentHasEnabledBinding = vi.fn().mockResolvedValue(false);
   const assign = vi.fn().mockResolvedValue(1);
   const unassignServer = vi.fn().mockResolvedValue(2);
 
   const discovery = new IntegrationCatalogDiscovery({
-    resolver: { listIntegrationServers, findBindingActor } as unknown as NonNullable<
+    resolver: {
+      listIntegrationServers,
+      findBindingActor,
+      agentHasEnabledBinding,
+    } as unknown as NonNullable<
       DiscoveryOptions
     >['resolver'],
     executor: { listCatalogTools, listTools } as unknown as NonNullable<
@@ -73,6 +79,7 @@ const makeHarness = (): Harness => {
     listCatalogTools,
     listTools,
     findBindingActor,
+    agentHasEnabledBinding,
     assign,
     unassignServer,
     publish,
@@ -275,6 +282,33 @@ describe('discovery when a user links a connection', () => {
       'integration.connection.linked',
       'integration.connection.unlinked',
     ]);
+  });
+
+  it('does NOT withdraw while the agent still has an enabled binding elsewhere', async () => {
+    h.agentHasEnabledBinding.mockResolvedValue(true);
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const unlinkedHandler = h.subscribe.mock.calls[1][1] as (e: unknown) => Promise<void>;
+
+    await unlinkedHandler(
+      envelope({ serverKey: 'github', projectId: 'proj-1', agentId: 'agent-1' })
+    );
+
+    expect(h.unassignServer).not.toHaveBeenCalled();
+  });
+
+  it('asks the stored state, not the event, whether any binding remains', async () => {
+    await h.discovery.initialize(
+      h.eventBus as unknown as Parameters<typeof h.discovery.initialize>[0]
+    );
+    const unlinkedHandler = h.subscribe.mock.calls[1][1] as (e: unknown) => Promise<void>;
+
+    await unlinkedHandler(
+      envelope({ serverKey: 'github', projectId: 'proj-1', agentId: 'agent-1' })
+    );
+
+    expect(h.agentHasEnabledBinding).toHaveBeenCalledWith('github', 'agent-1');
   });
 
   it('withdraws the provider tools from the agent when a binding is removed', async () => {

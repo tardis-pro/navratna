@@ -350,6 +350,36 @@ export class McpConnectionResolver {
     return binding?.createdByUserId ?? null;
   }
 
+  /**
+   * Whether this agent still has an ENABLED binding for the server, across every
+   * project. Withdrawal must be derived from this rather than from the unlink
+   * event: the same agent may be bound to the same provider in another project,
+   * and a stale or replayed event must not strip tools that are still live.
+   */
+  async agentHasEnabledBinding(serverKey: string, agentId: string): Promise<boolean> {
+    const [server] = await this.db
+      .select({ providerId: mcpServers.providerId })
+      .from(mcpServers)
+      .where(eq(mcpServers.serverKey, serverKey))
+      .limit(1);
+
+    if (!server?.providerId) return false;
+
+    const [binding] = await this.db
+      .select({ connectionId: projectAgentIntegrationConnections.connectionId })
+      .from(projectAgentIntegrationConnections)
+      .where(
+        and(
+          eq(projectAgentIntegrationConnections.agentId, agentId),
+          eq(projectAgentIntegrationConnections.providerId, server.providerId),
+          eq(projectAgentIntegrationConnections.enabled, true)
+        )
+      )
+      .limit(1);
+
+    return Boolean(binding);
+  }
+
   private async loadCredential(
     connectionId: string,
     providerId: string

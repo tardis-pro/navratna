@@ -149,6 +149,21 @@ export class IntegrationCatalogDiscovery {
    * longer resolves, so every such call would fail at execution instead.
    */
   async withdrawForConnection(event: IntegrationConnectionUnlinkedEvent): Promise<number> {
+    // Derived from stored state, never from the event: the same agent may still be
+    // bound to this provider in another project, and a stale or forged unlink must
+    // not strip tools that are still live.
+    const stillBound = await this.resolver.agentHasEnabledBinding(
+      event.serverKey,
+      event.agentId
+    );
+    if (stillBound) {
+      logger.info('Kept integration tools: the agent still has an enabled binding', {
+        serverKey: event.serverKey,
+        agentId: event.agentId,
+      });
+      return 0;
+    }
+
     const removed = await this.assignments.unassignServer(event.agentId, event.serverKey);
 
     logger.info('Withdrew integration tools from an unlinked connection', {

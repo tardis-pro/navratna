@@ -474,6 +474,38 @@ describe('findBindingActor', () => {
   });
 });
 
+describe('agentHasEnabledBinding', () => {
+  it('reports a live binding so withdrawal is skipped', async () => {
+    setRows({ server: [serverRow()], binding: [{ connectionId: CONNECTION_ID }] });
+
+    await expect(resolver().agentHasEnabledBinding('github', AGENT_ID)).resolves.toBe(true);
+  });
+
+  it('reports none when no binding remains', async () => {
+    setRows({ server: [serverRow()], binding: [] });
+
+    await expect(resolver().agentHasEnabledBinding('github', AGENT_ID)).resolves.toBe(false);
+  });
+
+  it('reports none for an unknown server key', async () => {
+    setRows({ server: [] });
+
+    await expect(resolver().agentHasEnabledBinding('nope', AGENT_ID)).resolves.toBe(false);
+  });
+
+  it('scopes by agent, provider AND enabled — not by project', async () => {
+    setRows({ server: [serverRow()], binding: [{ connectionId: CONNECTION_ID }] });
+
+    await resolver().agentHasEnabledBinding('github', AGENT_ID);
+
+    const columns = mocks.predicateColumnsByTable.get(projectAgentIntegrationConnections) ?? [];
+    expect(columns).toEqual(expect.arrayContaining(['agent_id', 'provider_id', 'enabled']));
+    // Deliberately NOT project-scoped: a binding in ANOTHER project still keeps
+    // the agent's tools alive, which is the whole point of the check.
+    expect(columns).not.toContain('project_id');
+  });
+});
+
 describe('lookup predicates are scoped, not just filtered in memory', () => {
   it('scopes the credential lookup by provider as well as id', async () => {
     setRows({
