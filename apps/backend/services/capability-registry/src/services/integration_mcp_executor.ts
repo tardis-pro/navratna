@@ -10,6 +10,10 @@ import {
   type AuthenticatedMcpClient,
   type McpSessionKey,
 } from './authenticated_mcp_transport.js';
+import {
+  probeProtectedResource,
+  type ProtectedResourceMetadata,
+} from './oauth_protected_resource.js';
 
 export interface IntegrationMcpToolDescriptor {
   name: string;
@@ -27,7 +31,17 @@ export interface IntegrationMcpExecutorOptions {
   resolver?: McpConnectionResolver;
   sessionCache?: McpSessionCache;
   createClient?: typeof createAuthenticatedMcpClient;
+  discoverProtectedResource?: ProtectedResourceProbe;
 }
+
+/**
+ * Resolves what a protected MCP server requires, given its own URL. The MCP SDK
+ * throws UnauthorizedError WITHOUT the WWW-Authenticate header, so the challenge
+ * has to be re-elicited from the server rather than read off the error.
+ */
+export type ProtectedResourceProbe = (
+  serverUrl: string
+) => Promise<ProtectedResourceMetadata | null>;
 
 const DEFAULT_MAX_SESSIONS = 200;
 const DEFAULT_IDLE_TTL_MS = 5 * 60 * 1000;
@@ -74,6 +88,7 @@ export class IntegrationMcpExecutor {
   private readonly resolver: McpConnectionResolver;
   private readonly sessionCache: McpSessionCache;
   private readonly createClient: typeof createAuthenticatedMcpClient;
+  private discoverProtectedResource: ProtectedResourceProbe;
 
   constructor(options: IntegrationMcpExecutorOptions = {}) {
     this.resolver = options.resolver ?? McpConnectionResolver.getInstance();
@@ -84,6 +99,12 @@ export class IntegrationMcpExecutor {
         idleTtlMs: DEFAULT_IDLE_TTL_MS,
       });
     this.createClient = options.createClient ?? createAuthenticatedMcpClient;
+    this.discoverProtectedResource =
+      options.discoverProtectedResource ?? ((url) => probeProtectedResource(url));
+  }
+
+  setProtectedResourceDiscovery(probe: ProtectedResourceProbe): void {
+    this.discoverProtectedResource = probe;
   }
 
   static getInstance(): IntegrationMcpExecutor {
@@ -195,8 +216,50 @@ export class IntegrationMcpExecutor {
       const retried = await this.sessionCache.getOrCreate(refreshedKey, () =>
         this.openSession(refreshed)
       );
-      return operation(retried);
+
+      try {
+        return await operation(retried);
+      } catch (retryError) {
+        // Failing twice on auth means the stored credential is not merely stale —
+        // the server does not accept it. Ask the server what it DOES require so the
+        // user is told which authorization server and scopes to grant, instead of
+        // being handed a bare 401.
+        throw await this.explainAuthFailure(refreshed, retryError);
+      }
     }
+  }
+
+  private async explainAuthFailure(
+    connection: McpResolvedConnection,
+    error: unknown
+  ): Promise<unknown> {
+    if (statusCodeOf(error) !== 401 && !(error instanceof Error && error.name === 'UnauthorizedError')) {
+      return error;
+    }
+
+    let metadata: ProtectedResourceMetadata | null = null;
+    try {
+      metadata = await this.discoverProtectedResource(connection.url);
+    } catch (probeError) {
+      logger.warn('Could not discover what the MCP server requires', {
+        serverKey: connection.serverKey,
+        error: probeError instanceof Error ? probeError.message : String(probeError),
+      });
+    }
+
+    // Nothing actionable to add, so the original failure must surface unchanged
+    // rather than being replaced by a vaguer message.
+    if (!metadata) return error;
+
+    const scopes =
+      metadata.scopesSupported.length > 0
+        ? ` Required scopes: ${metadata.scopesSupported.join(', ')}.`
+        : '';
+
+    return new Error(
+      `${metadata.resourceName ?? connection.serverKey} rejected the stored credential. ` +
+        `Reconnect via ${metadata.authorizationServers.join(', ')}.${scopes}`
+    );
   }
 
   private async openSession(connection: McpResolvedConnection): Promise<AuthenticatedMcpClient> {

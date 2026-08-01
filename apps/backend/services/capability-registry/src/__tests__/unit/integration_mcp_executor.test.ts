@@ -74,6 +74,10 @@ const makeHarness = (overrides: { resolved?: Record<string, unknown> } = {}): Ha
     resolver: { resolve } as unknown as ResolverStub,
     sessionCache: new McpSessionCache({ maxEntries: 8, idleTtlMs: 60_000 }),
     createClient: createClient as unknown as ClientFactory,
+    // Injected so the default probe never makes a REAL network request from a unit
+    // test: it re-elicits the challenge by calling the server, which would leave
+    // these tests network-dependent and slow.
+    discoverProtectedResource: async () => null,
   });
 
   return { executor, resolve, createClient, listTools, callTool, close, createdWith };
@@ -393,5 +397,114 @@ describe('a replica that never received the invalidation event', () => {
 
     expect(h.resolve).toHaveBeenCalledTimes(3);
     expect(h.createClient).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a persistent 401 from a protected provider', () => {
+  const unauthorized = () => Object.assign(new Error('HTTP 401'), { code: 401 });
+
+  const protectedHarness = () => {
+    const h = makeHarness();
+    // Fails on the first attempt AND on the retry: the credential is not merely
+    // stale, the server does not accept it at all.
+    h.callTool.mockRejectedValue(unauthorized());
+    return h;
+  };
+
+  it('reports which authorization server and scopes the provider requires', async () => {
+    const h = protectedHarness();
+    const discover = vi.fn().mockResolvedValue({
+      resource: 'https://api.githubcopilot.com/mcp/',
+      authorizationServers: ['https://github.com/login/oauth'],
+      scopesSupported: ['repo', 'read:org'],
+      resourceName: 'GitHub MCP Server',
+    });
+    h.executor.setProtectedResourceDiscovery(discover);
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(
+      /github\.com\/login\/oauth/
+    );
+  });
+
+  it('names the required scopes so the user knows what to grant', async () => {
+    const h = protectedHarness();
+    h.executor.setProtectedResourceDiscovery(
+      vi.fn().mockResolvedValue({
+        resource: 'https://api.githubcopilot.com/mcp/',
+        authorizationServers: ['https://github.com/login/oauth'],
+        scopesSupported: ['repo', 'read:org'],
+      })
+    );
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(/repo/);
+  });
+
+  it('surfaces the original error when the server advertises no metadata', async () => {
+    const h = protectedHarness();
+    h.executor.setProtectedResourceDiscovery(vi.fn().mockResolvedValue(null));
+
+    // Nothing actionable to say, so the raw failure must not be swallowed.
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(/401/);
+  });
+
+  it('surfaces the original error when discovery itself fails', async () => {
+    const h = protectedHarness();
+    h.executor.setProtectedResourceDiscovery(vi.fn().mockRejectedValue(new Error('bad metadata')));
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(/401/);
+  });
+
+  it('does not probe when the call eventually succeeds on retry', async () => {
+    const h = makeHarness();
+    h.callTool.mockRejectedValueOnce(unauthorized()).mockResolvedValue({ content: [] });
+    const discover = vi.fn();
+    h.executor.setProtectedResourceDiscovery(discover);
+
+    await h.executor.callTool(request(), 'create_issue', {});
+
+    expect(discover).not.toHaveBeenCalled();
+  });
+
+  it('does not probe for a non-auth failure', async () => {
+    const h = makeHarness();
+    h.callTool.mockRejectedValue(new Error('boom'));
+    const discover = vi.fn();
+    h.executor.setProtectedResourceDiscovery(discover);
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(/boom/);
+    expect(discover).not.toHaveBeenCalled();
+  });
+
+  it('does not probe for a persistent 404, which is retryable but not an auth failure', async () => {
+    const h = makeHarness();
+    // 404 IS retryable, so it reaches the explain step — unlike a plain error,
+    // which never gets that far. Only this shape exercises the auth-only guard.
+    h.callTool.mockRejectedValue(Object.assign(new Error('HTTP 404'), { code: 404 }));
+    const discover = vi.fn();
+    h.executor.setProtectedResourceDiscovery(discover);
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(/404/);
+    expect(
+      discover,
+      'a retired session is not an authorization problem; probing would mislabel it'
+    ).not.toHaveBeenCalled();
+  });
+
+  it('probes when the SDK reports UnauthorizedError with no status code', async () => {
+    const h = protectedHarness();
+    h.callTool.mockRejectedValue(
+      Object.assign(new Error('Unauthorized'), { name: 'UnauthorizedError' })
+    );
+    h.executor.setProtectedResourceDiscovery(
+      vi.fn().mockResolvedValue({
+        resource: 'https://api.githubcopilot.com/mcp/',
+        authorizationServers: ['https://github.com/login/oauth'],
+        scopesSupported: [],
+      })
+    );
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(
+      /github\.com\/login\/oauth/
+    );
   });
 });
