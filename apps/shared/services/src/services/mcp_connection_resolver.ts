@@ -316,6 +316,40 @@ export class McpConnectionResolver {
     return Boolean(member);
   }
 
+  /**
+   * The user recorded on the stored binding, which is the only authoritative
+   * answer to "on whose behalf does this binding act". A bus payload naming an
+   * actor is a notification, not a grant — trusting it would let any publisher
+   * drive work under someone else's identity.
+   */
+  async findBindingActor(
+    serverKey: string,
+    projectId: string,
+    agentId: string
+  ): Promise<string | null> {
+    const [server] = await this.db
+      .select({ providerId: mcpServers.providerId })
+      .from(mcpServers)
+      .where(eq(mcpServers.serverKey, serverKey))
+      .limit(1);
+
+    if (!server?.providerId) return null;
+
+    const [binding] = await this.db
+      .select({ createdByUserId: projectAgentIntegrationConnections.createdByUserId })
+      .from(projectAgentIntegrationConnections)
+      .where(
+        and(
+          eq(projectAgentIntegrationConnections.projectId, projectId),
+          eq(projectAgentIntegrationConnections.agentId, agentId),
+          eq(projectAgentIntegrationConnections.providerId, server.providerId)
+        )
+      )
+      .limit(1);
+
+    return binding?.createdByUserId ?? null;
+  }
+
   private async loadCredential(
     connectionId: string,
     providerId: string

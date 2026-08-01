@@ -432,6 +432,48 @@ describe('resolveForCatalog', () => {
   });
 });
 
+describe('findBindingActor', () => {
+  it('returns the user recorded on the stored binding', async () => {
+    setRows({
+      server: [serverRow()],
+      binding: [{ createdByUserId: ACTOR_ID }],
+    });
+
+    await expect(resolver().findBindingActor('github', PROJECT_ID, AGENT_ID)).resolves.toBe(
+      ACTOR_ID
+    );
+  });
+
+  it('returns null when no binding exists, so nothing runs unscoped', async () => {
+    setRows({ server: [serverRow()], binding: [] });
+
+    await expect(resolver().findBindingActor('github', PROJECT_ID, AGENT_ID)).resolves.toBeNull();
+  });
+
+  it('returns null for an unknown server key', async () => {
+    setRows({ server: [] });
+
+    await expect(resolver().findBindingActor('nope', PROJECT_ID, AGENT_ID)).resolves.toBeNull();
+  });
+
+  it('returns null when the server has no provider configured', async () => {
+    setRows({ server: [serverRow({ providerId: null })], binding: [{ createdByUserId: ACTOR_ID }] });
+
+    await expect(resolver().findBindingActor('github', PROJECT_ID, AGENT_ID)).resolves.toBeNull();
+  });
+
+  it('scopes the binding lookup by project, agent AND provider', async () => {
+    setRows({ server: [serverRow()], binding: [{ createdByUserId: ACTOR_ID }] });
+
+    await resolver().findBindingActor('github', PROJECT_ID, AGENT_ID);
+
+    const columns = mocks.predicateColumnsByTable.get(projectAgentIntegrationConnections) ?? [];
+    expect(columns).toEqual(
+      expect.arrayContaining(['project_id', 'agent_id', 'provider_id'])
+    );
+  });
+});
+
 describe('lookup predicates are scoped, not just filtered in memory', () => {
   it('scopes the credential lookup by provider as well as id', async () => {
     setRows({

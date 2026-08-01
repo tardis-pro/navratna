@@ -26,6 +26,7 @@ interface Harness {
   listIntegrationServers: ReturnType<typeof vi.fn>;
   listCatalogTools: ReturnType<typeof vi.fn>;
   listTools: ReturnType<typeof vi.fn>;
+  findBindingActor: ReturnType<typeof vi.fn>;
   publish: ReturnType<typeof vi.fn>;
   subscribe: ReturnType<typeof vi.fn>;
   eventBus: { publish: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> };
@@ -48,9 +49,12 @@ const makeHarness = (): Harness => {
     .mockResolvedValue([{ name: 'create_issue', description: 'Create', inputSchema: {} }]);
   const publish = vi.fn().mockResolvedValue(undefined);
   const subscribe = vi.fn().mockResolvedValue(undefined);
+  const findBindingActor = vi.fn().mockResolvedValue('user-1');
 
   const discovery = new IntegrationCatalogDiscovery({
-    resolver: { listIntegrationServers } as unknown as NonNullable<DiscoveryOptions>['resolver'],
+    resolver: { listIntegrationServers, findBindingActor } as unknown as NonNullable<
+      DiscoveryOptions
+    >['resolver'],
     executor: { listCatalogTools, listTools } as unknown as NonNullable<
       DiscoveryOptions
     >['executor'],
@@ -61,6 +65,7 @@ const makeHarness = (): Harness => {
     listIntegrationServers,
     listCatalogTools,
     listTools,
+    findBindingActor,
     publish,
     subscribe,
     eventBus: { publish, subscribe },
@@ -278,6 +283,33 @@ describe('discovery when a user links a connection', () => {
     await handler(envelope(LINK));
 
     expect(h.listTools).toHaveBeenCalledWith(LINK);
+  });
+
+  it('acts as the user recorded on the binding, not the one named in the event', async () => {
+    h.findBindingActor.mockResolvedValue('real-owner');
+    const handler = await subscribedHandler();
+
+    await handler(envelope({ ...LINK, actorUserId: 'attacker' }));
+
+    expect(h.listTools.mock.calls[0][0].actorUserId).toBe('real-owner');
+  });
+
+  it('resolves the actor from the exact binding named in the event', async () => {
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.findBindingActor).toHaveBeenCalledWith('github', 'proj-1', 'agent-1');
+  });
+
+  it('discovers nothing when no binding backs the event', async () => {
+    h.findBindingActor.mockResolvedValue(null);
+    const handler = await subscribedHandler();
+
+    await handler(envelope(LINK));
+
+    expect(h.listTools).not.toHaveBeenCalled();
+    expect(h.publish).not.toHaveBeenCalled();
   });
 
   it('uses the linking user\'s own credential, not a catalog one', async () => {

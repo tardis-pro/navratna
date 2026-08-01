@@ -109,11 +109,27 @@ export class IntegrationCatalogDiscovery {
     eventBus?: EventBusService
   ): Promise<number> {
     try {
+      // The event names an actor, but a bus payload is a notification, not a grant.
+      // The authoritative answer is the user recorded on the stored binding, so a
+      // forged or replayed event cannot drive discovery under someone else's identity.
+      const actorUserId = await this.resolver.findBindingActor(
+        request.serverKey,
+        request.projectId,
+        request.agentId
+      );
+
+      if (!actorUserId) {
+        logger.warn('Ignoring a linked-connection event with no matching binding', {
+          serverKey: request.serverKey,
+        });
+        return 0;
+      }
+
       const tools = await this.executor.listTools({
         serverKey: request.serverKey,
         projectId: request.projectId,
         agentId: request.agentId,
-        actorUserId: request.actorUserId,
+        actorUserId,
       });
 
       await this.registerTools(request.serverKey, tools, eventBus);
