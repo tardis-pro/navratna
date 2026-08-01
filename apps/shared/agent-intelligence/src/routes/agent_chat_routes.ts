@@ -129,7 +129,8 @@ const toAgentRequest = (
   agent: Awaited<ReturnType<AgentIntelligenceService['getAgent']>>,
   messages: ChatMessage[],
   context?: DocumentContext,
-  tools?: AvailableTool[]
+  tools?: AvailableTool[],
+  projectId?: string
 ): AgentResponseRequest => ({
   agent: {
     id: agent.id,
@@ -161,6 +162,7 @@ const toAgentRequest = (
   messages,
   context,
   ...(tools && tools.length > 0 ? { tools } : {}),
+  ...(projectId ? { projectId } : {}),
 })
 
 export function registerAgentChatRoutes(
@@ -209,11 +211,18 @@ export function registerAgentChatRoutes(
           const assignedTools = toAssignedTools(agent.assignedMCPTools)
           const tools = await resolveAgentTools(assignedTools, toolSchemaProvider)
 
+          // Passed through unchecked ON PURPOSE: McpConnectionResolver.resolve()
+          // authorizes (actor, project) server-side before selecting a credential,
+          // so a caller naming a project they cannot reach is refused there rather
+          // than being trusted here.
+          const projectId = typeof body.projectId === 'string' ? body.projectId : undefined
+
           const request = toAgentRequest(
             agent,
             messages,
             toDocumentContext(body.context),
-            tools
+            tools,
+            projectId
           )
           const response = await userLLMService.generateAgentResponse(userId, request)
           return { success: true, data: response }
@@ -246,6 +255,12 @@ export function registerAgentChatRoutes(
             content: t.Optional(t.String()),
             type: t.Optional(t.String()),
           })),
+          // Elysia STRIPS any body field absent from this schema, so omitting
+          // projectId here would silently drop it and every integration MCP tool
+          // would fail with "requires an authenticated user, project and agent
+          // context". No `format:` validator — the prod AOT build rejects
+          // unregistered TypeBox formats.
+          projectId: t.Optional(t.String()),
         }),
         response: {
           200: t.Object({ success: t.Literal(true), data: t.Any() }),

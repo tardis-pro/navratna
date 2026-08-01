@@ -554,6 +554,12 @@ export interface LLMRequest {
   stream?: boolean;
   userId?: string;
   agentId?: string;
+  /**
+   * Scope for tools whose credential is bound to a (project, agent) pair. An
+   * integration MCP tool is refused without it rather than borrowing another
+   * project's connection.
+   */
+  projectId?: string;
   images?: LLMImageInput[];
   tools?: AvailableTool[];
 }
@@ -611,6 +617,12 @@ export interface AgentResponseRequest {
   messages: ChatMessage[];
   context?: DocumentContext;
   tools?: AvailableTool[];
+  /**
+   * Scope for tools whose credential is bound to a (project, agent) pair. Must be
+   * authorized server-side against the caller — an integration MCP tool is refused
+   * without it rather than borrowing another project's connection.
+   */
+  projectId?: string;
 }
 
 export interface AgentAssignedTool {

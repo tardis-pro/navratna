@@ -644,6 +644,7 @@ export class UserLLMService {
         model: request.agent.modelId,
         userId,
         agentId: request.agent.id,
+        ...(request.projectId ? { projectId: request.projectId } : {}),
         ...(request.tools && request.tools.length > 0 ? { tools: request.tools } : {}),
       };
 
@@ -822,7 +823,8 @@ export class UserLLMService {
     return runToolCallingLoop({
       request: llmRequest,
       callProvider,
-      executeTool: (call) => executor.execute(call, llmRequest.agentId, llmRequest.userId),
+      executeTool: (call) =>
+        executor.execute(call, llmRequest.agentId, llmRequest.userId, llmRequest.projectId),
       requiresApproval: (call) => executor.requiresApproval(call.function.name),
     });
   }

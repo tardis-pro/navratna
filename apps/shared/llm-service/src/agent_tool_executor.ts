@@ -52,10 +52,17 @@ export class AgentToolExecutor {
     return this.bindingsByName.get(toolName)?.requiresApproval === true;
   }
 
+  /**
+   * `projectId` is not optional decoration: McpConnectionResolver selects the
+   * credential from the (project, agent, provider) binding, so an integration tool
+   * invoked without it is refused outright rather than falling back to some other
+   * project's connection.
+   */
   async execute(
     call: LLMToolCall,
     agentId?: string,
-    userId?: string
+    userId?: string,
+    projectId?: string
   ): Promise<ToolExecutionResult> {
     const binding = this.bindingsByName.get(call.function.name);
     const parameters = parseArguments(call.function.arguments);
@@ -79,6 +86,7 @@ export class AgentToolExecutor {
         toolId: binding.toolId,
         agentId: agentId ?? '',
         userId,
+        ...(projectId ? { projectId } : {}),
         parameters,
       },
       this.timeoutMs
