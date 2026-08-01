@@ -44,6 +44,52 @@ function mcpServerNameOf(toolId: string): string | null {
   return parts[1];
 }
 
+interface CallerBoundKeyCache {
+  keys: string[];
+  loadedAt: number;
+}
+
+const CALLER_BOUND_TTL_MS = 30_000;
+let callerBoundCache: CallerBoundKeyCache | null = null;
+
+async function callerBoundServerKeys(): Promise<string[]> {
+  const now = Date.now();
+  if (callerBoundCache && now - callerBoundCache.loadedAt < CALLER_BOUND_TTL_MS) {
+    return callerBoundCache.keys;
+  }
+
+  const { McpConnectionResolver } = await import('@uaip/shared-services');
+  const servers = await McpConnectionResolver.getInstance().listIntegrationServers();
+  const keys = servers
+    .filter((server) => server.credentialMode === 'caller_connection')
+    .map((server) => server.serverKey);
+
+  callerBoundCache = { keys, loadedAt: now };
+  return keys;
+}
+
+/**
+ * Matches the tool id against the registered caller-bound server keys directly
+ * rather than the positional `mcpServerNameOf` split, because both halves of the
+ * key may contain hyphens — `mcp-github-copilot-create_issue` splits to `github`
+ * and would MISS a registered `github-copilot`, dispatching a credentialed tool
+ * to the worker tier. A lookup failure returns true (native), so uncertainty
+ * keeps the tool on the credential-aware path instead of leaking it outward.
+ */
+async function isCallerBoundIntegrationTool(toolId: string): Promise<boolean> {
+  const remainder = toolId.slice('mcp-'.length);
+  try {
+    const keys = await callerBoundServerKeys();
+    return keys.some((key) => remainder.startsWith(`${key}-`));
+  } catch (error) {
+    logger.warn('Could not determine integration credential mode; keeping the tool native', {
+      toolId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return true;
+  }
+}
+
 /**
  * Resolve a tool's runtime descriptor. Only `mcp-*` tools carry a real runtime in
  * Phase 1b; every other tool resolves to native. Never throws.
@@ -58,6 +104,14 @@ export async function resolveToolDescriptor(toolId: string): Promise<ToolRuntime
 
     const serverName = mcpServerNameOf(toolId);
     if (!serverName) return {}; // native tools (file-reader, oauth-*, unknown)
+
+    // An integration server runs against a per-caller credential that only
+    // IntegrationMcpExecutor can resolve, and the mesh forwards a remote step as
+    // (toolId, params) with ctx.scopedToken 'system'. Dispatching one of these to
+    // the worker tier would therefore drop the caller's credential AND ship the
+    // internal user/project/agent ids to the edge as tool arguments. Pin them
+    // native so BaseToolExecutor keeps them on the credential-aware path.
+    if (await isCallerBoundIntegrationTool(toolId)) return {};
 
     // Reuse the MCP client's DB-backed config (KNOWLEDGE reuse, no duplication).
     const { MCPClientService } = await import('../mcp_client_service.js');
