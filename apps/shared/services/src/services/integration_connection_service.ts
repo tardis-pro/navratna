@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { logger } from '@uaip/utils';
 import { IntegrationConnectionStatus, type IntegrationAuthKind } from '@uaip/types';
 import { getControlDb, getIntelligenceDb } from '../database/drizzle/clients/index';
@@ -181,7 +181,8 @@ export class IntegrationConnectionService {
       existing.id,
       input.ownerUserId,
       input.accessToken,
-      input.expiresAt
+      input.expiresAt,
+      input.refreshToken
     );
 
     const [refreshed] = await this.db
@@ -298,25 +299,28 @@ export class IntegrationConnectionService {
     connectionId: string,
     ownerUserId: string,
     accessToken: string,
-    expiresAt?: Date
+    expiresAt?: Date,
+    refreshToken?: string
   ): Promise<void> {
     const owned = await this.connectionOwnedBy(connectionId, ownerUserId);
     if (!owned) {
       throw new IntegrationError('Connection not found', 'connection_not_found');
     }
 
-    const [current] = await this.db
-      .select({ tokenVersion: integrationConnections.tokenVersion })
-      .from(integrationConnections)
-      .where(eq(integrationConnections.id, connectionId))
-      .limit(1);
-
     await this.db
       .update(integrationConnections)
       .set({
         accessTokenEncrypted: encryptOAuthSecret(accessToken),
+        // Only overwrite when the provider actually issued a new one: OAuth
+        // refresh responses often omit it, and writing undefined would erase the
+        // stored token and make the connection unrefreshable.
+        ...(refreshToken ? { refreshTokenEncrypted: encryptOAuthSecret(refreshToken) } : {}),
         expiresAt: expiresAt ?? null,
-        tokenVersion: (current?.tokenVersion ?? 1) + 1,
+        // Incremented BY THE DATABASE, not read-then-written: navratna-core runs
+        // multi-instance, so two concurrent rotations would both read the same
+        // version and both write version+1 — leaving the loser's token live under
+        // a version cached sessions still treat as fresh.
+        tokenVersion: sql`${integrationConnections.tokenVersion} + 1`,
         status: IntegrationConnectionStatus.ACTIVE,
         updatedAt: new Date(),
       })

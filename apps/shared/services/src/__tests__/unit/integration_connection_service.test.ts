@@ -368,7 +368,10 @@ describe('upsertConnectionForOwner', () => {
       accessToken: 'second-token',
     });
 
-    expect(mocks.updates[0].tokenVersion).toBe(8);
+    // The version is incremented by the database, so the patch carries a SQL
+    // expression rather than a computed number — see rotateConnectionToken.
+    expect(mocks.updates[0].tokenVersion).toBeDefined();
+    expect(typeof mocks.updates[0].tokenVersion).not.toBe('number');
   });
 
   it('scopes the existing-connection lookup by owner as well as provider', async () => {
@@ -407,8 +410,37 @@ describe('rotateConnectionToken', () => {
 
     await service().rotateConnectionToken(CONNECTION_ID, OWNER_ID, 'new-token');
 
-    expect(mocks.updates[0].tokenVersion).toBe(5);
     expect(mocks.updates[0].accessTokenEncrypted).toBe(enc('new-token'));
+  });
+
+  it('increments the version IN the UPDATE rather than reading it first', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 4 }]);
+
+    await service().rotateConnectionToken(CONNECTION_ID, OWNER_ID, 'new-token');
+
+    // A read-then-write computes the number in JS, so two concurrent rotations on
+    // different Fly instances both read 4 and both write 5 — the loser's token is
+    // live under a version that cached sessions still consider fresh.
+    expect(
+      typeof mocks.updates[0].tokenVersion,
+      'tokenVersion must be a SQL expression (token_version + 1), not a JS number'
+    ).not.toBe('number');
+  });
+
+  it('persists a rotated refresh token when the provider issues one', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 1 }]);
+
+    await service().rotateConnectionToken(CONNECTION_ID, OWNER_ID, 'new-token', undefined, 'new-refresh');
+
+    expect(mocks.updates[0].refreshTokenEncrypted).toBe(enc('new-refresh'));
+  });
+
+  it('leaves the stored refresh token alone when the provider issues none', async () => {
+    mocks.rowsByTable.set(integrationConnections, [{ id: CONNECTION_ID, tokenVersion: 1 }]);
+
+    await service().rotateConnectionToken(CONNECTION_ID, OWNER_ID, 'new-token');
+
+    expect(mocks.updates[0]).not.toHaveProperty('refreshTokenEncrypted');
   });
 
   it('reactivates a connection that had expired', async () => {
