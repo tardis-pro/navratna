@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link2, Unlink, AlertCircle, CheckCircle2, Loader2, Plug } from 'lucide-react';
+import {
+  Link2,
+  Unlink,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  Plug,
+  RefreshCw,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,6 +40,10 @@ interface ProviderRow {
 }
 
 const UNLINKED_VALUE = '__none__';
+
+function isConnectionUsable(connection: IntegrationConnection): boolean {
+  return connection.status === 'active' && !connection.isExpired;
+}
 
 function describeConnection(connection: IntegrationConnection): string {
   if (connection.status !== 'active') return `${connection.providerKey} (${connection.status})`;
@@ -185,6 +197,11 @@ export const ProjectIntegrations: React.FC<ProjectIntegrationsProps> = ({
       {rows.map(({ provider, binding, connections: providerConnections }) => {
         const isPending = pendingProviderId === provider.id;
         const hasConnections = providerConnections.length > 0;
+        // An expired or revoked connection still counts as "present", so gating the
+        // Connect button on presence alone strands the user with nothing to pick and
+        // no way to reconnect.
+        const usableConnections = providerConnections.filter(isConnectionUsable);
+        const needsReconnect = hasConnections && usableConnections.length === 0;
 
         return (
           <div
@@ -216,7 +233,18 @@ export const ProjectIntegrations: React.FC<ProjectIntegrationsProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              {hasConnections ? (
+              {needsReconnect ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending || !provider.configured}
+                  title={`Your ${provider.displayName} connection expired or was revoked — reconnect it`}
+                  onClick={() => void handleConnect(provider)}
+                >
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                  Reconnect
+                </Button>
+              ) : hasConnections ? (
                 <Select
                   value={binding?.connectionId ?? UNLINKED_VALUE}
                   onValueChange={(value) => void handleLink(provider, value)}
