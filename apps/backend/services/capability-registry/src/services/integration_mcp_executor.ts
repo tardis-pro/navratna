@@ -155,6 +155,15 @@ export class IntegrationMcpExecutor {
    * Resolves the credential on EVERY call rather than caching it beside the
    * session, so a revoked binding stops working immediately instead of at the
    * next eviction.
+   *
+   * This is also what makes the session cache SAFE across Fly replicas. The
+   * integration.credential.changed event is delivered by a BullMQ Worker, which is
+   * a competing consumer: exactly one replica receives it, and every other replica
+   * keeps its cached session. Those stale sessions can never be USED — resolve()
+   * runs first and refuses a revoked or expired connection, and tokenVersion is
+   * part of the session key so a rotated credential opens a NEW session rather
+   * than landing on the old one. The event is therefore an optimisation (close the
+   * socket promptly on the replica that hears it), not the security boundary.
    */
   private async withSession<T>(
     request: McpExecutionRequest,

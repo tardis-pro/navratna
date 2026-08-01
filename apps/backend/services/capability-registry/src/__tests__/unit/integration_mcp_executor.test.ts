@@ -348,3 +348,50 @@ describe('invalidateConnection', () => {
     expect(h.close).not.toHaveBeenCalled();
   });
 });
+
+describe('a replica that never received the invalidation event', () => {
+  // BullMQ Worker is a COMPETING consumer: one integration.credential.changed job
+  // is delivered to exactly ONE Fly replica, so every other replica keeps its
+  // cached session. These prove that a session cached on a replica that missed the
+  // event can never be USED, which is what makes fan-out unnecessary for safety.
+
+  it('refuses the call outright when the credential was revoked', async () => {
+    const h = makeHarness();
+    await h.executor.callTool(request(), 'create_issue', {});
+    expect(h.createClient).toHaveBeenCalledTimes(1);
+
+    // The event went to another replica; this one still holds the session. But
+    // resolve() runs before the cache is consulted and now refuses.
+    h.resolve.mockRejectedValue(new Error('Integration connection is revoked'));
+
+    await expect(h.executor.callTool(request(), 'create_issue', {})).rejects.toThrow(/revoked/);
+    expect(h.callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('never reuses the stale session after a rotation it did not observe', async () => {
+    const h = makeHarness();
+    await h.executor.callTool(request(), 'create_issue', {});
+
+    h.resolve.mockResolvedValue(
+      connection({ credential: { accessToken: 'token-B', tokenVersion: 2 } })
+    );
+
+    await h.executor.callTool(request(), 'create_issue', {});
+
+    // A second client was opened: tokenVersion is part of the session key, so the
+    // rotated credential cannot land on the session built from the old one.
+    expect(h.createClient).toHaveBeenCalledTimes(2);
+    expect(h.createdWith[1].credential).toMatchObject({ accessToken: 'token-B' });
+  });
+
+  it('resolves the credential again on every call, never caching it beside the session', async () => {
+    const h = makeHarness();
+
+    await h.executor.callTool(request(), 'create_issue', {});
+    await h.executor.callTool(request(), 'create_issue', {});
+    await h.executor.callTool(request(), 'create_issue', {});
+
+    expect(h.resolve).toHaveBeenCalledTimes(3);
+    expect(h.createClient).toHaveBeenCalledTimes(1);
+  });
+});
