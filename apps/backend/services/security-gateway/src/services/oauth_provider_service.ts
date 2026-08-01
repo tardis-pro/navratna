@@ -77,6 +77,22 @@ export interface OAuthAuthorizationOptions {
   intent?: OAuthAuthorizationIntent;
 }
 
+/**
+ * Google only issues a refresh token when BOTH access_type=offline and
+ * prompt=consent are sent; without them the connection holds a one-hour access
+ * token it can never renew, so the integration silently dies an hour after the
+ * user connects it. Applied only to an integration connect — a sign-in needs no
+ * long-lived grant and should not re-prompt a user who already consented.
+ */
+function offlineAccessParamsFor(
+  type: OAuthProviderType | undefined,
+  intent: OAuthAuthorizationIntent | undefined
+): Record<string, string> {
+  if (intent !== 'connect_integration') return {};
+  if (type !== OAuthProviderType.GOOGLE) return {};
+  return { access_type: 'offline', prompt: 'consent' };
+}
+
 export class OAuthProviderService {
   private providers: Map<string, OAuthProviderConfig> = new Map();
   private providerEndpoints: Map<OAuthProviderType, ProviderEndpoints> = new Map();
@@ -450,6 +466,7 @@ export class OAuthProviderService {
         response_type: 'code',
         scope: (provider.scope ?? []).join(' '),
         state: stateEntity.state,
+        ...offlineAccessParamsFor(provider.type, options?.intent),
         ...provider.additionalParams,
       };
       if (provider.securityConfig?.requirePKCE && codeChallenge) {
