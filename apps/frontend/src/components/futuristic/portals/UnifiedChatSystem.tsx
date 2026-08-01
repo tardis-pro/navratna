@@ -268,6 +268,14 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
   // (project/task/doc). Overrides the message companion while active.
   const [activeContextChip, setActiveContextChip] = useState<ContextChip | null>(null);
 
+  // The project the user is currently working inside. Sent with every chat call:
+  // an integration MCP tool's credential is bound to a (project, agent) pair, so
+  // without it the resolver refuses every such tool.
+  const activeProjectId =
+    activeContextChip?.type === 'project'
+      ? activeContextChip.resourceId || activeContextChip.id
+      : undefined;
+
   // Portal-mode streaming state. `streamingMessageId` points at the placeholder
   // ChatMessage inside `portalMessages` whose `content` is being updated in
   // real-time by `useStreamingChat`'s onChunk callback. The bubble for this id
@@ -929,6 +937,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               message: trimmedMessage,
               conversationHistory: snapshotMsgs,
               context: { intent },
+              projectId: activeProjectId,
             }).then(appendFloatingMsg).catch(() => {
               clearFloatingLoadingState();
               setChatWindows((prev) =>
@@ -943,6 +952,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             message: trimmedMessage,
             conversationHistory: snapshotMsgs,
             context: { intent },
+            projectId: activeProjectId,
           });
           await appendFloatingMsg(restResponse);
         }
@@ -958,7 +968,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         );
       }
     },
-    [chatWindows, isWebSocketConnected, sendWebSocketMessage]
+    [activeProjectId, chatWindows, isWebSocketConnected, sendWebSocketMessage]
   );
 
   // Aborts an in-flight portal agent stream. Wired to the abort button on
@@ -1115,6 +1125,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           message: trimmedMessage,
           conversationHistory: conversationHistory.slice(-10),
           context: { intent },
+          projectId: activeProjectId,
         });
         appendPortalAgentMessage(restResponse);
       } catch (error) {
@@ -1151,6 +1162,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       }
     },
     [
+      activeProjectId,
       selectedAgentId,
       conversationHistory,
       selectedAgent?.name,
@@ -1472,6 +1484,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
               message: messageText,
               conversationHistory: snapshotMessages,
               context: {},
+              projectId: activeProjectId,
             }).then(appendFloatingAgentMessage).catch(() => {
               setChatWindows((prev) =>
                 prev.map((w) =>
@@ -1485,6 +1498,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
             message: messageText,
             conversationHistory: snapshotMessages,
             context: {},
+            projectId: activeProjectId,
           });
           await appendFloatingAgentMessage(restResponse);
         }
@@ -1503,7 +1517,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
         );
       }
     },
-    [chatWindows, currentMessage, isWebSocketConnected, sendWebSocketMessage]
+    [activeProjectId, chatWindows, currentMessage, isWebSocketConnected, sendWebSocketMessage]
   );
 
   const _sendPortalMessage = useCallback(async () => {
@@ -1556,6 +1570,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
           message: messageText,
           conversationHistory: conversationHistory.slice(-10),
           context: {},
+          projectId: activeProjectId,
         });
 
         const agentMessage: ChatMessage = {
@@ -1607,6 +1622,7 @@ export const UnifiedChatSystem: React.FC<UnifiedChatSystemProps> = ({
       setPortalMessages((prev) => [...prev, errorMessage]);
     }
   }, [
+    activeProjectId,
     currentMessage,
     selectedAgentId,
     conversationHistory,

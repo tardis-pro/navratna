@@ -221,6 +221,12 @@ export interface AgentChatRequest {
   message: string;
   conversationId?: string;
   context?: unknown;
+  /**
+   * Scope for tools whose credential is bound to a (project, agent) pair. Omitting
+   * it makes every integration MCP tool unusable, because the resolver selects the
+   * credential from that binding. Authorized server-side against the caller.
+   */
+  projectId?: string;
 }
 
 export interface AgentChatResponse {

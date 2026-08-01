@@ -528,6 +528,7 @@ export const uaipAPI = {
         }>;
         conversationId?: string;
         context?: unknown;
+        projectId?: string;
       }
     ): Promise<Awaited<ReturnType<typeof api.agents.chat>>> {
       try {
@@ -535,6 +536,9 @@ export const uaipAPI = {
           message: request.message,
           conversationId: request.conversationId,
           context: request.context || {},
+          // Rebuilt field-by-field, so anything omitted here never reaches the
+          // wire: without projectId every integration MCP tool is refused.
+          ...(request.projectId ? { projectId: request.projectId } : {}),
         });
       } catch (error) {
         logger.error('Agent chat error:', error);
