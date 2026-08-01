@@ -68,6 +68,51 @@ beforeEach(() => {
   mocks.findToolByName.mockResolvedValue(null);
 });
 
+describe('tool.register event delivery', () => {
+  const busEnvelope = (payload: unknown) => ({
+    id: 'evt_1',
+    type: 'tool.register',
+    source: 'mcp-client-service',
+    data: payload,
+    timestamp: new Date(),
+    version: '1.0.0',
+  });
+
+  const handle = async (event: unknown) => {
+    const registry = registryWithStubbedService();
+    await (
+      registry as unknown as { handleToolRegistration: (e: unknown) => Promise<void> }
+    ).handleToolRegistration(event);
+    return registry;
+  };
+
+  it('registers a tool delivered inside the bus envelope', async () => {
+    await handle(busEnvelope({ tool: discoveredTool(), source: 'mcp-discovery' }));
+
+    expect(mocks.createTool).toHaveBeenCalledTimes(1);
+    expect(mocks.createTool.mock.calls[0][0].name).toBe('mcp-calculator-add');
+  });
+
+  it('still accepts a payload passed without an envelope', async () => {
+    await handle({ tool: discoveredTool(), source: 'mcp-discovery' });
+
+    expect(mocks.createTool).toHaveBeenCalledTimes(1);
+    expect(mocks.createTool.mock.calls[0][0].name).toBe('mcp-calculator-add');
+  });
+
+  it('never creates a nameless row when the event carries no tool', async () => {
+    await handle(busEnvelope({ source: 'mcp-discovery' }));
+
+    expect(mocks.createTool).not.toHaveBeenCalled();
+  });
+
+  it('ignores an event whose tool has no name', async () => {
+    await handle(busEnvelope({ tool: { description: 'no name' }, source: 'x' }));
+
+    expect(mocks.createTool).not.toHaveBeenCalled();
+  });
+});
+
 describe('registerTool — MCP tool identity', () => {
   it('persists the mcp- dispatch key as the row name', async () => {
     await registryWithStubbedService().registerTool(discoveredTool());

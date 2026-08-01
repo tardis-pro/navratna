@@ -82,22 +82,39 @@ export class ToolRegistry {
   }
 
   // Handle dynamic tool registration from MCP servers
-  private async handleToolRegistration(event: unknown): Promise<void> {
-    try {
-      const eventRecord = this.asRecord(event);
-      const tool = this.asRecord(eventRecord.tool);
-      const source = this.asString(eventRecord.source, 'unknown');
-      logger.info(`Registering tool from ${source}: ${this.asString(tool.id, 'unknown-tool')}`);
+  /**
+   * The event bus hands handlers an envelope and puts the published payload under
+   * `data`, so reading `tool` off the top level always missed and registered an
+   * empty object — silently creating nameless rows instead of the discovered
+   * tools. The un-enveloped shape is still accepted for direct callers.
+   */
+  private toolRegistrationPayload(event: unknown): Record<string, unknown> {
+    const envelope = this.asRecord(event);
+    const inner = this.asRecord(envelope.data);
+    return 'tool' in inner ? inner : envelope;
+  }
 
-      // Register the tool with enhanced metadata
-      await this.registerTool({
-        ...tool,
+  private async handleToolRegistration(event: unknown): Promise<void> {
+    const payload = this.toolRegistrationPayload(event);
+    const tool = this.asRecord(payload.tool);
+
+    // A tool with no name cannot be dispatched or de-duplicated (the row name is
+    // the dispatch key and is UNIQUE), so registering it would only create junk.
+    if (!this.asString(tool.name)) {
+      logger.warn('Ignoring tool.register event with no named tool', {
+        source: this.asString(payload.source, 'unknown'),
       });
+      return;
+    }
+
+    try {
+      const source = this.asString(payload.source, 'unknown');
+      logger.info(`Registering tool from ${source}: ${this.asString(tool.name, 'unknown-tool')}`);
+
+      await this.registerTool({ ...tool });
     } catch (error) {
-      const eventRecord = this.asRecord(event);
-      const toolRecord = this.asRecord(eventRecord.tool);
       logger.error(
-        `Failed to handle tool registration for ${this.asString(toolRecord.id, 'unknown-tool')}:`,
+        `Failed to handle tool registration for ${this.asString(tool.name, 'unknown-tool')}:`,
         error
       );
     }
