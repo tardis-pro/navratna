@@ -448,7 +448,15 @@ export class IntegrationConnectionService {
           projectAgentIntegrationConnections.agentId,
           projectAgentIntegrationConnections.providerId,
         ],
-        set: { connectionId: connection.id, enabled, updatedAt: now },
+        // createdByUserId must follow the rebinding actor: findBindingActor reads it
+        // to decide whose credential discovery runs under, so leaving the previous
+        // actor in place would keep acting as them after the binding changed hands.
+        set: {
+          connectionId: connection.id,
+          enabled,
+          createdByUserId: input.actorUserId,
+          updatedAt: now,
+        },
       })
       .returning();
 
@@ -479,6 +487,14 @@ export class IntegrationConnectionService {
     const permitted = await this.actorCanAccessProject(actorUserId, projectId);
     if (!permitted) {
       throw new IntegrationError('Project not found or not accessible', 'forbidden');
+    }
+
+    // Symmetric with linkConnection: project membership alone would let any member
+    // strip another member's agent of its credential, and the unlink event then
+    // withdraws that agent's tools.
+    const ownsAgent = await this.actorOwnsAgent(actorUserId, agentId);
+    if (!ownsAgent) {
+      throw new IntegrationError('Agent not found or not accessible', 'agent_not_found');
     }
 
     const [provider] = await this.db

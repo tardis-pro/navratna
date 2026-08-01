@@ -13,6 +13,7 @@ const { mocks } = vi.hoisted(() => ({
     inserted: [] as Record<string, unknown>[],
     insertReturns: [] as unknown[],
     conflictTargets: [] as unknown[],
+    conflictSets: [] as Record<string, unknown>[],
     updates: [] as Record<string, unknown>[],
     deleteReturns: [] as unknown[],
     deletePredicateColumns: [] as string[],
@@ -69,6 +70,7 @@ vi.mock('../../database/drizzle/clients/index', () => ({
           returning: async () => mocks.insertReturns,
           onConflictDoUpdate: (config: { target: unknown; set: Record<string, unknown> }) => {
             mocks.conflictTargets.push(config.target);
+            mocks.conflictSets.push(config.set);
             return { returning: async () => mocks.insertReturns };
           },
         };
@@ -150,6 +152,7 @@ beforeEach(() => {
   mocks.inserted.length = 0;
   mocks.insertReturns = [];
   mocks.conflictTargets.length = 0;
+  mocks.conflictSets.length = 0;
   mocks.updates.length = 0;
   mocks.deleteReturns = [];
   mocks.deletePredicateColumns = [];
@@ -470,6 +473,23 @@ describe('linkConnection', () => {
     ...timestamps,
   };
 
+  it('records the rebinding user as the binding actor', async () => {
+    mocks.joinRows = [connectionRow({ ownerUserId: OTHER_USER_ID })];
+    mocks.insertReturns = [{ ...bindingRow, createdByUserId: OTHER_USER_ID }];
+
+    await service().linkConnection({
+      projectId: PROJECT_ID,
+      agentId: AGENT_ID,
+      connectionId: CONNECTION_ID,
+      actorUserId: OTHER_USER_ID,
+    });
+
+    // findBindingActor reads created_by_user_id to decide whose credential
+    // discovery runs under, so a rebind that leaves the previous actor in place
+    // would keep acting as them.
+    expect(mocks.conflictSets[0]).toMatchObject({ createdByUserId: OTHER_USER_ID });
+  });
+
   it('binds the connection to the project and agent', async () => {
     mocks.joinRows = [connectionRow()];
     mocks.insertReturns = [bindingRow];
@@ -675,6 +695,27 @@ describe('unlinkConnection', () => {
     expect(mocks.deletePredicateColumns).toEqual(
       expect.arrayContaining(['project_id', 'agent_id', 'provider_id'])
     );
+  });
+
+  it('refuses a project member who does not own the agent', async () => {
+    mocks.agentRows = [];
+    mocks.deleteReturns = [{ connectionId: CONNECTION_ID }];
+
+    await expectCode(
+      service().unlinkConnection(PROJECT_ID, AGENT_ID, PROVIDER_ID, OTHER_USER_ID),
+      'agent_not_found'
+    );
+  });
+
+  it('does not delete anything when the agent check fails', async () => {
+    mocks.agentRows = [];
+    mocks.deleteReturns = [{ connectionId: CONNECTION_ID }];
+
+    await service()
+      .unlinkConnection(PROJECT_ID, AGENT_ID, PROVIDER_ID, OTHER_USER_ID)
+      .catch(() => undefined);
+
+    expect(mocks.deletePredicateColumns).toEqual([]);
   });
 
   it("returns the provider key so the agent's tools can be withdrawn", async () => {
