@@ -309,6 +309,7 @@ export class OnboardingService {
       logger.warn('Onboarding extraction failed; the user turn is preserved for retry', {
         interviewId: interview.id,
         userMessageId,
+        reason: error.message,
       });
       return { outcome: 'extraction_failed' };
     }
