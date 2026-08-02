@@ -20,6 +20,7 @@ import type {
   AgentParticipationRequest,
   AgentChatRequest,
   AgentChatResponse,
+  AgentChatHistoryResponse,
 } from '@uaip/contracts/api';
 import type { MCPToolItem } from '@uaip/types';
 
@@ -96,6 +97,14 @@ export const agentsAPI = {
     // the reply isn't rendered as an empty bubble.
     if (!r.response && typeof r.content === 'string') r.response = r.content;
     return r;
+  },
+
+  async getChatHistory(
+    id: string,
+    limit?: number
+  ): Promise<AgentChatHistoryResponse> {
+    const query = limit ? `?limit=${limit}` : '';
+    return edenRequest(`/api/v1/agents/${id}/chat/messages${query}`, { method: 'GET' });
   },
 
   async resolveApproval(

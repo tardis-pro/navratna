@@ -17,4 +17,5 @@ export type {
   AgentParticipationRequest,
   AgentChatRequest,
   AgentChatResponse,
+  AgentChatHistoryResponse,
 } from '@uaip/types';

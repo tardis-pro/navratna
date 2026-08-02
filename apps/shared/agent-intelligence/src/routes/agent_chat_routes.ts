@@ -1,8 +1,11 @@
 import { Elysia, t } from 'elysia'
-import { withNginxAuth } from '@uaip/middleware'
+import { getNginxUser, withNginxAuth } from '@uaip/middleware'
 import type { AgentIntelligenceService } from '@uaip/shared-services'
 import type {
   AgentAssignedTool,
+  AgentChatMessage,
+  AgentChatTurnClaim,
+  AgentChatTurnState,
   AgentResponseRequest,
   AvailableTool,
   ChatMessage,
@@ -10,6 +13,38 @@ import type {
 } from '@uaip/types'
 import type { UserLLMService } from '@uaip/llm-service'
 import { logger, isRecord } from '@uaip/utils'
+
+/**
+ * How many stored messages are replayed to the model. Bounds prompt growth on a
+ * long-lived conversation, which is otherwise unbounded now that it persists.
+ */
+const HISTORY_TURN_LIMIT = 50
+
+export type AgentChatPersistence = {
+  beginTurn(params: {
+    organizationId: string
+    userId: string
+    agentId: string
+    clientTurnId: string
+    content: string
+  }): Promise<AgentChatTurnState>
+  completeTurn(params: {
+    conversationId: string
+    organizationId: string
+    clientTurnId: string
+    userMessageId: string
+    processingToken: string
+    content: string
+    metadata?: Record<string, unknown>
+  }): Promise<string | null>
+  failTurn(userMessageId: string, processingToken: string): Promise<void>
+  loadHistory(params: { conversationId: string; limit?: number }): Promise<AgentChatMessage[]>
+  findOwnedConversation(params: {
+    organizationId: string
+    userId: string
+    agentId: string
+  }): Promise<string | null>
+}
 
 type AgentChatDeps = Pick<AgentIntelligenceService, 'getAgent'>
 type UserLlmDeps = Pick<UserLLMService, 'generateAgentResponse'>
@@ -119,6 +154,64 @@ const toChatMessage = (value: unknown, index: number): ChatMessage | null => {
     timestamp,
     type,
   }
+}
+
+/**
+ * Maps the UI's local history shape onto canonical ChatMessages. The UI records a
+ * coarse role in `sender` ('user' | 'agent'), while `ChatMessage.sender` is echoed
+ * verbatim into the prompt as the speaker label — so an agent turn must be
+ * relabelled with the agent's name, not left as the literal string 'agent'.
+ */
+const toHistoryMessages = (value: unknown, agentName: string): ChatMessage[] => {
+  if (!Array.isArray(value)) return []
+
+  const history: ChatMessage[] = []
+  for (const [index, entry] of value.entries()) {
+    if (!isRecord(entry)) continue
+    const content = typeof entry.content === 'string' ? entry.content : null
+    if (!content) continue
+
+    const isAgent = entry.sender === 'agent' || entry.sender === 'assistant'
+    history.push({
+      id: `hist_${index}`,
+      content,
+      sender: isAgent ? agentName : 'user',
+      timestamp:
+        typeof entry.timestamp === 'string' ? entry.timestamp : new Date().toISOString(),
+      type: isAgent ? 'assistant' : 'user',
+    })
+  }
+  return history
+}
+
+/**
+ * Replays the stored transcript, EXCLUDING the current turn's user row — it was
+ * written before generation, so including it would send the live message twice.
+ */
+const toStoredHistoryMessages = (
+  stored: AgentChatMessage[],
+  agentName: string,
+  currentUserMessageId: string
+): ChatMessage[] =>
+  stored
+    .filter((message) => message.id !== currentUserMessageId)
+    .map((message) => ({
+      id: message.id,
+      content: message.content,
+      sender: message.role === 'assistant' ? agentName : 'user',
+      timestamp: message.createdAt.toISOString(),
+      type: message.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+    }))
+
+/**
+ * The provider shape is not uniform across adapters — some return `content`,
+ * others `response`. Picking the wrong one persists an empty assistant message.
+ */
+const readResponseText = (response: unknown): string => {
+  if (!isRecord(response)) return ''
+  if (typeof response.response === 'string') return response.response
+  if (typeof response.content === 'string') return response.content
+  return ''
 }
 
 const toDocumentContext = (value: unknown): DocumentContext | undefined => {
@@ -254,45 +347,111 @@ export function registerAgentChatRoutes(
   userLLMService: UserLlmDeps,
   securityService: SecurityDeps,
   toolSchemaProvider?: ToolSchemaProvider,
-  projectScopeProvider?: ProjectToolScopeProvider
+  projectScopeProvider?: ProjectToolScopeProvider,
+  chatPersistence?: AgentChatPersistence
 ) {
   return new Elysia().group(
     '/api/v1/agents',
     (group) => withNginxAuth(group)
       .post('/:agentId/chat', async (ctx) => {
+        let claim: AgentChatTurnClaim | undefined
+
         try {
           const agent = await agentIntelligenceService.getAgent(ctx.params.agentId)
           if (!agent) {
             ctx.set.status = 404
             return { success: false, error: 'Agent not found' }
           }
-    
-          // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups
-          const userId = ctx.user.id
+
+          const user = getNginxUser(ctx)
+          const userId = user.id
           const body = isRecord(ctx.body) ? ctx.body : {}
+          const currentMessage =
+            typeof body.message === 'string' && body.message.trim().length > 0
+              ? body.message
+              : undefined
+
           const bodyMessages = Array.isArray(body.messages)
             ? body.messages.map(toChatMessage).filter((item): item is ChatMessage => item !== null)
             : []
-          const messages =
-            bodyMessages.length > 0
-              ? bodyMessages
-              : typeof body.message === 'string' && body.message.trim().length > 0
-                ? [
-                    {
-                      id: `msg_${Date.now()}`,
-                      content: body.message,
-                      sender: userId,
-                      timestamp: new Date().toISOString(),
-                      type: 'user',
-                    } satisfies ChatMessage,
-                  ]
-                : []
-    
-          if (messages.length === 0) {
+
+          if (bodyMessages.length === 0 && !currentMessage) {
             ctx.set.status = 400
             return { success: false, error: 'Message or messages array is required' }
           }
-    
+
+          const scope = {
+            organizationId: user.organizationId,
+            userId,
+            agentId: agent.id,
+          }
+
+          // Resolved ONCE: the user and assistant rows of a turn are paired by
+          // this id, so re-deriving it per call would split them across two turns
+          // and defeat the idempotent replay.
+          const clientTurnId =
+            typeof body.clientTurnId === 'string' && body.clientTurnId.trim().length > 0
+              ? body.clientTurnId
+              : crypto.randomUUID()
+
+          // Persist and claim BEFORE generating, so a crash mid-call cannot lose
+          // what the user typed and a retry cannot start a second generation.
+          if (chatPersistence && currentMessage) {
+            const turn = await chatPersistence.beginTurn({
+              ...scope,
+              clientTurnId,
+              content: currentMessage,
+            })
+
+            if (turn.state === 'completed') {
+              return {
+                success: true,
+                data: {
+                  response: turn.content,
+                  conversationId: turn.conversationId,
+                  assistantMessageId: turn.assistantMessageId,
+                },
+              }
+            }
+
+            if (turn.state === 'processing') {
+              ctx.set.status = 409
+              return { success: false, error: 'A reply for this turn is already being generated' }
+            }
+
+            claim = turn.claim
+          }
+
+          // Stored history is authoritative once persistence is on; the request's
+          // conversationHistory is only the fallback for a stateless caller.
+          const priorMessages = claim
+            ? toStoredHistoryMessages(
+                await chatPersistence!.loadHistory({
+                  conversationId: claim.conversationId,
+                  limit: HISTORY_TURN_LIMIT,
+                }),
+                agent.name,
+                claim.userMessageId
+              )
+            : toHistoryMessages(body.conversationHistory, agent.name)
+
+          const messages =
+            bodyMessages.length > 0
+              ? bodyMessages
+              : [
+                  // Prior turns first: the model reads this array in order, and
+                  // downstream task-type resolution treats the LAST entry as the
+                  // current intent.
+                  ...priorMessages,
+                  {
+                    id: claim?.userMessageId ?? `msg_${Date.now()}`,
+                    content: currentMessage!,
+                    sender: userId,
+                    timestamp: new Date().toISOString(),
+                    type: 'user',
+                  } satisfies ChatMessage,
+                ]
+
           // Passed through unchecked ON PURPOSE: McpConnectionResolver.resolve()
           // authorizes (actor, project) server-side before selecting a credential,
           // so a caller naming a project they cannot reach is refused there rather
@@ -313,8 +472,34 @@ export function registerAgentChatRoutes(
             projectId
           )
           const response = await userLLMService.generateAgentResponse(userId, request)
+
+          if (claim && chatPersistence) {
+            const assistantMessageId = await chatPersistence.completeTurn({
+              conversationId: claim.conversationId,
+              organizationId: user.organizationId,
+              clientTurnId,
+              userMessageId: claim.userMessageId,
+              processingToken: claim.processingToken,
+              content: readResponseText(response),
+              metadata: { agentId: agent.id },
+            })
+
+            return {
+              success: true,
+              data: {
+                ...(isRecord(response) ? response : {}),
+                conversationId: claim.conversationId,
+                userMessageId: claim.userMessageId,
+                assistantMessageId,
+              },
+            }
+          }
+
           return { success: true, data: response }
         } catch (error) {
+          if (claim && chatPersistence) {
+            await chatPersistence.failTurn(claim.userMessageId, claim.processingToken)
+          }
           logger.error('Failed to process agent chat', { error, agentId: ctx.params.agentId })
           ctx.set.status = 500
           return {
@@ -337,6 +522,12 @@ export function registerAgentChatRoutes(
               t.Literal('tool'),
             ])),
           }))),
+          conversationHistory: t.Optional(t.Array(t.Object({
+            content: t.String(),
+            sender: t.Optional(t.String()),
+            timestamp: t.Optional(t.String()),
+          }))),
+          clientTurnId: t.Optional(t.String()),
           context: t.Optional(t.Object({
             id: t.Optional(t.String()),
             title: t.Optional(t.String()),
@@ -357,7 +548,50 @@ export function registerAgentChatRoutes(
           500: t.Object({ error: t.String(), message: t.Optional(t.String()) }),
         },
       })
-    
+
+      .get('/:agentId/chat/messages', async (ctx) => {
+        try {
+          if (!chatPersistence) {
+            return { success: true, data: { conversationId: null, messages: [] } }
+          }
+
+          // The conversation is derived from the AUTHENTICATED user, never from a
+          // query parameter — otherwise any caller could read another user's chat
+          // by naming their agent.
+          const user = getNginxUser(ctx)
+          const conversationId = await chatPersistence.findOwnedConversation({
+            organizationId: user.organizationId,
+            userId: user.id,
+            agentId: ctx.params.agentId,
+          })
+
+          if (!conversationId) {
+            return { success: true, data: { conversationId: null, messages: [] } }
+          }
+
+          const limit = Number.parseInt(ctx.query.limit ?? '', 10)
+          const messages = await chatPersistence.loadHistory({
+            conversationId,
+            limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 200) : HISTORY_TURN_LIMIT,
+          })
+
+          return { success: true, data: { conversationId, messages } }
+        } catch (error) {
+          logger.error('Failed to load agent chat history', {
+            error,
+            agentId: ctx.params.agentId,
+          })
+          ctx.set.status = 500
+          return { success: false, error: 'Failed to load chat history' }
+        }
+      }, {
+        query: t.Object({ limit: t.Optional(t.String()) }),
+        response: {
+          200: t.Object({ success: t.Literal(true), data: t.Any() }),
+          500: t.Object({ success: t.Literal(false), error: t.String() }),
+        },
+      })
+
       .post('/:agentId/approvals/:approvalId', async (ctx) => {
         try {
           // @ts-expect-error -- withNginxAuth injects user into Elysia context for guarded groups

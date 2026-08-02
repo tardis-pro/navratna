@@ -77,7 +77,11 @@ import {
   KnowledgeType,
   MessageType,
 } from '@uaip/types';
-import type { LLMProviderUsageType } from '@uaip/types';
+import type {
+  AgentChatGenerationStatus,
+  AgentChatRole,
+  LLMProviderUsageType,
+} from '@uaip/types';
 import { base, llmPreferenceCommonColumns } from './schema_base';
 import { ADMIN_ORG_ID } from '../constants';
 
@@ -445,6 +449,53 @@ export const discussionMessages = pgTable('discussion_messages', {
 (t) => [
   index('idx_discussion_messages_organization_id').on(t.organizationId),
 ]
+);
+
+/**
+ * Direct 1:1 user<->agent chat. Deliberately NOT modelled as a `discussion`: the
+ * orchestrator polls active discussions every 5s and would independently trigger
+ * the agent, making a solo chat talk to itself.
+ */
+export const agentChatConversations = pgTable(
+  'agent_chat_conversations',
+  {
+    ...base,
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
+    // cross-plane ref: control.users.id — no DB FK
+    userId: uuid('user_id').notNull(),
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    uniqueIndex('uq_agent_chat_conversation').on(t.organizationId, t.userId, t.agentId),
+  ]
+);
+
+export const agentChatMessages = pgTable(
+  'agent_chat_messages',
+  {
+    ...base,
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => agentChatConversations.id, { onDelete: 'cascade' }),
+    organizationId: uuid('organization_id').notNull().default(ADMIN_ORG_ID),
+    /**
+     * Client-generated per turn. Makes a retried send idempotent instead of
+     * appending a duplicate user message.
+     */
+    clientTurnId: uuid('client_turn_id').notNull(),
+    role: text('role').$type<AgentChatRole>().notNull(),
+    content: text('content').notNull(),
+    generationStatus: text('generation_status').$type<AgentChatGenerationStatus>(),
+    processingToken: uuid('processing_token'),
+    replyToMessageId: uuid('reply_to_message_id'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => [
+    uniqueIndex('uq_agent_chat_turn_role').on(t.conversationId, t.clientTurnId, t.role),
+    index('idx_agent_chat_history').on(t.conversationId, t.createdAt, t.id),
+  ]
 );
 
 export const conversationContexts = pgTable('conversation_contexts', {

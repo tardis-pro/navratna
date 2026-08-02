@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Bot } from 'lucide-react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
-import type { Discussion, Thread, ThreadParticipant } from '@uaip/types';
+import type { Discussion, DiscussionMessage, Thread, ThreadParticipant } from '@uaip/types';
 import { ThreadPresence, ThreadState } from '@uaip/types';
 import { useAgents } from '@/contexts/AgentContext';
 import { DiscussionConfigModal } from '@/components/DiscussionConfigModal';
@@ -44,11 +44,34 @@ function createEmptyThreadMessages(): Thread['messages'] {
   return [];
 }
 
+function toPreviewMessages(
+  threadId: string,
+  preview: DiscussionMessage | undefined
+): Thread['messages'] {
+  if (!preview) return createEmptyThreadMessages();
+
+  const metadata = preview.metadata as Record<string, unknown> | undefined;
+  const authorType = metadata?.sender === 'user' ? 'user' : 'agent';
+
+  return [
+    {
+      id: preview.id,
+      threadId,
+      authorId: getMetadataString(metadata, 'agentId') ?? authorType,
+      authorType,
+      content: preview.content,
+      createdAt: toIsoString(preview.createdAt),
+    },
+  ];
+}
+
 export function HomeShellLayout() {
   const { agents } = useAgents();
   const navigate = useNavigate();
   const location = useLocation();
   const [discussions, setDiscussions] = useState<Discussion[]>([]);
+  const [threadPreviews, setThreadPreviews] = useState<Record<string, DiscussionMessage>>({});
+  const requestedPreviews = useRef<Set<string>>(new Set());
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [whisperOpen, setWhisperOpen] = useState(false);
   const [threadDockOpen, setThreadDockOpen] = useState(false);
@@ -69,6 +92,46 @@ export function HomeShellLayout() {
   useEffect(() => {
     void fetchDiscussions();
   }, [fetchDiscussions]);
+
+  // Previews are fetched only while the dock is open: the list endpoint carries no
+  // last-message field, so this costs one request per thread and is wasted work
+  // for a dock the user never opens.
+  useEffect(() => {
+    if (!threadDockOpen || discussions.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      const results = await Promise.all(
+        discussions.map(async (discussion) => {
+          if (requestedPreviews.current.has(discussion.id)) return null;
+          requestedPreviews.current.add(discussion.id);
+          try {
+            const [latest] = await uaipAPI.discussions.getMessages(discussion.id, {
+              limit: 1,
+              order: 'desc',
+            });
+            return latest ? ([discussion.id, latest] as const) : null;
+          } catch (error) {
+            requestedPreviews.current.delete(discussion.id);
+            logger.warn('[HomeShell] thread preview unavailable', error);
+            return null;
+          }
+        })
+      );
+
+      if (cancelled) return;
+      const resolved = results.filter((entry): entry is readonly [string, DiscussionMessage] =>
+        entry !== null
+      );
+      if (resolved.length > 0) {
+        setThreadPreviews((prev) => ({ ...prev, ...Object.fromEntries(resolved) }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [threadDockOpen, discussions]);
 
   useEffect(() => {
     const handleOpenDiscussion = () => setDiscussionModalOpen(true);
@@ -106,7 +169,7 @@ export function HomeShellLayout() {
       return {
         id: discussion.id,
         participants,
-        messages: createEmptyThreadMessages(),
+        messages: toPreviewMessages(discussion.id, threadPreviews[discussion.id]),
         state: ThreadState.ACTIVE,
         presence:
           discussion.status === 'active' ? ThreadPresence.BREATHING : ThreadPresence.RESTING,
@@ -142,7 +205,7 @@ export function HomeShellLayout() {
       }));
 
     return [...discussionThreads, ...agentThreads];
-  }, [agents, discussions]);
+  }, [agents, discussions, threadPreviews]);
 
   const whisperSuggestions = useMemo<WhisperSuggestion[]>(() => {
     if (location.pathname.startsWith('/explore')) {

@@ -227,31 +227,16 @@ export class ChatPersistenceService {
   }
 
   /**
-   * @deprecated Use discussionsAPI.sendMessage() instead
+   * @deprecated Direct agent chat is persisted server-side by the agent chat
+   * endpoint; for a discussion use discussionsAPI.sendParticipantMessage(), which
+   * needs the caller's participant id. This method never had one, so it posted to
+   * an actor-neutral route that does not exist and silently discarded every
+   * message. It is now a no-op rather than a false promise of persistence.
    */
-  public async addMessage(sessionId: string, message: PersistentChatMessage): Promise<void> {
+  public async addMessage(_sessionId: string, _message: PersistentChatMessage): Promise<void> {
     logger.warn(
-      'ChatPersistenceService.addMessage is deprecated. Use discussionsAPI.sendMessage() instead.'
+      'ChatPersistenceService.addMessage is deprecated and does nothing. Agent chat is persisted server-side; use discussionsAPI.sendParticipantMessage() for discussions.'
     );
-
-    try {
-      await discussionsAPI.sendMessage(sessionId, {
-        content: message.content,
-        metadata: {
-          sender: message.sender,
-          senderName: message.senderName,
-          agentId: message.agentId,
-          confidence: message.confidence,
-          memoryEnhanced: message.memoryEnhanced,
-          knowledgeUsed: message.knowledgeUsed,
-          toolsExecuted: message.toolsExecuted,
-          originalMessageId: message.id,
-          ...message.metadata,
-        },
-      });
-    } catch (error) {
-      logger.error('Failed to persist message to discussion service:', error);
-    }
   }
 
   /**
