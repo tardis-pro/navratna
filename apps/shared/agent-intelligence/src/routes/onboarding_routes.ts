@@ -145,6 +145,16 @@ function emptySlotsView(): Record<string, ClientSlotView> {
 // EMPTY roster and provision nobody, because every seeded agent lives in the
 // admin org. Another tenant's private agents are still excluded, and these
 // rows become real user_agent_assignments, so the guide is excluded too.
+// logger serializes an Error to {code, name} — the message and stack are lost,
+// which is exactly what is needed to tell a broken LLM call apart from a broken
+// query when this only fails in production.
+function describeError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack }
+  }
+  return { value: String(error) }
+}
+
 async function loadAgentCandidates(organizationId: string): Promise<AgentCandidate[]> {
   const rows = await getIntelligenceDb()
     .select({
@@ -269,7 +279,7 @@ export function registerOnboardingRoutes() {
               },
             }
           } catch (error) {
-            logger.error('Failed to load onboarding status', { error })
+            logger.error('Failed to load onboarding status', { error: describeError(error) })
             ctx.set.status = 500
             return { success: false as const, error: 'ONBOARDING_STATUS_FAILED' }
           }
@@ -298,7 +308,9 @@ export function registerOnboardingRoutes() {
               },
             }
           } catch (error) {
-            logger.error('Failed to start the onboarding interview', { error })
+            logger.error('Failed to start the onboarding interview', {
+              error: describeError(error),
+            })
             ctx.set.status = 500
             return { success: false as const, error: 'ONBOARDING_START_FAILED' }
           }
