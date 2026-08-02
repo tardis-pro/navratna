@@ -2,7 +2,16 @@ import { Elysia } from 'elysia';
 import { z } from 'zod';
 import { logger } from '@uaip/utils';
 import { withRequiredAuth } from '@uaip/middleware';
-import { DefaultUserLLMProviderSeed, UserService } from '@uaip/shared-services';
+import {
+  agents,
+  and,
+  DefaultUserLLMProviderSeed,
+  eq,
+  getIntelligenceDb,
+  inArray,
+  UserAgentAssignmentRepository,
+  UserService,
+} from '@uaip/shared-services';
 
 import { getAuthUser, getErrorMessage } from './context_helpers.js';
 
@@ -367,8 +376,7 @@ export function registerPersonaRoutes() {
           set.status = 400;
           return { error: 'User persona not found. Please complete onboarding first.' };
         }
-        const personaRecord: Record<string, unknown> = isRecord(entity.userPersona) ? entity.userPersona : {};
-        const compatible = await getCompatibleAgents(personaRecord);
+        const compatible = await getCompatibleAgents(user.id, user.organizationId);
         return compatible;
       } catch (e) {
         logger.error('Failed to get compatible agents', { error: getErrorMessage(e), userId: user.id });
@@ -440,8 +448,53 @@ async function processUserInteraction(
   logger.info('Processed user interaction', { userId, type, timestamp });
 }
 
-async function getCompatibleAgents(_persona: Record<string, unknown>): Promise<unknown[]> {
-  return [];
+type CompatibleAgent = {
+  id: string;
+  name: string;
+  description: string | null;
+  role: string | null;
+  capabilities: string[];
+};
+
+/**
+ * "Compatible" is not a heuristic — it is the grant. user_agent_assignments is
+ * the authoritative answer to "which agents are this user's", written by
+ * onboarding provisioning and by agent creation.
+ *
+ * CROSS-PLANE: assignments are CONTROL plane, agents are INTELLIGENCE plane —
+ * physically separable hosts, so the ids are fetched first and hydrated
+ * second. A single joining statement would fail wherever the planes differ.
+ */
+async function getCompatibleAgents(
+  userId: string,
+  organizationId: string
+): Promise<CompatibleAgent[]> {
+  const agentIds = await new UserAgentAssignmentRepository().findAgentIdsForUser(
+    userId,
+    organizationId
+  );
+
+  // inArray(id, []) is a SQL error in some dialects and a full scan in others.
+  if (agentIds.length === 0) return [];
+
+  const rows = await getIntelligenceDb()
+    .select({
+      id: agents.id,
+      name: agents.name,
+      description: agents.description,
+      role: agents.role,
+      capabilities: agents.capabilities,
+    })
+    .from(agents)
+    .where(and(inArray(agents.id, agentIds), eq(agents.isActive, true)));
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: typeof row.description === 'string' ? row.description : null,
+    role: typeof row.role === 'string' ? row.role : null,
+    capabilities: Array.isArray(row.capabilities) ? row.capabilities : [],
+  }));
 }
 
 type OptimizedWorkspace = { layout: string; widgets: unknown[] };

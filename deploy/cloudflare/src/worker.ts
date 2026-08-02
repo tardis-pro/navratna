@@ -66,6 +66,7 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/orchestration', target: 'gateway' },
   { prefix: '/api/v1/workflows', target: 'gateway' },
   { prefix: '/api/v1/tasks', target: 'gateway' },
+  { prefix: '/api/v1/dev-loop', target: 'gateway' },
   { prefix: '/api/v1/dashboard', target: 'gateway' },
   { prefix: '/api/v1/webhooks', target: 'gateway' },
   { prefix: '/api/v1/capabilities', target: 'gateway' },
@@ -89,9 +90,14 @@ const ROUTE_TABLE: RouteRule[] = [
   { prefix: '/api/v1/discussions', target: 'core' },
   { prefix: '/api/v1/artifacts', target: 'core' },
   { prefix: '/api/v1/info', target: 'core' },
+  // Base Imprint interview (onboarding_routes.ts). MUST precede the legacy
+  // singular entry: resolveTarget requires an exact match or a '/' boundary,
+  // so '/api/v1/onboard' never matches '/api/v1/onboarding/...'.
+  { prefix: '/api/v1/onboarding', target: 'core' },
   { prefix: '/api/v1/onboard', target: 'core' },
   { prefix: '/api/v1/compositions', target: 'core' }, // routes are plural; singular kept for compat
   { prefix: '/api/v1/composition', target: 'core' },
+  { prefix: '/api/v1/task-dags', target: 'core' },
   { prefix: '/api/v1/user/llm', target: 'core' }, // before /llm
   { prefix: '/api/v1/questionforge', target: 'core' },
   { prefix: '/api/v1/llm', target: 'core' },
