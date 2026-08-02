@@ -165,7 +165,7 @@ export const useTaskDAG = (initialDAG: TaskDAG, options?: UseTaskDAGOptions): Us
     socket.on('connect', () => {
       setIsConnected(true);
       setError(null);
-      socket.emit('subscribe', { channel: `taskdag.${dagId}` });
+      socket.emit('subscribe_taskdag', { dagId });
     });
 
     socket.on('disconnect', () => {
@@ -221,7 +221,7 @@ export const useTaskDAG = (initialDAG: TaskDAG, options?: UseTaskDAGOptions): Us
     });
 
     return () => {
-      socket.emit('unsubscribe', { channel: `taskdag.${dagId}` });
+      socket.emit('unsubscribe_taskdag', { dagId });
       socket.disconnect();
       socketRef.current = null;
     };

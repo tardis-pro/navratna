@@ -19,6 +19,7 @@ import { artifactFeature } from '../../artifact-service/src/feature.js'
 import { llmFeature } from '../../llm-service/src/feature.js'
 import { deploymentFeature } from './deployment/feature.js'
 import { oieFeature } from '../../oie/src/feature.js'
+import { taskDAGFeature } from './taskdag/feature.js'
 import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.js'
 import { registerCompositionRoutes } from './composition/composition_routes.js'
 import { WorkflowStateHandler } from './composition/workflow_state_handler.js'
@@ -37,6 +38,7 @@ class NavratnaCoreService extends BaseService {
     .register(process.env.FEATURE_LLM !== 'false' && llmFeature)
     .register(process.env.FEATURE_DEPLOYMENT !== 'false' && deploymentFeature)
     .register(process.env.FEATURE_OIE === 'true' && oieFeature)
+    .register(process.env.FEATURE_TASKDAG !== 'false' && taskDAGFeature)
 
   private io: SocketIOServer
   private bunEngine: BunEngine

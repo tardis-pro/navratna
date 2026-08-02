@@ -18,6 +18,7 @@ import { registerKnowledgeIngestRoutes } from './routes/knowledge_ingest_routes.
 import { registerDeploymentRoutes } from './deployment/deployment_routes.js'
 import { registerOnboardingRoutes } from './onboarding/onboarding_routes.js'
 import { registerCompositionRoutes } from './composition/composition_routes.js'
+import { registerTaskDAGRoutes } from './taskdag/task_dag_routes.js'
 
 type CoreHealthStatus = 'ok' | 'degraded'
 
@@ -63,5 +64,6 @@ export const coreApp = new Elysia({ name: 'navratna-core' })
   .use(registerDeploymentRoutes(typeExportStub))
   .use(registerOnboardingRoutes())
   .use(registerCompositionRoutes())
+  .use(registerTaskDAGRoutes(typeExportStub))
 
 export type NavratnaCoreApp = typeof coreApp
