@@ -30,11 +30,17 @@ vi.mock('@uaip/utils', () => ({
   },
 }));
 
+// This mock must cover EVERY operator agents_crud_routes.ts imports: a missing
+// one resolves to undefined and the route throws, surfacing as an opaque 500
+// rather than "x is not a function".
 vi.mock('@uaip/shared-services/drizzle/clients', () => ({
   getIntelligenceDb: vi.fn(),
   eq: vi.fn((col, val) => ({ col, val, op: 'eq' })),
+  ne: vi.fn((col, val) => ({ col, val, op: 'ne' })),
+  or: vi.fn((...args) => ({ args, op: 'or' })),
   ilike: vi.fn((col, val) => ({ col, val, op: 'ilike' })),
   and: vi.fn((...args) => ({ args, op: 'and' })),
+  inArray: vi.fn((col, vals) => ({ col, vals, op: 'inArray' })),
   sql: vi.fn(),
   count: vi.fn(() => ({ name: 'count' })),
   asc: vi.fn((col) => col),
@@ -43,6 +49,24 @@ vi.mock('@uaip/shared-services/drizzle/clients', () => ({
 vi.mock('@uaip/shared-services/drizzle/intelligence', () => ({
   agents: { id: 'id', name: 'name', isActive: 'isActive', createdAt: 'createdAt' },
 }));
+
+// Creating an agent also writes the creator's own assignment grant, otherwise
+// the creator cannot see the agent they just made under the scoped list. A
+// failed grant is deliberately fatal (500, not 201), so leaving the repository
+// unmocked reaches the real one and turns every creation test into a 500.
+vi.mock('@uaip/shared-services', async (importActual) => {
+  const actual = await importActual<Record<string, unknown>>();
+  class MockUserAgentAssignmentRepository {
+    findAgentIdsForUser = vi.fn().mockResolvedValue([]);
+    hasAssignment = vi.fn().mockResolvedValue(true);
+    assignMany = vi.fn().mockResolvedValue([]);
+  }
+  return {
+    ...actual,
+    canAccessAgent: vi.fn().mockResolvedValue(true),
+    UserAgentAssignmentRepository: MockUserAgentAssignmentRepository,
+  };
+});
 
 import { registerAgentCrudRoutes } from '@uaip/agent-intelligence-core';
 import { getIntelligenceDb } from '@uaip/shared-services/drizzle/clients';

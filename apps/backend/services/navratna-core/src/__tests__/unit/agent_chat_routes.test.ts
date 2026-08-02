@@ -10,6 +10,7 @@ vi.mock('@uaip/middleware', () => {
      withAdminGuard: passthrough,
      withNginxAuth: passthrough,
      attachAuth: passthrough,
+     getNginxUser: () => mockUser,
      requireAuth: (app: Elysia) => app,
    };
  });
