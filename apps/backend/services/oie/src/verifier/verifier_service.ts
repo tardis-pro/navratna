@@ -4,7 +4,12 @@ import { config } from '@uaip/config';
 import type { RootCauseAnalysis } from '../analyst/analyst_agent.js';
 import type { OutcomeResult } from '../types/learner.js';
 
-const OIE_ANALYSIS_TOPIC = 'oie.analysis.completed';
+// Consumes the FixProposer's output, not the Analyst's. Both this worker and
+// FixProposerAgent previously consumed 'oie.analysis.completed'; BullMQ
+// load-balances (never broadcasts) across workers on one queue, so they stole
+// each other's jobs and the documented Analyst→FixProposer→Verifier chain never
+// actually ran end-to-end.
+const OIE_FIX_TOPIC = 'oie.fix.proposed';
 const OIE_VERIFICATION_TOPIC = 'oie.verification.completed';
 
 export interface VerificationResult {
@@ -36,7 +41,7 @@ export class VerifierService {
     this.outputQueue = new Queue(OIE_VERIFICATION_TOPIC, { connection });
 
     this.inputWorker = new Worker(
-      OIE_ANALYSIS_TOPIC,
+      OIE_FIX_TOPIC,
       async (job: Job) => this.scheduleVerification(job),
       { connection, concurrency: 2 },
     );

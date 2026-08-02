@@ -29,9 +29,17 @@ export const oieFeature: Feature = {
   async initialize(_deps: ServiceDeps): Promise<void> {
     const registry = AdapterRegistry.getInstance();
 
+    // Gate SigNoz the same way Sentry is gated. SigNozAdapter falls back to a
+    // localhost default when SIGNOZ_API_URL is unset, so registering it
+    // unconditionally makes the collector poll an address that does not exist in
+    // production — forever, on every OIE_POLL_INTERVAL_MS tick.
     const signoz = new SigNozAdapter();
-    await signoz.initialize({});
-    registry.register(signoz);
+    if (process.env.SIGNOZ_API_URL) {
+      await signoz.initialize({});
+      registry.register(signoz);
+    } else {
+      logger.warn('oie: SIGNOZ_API_URL not set — SigNozAdapter skipped');
+    }
 
     const sentry = new SentryAdapter();
     if (process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG) {
