@@ -370,12 +370,10 @@ export function registerPersonaRoutes() {
       const user = getAuthUser(ctx);
       const { set } = ctx;
       try {
-        const repo = userService.getUserRepository();
-        const entity = await repo.findById(user.id);
-        if (!entity || !entity.userPersona) {
-          set.status = 400;
-          return { error: 'User persona not found. Please complete onboarding first.' };
-        }
+        // No legacy-userPersona gate here: the conversational interview writes
+        // grants into user_agent_assignments and never populates the old
+        // questionnaire entity, so requiring it rejected exactly the users who
+        // HAD completed onboarding. The grant table is the authority.
         const compatible = await getCompatibleAgents(user.id, user.organizationId);
         return compatible;
       } catch (e) {

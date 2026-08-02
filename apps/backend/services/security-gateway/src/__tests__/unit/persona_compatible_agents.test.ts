@@ -169,11 +169,27 @@ describe('GET /compatible-agents', () => {
     expect(mockIntelligenceDb).not.toHaveBeenCalled();
   });
 
-  it('still requires a persona before answering', async () => {
+  // Verified against production: a user who finished the conversational
+  // interview still has userPersona = null, because only the retired
+  // questionnaire ever wrote that column. Gating on it returned 400 to the
+  // very users whose grants had just been created.
+  it('answers from grants even though the legacy persona column is null', async () => {
     mockFindById.mockResolvedValue({ id: TEST_USER_ID, userPersona: null });
+    mockFindAgentIdsForUser.mockResolvedValue(['agent-1']);
+    mockAgentRows([
+      {
+        id: 'agent-1',
+        name: 'Josh',
+        role: 'EXECUTOR',
+        description: 'Frontend',
+        capabilities: ['frontend-development'],
+        isActive: true,
+      },
+    ]);
 
     const res = await call('/compatible-agents');
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect((res.body as { id: string }[]).map((agent) => agent.id)).toEqual(['agent-1']);
   });
 });
