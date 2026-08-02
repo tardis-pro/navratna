@@ -11,12 +11,10 @@ import React, {
 import type {
   FrontendAgentState as AgentState,
   FrontendMessage as Message,
-  FrontendModelProvider as ModelProvider,
+  FrontendModelProviderInput as ModelProviderInput,
   Agent,
-  UserLLMProviderType,
-  CreateUserLLMProviderRequest,
-  UpdateUserLLMProviderRequest,
 } from '@uaip/types';
+import { toCreateProviderRequest, toUpdateProviderRequest } from './provider_request_mapping';
 import { createAgentStateFromShared as createAgentStateFromBackend } from '../types/frontend_extensions';
 import {
   ToolCall,
@@ -75,43 +73,7 @@ function readFlowParams(params: FlowParams | undefined, key: string): FlowParams
   return {};
 }
 
-function toUserProviderType(type: string): UserLLMProviderType {
-  switch (type) {
-    case 'ollama':
-      return 'ollama';
-    case 'llmstudio':
-      return 'llmstudio';
-    case 'openai':
-      return 'openai';
-    case 'anthropic':
-      return 'anthropic';
-    case 'google':
-      return 'google';
-    default:
-      return 'custom';
-  }
-}
 
-function toCreateProviderRequest(provider: ModelProvider): CreateUserLLMProviderRequest {
-  return {
-    name: provider.name,
-    description: provider.description,
-    type: toUserProviderType(provider.type),
-    baseUrl: provider.baseUrl,
-    defaultModel: provider.defaultModel,
-    priority: provider.priority,
-  };
-}
-
-function toUpdateProviderRequest(provider: ModelProvider): UpdateUserLLMProviderRequest {
-  return {
-    name: provider.name,
-    description: provider.description,
-    baseUrl: provider.baseUrl,
-    defaultModel: provider.defaultModel,
-    priority: provider.priority,
-  };
-}
 
 function createToolExecutionRequest(
   agentId: string,
@@ -462,7 +424,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   // Create a new provider
   const createProvider = useCallback(
-    async (providerData: ModelProvider) => {
+    async (providerData: ModelProviderInput) => {
       try {
         await uaipAPI.llm.createProvider(toCreateProviderRequest(providerData));
         // Refresh both providers and models so the model list follows the change
@@ -478,7 +440,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
 
   // Update provider configuration
   const updateProvider = useCallback(
-    async (providerId: string, config: ModelProvider) => {
+    async (providerId: string, config: ModelProviderInput) => {
       try {
         await uaipAPI.llm.updateProviderConfig(providerId, toUpdateProviderRequest(config));
         // Refresh both providers and models so the model list follows the change

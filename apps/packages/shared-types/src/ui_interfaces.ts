@@ -403,6 +403,23 @@ export interface FrontendModelProvider {
   updatedAt: string;
 }
 
+/**
+ * The WRITE model. FrontendModelProvider is what the server returns, and it
+ * carries `hasApiKey: boolean` rather than the secret — so typing a create or
+ * update with it makes the credential structurally impossible to send.
+ */
+export interface FrontendModelProviderInput {
+  name: string;
+  description?: string;
+  type: string;
+  baseUrl: string;
+  apiKey?: string;
+  defaultModel?: string;
+  priority?: number;
+  isActive?: boolean;
+  configuration?: Record<string, unknown>;
+}
+
 export interface FrontendModelInfo {
   id: string;
   name: string;
@@ -446,8 +463,8 @@ export interface FrontendAgentContextValue {
   loadProviders: () => Promise<void>;
   loadModels: () => Promise<void>;
   refreshModelData: () => Promise<void>;
-  createProvider: (config: FrontendModelProvider) => Promise<boolean>;
-  updateProvider: (providerId: string, config: FrontendModelProvider) => Promise<boolean>;
+  createProvider: (config: FrontendModelProviderInput) => Promise<boolean>;
+  updateProvider: (providerId: string, config: FrontendModelProviderInput) => Promise<boolean>;
   testProvider: (providerId: string) => Promise<Record<string, unknown>>;
   deleteProvider: (providerId: string) => Promise<boolean>;
   getModelsForProvider: (providerId: string) => import('./llm.js').LLMModel[];
