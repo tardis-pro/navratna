@@ -16,8 +16,6 @@ import type {
 } from '@uaip/contracts/api';
 import type { ProjectMetrics } from '@uaip/types';
 
-type ProjectMetricsEnvelope = { success: boolean; data: ProjectMetrics };
-
 function hasProjectsArray(value: unknown): value is { projects: Project[] } {
   if (typeof value !== 'object' || value === null || !('projects' in value)) {
     return false;
@@ -144,19 +142,15 @@ export const projectsAPI = {
 
   // Gateway names these /metrics and /analytics; /stats and /activity do not exist.
   async getStats(projectId: string): Promise<ProjectMetrics> {
-    const response = await edenRequest<ProjectMetricsEnvelope>(
-      `/api/v1/projects/${projectId}/metrics`,
-      { method: 'GET' }
-    );
-    return response.data;
+    return edenRequest<ProjectMetrics>(`/api/v1/projects/${projectId}/metrics`, {
+      method: 'GET',
+    });
   },
 
   async getActivity(projectId: string): Promise<ProjectMetrics> {
-    const response = await edenRequest<ProjectMetricsEnvelope>(
-      `/api/v1/projects/${projectId}/analytics`,
-      { method: 'GET' }
-    );
-    return response.data;
+    return edenRequest<ProjectMetrics>(`/api/v1/projects/${projectId}/analytics`, {
+      method: 'GET',
+    });
   },
 
   // Bulk operations

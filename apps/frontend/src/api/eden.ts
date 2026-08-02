@@ -100,6 +100,18 @@ function isResponseWrapper<T>(value: unknown): value is EdenFetchResult<T> {
   return typeof value === 'object' && value !== null && 'data' in value && 'error' in value
 }
 
+/**
+ * Shared by BOTH transports on purpose: `edenRequest` (raw fetch) and
+ * `unwrapEden` (Eden treaty) must return the same shape, or a route's caller
+ * silently receives `{success, data}` instead of its declared return type.
+ */
+function stripSuccessEnvelope<T>(data: unknown): T {
+  if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
+    return data.data as T
+  }
+  return data as T
+}
+
 async function buildHeaders(headers?: HeadersInit): Promise<Headers> {
   const resolved = new Headers(headers)
 
@@ -195,7 +207,7 @@ export async function edenRequest<T>(path: string, config: EdenRequestConfig = {
     return unwrapEden(result)
   }
 
-  return result as T
+  return stripSuccessEnvelope<T>(result)
 }
 
 type EdenResponse<T> = { data: T; error: null } | { data: null; error: { status: number; value: unknown } }
@@ -232,11 +244,7 @@ export function unwrapEden<T>(result: EdenResponse<T>): T {
     )
   }
 
-  if (isRecord(data) && 'success' in data && 'data' in data && data.success === true) {
-    return data.data as T
-  }
-
-  return result.data
+  return stripSuccessEnvelope<T>(data)
 }
 
 export async function edenWithCSRFRetry<T>(fn: () => Promise<EdenResponse<T>>): Promise<T> {
