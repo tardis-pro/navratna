@@ -11,6 +11,7 @@ import { LLMPreferencesSeed } from './l_l_m_preferences_seed';
 import { SecurityPolicySeed } from './security_policy_seed';
 import { PersonaSeed } from './persona_seed';
 import { AgentSeed } from './agent_seed';
+import { EnsureOnboardingGuide } from '../migrations/ensure_onboarding_guide';
 import { ToolDefinitionSeed } from './tool_definition_seed';
 import { ProjectSeed } from './project_seed';
 import { CapabilitySeed } from './capability_seed';
@@ -37,6 +38,7 @@ export class DatabaseSeeder {
       securityPolicies: false,
       personas: false,
       agents: false,
+      onboardingGuide: false,
       toolDefinitions: false,
       projects: false,
     };
@@ -103,6 +105,13 @@ export class DatabaseSeeder {
       results.agents = true;
     } catch (error) {
       console.error('   ❌ Agent seeding failed:', error);
+    }
+
+    try {
+      await this.seedOnboardingGuide();
+      results.onboardingGuide = true;
+    } catch (error) {
+      console.error('   ❌ Onboarding guide seeding failed:', error);
     }
 
     try {
@@ -185,6 +194,10 @@ export class DatabaseSeeder {
       allPersonas
     );
     await agentSeed.seed();
+  }
+
+  private async seedOnboardingGuide(): Promise<void> {
+    await new EnsureOnboardingGuide().run();
   }
 
   private async seedLLMPreferences(): Promise<void> {

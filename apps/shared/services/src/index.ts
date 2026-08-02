@@ -84,6 +84,106 @@ export { BaseDomainService } from './services/base_domain_service';
 
 export { UserErasureService } from './user_erasure_service';
 
+// Agent access guard — per-user agent assignment authorization
+export {
+  AgentAccessDeniedError,
+  ONBOARDING_GUIDE_AGENT_ID,
+  assertAgentAccess,
+  canAccessAgent,
+  isPrivilegedRole,
+} from './agent_access_service';
+export type { AgentAccessContext, AgentAccessOptions } from './agent_access_service';
+export {
+  ADMIN_ORG_ID,
+  isOfferableToOrg,
+  isPlatformAgentOrg,
+} from './database/drizzle/constants';
+
+// Conversational onboarding — server-owned interview state, LLM extracts deltas only
+export { ONBOARDING_SLOTS } from './onboarding/types';
+export type {
+  OnboardingSlot,
+  SlotStatus,
+  InterviewStatus,
+  InterviewSlot,
+  UserIntent,
+} from './onboarding/types';
+export {
+  ExtractedSlotUpdateSchema,
+  SlotSourceKindSchema,
+  SlotUpdateStatusSchema,
+  TurnExtractionSchema,
+  UserIntentSchema,
+  BaseImprintSchema,
+} from './onboarding/schemas';
+export type {
+  BaseImprint,
+  ExtractedSlotUpdate,
+  SlotSourceKind,
+  SlotUpdate,
+  SlotUpdateStatus,
+  TurnExtraction,
+} from './onboarding/schemas';
+export {
+  ExtractionFailedError,
+  composeQuestion,
+  extractJsonBlock,
+  extractTurn,
+  setOnboardingLLMGateway,
+} from './onboarding/extraction_service';
+export type {
+  ComposeQuestionParams,
+  ExtractTurnParams,
+  ExtractionResult,
+  OnboardingLLMGateway,
+  RejectedUpdate,
+  TranscriptEntry,
+} from './onboarding/extraction_service';
+export {
+  DOMAIN_SIGNALS,
+  MAX_RECOMMENDED_AGENTS,
+  detectDomains,
+  recommendAgents,
+} from './onboarding/agent_recommendation_service';
+export {
+  OnboardingInterviewRepository,
+  InterviewNotFoundError,
+} from './database/repositories/onboarding_interview_repository';
+export {
+  INTERVIEW_CLOSING_LINE,
+  OnboardingService,
+  assembleImprint,
+  isInterviewComplete,
+  selectNextObjective,
+} from './onboarding/onboarding_service';
+export type {
+  CompleteInterviewResult,
+  OnboardingServiceDeps,
+  OnboardingStatusResult,
+  StartInterviewResult,
+  SubmitTurnParams,
+  SubmitTurnResult,
+  UpdateSlotParams,
+  UpdateSlotResult,
+} from './onboarding/onboarding_service';
+export type {
+  CommitTurnParams,
+  CommitTurnResult,
+  CreateInterviewParams,
+  ExtractionRunRecord,
+  InterviewSnapshot,
+  MarkStatusParams,
+  MarkUserOnboardedParams,
+  RecordFailedRunParams,
+} from './database/repositories/onboarding_interview_repository';
+export type {
+  AgentCandidate,
+  AgentRecommendation,
+  DomainSignal,
+  RecommendAgentsParams,
+  RecommendationResult,
+} from './onboarding/agent_recommendation_service';
+
 // Core Domain Services
 export { UserService } from './services/user_service';
 export { ToolService } from './services/tool_service';
@@ -188,6 +288,16 @@ export { compareAndSetDiscussionTurn } from './discussion_turn_cas';
 export type { NextTurn } from './discussion_turn_cas';
 export { enforceParticipantCapacity } from './participant_capacity_cas';
 export { ParticipantManagementService } from './participant_management_service';
+export {
+  AgentChatPersistenceService,
+  agentChatPersistenceService,
+} from './agent_chat_persistence_service';
+export type {
+  ResolveConversationParams,
+  BeginTurnParams,
+  CompleteTurnParams,
+  LoadHistoryParams,
+} from './agent_chat_persistence_service';
 
 // Widget Services
 export { WidgetService } from './widget_service';
@@ -377,6 +487,14 @@ export {
 } from './database/seeders/integration_provider_seed';
 export { EnsureSystemActor } from './database/migrations/ensure_system_actor';
 export type { EnsureSystemActorResult } from './database/migrations/ensure_system_actor';
+export { EnsureOnboardingGuide } from './database/migrations/ensure_onboarding_guide';
+export type { EnsureOnboardingGuideResult } from './database/migrations/ensure_onboarding_guide';
+export {
+  EnsureOnboardingSchema,
+  ONBOARDING_SCHEMA_STATEMENTS,
+} from './database/migrations/ensure_onboarding_schema';
+export { BackfillUserAgentAssignments } from './database/migrations/backfill_user_agent_assignments';
+export type { BackfillUserAgentAssignmentsResult } from './database/migrations/backfill_user_agent_assignments';
 
 // =============================================================================
 // SERVICE FACTORY AND DEPENDENCY INJECTION

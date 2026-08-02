@@ -1,6 +1,7 @@
 export { agentIntelligenceFeature } from './feature.js'
 export { registerAgentRoutes } from './routes/agent_routes.js'
 export { registerAgentCrudRoutes } from './routes/agents_crud_routes.js'
+export { registerOnboardingRoutes } from './routes/onboarding_routes.js'
 export {
   registerAgentChatRoutes,
   resolveAgentTools,
