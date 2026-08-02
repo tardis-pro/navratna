@@ -987,11 +987,33 @@ export class UserLLMService {
     return selectedProvider;
   }
 
+  /**
+   * The cache key includes a fingerprint of the credential and endpoint because
+   * a provider instance captures them at construction. Keying only on
+   * user+provider id served a stale instance forever after a key was added or
+   * rotated — clearUserCache() cannot help, since it clears one process while
+   * navratna-core runs several machines on Fly. Rotating the key now changes
+   * the key, so every process rebuilds on its next call.
+   */
   private async getOrCreateProviderInstance(userProvider: UserLLMProvider): Promise<BaseProvider> {
-    const cacheKey = `${userProvider.userId}-${userProvider.id}`;
+    const credentialFingerprint = createHash('sha256')
+      .update(`${userProvider.apiKeyEncrypted ?? ''}|${userProvider.baseUrl ?? ''}`)
+      .digest('hex')
+      .slice(0, 16);
+    const cacheKey = `${userProvider.userId}-${userProvider.id}-${credentialFingerprint}`;
 
-    if (this.providerCache.has(cacheKey)) {
-      return this.providerCache.get(cacheKey)!;
+    const cached = this.providerCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Drop instances built from a superseded credential for this provider so the
+    // map cannot grow without bound as keys rotate.
+    const staleKeyPrefix = `${userProvider.userId}-${userProvider.id}-`;
+    for (const key of this.providerCache.keys()) {
+      if (key.startsWith(staleKeyPrefix)) {
+        this.providerCache.delete(key);
+      }
     }
 
     const provider = await this.createProviderInstance(userProvider);
